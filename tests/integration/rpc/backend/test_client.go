@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -13,6 +14,7 @@ import (
 	cmtversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
 
@@ -22,18 +24,20 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
-// Client defines a mocked object that implements the Tendermint JSON-RPC Client
+// Client defines a mocked object that implements the CometBFT JSON-RPC Client
 // interface. It allows for performing Client queries without having to run a
-// Tendermint RPC Client server.
+// CometBFT RPC Client server.
 //
 // To use a mock method it has to be registered in a given test.
 var _ cmtrpcclient.Client = &mocks.Client{}
 
 // Tx Search
+
 func RegisterTxSearch(client *mocks.Client, query string, txBz []byte) {
 	resulTxs := []*cmtrpctypes.ResultTx{{Tx: txBz}}
 	client.On("TxSearch", rpc.ContextWithHeight(1), query, false, (*int)(nil), (*int)(nil), "").
@@ -51,6 +55,7 @@ func RegisterTxSearchError(client *mocks.Client, query string) {
 }
 
 // Broadcast Tx
+
 func RegisterBroadcastTx(client *mocks.Client, tx types.Tx) {
 	client.On("BroadcastTxSync", context.Background(), tx).
 		Return(&cmtrpctypes.ResultBroadcastTx{}, nil)
@@ -62,6 +67,7 @@ func RegisterBroadcastTxError(client *mocks.Client, tx types.Tx) {
 }
 
 // Unconfirmed Transactions
+
 func RegisterUnconfirmedTxs(client *mocks.Client, limit *int, txs []types.Tx) {
 	client.On("UnconfirmedTxs", rpc.ContextWithHeight(1), limit).
 		Return(&cmtrpctypes.ResultUnconfirmedTxs{Txs: txs}, nil)
@@ -80,6 +86,7 @@ func RegisterUnconfirmedTxsError(client *mocks.Client, limit *int) {
 }
 
 // Status
+
 func RegisterStatus(client *mocks.Client) {
 	client.On("Status", rpc.ContextWithHeight(1)).
 		Return(&cmtrpctypes.ResultStatus{}, nil)
@@ -91,30 +98,31 @@ func RegisterStatusError(client *mocks.Client) {
 }
 
 // Block
+
 func RegisterBlockMultipleTxs(
 	client *mocks.Client,
 	height int64,
 	txs []types.Tx,
-) (*cmtrpctypes.ResultBlock, error) {
+) *cmtrpctypes.ResultBlock {
 	block := types.MakeBlock(height, txs, nil, nil)
 	block.ChainID = ChainID.ChainID
 	resBlock := &cmtrpctypes.ResultBlock{Block: block}
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
-	return resBlock, nil
+	return resBlock
 }
 
 func RegisterBlock(
 	client *mocks.Client,
 	height int64,
 	tx []byte,
-) (*cmtrpctypes.ResultBlock, error) {
+) *cmtrpctypes.ResultBlock {
 	// without tx
 	if tx == nil {
 		emptyBlock := types.MakeBlock(height, []types.Tx{}, nil, nil)
 		emptyBlock.ChainID = ChainID.ChainID
 		resBlock := &cmtrpctypes.ResultBlock{Block: emptyBlock}
 		client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
-		return resBlock, nil
+		return resBlock
 	}
 
 	// with tx
@@ -122,27 +130,30 @@ func RegisterBlock(
 	block.ChainID = ChainID.ChainID
 	resBlock := &cmtrpctypes.ResultBlock{Block: block}
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
-	return resBlock, nil
+	return resBlock
 }
 
 // Block returns error
+
 func RegisterBlockError(client *mocks.Client, height int64) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Block not found
+
 func RegisterBlockNotFound(
 	client *mocks.Client,
 	height int64,
-) (*cmtrpctypes.ResultBlock, error) {
+) *cmtrpctypes.ResultBlock {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(&cmtrpctypes.ResultBlock{Block: nil}, nil)
 
-	return &cmtrpctypes.ResultBlock{Block: nil}, nil
+	return &cmtrpctypes.ResultBlock{Block: nil}
 }
 
 // Block panic
+
 func RegisterBlockPanic(client *mocks.Client, height int64) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(func(context.Context, *int64) *cmtrpctypes.ResultBlock {
@@ -153,8 +164,7 @@ func RegisterBlockPanic(client *mocks.Client, height int64) {
 func TestRegisterBlock(t *testing.T) {
 	client := mocks.NewClient(t)
 	height := rpc.BlockNumber(1).Int64()
-	_, err := RegisterBlock(client, height, nil)
-	require.NoError(t, err)
+	RegisterBlock(client, height, nil)
 
 	res, err := client.Block(rpc.ContextWithHeight(height), &height)
 
@@ -166,6 +176,7 @@ func TestRegisterBlock(t *testing.T) {
 }
 
 // ConsensusParams
+
 func RegisterConsensusParams(client *mocks.Client, height int64) {
 	consensusParams := types.DefaultConsensusParams()
 	client.On("ConsensusParams", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
@@ -189,19 +200,23 @@ func TestRegisterConsensusParams(t *testing.T) {
 }
 
 // BlockResults
-
 func RegisterBlockResultsWithEventLog(client *mocks.Client, height int64) (*cmtrpctypes.ResultBlockResults, error) {
+	anyValue, err := codectypes.NewAnyWithValue(&evmtypes.MsgEthereumTxResponse{
+		Logs: []*evmtypes.Log{
+			{Data: []byte("data")},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	data, err := proto.Marshal(&sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyValue}})
+	if err != nil {
+		return nil, err
+	}
 	res := &cmtrpctypes.ResultBlockResults{
 		Height: height,
 		TxsResults: []*abci.ExecTxResult{
-			{Code: 0, GasUsed: 0, Events: []abci.Event{{
-				Type: evmtypes.EventTypeTxLog,
-				Attributes: []abci.EventAttribute{{
-					Key:   evmtypes.AttributeKeyTxLog,
-					Value: "{\"test\": \"hello\"}", // TODO refactor the value to unmarshall to a evmtypes.Log struct successfully
-					Index: true,
-				}},
-			}}},
+			{Code: 0, GasUsed: 0, Data: data},
 		},
 	}
 	client.On("BlockResults", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
@@ -212,15 +227,22 @@ func RegisterBlockResultsWithEventLog(client *mocks.Client, height int64) (*cmtr
 func RegisterBlockResults(
 	client *mocks.Client,
 	height int64,
-) (*cmtrpctypes.ResultBlockResults, error) {
+) *cmtrpctypes.ResultBlockResults {
+	return RegisterBlockResultsWithTxs(client, height, []*abci.ExecTxResult{{Code: 0, GasUsed: 0}})
+}
+
+func RegisterBlockResultsWithTxs(
+	client *mocks.Client,
+	height int64,
+	txsResults []*abci.ExecTxResult,
+) *cmtrpctypes.ResultBlockResults {
 	res := &cmtrpctypes.ResultBlockResults{
 		Height:     height,
-		TxsResults: []*abci.ExecTxResult{{Code: 0, GasUsed: 0}},
+		TxsResults: txsResults,
 	}
-
 	client.On("BlockResults", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(res, nil)
-	return res, nil
+	return res
 }
 
 func RegisterBlockResultsError(client *mocks.Client, height int64) {
@@ -231,8 +253,7 @@ func RegisterBlockResultsError(client *mocks.Client, height int64) {
 func TestRegisterBlockResults(t *testing.T) {
 	client := mocks.NewClient(t)
 	height := int64(1)
-	_, err := RegisterBlockResults(client, height)
-	require.NoError(t, err)
+	RegisterBlockResults(client, height)
 
 	res, err := client.BlockResults(rpc.ContextWithHeight(height), &height)
 	expRes := &cmtrpctypes.ResultBlockResults{
@@ -244,17 +265,18 @@ func TestRegisterBlockResults(t *testing.T) {
 }
 
 // BlockByHash
+
 func RegisterBlockByHash(
 	client *mocks.Client,
 	_ common.Hash,
 	tx []byte,
-) (*cmtrpctypes.ResultBlock, error) {
+) *cmtrpctypes.ResultBlock {
 	block := types.MakeBlock(1, []types.Tx{tx}, nil, nil)
 	resBlock := &cmtrpctypes.ResultBlock{Block: block}
 
 	client.On("BlockByHash", rpc.ContextWithHeight(1), []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
 		Return(resBlock, nil)
-	return resBlock, nil
+	return resBlock
 }
 
 func RegisterBlockByHashError(client *mocks.Client, _ common.Hash, _ []byte) {
@@ -268,11 +290,12 @@ func RegisterBlockByHashNotFound(client *mocks.Client, _ common.Hash, _ []byte) 
 }
 
 // HeaderByHash
+
 func RegisterHeaderByHash(
 	client *mocks.Client,
 	_ common.Hash,
 	_ []byte,
-) (*cmtrpctypes.ResultHeader, error) {
+) *cmtrpctypes.ResultHeader {
 	header := &types.Header{
 		Version: cmtversion.Consensus{Block: version.BlockProtocol, App: 0},
 		Height:  1,
@@ -283,7 +306,7 @@ func RegisterHeaderByHash(
 
 	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
 		Return(resHeader, nil)
-	return resHeader, nil
+	return resHeader
 }
 
 func RegisterHeaderByHashError(client *mocks.Client, _ common.Hash, _ []byte) {
@@ -291,9 +314,30 @@ func RegisterHeaderByHashError(client *mocks.Client, _ common.Hash, _ []byte) {
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
-func RegisterHeaderByHashNotFound(client *mocks.Client, _ common.Hash, _ []byte) {
-	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
-		Return(nil, nil)
+func RegisterHeaderByHashNotFound(client *mocks.Client, hash common.Hash, tx []byte) {
+	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes(hash.Bytes())).
+		Return(&coretypes.ResultHeader{Header: nil}, nil)
+}
+
+// Header
+
+func RegisterHeader(client *mocks.Client, height *int64, tx []byte) *coretypes.ResultHeader {
+	block := types.MakeBlock(*height, []types.Tx{tx}, nil, nil)
+	resHeader := &coretypes.ResultHeader{Header: &block.Header}
+	client.On("Header", rpc.ContextWithHeight(*height), mock.AnythingOfType("*int64")).Return(resHeader, nil)
+	return resHeader
+}
+
+func RegisterHeaderError(client *mocks.Client, height *int64) {
+	client.On("Header", rpc.ContextWithHeight(*height), height).Return(nil, errortypes.ErrInvalidRequest)
+}
+
+// Header not found
+
+func RegisterHeaderNotFound(client *mocks.Client, height int64) {
+	client.On("Header", rpc.ContextWithHeight(height), mock.MatchedBy(func(arg *int64) bool {
+		return arg != nil && height == *arg
+	})).Return(&coretypes.ResultHeader{Header: nil}, nil)
 }
 
 func RegisterABCIQueryWithOptions(client *mocks.Client, height int64, path string, data bytes.HexBytes, opts cmtrpcclient.ABCIQueryOptions) {

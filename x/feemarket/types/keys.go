@@ -10,10 +10,6 @@ const (
 
 	// RouterKey uses module name for routing
 	RouterKey = ModuleName
-
-	// TransientKey is the key to access the FeeMarket transient store, that is reset
-	// during the Commit phase.
-	TransientKey = "transient_" + ModuleName
 )
 
 // prefix bytes for the feemarket persistent store

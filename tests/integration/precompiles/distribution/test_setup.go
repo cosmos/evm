@@ -3,6 +3,7 @@ package distribution
 import (
 	"github.com/stretchr/testify/suite"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/distribution"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -12,9 +13,12 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
@@ -51,6 +55,18 @@ func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(2)
 	s.validatorsKeys = generateKeys(3)
 	customGen := network.CustomGenesisState{}
+
+	// mint some coin to fee collector
+	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000000)))
+	balances := []banktypes.Balance{
+		{
+			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
+			Coins:   coins,
+		},
+	}
+	bankGenesis := banktypes.DefaultGenesisState()
+	bankGenesis.Balances = balances
+	customGen[banktypes.ModuleName] = bankGenesis
 
 	// set some slashing events for integration test
 	distrGen := distrtypes.DefaultGenesisState()
@@ -114,13 +130,12 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.grpcHandler = grpcHandler
 	s.keyring = keyring
 	s.network = nw
-	s.precompile, err = distribution.NewPrecompile(
+	s.precompile = distribution.NewPrecompile(
 		s.network.App.GetDistrKeeper(),
+		distrkeeper.NewMsgServerImpl(s.network.App.GetDistrKeeper()),
+		distrkeeper.NewQuerier(s.network.App.GetDistrKeeper()),
 		*s.network.App.GetStakingKeeper(),
-		s.network.App.GetEVMKeeper(),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		s.network.App.GetBankKeeper(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
-	if err != nil {
-		panic(err)
-	}
 }

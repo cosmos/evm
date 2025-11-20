@@ -10,7 +10,6 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -24,12 +23,6 @@ const (
 	// ApproveMethod defines the ABI method name for ERC-20 Approve
 	// transaction.
 	ApproveMethod = "approve"
-	// DecreaseAllowanceMethod defines the ABI method name for the DecreaseAllowance
-	// transaction.
-	DecreaseAllowanceMethod = "decreaseAllowance"
-	// IncreaseAllowanceMethod defines the ABI method name for the IncreaseAllowance
-	// transaction.
-	IncreaseAllowanceMethod = "increaseAllowance"
 )
 
 // Transfer executes a direct transfer from the caller address to the
@@ -70,6 +63,9 @@ func (p *Precompile) TransferFrom(
 // transfer is a common function that handles transfers for the ERC-20 Transfer
 // and TransferFrom methods. It executes a bank Send message. If the spender isn't
 // the sender of the transfer, it checks the allowance and updates it accordingly.
+// transfer is a common function that handles transfers for the ERC-20 Transfer
+// and TransferFrom methods. It executes a bank Send message. If the spender isn't
+// the sender of the transfer, it checks the allowance and updates it accordingly.
 func (p *Precompile) transfer(
 	ctx sdk.Context,
 	contract *vm.Contract,
@@ -91,14 +87,12 @@ func (p *Precompile) transfer(
 	newAllowance := big.NewInt(0)
 
 	if isTransferFrom {
-		spenderAddr := contract.Caller()
-
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
 		}
 
-		newAllowance := new(big.Int).Sub(prevAllowance, amount)
+		newAllowance = new(big.Int).Sub(prevAllowance, amount)
 		if newAllowance.Sign() < 0 {
 			return nil, ErrInsufficientAllowance
 		}
@@ -115,8 +109,8 @@ func (p *Precompile) transfer(
 		}
 	}
 
-	msgSrv := bankkeeper.NewMsgServerImpl(p.BankKeeper)
-	if _, err = msgSrv.Send(ctx, msg); err != nil {
+	msgSrv := NewMsgServerImpl(p.BankKeeper)
+	if err = msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
 		return nil, ConvertErrToERC20Error(err)
 	}

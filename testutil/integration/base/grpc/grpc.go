@@ -2,9 +2,9 @@ package grpc
 
 import (
 	"github.com/cosmos/evm/testutil/integration/base/network"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -16,19 +16,15 @@ type Handler interface {
 	// Account methods
 	GetAccount(address string) (sdk.AccountI, error)
 
-	// Authz methods
-	GetAuthorizations(grantee, granter string) ([]authz.Authorization, error)
-	GetAuthorizationsByGrantee(grantee string) ([]authz.Authorization, error)
-	GetAuthorizationsByGranter(granter string) ([]authz.Authorization, error)
-	GetGrants(grantee, granter string) ([]*authz.Grant, error)
-	GetGrantsByGrantee(grantee string) ([]*authz.GrantAuthorization, error)
-	GetGrantsByGranter(granter string) ([]*authz.GrantAuthorization, error)
-
 	// Bank methods
 	GetBalanceFromBank(address sdk.AccAddress, denom string) (*banktypes.QueryBalanceResponse, error)
 	GetSpendableBalance(address sdk.AccAddress, denom string) (*banktypes.QuerySpendableBalanceByDenomResponse, error)
 	GetAllBalances(address sdk.AccAddress) (*banktypes.QueryAllBalancesResponse, error)
 	GetTotalSupply() (*banktypes.QueryTotalSupplyResponse, error)
+
+	// PreciseBank methods
+	Remainder() (*precisebanktypes.QueryRemainderResponse, error)
+	FractionalBalance(address sdk.AccAddress) (*precisebanktypes.QueryFractionalBalanceResponse, error)
 
 	// Staking methods
 	GetDelegation(delegatorAddress string, validatorAddress string) (*stakingtypes.QueryDelegationResponse, error)

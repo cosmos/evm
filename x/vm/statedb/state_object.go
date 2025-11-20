@@ -8,8 +8,6 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/types"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Account is the Ethereum consensus representation of accounts.
@@ -29,7 +27,7 @@ func NewEmptyAccount() *Account {
 }
 
 // IsContract returns if the account contains contract code.
-func (acct Account) IsContract() bool {
+func (acct Account) HasCodeHash() bool {
 	return !types.IsEmptyCodeHash(acct.CodeHash)
 }
 
@@ -66,6 +64,9 @@ type stateObject struct {
 	// state storage
 	originStorage Storage
 	dirtyStorage  Storage
+	// overridden state, when not nil, replace the whole committed state,
+	// mainly to support the stateOverrides in eth_call.
+	overrideStorage Storage
 
 	address common.Address
 
@@ -134,16 +135,6 @@ func (s *stateObject) SetBalance(amount *uint256.Int) uint256.Int {
 	})
 	s.setBalance(amount)
 	return prev
-}
-
-// AddPrecompileFn appends to the journal an entry
-// with a snapshot of the multi-store and events
-// previous to the precompile call
-func (s *stateObject) AddPrecompileFn(snapshot int, events sdk.Events) {
-	s.db.journal.append(precompileCallChange{
-		snapshot: snapshot,
-		events:   events,
-	})
 }
 
 func (s *stateObject) setBalance(amount *uint256.Int) {
@@ -228,6 +219,13 @@ func (s *stateObject) Nonce() uint64 {
 
 // GetCommittedState query the committed state
 func (s *stateObject) GetCommittedState(key common.Hash) common.Hash {
+	if s.overrideStorage != nil {
+		if value, ok := s.overrideStorage[key]; ok {
+			return value
+		}
+		return common.Hash{}
+	}
+
 	if value, cached := s.originStorage[key]; cached {
 		return value
 	}
@@ -253,16 +251,47 @@ func (s *stateObject) SetState(key common.Hash, value common.Hash) common.Hash {
 	if prev == value {
 		return prev
 	}
+	origin := s.GetCommittedState(key)
 	// New value is different, update and journal the change
 	s.db.journal.append(storageChange{
-		account:  &s.address,
-		key:      key,
-		prevalue: prev,
+		account:   &s.address,
+		key:       key,
+		preValue:  prev,
+		origValue: origin,
 	})
-	s.setState(key, value)
+	s.setState(key, value, origin)
 	return prev
 }
 
-func (s *stateObject) setState(key, value common.Hash) {
+// SetStorage overrides the entire contract storage for this state object.
+// This replaces the committed state with the provided storage map, clearing
+// any previous origin and dirty storage.
+func (s *stateObject) SetStorage(storage Storage) {
+	s.overrideStorage = storage
+	s.originStorage = make(Storage)
+	s.dirtyStorage = make(Storage)
+}
+
+// setState updates a value in account dirty storage. The dirtiness will be
+// removed if the value being set equals to the original value.
+func (s *stateObject) setState(key, value, origin common.Hash) {
+	// Storage slot is set back to its original value, undo the dirty marker
+	if value == origin {
+		delete(s.dirtyStorage, key)
+		return
+	}
 	s.dirtyStorage[key] = value
+}
+
+// SetStateOverride installs the provided storage value as part of the base state used for
+// simulations. Subsequent reads treat the slot as if it were committed on-chain.
+func (s *stateObject) SetStateOverride(key, value common.Hash) {
+	if s.originStorage == nil {
+		s.originStorage = make(Storage)
+	}
+	s.originStorage[key] = value
+	delete(s.dirtyStorage, key)
+	if s.overrideStorage != nil {
+		s.overrideStorage[key] = value
+	}
 }

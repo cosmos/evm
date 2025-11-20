@@ -21,7 +21,8 @@ import (
 )
 
 // Commit commits a block at a given time. Reminder: At the end of each
-// Tendermint Consensus round the following methods are run
+// CometBFT Consensus round the following methods are run
+// TODO: update with new ABCI++ consideration
 //  1. BeginBlock
 //  2. DeliverTx
 //  3. EndBlock
@@ -255,7 +256,7 @@ func checkTxBytes(app evm.EvmApp, txEncoder sdk.TxEncoder, tx sdk.Tx) (abci.Resp
 	}
 
 	if res.Code != 0 {
-		return abci.ResponseCheckTx{}, errorsmod.Wrapf(errortypes.ErrInvalidRequest, res.Log)
+		return abci.ResponseCheckTx{}, errorsmod.Wrap(errortypes.ErrInvalidRequest, res.Log)
 	}
 
 	return *res, nil

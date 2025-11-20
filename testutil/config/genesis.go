@@ -5,10 +5,7 @@ import (
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 // GenesisState of the blockchain is represented here as a map of raw json
@@ -27,6 +24,9 @@ type GenesisState map[string]json.RawMessage
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.EvmDenom = testconstants.ExampleAttoDenom
+	evmGenState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: testconstants.
+		ExampleAttoDenom}
 
 	return evmGenState
 }
@@ -38,27 +38,7 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles, testconstants.WEVMOSContractMainnet)
+	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
 
 	return erc20GenState
-}
-
-// NewMintGenesisState returns the default genesis state for the mint module.
-//
-// NOTE: for the example chain implementation we are also adding a default minter.
-func NewMintGenesisState() *minttypes.GenesisState {
-	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = ExampleChainDenom
-
-	return mintGenState
-}
-
-// NewFeeMarketGenesisState returns the default genesis state for the feemarket module.
-//
-// NOTE: for the example chain implementation we are disabling the base fee.
-func NewFeeMarketGenesisState() *feemarkettypes.GenesisState {
-	feeMarketGenState := feemarkettypes.DefaultGenesisState()
-	feeMarketGenState.Params.NoBaseFee = true
-
-	return feeMarketGenState
 }

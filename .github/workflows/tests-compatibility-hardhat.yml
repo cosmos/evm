@@ -1,0 +1,80 @@
+name: Compatibility Tests for Hardhat
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tests/evm-tools-compatibility/hardhat/**'
+      - '../../scripts/tests_compatibility_setup.sh'
+      - '../../scripts/tests_compatibility_hardhat.sh'
+      - 'local_node.sh'
+      - 'tests-compatibility-hardhat.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'tests/evm-tools-compatibility/hardhat/**'
+      - '../../scripts/tests_compatibility_setup.sh'
+      - '../../scripts/tests_compatibility_hardhat.sh'
+      - 'local_node.sh'
+      - 'tests-compatibility-hardhat.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  hardhat-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl git jq
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Cache Node.js modules
+        uses: actions/cache@v4
+        with:
+          path: tests/evm-tools-compatibility/hardhat/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('tests/evm-tools-compatibility/hardhat/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Build and install evmd
+        run: |
+          make install
+      
+      - name: Run hardhat compatibility tests
+        run: |
+          chmod +x scripts/tests_compatibility_hardhat.sh
+          ./scripts/tests_compatibility_hardhat.sh --verbose
+        env:
+          COMPAT_DIR: ${{ github.workspace }}/tests/evm-tools-compatibility

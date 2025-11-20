@@ -55,23 +55,12 @@ func (k Keeper) OnRecvPacket(
 		WithKVGasConfig(storetypes.GasConfig{}).
 		WithTransientKVGasConfig(storetypes.GasConfig{})
 
-	sender, recipient, _, _, err := ibc.GetTransferSenderRecipient(data)
+	// recipient (local chain address): accept hex or local bech32
+	recipientBz, err := k.addrCodec.StringToBytes(data.Receiver)
 	if err != nil {
-		return channeltypes.NewErrorAcknowledgement(err)
+		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid recipient"))
 	}
-
-	evmParams := k.evmKeeper.GetParams(ctx)
-
-	// If we received an IBC message from a non-EVM channel,
-	// the sender and receiver accounts should be different.
-	//
-	// If its the same, users can have their funds stuck since they don't have access
-	// to the same priv key. Return an error to prevent this from happening.
-	//
-	// This is an assumption to prevent possibly wrong transactions.
-	if sender.Equals(recipient) && !evmParams.IsEVMChannel(packet.DestinationChannel) {
-		return channeltypes.NewErrorAcknowledgement(types.ErrInvalidIBC)
-	}
+	recipient := sdk.AccAddress(recipientBz)
 
 	receiverAcc := k.accountKeeper.GetAccount(ctx, recipient)
 
@@ -106,11 +95,8 @@ func (k Keeper) OnRecvPacket(
 	pairID := k.GetTokenPairID(ctx, coin.Denom)
 	pair, found := k.GetTokenPair(ctx, pairID)
 	switch {
-	// Case 1. token pair is not registered and is a single hop IBC Coin
+	// Case 1. token pair is not registered and is an IBC Coin
 	// by checking the prefix we ensure that only coins not native from this chain are evaluated.
-	// IsNativeFromSourceChain will check if the coin is native from the source chain.
-	// If the coin denom starts with `factory/` then it is a token factory coin, and we should not convert it
-	// NOTE: Check https://docs.osmosis.zone/osmosis-core/modules/tokenfactory/ for more information
 	case !found && strings.HasPrefix(coin.Denom, "ibc/"):
 		tokenPair, err := k.RegisterERC20Extension(ctx, coin.Denom)
 		if err != nil {
@@ -136,8 +122,19 @@ func (k Keeper) OnRecvPacket(
 			return ack
 		}
 
-		balance := k.bankKeeper.GetBalance(ctx, recipient, coin.Denom)
-		if err := k.ConvertCoinNativeERC20(ctx, pair, balance.Amount, common.BytesToAddress(recipient.Bytes()), recipient); err != nil {
+		pair, err := k.MintingEnabled(ctx, recipient, coin.Denom)
+		if err != nil {
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("erc20_callback_failure",
+					sdk.NewAttribute(types.TypeMsgConvertCoin, "mint_failure"),
+					sdk.NewAttribute(types.AttributeKeyCosmosCoin, coin.Denom),
+					sdk.NewAttribute(types.AttributeKeyReceiver, recipient.String()),
+				),
+			)
+			return channeltypes.NewErrorAcknowledgement(err)
+		}
+
+		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(recipient.Bytes()), recipient); err != nil {
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
@@ -160,6 +157,10 @@ func (k Keeper) OnRecvPacket(
 // acknowledgement written on the receiving chain. If the acknowledgement was a
 // success then nothing occurs. If the acknowledgement failed, then the sender
 // is refunded and then the IBC Coins are converted to ERC20.
+// If the ERC20 conversion fails for whatever reason, such as an attempt to call
+// a self-destructed ERC20 contract or an invalid function, OnAcknowledgementPacket
+// still succeeds, but the user receives the corresponding bank token from the
+// TokenPair instead. A user may then manually re-attempt the conversion.
 func (k Keeper) OnAcknowledgementPacket(
 	ctx sdk.Context, _ channeltypes.Packet,
 	data transfertypes.FungibleTokenPacketData,
@@ -178,6 +179,10 @@ func (k Keeper) OnAcknowledgementPacket(
 
 // OnTimeoutPacket converts the IBC coin to ERC20 after refunding the sender
 // since the original packet sent was never received and has been timed out.
+// If the ERC20 conversion fails for whatever reason, such as an attempt to call
+// a self-destructed ERC20 contract or an invalid function, OnTimeoutPacket still
+// succeeds, but the user receives the corresponding bank token from the TokenPair
+// instead. A user may then manually re-attempt the conversion.
 func (k Keeper) OnTimeoutPacket(ctx sdk.Context, _ channeltypes.Packet, data transfertypes.FungibleTokenPacketData) error {
 	return k.ConvertCoinToERC20FromPacket(ctx, data)
 }
@@ -185,10 +190,12 @@ func (k Keeper) OnTimeoutPacket(ctx sdk.Context, _ channeltypes.Packet, data tra
 // ConvertCoinToERC20FromPacket converts the IBC coin to ERC20 after refunding the sender
 // This function is only executed when IBC timeout or an Error ACK happens.
 func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
-	sender, err := sdk.AccAddressFromBech32(data.Sender)
+	// Sender is local (source) chain address; accept local bech32 or 0x-hex
+	senderBz, err := k.addrCodec.StringToBytes(data.Sender)
 	if err != nil {
 		return err
 	}
+	sender := sdk.AccAddress(senderBz)
 
 	pairID := k.GetTokenPairID(ctx, data.Denom)
 	pair, found := k.GetTokenPair(ctx, pairID)
@@ -232,8 +239,17 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 			defer func() {
 				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total")
 			}()
-
-			return err
+			ctx.EventManager().EmitEvents(
+				sdk.Events{
+					sdk.NewEvent(
+						types.EventTypeFailedConvertERC20,
+						sdk.NewAttribute(types.AttributeCoinSourceChannel, pair.Denom),
+						sdk.NewAttribute(types.AttributeKeyERC20Token, pair.Erc20Address),
+						sdk.NewAttribute("error", err.Error()),
+					),
+				},
+			)
+			return nil
 		}
 	}
 

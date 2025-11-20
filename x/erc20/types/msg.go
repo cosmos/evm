@@ -81,7 +81,7 @@ func (msg MsgConvertERC20) ValidateBasic() error {
 
 // GetSignBytes encodes the message for signing
 func (msg MsgConvertERC20) GetSignBytes() []byte {
-	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&msg))
+	return AminoCdc.MustMarshalJSON(&msg)
 }
 
 // ValidateBasic does a sanity check of the provided data
@@ -89,13 +89,12 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
 		return errorsmod.Wrap(err, "Invalid authority address")
 	}
-
-	return m.Params.Validate()
+	return nil
 }
 
 // GetSignBytes implements the LegacyMsg interface.
 func (m MsgUpdateParams) GetSignBytes() []byte {
-	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&m))
+	return AminoCdc.MustMarshalJSON(&m)
 }
 
 // ValidateBasic does a sanity check of the provided data
@@ -148,5 +147,5 @@ func (msg MsgConvertCoin) ValidateBasic() error {
 
 // GetSignBytes encodes the message for signing
 func (msg MsgConvertCoin) GetSignBytes() []byte {
-	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&msg))
+	return AminoCdc.MustMarshalJSON(&msg)
 }

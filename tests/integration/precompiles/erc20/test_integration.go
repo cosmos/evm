@@ -1,20 +1,18 @@
 package erc20
 
 import (
-	"fmt"
 	"math/big"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/suite"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/contracts"
@@ -110,9 +108,9 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			// contract instances that are subject to testing here.
 			contractsData ContractsData
 
-			allowanceCallerContract evmtypes.CompiledContract
-			revertCallerContract    evmtypes.CompiledContract
-			erc20MinterV5Contract   evmtypes.CompiledContract
+			erc20MdCallerContract evmtypes.CompiledContract
+			revertCallerContract  evmtypes.CompiledContract
+			erc20MinterV5Contract evmtypes.CompiledContract
 
 			execRevertedCheck testutil.LogCheckArgs
 			failCheck         testutil.LogCheckArgs
@@ -123,7 +121,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			is.SetupTest()
 
 			var err error
-			allowanceCallerContract, err = testdata.LoadERC20AllowanceCaller()
+			erc20MdCallerContract, err = testdata.LoadERC20TestCaller()
 			Expect(err).ToNot(HaveOccurred(), "failed to load ERC20 allowance caller contract")
 
 			erc20MinterV5Contract, err = testdata.LoadERC20MinterV5Contract()
@@ -137,7 +135,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				sender.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
-					Contract: allowanceCallerContract,
+					Contract: erc20MdCallerContract,
 					// NOTE: we're passing the precompile address to the constructor because that initiates the contract
 					// to make calls to the correct ERC20 precompile.
 					ConstructorArgs: []interface{}{is.precompile.Address()},
@@ -153,7 +151,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				sender.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
-					Contract: allowanceCallerContract,
+					Contract: erc20MdCallerContract,
 					// NOTE: we're passing the precompile address to the constructor because that initiates the contract
 					// to make calls to the correct ERC20 precompile.
 					ConstructorArgs: []interface{}{is.precompileTwo.Address()},
@@ -201,7 +199,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				sender.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
-					Contract: allowanceCallerContract,
+					Contract: erc20MdCallerContract,
 					ConstructorArgs: []interface{}{
 						ERC20MinterV5Addr,
 					},
@@ -227,11 +225,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					},
 					contractCall: {
 						Address: contractAddr,
-						ABI:     allowanceCallerContract.ABI,
+						ABI:     erc20MdCallerContract.ABI,
 					},
 					contractCallToken2: {
 						Address: contractAddrTokenTwo,
-						ABI:     allowanceCallerContract.ABI,
+						ABI:     erc20MdCallerContract.ABI,
 					},
 					erc20Call: {
 						Address: erc20MinterBurnerAddr,
@@ -243,7 +241,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					},
 					erc20V5CallerCall: {
 						Address: erc20MinterV5CallerAddr,
-						ABI:     allowanceCallerContract.ABI,
+						ABI:     erc20MdCallerContract.ABI,
 					},
 				},
 			}
@@ -252,9 +250,9 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			execRevertedCheck = failCheck.WithErrContains("execution reverted")
 			passCheck = failCheck.WithExpPass(true)
 
-			erc20Params := is.network.App.GetErc20Keeper().GetParams(is.network.GetContext())
-			Expect(len(erc20Params.NativePrecompiles)).To(Equal(1))
-			Expect(common.HexToAddress(erc20Params.NativePrecompiles[0])).To(Equal(common.HexToAddress(testconstants.WEVMOSContractMainnet)))
+			erc20Keeper := is.network.App.GetErc20Keeper()
+			available := erc20Keeper.IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(testconstants.WEVMOSContractMainnet))
+			Expect(available).To(BeTrue())
 
 			revertContractAddr, err = is.factory.DeployContract(
 				sender.Priv,
@@ -263,7 +261,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Contract: revertCallerContract,
 					// NOTE: we're passing the precompile address to the constructor because that initiates the contract
 					// to make calls to the correct ERC20 precompile.
-					ConstructorArgs: []interface{}{common.HexToAddress(erc20Params.NativePrecompiles[0])},
+					ConstructorArgs: []interface{}{common.HexToAddress(testconstants.WEVMOSContractMainnet)},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), "failed to deploy reverter contract")
@@ -326,12 +324,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						},
 					)
 
-					Expect(res.GasUsed > expGasUsedLowerBound).To(BeTrue(), "expected different gas used")
-					Expect(res.GasUsed < expGasUsedUpperBound).To(BeTrue(), "expected different gas used")
+					Expect(res.GasUsed).To(BeNumerically(">", expGasUsedLowerBound), "expected more gas used")
+					Expect(res.GasUsed).To(BeNumerically("<", expGasUsedUpperBound), "expected less gas used")
 				},
 					// FIXME: The gas used on the precompile is much higher than on the EVM
 					Entry(" - direct call", directCall, int64(30_000), int64(31_000)),
-					Entry(" - through erc20 contract", erc20Call, int64(54_000), int64(54_500)),
+					Entry(" - through erc20 contract", erc20Call, int64(53_000), int64(54_500)),
 					Entry(" - through erc20 v5 contract", erc20V5Call, int64(52_000), int64(52_200)),
 				)
 
@@ -1896,7 +1894,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Expect(tokenPairs).To(HaveLen(1))
 
 					// overwrite the other precompile with this one, so that the test utils like is.getTxAndCallArgs still work.
-					is.precompile, err = setupNewERC20PrecompileForTokenPair(is.keyring.GetPrivKey(0), is.network, is.factory, tokenPairs[0])
+					is.precompile, err = is.setupNewERC20PrecompileForTokenPair(tokenPairs[0])
 					Expect(err).ToNot(HaveOccurred(), "failed to set up erc20 precompile")
 
 					// commit changes to chain state
@@ -1914,7 +1912,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.keyring.GetPrivKey(0),
 						evmtypes.EvmTxArgs{},
 						testutiltypes.ContractDeploymentData{
-							Contract: allowanceCallerContract,
+							Contract: erc20MdCallerContract,
 							ConstructorArgs: []interface{}{
 								is.precompile.Address(),
 							},
@@ -1928,7 +1926,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 					contractsData.contractData[contractCall] = ContractData{
 						Address: callerAddr,
-						ABI:     allowanceCallerContract.ABI,
+						ABI:     erc20MdCallerContract.ABI,
 					}
 				})
 
@@ -1979,689 +1977,6 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Entry(" - through contract", contractCall),
 					Entry(" - through erc20 v5 contract", erc20V5Call),
 				)
-			})
-		})
-
-		Context("allowance adjustments -", func() {
-			var (
-				spender keyring.Key
-				owner   keyring.Key
-			)
-
-			BeforeEach(func() {
-				// Deploying the contract which has the increase / decrease allowance methods
-				contractAddr, err := is.factory.DeployContract(
-					is.keyring.GetPrivKey(0),
-					evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
-					testutiltypes.ContractDeploymentData{
-						Contract:        allowanceCallerContract,
-						ConstructorArgs: []interface{}{is.precompile.Address()},
-					},
-				)
-				Expect(err).ToNot(HaveOccurred(), "failed to deploy contract")
-
-				// commit changes to chain state
-				err = is.network.NextBlock()
-				Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-				contractsData.contractData[erc20CallerCall] = ContractData{
-					Address: contractAddr,
-					ABI:     allowanceCallerContract.ABI,
-				}
-
-				spender = is.keyring.GetKey(0)
-				owner = is.keyring.GetKey(1)
-			})
-
-			When("the spender is the same as the owner", func() {
-				Context("increasing allowance", func() {
-					It("should approve an allowance", func() {
-						owner := is.keyring.GetKey(0)
-						spender := owner
-						allowance := big.NewInt(100)
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(
-							directCall, contractsData,
-							erc20.IncreaseAllowanceMethod,
-							spender.Addr, allowance,
-						)
-
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, transferCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit changes to chain state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(
-							directCall, contractsData,
-							owner.Addr, spender.Addr, allowance,
-						)
-					})
-
-					DescribeTable("it should create an allowance if none existed before", func(callType CallType) {
-						owner := is.keyring.GetKey(0)
-						spender := owner
-						allowance := big.NewInt(100)
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(
-							callType, contractsData,
-							erc20.IncreaseAllowanceMethod,
-							spender.Addr, allowance,
-						)
-
-						approvalCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, approvalCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit changes to chain state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(
-							callType, contractsData,
-							owner.Addr, spender.Addr, allowance,
-						)
-					},
-						Entry(" - through erc20 contract", erc20Call),
-						Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-				})
-
-				Context("decreasing allowance", func() {
-					It("should return an error when allowance does not exist", func() {
-						owner := is.keyring.GetKey(0)
-						spender := owner
-						allowance := big.NewInt(100)
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(
-							directCall, contractsData,
-							erc20.DecreaseAllowanceMethod,
-							spender.Addr, allowance,
-						)
-
-						noAllowanceCheck := failCheck.WithErrContains(
-							fmt.Sprintf(erc20.ErrNoAllowanceForToken, is.tokenDenom),
-						)
-
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, noAllowanceCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
-
-						is.ExpectAllowanceForContract(
-							directCall, contractsData,
-							owner.Addr, spender.Addr, common.Big0,
-						)
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-					})
-
-					DescribeTable("it should decrease an existing allowance", func(callType CallType) {
-						owner := is.keyring.GetKey(0)
-						spender := owner
-						approveAmount := big.NewInt(200)
-						decreaseAmount := big.NewInt(100)
-
-						is.setAllowanceForContract(
-							callType, contractsData,
-							owner.Priv, spender.Addr, approveAmount,
-						)
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(
-							callType, contractsData,
-							erc20.DecreaseAllowanceMethod,
-							spender.Addr, decreaseAmount,
-						)
-
-						approvalCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, approvalCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(
-							callType, contractsData,
-							owner.Addr, spender.Addr, decreaseAmount,
-						)
-					},
-						Entry(" - through erc20 contract", erc20Call),
-						Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-				})
-			})
-
-			When("no allowance exists", func() {
-				DescribeTable("decreasing the allowance should return an error", func(callType CallType) {
-					approveAmount := big.NewInt(100)
-
-					txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, approveAmount)
-
-					notFoundCheck := execRevertedCheck
-					if callType == directCall {
-						notFoundCheck = failCheck.WithErrContains(
-							fmt.Sprintf(erc20.ErrNoAllowanceForToken, is.tokenDenom),
-						)
-					}
-
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, notFoundCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-				},
-					Entry(" - direct call", directCall),
-					Entry(" - through erc20 contract", erc20Call),
-					// NOTE: The ERC20 V5 contract does not contain these methods
-					// Entry(" - through erc20 v5 contract", erc20V5Call),
-					Entry(" - contract call", contractCall),
-					Entry(" - through erc20 caller contract", erc20CallerCall),
-				)
-
-				// NOTE: We have to split between direct and contract calls here because the ERC20 behavior
-				// for approvals is different, so we expect different allowances here
-				Context("in direct calls", func() {
-					DescribeTable("increasing the allowance should create a new allowance", func(callType CallType) {
-						approveAmount := big.NewInt(100)
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, approveAmount)
-
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit changes to chain state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, approveAmount)
-					},
-						Entry(" - direct call", directCall),
-						Entry(" - through erc20 contract", erc20Call),
-						// NOTE: The ERC20 V5 contract does not contain these methods
-						// Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-				})
-
-				Context("in contract calls", func() {
-					DescribeTable("increasing the allowance should create a new allowance", func(callType CallType) {
-						contractAddr := contractsData.GetContractData(callType).Address
-						approveAmount := big.NewInt(100)
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, approveAmount)
-
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit changes to chain state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, contractAddr, spender.Addr, approveAmount)
-					},
-						Entry(" - contract call", contractCall),
-						Entry(" - through erc20 caller contract", erc20CallerCall),
-					)
-				})
-			})
-
-			When("an allowance exists for other tokens", func() {
-				var prevAllowance *big.Int
-
-				BeforeEach(func() {
-					prevAllowance = big.NewInt(200)
-				})
-
-				DescribeTable("increasing the allowance should add the token to the spend limit", func(callType, callTypeForOtherToken CallType) {
-					is.setAllowanceForContract(callTypeForOtherToken, contractsData, owner.Priv, spender.Addr, prevAllowance)
-
-					// Increase the allowance for target token
-					increaseAmount := big.NewInt(100)
-
-					txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-
-					approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, approveCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-					is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, increaseAmount)
-
-					// Check that the other token allowance is not affected
-					is.ExpectAllowanceForContract(callTypeForOtherToken, contractsData, owner.Addr, spender.Addr, prevAllowance)
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-				},
-					Entry(" - direct call", directCall, directCallToken2),
-					// NOTE: we are not passing the erc20 contract call here because the ERC20 contract
-					// only supports the actual token denomination and doesn't know of other allowances.
-				)
-
-				DescribeTable("decreasing the allowance should return an error", func(callType, callTypeForOtherToken CallType) {
-					is.setAllowanceForContract(callTypeForOtherToken, contractsData, owner.Priv, spender.Addr, prevAllowance)
-
-					// Decrease the allowance for target token
-					decreaseAmount := big.NewInt(100)
-
-					txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-
-					noAllowanceCheck := failCheck.WithErrContains(erc20.ErrNoAllowanceForToken, is.tokenDenom)
-
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, noAllowanceCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, common.Big0)
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					// Check that the other token allowance is not affected
-					is.ExpectAllowanceForContract(callTypeForOtherToken, contractsData, owner.Addr, spender.Addr, prevAllowance)
-				},
-					Entry(" - direct call", directCall, directCallToken2),
-					// NOTE: we are not passing the erc20 contract call here because the ERC20 contract
-					// only supports the actual token denomination and doesn't know of other allowances.
-				)
-			})
-
-			When("an allowance exists for the same token", func() {
-				var approveAmount *big.Int
-
-				BeforeEach(func() {
-					approveAmount = big.NewInt(200)
-					is.setAllowanceForContract(directCall, contractsData, owner.Priv, spender.Addr, approveAmount)
-				})
-
-				DescribeTable("increasing the allowance should increase the spend limit", func(callType CallType) {
-					increaseAmount := big.NewInt(100)
-
-					txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-
-					approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, approveCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-					is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, new(big.Int).Add(approveAmount, increaseAmount))
-				},
-					Entry(" - direct call", directCall),
-					// NOTE: we are not passing the erc20 contract call here because the ERC20 contract
-					// only supports the actual token denomination and doesn't know of other allowances.
-				)
-
-				DescribeTable("decreasing the allowance should decrease the spend limit", func(callType CallType) {
-					decreaseAmount := big.NewInt(100)
-
-					txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-
-					approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, approveCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-					is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, new(big.Int).Sub(approveAmount, decreaseAmount))
-				},
-					Entry(" - direct call", directCall),
-					// NOTE: we are not passing the erc20 contract call here because the ERC20 contract
-					// only supports the actual token denomination and doesn't know of other allowances.
-				)
-
-				DescribeTable("increasing the allowance beyond the max uint256 value should return an error", func(callType CallType) {
-					increaseAmount := abi.MaxUint256
-
-					txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, execRevertedCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-				},
-					Entry(" - direct call", directCall),
-					// NOTE: we are not passing the erc20 contract call here because the ERC20 contract
-					// only supports the actual token denomination and doesn't know of other allowances.
-				)
-
-				DescribeTable("decreasing the allowance to zero should remove the token from the spend limit", func(callType CallType) {
-					txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, approveAmount)
-
-					approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, approveCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-					is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					// Check that only the spend limit in the network denomination remains
-					expAllowance := common.Big0
-					is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, expAllowance)
-				},
-					Entry(" - direct call", directCall),
-					// NOTE: we are not passing the erc20 contract call here because the ERC20 contract
-					// only supports the actual token denomination and doesn't know of other allowances.
-				)
-
-				DescribeTable("decreasing the allowance below zero should return an error", func(callType CallType) {
-					decreaseAmount := new(big.Int).Add(approveAmount, big.NewInt(100))
-
-					txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-					belowZeroCheck := failCheck.WithErrContains(erc20.ErrDecreasedAllowanceBelowZero.Error())
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, belowZeroCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
-
-					// commit changes to chain state
-					err = is.network.NextBlock()
-					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-
-					// Check that the allowance was not changed
-					is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, approveAmount)
-				},
-					Entry(" - direct call", directCall),
-				)
-			})
-
-			When("an allowance exists for only the same token", func() {
-				// NOTE: we have to split between direct and contract calls here because the ERC20 contract
-				// handles the allowance differently by creating an approval between the contract and the spender, instead
-				// of the message sender and the spender, so we expect different allowances.
-				Context("in direct calls", func() {
-					var approveAmount *big.Int
-
-					BeforeEach(func() {
-						approveAmount = big.NewInt(100)
-
-						// NOTE: We set up the allowance here for the erc20 precompile and then also
-						// set up the allowance for the ERC20 contract, so that we can test both.
-						is.setAllowanceForContract(directCall, contractsData, owner.Priv, spender.Addr, approveAmount)
-						is.setAllowanceForContract(erc20Call, contractsData, owner.Priv, spender.Addr, approveAmount)
-					})
-
-					DescribeTable("increasing the allowance should increase the spend limit", func(callType CallType) {
-						increaseAmount := big.NewInt(100)
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, new(big.Int).Add(approveAmount, increaseAmount))
-					},
-						Entry(" - direct call", directCall),
-						Entry(" - through erc20 contract", erc20Call),
-						// NOTE: The ERC20 V5 contract does not contain these methods
-						// Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-
-					DescribeTable("decreasing the allowance should decrease the spend limit", func(callType CallType) {
-						decreaseAmount := big.NewInt(50)
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, new(big.Int).Sub(approveAmount, decreaseAmount))
-					},
-						Entry(" - direct call", directCall),
-						Entry(" - through erc20 contract", erc20Call),
-						// NOTE: The ERC20 V5 contract does not contain these methods
-						// Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-
-					DescribeTable("decreasing the allowance to zero should delete the allowance", func(callType CallType) {
-						txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, approveAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, common.Big0)
-					},
-						Entry(" - direct call", directCall),
-						Entry(" - through erc20 contract", erc20Call),
-						// NOTE: The ERC20 V5 contract does not contain these methods
-						// Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-
-					DescribeTable("decreasing the allowance below zero should return an error", func(callType CallType) {
-						decreaseAmount := big.NewInt(200)
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-
-						belowZeroCheck := failCheck.WithErrContains(erc20.ErrDecreasedAllowanceBelowZero.Error())
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, decreaseArgs, belowZeroCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						// Check that the allowance was not changed
-						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, approveAmount)
-					},
-						Entry(" - direct call", directCall),
-						Entry(" - through erc20 contract", erc20Call),
-						// NOTE: The ERC20 V5 contract does not contain these methods
-						// Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-
-					DescribeTable("increasing the allowance beyond the max uint256 value should return an error", func(callType CallType) {
-						increaseAmount := abi.MaxUint256
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, increaseArgs, execRevertedCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
-
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						// Check that the allowance was not changed
-						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, approveAmount)
-					},
-						Entry(" - direct call", directCall),
-						Entry(" - through erc20 contract", erc20Call),
-						// NOTE: The ERC20 V5 contract does not contain these methods
-						// Entry(" - through erc20 v5 contract", erc20V5Call),
-					)
-				})
-
-				Context("in contract calls", func() {
-					var (
-						approveAmount *big.Int
-						spender       keyring.Key
-					)
-
-					BeforeEach(func() {
-						approveAmount = big.NewInt(100)
-
-						spender = is.keyring.GetKey(1)
-						callerContractAddr := contractsData.GetContractData(contractCall).Address
-						erc20CallerContractAddr := contractsData.GetContractData(erc20CallerCall).Address
-
-						// NOTE: Here we create an allowance between the contract and the spender for both contracts.
-						// This is different from the direct calls, where the allowance is created between the
-						// message sender and the spender.
-						txArgs, approveArgs := is.getTxAndCallArgs(contractCall, contractsData, erc20.ApproveMethod, spender.Addr, approveAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, _, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectAllowanceForContract(contractCall, contractsData, callerContractAddr, spender.Addr, approveAmount)
-
-						// CreateApp the allowance for the ERC20 caller contract
-						txArgs, approveArgs = is.getTxAndCallArgs(erc20CallerCall, contractsData, erc20.ApproveMethod, spender.Addr, approveAmount)
-						_, _, err = is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectAllowanceForContract(erc20CallerCall, contractsData, erc20CallerContractAddr, spender.Addr, approveAmount)
-					})
-
-					DescribeTable("increasing the allowance should increase the spend limit", func(callType CallType) { //nolint:dupl
-						senderPriv := is.keyring.GetPrivKey(0)
-						ownerAddr := contractsData.GetContractData(callType).Address
-						increaseAmount := big.NewInt(100)
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(senderPriv, txArgs, increaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.IncreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, ownerAddr, spender.Addr, new(big.Int).Add(approveAmount, increaseAmount))
-					},
-						Entry(" - contract call", contractCall),
-						Entry(" - through erc20 caller contract", erc20CallerCall),
-					)
-
-					DescribeTable("increasing the allowance beyond the max uint256 value should return an error", func(callType CallType) {
-						senderPriv := is.keyring.GetPrivKey(0)
-						ownerAddr := contractsData.GetContractData(callType).Address
-						increaseAmount := abi.MaxUint256
-
-						txArgs, increaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.IncreaseAllowanceMethod, spender.Addr, increaseAmount)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(senderPriv, txArgs, increaseArgs, execRevertedCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
-
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						// Check that the allowance was not changed
-						is.ExpectAllowanceForContract(callType, contractsData, ownerAddr, spender.Addr, approveAmount)
-					},
-						Entry(" - contract call", contractCall),
-						Entry(" - through erc20 caller contract", erc20CallerCall),
-					)
-
-					DescribeTable("decreasing the allowance should decrease the spend limit", func(callType CallType) { //nolint:dupl
-						senderPriv := is.keyring.GetPrivKey(0)
-						ownerAddr := contractsData.GetContractData(callType).Address
-						decreaseAmount := big.NewInt(50)
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(senderPriv, txArgs, decreaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, ownerAddr, spender.Addr, new(big.Int).Sub(approveAmount, decreaseAmount))
-					},
-						Entry(" - contract call", contractCall),
-						Entry(" - through erc20 caller contract", erc20CallerCall),
-					)
-
-					DescribeTable("decreasing the allowance to zero should delete the allowance", func(callType CallType) {
-						senderPriv := is.keyring.GetPrivKey(0)
-						ownerAddr := contractsData.GetContractData(callType).Address
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, approveAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(senderPriv, txArgs, decreaseArgs, approveCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// commit the changes to state
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						is.ExpectTrueToBeReturned(ethRes, erc20.DecreaseAllowanceMethod)
-						is.ExpectAllowanceForContract(callType, contractsData, ownerAddr, spender.Addr, common.Big0)
-					},
-						Entry(" - contract call", contractCall),
-						Entry(" - through erc20 caller contract", erc20CallerCall),
-					)
-
-					DescribeTable("decreasing the allowance below zero should return an error", func(callType CallType) {
-						senderPriv := is.keyring.GetPrivKey(0)
-						ownerAddr := contractsData.GetContractData(callType).Address
-						decreaseAmount := new(big.Int).Add(approveAmount, big.NewInt(100))
-
-						txArgs, decreaseArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecreaseAllowanceMethod, spender.Addr, decreaseAmount)
-						revertReasonCheck := execRevertedCheck.WithErrNested(erc20.ErrDecreasedAllowanceBelowZero.Error())
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(senderPriv, txArgs, decreaseArgs, revertReasonCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
-
-						err = is.network.NextBlock()
-						Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-
-						// Check that the allowance was not changed
-						is.ExpectAllowanceForContract(callType, contractsData, ownerAddr, spender.Addr, approveAmount)
-					},
-						Entry(" - contract call", contractCall),
-						Entry(" - through erc20 caller contract", erc20CallerCall),
-					)
-				})
 			})
 		})
 	})

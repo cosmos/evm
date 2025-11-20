@@ -3,6 +3,7 @@ package staking
 import (
 	"github.com/stretchr/testify/suite"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/staking"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -12,11 +13,13 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
+
+const InitialTestBalance = 1000000000000000000 // 1 atom
 
 type PrecompileTestSuite struct {
 	suite.Suite
@@ -44,7 +47,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(2)
 	customGenesis := network.CustomGenesisState{}
 	// mint some coin to fee collector
-	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000)))
+	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(InitialTestBalance)))
 	balances := []banktypes.Balance{
 		{
 			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
@@ -78,10 +81,11 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.keyring = keyring
 	s.network = nw
 
-	if s.precompile, err = staking.NewPrecompile(
+	s.precompile = staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-	); err != nil {
-		panic(err)
-	}
+		stakingkeeper.NewMsgServerImpl(s.network.App.GetStakingKeeper()),
+		stakingkeeper.NewQuerier(s.network.App.GetStakingKeeper()),
+		s.network.App.GetBankKeeper(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+	)
 }

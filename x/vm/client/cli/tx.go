@@ -3,10 +3,12 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"math/big"
 	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	types2 "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -47,13 +50,23 @@ func NewRawTxCmd() *cobra.Command {
 		Short: "Build cosmos transaction from raw ethereum transaction",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
 			data, err := hexutil.Decode(args[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to decode ethereum tx hex bytes")
 			}
 
+			// verify that the chain-id entered is a base 10 integer
+			chainIDInt, ok := new(big.Int).SetString(clientCtx.ChainID, 10)
+			if !ok {
+				return errors.Wrapf(errortypes.ErrInvalidChainID, "epoch %s must be base-10 integer format", clientCtx.ChainID)
+			}
+
 			msg := &types.MsgEthereumTx{}
-			if err := msg.UnmarshalBinary(data); err != nil {
+			if err := msg.UnmarshalBinary(data, ethtypes.LatestSignerForChainID(chainIDInt)); err != nil {
 				return err
 			}
 
@@ -61,14 +74,12 @@ func NewRawTxCmd() *cobra.Command {
 				return err
 			}
 
-			clientCtx, err := client.GetClientTxContext(cmd)
+			queryClient := types.NewQueryClient(clientCtx)
+			params, err := queryClient.Params(cmd.Context(), &types.QueryParamsRequest{})
 			if err != nil {
 				return err
 			}
-
-			baseDenom := types.GetEVMCoinDenom()
-
-			tx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), baseDenom)
+			tx, err := msg.BuildTxWithEvmParams(clientCtx.TxConfig.NewTxBuilder(), params.Params)
 			if err != nil {
 				return err
 			}

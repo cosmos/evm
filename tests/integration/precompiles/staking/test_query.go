@@ -64,7 +64,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			"decoding bech32 failed: invalid bech32 string",
+			"invalid: unknown address",
 		},
 		{
 			"success - empty delegation",
@@ -504,7 +504,8 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		{
 			name: "success - no redelegation found",
 			malleate: func(srcOperatorAddr, _ string) []interface{} {
-				nonExistentOperator := sdk.ValAddress([]byte("non-existent-operator"))
+				nonExistentAddr, _ := testutiltx.NewAccAddressAndKey()
+				nonExistentOperator := sdk.ValAddress(nonExistentAddr)
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,

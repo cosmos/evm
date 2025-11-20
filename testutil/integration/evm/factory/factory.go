@@ -64,6 +64,8 @@ type TxFactory interface {
 	// It returns the Cosmos Tx response, the decoded Ethereum Tx response and an error. This error value
 	// is nil, if the expected logs are found and the VM error is the expected one, should one be expected.
 	CallContractAndCheckLogs(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs, logCheckArgs testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error)
+	// QueryContract executes a read-only contract call via eth_call.
+	QueryContract(txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs, gasCap uint64) (*evmtypes.MsgEthereumTxResponse, error)
 	// GenerateDeployContractArgs generates the txArgs for a contract deployment.
 	GenerateDeployContractArgs(from common.Address, txArgs evmtypes.EvmTxArgs, deploymentData types.ContractDeploymentData) (evmtypes.EvmTxArgs, error)
 	// GenerateMsgEthereumTx creates a new MsgEthereumTx with the provided arguments.
@@ -153,6 +155,10 @@ func (tf *IntegrationTxFactory) populateEvmTxArgsWithDefault(
 				return evmtypes.EvmTxArgs{}, errorsmod.Wrap(err, "failed to get base fee")
 			}
 			txArgs.GasFeeCap = baseFeeResp.BaseFee.BigInt()
+			// Ensure GasTipCap <= GasFeeCap
+			if txArgs.GasTipCap.Cmp(txArgs.GasFeeCap) > 0 {
+				txArgs.GasTipCap = new(big.Int).Set(txArgs.GasFeeCap)
+			}
 		}
 	}
 

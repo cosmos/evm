@@ -8,14 +8,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cometbft/cometbft/crypto"
 
 	"github.com/cosmos/evm/precompiles/p256"
+	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -110,10 +111,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						copy(input[0:32], hash)
 
 						// ALWAYS left-pad to 32 bytes:
-						copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
-						copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
-						copy(input[96:128], common.LeftPadBytes(pub.X.Bytes(), 32))
-						copy(input[128:160], common.LeftPadBytes(pub.Y.Bytes(), 32))
+						rInt.FillBytes(input[32:64])
+						sInt.FillBytes(input[64:96])
+						pub.X.FillBytes(input[96:128])
+						pub.Y.FillBytes(input[128:160])
 						return input, nil, ""
 					},
 				),
@@ -123,6 +124,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		When("the precompile is not enabled in the EVM params", func() {
 			BeforeAll(func() {
 				customGenesis := evmtypes.DefaultGenesisState()
+				customGenesis.Params.EvmDenom = constants.ChainsCoinInfo[constants.EighteenDecimalsChainID].Denom
 				customGenesis.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
 				params := customGenesis.Params
 				addr := s.precompileAddress.String()
@@ -170,10 +172,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						input = make([]byte, p256.VerifyInputLength)
 						copy(input[0:32], hash)
-						copy(input[32:64], rInt.Bytes())
-						copy(input[64:96], sInt.Bytes())
-						copy(input[96:128], privB.PublicKey.X.Bytes())
-						copy(input[128:160], privB.PublicKey.Y.Bytes())
+						rInt.FillBytes(input[32:64])
+						sInt.FillBytes(input[64:96])
+						privB.PublicKey.X.FillBytes(input[96:128])
+						privB.PublicKey.Y.FillBytes(input[128:160])
 						return input
 					},
 				),

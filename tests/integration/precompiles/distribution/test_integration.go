@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -1343,15 +1343,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// check contract was correctly deployed
 			cAcc := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddr)
 			Expect(cAcc).ToNot(BeNil(), "contract account should exist")
-			Expect(cAcc.IsContract()).To(BeTrue(), "account should be a contract")
+			isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+			Expect(isContract).To(BeTrue(), "account should be a contract")
 
 			// Contract delegate
-			stkPrecompile, err := s.getStakingPrecompile()
-			Expect(err).To(BeNil(), "error while getting staking precompile: %v", err)
+			stkPrecompile := s.getStakingPrecompile()
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			delegateAmt := big.NewInt(1e18)
@@ -1870,12 +1870,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				stkPrecompile, err := s.getStakingPrecompile()
-				Expect(err).To(BeNil())
+				stkPrecompile := s.getStakingPrecompile()
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.ABI.Events,
+					ABIEvents: stkPrecompile.Events,
 					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2057,12 +2056,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				stkPrecompile, err := s.getStakingPrecompile()
-				Expect(err).To(BeNil())
+				stkPrecompile := s.getStakingPrecompile()
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.ABI.Events,
+					ABIEvents: stkPrecompile.Events,
 					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2324,12 +2322,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				stkPrecompile, err := s.getStakingPrecompile()
-				Expect(err).To(BeNil())
+				stkPrecompile := s.getStakingPrecompile()
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.ABI.Events,
+					ABIEvents: stkPrecompile.Events,
 					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				txArgs.GasLimit = 500_000

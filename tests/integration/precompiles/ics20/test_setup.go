@@ -42,22 +42,20 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.chainA = s.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	s.chainB = s.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
-	evmAppA := s.chainA.App.(evm.EvmApp)
-	s.chainAPrecompile, _ = ics20.NewPrecompile(
+	evmAppA := s.chainA.App.(evm.IBCApp)
+	s.chainAPrecompile = ics20.NewPrecompile(
 		evmAppA.GetBankKeeper(),
 		*evmAppA.GetStakingKeeper(),
 		evmAppA.GetTransferKeeper(),
 		evmAppA.GetIBCKeeper().ChannelKeeper,
-		evmAppA.GetEVMKeeper(),
 	)
 	s.chainABondDenom, _ = evmAppA.GetStakingKeeper().BondDenom(s.chainA.GetContext())
-	evmAppB := s.chainB.App.(evm.EvmApp)
-	s.chainBPrecompile, _ = ics20.NewPrecompile(
+	evmAppB := s.chainB.App.(evm.IBCApp)
+	s.chainBPrecompile = ics20.NewPrecompile(
 		evmAppB.GetBankKeeper(),
 		*evmAppB.GetStakingKeeper(),
 		evmAppB.GetTransferKeeper(),
 		evmAppB.GetIBCKeeper().ChannelKeeper,
-		evmAppB.GetEVMKeeper(),
 	)
 	s.chainBBondDenom, _ = evmAppB.GetStakingKeeper().BondDenom(s.chainB.GetContext())
 }

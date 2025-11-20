@@ -5,8 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
-	rpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/eth"
@@ -16,7 +15,8 @@ import (
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/personal"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/txpool"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/web3"
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/rpc/stream"
+	servertypes "github.com/cosmos/evm/server/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -45,9 +45,10 @@ const (
 type APICreator = func(
 	ctx *server.Context,
 	clientCtx client.Context,
-	tendermintWebsocketClient *rpcclient.WSClient,
+	stream *stream.RPCStream,
 	allowUnprotectedTxs bool,
-	indexer types.EVMTxIndexer,
+	indexer servertypes.EVMTxIndexer,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -57,11 +58,12 @@ func init() {
 	apiCreators = map[string]APICreator{
 		EthNamespace: func(ctx *server.Context,
 			clientCtx client.Context,
-			tmWSClient *rpcclient.WSClient,
+			stream *stream.RPCStream,
 			allowUnprotectedTxs bool,
-			indexer types.EVMTxIndexer,
+			indexer servertypes.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -72,12 +74,12 @@ func init() {
 				{
 					Namespace: EthNamespace,
 					Version:   apiVersion,
-					Service:   filters.NewPublicAPI(ctx.Logger, clientCtx, tmWSClient, evmBackend),
+					Service:   filters.NewPublicAPI(ctx.Logger, clientCtx, stream, evmBackend),
 					Public:    true,
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *rpcclient.WSClient, bool, types.EVMTxIndexer) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -87,7 +89,7 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
@@ -99,11 +101,12 @@ func init() {
 		},
 		PersonalNamespace: func(ctx *server.Context,
 			clientCtx client.Context,
-			_ *rpcclient.WSClient,
+			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
-			indexer types.EVMTxIndexer,
+			indexer servertypes.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
@@ -113,39 +116,48 @@ func init() {
 				},
 			}
 		},
-		TxPoolNamespace: func(ctx *server.Context, _ client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
+		TxPoolNamespace: func(ctx *server.Context,
+			clientCtx client.Context,
+			_ *stream.RPCStream,
+			allowUnprotectedTxs bool,
+			indexer servertypes.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
+		) []rpc.API {
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
 					Version:   apiVersion,
-					Service:   txpool.NewPublicAPI(ctx.Logger),
+					Service:   txpool.NewPublicAPI(ctx.Logger, evmBackend),
 					Public:    true,
 				},
 			}
 		},
 		DebugNamespace: func(ctx *server.Context,
 			clientCtx client.Context,
-			_ *rpcclient.WSClient,
+			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
-			indexer types.EVMTxIndexer,
+			indexer servertypes.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
 					Version:   apiVersion,
-					Service:   debug.NewAPI(ctx, evmBackend),
+					Service:   debug.NewAPI(ctx, evmBackend, evmBackend.GetConfig().JSONRPC.EnableProfiling),
 					Public:    true,
 				},
 			}
 		},
 		MinerNamespace: func(ctx *server.Context,
 			clientCtx client.Context,
-			_ *rpcclient.WSClient,
+			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
-			indexer types.EVMTxIndexer,
+			indexer servertypes.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
@@ -161,16 +173,17 @@ func init() {
 // GetRPCAPIs returns the list of all APIs
 func GetRPCAPIs(ctx *server.Context,
 	clientCtx client.Context,
-	tmWSClient *rpcclient.WSClient,
+	stream *stream.RPCStream,
 	allowUnprotectedTxs bool,
-	indexer types.EVMTxIndexer,
+	indexer servertypes.EVMTxIndexer,
 	selectedAPIs []string,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) []rpc.API {
 	var apis []rpc.API
 
 	for _, ns := range selectedAPIs {
 		if creator, ok := apiCreators[ns]; ok {
-			apis = append(apis, creator(ctx, clientCtx, tmWSClient, allowUnprotectedTxs, indexer)...)
+			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool)...)
 		} else {
 			ctx.Logger.Error("invalid namespace value", "namespace", ns)
 		}

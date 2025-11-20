@@ -1,10 +1,13 @@
 package vm
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -12,14 +15,18 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	ethlogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
+	"github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	types2 "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -28,6 +35,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 // Not valid Ethereum address
@@ -379,7 +387,7 @@ func (s *KeeperTestSuite) TestQueryTxLogs() {
 	expLogs := []*types.Log{}
 	txHash := common.BytesToHash([]byte("tx_hash"))
 	txIndex := uint(1)
-	logIndex := uint(1)
+	logIndex := uint(0)
 
 	testCases := []struct {
 		msg      string
@@ -419,10 +427,8 @@ func (s *KeeperTestSuite) TestQueryTxLogs() {
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
 			txCfg := statedb.NewTxConfig(
-				common.BytesToHash(s.Network.GetContext().HeaderHash()),
 				txHash,
 				txIndex,
-				logIndex,
 			)
 			vmdb := statedb.New(
 				s.Network.GetContext(),
@@ -444,6 +450,8 @@ func (s *KeeperTestSuite) TestQueryParams() {
 	expParams := types.DefaultParams()
 	expParams.ActiveStaticPrecompiles = types.AvailableStaticPrecompiles
 	expParams.ExtraEIPs = nil
+	expParams.EvmDenom = testconstants.ExampleAttoDenom
+	expParams.ExtendedDenomOptions = &types.ExtendedDenomOptions{ExtendedDenom: testconstants.ExampleAttoDenom}
 
 	res, err := s.Network.GetEvmClient().Params(ctx, &types.QueryParamsRequest{})
 	s.Require().NoError(err)
@@ -567,7 +575,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				return types.TransactionArgs{}
 			},
 			true,
-			ethparams.TxGasContractCreation,
+			53793,
 			false,
 			config.DefaultGasCap,
 		},
@@ -692,7 +700,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1187108,
+			1197697,
 			false,
 			config.DefaultGasCap,
 		},
@@ -720,7 +728,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			51880,
+			52669,
 			false,
 			config.DefaultGasCap,
 		},
@@ -802,7 +810,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1187108,
+			1197697,
 			true,
 			config.DefaultGasCap,
 		},
@@ -831,7 +839,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			51880,
+			52669,
 			true,
 			config.DefaultGasCap,
 		},
@@ -924,7 +932,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 			// Update feemarket params per test
 			evmParams := feemarkettypes.DefaultParams()
 			if !tc.EnableFeemarket {
-				evmParams := s.Network.App.GetFeeMarketKeeper().GetParams(
+				evmParams = s.Network.App.GetFeeMarketKeeper().GetParams(
 					s.Network.GetContext(),
 				)
 				evmParams.NoBaseFee = true
@@ -945,6 +953,183 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				Args:            marshalArgs,
 				GasCap:          tc.gasCap,
 				ProposerAddress: s.Network.GetContext().BlockHeader().ProposerAddress,
+			}
+
+			// Function under test
+			rsp, err := s.Network.GetEvmClient().EstimateGas(
+				s.Network.GetContext(),
+				&req,
+			)
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().Equal(int64(tc.expGas), int64(rsp.Gas)) //#nosec G115
+			} else {
+				s.Require().Error(err)
+			}
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestEstimateGasWithStateOverrides() {
+	// Hardcode recipient address to avoid non determinism in tests
+	hardcodedRecipient := common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101")
+
+	erc20Contract, err := testdata.LoadERC20Contract()
+	s.Require().NoError(err)
+
+	testCases := []struct {
+		msg             string
+		getArgs         func() types.TransactionArgs
+		getOverrides    func() string
+		expPass         bool
+		expGas          uint64
+		EnableFeemarket bool
+		gasCap          uint64
+	}{
+		{
+			"success - native transfer with balance override",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				recipient := common.HexToAddress("0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17")
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &recipient,
+					Value: (*hexutil.Big)(big.NewInt(10000000000000000)), // 0.01 ether
+				}
+			},
+			func() string {
+				// Override recipient's balance to 0
+				return `{
+					"0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17": {
+						"balance": "0x0"
+					}
+				}`
+			},
+			true,
+			ethparams.TxGas,
+			false,
+			config.DefaultGasCap,
+		},
+		{
+			"success - erc20 transfer with code and storage override",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				contractAddr := common.HexToAddress("0x5555555555555555555555555555555555555555")
+
+				// Prepare transfer(address,uint256) call data
+				// 100 TOKEN with 18 decimals
+				amount := new(big.Int)
+				amount.SetString("100000000000000000000", 10)
+				transferData, err := erc20Contract.ABI.Pack(
+					"transfer",
+					hardcodedRecipient,
+					amount,
+				)
+				s.Require().NoError(err)
+
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &contractAddr,
+					Input: (*hexutil.Bytes)(&transferData),
+				}
+			},
+			func() string {
+				// Override contract code and sender's balance in ERC20 contract
+				// Storage slot for balances[sender] - simplified for testing
+				erc20Contract, err := testdata.LoadERC20Contract()
+				s.Require().NoError(err)
+
+				sender := s.Keyring.GetAddr(0)
+				slot := crypto.Keccak256Hash(
+					common.LeftPadBytes(sender.Bytes(), common.HashLength),
+					make([]byte, common.HashLength),
+				)
+
+				amount := new(big.Int)
+				amount.SetString("100000000000000000000", 10)
+
+				contractHex := hex.EncodeToString(erc20Contract.Bin)
+				runtimeIdx := strings.Index(contractHex, "f3fe")
+				s.Require().Greater(runtimeIdx, -1)
+				runtimeHex := contractHex[runtimeIdx+4:]
+
+				overrides := map[string]map[string]interface{}{
+					"0x5555555555555555555555555555555555555555": {
+						"code": "0x" + runtimeHex,
+						"stateDiff": map[string]string{
+							slot.Hex(): fmt.Sprintf("0x%064x", amount),
+						},
+					},
+				}
+
+				bz, err := json.Marshal(overrides)
+				s.Require().NoError(err)
+
+				return string(bz)
+			},
+			true,
+			52114,
+			false,
+			config.DefaultGasCap,
+		},
+		{
+			"success - override account nonce",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &common.Address{},
+					Value: (*hexutil.Big)(big.NewInt(100)),
+				}
+			},
+			func() string {
+				addr := s.Keyring.GetAddr(0)
+				return fmt.Sprintf(`{
+					"%s": {
+						"nonce": "0x10"
+					}
+				}`, addr.Hex())
+			},
+			true,
+			ethparams.TxGas,
+			false,
+			config.DefaultGasCap,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
+			// Start from a clean state
+			s.Require().NoError(s.Network.NextBlock())
+
+			// Update feemarket params per test
+			evmParams := feemarkettypes.DefaultParams()
+			if !tc.EnableFeemarket {
+				evmParams = s.Network.App.GetFeeMarketKeeper().GetParams(
+					s.Network.GetContext(),
+				)
+				evmParams.NoBaseFee = true
+			}
+
+			err := s.Network.App.GetFeeMarketKeeper().SetParams(
+				s.Network.GetContext(),
+				evmParams,
+			)
+			s.Require().NoError(err)
+
+			// Get call args
+			args := tc.getArgs()
+			marshalArgs, err := json.Marshal(args)
+			s.Require().NoError(err)
+
+			// Get overrides
+			overrides := json.RawMessage(tc.getOverrides())
+
+			req := types.EthCallRequest{
+				Args:            marshalArgs,
+				GasCap:          tc.gasCap,
+				ProposerAddress: s.Network.GetContext().BlockHeader().ProposerAddress,
+				Overrides:       overrides,
 			}
 
 			// Function under test
@@ -990,6 +1175,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		getRequest      func() *types.QueryTraceTxRequest
 		getPredecessors func() []*types.MsgEthereumTx
 		expPass         bool
+		expPanics       bool
 		expectedTrace   string
 	}{
 		{
@@ -1071,6 +1257,67 @@ func (s *KeeperTestSuite) TestTraceTx() {
 			expectedTrace: "{\"gas\":34780,\"failed\":false," +
 				"" + "\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
 				"" + "\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
+		},
+		{
+			msg: "invalid too many predecessors",
+			getRequest: func() *types.QueryTraceTxRequest {
+				return getDefaultTraceTxRequest(s.Network)
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				pred := make([]*types.MsgEthereumTx, 10001)
+				for i := 0; i < 10001; i++ {
+					pred[i] = &types.MsgEthereumTx{}
+				}
+
+				return pred
+			},
+			expPass: false,
+		},
+		{
+			msg: "no panic when gas limit exceeded for predecessors",
+			getRequest: func() *types.QueryTraceTxRequest {
+				return getDefaultTraceTxRequest(s.Network)
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				// Create predecessor tx
+				// Use different address to avoid nonce collision
+				senderKey := s.Keyring.GetKey(1)
+				contractAddr, err := deployErc20Contract(senderKey, s.Factory)
+				s.Require().NoError(err)
+				s.Require().NoError(s.Network.NextBlock())
+				numTxs := 1500
+				txs := make([]*types.MsgEthereumTx, 0, numTxs)
+				for range numTxs {
+					txMsg := buildTransferTx(
+						s.T(),
+						transferParams{
+							senderKey:     senderKey,
+							contractAddr:  contractAddr,
+							recipientAddr: hardcodedRecipient,
+						},
+						s.Factory,
+					)
+					txs = append(txs, txMsg)
+				}
+				return txs
+			},
+			expPanics: false,
+			expPass:   true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
+		},
+		{
+			msg: "error when requested block num greater than chain height",
+			getRequest: func() *types.QueryTraceTxRequest {
+				req := getDefaultTraceTxRequest(s.Network)
+				req.BlockNumber = math.MaxInt64
+				return req
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				return nil
+			},
+			expPass: false,
 		},
 		{
 			msg: "invalid trace config - Negative Limit",
@@ -1221,12 +1468,22 @@ func (s *KeeperTestSuite) TestTraceTx() {
 				traceReq.Msg = msgToTrace
 			}
 
+			if tc.expPanics {
+				s.Require().Panics(func() {
+					//nolint:errcheck // we just want this to panic.
+					s.Network.GetEvmClient().TraceTx(
+						s.Network.GetContext(),
+						traceReq,
+					)
+				})
+				return
+			}
+
 			// Function under test
 			res, err := s.Network.GetEvmClient().TraceTx(
 				s.Network.GetContext(),
 				traceReq,
 			)
-
 			if tc.expPass {
 				s.Require().NoError(err)
 
@@ -1425,6 +1682,258 @@ func (s *KeeperTestSuite) TestTraceBlock() {
 	}
 }
 
+func (s *KeeperTestSuite) TestTraceCall() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+	s.SetupTest()
+
+	// Load ERC20 contract
+	erc20Contract, err := testdata.LoadERC20Contract()
+	s.Require().NoError(err)
+
+	// Deploy ERC20 contract for testing
+	senderKey := s.Keyring.GetKey(0)
+	contractAddr, err := deployErc20Contract(senderKey, s.Factory)
+	s.Require().NoError(err)
+	s.Require().NoError(s.Network.NextBlock())
+
+	testCases := []struct {
+		msg            string
+		getCallArgs    func() []byte
+		getTraceConfig func() *types.TraceConfig
+		expPass        bool
+		traceResponse  string
+	}{
+		{
+			msg: "default trace with contract call",
+			getCallArgs: func() []byte {
+				// Prepare transfer call data
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "transfer",
+					Args:        []interface{}{common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101"), big.NewInt(1000)},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return nil // Use default tracer
+			},
+			expPass:       true,
+			traceResponse: "\"gas\":",
+		},
+		{
+			msg: "callTracer with contract call",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "callTracer",
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"type\":\"CALL\"",
+		},
+		{
+			msg: "prestateTracer with contract call",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "prestateTracer",
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"balance\":",
+		},
+		{
+			msg: "trace with filtered options",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					DisableStack:     true,
+					DisableStorage:   true,
+					EnableMemory:     false,
+					EnableReturnData: true,
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"returnValue\":",
+		},
+		{
+			msg: "javascript tracer",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "{data: [], fault: function(log) {}, step: function(log) { if(log.op.toString() == \"CALL\") this.data.push(log.stack.peek(0)); }, result: function() { return this.data; }}",
+				}
+			},
+			expPass:       true,
+			traceResponse: "[",
+		},
+		{
+			msg: "trace simple value transfer",
+			getCallArgs: func() []byte {
+				return nil // Simple value transfer, no data
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "callTracer",
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"type\":\"CALL\"",
+		},
+		{
+			msg: "invalid trace config - Negative Limit",
+			getCallArgs: func() []byte {
+				return nil
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Limit: -1,
+				}
+			},
+			expPass: false,
+		},
+		{
+			msg: "invalid trace config - Invalid Tracer",
+			getCallArgs: func() []byte {
+				return nil
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "invalid_tracer",
+				}
+			},
+			expPass: false,
+		},
+		{
+			msg: "invalid trace config - Invalid Timeout",
+			getCallArgs: func() []byte {
+				return nil
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Timeout: "wrong_time",
+				}
+			},
+			expPass: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
+			// Get current block for tracing
+			currentBlock := s.Network.GetContext().BlockHeight()
+
+			// Build transaction args for the call
+			callData := tc.getCallArgs()
+			var to *common.Address
+			if callData != nil {
+				to = &contractAddr
+			} else {
+				// For simple transfers, use a different recipient
+				recipient := common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101")
+				to = &recipient
+			}
+
+			// Marshal transaction args with default values
+			gasLimit := hexutil.Uint64(100000)
+			gasPrice := hexutil.Big(*big.NewInt(1000000000)) // 1 gwei
+			defaultValue := hexutil.Big(*big.NewInt(0))
+
+			txArgs := types.TransactionArgs{
+				From:     &senderKey.Addr,
+				To:       to,
+				Gas:      &gasLimit,
+				GasPrice: &gasPrice,
+				Value:    &defaultValue,
+				Input:    (*hexutil.Bytes)(&callData),
+			}
+
+			// If it's a value transfer test, add value
+			if tc.msg == "trace simple value transfer" {
+				value := hexutil.Big(*big.NewInt(1000))
+				txArgs.Value = &value
+			}
+
+			argsBytes, err := json.Marshal(txArgs)
+			s.Require().NoError(err)
+
+			// Build trace request
+			ctx := s.Network.GetContext()
+
+			traceReq := &types.QueryTraceCallRequest{
+				Args:            argsBytes,
+				TraceConfig:     tc.getTraceConfig(),
+				BlockNumber:     currentBlock,
+				BlockTime:       ctx.BlockTime(),
+				BlockHash:       common.BytesToHash(ctx.HeaderHash()).Hex(),
+				ProposerAddress: sdk.ConsAddress(ctx.BlockHeader().ProposerAddress),
+				ChainId:         s.Network.GetEIP155ChainID().Int64(),
+			}
+
+			// Execute trace call
+			res, err := s.Network.GetEvmClient().TraceCall(s.Network.GetContext(), traceReq)
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().NotNil(res)
+
+				// Verify response contains expected trace data
+				if tc.traceResponse != "" {
+					s.Require().Contains(string(res.Data), tc.traceResponse)
+				}
+
+				// For non-custom tracers, verify the result structure
+				if tc.getTraceConfig() == nil || tc.getTraceConfig().Tracer == "" {
+					var result ethlogger.ExecutionResult
+					s.Require().NoError(json.Unmarshal(res.Data, &result))
+					s.Require().NotNil(result.Gas)
+				}
+			} else {
+				s.Require().Error(err)
+			}
+		})
+	}
+}
+
 func (s *KeeperTestSuite) TestNonceInQuery() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
@@ -1527,8 +2036,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()
-				err := configurator.
-					WithChainConfig(chainConfig).
+				err := types.SetChainConfig(chainConfig)
+				s.Require().NoError(err)
+				err = configurator.
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
 				s.Require().NoError(err)
@@ -1557,7 +2067,8 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 	coinInfo := types.EvmCoinInfo{
 		Denom:         types.GetEVMCoinDenom(),
 		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
-		Decimals:      types.GetEVMCoinDecimals(),
+		DisplayDenom:  types.GetEVMCoinDisplayDenom(),
+		Decimals:      types.GetEVMCoinDecimals().Uint32(),
 	}
 	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
 
@@ -1582,8 +2093,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 			s.Require().NoError(s.Network.NextBlock())
 			configurator := types.NewEVMConfigurator()
 			configurator.ResetTestConfig()
+			err = types.SetChainConfig(chainConfig)
+			s.Require().NoError(err)
 			err = configurator.
-				WithChainConfig(chainConfig).
 				WithEVMCoinInfo(coinInfo).
 				Configure()
 			s.Require().NoError(err)
@@ -1696,6 +2208,147 @@ func (s *KeeperTestSuite) TestEthCall() {
 			defaultEvmParams := types.DefaultParams()
 			err = s.Network.App.GetEVMKeeper().SetParams(s.Network.GetContext(), defaultEvmParams)
 			s.Require().NoError(err)
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestBalance() {
+	testCases := []struct {
+		name        string
+		returnedBal func() *uint256.Int
+		expBalance  *uint256.Int
+	}{
+		{
+			"Account method, vesting account (0 spendable, large locked balance)",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+
+				// Make tx cost greater than balance
+				balanceResp, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+				balance = balance.Quo(types2.ConversionFactor())
+				s.Require().NotEqual(balance.String(), "0")
+
+				// replace with vesting account
+				ctx := s.Network.GetContext()
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				totalBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, accAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+
+				res, err := s.Network.App.GetEVMKeeper().Account(s.Network.GetContext(), &types.QueryAccountRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{0},
+		},
+		{
+			"Balance method, vesting account (0 spendable, large locked balance)",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+
+				// Make tx cost greater than balance
+				balanceResp, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+				balance = balance.Quo(types2.ConversionFactor())
+				s.Require().NotEqual(balance.String(), "0")
+
+				// replace with vesting account
+				ctx := s.Network.GetContext()
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				totalBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, accAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+
+				res, err := s.Network.App.GetEVMKeeper().Balance(s.Network.GetContext(), &types.QueryBalanceRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{0},
+		},
+		{
+			"Account method, regular account",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				res, err := s.Network.App.GetEVMKeeper().Account(s.Network.GetContext(), &types.QueryAccountRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{100},
+		},
+		{
+			"Balance method, regular account",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				res, err := s.Network.App.GetEVMKeeper().Balance(s.Network.GetContext(), &types.QueryBalanceRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{100},
+		},
+	}
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			s.SetupTest()
+			s.Require().Equal(tc.returnedBal(), tc.expBalance)
 		})
 	}
 }
@@ -1858,4 +2511,34 @@ func executeTransferCall(
 		return nil, err
 	}
 	return txMsg, nil
+}
+
+func buildTransferTx(
+	t *testing.T,
+	transferParams transferParams,
+	txFactory factory.TxFactory,
+) (msgEthereumTx *types.MsgEthereumTx) {
+	t.Helper()
+	erc20Contract, err := testdata.LoadERC20Contract()
+	require.NoError(t, err)
+
+	transferArgs := types.EvmTxArgs{
+		To: &transferParams.contractAddr,
+	}
+	callArgs := testutiltypes.CallArgs{
+		ContractABI: erc20Contract.ABI,
+		MethodName:  "transfer",
+		Args:        []interface{}{transferParams.recipientAddr, big.NewInt(1000)},
+	}
+
+	input, err := factory.GenerateContractCallArgs(callArgs)
+	require.NoError(t, err)
+	transferArgs.Input = input
+
+	// We need to get access to the message
+	firstSignedTX, err := txFactory.GenerateSignedEthTx(transferParams.senderKey.Priv, transferArgs)
+	require.NoError(t, err)
+	txMsg, ok := firstSignedTX.GetMsgs()[0].(*types.MsgEthereumTx)
+	require.True(t, ok, "expected MsgEthereumTx type, got type: %T", firstSignedTX.GetMsgs()[0])
+	return txMsg
 }

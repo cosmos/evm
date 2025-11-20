@@ -4,9 +4,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	"github.com/cosmos/evm/types"
+	antetypes "github.com/cosmos/evm/ante/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -84,11 +85,11 @@ func deductFees(
 
 // GetMsgPriority returns the priority of an Eth Tx capped by the minimum priority
 func GetMsgPriority(
-	txData evmtypes.TxData,
+	ethTx *ethtypes.Transaction,
 	minPriority int64,
 	baseFee *big.Int,
 ) int64 {
-	priority := evmtypes.GetTxPriority(txData, baseFee)
+	priority := evmtypes.GetTxPriority(ethTx, baseFee)
 
 	if priority < minPriority {
 		minPriority = priority
@@ -98,7 +99,7 @@ func GetMsgPriority(
 
 // TODO: (@fedekunze) Why is this necessary? This seems to be a duplicate from the CheckGasWanted function.
 func CheckBlockGasLimit(ctx sdktypes.Context, gasWanted uint64, minPriority int64) (sdktypes.Context, error) {
-	blockGasLimit := types.BlockGasLimit(ctx)
+	blockGasLimit := antetypes.BlockGasLimit(ctx)
 
 	// return error if the tx gas is greater than the block limit (max gas)
 
@@ -121,7 +122,7 @@ func CheckBlockGasLimit(ctx sdktypes.Context, gasWanted uint64, minPriority int6
 	// FIXME: use a custom gas configuration that doesn't add any additional gas and only
 	// takes into account the gas consumed at the end of the EVM transaction.
 	ctx = ctx.
-		WithGasMeter(types.NewInfiniteGasMeterWithLimit(gasWanted)).
+		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(gasWanted)).
 		WithPriority(minPriority)
 
 	return ctx, nil

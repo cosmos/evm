@@ -3,14 +3,15 @@ package slashing
 import (
 	"github.com/stretchr/testify/suite"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
 
 type PrecompileTestSuite struct {
@@ -35,7 +36,6 @@ func NewPrecompileTestSuite(create network.CreateEvmApp, options ...network.Conf
 
 func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(3)
-	var err error
 	options := []network.ConfigOption{
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 		network.WithValidatorOperators([]sdk.AccAddress{
@@ -54,11 +54,11 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.grpcHandler = grpcHandler
 	s.keyring = keyring
 
-	if s.precompile, err = slashing.NewPrecompile(
+	s.precompile = slashing.NewPrecompile(
 		s.network.App.GetSlashingKeeper(),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
-	); err != nil {
-		panic(err)
-	}
+		slashingkeeper.NewMsgServerImpl(s.network.App.GetSlashingKeeper()),
+		s.network.App.GetBankKeeper(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+	)
 }

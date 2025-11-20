@@ -1,19 +1,22 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	cmttypes "github.com/cometbft/cometbft/types"
 
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -31,14 +34,62 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
+
+const TestPostProcessingEventType = "test_post_processing_event"
+
+func (s *KeeperTestSuite) TestContextSetConsensusParams() {
+	// set new value of max gas in consensus params
+	maxGas := int64(123456789)
+	res, err := s.Network.App.GetConsensusParamsKeeper().Params(s.Network.GetContext(), &consensustypes.QueryParamsRequest{})
+	s.Require().NoError(err)
+	consParams := res.Params
+	consParams.Block.MaxGas = maxGas
+	_, err = s.Network.App.GetConsensusParamsKeeper().UpdateParams(s.Network.GetContext(), &consensustypes.MsgUpdateParams{
+		Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		Block:     consParams.Block,
+		Evidence:  consParams.Evidence,
+		Validator: consParams.Validator,
+		Abci:      consParams.Abci,
+	})
+	s.Require().NoError(err)
+
+	queryContext := s.Network.GetQueryContext()
+	proposerAddress := queryContext.BlockHeader().ProposerAddress
+	cfg, err := s.Network.App.GetEVMKeeper().EVMConfig(queryContext, proposerAddress)
+	s.Require().NoError(err)
+
+	sender := s.Keyring.GetKey(0)
+	recipient := s.Keyring.GetAddr(1)
+	msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+		To:     &recipient,
+		Amount: big.NewInt(100),
+	})
+	s.Require().NoError(err)
+
+	// evm should query the max gas from consensus keeper, yielding the number set above.
+	vm := s.Network.App.GetEVMKeeper().NewEVM(queryContext, *msg, cfg, nil, s.Network.GetStateDB())
+	//nolint:gosec
+	s.Require().Equal(vm.Context.GasLimit, uint64(maxGas))
+
+	// if we explicitly set the consensus params in context, like when Cosmos builds a transaction context,
+	// we should use that value, and not query the consensus params from the keeper.
+	consParams.Block.MaxGas = 54321
+	queryContext = queryContext.WithConsensusParams(*consParams)
+	vm = s.Network.App.GetEVMKeeper().NewEVM(queryContext, *msg, cfg, nil, s.Network.GetStateDB())
+	//nolint:gosec
+	s.Require().Equal(vm.Context.GasLimit, uint64(consParams.Block.MaxGas))
+}
 
 func (s *KeeperTestSuite) TestGetHashFn() {
 	s.SetupTest()
-	header := s.Network.GetContext().BlockHeader()
-	h, _ := cmttypes.HeaderFromProto(&header)
-	hash := h.Hash()
+	s.Require().NoError(s.Network.NextBlock())
+	ctx := s.Network.GetContext()
+	height := uint64(ctx.BlockHeight()) //nolint:gosec // G115
+	headerHash := common.BytesToHash(ctx.HeaderHash())
+	fmt.Println("get headerHash", height, headerHash)
 
 	testCases := []struct {
 		msg      string
@@ -48,7 +99,7 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 	}{
 		{
 			"case 1.1: context hash cached",
-			uint64(s.Network.GetContext().BlockHeight()), //nolint:gosec // G115
+			height,
 			func() sdk.Context {
 				return s.Network.GetContext().WithHeaderHash(
 					tmhash.Sum([]byte("header")),
@@ -57,51 +108,22 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 			common.BytesToHash(tmhash.Sum([]byte("header"))),
 		},
 		{
-			"case 1.2: failed to cast Tendermint header",
-			uint64(s.Network.GetContext().BlockHeight()), //nolint:gosec // G115
+			"case 1.2: works for invalid CometBFT header",
+			height,
 			func() sdk.Context {
 				header := tmproto.Header{}
 				header.Height = s.Network.GetContext().BlockHeight()
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
-			common.Hash{},
+			headerHash,
 		},
 		{
-			"case 1.3: hash calculated from Tendermint header",
-			uint64(s.Network.GetContext().BlockHeight()), //nolint:gosec // G115
-			func() sdk.Context {
-				return s.Network.GetContext().WithBlockHeader(header)
-			},
-			common.BytesToHash(hash),
-		},
-		{
-			"case 2.1: height lower than current one, hist info not found",
-			1,
+			"case 2.1: height lower than current one works",
+			height,
 			func() sdk.Context {
 				return s.Network.GetContext().WithBlockHeight(10)
 			},
-			common.Hash{},
-		},
-		{
-			"case 2.2: height lower than current one, invalid hist info header",
-			1,
-			func() sdk.Context {
-				s.Require().NoError(s.Network.App.GetStakingKeeper().SetHistoricalInfo(s.Network.GetContext(), 1, &stakingtypes.HistoricalInfo{}))
-				return s.Network.GetContext().WithBlockHeight(10)
-			},
-			common.Hash{},
-		},
-		{
-			"case 2.3: height lower than current one, calculated from hist info header",
-			1,
-			func() sdk.Context {
-				histInfo := &stakingtypes.HistoricalInfo{
-					Header: header,
-				}
-				s.Require().NoError(s.Network.App.GetStakingKeeper().SetHistoricalInfo(s.Network.GetContext(), 1, histInfo))
-				return s.Network.GetContext().WithBlockHeight(10)
-			},
-			common.BytesToHash(hash),
+			headerHash,
 		},
 		{
 			"case 3: height greater than current one",
@@ -136,14 +158,26 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 		msg      string
 		malleate func() sdk.Context
 		expPass  bool
+		expEmpty bool
 	}{
+		{
+			"empty proposer address - should return empty address without error",
+			func() sdk.Context {
+				header := s.Network.GetContext().BlockHeader()
+				header.ProposerAddress = sdk.ConsAddress{}
+				return s.Network.GetContext().WithBlockHeader(header)
+			},
+			true,
+			true,
+		},
 		{
 			"validator not found",
 			func() sdk.Context {
 				header := s.Network.GetContext().BlockHeader()
-				header.ProposerAddress = []byte{}
+				header.ProposerAddress = []byte{1, 2, 3}
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
+			false,
 			false,
 		},
 		{
@@ -152,23 +186,33 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 				return s.Network.GetContext()
 			},
 			true,
+			false,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
 			ctx := tc.malleate()
-			proposerAddress := ctx.BlockHeader().ProposerAddress
+			var proposerAddress sdk.ConsAddress
+			if tc.expEmpty {
+				proposerAddress = sdk.ConsAddress{}
+			} else {
+				proposerAddress = ctx.BlockHeader().ProposerAddress
+			}
 
 			// Function being tested
 			coinbase, err := s.Network.App.GetEVMKeeper().GetCoinbaseAddress(
 				ctx,
-				sdk.ConsAddress(proposerAddress),
+				proposerAddress,
 			)
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				s.Require().Equal(proposerAddressHex, coinbase)
+				if tc.expEmpty {
+					s.Require().Equal(common.Address{}, coinbase)
+				} else {
+					s.Require().Equal(proposerAddressHex, coinbase)
+				}
 			} else {
 				s.Require().Error(err)
 			}
@@ -274,14 +318,13 @@ func (s *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			nonce := s.Network.App.GetEVMKeeper().GetNonce(ctx, addr)
 			m, err := newNativeMessage(
 				nonce,
-				ctx.BlockHeight(),
 				addr,
-				ethCfg,
 				krSigner,
 				signer,
 				gethtypes.AccessListTxType,
 				tc.data,
 				tc.accessList,
+				nil,
 			)
 			s.Require().NoError(err)
 
@@ -595,8 +638,8 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 			s.Require().NoError(err)
 			initialBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
 
-			ethTx := tx.GetMsgs()[0].(*types.MsgEthereumTx).AsTransaction()
-			res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(ctx, ethTx)
+			ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+			res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(ctx, ethMsg.AsTransaction())
 			s.Require().NoError(err)
 			s.Require().Equal(res.GasUsed, uint64(3e6))
 			// Half of the gas should be refunded based on the protocol refund cap.
@@ -605,6 +648,184 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 			balanceAfterRefund := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
 			expectedRefund := new(big.Int).Mul(new(big.Int).SetUint64(6e6/2), s.Network.App.GetEVMKeeper().GetBaseFee(ctx))
 			s.Require().Equal(balanceAfterRefund.Sub(initialBalance).Amount, sdkmath.NewIntFromBigInt(expectedRefund))
+		})
+	}
+}
+
+type testHooks struct {
+	postProcessing func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error
+}
+
+func (h *testHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+	return h.postProcessing(ctx, sender, msg, receipt)
+}
+
+func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+
+	testCases := []struct {
+		name  string
+		setup func(s *KeeperTestSuite)
+		do    func(s *KeeperTestSuite)
+		after func(s *KeeperTestSuite)
+	}{
+		{
+			"pass - evm tx succeeds, post processing is called, the balance is changed",
+			func(s *KeeperTestSuite) {
+				s.Network.App.GetEVMKeeper().SetHooks(
+					keeper.NewMultiEvmHooks(
+						&testHooks{
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+								ctx.EventManager().EmitEvent(sdk.NewEvent(TestPostProcessingEventType))
+								return nil
+							},
+						},
+					),
+				)
+			},
+			func(s *KeeperTestSuite) {
+				senderBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+
+				// Generate a transfer tx message
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				transferAmt := big.NewInt(100)
+
+				tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: transferAmt,
+				})
+				s.Require().NoError(err)
+
+				ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+				res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(s.Network.GetContext(), ethMsg.AsTransaction())
+				s.Require().NoError(err)
+				s.Require().False(res.Failed())
+
+				senderAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+				s.Require().Equal(senderBefore.Sub(sdkmath.NewIntFromBigInt(transferAmt)), senderAfter)
+				s.Require().Equal(recipientBefore.Add(sdkmath.NewIntFromBigInt(transferAmt)), recipientAfter)
+			},
+			func(s *KeeperTestSuite) {
+				// check if the event emitted exactly once
+				events := s.Network.GetContext().EventManager().Events()
+				var postProcessingEvents []sdk.Event
+				for _, event := range events {
+					if event.Type == TestPostProcessingEventType {
+						postProcessingEvents = append(postProcessingEvents, event)
+					}
+				}
+				s.Require().Len(postProcessingEvents, 1)
+			},
+		},
+		{
+			"pass - evm tx succeeds, post processing is called but fails, the balance is unchanged",
+			func(s *KeeperTestSuite) {
+				s.Network.App.GetEVMKeeper().SetHooks(
+					keeper.NewMultiEvmHooks(
+						&testHooks{
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+								return errors.New("post processing failed :(")
+							},
+						},
+					),
+				)
+			},
+			func(s *KeeperTestSuite) {
+				senderBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+
+				// Generate a transfer tx message
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				transferAmt := big.NewInt(100)
+
+				tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: transferAmt,
+				})
+				s.Require().NoError(err)
+
+				ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+				res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(s.Network.GetContext(), ethMsg.AsTransaction())
+				s.Require().NoError(err)
+				s.Require().True(res.Failed())
+
+				senderAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+				s.Require().Equal(senderBefore, senderAfter)
+				s.Require().Equal(recipientBefore, recipientAfter)
+			},
+			func(s *KeeperTestSuite) {},
+		},
+		{
+			"evm tx fails, post processing is called and persisted, the balance is not changed",
+			func(s *KeeperTestSuite) {
+				s.Network.App.GetEVMKeeper().SetHooks(
+					keeper.NewMultiEvmHooks(
+						&testHooks{
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+								return s.Network.App.GetMintKeeper().MintCoins(
+									ctx, sdk.NewCoins(sdk.NewCoin("arandomcoin", sdkmath.NewInt(100))),
+								)
+							},
+						},
+					),
+				)
+			},
+			func(s *KeeperTestSuite) {
+				senderBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+
+				// Generate a transfer tx message
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				transferAmt := senderBefore.Add(sdkmath.NewInt(100)) // transfer more than the balance
+
+				tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: transferAmt.BigInt(),
+				})
+				s.Require().NoError(err)
+
+				ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+				res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(s.Network.GetContext(), ethMsg.AsTransaction())
+				s.Require().NoError(err)
+				s.Require().True(res.Failed())
+
+				senderAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+				s.Require().Equal(senderBefore, senderAfter)
+				s.Require().Equal(recipientBefore, recipientAfter)
+			},
+			func(s *KeeperTestSuite) {
+				// check if the mint module has "arandomcoin" in its balance, it was minted in the post processing, proving that the post processing was called
+				// and that it can persist state even when the tx fails
+				balance := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Network.App.GetAccountKeeper().GetModuleAddress("mint"), "arandomcoin")
+				s.Require().Equal(sdkmath.NewInt(100), balance.Amount)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			s.SetupTest()
+
+			tc.setup(s)
+
+			// set bounded cosmos block gas limit
+			ctx := s.Network.GetContext().WithBlockGasMeter(storetypes.NewGasMeter(1e6))
+			err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+			s.Require().NoError(err)
+			err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+			s.Require().NoError(err)
+
+			tc.do(s)
+
+			tc.after(s)
 		})
 	}
 }
@@ -632,12 +853,7 @@ func (s *KeeperTestSuite) TestApplyMessage() {
 		*coreMsg,
 		types.GetEthChainConfig(),
 	)
-	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(
-		s.Network.GetContext(),
-		*coreMsg,
-		tracer,
-		true,
-	)
+	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(s.Network.GetContext(), *coreMsg, tracer, true, false)
 	s.Require().NoError(err)
 	s.Require().False(res.Failed())
 
@@ -650,18 +866,32 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
+
+	testAddr := utiltx.GenerateAddress()
+	balance := (*hexutil.Big)(big.NewInt(1000000000000000000))
+	nonce := hexutil.Uint64(0)
+
+	overrides := rpctypes.StateOverride{
+		testAddr: rpctypes.OverrideAccount{
+			Balance: &balance,
+			Nonce:   &nonce,
+		},
+	}
+
 	testCases := []struct {
 		name               string
 		getMessage         func() core.Message
 		getEVMParams       func() types.Params
 		getFeeMarketParams func() feemarkettypes.Params
+		overrides          *rpctypes.StateOverride
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
+		postCheck          func()
 	}{
 		{
-			"success - messsage applied ok with default params",
-			func() core.Message {
+			name: "success - messsage applied ok with default params",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				recipient := s.Keyring.GetAddr(1)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
@@ -671,15 +901,157 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			types.DefaultParams,
-			feemarkettypes.DefaultParams,
-			false,
-			false,
-			params.TxGas,
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+			postCheck:          nil,
 		},
 		{
-			"call contract tx with config param EnableCall = false",
-			func() core.Message {
+			name: "success - applies set code authorization (EIP-7702)",
+			getMessage: func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := gethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				signedAuth := s.SignSetCodeAuthorization(authority, auth)
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []gethtypes.SetCodeAuthorization{signedAuth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed: params.TxGas + params.CallNewAccountGas -
+				keeper.GasToRefund(
+					params.CallNewAccountGas-params.TxAuthTupleGas,
+					params.TxGas+params.CallNewAccountGas,
+					params.RefundQuotientEIP3529,
+				),
+			postCheck: func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				targetAddr := s.Keyring.GetAddr(1)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				delegationAddr, ok := gethtypes.ParseDelegation(code)
+				s.Require().True(ok)
+				s.Require().Equal(targetAddr, delegationAddr)
+			},
+		},
+		{
+			name: "fail - unsigned set code authorization is ignored (EIP-7702)",
+			getMessage: func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := gethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []gethtypes.SetCodeAuthorization{auth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas + params.CallNewAccountGas,
+			postCheck: func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				_, ok := gethtypes.ParseDelegation(code)
+				s.Require().False(ok)
+				s.Require().Len(code, 0)
+			},
+		},
+		{
+			name: "success - message applied with balance override",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &recipient,
+					Amount:   big.NewInt(100),
+					GasLimit: params.TxGas,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &overrides,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "success - simple transfer from overridden address",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(50),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &overrides,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "success - empty state overrides",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(100),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &rpctypes.StateOverride{},
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "call contract tx with config param EnableCall = false",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				recipient := s.Keyring.GetAddr(1)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
@@ -690,7 +1062,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			func() types.Params {
+			getEVMParams: func() types.Params {
 				defaultParams := types.DefaultParams()
 				defaultParams.AccessControl = types.AccessControl{
 					Call: types.AccessControlType{
@@ -699,14 +1071,16 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				}
 				return defaultParams
 			},
-			feemarkettypes.DefaultParams,
-			false,
-			true,
-			0,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           true,
+			expectedGasUsed:    0,
+			postCheck:          nil,
 		},
 		{
-			"create contract tx with config param EnableCreate = false",
-			func() core.Message {
+			name: "create contract tx with config param EnableCreate = false",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
 					Amount: big.NewInt(100),
@@ -715,7 +1089,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			func() types.Params {
+			getEVMParams: func() types.Params {
 				defaultParams := types.DefaultParams()
 				defaultParams.AccessControl = types.AccessControl{
 					Create: types.AccessControlType{
@@ -724,14 +1098,16 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				}
 				return defaultParams
 			},
-			feemarkettypes.DefaultParams,
-			false,
-			true,
-			0,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           true,
+			expectedGasUsed:    0,
+			postCheck:          nil,
 		},
 		{
-			"fail - fix panic when minimumGasUsed is not uint64",
-			func() core.Message {
+			name: "fail - fix panic when minimumGasUsed is not uint64",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				recipient := s.Keyring.GetAddr(1)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
@@ -741,17 +1117,19 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			types.DefaultParams,
-			func() feemarkettypes.Params {
+			getEVMParams: types.DefaultParams,
+			getFeeMarketParams: func() feemarkettypes.Params {
 				paramsRes, err := s.Handler.GetFeeMarketParams()
 				s.Require().NoError(err)
 				params := paramsRes.GetParams()
 				params.MinGasMultiplier = sdkmath.LegacyNewDec(math.MaxInt64).MulInt64(100)
 				return params
 			},
-			true,
-			false,
-			0,
+			overrides:       nil,
+			expErr:          true,
+			expVMErr:        false,
+			expectedGasUsed: 0,
+			postCheck:       nil,
 		},
 	}
 
@@ -782,7 +1160,6 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			)
 			s.Require().NoError(err)
 
-			// Function being tested
 			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(
 				s.Network.GetContext(),
 				msg,
@@ -790,6 +1167,8 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				true,
 				config,
 				txConfig,
+				false,
+				tc.overrides,
 			)
 
 			if tc.expErr {
@@ -798,14 +1177,13 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				s.Require().False(res.Failed())
 				s.Require().Equal(tc.expectedGasUsed, res.GasUsed)
+
+				if tc.postCheck != nil {
+					tc.postCheck()
+				}
 			}
 
 			err = s.Network.NextBlock()
-			if tc.expVMErr {
-				s.Require().NotEmpty(res.VmError)
-				return
-			}
-
 			if tc.expVMErr {
 				s.Require().NotEmpty(res.VmError)
 				return
@@ -849,4 +1227,49 @@ func (s *KeeperTestSuite) TestGetProposerAddress() {
 			)
 		})
 	}
+}
+
+func (s *KeeperTestSuite) TestApplyMessageWithNegativeAmount() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+	s.SetupTest()
+
+	// Generate a transfer tx message
+	sender := s.Keyring.GetKey(0)
+	recipient := s.Keyring.GetAddr(1)
+	amt, _ := big.NewInt(0).SetString("-115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	transferArgs := types.EvmTxArgs{
+		To:     &recipient,
+		Amount: amt,
+	}
+	coreMsg, err := s.Factory.GenerateGethCoreMsg(
+		sender.Priv,
+		transferArgs,
+	)
+	s.Require().NoError(err)
+
+	tracer := s.Network.App.GetEVMKeeper().Tracer(
+		s.Network.GetContext(),
+		*coreMsg,
+		types.GetEthChainConfig(),
+	)
+
+	ctx := s.Network.GetContext()
+	balance0Before := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
+	balance1Before := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(1), "aatom")
+	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(
+		s.Network.GetContext(),
+		*coreMsg,
+		tracer,
+		true,
+		false,
+	)
+	s.Require().Nil(res)
+	s.Require().Error(err)
+
+	balance0After := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
+	balance1After := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(1), "aatom")
+
+	s.Require().Equal(balance0Before, balance0After)
+	s.Require().Equal(balance1Before, balance1After)
 }

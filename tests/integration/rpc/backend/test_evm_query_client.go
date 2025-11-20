@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,9 +18,10 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpc "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	proto "github.com/cosmos/gogoproto/proto"
 
 	"cosmossdk.io/math"
 
@@ -27,6 +29,21 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
+
+func MatchByProto(exp proto.Message) any {
+	return mock.MatchedBy(func(req proto.Message) bool {
+		// compare protobuf encooded value, workaround for *ethtypes.Transaction
+		expBz, err := proto.Marshal(exp)
+		if err != nil {
+			panic(err)
+		}
+		bz, err := proto.Marshal(req)
+		if err != nil {
+			panic(err)
+		}
+		return bytes.Equal(expBz, bz)
+	})
+}
 
 // QueryClient defines a mocked object that implements the Cosmos EVM GRPC
 // QueryClient interface. It allows for performing QueryClient queries without having
@@ -39,31 +56,50 @@ var _ evmtypes.QueryClient = &mocks.EVMQueryClient{}
 func RegisterTraceTransactionWithPredecessors(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx, predecessors []*evmtypes.MsgEthereumTx) {
 	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x7d}
 	queryClient.On("TraceTx", rpc.ContextWithHeight(1),
-		&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, Predecessors: predecessors, ChainId: config.EVMChainID, BlockMaxGas: -1}).
+		MatchByProto(&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, Predecessors: predecessors, ChainId: int64(constants.ExampleChainID.EVMChainID), BlockMaxGas: -1})). //nolint:gosec // G115
 		Return(&evmtypes.QueryTraceTxResponse{Data: data}, nil)
 }
 
 func RegisterTraceTransaction(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx) {
 	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x7d}
-	queryClient.On("TraceTx", rpc.ContextWithHeight(1), &evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: config.EVMChainID, BlockMaxGas: -1}).
-		Return(&evmtypes.QueryTraceTxResponse{Data: data}, nil)
+	queryClient.On("TraceTx", rpc.ContextWithHeight(1), MatchByProto(&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: int64(constants.ExampleChainID.EVMChainID), BlockMaxGas: -1})). //nolint:gosec // G115
+																										Return(&evmtypes.QueryTraceTxResponse{Data: data}, nil)
 }
 
 func RegisterTraceTransactionError(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx) {
-	queryClient.On("TraceTx", rpc.ContextWithHeight(1), &evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: config.EVMChainID}).
-		Return(nil, errortypes.ErrInvalidRequest)
+	queryClient.On("TraceTx", rpc.ContextWithHeight(1), MatchByProto(&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: int64(constants.ExampleChainID.EVMChainID)})). //nolint:gosec // G115
+																								Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // TraceBlock
 func RegisterTraceBlock(queryClient *mocks.EVMQueryClient, txs []*evmtypes.MsgEthereumTx) {
 	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x7d}
 	queryClient.On("TraceBlock", rpc.ContextWithHeight(1),
-		&evmtypes.QueryTraceBlockRequest{Txs: txs, BlockNumber: 1, TraceConfig: &evmtypes.TraceConfig{}, ChainId: config.EVMChainID, BlockMaxGas: -1}).
+		MatchByProto(&evmtypes.QueryTraceBlockRequest{Txs: txs, BlockNumber: 1, TraceConfig: &evmtypes.TraceConfig{}, ChainId: int64(constants.ExampleChainID.EVMChainID), BlockMaxGas: -1})). //nolint:gosec // G115
 		Return(&evmtypes.QueryTraceBlockResponse{Data: data}, nil)
 }
 
 func RegisterTraceBlockError(queryClient *mocks.EVMQueryClient) {
 	queryClient.On("TraceBlock", rpc.ContextWithHeight(1), &evmtypes.QueryTraceBlockRequest{}).
+		Return(nil, errortypes.ErrInvalidRequest)
+}
+
+// TraceCall
+func RegisterTraceCall(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx) {
+	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x63, 0x61, 0x6c, 0x6c, 0x22, 0x7d} // {"test": "trace_call"}
+	queryClient.On("TraceCall", rpc.ContextWithHeight(1), mock.AnythingOfType("*types.QueryTraceCallRequest")).
+		Return(&evmtypes.QueryTraceCallResponse{Data: data}, nil)
+}
+
+func RegisterTraceCallWithTracer(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx, tracer string) {
+	data := []byte{0x7b, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x20, 0x22, 0x43, 0x41, 0x4c, 0x4c, 0x22, 0x7d} // {"type": "CALL"}
+	queryClient.On("TraceCall", rpc.ContextWithHeight(1), mock.MatchedBy(func(req *evmtypes.QueryTraceCallRequest) bool {
+		return req.TraceConfig != nil && req.TraceConfig.Tracer == tracer
+	})).Return(&evmtypes.QueryTraceCallResponse{Data: data}, nil)
+}
+
+func RegisterTraceCallError(queryClient *mocks.EVMQueryClient) {
+	queryClient.On("TraceCall", rpc.ContextWithHeight(1), mock.AnythingOfType("*types.QueryTraceCallRequest")).
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
@@ -158,7 +194,17 @@ func RegisterEthCallError(queryClient *mocks.EVMQueryClient, request *evmtypes.E
 func RegisterEstimateGas(queryClient *mocks.EVMQueryClient, args evmtypes.TransactionArgs) {
 	bz, _ := json.Marshal(args)
 	queryClient.On("EstimateGas", rpc.ContextWithHeight(1), &evmtypes.EthCallRequest{Args: bz, ChainId: args.ChainID.ToInt().Int64()}).
-		Return(&evmtypes.EstimateGasResponse{}, nil)
+		Return(&evmtypes.EstimateGasResponse{Gas: 21000}, nil)
+}
+
+func RegisterEstimateGasError(queryClient *mocks.EVMQueryClient, req *evmtypes.EthCallRequest) {
+	queryClient.On("EstimateGas", rpc.ContextWithHeight(1), req).
+		Return(nil, errortypes.ErrInvalidRequest)
+}
+
+func RegisterEstimateGasWithOverrides(queryClient *mocks.EVMQueryClient, req *evmtypes.EthCallRequest) {
+	queryClient.On("EstimateGas", rpc.ContextWithHeight(1), req).
+		Return(&evmtypes.EstimateGasResponse{Gas: 21000}, nil)
 }
 
 // BaseFee

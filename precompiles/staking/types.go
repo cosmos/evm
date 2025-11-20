@@ -76,13 +76,23 @@ type EventCancelUnbonding struct {
 	CreationHeight   *big.Int
 }
 
-// Description use golang type alias defines a validator description.
+// Description defines a validator description.
 type Description = struct {
-	Moniker         string "json:\"moniker\""
-	Identity        string "json:\"identity\""
-	Website         string "json:\"website\""
-	SecurityContact string "json:\"securityContact\""
-	Details         string "json:\"details\""
+	Moniker         string `json:"moniker"`
+	Identity        string `json:"identity"`
+	Website         string `json:"website"`
+	SecurityContact string `json:"securityContact"`
+	Details         string `json:"details"`
+}
+
+func NewDescriptionFromResponse(d stakingtypes.Description) Description {
+	return Description{
+		Moniker:         d.Moniker,
+		Identity:        d.Identity,
+		Website:         d.Website,
+		SecurityContact: d.SecurityContact,
+		Details:         d.Details,
+	}
 }
 
 // Commission use golang type alias defines a validator commission.
@@ -120,7 +130,7 @@ func NewMsgCreateValidator(args []interface{}, denom string, addrCdc address.Cod
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidValidator, args[3])
 	}
 
-	// use cli `evmd tendermint show-validator` get pubkey
+	// use cli `evmd comet show-validator` get pubkey
 	pubkeyBase64Str, ok := args[4].(string)
 	if !ok {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "pubkey", "string", args[4])
@@ -593,65 +603,51 @@ func (do *DelegationOutput) Pack(args abi.Arguments) ([]byte, error) {
 // ValidatorInfo is a struct to represent the key information from
 // a validator response.
 type ValidatorInfo struct {
-	OperatorAddress   string   `abi:"operatorAddress"`
-	ConsensusPubkey   string   `abi:"consensusPubkey"`
-	Jailed            bool     `abi:"jailed"`
-	Status            uint8    `abi:"status"`
-	Tokens            *big.Int `abi:"tokens"`
-	DelegatorShares   *big.Int `abi:"delegatorShares"` // TODO: Decimal
-	Description       string   `abi:"description"`
-	UnbondingHeight   int64    `abi:"unbondingHeight"`
-	UnbondingTime     int64    `abi:"unbondingTime"`
-	Commission        *big.Int `abi:"commission"`
-	MinSelfDelegation *big.Int `abi:"minSelfDelegation"`
+	OperatorAddress   string      `abi:"operatorAddress"`
+	ConsensusPubkey   string      `abi:"consensusPubkey"`
+	Jailed            bool        `abi:"jailed"`
+	Status            uint8       `abi:"status"`
+	Tokens            *big.Int    `abi:"tokens"`
+	DelegatorShares   *big.Int    `abi:"delegatorShares"` // TODO: Decimal
+	Description       Description `abi:"description"`
+	UnbondingHeight   int64       `abi:"unbondingHeight"`
+	UnbondingTime     int64       `abi:"unbondingTime"`
+	Commission        *big.Int    `abi:"commission"`
+	MinSelfDelegation *big.Int    `abi:"minSelfDelegation"`
+}
+
+func DefaultValidatorInfo() ValidatorInfo {
+	return ValidatorInfo{
+		Tokens:            big.NewInt(0),
+		DelegatorShares:   big.NewInt(0),
+		Commission:        big.NewInt(0),
+		MinSelfDelegation: big.NewInt(0),
+	}
+}
+
+func NewValidatorInfoFromResponse(v stakingtypes.Validator) ValidatorInfo {
+	operatorAddress, err := sdk.ValAddressFromBech32(v.OperatorAddress)
+	if err != nil {
+		return DefaultValidatorInfo()
+	}
+
+	return ValidatorInfo{
+		OperatorAddress:   common.BytesToAddress(operatorAddress.Bytes()).String(),
+		ConsensusPubkey:   FormatConsensusPubkey(v.ConsensusPubkey),
+		Jailed:            v.Jailed,
+		Status:            uint8(stakingtypes.BondStatus_value[v.Status.String()]), //#nosec G115 // enum will always be convertible to uint8
+		Tokens:            v.Tokens.BigInt(),
+		DelegatorShares:   v.DelegatorShares.BigInt(), // TODO: Decimal
+		Description:       NewDescriptionFromResponse(v.Description),
+		UnbondingHeight:   v.UnbondingHeight,
+		UnbondingTime:     v.UnbondingTime.UTC().Unix(),
+		Commission:        v.Commission.Rate.BigInt(),
+		MinSelfDelegation: v.MinSelfDelegation.BigInt(),
+	}
 }
 
 type ValidatorOutput struct {
 	Validator ValidatorInfo
-}
-
-// DefaultValidatorOutput returns a ValidatorOutput with default values.
-func DefaultValidatorOutput() ValidatorOutput {
-	return ValidatorOutput{
-		ValidatorInfo{
-			OperatorAddress:   "",
-			ConsensusPubkey:   "",
-			Jailed:            false,
-			Status:            uint8(0),
-			Tokens:            big.NewInt(0),
-			DelegatorShares:   big.NewInt(0),
-			Description:       "",
-			UnbondingHeight:   int64(0),
-			UnbondingTime:     int64(0),
-			Commission:        big.NewInt(0),
-			MinSelfDelegation: big.NewInt(0),
-		},
-	}
-}
-
-// FromResponse populates the ValidatorOutput from a QueryValidatorResponse.
-func (vo *ValidatorOutput) FromResponse(res *stakingtypes.QueryValidatorResponse) ValidatorOutput {
-	operatorAddress, err := sdk.ValAddressFromBech32(res.Validator.OperatorAddress)
-	if err != nil {
-		return DefaultValidatorOutput()
-	}
-
-	return ValidatorOutput{
-		Validator: ValidatorInfo{
-			OperatorAddress: common.BytesToAddress(operatorAddress.Bytes()).String(),
-			ConsensusPubkey: FormatConsensusPubkey(res.Validator.ConsensusPubkey),
-			Jailed:          res.Validator.Jailed,
-			Status:          uint8(stakingtypes.BondStatus_value[res.Validator.Status.String()]), //#nosec G115 // enum will always be convertible to uint8
-			Tokens:          res.Validator.Tokens.BigInt(),
-			DelegatorShares: res.Validator.DelegatorShares.BigInt(), // TODO: Decimal
-			// TODO: create description type,
-			Description:       res.Validator.Description.Details,
-			UnbondingHeight:   res.Validator.UnbondingHeight,
-			UnbondingTime:     res.Validator.UnbondingTime.UTC().Unix(),
-			Commission:        res.Validator.Commission.Rate.BigInt(),
-			MinSelfDelegation: res.Validator.MinSelfDelegation.BigInt(),
-		},
-	}
 }
 
 // ValidatorsInput is a struct to represent the input information for
@@ -672,24 +668,7 @@ type ValidatorsOutput struct {
 func (vo *ValidatorsOutput) FromResponse(res *stakingtypes.QueryValidatorsResponse) *ValidatorsOutput {
 	vo.Validators = make([]ValidatorInfo, len(res.Validators))
 	for i, v := range res.Validators {
-		operatorAddress, err := sdk.ValAddressFromBech32(v.OperatorAddress)
-		if err != nil {
-			vo.Validators[i] = DefaultValidatorOutput().Validator
-		} else {
-			vo.Validators[i] = ValidatorInfo{
-				OperatorAddress:   common.BytesToAddress(operatorAddress.Bytes()).String(),
-				ConsensusPubkey:   FormatConsensusPubkey(v.ConsensusPubkey),
-				Jailed:            v.Jailed,
-				Status:            uint8(stakingtypes.BondStatus_value[v.Status.String()]), //#nosec G115 // enum will always be convertible to uint8
-				Tokens:            v.Tokens.BigInt(),
-				DelegatorShares:   v.DelegatorShares.BigInt(),
-				Description:       v.Description.Details,
-				UnbondingHeight:   v.UnbondingHeight,
-				UnbondingTime:     v.UnbondingTime.UTC().Unix(),
-				Commission:        v.Commission.Rate.BigInt(),
-				MinSelfDelegation: v.MinSelfDelegation.BigInt(),
-			}
-		}
+		vo.Validators[i] = NewValidatorInfoFromResponse(v)
 	}
 
 	if res.Pagination != nil {

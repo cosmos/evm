@@ -31,11 +31,44 @@ func NewGenesisTestSuite(create network.CreateEvmApp, options ...network.ConfigO
 }
 
 func (s *GenesisTestSuite) SetupTest() {
+	s.SetupTestWithChainID(testconstants.SixDecimalsChainID)
+}
+
+func (s *GenesisTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
 	options := []network.ConfigOption{
-		network.WithChainID(testconstants.SixDecimalsChainID),
+		network.WithChainID(chainID),
 	}
 	options = append(options, s.options...)
 	s.network = network.NewUnitTestNetwork(s.create, options...)
+
+	// Clear all fractional balances to ensure no leftover balances persist between tests
+	s.network.App.GetPreciseBankKeeper().IterateFractionalBalances(s.network.GetContext(), func(addr sdk.AccAddress, bal sdkmath.Int) bool {
+		s.network.App.GetPreciseBankKeeper().DeleteFractionalBalance(s.network.GetContext(), addr)
+		return false
+	})
+}
+
+func (s *GenesisTestSuite) adjustModuleBalance(expectedAmt sdkmath.Int) {
+	moduleAddr := s.network.App.GetAccountKeeper().GetModuleAddress(types.ModuleName)
+	balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), moduleAddr, types.IntegerCoinDenom())
+
+	if balance.Amount.GT(expectedAmt) {
+		// Burn excess
+		err := s.network.App.GetBankKeeper().BurnCoins(
+			s.network.GetContext(),
+			types.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), balance.Amount.Sub(expectedAmt))),
+		)
+		s.Require().NoError(err)
+	} else if balance.Amount.LT(expectedAmt) {
+		// Mint deficit
+		err := s.network.App.GetBankKeeper().MintCoins(
+			s.network.GetContext(),
+			types.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), expectedAmt.Sub(balance.Amount))),
+		)
+		s.Require().NoError(err)
+	}
 }
 
 func (s *GenesisTestSuite) TestInitGenesis() {
@@ -60,13 +93,9 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			"valid - module balance matches non-zero amount",
 			func() {
-				// Set module account balance to expected amount
-				err := s.network.App.GetBankKeeper().MintCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(2))),
-				)
-				s.Require().NoError(err)
+				// The network setup creates an initial balance of 1, so we need to mint 1 more
+				// to get to the expected amount of 2 for this test case
+				s.adjustModuleBalance(sdkmath.NewInt(2))
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
@@ -93,7 +122,11 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		},
 		{
 			"invalid - module balance insufficient",
-			func() {},
+			func() {
+				// The network setup creates an initial balance of 1, so we need to burn that
+				// to get to 0 balance for this test case
+				s.adjustModuleBalance(sdkmath.ZeroInt())
+			},
 			types.NewGenesisState(
 				types.FractionalBalances{
 					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().SubRaw(1)),
@@ -108,13 +141,9 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			"invalid - module balance excessive",
 			func() {
-				// Set module account balance to greater than expected amount
-				err := s.network.App.GetBankKeeper().MintCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(100))),
-				)
-				s.Require().NoError(err)
+				// The network setup creates an initial balance of 1, so we need to mint 99 more
+				// to get to 100 total balance for this test case
+				s.adjustModuleBalance(sdkmath.NewInt(100))
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
@@ -188,10 +217,8 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 			var bals []types.FractionalBalance
 			s.network.App.GetPreciseBankKeeper().IterateFractionalBalances(s.network.GetContext(), func(addr sdk.AccAddress, bal sdkmath.Int) bool {
 				bals = append(bals, types.NewFractionalBalance(addr.String(), bal))
-
 				return false
 			})
-
 			s.Require().ElementsMatch(tc.genesisState.Balances, bals, "balances should be set in state")
 
 			remainder := s.network.App.GetPreciseBankKeeper().GetRemainderAmount(s.network.GetContext())
@@ -215,12 +242,8 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 		{
 			"balances, no remainder",
 			func() *types.GenesisState {
-				err := s.network.App.GetBankKeeper().MintCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
-				)
-				s.Require().NoError(err)
+				// Burn the initial balance created by network setup, then mint the expected amount
+				s.adjustModuleBalance(sdkmath.NewInt(1))
 
 				return types.NewGenesisState(
 					types.FractionalBalances{
@@ -234,12 +257,8 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 		{
 			"balances, remainder",
 			func() *types.GenesisState {
-				err := s.network.App.GetBankKeeper().MintCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
-				)
-				s.Require().NoError(err)
+				// Burn the initial balance created by network setup, then mint the expected amount
+				s.adjustModuleBalance(sdkmath.NewInt(1))
 
 				return types.NewGenesisState(
 					types.FractionalBalances{

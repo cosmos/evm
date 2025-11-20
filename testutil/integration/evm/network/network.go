@@ -18,12 +18,12 @@ import (
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/testutil/integration"
 	basenetwork "github.com/cosmos/evm/testutil/integration/base/network"
-	"github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -76,6 +76,8 @@ type IntegrationNetwork struct {
 //
 // It panics if an error occurs.
 func New(createEvmApp CreateEvmApp, opts ...ConfigOption) *IntegrationNetwork {
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
 	cfg := DefaultConfig()
 	// Modify the default config with the given options
 	for _, opt := range opts {
@@ -198,6 +200,9 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 	}
 
 	consensusParams := integration.DefaultConsensusParams
+	if n.cfg.customConsensusParams != nil {
+		consensusParams = n.cfg.customConsensusParams
+	}
 	now := time.Now()
 
 	if _, err = evmApp.InitChain(
@@ -246,7 +251,7 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 
 	n.app = evmApp
 	n.ctx = n.ctx.WithConsensusParams(*consensusParams)
-	n.ctx = n.ctx.WithBlockGasMeter(types.NewInfiniteGasMeterWithLimit(blockMaxGas))
+	n.ctx = n.ctx.WithBlockGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(blockMaxGas))
 
 	n.validators = validators
 	n.valSet = valSet
@@ -263,6 +268,19 @@ func (n *IntegrationNetwork) GetBaseDecimal() evmtypes.Decimals {
 // GetContext returns the network's context
 func (n *IntegrationNetwork) GetContext() sdktypes.Context {
 	return n.ctx
+}
+
+// GetQueryContext returns the network's context, but only set the fields that Cosmos SDK sets when it creates a query context.
+// ref: https://github.com/cosmos/cosmos-sdk/blob/fd170b51404b49bda767cf74727cd26329bfd115/baseapp/abci.go#L1298-L1314
+func (n *IntegrationNetwork) GetQueryContext() sdktypes.Context {
+	ctx := sdktypes.NewContext(n.ctx.MultiStore(), n.ctx.BlockHeader(), true, n.ctx.Logger()).
+		WithMinGasPrices(n.ctx.MinGasPrices()).
+		WithGasMeter(storetypes.NewGasMeter(n.ctx.GasMeter().Limit())).
+		WithBlockHeader(n.ctx.BlockHeader()).
+		WithBlockHeight(n.ctx.BlockHeight()).
+		WithBlockTime(n.ctx.BlockTime())
+
+	return ctx
 }
 
 // WithIsCheckTxCtx switches the network's checkTx property

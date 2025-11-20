@@ -12,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // BurnCoins burns coins deletes coins from the balance of the module account.
@@ -65,16 +64,6 @@ func (k Keeper) BurnCoins(goCtx context.Context, moduleName string, amt sdk.Coin
 		}
 	}
 
-	fullEmissionCoins := sdk.NewCoins(types.SumExtendedCoin(amt))
-	if fullEmissionCoins.IsZero() {
-		return nil
-	}
-
-	ctx.EventManager().EmitEvents(sdk.Events{
-		banktypes.NewCoinBurnEvent(acc.GetAddress(), fullEmissionCoins),
-		banktypes.NewCoinSpentEvent(acc.GetAddress(), fullEmissionCoins),
-	})
-
 	return nil
 }
 
@@ -86,6 +75,20 @@ func (k Keeper) burnExtendedCoin(
 ) error {
 	// Get the module address
 	moduleAddr := k.ak.GetModuleAddress(moduleName)
+
+	// Don't create fractional balances for the precisebank module account itself
+	// The precisebank module account is the reserve and should not have fractional balances
+	if moduleName == types.ModuleName {
+		// For the precisebank module account, just burn the integer coins directly
+		integerBurnAmount := amt.Quo(types.ConversionFactor())
+		if integerBurnAmount.IsPositive() {
+			integerBurnCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerBurnAmount)
+			if err := k.bk.BurnCoins(ctx, moduleName, sdk.NewCoins(integerBurnCoin)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	// We only need the fractional balance to burn coins, as integer burns will
 	// return errors on insufficient funds.
@@ -182,6 +185,9 @@ func (k Keeper) burnExtendedCoin(
 
 	// Update remainder for burned fractional coins
 	k.SetRemainderAmount(ctx, newRemainder)
+
+	// Emit event for fractional balance change
+	types.EmitEventFractionalBalanceChange(ctx, moduleAddr, prevFractionalBalance, newFractionalBalance)
 
 	return nil
 }

@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	servercfg "github.com/cosmos/evm/server/config"
+	testKeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -24,7 +26,7 @@ func (s *KeeperTestSuite) EvmDenom() string {
 }
 
 func (s *KeeperTestSuite) StateDB() *statedb.StateDB {
-	return statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig(common.BytesToHash(s.Network.GetContext().HeaderHash())))
+	return statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 }
 
 // DeployTestContract deploy a test erc20 contract and returns the contract address
@@ -80,7 +82,7 @@ func (s *KeeperTestSuite) DeployTestContract(t require.TestingT, ctx sdk.Context
 	}
 
 	krSigner := utiltx.NewSigner(s.Keyring.GetPrivKey(0))
-	erc20DeployTx.From = addr.Hex()
+	erc20DeployTx.From = addr.Bytes()
 	err = erc20DeployTx.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(t, err)
 	rsp, err := s.Network.App.GetEVMKeeper().EthereumTx(ctx, erc20DeployTx)
@@ -137,7 +139,7 @@ func (s *KeeperTestSuite) TransferERC20Token(t require.TestingT, contractAddr, f
 
 	addr := s.Keyring.GetAddr(0)
 	krSigner := utiltx.NewSigner(s.Keyring.GetPrivKey(0))
-	ercTransferTx.From = addr.Hex()
+	ercTransferTx.From = addr.Bytes()
 	err = ercTransferTx.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(t, err)
 	rsp, err := s.Network.App.GetEVMKeeper().EthereumTx(ctx, ercTransferTx)
@@ -196,11 +198,26 @@ func (s *KeeperTestSuite) DeployTestMessageCall(t require.TestingT) common.Addre
 	}
 
 	krSigner := utiltx.NewSigner(s.Keyring.GetPrivKey(0))
-	erc20DeployTx.From = addr.Hex()
+	erc20DeployTx.From = addr.Bytes()
 	err = erc20DeployTx.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(t, err)
 	rsp, err := s.Network.App.GetEVMKeeper().EthereumTx(ctx, erc20DeployTx)
 	require.NoError(t, err)
 	require.Empty(t, rsp.VmError)
 	return crypto.CreateAddress(addr, nonce)
+}
+
+func (s *KeeperTestSuite) SignSetCodeAuthorization(authority testKeyring.Key, auth ethtypes.SetCodeAuthorization) ethtypes.SetCodeAuthorization {
+	s.T().Helper()
+
+	privKey, ok := authority.Priv.(*ethsecp256k1.PrivKey)
+	s.Require().True(ok)
+
+	ecdsaPriv, err := privKey.ToECDSA()
+	s.Require().NoError(err)
+
+	signedAuth, err := ethtypes.SignSetCode(ecdsaPriv, auth)
+	s.Require().NoError(err)
+
+	return signedAuth
 }

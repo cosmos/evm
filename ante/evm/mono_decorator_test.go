@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -54,31 +54,29 @@ func (k *ExtendedEVMKeeper) DeductTxCostsFromUserBalance(_ sdk.Context, _ sdk.Co
 	return nil
 }
 
-func (k *ExtendedEVMKeeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
+func (k *ExtendedEVMKeeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int {
 	account := k.GetAccount(ctx, addr)
 	if account != nil {
 		return account.Balance
 	}
 	return uint256.NewInt(0)
 }
-func (k *ExtendedEVMKeeper) ResetTransientGasUsed(_ sdk.Context) {}
+
 func (k *ExtendedEVMKeeper) GetParams(_ sdk.Context) evmsdktypes.Params {
 	return evmsdktypes.DefaultParams()
 }
 func (k *ExtendedEVMKeeper) GetBaseFee(_ sdk.Context) *big.Int           { return big.NewInt(0) }
 func (k *ExtendedEVMKeeper) GetMinGasPrice(_ sdk.Context) math.LegacyDec { return math.LegacyZeroDec() }
-func (k *ExtendedEVMKeeper) GetTxIndexTransient(_ sdk.Context) uint64    { return 0 }
 
 // only methods called by EVMMonoDecorator
 type MockFeeMarketKeeper struct{}
 
-func (m MockFeeMarketKeeper) GetParams(_ sdk.Context) feemarkettypes.Params {
-	return feemarkettypes.DefaultParams()
+func (m MockFeeMarketKeeper) GetParams(ctx sdk.Context) feemarkettypes.Params {
+	param := feemarkettypes.DefaultParams()
+	param.BaseFee = m.GetBaseFee(ctx)
+	return param
 }
 
-func (m MockFeeMarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
-	return 0, nil
-}
 func (m MockFeeMarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool    { return true }
 func (m MockFeeMarketKeeper) GetBaseFee(_ sdk.Context) math.LegacyDec { return math.LegacyZeroDec() }
 
@@ -117,10 +115,9 @@ func signMsgEthereumTx(t *testing.T, privKey *ethsecp256k1.PrivKey, args *evmsdk
 	t.Helper()
 	msg := evmsdktypes.NewTx(args)
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
-	msg.From = fromAddr.Hex()
+	msg.From = fromAddr.Bytes()
 	ethSigner := ethtypes.LatestSignerForChainID(evmsdktypes.GetEthChainConfig().ChainID)
 	require.NoError(t, msg.Sign(ethSigner, utiltx.NewSigner(privKey)))
-	msg.From = ""
 	return msg
 }
 
@@ -144,8 +141,7 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 }
 
 func TestMonoDecorator(t *testing.T) {
-	chainID := uint64(config.EighteenDecimalsChainID)
-	require.NoError(t, config.EvmAppOptions(chainID))
+	chainID := uint64(constants.EighteenDecimalsChainID)
 	cfg := encoding.MakeConfig(chainID)
 
 	testCases := []struct {
@@ -195,13 +191,38 @@ func TestMonoDecorator(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			configurator := evmsdktypes.NewEVMConfigurator()
+			configurator.ResetTestConfig()
+			chainConfig := evmsdktypes.DefaultChainConfig(evmsdktypes.DefaultEVMChainID)
+			err := evmsdktypes.SetChainConfig(chainConfig)
+			require.NoError(t, err)
+			coinInfo := evmsdktypes.EvmCoinInfo{
+				Denom:         evmsdktypes.DefaultEVMExtendedDenom,
+				ExtendedDenom: evmsdktypes.DefaultEVMExtendedDenom,
+				DisplayDenom:  evmsdktypes.DefaultEVMDisplayDenom,
+				Decimals:      18,
+			}
+			err = configurator.
+				WithExtendedEips(evmsdktypes.DefaultCosmosEVMActivators).
+				// NOTE: we're using the 18 decimals default for the example chain
+				WithEVMCoinInfo(coinInfo).
+				Configure()
+			require.NoError(t, err)
 			privKey, _ := ethsecp256k1.GenerateKey()
 			keeper, cosmosAddr := setupFundedKeeper(t, privKey)
 			accountKeeper := MockAccountKeeper{FundedAddr: cosmosAddr}
-
-			monoDec := evm.NewEVMMonoDecorator(accountKeeper, MockFeeMarketKeeper{}, keeper, 0)
+			feeMarketKeeper := MockFeeMarketKeeper{}
+			params := keeper.GetParams(sdk.Context{})
+			feemarketParams := feeMarketKeeper.GetParams(sdk.Context{})
+			monoDec := evm.NewEVMMonoDecorator(accountKeeper, feeMarketKeeper, keeper, 0, &params, &feemarketParams)
 			ctx := sdk.NewContext(nil, tmproto.Header{}, false, log.NewNopLogger())
 			ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(1e19))
+			blockParams := tmproto.BlockParams{
+				MaxBytes: 200000,
+				MaxGas:   81500000, // default limit
+			}
+			consParams := tmproto.ConsensusParams{Block: &blockParams}
+			ctx = ctx.WithConsensusParams(consParams)
 
 			msgs := tc.buildMsgs(privKey)
 			tx, err := utiltx.PrepareEthTx(cfg.TxConfig, nil, toMsgSlice(msgs)...)

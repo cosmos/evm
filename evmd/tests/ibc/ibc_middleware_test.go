@@ -1,6 +1,7 @@
 package ibc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -20,9 +21,9 @@ import (
 	"github.com/cosmos/evm/x/erc20"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
-	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
-	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
-	types3 "github.com/cosmos/evm/x/vm/types"
+	ibctestutil "github.com/cosmos/evm/x/ibc/callbacks/testutil"
+	callbacktypes "github.com/cosmos/evm/x/ibc/callbacks/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -74,7 +75,7 @@ func TestMiddlewareTestSuite(t *testing.T) {
 func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 	var packet channeltypes.Packet
 
-	var contractData types3.CompiledContract
+	var contractData evmtypes.CompiledContract
 	var contractAddr common.Address
 	var voucherDenom string
 	var path *evmibctesting.Path
@@ -314,10 +315,10 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 
 			// Generate the isolated address for the sender
 			sendAmt := ibctesting.DefaultCoinAmount
-			isolatedAddr := types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String())
+			isolatedAddr := callbacktypes.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String())
 
 			// Get callback tester contract and deploy it
-			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			contractData, err = ibctestutil.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
 			deploymentData := testutiltypes.ContractDeploymentData{
@@ -397,8 +398,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 
-				params := evmApp.Erc20Keeper.GetParams(evmCtx)
-				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(evmCtx, common.HexToAddress(tokenPair.Erc20Address))
+				suite.Require().True(available)
 			} else {
 				suite.Require().False(ack.Success(), "Expected failure but got success")
 
@@ -553,8 +554,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 				// Make sure dynamic precompile is registered
-				params := evmApp.Erc20Keeper.GetParams(ctxA)
-				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(ctxA, common.HexToAddress(tokenPair.Erc20Address))
+				suite.Require().True(available)
 			} else {
 				suite.Require().False(ack.Success())
 
@@ -570,119 +571,273 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 
 // TestOnRecvPacketNativeErc20 checks receiving a native ERC20 token.
 func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
-	suite.SetupTest()
-	nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
-
-	evmCtx := suite.evmChainA.GetContext()
-	evmApp := suite.evmChainA.App.(*evmd.EVMD)
-
-	// Scenario: Native ERC20 token transfer from evmChainA to chainB
-	timeoutHeight := clienttypes.NewHeight(1, 110)
-	path := suite.path
-	chainBAccount := suite.chainB.SenderAccount.GetAddress()
-
-	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
-	senderEthAddr := nativeErc20.Account
-	sender := sdk.AccAddress(senderEthAddr.Bytes())
-
-	msg := transfertypes.NewMsgTransfer(
-		path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
-		sdk.NewCoin(nativeErc20.Denom, sendAmt),
-		sender.String(), chainBAccount.String(),
-		timeoutHeight, 0, "",
-	)
-	_, err := suite.evmChainA.SendMsgs(msg)
-	suite.Require().NoError(err) // message committed
-
-	balAfterTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
-	suite.Require().Equal(
-		new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
-		balAfterTransfer.String(),
-	)
-
-	// Check native erc20 token is escrowed on evmChainA for sending to chainB.
-	escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
-	escrowedBal := evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
-	suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
-
-	// chainBNativeErc20Denom is the native erc20 token denom on chainB from evmChainA through IBC.
-	chainBNativeErc20Denom := transfertypes.NewDenom(
-		nativeErc20.Denom,
-		transfertypes.NewHop(
-			suite.path.EndpointB.ChannelConfig.PortID,
-			suite.path.EndpointB.ChannelID,
-		),
-	)
-	// receiver := sender // the receiver is the sender on evmChainA
-	// Mock the transfer of received native erc20 token by evmChainA to evmChainA.
-	// Note that ChainB didn't receive the native erc20 token. We just assume that.
-	packetData := transfertypes.NewFungibleTokenPacketData(
-		chainBNativeErc20Denom.Path(),
-		sendAmt.String(),
-		chainBAccount.String(),
-		types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String()).String(),
-		"",
-	)
-
-	// get callback tester contract and deploy it
-	contractData, err := testutil2.LoadCounterWithCallbacksContract()
-	suite.Require().NoError(err)
-
-	deploymentData := testutiltypes.ContractDeploymentData{
-		Contract:        contractData,
-		ConstructorArgs: nil,
+	testCases := []struct {
+		name                 string
+		setupRecipient       func(suite *MiddlewareTestSuite) (string, common.Address)
+		withCallback         bool
+		expectedRecipientEVM common.Address
+	}{
+		{
+			name: "recipient with callback",
+			setupRecipient: func(suite *MiddlewareTestSuite) (string, common.Address) {
+				recipient := callbacktypes.GenerateIsolatedAddress(
+					suite.path.EndpointA.ChannelID,
+					suite.chainB.SenderAccount.GetAddress().String(),
+				).String()
+				return recipient, common.Address{}
+			},
+			withCallback:         true,
+			expectedRecipientEVM: common.Address{},
+		},
+		{
+			name: "hex recipient without callback",
+			setupRecipient: func(suite *MiddlewareTestSuite) (string, common.Address) {
+				evmAddr := common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress().Bytes())
+				return evmAddr.Hex(), evmAddr
+			},
+			withCallback:         false,
+			expectedRecipientEVM: common.Address{},
+		},
 	}
 
-	contractAddr, err := DeployContract(suite.T(), suite.evmChainA, deploymentData)
-	if err != nil {
-		return
-	}
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			suite.SetupTest()
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
 
-	packedBytes, err := contractData.ABI.Pack("add", nativeErc20.ContractAddr, sendAmt.BigInt())
-	suite.Require().NoError(err)
+			evmCtx := suite.evmChainA.GetContext()
+			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
-	destCallback := fmt.Sprintf(`{
-			   "dest_callback": {
-				  "address": "%s",
-				  "gas_limit": "%d",
-				  "calldata": "%x"
+			// Scenario: Native ERC20 token transfer from evmChainA to chainB
+			timeoutHeight := clienttypes.NewHeight(1, 110)
+			path := suite.path
+			chainBAccount := suite.chainB.SenderAccount.GetAddress()
+
+			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal).Quo(math.NewInt(2))
+			senderEthAddr := nativeErc20.Account
+			sender := sdk.AccAddress(senderEthAddr.Bytes())
+
+			// Transfer half the initial balance out
+			// Sender transfers 50 out (escrowed)
+			msg := transfertypes.NewMsgTransfer(
+				path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
+				sdk.NewCoin(nativeErc20.Denom, sendAmt),
+				sender.String(), chainBAccount.String(),
+				timeoutHeight, 0, "",
+			)
+
+			_, err := suite.evmChainA.SendMsgs(msg)
+			suite.Require().NoError(err) // message committed
+
+			// Balance after transfer should be initial balance - sendAmt
+			balAfterTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			suite.Require().Equal(
+				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
+				balAfterTransfer.String(),
+			)
+
+			// Now try to convert sendAmt to ERC20
+			convertMsg := types.MsgConvertERC20{
+				ContractAddress: nativeErc20.ContractAddr.String(),
+				Amount:          sendAmt,
+				Receiver:        sender.String(),
+				Sender:          senderEthAddr.String(),
+			}
+
+			_, err = suite.evmChainA.SendMsgs(&convertMsg)
+			suite.Require().NoError(err) // message committed
+
+			// Check native erc20 token is escrowed on evmChainA for sending to chainB.
+			// Conversion of remaining 50 tokens to Bank token
+			escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			escrowedBal := evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
+			suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+
+			// chainBNativeErc20Denom is the native erc20 token denom on chainB from evmChainA through IBC.
+			chainBNativeErc20Denom := transfertypes.NewDenom(
+				nativeErc20.Denom,
+				transfertypes.NewHop(
+					suite.path.EndpointB.ChannelConfig.PortID,
+					suite.path.EndpointB.ChannelID,
+				),
+			)
+
+			// Setup recipient based on test case
+			recipient, recipientEVM := tc.setupRecipient(suite)
+			if !tc.withCallback {
+				tc.expectedRecipientEVM = recipientEVM
+			}
+
+			var recvAmt math.Int
+			var packetData transfertypes.FungibleTokenPacketData
+
+			if tc.withCallback {
+				// half the send amount should be received since our first call will fail due to send disabled,
+				// and the second will succeed
+				recvAmt = sendAmt.Quo(math.NewInt(2))
+
+				// get callback tester contract and deploy it
+				contractData, err := ibctestutil.LoadCounterWithCallbacksContract()
+				suite.Require().NoError(err)
+
+				deploymentData := testutiltypes.ContractDeploymentData{
+					Contract:        contractData,
+					ConstructorArgs: nil,
 				}
-        	}`, contractAddr, 1_000_000, packedBytes)
 
-	packetData.Memo = destCallback
+				contractAddr, err := DeployContract(suite.T(), suite.evmChainA, deploymentData)
+				if err != nil {
+					return
+				}
 
-	packet := channeltypes.Packet{
-		Sequence:           1,
-		SourcePort:         path.EndpointB.ChannelConfig.PortID,
-		SourceChannel:      path.EndpointB.ChannelID,
-		DestinationPort:    path.EndpointA.ChannelConfig.PortID,
-		DestinationChannel: path.EndpointA.ChannelID,
-		Data:               packetData.GetBytes(),
-		TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
-		TimeoutTimestamp:   0,
+				// Each callback gets recvAmt
+				packedBytes, err := contractData.ABI.Pack("add", nativeErc20.ContractAddr, recvAmt.BigInt())
+				suite.Require().NoError(err)
+
+				destCallback := fmt.Sprintf(`{
+					   "dest_callback": {
+						  "address": "%s",
+						  "gas_limit": "%d",
+						  "calldata": "%x"
+						}
+					}`, contractAddr, 1_000_000, packedBytes)
+
+				packetData = transfertypes.NewFungibleTokenPacketData(
+					chainBNativeErc20Denom.Path(),
+					recvAmt.String(),
+					chainBAccount.String(),
+					recipient,
+					destCallback,
+				)
+			} else {
+				recvAmt = math.NewInt(50)
+				packetData = transfertypes.NewFungibleTokenPacketData(
+					chainBNativeErc20Denom.Path(),
+					recvAmt.String(),
+					chainBAccount.String(),
+					recipient,
+					"",
+				)
+			}
+
+			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			suite.Require().True(ok)
+
+			sourceChan := path.EndpointB.GetChannel()
+
+			if tc.withCallback {
+				suite.evmChainA.NextBlock()
+
+				// SendEnabled=false will cause the conversion of bank tokens to erc20 tokens to fail,
+				// but not send them back to escrow
+				evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, false)
+				isSendEnabled := evmApp.BankKeeper.IsSendEnabledDenom(evmCtx, nativeErc20.Denom)
+				suite.Require().False(isSendEnabled)
+
+				packet1 := channeltypes.Packet{
+					Sequence:           1,
+					SourcePort:         path.EndpointB.ChannelConfig.PortID,
+					SourceChannel:      path.EndpointB.ChannelID,
+					DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+					DestinationChannel: path.EndpointA.ChannelID,
+					Data:               packetData.GetBytes(),
+					TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+					TimeoutTimestamp:   0,
+				}
+
+				errAck := transferStack.OnRecvPacket(
+					evmCtx,
+					sourceChan.Version,
+					packet1,
+					suite.evmChainA.SenderAccount.GetAddress(),
+				)
+				suite.Require().False(errAck.Success())
+
+				evmCtx = suite.evmChainA.GetContext()
+
+				// SendEnabled=true causes our callback to succeed
+				evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, true)
+				isSendEnabled = evmApp.BankKeeper.IsSendEnabledDenom(evmCtx, nativeErc20.Denom)
+				suite.Require().True(isSendEnabled)
+
+				packet2 := channeltypes.Packet{
+					Sequence:           2,
+					SourcePort:         path.EndpointB.ChannelConfig.PortID,
+					SourceChannel:      path.EndpointB.ChannelID,
+					DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+					DestinationChannel: path.EndpointA.ChannelID,
+					Data:               packetData.GetBytes(),
+					TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+					TimeoutTimestamp:   0,
+				}
+
+				ack := transferStack.OnRecvPacket(
+					evmCtx,
+					sourceChan.Version,
+					packet2,
+					suite.evmChainA.SenderAccount.GetAddress(),
+				)
+				suite.Require().True(ack.Success())
+
+				// Check un-escrowed balance on evmChainA after receiving the packet.
+				escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
+				suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
+
+				// recvAmt should be in the contractAddr upon successful recv callback
+				contractAddr := common.HexToAddress(packetData.Memo)
+				// Parse contract address from memo
+				var memoData map[string]interface{}
+				err = json.Unmarshal([]byte(packetData.Memo), &memoData)
+				suite.Require().NoError(err)
+				destCallback := memoData["dest_callback"].(map[string]interface{})
+				contractAddrStr := destCallback["address"].(string)
+				contractAddr = common.HexToAddress(contractAddrStr)
+
+				balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, contractAddr)
+				suite.Require().Equal(recvAmt.String(), balAfterUnescrow.String())
+
+				bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
+				// InitialBalance half which was converted but not sent will be in the sending account's balance
+				suite.Require().Equal(sendAmt.String(), bankBalAfterUnescrow.Amount.String())
+
+				// the packet that failed conversion due to the minting restriction should instead remain as the bank token
+				// and will be in the isolated address used to invoke the callback
+				isolatedAddr := callbacktypes.GenerateIsolatedAddress(path.EndpointA.ChannelID,
+					suite.chainB.SenderAccount.GetAddress().String())
+				trappedBal := evmApp.BankKeeper.GetBalance(evmCtx, isolatedAddr, nativeErc20.Denom)
+				suite.Require().Equal(recvAmt.String(), trappedBal.Amount.String())
+			} else {
+				// Simple case: no callback, just verify hex recipient receives ERC20
+				packet := channeltypes.Packet{
+					Sequence:           1,
+					SourcePort:         path.EndpointB.ChannelConfig.PortID,
+					SourceChannel:      path.EndpointB.ChannelID,
+					DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+					DestinationChannel: path.EndpointA.ChannelID,
+					Data:               packetData.GetBytes(),
+					TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+					TimeoutTimestamp:   0,
+				}
+
+				ack := transferStack.OnRecvPacket(
+					evmCtx,
+					sourceChan.Version,
+					packet,
+					suite.evmChainA.SenderAccount.GetAddress(),
+				)
+				suite.Require().True(ack.Success())
+
+				// Verify ERC20 was minted to the hex recipient
+				bal := evmApp.Erc20Keeper.BalanceOf(
+					evmCtx,
+					nativeErc20.ContractAbi,
+					nativeErc20.ContractAddr,
+					tc.expectedRecipientEVM,
+				)
+				suite.Require().Equal(recvAmt.String(), bal.String())
+			}
+		})
 	}
-
-	transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
-	suite.Require().True(ok)
-
-	suite.evmChainA.NextBlock()
-
-	sourceChan := path.EndpointB.GetChannel()
-	ack := transferStack.OnRecvPacket(
-		evmCtx,
-		sourceChan.Version,
-		packet,
-		suite.evmChainA.SenderAccount.GetAddress(),
-	)
-	suite.Require().True(ack.Success())
-
-	// Check un-escrowed balance on evmChainA after receiving the packet.
-	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
-	suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
-	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, contractAddr)
-	suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
-	bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
-	suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
 }
 
 // TestOnAcknowledgementPacketWithCallback tests acknowledgement logic with comprehensive callback scenarios.
@@ -690,7 +845,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 	var (
 		packet       channeltypes.Packet
 		ack          []byte
-		contractData types3.CompiledContract
+		contractData evmtypes.CompiledContract
 		contractAddr common.Address
 	)
 
@@ -947,7 +1102,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 			receiver := suite.chainB.SenderAccount.GetAddress()
 
 			// Deploy callback contract on source chain (evmChainA)
-			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			contractData, err = ibctestutil.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
 			deploymentData := testutiltypes.ContractDeploymentData{
@@ -1563,7 +1718,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 	var (
 		packet       channeltypes.Packet
-		contractData types3.CompiledContract
+		contractData evmtypes.CompiledContract
 		contractAddr common.Address
 	)
 
@@ -1774,7 +1929,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 			receiver := suite.chainB.SenderAccount.GetAddress()
 
 			// Deploy callback contract on source chain (evmChainA)
-			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			contractData, err = ibctestutil.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
 			deploymentData := testutiltypes.ContractDeploymentData{

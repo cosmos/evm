@@ -7,6 +7,8 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	evmmempool "github.com/cosmos/evm/mempool"
+
 	storetypes "cosmossdk.io/store/types"
 )
 
@@ -28,6 +30,27 @@ func (n *IntegrationNetwork) NextBlockAfter(duration time.Duration) error {
 // commits the changes to have a block time after the given duration.
 func (n *IntegrationNetwork) NextBlockWithTxs(txBytes ...[]byte) (*abcitypes.ResponseFinalizeBlock, error) {
 	return n.finalizeBlockAndCommit(time.Second, txBytes...)
+}
+
+// FinalizeBlock is a helper function that runs FinalizeBlock logic
+// without Commit and initializing context.
+func (n *IntegrationNetwork) FinalizeBlock() (*abcitypes.ResponseFinalizeBlock, error) {
+	header := n.ctx.BlockHeader()
+	// Update block header and BeginBlock
+	header.Height++
+	header.AppHash = n.app.LastCommitID().Hash
+	// Calculate new block time after duration
+	newBlockTime := header.Time.Add(time.Second)
+	header.Time = newBlockTime
+
+	// FinalizeBlock to run endBlock, deliverTx & beginBlock logic
+	req := buildFinalizeBlockReq(header, n.valSet.Validators)
+
+	res, err := n.app.FinalizeBlock(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // finalizeBlockAndCommit is a private helper function that runs the FinalizeBlock logic
@@ -60,9 +83,19 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	// This might have to be changed with time if we want to test gas limits
 	newCtx = newCtx.WithBlockGasMeter(storetypes.NewInfiniteGasMeter())
 	newCtx = newCtx.WithVoteInfos(req.DecidedLastCommit.GetVotes())
+	newCtx = newCtx.WithHeaderHash(header.AppHash)
 	n.ctx = newCtx
 
-	// commit changes
+	// Acquire commit lock to prevent mempool background readers from accessing
+	// IAVL concurrently during commit in tests, then commit changes.
+	if mp := n.app.GetMempool(); mp != nil {
+		if evmMp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
+			if bc := evmMp.GetBlockchain(); bc != nil {
+				bc.BeginCommit()
+				defer bc.EndCommit()
+			}
+		}
+	}
 	_, err = n.app.Commit()
 
 	return res, err

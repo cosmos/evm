@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"google.golang.org/grpc/codes"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	compiledcontracts "github.com/cosmos/evm/contracts"
@@ -80,7 +80,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				To: &precompileAddr,
 			}
 
-			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.ABI.Events}
+			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
 			passCheck = defaultLogCheck.WithExpPass(true)
 			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
 		})
@@ -1440,7 +1440,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// check contract was correctly deployed
 			cAcc := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddr)
 			Expect(cAcc).ToNot(BeNil(), "contract account should exist")
-			Expect(cAcc.IsContract()).To(BeTrue(), "account should be a contract")
+			isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+			Expect(isContract).To(BeTrue(), "account should be a contract")
 
 			// populate default TxArgs
 			txArgs.To = &contractAddr
@@ -1565,6 +1566,36 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).NotTo(BeNil(), "expected validator NOT to be found")
 				Expect(err.Error()).To(ContainSubstring("not found"), "expected validator NOT to be found")
 			})
+
+			It("tx from validator operator with delegated code - should create a validator", func() {
+				s.delegateAccountToContract(valPriv, valHexAddr, contractTwoAddr)
+
+				callArgs = testutiltypes.CallArgs{
+					ContractABI: stakingCallerTwoContract.ABI,
+					MethodName:  "testCreateValidatorWithTransfer",
+					Args: []interface{}{
+						defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
+					},
+				}
+
+				txArgs = evmtypes.EvmTxArgs{
+					To:       &valHexAddr,
+					GasLimit: 500_000,
+					Amount:   new(big.Int).Set(defaultValue),
+				}
+
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					valPriv,
+					txArgs, callArgs,
+					passCheck.WithExpEvents(staking.EventTypeCreateValidator),
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				qc := s.network.GetStakingClient()
+				_, err := qc.Validator(s.network.GetContext(), &stakingtypes.QueryValidatorRequest{ValidatorAddr: sdk.ValAddress(valAddr).String()})
+				Expect(err).To(BeNil(), "expected validator NOT to be found")
+			})
 		})
 
 		Context("to edit a validator", func() {
@@ -1682,6 +1713,33 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				validator := qRes.Validator
 				Expect(validator.Description.Moniker).To(Equal("original moniker"), "expected validator moniker is updated")
 				Expect(validator.Commission.Rate.BigInt().String()).To(Equal("100000000000000000"), "expected validator commission rate remain unchanged")
+			})
+
+			It("with tx from validator operator using delegated code - should NOT edit a validator", func() {
+				s.delegateAccountToContract(valPriv, valHexAddr, contractAddr)
+				callArgs.Args = []interface{}{
+					defaultDescription, valHexAddr,
+					defaultCommissionRate, defaultMinSelfDelegation,
+				}
+
+				txArgs.To = &valHexAddr
+
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					valPriv,
+					txArgs,
+					callArgs,
+					execRevertedCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				qc := s.network.GetStakingClient()
+				qRes, err := qc.Validator(s.network.GetContext(), &stakingtypes.QueryValidatorRequest{ValidatorAddr: sdk.ValAddress(valAddr).String()})
+				Expect(err).To(BeNil())
+				Expect(qRes).NotTo(BeNil())
+
+				validator := qRes.Validator
+				Expect(validator.Description.Moniker).NotTo(Equal(defaultDescription.Moniker), "expected validator moniker NOT to be updated")
 			})
 		})
 
@@ -1895,6 +1953,58 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(err).To(BeNil())
 						txSenderFinalBal := balRes.Balance
 						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)), "expected tx sender balance to be deducted by fees")
+					})
+					It("should test nested precompile calls with revert", func() {
+						outerTimes := int64(3)
+						innerTimes := int64(2)
+						expectedDelegations := outerTimes + 2 // 1 before + outerTimes after catches + 1 after loop
+						expectedDelegationAmount := math.NewInt(10).MulRaw(expectedDelegations)
+
+						callArgs := testutiltypes.CallArgs{
+							ContractABI: stakingReverterContract.ABI,
+							MethodName:  "nestedTryCatchDelegations",
+							Args: []interface{}{
+								big.NewInt(outerTimes), big.NewInt(innerTimes), s.network.GetValidators()[0].OperatorAddress,
+							},
+						}
+
+						expEvents := make([]string, 0, expectedDelegations)
+						for range expectedDelegations {
+							expEvents = append(expEvents, staking.EventTypeDelegate)
+						}
+						delegateCheck := passCheck.WithExpEvents(expEvents...)
+
+						res, _, err := s.factory.CallContractAndCheckLogs(
+							s.keyring.GetPrivKey(0),
+							evmtypes.EvmTxArgs{
+								To:       &stkReverterAddr,
+								GasPrice: gasPrice.BigInt(),
+							},
+							callArgs,
+							delegateCheck,
+						)
+						Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+						Expect(s.network.NextBlock()).To(BeNil())
+
+						fees := gasPrice.MulRaw(res.GasUsed)
+
+						// delegation should have been created with expected shares
+						qRes, err := s.grpcHandler.GetDelegation(sdk.AccAddress(stkReverterAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
+						Expect(err).To(BeNil())
+						Expect(qRes.DelegationResponse.Delegation.GetDelegatorAddr()).To(Equal(sdk.AccAddress(stkReverterAddr.Bytes()).String()))
+						Expect(qRes.DelegationResponse.Delegation.GetShares().BigInt()).To(Equal(expectedDelegationAmount.BigInt()))
+
+						// contract balance should be deducted by total delegation amount
+						balRes, err := s.grpcHandler.GetBalanceFromBank(stkReverterAddr.Bytes(), s.bondDenom)
+						Expect(err).To(BeNil())
+						contractFinalBalance := balRes.Balance
+						Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount.Sub(expectedDelegationAmount)))
+
+						// fees deducted on tx sender only
+						balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+						Expect(err).To(BeNil())
+						txSenderFinalBal := balRes.Balance
+						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)))
 					})
 				})
 
@@ -3264,7 +3374,21 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Check that the StakingCaller contract has the correct balance
-			erc20Balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, contractAddr)
+			ethRes, err := s.factory.QueryContract(
+				evmtypes.EvmTxArgs{
+					To: &erc20ContractAddr,
+				},
+				testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{contractAddr},
+				},
+				0,
+			)
+			Expect(err).To(BeNil(), "error while querying the ERC20 balance of the StakingCaller contract")
+			var erc20Balance *big.Int
+			err = erc20Contract.ABI.UnpackIntoInterface(&erc20Balance, "balanceOf", ethRes.Ret)
+			Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 			Expect(erc20Balance).To(Equal(mintAmount), "expected different ERC20 balance for the StakingCaller contract")
 
 			// populate default call args
@@ -3347,9 +3471,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
-
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
+
+				var erc20BalancePost *big.Int
+				ethRes, err := s.factory.QueryContract(
+					evmtypes.EvmTxArgs{
+						To: &erc20ContractAddr,
+					},
+					testutiltypes.CallArgs{
+						ContractABI: erc20Contract.ABI,
+						MethodName:  "balanceOf",
+						Args:        []interface{}{delegator.Addr},
+					},
+					0,
+				)
+				Expect(err).To(BeNil(), "error while querying the ERC20 balance of delegator")
+				err = erc20Contract.ABI.UnpackIntoInterface(&erc20BalancePost, "balanceOf", ethRes.Ret)
+				Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
 			})
 
@@ -3380,9 +3518,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
-
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
+
+				ethRes, err := s.factory.QueryContract(
+					evmtypes.EvmTxArgs{
+						To: &erc20ContractAddr,
+					},
+					testutiltypes.CallArgs{
+						ContractABI: erc20Contract.ABI,
+						MethodName:  "balanceOf",
+						Args:        []interface{}{delegator.Addr},
+					},
+					0,
+				)
+				Expect(err).To(BeNil(), "error while querying the ERC20 balance of delegator")
+				var erc20BalancePost *big.Int
+				err = erc20Contract.ABI.UnpackIntoInterface(&erc20BalancePost, "balanceOf", ethRes.Ret)
+				Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
 			})
 
@@ -3428,9 +3580,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
-
 				Expect(sharesPost.GT(sharesPre)).To(BeTrue(), "expected shares to be more than before")
+
+				ethRes, err := s.factory.QueryContract(
+					evmtypes.EvmTxArgs{
+						To: &erc20ContractAddr,
+					},
+					testutiltypes.CallArgs{
+						ContractABI: erc20Contract.ABI,
+						MethodName:  "balanceOf",
+						Args:        []interface{}{delegator.Addr},
+					},
+					0,
+				)
+				Expect(err).To(BeNil(), "error while querying the ERC20 balance of delegator")
+				var erc20BalancePost *big.Int
+				err = erc20Contract.ABI.UnpackIntoInterface(&erc20BalancePost, "balanceOf", ethRes.Ret)
+				Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 				Expect(erc20BalancePost).To(Equal(transferredAmount), "expected different erc20 balance of target address")
 			})
 		})

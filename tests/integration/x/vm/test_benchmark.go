@@ -10,13 +10,13 @@ import (
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 )
 
 func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {
@@ -63,7 +63,7 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	msg := txBuilder(suite, contractAddr)
-	msg.From = suite.Keyring.GetAddr(0).Hex()
+	msg.From = suite.Keyring.GetAddr(0).Bytes()
 	err := msg.Sign(ethtypes.LatestSignerForChainID(types.GetEthChainConfig().ChainID), krSigner)
 	require.NoError(b, err)
 
@@ -72,12 +72,8 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
-		// deduct fee first
-		txData, err := types.UnpackTxData(msg.Data)
-		require.NoError(b, err)
-
-		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(txData.Fee()))}
-		err = authante.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
+		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
+		err = vmkeeper.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.App.GetEVMKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
 		rsp, err := suite.Network.App.GetEVMKeeper().EthereumTx(ctx, msg)
@@ -191,7 +187,7 @@ func BenchmarkMessageCall(b *testing.B) {
 	}
 	msg := types.NewTx(ethTxParams)
 
-	msg.From = suite.Keyring.GetAddr(0).Hex()
+	msg.From = suite.Keyring.GetAddr(0).Bytes()
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	err = msg.Sign(ethtypes.LatestSignerForChainID(ethCfg.ChainID), krSigner)
 	require.NoError(b, err)
@@ -201,12 +197,8 @@ func BenchmarkMessageCall(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
-		// deduct fee first
-		txData, err := types.UnpackTxData(msg.Data)
-		require.NoError(b, err)
-
-		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(txData.Fee()))}
-		err = authante.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
+		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
+		err = vmkeeper.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.App.GetEVMKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
 		rsp, err := suite.Network.App.GetEVMKeeper().EthereumTx(ctx, msg)

@@ -30,7 +30,7 @@ type EVMKeeper struct {
 }
 
 // ApplyMessage provides a mock function with given fields: ctx, msg, tracer, commit
-func (_m *EVMKeeper) ApplyMessage(ctx types.Context, msg core.Message, tracer *tracing.Hooks, commit bool) (*vmtypes.MsgEthereumTxResponse, error) {
+func (_m *EVMKeeper) ApplyMessage(ctx types.Context, msg core.Message, tracer *tracing.Hooks, commit bool, internal bool) (*vmtypes.MsgEthereumTxResponse, error) {
 	ret := _m.Called(ctx, msg, tracer, commit)
 
 	if len(ret) == 0 {
@@ -60,8 +60,8 @@ func (_m *EVMKeeper) ApplyMessage(ctx types.Context, msg core.Message, tracer *t
 }
 
 // CallEVM provides a mock function with given fields: ctx, _a1, from, contract, commit, gasCap, method, args
-func (_m *EVMKeeper) CallEVM(ctx types.Context, _a1 abi.ABI, from common.Address, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*vmtypes.MsgEthereumTxResponse, error) {
-	var _ca []interface{}
+func (_m *EVMKeeper) CallEVM(ctx types.Context, _a1 abi.ABI, from common.Address, contract common.Address, commit bool, gasCap *big.Int, method string, args ...any) (*vmtypes.MsgEthereumTxResponse, error) {
+	var _ca []any
 	_ca = append(_ca, ctx, _a1, from, contract, commit, gasCap, method)
 	_ca = append(_ca, args...)
 	ret := _m.Called(_ca...)
@@ -72,10 +72,10 @@ func (_m *EVMKeeper) CallEVM(ctx types.Context, _a1 abi.ABI, from common.Address
 
 	var r0 *vmtypes.MsgEthereumTxResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...interface{}) (*vmtypes.MsgEthereumTxResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...any) (*vmtypes.MsgEthereumTxResponse, error)); ok {
 		return rf(ctx, _a1, from, contract, commit, gasCap, method, args...)
 	}
-	if rf, ok := ret.Get(0).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...interface{}) *vmtypes.MsgEthereumTxResponse); ok {
+	if rf, ok := ret.Get(0).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...any) *vmtypes.MsgEthereumTxResponse); ok {
 		r0 = rf(ctx, _a1, from, contract, commit, gasCap, method, args...)
 	} else {
 		if ret.Get(0) != nil {
@@ -83,7 +83,7 @@ func (_m *EVMKeeper) CallEVM(ctx types.Context, _a1 abi.ABI, from common.Address
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...interface{}) error); ok {
+	if rf, ok := ret.Get(1).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...any) error); ok {
 		r1 = rf(ctx, _a1, from, contract, commit, gasCap, method, args...)
 	} else {
 		r1 = ret.Error(1)
@@ -259,6 +259,24 @@ func (_m *EVMKeeper) IsAvailableStaticPrecompile(params *vmtypes.Params, address
 	var r0 bool
 	if rf, ok := ret.Get(0).(func(*vmtypes.Params, common.Address) bool); ok {
 		r0 = rf(params, address)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// IsContract provides a mock function with given fields: ctx, address
+func (_m *EVMKeeper) IsContract(ctx types.Context, address common.Address) bool {
+	ret := _m.Called(ctx, address)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsContract")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address) bool); ok {
+		r0 = rf(ctx, address)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}

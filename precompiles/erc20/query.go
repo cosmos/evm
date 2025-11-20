@@ -113,7 +113,14 @@ func (p Precompile) Decimals(
 		displayFound bool
 	)
 	for i := len(metadata.DenomUnits) - 1; i >= 0; i-- {
-		if metadata.DenomUnits[i].Denom == metadata.Display {
+		var match bool
+		if strings.HasPrefix(metadata.Base, "ibc/") {
+			displays := strings.Split(metadata.Display, "/")
+			match = metadata.DenomUnits[i].Denom == displays[len(displays)-1]
+		} else {
+			match = metadata.DenomUnits[i].Denom == metadata.Display
+		}
+		if match {
 			decimals = metadata.DenomUnits[i].Exponent
 			displayFound = true
 			break
@@ -165,7 +172,7 @@ func (p Precompile) BalanceOf(
 		return nil, err
 	}
 
-	balance := p.BankKeeper.GetBalance(ctx, account.Bytes(), p.tokenPair.Denom)
+	balance := p.BankKeeper.SpendableCoin(ctx, account.Bytes(), p.tokenPair.Denom)
 
 	return method.Outputs.Pack(balance.Amount.BigInt())
 }

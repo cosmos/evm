@@ -102,13 +102,13 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 			false,
 		},
 		{
-			"fail - delayed malicious contract",
+			"pass - delayed malicious contract",
 			10,
 			10,
 			func(common.Address) {},
 			func() {},
 			contractMaliciousDelayed,
-			false,
+			true,
 			false,
 		},
 		{
@@ -145,6 +145,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -173,6 +174,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Twice()
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced balance error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -201,6 +203,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Once()
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -231,6 +234,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -249,13 +253,15 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					mockBankKeeper, s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(),
-					&transferKeeper)
+					&transferKeeper,
+				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to mint")).AnyTimes()
 				mockBankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to unescrow")).AnyTimes()
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false).AnyTimes()
 				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.Coin{Denom: "coin", Amount: math.OneInt()}).AnyTimes()
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
@@ -274,13 +280,15 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					mockBankKeeper, s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(),
-					&transferKeeper)
+					&transferKeeper,
+				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockBankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to unescrow"))
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false)
 				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.Coin{Denom: "coin", Amount: math.OneInt()})
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
@@ -299,13 +307,15 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					mockBankKeeper, s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(),
-					&transferKeeper)
+					&transferKeeper,
+				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockBankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false)
 				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.Coin{Denom: coinName, Amount: math.OneInt()}).AnyTimes()
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
@@ -359,7 +369,8 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.Require().NotNil(acc)
 				}
 
-				if tc.selfdestructed || !acc.IsContract() {
+				isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+				if tc.selfdestructed || !isContract {
 					id := s.network.App.GetErc20Keeper().GetTokenPairID(ctx, contractAddr.String())
 					_, found := s.network.App.GetErc20Keeper().GetTokenPair(ctx, id)
 					s.Require().False(found)
@@ -444,6 +455,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -472,6 +484,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Times(3)
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced balance error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -500,6 +513,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Twice()
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -530,6 +544,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -556,6 +571,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockBankKeeper.EXPECT().SendCoinsFromAccountToModule(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to unescrow")).AnyTimes()
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false).AnyTimes()
 				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.Coin{Denom: "coin", Amount: math.OneInt()}).AnyTimes()
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
@@ -581,6 +597,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockBankKeeper.EXPECT().SendCoinsFromAccountToModule(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockBankKeeper.EXPECT().BurnCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to burn")).AnyTimes()
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false)
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
@@ -644,7 +661,8 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 					s.Require().NotNil(acc)
 				}
 
-				if tc.selfdestructed || !acc.IsContract() {
+				isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+				if tc.selfdestructed || !isContract {
 					id := s.network.App.GetErc20Keeper().GetTokenPairID(s.network.GetContext(), contractAddr.String())
 					_, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), id)
 					s.Require().False(found)

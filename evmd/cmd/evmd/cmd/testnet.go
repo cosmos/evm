@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cosmos/evm/evmd/config"
+
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -36,7 +37,7 @@ import (
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
-	"github.com/cosmos/cosmos-sdk/testutil/network"
+	sdknetwork "github.com/cosmos/cosmos-sdk/testutil/network"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -46,6 +47,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	customnetwork "github.com/cosmos/evm/evmd/tests/network"
+	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 var (
@@ -62,8 +67,19 @@ var (
 	flagPrintMnemonic      = "print-mnemonic"
 	flagSingleHost         = "single-host"
 	flagCommitTimeout      = "commit-timeout"
+	configChanges          = "config-changes"
+	flagValidatorPowers    = "validator-powers"
 	unsafeStartValidatorFn UnsafeStartValidatorCmdCreator
 )
+
+const TEST_DENOM = "atest"
+
+var mnemonics = []string{
+	"copper push brief egg scan entry inform record adjust fossil boss egg comic alien upon aspect dry avoid interest fury window hint race symptom",
+	"maximum display century economy unlock van census kite error heart snow filter midnight usage egg venture cash kick motor survey drastic edge muffin visual",
+	"will wear settle write dance topic tape sea glory hotel oppose rebel client problem era video gossip glide during yard balance cancel file rose",
+	"doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch",
+}
 
 type UnsafeStartValidatorCmdCreator func(ac appCreator) *cobra.Command
 
@@ -79,20 +95,23 @@ type initArgs struct {
 	startingIPAddress string
 	singleMachine     bool
 	useDocker         bool
+	configChanges     []string
+	validatorPowers   []int64
 }
 
 type startArgs struct {
-	algo          string
-	apiAddress    string
-	chainID       string
-	enableLogging bool
-	grpcAddress   string
-	minGasPrices  string
-	numValidators int
-	outputDir     string
-	printMnemonic bool
-	rpcAddress    string
-	timeoutCommit time.Duration
+	algo            string
+	apiAddress      string
+	chainID         string
+	enableLogging   bool
+	grpcAddress     string
+	minGasPrices    string
+	numValidators   int
+	outputDir       string
+	printMnemonic   bool
+	rpcAddress      string
+	timeoutCommit   time.Duration
+	validatorPowers []int64
 }
 
 func addTestnetFlagsToCmd(cmd *cobra.Command) {
@@ -101,6 +120,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
 	cmd.Flags().String(server.FlagMinGasPrices, fmt.Sprintf("0.000006%s", sdk.DefaultBondDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
 	cmd.Flags().String(flags.FlagKeyType, string(cosmosevmhd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
+	cmd.Flags().IntSlice(flagValidatorPowers, []int{}, "Comma-separated list of validator powers (e.g. '100,200,150'). If not specified, all validators have equal power of 100. Last value is repeated for remaining validators.")
 
 	// support old flags name for backwards compatibility
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -136,7 +156,7 @@ func NewTestnetCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBala
 	return testnetCmd
 }
 
-// testnetInitFilesCmd returns a cmd to initialize all files for tendermint testnet and application
+// testnetInitFilesCmd returns a cmd to initialize all files for CometBFT testnet and application
 func testnetInitFilesCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBalancesIterator) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init-files",
@@ -179,6 +199,13 @@ Example:
 				return err
 			}
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
+			args.configChanges, _ = cmd.Flags().GetStringSlice(configChanges)
+
+			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
+			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
+			if err != nil {
+				return err
+			}
 
 			return initTestnetFiles(clientCtx, cmd, config, mbm, genBalIterator, args)
 		},
@@ -192,6 +219,7 @@ Example:
 	cmd.Flags().String(flagStartingIPAddress, "192.168.0.1", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...)")
 	cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
 	cmd.Flags().Bool(flagsUseDocker, false, "test network via docker")
+	cmd.Flags().StringSlice(configChanges, []string{}, "Config changes to apply to the node: i.e. consensus.timeout_commit=50s")
 
 	return cmd
 }
@@ -221,12 +249,19 @@ Example:
 			args.grpcAddress, _ = cmd.Flags().GetString(flagGRPCAddress)
 			args.printMnemonic, _ = cmd.Flags().GetBool(flagPrintMnemonic)
 
+			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
+			var err error
+			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
+			if err != nil {
+				return err
+			}
+
 			return startTestnet(cmd, args)
 		},
 	}
 
 	addTestnetFlagsToCmd(cmd)
-	cmd.Flags().Bool(flagEnableLogging, false, "Enable INFO logging of tendermint validator nodes")
+	cmd.Flags().Bool(flagEnableLogging, false, "Enable INFO logging of CometBFT validator nodes")
 	cmd.Flags().String(flagRPCAddress, "tcp://0.0.0.0:26657", "the RPC address to listen on")
 	cmd.Flags().String(flagAPIAddress, "tcp://0.0.0.0:1317", "the address to listen on for REST API")
 	cmd.Flags().String(flagGRPCAddress, "0.0.0.0:9090", "the gRPC server address to listen on")
@@ -235,6 +270,36 @@ Example:
 }
 
 const nodeDirPerm = 0o755
+
+// parseValidatorPowers processes validator powers from an int slice.
+// If the slice is empty, returns a slice of default powers (100) for each validator.
+// If fewer powers are specified than numValidators, fills remaining with the last specified power.
+func parseValidatorPowers(powers []int, numValidators int) ([]int64, error) {
+	result := make([]int64, numValidators)
+	if len(powers) == 0 {
+		for i := 0; i < numValidators; i++ {
+			result[i] = 100
+		}
+		return result, nil
+	}
+
+	for _, power := range powers {
+		if power <= 0 {
+			return nil, fmt.Errorf("validator power must be positive, got %d", power)
+		}
+	}
+
+	for i := 0; i < numValidators; i++ {
+		if i < len(powers) {
+			result[i] = int64(powers[i])
+		} else {
+			// use the last specified power for remaining validators
+			result[i] = int64(powers[len(powers)-1])
+		}
+	}
+
+	return result, nil
+}
 
 // initTestnetFiles initializes testnet files for a testnet to be run in a separate process
 func initTestnetFiles(
@@ -259,8 +324,8 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmdconfig.EVMChainID
-	evmCfg := evmdconfig.EVMAppConfig{
+	evm.EVMChainID = evmtypes.DefaultEVMChainID
+	evmCfg := config.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
@@ -279,9 +344,10 @@ func initTestnetFiles(
 		sdkGRPCPort = 9090
 
 		// evmGRPC           = 9900 // TODO: maybe need this? idk.
-		evmJSONRPC        = 8545
-		evmJSONRPCWS      = 8546
-		evmJSONRPCMetrics = 6065
+		evmJSONRPC         = 8545
+		evmJSONRPCWS       = 8546
+		evmJSONRPCMetrics  = 6065
+		evmGethMetricsPort = 8100
 	)
 	p2pPortStart := 26656
 
@@ -290,6 +356,10 @@ func initTestnetFiles(
 	for i := 0; i < args.numValidators; i++ {
 		var portOffset int
 		var evmPortOffset int
+		evmCfg.JSONRPC.Enable = true
+		evmCfg.JSONRPC.EnableIndexer = true
+		evmCfg.JSONRPC.API = []string{"eth", "txpool", "personal", "net", "debug", "web3"}
+		evmCfg.API.Enable = true
 		if args.singleMachine {
 			portOffset = i
 			evmPortOffset = i * 10
@@ -297,11 +367,17 @@ func initTestnetFiles(
 			nodeConfig.P2P.AddrBookStrict = false
 			nodeConfig.P2P.PexReactor = false
 			nodeConfig.P2P.AllowDuplicateIP = true
+			nodeConfig.Instrumentation.Prometheus = false
+			nodeConfig.RPC.PprofListenAddress = ""
 			evmCfg.Config.API.Address = fmt.Sprintf("tcp://0.0.0.0:%d", sdkAPIPort+portOffset)
 			evmCfg.Config.GRPC.Address = fmt.Sprintf("0.0.0.0:%d", sdkGRPCPort+portOffset)
 			evmCfg.JSONRPC.Address = fmt.Sprintf("127.0.0.1:%d", evmJSONRPC+evmPortOffset)
 			evmCfg.JSONRPC.MetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCMetrics+evmPortOffset)
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCWS+evmPortOffset)
+			evmCfg.EVM.GethMetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmGethMetricsPort+evmPortOffset)
+		} else {
+			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("0.0.0.0:%d", evmJSONRPCWS)
+			evmCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%d", evmJSONRPC)
 		}
 		nodeDirName := fmt.Sprintf("%s%d", args.nodeDirPrefix, i)
 		nodeDir := filepath.Join(args.outputDir, nodeDirName, args.nodeDaemonHome)
@@ -309,7 +385,7 @@ func initTestnetFiles(
 
 		nodeConfig.SetRoot(nodeDir)
 		nodeConfig.Moniker = nodeDirName
-		nodeConfig.RPC.ListenAddress = fmt.Sprintf("tcp://0.0.0.0:%d", sdkRPCPort+portOffset)
+		nodeConfig.RPC.ListenAddress = fmt.Sprintf("tcp://:%d", sdkRPCPort+portOffset)
 
 		if err := os.MkdirAll(filepath.Join(nodeDir, "config"), nodeDirPerm); err != nil {
 			_ = os.RemoveAll(args.outputDir)
@@ -321,13 +397,18 @@ func initTestnetFiles(
 			ip  string
 		)
 		if args.singleMachine {
-			ip = "0.0.0.0"
+			ip = "127.0.0.1"
 		} else {
 			ip, err = getIP(i, args.startingIPAddress)
 			if err != nil {
 				_ = os.RemoveAll(args.outputDir)
 				return err
 			}
+		}
+
+		if err := parseAndApplyConfigChanges(nodeConfig, args.configChanges); err != nil {
+			_ = os.RemoveAll(args.outputDir)
+			return fmt.Errorf("failed to apply config changes for node %d: %w", i, err)
 		}
 
 		nodeIDs[i], valPubKeys[i], err = genutil.InitializeNodeValidatorFiles(nodeConfig)
@@ -371,14 +452,19 @@ func initTestnetFiles(
 		accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
 		accStakingTokens := sdk.TokensFromConsensusPower(500, sdk.DefaultPowerReduction)
 		coins := sdk.Coins{
-			sdk.NewCoin("testtoken", accTokens),
+			sdk.NewCoin(TEST_DENOM, accTokens),
 			sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
 		}
 
 		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: coins.Sort()})
 		genAccounts = append(genAccounts, authtypes.NewBaseAccount(addr, nil, 0, 0))
 
-		valTokens := sdk.TokensFromConsensusPower(100, sdk.DefaultPowerReduction)
+		if i == 0 {
+			bals, accs := addExtraAccounts(kb, algo)
+			genBalances = append(genBalances, bals...)
+			genAccounts = append(genAccounts, accs...)
+		}
+		valTokens := sdk.TokensFromConsensusPower(args.validatorPowers[i], sdk.DefaultPowerReduction)
 		createValMsg, err := stakingtypes.NewMsgCreateValidator(
 			sdk.ValAddress(addr).String(),
 			valPubKeys[i],
@@ -418,6 +504,8 @@ func initTestnetFiles(
 			return err
 		}
 
+		srvconfig.SetConfigTemplate(config.EVMAppTemplate)
+
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config", "app.toml"), evmCfg)
 	}
 
@@ -436,6 +524,29 @@ func initTestnetFiles(
 
 	cmd.PrintErrf("Successfully initialized %d node directories\n", args.numValidators)
 	return nil
+}
+
+func addExtraAccounts(kb keyring.Keyring, algo keyring.SignatureAlgo) ([]banktypes.Balance, []authtypes.GenesisAccount) {
+	accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
+	accStakingTokens := sdk.TokensFromConsensusPower(500, sdk.DefaultPowerReduction)
+	coins := sdk.Coins{
+		sdk.NewCoin(TEST_DENOM, accTokens),
+		sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
+	}
+	coins = coins.Sort()
+
+	genBalances := make([]banktypes.Balance, 0, len(mnemonics))
+	genAccounts := make([]authtypes.GenesisAccount, 0, len(mnemonics))
+
+	for i, mnemonic := range mnemonics {
+		addr, _, err := testutil.GenerateSaveCoinKey(kb, fmt.Sprintf("account%d", i), mnemonic, true, algo)
+		if err != nil {
+			panic(err)
+		}
+		genAccounts = append(genAccounts, authtypes.NewBaseAccount(addr, nil, 0, 0))
+		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: coins})
+	}
+	return genBalances, genAccounts
 }
 
 func initGenFiles(
@@ -461,11 +572,19 @@ func initGenFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, evmnetwork.GenerateBankGenesisMetadata(evmtypes.DefaultEVMChainID)...)
+
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	for _, bal := range bankGenState.Balances {
 		bankGenState.Supply = bankGenState.Supply.Add(bal.Coins...)
 	}
 	appGenState[banktypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&bankGenState)
+
+	var evmGenState evmtypes.GenesisState
+	clientCtx.Codec.MustUnmarshalJSON(appGenState[evmtypes.ModuleName], &evmGenState)
+
+	evmGenState.Params.EvmDenom = TEST_DENOM
+	appGenState[evmtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&evmGenState)
 
 	appGenStateJSON, err := json.MarshalIndent(appGenState, "", "  ")
 	if err != nil {
@@ -580,7 +699,7 @@ func writeFile(name string, dir string, contents []byte) error {
 
 // startTestnet starts an in-process testnet
 func startTestnet(cmd *cobra.Command, args startArgs) error {
-	networkConfig := network.DefaultConfig(NewTestNetworkFixture)
+	networkConfig := customnetwork.DefaultConfig()
 
 	// Default networkConfig.ChainID is random, and we should only override it if chainID provided
 	// is non-empty
@@ -590,12 +709,20 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 	networkConfig.SigningAlgo = args.algo
 	networkConfig.MinGasPrices = args.minGasPrices
 	networkConfig.NumValidators = args.numValidators
-	networkConfig.EnableLogging = args.enableLogging
+	networkConfig.EnableCMTLogging = args.enableLogging
 	networkConfig.RPCAddress = args.rpcAddress
 	networkConfig.APIAddress = args.apiAddress
 	networkConfig.GRPCAddress = args.grpcAddress
 	networkConfig.PrintMnemonic = args.printMnemonic
-	networkLogger := network.NewCLILogger(cmd)
+
+	// Convert validator powers to bonded tokens
+	bondedTokensPerValidator := make([]math.Int, len(args.validatorPowers))
+	for i, power := range args.validatorPowers {
+		bondedTokensPerValidator[i] = sdk.TokensFromConsensusPower(power, sdk.DefaultPowerReduction)
+	}
+	networkConfig.BondedTokensPerValidator = bondedTokensPerValidator
+
+	networkLogger := customnetwork.NewCLILogger(cmd)
 
 	baseDir := fmt.Sprintf("%s/%s", args.outputDir, networkConfig.ChainID)
 	if _, err := os.Stat(baseDir); !os.IsNotExist(err) {
@@ -604,7 +731,7 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 			networkConfig.ChainID, baseDir)
 	}
 
-	testnet, err := network.New(networkLogger, baseDir, networkConfig)
+	testnet, err := customnetwork.New(networkLogger, baseDir, networkConfig)
 	if err != nil {
 		return err
 	}
@@ -622,7 +749,7 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 }
 
 // NewTestNetworkFixture returns a new evmd AppConstructor for network simulation tests
-func NewTestNetworkFixture() network.TestFixture {
+func NewTestNetworkFixture() sdknetwork.TestFixture {
 	dir, err := os.MkdirTemp("", "evm")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
@@ -635,23 +762,19 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
 	)
 
-	appCtr := func(val network.ValidatorI) servertypes.Application {
+	appCtr := func(val sdknetwork.ValidatorI) servertypes.Application {
 		return evmd.NewExampleApp(
 			log.NewNopLogger(),
 			dbm.NewMemDB(),
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmdconfig.EVMChainID,
-			evmdconfig.EvmAppOptions,
 		)
 	}
 
-	return network.TestFixture{
+	return sdknetwork.TestFixture{
 		AppConstructor: appCtr,
 		GenesisState:   app.DefaultGenesis(),
 		EncodingConfig: moduletestutil.TestEncodingConfig{

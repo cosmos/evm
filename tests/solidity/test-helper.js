@@ -25,16 +25,16 @@ function extractChainIDFromGo(goFilePath) {
 
     const goFileContent = fs.readFileSync(goFilePath, 'utf8')
 
-    // Look for EVMChainID = number
-    const chainIdMatch = goFileContent.match(/EVMChainID\s*=\s*(\d+)/)
+    // Look for DefaultEVMChainID = number
+    const chainIdMatch = goFileContent.match(/DefaultEVMChainID\s*=\s*(\d+)/)
 
     if (chainIdMatch) {
       const chainId = parseInt(chainIdMatch[1], 10)
-      logger.info(`Extracted EVMChainID from Go config: ${chainId}`)
+      logger.info(`Extracted DefaultEVMChainID from Go config: ${chainId}`)
       return chainId
     }
 
-    logger.warn('EVMChainID not found in Go file, using default: 262144')
+    logger.warn('DefaultEVMChainID not found in Go file, using default: 262144')
     return 262144
   } catch (error) {
     logger.warn(`Error reading Go config file: ${error.message}, using default: 262144`)
@@ -116,7 +116,7 @@ function restoreHardhatConfig(hardhatConfigPath, backupPath) {
 // Function to sync configuration from Go to Hardhat
 function syncConfiguration() {
   // Adjust these paths based on your project structure
-  const goConfigPath = path.join(__dirname, '../../evmd/cmd/evmd/config/config.go')
+  const goConfigPath = path.join(__dirname, '../../server/config/config.go')
   const hardhatConfigPath = path.join(__dirname, './suites/precompiles/hardhat.config.js')
 
   logger.info('Syncing configuration from Go to Hardhat...')
@@ -313,15 +313,20 @@ function setupNetwork ({ runConfig, timeout }) {
     const serverStartedLog = 'Starting JSON-RPC server'
     const serverStartedMsg = 'evmd started'
 
-    const osdProc = spawn('./init-node.sh', {
-      cwd: __dirname,
-      stdio: ['ignore', 'pipe', 'pipe']
+    const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
+    const scriptPath = path.join(rootDir, 'local_node.sh');  // → ".../evm/local_node.sh"
+
+    const osdProc = spawn(scriptPath, ['-y'], {
+      cwd: rootDir,
+      stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
     })
 
     logger.info(`Starting evmd process... timeout: ${timeout}ms`)
     if (runConfig.verboseLog) {
       osdProc.stdout.pipe(process.stdout)
+      osdProc.stderr.pipe(process.stderr)
     }
+
 
     osdProc.stdout.on('data', (d) => {
       const oLine = d.toString()
@@ -366,7 +371,7 @@ async function main () {
 
     console.log(`Running Tests: ${allTests.join()}`)
 
-    proc = await setupNetwork({ runConfig, timeout: 50000 })
+    proc = await setupNetwork({ runConfig, timeout: 200000 })
 
     // sleep for 20s to wait blocks being produced
     //

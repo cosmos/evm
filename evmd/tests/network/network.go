@@ -17,23 +17,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/evm/utils"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	cmtrand "github.com/cometbft/cometbft/libs/rand"
 	"github.com/cometbft/cometbft/node"
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	evmconfig "github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/server/config"
-	testconfig "github.com/cosmos/evm/testutil/config"
+	evmtestutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -50,7 +50,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/api"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/testutil"
+	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -66,51 +66,51 @@ var (
 )
 
 // AppConstructor defines a function which accepts a network configuration and
-// creates an ABCI Application to provide to Tendermint.
+// creates an ABCI Application to provide to CometBFT.
 type AppConstructor = func(val Validator) servertypes.Application
 
 // Config defines the necessary configuration used to bootstrap and start an
 // in-process local testing network.
 type Config struct {
-	KeyringOptions    []keyring.Option // keyring configuration options
-	Codec             codec.Codec
-	LegacyAmino       *codec.LegacyAmino // TODO: Remove!
-	InterfaceRegistry codectypes.InterfaceRegistry
-	TxConfig          client.TxConfig
-	AccountRetriever  client.AccountRetriever
-	AppConstructor    AppConstructor              // the ABCI application constructor
-	GenesisState      cosmosevmtypes.GenesisState // custom gensis state to provide
-	TimeoutCommit     time.Duration               // the consensus commitment timeout
-	AccountTokens     math.Int                    // the amount of unique validator tokens (e.g. 1000node0)
-	StakingTokens     math.Int                    // the amount of tokens each validator has available to stake
-	BondedTokens      math.Int                    // the amount of tokens each validator stakes
-	NumValidators     int                         // the total number of validators to create and bond
-	ChainID           string                      // the network chain-id
-	EVMChainID        uint64
-	BondDenom         string // the staking bond denomination
-	MinGasPrices      string // the minimum gas prices each validator will accept
-	PruningStrategy   string // the pruning strategy each validator will have
-	SigningAlgo       string // signing algorithm for keys
-	RPCAddress        string // RPC listen address (including port)
-	JSONRPCAddress    string // JSON-RPC listen address (including port)
-	APIAddress        string // REST API listen address (including port)
-	GRPCAddress       string // GRPC server listen address (including port)
-	EnableTMLogging   bool   // enable Tendermint logging to STDOUT
-	CleanupDir        bool   // remove base temporary directory during cleanup
-	PrintMnemonic     bool   // print the mnemonic of first validator as log output for testing
+	KeyringOptions           []keyring.Option // keyring configuration options
+	Codec                    codec.Codec
+	LegacyAmino              *codec.LegacyAmino // TODO: Remove!
+	InterfaceRegistry        codectypes.InterfaceRegistry
+	TxConfig                 client.TxConfig
+	AccountRetriever         client.AccountRetriever
+	AppConstructor           AppConstructor           // the ABCI application constructor
+	GenesisState             evmtestutil.GenesisState // custom gensis state to provide
+	TimeoutCommit            time.Duration            // the consensus commitment timeout
+	AccountTokens            math.Int                 // the amount of unique validator tokens (e.g. 1000node0)
+	StakingTokens            math.Int                 // the amount of tokens each validator has available to stake
+	BondedTokens             math.Int                 // the amount of tokens each validator stakes (used if BondedTokensPerValidator is nil)
+	BondedTokensPerValidator []math.Int               // optional per-validator bonded tokens (overrides BondedTokens if set)
+	NumValidators            int                      // the total number of validators to create and bond
+	ChainID                  string                   // the network chain-id
+	EVMChainID               uint64
+	BondDenom                string // the staking bond denomination
+	MinGasPrices             string // the minimum gas prices each validator will accept
+	PruningStrategy          string // the pruning strategy each validator will have
+	SigningAlgo              string // signing algorithm for keys
+	RPCAddress               string // RPC listen address (including port)
+	JSONRPCAddress           string // JSON-RPC listen address (including port)
+	APIAddress               string // REST API listen address (including port)
+	GRPCAddress              string // GRPC server listen address (including port)
+	EnableCMTLogging         bool   // enable CometBFT logging to STDOUT
+	CleanupDir               bool   // remove base temporary directory during cleanup
+	PrintMnemonic            bool   // print the mnemonic of first validator as log output for testing
 }
 
 // DefaultConfig returns a sane default configuration suitable for nearly all
 // testing requirements.
 func DefaultConfig() Config {
 	chainID := "evmos-1"
-	evmChainID := uint64(cmtrand.Int63n(9999999999999) + 1) //nolint:gosec // G115 // won't exceed uint64
 	dir, err := os.MkdirTemp("", "simapp")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -118,16 +118,16 @@ func DefaultConfig() Config {
 		LegacyAmino:       tempApp.LegacyAmino(),
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
 		AccountRetriever:  authtypes.AccountRetriever{},
-		AppConstructor:    NewAppConstructor(chainID, evmChainID),
+		AppConstructor:    NewAppConstructor(chainID),
 		GenesisState:      tempApp.DefaultGenesis(),
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
 		BondDenom:         testconstants.ExampleAttoDenom,
 		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
-		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
-		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
-		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
+		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, utils.AttoPowerReduction),
+		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, utils.AttoPowerReduction),
+		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, utils.AttoPowerReduction),
 		PruningStrategy:   pruningtypes.PruningOptionNothing,
 		CleanupDir:        true,
 		SigningAlgo:       string(hd.EthSecp256k1Type),
@@ -138,13 +138,11 @@ func DefaultConfig() Config {
 }
 
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
-func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
+func NewAppConstructor(chainID string) AppConstructor {
 	return func(val Validator) servertypes.Application {
 		return evmd.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			evmChainID,
-			testconfig.EvmAppOptions,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),
@@ -158,7 +156,7 @@ type (
 	// clients. Typically, this test network would be used in client and integration
 	// testing where user input is expected.
 	//
-	// Note, due to Tendermint constraints in regards to RPC functionality, there
+	// Note, due to CometBFT constraints in regards to RPC functionality, there
 	// may only be one test network running at a time. Thus, any caller must be
 	// sure to Cleanup after testing is finished in order to allow other tests
 	// to create networks. In addition, only the first validator will have a valid
@@ -171,7 +169,7 @@ type (
 		Config Config
 	}
 
-	// Validator defines an in-process Tendermint validator node. Through this object,
+	// Validator defines an in-process CometBFT validator node. Through this object,
 	// a client can make RPC and API calls and interact with any client command
 	// or handler.
 	Validator struct {
@@ -190,15 +188,14 @@ type (
 		RPCClient     cmtclient.Client
 		JSONRPCClient *ethclient.Client
 
-		app         servertypes.Application
-		tmNode      *node.Node
-		api         *api.Server
-		grpc        *grpc.Server
-		grpcWeb     *http.Server
-		jsonrpc     *http.Server
-		jsonrpcDone chan struct{}
-		errGroup    *errgroup.Group
-		cancelFn    context.CancelFunc
+		app      servertypes.Application
+		tmNode   *node.Node
+		api      *api.Server
+		grpc     *grpc.Server
+		grpcWeb  *http.Server
+		jsonrpc  *http.Server
+		errGroup *errgroup.Group
+		cancelFn context.CancelFunc
 	}
 )
 
@@ -272,7 +269,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		cmtCfg.Consensus.TimeoutCommit = cfg.TimeoutCommit
 
 		// Only allow the first validator to expose an RPC, API and gRPC
-		// server/client due to Tendermint in-process constraints.
+		// server/client due to CometBFT in-process constraints.
 		apiAddr := ""
 		cmtCfg.RPC.ListenAddress = ""
 		appCfg.GRPC.Enable = false
@@ -333,7 +330,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		}
 
 		logger := log.NewNopLogger()
-		if cfg.EnableTMLogging {
+		if cfg.EnableCMTLogging {
 			logger = log.NewLogger(os.Stdout)
 		}
 
@@ -392,7 +389,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		addr, secret, err := testutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
+		addr, secret, err := sdktestutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
 		if err != nil {
 			return nil, err
 		}
@@ -429,10 +426,21 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
+		// determine validator bonded tokens
+		bondedTokens := cfg.BondedTokens
+		if len(cfg.BondedTokensPerValidator) > 0 {
+			if i < len(cfg.BondedTokensPerValidator) {
+				bondedTokens = cfg.BondedTokensPerValidator[i]
+			} else {
+				// use last value if not enough entries
+				bondedTokens = cfg.BondedTokensPerValidator[len(cfg.BondedTokensPerValidator)-1]
+			}
+		}
+
 		createValMsg, err := stakingtypes.NewMsgCreateValidator(
 			sdk.ValAddress(addr).String(),
 			valPubKeys[i],
-			sdk.NewCoin(cfg.BondDenom, cfg.BondedTokens),
+			sdk.NewCoin(cfg.BondDenom, bondedTokens),
 			stakingtypes.NewDescription(nodeDirName, "", "", "", ""),
 			stakingtypes.NewCommissionRates(commission, math.LegacyOneDec(), math.LegacyOneDec()),
 			math.OneInt(),
@@ -477,7 +485,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmdconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
+		customAppTemplate, _ := evmconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.EighteenDecimalsChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 
@@ -610,7 +618,7 @@ func (n *Network) WaitForNextBlock() error {
 }
 
 // Cleanup removes the root testing (temporary) directory and stops both the
-// Tendermint and API services. It allows other callers to create and start
+// CometBFT and API services. It allows other callers to create and start
 // test networks. This method must be called when a test is finished, typically
 // in a defer.
 func (n *Network) Cleanup() {
@@ -638,18 +646,7 @@ func (n *Network) Cleanup() {
 		}
 
 		if v.jsonrpc != nil {
-			shutdownCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancelFn()
-
-			if err := v.jsonrpc.Shutdown(shutdownCtx); err != nil {
-				v.tmNode.Logger.Error("HTTP server shutdown produced a warning", "error", err.Error())
-			} else {
-				v.tmNode.Logger.Info("HTTP server shut down, waiting 5 sec")
-				select {
-				case <-time.Tick(5 * time.Second):
-				case <-v.jsonrpcDone:
-				}
-			}
+			_ = v.jsonrpc.Close()
 		}
 	}
 

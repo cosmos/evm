@@ -210,6 +210,8 @@ func (b *Backend) FeeHistory(
 
 	thisBaseFee := make([]*hexutil.Big, blocks+1)
 	thisGasUsedRatio := make([]float64, blocks)
+	thisBlobBaseFee := make([]*hexutil.Big, blocks+1)
+	thisBlobGasUsedRatio := make([]float64, blocks)
 
 	// rewards should only be calculated if reward percentiles were included
 	calculateRewards := rewardCount != 0
@@ -237,10 +239,10 @@ func (b *Backend) FeeHistory(
 					wg.Done()
 				}()
 				// fetch block
-				// tendermint block
+				// CometBFT block
 				blockNum := rpctypes.BlockNumber(blockStart + int64(index))
-				tendermintblock, err := b.TendermintBlockByNumber(blockNum)
-				if tendermintblock == nil {
+				cometBlock, err := b.CometBlockByNumber(blockNum)
+				if cometBlock == nil {
 					chanErr <- err
 					return
 				}
@@ -252,16 +254,16 @@ func (b *Backend) FeeHistory(
 					return
 				}
 
-				// tendermint block result
-				tendermintBlockResult, err := b.TendermintBlockResultByNumber(&tendermintblock.Block.Height)
-				if tendermintBlockResult == nil {
-					b.Logger.Debug("block result not found", "height", tendermintblock.Block.Height, "error", err.Error())
+				// CometBFT block result
+				cometBlockResult, err := b.CometBlockResultByNumber(&cometBlock.Block.Height)
+				if cometBlockResult == nil {
+					b.Logger.Debug("block result not found", "height", cometBlock.Block.Height, "error", err.Error())
 					chanErr <- err
 					return
 				}
 
 				oneFeeHistory := rpctypes.OneFeeHistory{}
-				err = b.ProcessBlocker(tendermintblock, &ethBlock, rewardPercentiles, tendermintBlockResult, &oneFeeHistory)
+				err = b.ProcessBlocker(cometBlock, &ethBlock, rewardPercentiles, cometBlockResult, &oneFeeHistory)
 				if err != nil {
 					chanErr <- err
 					return
@@ -274,6 +276,11 @@ func (b *Backend) FeeHistory(
 					thisBaseFee[index+1] = (*hexutil.Big)(oneFeeHistory.NextBaseFee)
 				}
 				thisGasUsedRatio[index] = oneFeeHistory.GasUsedRatio
+				thisBlobBaseFee[index] = (*hexutil.Big)(oneFeeHistory.BlobBaseFee)
+				if int(index) == len(thisBlobBaseFee)-2 {
+					thisBlobBaseFee[index+1] = (*hexutil.Big)(oneFeeHistory.NextBlobBaseFee)
+				}
+				thisBlobGasUsedRatio[index] = oneFeeHistory.BlobGasUsedRatio
 				if calculateRewards {
 					for j := 0; j < rewardCount; j++ {
 						reward[index][j] = (*hexutil.Big)(oneFeeHistory.Reward[j])
@@ -296,9 +303,11 @@ func (b *Backend) FeeHistory(
 	}
 
 	feeHistory := rpctypes.FeeHistoryResult{
-		OldestBlock:  oldestBlock,
-		BaseFee:      thisBaseFee,
-		GasUsedRatio: thisGasUsedRatio,
+		OldestBlock:      oldestBlock,
+		BaseFee:          thisBaseFee,
+		GasUsedRatio:     thisGasUsedRatio,
+		BlobBaseFee:      thisBlobBaseFee,
+		BlobGasUsedRatio: thisBlobGasUsedRatio,
 	}
 
 	if calculateRewards {

@@ -2,13 +2,13 @@ package ante
 
 import (
 	"github.com/cosmos/evm/ante/evm"
+	"github.com/cosmos/evm/mempool"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
@@ -30,10 +30,20 @@ func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
 		malleate      func(acct sdktypes.AccountI) uint64
 	}{
 		{
-			name:          "fail: invalid sequence",
-			expectedError: errortypes.ErrInvalidSequence,
+			name:          "fail: nonce gap",
+			expectedError: mempool.ErrNonceGap,
 			malleate: func(acct sdktypes.AccountI) uint64 {
 				return acct.GetSequence() + 1
+			},
+		},
+		{
+			name:          "fail: nonce is low",
+			expectedError: mempool.ErrNonceLow,
+			malleate: func(acct sdktypes.AccountI) uint64 {
+				err := acct.SetSequence(acct.GetSequence() + 1)
+				s.Require().NoError(err)
+				unitNetwork.App.GetAccountKeeper().SetAccount(unitNetwork.GetContext(), acct)
+				return acct.GetSequence() - 1
 			},
 		},
 		{

@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 )
 
 // NewTransactionLogs creates a new NewTransactionLogs instance.
@@ -28,7 +28,7 @@ func NewTransactionLogsFromEth(hash common.Hash, ethlogs []*ethtypes.Log) Transa
 
 // Validate performs a basic validation of a GenesisAccount fields.
 func (tx TransactionLogs) Validate() error {
-	if cosmosevmtypes.IsEmptyHash(tx.Hash) {
+	if utils.IsEmptyHash(tx.Hash) {
 		return fmt.Errorf("hash cannot be the empty %s", tx.Hash)
 	}
 
@@ -53,16 +53,16 @@ func (tx TransactionLogs) EthLogs() []*ethtypes.Log {
 
 // Validate performs a basic validation of an ethereum Log fields.
 func (log *Log) Validate() error {
-	if err := cosmosevmtypes.ValidateAddress(log.Address); err != nil {
+	if err := utils.ValidateAddress(log.Address); err != nil {
 		return fmt.Errorf("invalid log address %w", err)
 	}
-	if cosmosevmtypes.IsEmptyHash(log.BlockHash) {
+	if utils.IsEmptyHash(log.BlockHash) {
 		return fmt.Errorf("block hash cannot be the empty %s", log.BlockHash)
 	}
 	if log.BlockNumber == 0 {
 		return errors.New("block number cannot be zero")
 	}
-	if cosmosevmtypes.IsEmptyHash(log.TxHash) {
+	if utils.IsEmptyHash(log.TxHash) {
 		return fmt.Errorf("tx hash cannot be the empty %s", log.TxHash)
 	}
 	return nil
@@ -114,14 +114,15 @@ func NewLogFromEth(log *ethtypes.Log) *Log {
 	}
 
 	return &Log{
-		Address:     log.Address.String(),
-		Topics:      topics,
-		Data:        log.Data,
-		BlockNumber: log.BlockNumber,
-		TxHash:      log.TxHash.String(),
-		TxIndex:     uint64(log.TxIndex),
-		Index:       uint64(log.Index),
-		BlockHash:   log.BlockHash.String(),
-		Removed:     log.Removed,
+		Address:        log.Address.String(),
+		Topics:         topics,
+		Data:           log.Data,
+		BlockNumber:    log.BlockNumber,
+		BlockHash:      log.BlockHash.String(),
+		BlockTimestamp: log.BlockTimestamp,
+		TxHash:         log.TxHash.String(),
+		TxIndex:        uint64(log.TxIndex),
+		Index:          uint64(log.Index),
+		Removed:        log.Removed,
 	}
 }

@@ -25,6 +25,7 @@ type Keeper interface {
 	GetAccount(ctx sdk.Context, addr common.Address) *Account
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCode(ctx sdk.Context, codeHash common.Hash) []byte
+	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
 	// the callback returns false to break early
 	ForEachStorage(ctx sdk.Context, addr common.Address, cb func(key, value common.Hash) bool)
 
@@ -36,7 +37,7 @@ type Keeper interface {
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
 
-	// Getter for injected KVStore keys
+	// Getter for injected Store keys
 	// It is used for StateDB.snapshotter creation
-	KVStoreKeys() map[string]*storetypes.KVStoreKey
+	KVStoreKeys() map[string]storetypes.StoreKey
 }

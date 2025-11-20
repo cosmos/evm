@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	mock "github.com/stretchr/testify/mock"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -37,7 +39,7 @@ func (s *TestSuite) TestTraceTransaction() {
 
 	txEncoder := s.backend.ClientCtx.TxConfig.TxEncoder()
 
-	msgEthereumTx.From = from.String()
+	msgEthereumTx.From = from.Bytes()
 	_ = msgEthereumTx.Sign(ethSigner, s.signer)
 
 	baseDenom := evmtypes.GetEVMCoinDenom()
@@ -45,7 +47,7 @@ func (s *TestSuite) TestTraceTransaction() {
 	tx, _ := msgEthereumTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
 	txBz, _ := txEncoder(tx)
 
-	msgEthereumTx2.From = from.String()
+	msgEthereumTx2.From = from.Bytes()
 	_ = msgEthereumTx2.Sign(ethSigner, s.signer)
 
 	tx2, _ := msgEthereumTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
@@ -115,8 +117,7 @@ func (s *TestSuite) TestTraceTransaction() {
 					client            = s.backend.ClientCtx.Client.(*mocks.Client)
 					height      int64 = 1
 				)
-				_, err := RegisterBlockMultipleTxs(client, height, []types.Tx{txBz, txBz2})
-				s.Require().NoError(err)
+				RegisterBlockMultipleTxs(client, height, []types.Tx{txBz, txBz2})
 				RegisterTraceTransactionWithPredecessors(QueryClient, msgEthereumTx, []*evmtypes.MsgEthereumTx{msgEthereumTx})
 				RegisterConsensusParams(client, height)
 			},
@@ -160,8 +161,7 @@ func (s *TestSuite) TestTraceTransaction() {
 					client            = s.backend.ClientCtx.Client.(*mocks.Client)
 					height      int64 = 1
 				)
-				_, err := RegisterBlock(client, height, txBz)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, txBz)
 				RegisterTraceTransaction(QueryClient, msgEthereumTx)
 				RegisterConsensusParams(client, height)
 			},
@@ -208,6 +208,179 @@ func (s *TestSuite) TestTraceTransaction() {
 	}
 }
 
+func (s *TestSuite) TestTraceCall() {
+	msgEthTx, _ := s.buildEthereumTx()
+
+	testCases := []struct {
+		name          string
+		registerMock  func()
+		args          evmtypes.TransactionArgs
+		blockNrOrHash rpctypes.BlockNumberOrHash
+		config        *rpctypes.TraceConfig
+		expResult     interface{}
+		expPass       bool
+	}{
+		{
+			"pass - trace call with block number",
+			func() {
+				var (
+					QueryClient = s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+					client      = s.backend.ClientCtx.Client.(*mocks.Client)
+					height      = int64(1)
+				)
+				RegisterHeader(client, &height, nil)
+				RegisterTraceCall(QueryClient, msgEthTx)
+			},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockNumber: func() *rpctypes.BlockNumber {
+					bn := rpctypes.BlockNumber(1)
+					return &bn
+				}(),
+			},
+			&rpctypes.TraceConfig{},
+			map[string]interface{}{"test": "trace_call"},
+			true,
+		},
+		{
+			"pass - trace call with block hash",
+			func() {
+				var (
+					QueryClient = s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+					client      = s.backend.ClientCtx.Client.(*mocks.Client)
+					height      = int64(1)
+				)
+				blockHash := common.Hash{} // Use zero hash to match RegisterHeaderByHash
+				_ = RegisterHeaderByHash(client, blockHash, blockHash.Bytes())
+				RegisterHeader(client, &height, nil)
+				RegisterTraceCall(QueryClient, msgEthTx)
+			},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockHash: func() *common.Hash {
+					h := common.Hash{} // Use zero hash to match RegisterHeaderByHash
+					return &h
+				}(),
+			},
+			&rpctypes.TraceConfig{},
+			map[string]interface{}{"test": "trace_call"},
+			true,
+		},
+		{
+			"pass - trace call with callTracer",
+			func() {
+				var (
+					QueryClient = s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+					client      = s.backend.ClientCtx.Client.(*mocks.Client)
+					height      = int64(1)
+				)
+				RegisterHeader(client, &height, nil)
+				RegisterTraceCallWithTracer(QueryClient, msgEthTx, "callTracer")
+			},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockNumber: func() *rpctypes.BlockNumber {
+					bn := rpctypes.BlockNumber(1)
+					return &bn
+				}(),
+			},
+			&rpctypes.TraceConfig{
+				TraceConfig: evmtypes.TraceConfig{
+					Tracer: "callTracer",
+				},
+			},
+			map[string]interface{}{"type": "CALL"},
+			true,
+		},
+		{
+			"fail - invalid block number or hash",
+			func() {},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockNumber: nil,
+				BlockHash:   nil,
+			},
+			nil,
+			nil,
+			false,
+		},
+		{
+			"fail - block not found",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				height := int64(1)
+				RegisterHeaderError(client, &height)
+			},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockNumber: func() *rpctypes.BlockNumber {
+					bn := rpctypes.BlockNumber(1)
+					return &bn
+				}(),
+			},
+			nil,
+			nil,
+			false,
+		},
+		{
+			"fail - query client error",
+			func() {
+				var (
+					QueryClient = s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+					client      = s.backend.ClientCtx.Client.(*mocks.Client)
+					height      = int64(1)
+				)
+				RegisterHeader(client, &height, nil)
+				RegisterTraceCallError(QueryClient)
+			},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockNumber: func() *rpctypes.BlockNumber {
+					bn := rpctypes.BlockNumber(1)
+					return &bn
+				}(),
+			},
+			nil,
+			nil,
+			false,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("case %s", tc.name), func() {
+			s.SetupTest() // reset test and queries
+			tc.registerMock()
+
+			result, err := s.backend.TraceCall(tc.args, tc.blockNrOrHash, tc.config)
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expResult, result)
+			} else {
+				s.Require().Error(err)
+			}
+		})
+	}
+}
+
 func (s *TestSuite) TestTraceBlock() {
 	msgEthTx, bz := s.buildEthereumTx()
 	emptyBlock := types.MakeBlock(1, []types.Tx{}, nil, nil)
@@ -222,7 +395,7 @@ func (s *TestSuite) TestTraceBlock() {
 		registerMock    func()
 		expTraceResults []*evmtypes.TxTraceResult
 		resBlock        *tmrpctypes.ResultBlock
-		config          *evmtypes.TraceConfig
+		config          *rpctypes.TraceConfig
 		expPass         bool
 	}{
 		{
@@ -230,7 +403,7 @@ func (s *TestSuite) TestTraceBlock() {
 			func() {},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockEmpty,
-			&evmtypes.TraceConfig{},
+			&rpctypes.TraceConfig{},
 			true,
 		},
 		{
@@ -240,11 +413,42 @@ func (s *TestSuite) TestTraceBlock() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterTraceBlock(QueryClient, []*evmtypes.MsgEthereumTx{msgEthTx})
 				RegisterConsensusParams(client, 1)
+				RegisterBlockResults(client, 1)
 			},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockFilled,
-			&evmtypes.TraceConfig{},
+			&rpctypes.TraceConfig{},
 			false,
+		},
+		{
+			"fail - TendermintBlockResultByNumber returns error",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterBlockResultsError(client, 1)
+			},
+			nil,
+			&resBlockFilled,
+			&rpctypes.TraceConfig{},
+			true,
+		},
+		{
+			"skip invalid tx result code - transaction failed",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterBlockResultsWithTxs(client, 1, []*abci.ExecTxResult{{Code: 0}, {Code: 1}, {Code: 0}})
+				RegisterConsensusParams(client, 1)
+				traceResult := &evmtypes.QueryTraceBlockResponse{
+					Data: []byte(`[{"result": "trace1"}, {"result": "trace2"}]`),
+				}
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				queryClient.On("TraceBlock", mock.Anything, mock.AnythingOfType("*types.QueryTraceBlockRequest")).
+					Return(traceResult, nil).
+					Once()
+			},
+			[]*evmtypes.TxTraceResult{{Result: "trace1"}, {Result: "trace2"}},
+			&resBlockFilled,
+			&rpctypes.TraceConfig{},
+			true,
 		},
 	}
 

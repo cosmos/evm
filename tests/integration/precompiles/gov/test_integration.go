@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -55,6 +55,7 @@ var (
 )
 
 const (
+	testDepositFromContract        = "testDepositFromContract"
 	testSubmitProposalFromContract = "testSubmitProposalFromContract"
 )
 
@@ -80,7 +81,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				ContractABI: s.precompile.ABI,
 			}
 			defaultLogCheck = testutil.LogCheckArgs{
-				ABIEvents: s.precompile.ABI.Events,
+				ABIEvents: s.precompile.Events,
 			}
 			passCheck = defaultLogCheck.WithExpPass(true)
 			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
@@ -108,7 +109,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() { callArgs.MethodName = method })
 
 			It("fails with low gas", func() {
-				txArgs.GasLimit = 30_000
+				txArgs.GasLimit = 37_790 // meed the requirement of floor data gas cost
 				jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "50")
 				callArgs.Args = []interface{}{proposerAddr, jsonBlob, minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
 
@@ -263,9 +264,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("cancels a proposal and see cancellation fee charged", func() {
 				// Fix the gas limit and gas price for predictable gas usage.
 				// This is for calculating expected cancellation fee.
-				baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-				baseFeeInt := baseFee.TruncateInt64()
-				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+				baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+				txArgs.GasPrice = baseFee
 				txArgs.GasLimit = 500_000
 
 				// Get the prposal for cancellation
@@ -1002,12 +1002,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		}
 
 		var (
-			govCallerContract evmtypes.CompiledContract
-			contractAddr      common.Address
-			contractAccAddr   sdk.AccAddress
-			txSenderKey       types.PrivKey
-			txSenderAddr      common.Address
-			err               error
+			govCallerContract   evmtypes.CompiledContract
+			contractAddr        common.Address
+			contractAccAddr     sdk.AccAddress
+			contractAddrDupe    common.Address
+			contractAccAddrDupe sdk.AccAddress
+			txSenderKey         types.PrivKey
+			txSenderAddr        common.Address
+			err                 error
 
 			proposalID         uint64 // proposal id submitted by eoa
 			contractProposalID uint64 // proposal id submitted by contract account
@@ -1049,7 +1051,24 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			cAcc := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddr)
 			Expect(cAcc).ToNot(BeNil(), "failed to get contract account")
-			Expect(cAcc.IsContract()).To(BeTrue(), "expected contract account")
+			isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+			Expect(isContract).To(BeTrue(), "expected contract account")
+
+			contractAddrDupe, err = s.factory.DeployContract(
+				txSenderKey,
+				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
+				testutiltypes.ContractDeploymentData{
+					Contract: govCallerContract,
+				},
+			)
+			Expect(err).ToNot(HaveOccurred(), "failed to deploy dupe gov caller contract")
+			Expect(s.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+			contractAccAddrDupe = sdk.AccAddress(contractAddrDupe.Bytes())
+
+			cAccDupe := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddrDupe)
+			Expect(cAccDupe).ToNot(BeNil(), "failed to get dupe contract account")
+			isContract = s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddrDupe)
+			Expect(isContract).To(BeTrue(), "expected dupe contract account")
 
 			callArgs = testutiltypes.CallArgs{
 				ContractABI: govCallerContract.ABI,
@@ -1173,7 +1192,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("deposit as contract proposer", func() {
-			BeforeEach(func() { callArgs.MethodName = "testDepositFromContract" })
+			BeforeEach(func() { callArgs.MethodName = testDepositFromContract })
 			It("should deposit successfully", func() {
 				// submit a proposal
 				toAddr := s.keyring.GetAccAddr(1)
@@ -1228,9 +1247,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 
 					// Prepare the proposal
@@ -1296,6 +1314,89 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			)
 		})
 
+		Context("testRefunds security issue", func() {
+			var minDepositAmt math.Int
+
+			BeforeEach(func() {
+				toAddr := s.keyring.GetAccAddr(1)
+				denom := s.network.GetBaseDenom()
+				amount := "100"
+				jsonBlob := minimalBankSendProposalJSON(toAddr, denom, amount)
+				minDepositAmt = math.NewInt(100)
+				callArgs.MethodName = testSubmitProposalFromContract
+				callArgs.Args = []interface{}{
+					jsonBlob,
+					minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
+				}
+				txArgs.Amount = minDepositAmt.BigInt()
+				eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
+				txArgs.To = &contractAddr
+
+				// 1. Submit gov prop for contract 1
+				_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
+				Expect(err).To(BeNil())
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				err = s.precompile.UnpackIntoInterface(&contractProposalID, gov.SubmitProposalMethod, evmRes.Ret)
+				Expect(err).To(BeNil())
+
+				// 2. Deposit to gov prop from contract 2
+				txArgs.To = &contractAddrDupe
+				txArgs.GasLimit = 1_000_000_000
+				callArgs.MethodName = testDepositFromContract
+				callArgs.Args = []interface{}{
+					contractProposalID,
+					minimalDeposit(s.network.GetBaseDenom(), big.NewInt(100)),
+				}
+				eventCheck = passCheck.WithExpEvents(gov.EventTypeDeposit)
+				_, _, err = s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
+				Expect(err).To(BeNil())
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				// Check that the deposit is found
+				deposits, err := s.network.App.GetGovKeeper().GetDeposits(s.network.GetContext(), contractProposalID)
+				Expect(err).To(BeNil())
+				Expect(deposits).To(HaveLen(2))
+				Expect(deposits[0].Amount[0].Amount).To(Equal(math.NewInt(100)))
+				Expect(deposits[1].Amount[0].Amount).To(Equal(math.NewInt(100)))
+			})
+
+			Describe("test transferCancelFund", func() {
+				It("should cancel proposal and fund to communityPool", func() {
+					baseDenom := s.network.GetBaseDenom()
+					txArgs.To = &contractAddr
+					txArgs.GasLimit = 1_000_000_000
+					callArgs.MethodName = "testTransferCancelFund"
+					callArgs.Args = []interface{}{
+						contractAddrDupe,
+						contractProposalID,
+						[]byte(baseDenom),
+						s.network.GetValidators()[0].OperatorAddress,
+					}
+					// Call the contract
+					_, err := s.factory.ExecuteContractCall(txSenderKey, txArgs, callArgs)
+					Expect(err).To(BeNil())
+					Expect(s.network.NextBlock()).To(BeNil())
+
+					params, err := s.network.App.GetGovKeeper().Params.Get(s.network.GetContext())
+					Expect(err).To(BeNil())
+
+					cancelRatio := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
+					cancelFee := minDepositAmt.ToLegacyDec().Mul(cancelRatio).TruncateInt()
+					transferAmount := math.NewInt(1)
+					fundCommunityPoolAmount := math.NewInt(2)
+					expectedDepositorBal := minDepositAmt.
+						Sub(cancelFee).
+						Add(transferAmount).
+						Sub(fundCommunityPoolAmount)
+
+					afterDepositorBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), contractAccAddrDupe, baseDenom)
+					Expect(afterDepositorBal.Amount).To(Equal(expectedDepositorBal))
+				})
+			},
+			)
+		})
+
 		Context("testSubmitProposalFromContract with transfer", func() {
 			BeforeEach(func() { callArgs.MethodName = "testSubmitProposalFromContractWithTransfer" })
 
@@ -1303,9 +1404,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 
 					// Prepare the proposal
@@ -1399,9 +1499,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(300)
 
@@ -1589,9 +1688,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas ice for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
 
@@ -1744,6 +1842,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("testCancel with transfer (multiple deposits & refund)", func() {
+			var cancelDest sdk.AccAddress
+
 			BeforeEach(func() {
 				// Submit a proposal with deposit from depositor0
 				denom := s.network.GetBaseDenom()
@@ -1791,6 +1891,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				params, err := s.network.App.GetGovKeeper().Params.Get(s.network.GetContext())
 				Expect(err).To(BeNil())
 				rate := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
+				cancelDest = sdk.MustAccAddressFromBech32(params.ProposalCancelDest)
 				proposalDeposits, err := s.network.App.GetGovKeeper().GetDeposits(s.network.GetContext(), proposalID)
 				Expect(err).To(BeNil())
 				Expect(proposalDeposits).To(HaveLen(2))
@@ -1819,9 +1920,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas ice for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
 
@@ -1835,6 +1935,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					contractBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 					depositor1Bal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), depositor1, baseDenom)
 					txSenderBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+					cancelDestBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), cancelDest, baseDenom)
 
 					res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 					Expect(err).To(BeNil())
@@ -1848,6 +1949,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					afterContractBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 					afterDepositor1Bal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), depositor1, baseDenom)
 					afterTxSenderBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+					afterCancelDestBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), cancelDest, baseDenom)
 					amtFromContract := math.ZeroInt()
 					for _, transferred := range []bool{tc.before, tc.after} {
 						if transferred {
@@ -1864,6 +1966,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(afterDepositor1Bal.Amount).To(Equal(
 						depositor1Bal.Amount.
 							Add(remainingFees[depositor1.String()]),
+					))
+					Expect(afterCancelDestBal.Amount).To(Equal(
+						cancelDestBal.Amount.
+							Add(cancelFees[depositor1.String()]).
+							Add(cancelFees[contractAccAddr.String()]),
 					))
 					Expect(afterContractBal.Amount).To(Equal(
 						contractBal.Amount.
@@ -1963,9 +2070,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
 					randomAddr := testutiltx.GenerateAddress()

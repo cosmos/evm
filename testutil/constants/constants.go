@@ -1,6 +1,7 @@
 package constants
 
 import (
+	"github.com/cosmos/evm/server/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -23,8 +24,8 @@ const (
 	// ExampleBech32Prefix provides an example Bech32 prefix for use in tests
 	ExampleBech32Prefix = "cosmos"
 
-	// ExampleEIP155ChainID provides an example EIP-155 chain ID for use in tests
-	ExampleEIP155ChainID = 9001
+	// EighteenDecimalsChainID provides an example EIP-155 chain ID for use in tests
+	EighteenDecimalsChainID = 9001
 
 	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
 	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
@@ -35,6 +36,44 @@ const (
 	// ExampleEvmAddress2 is the example EVM address
 	ExampleEvmAddressBob = "0x0AFc8e15F0A74E98d0AEC6C67389D2231384D4B2"
 )
+
+// ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
+// that allows initializing the app with different coin info based on the
+// chain id
+var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - deduplicate this for tests
+	EighteenDecimalsChainID: {
+		Denom:         ExampleAttoDenom,
+		ExtendedDenom: ExampleAttoDenom,
+		DisplayDenom:  ExampleDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
+	},
+	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
+	SixDecimalsChainID.EVMChainID: {
+		Denom:         "utest",
+		ExtendedDenom: "atest",
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.SixDecimals.Uint32(),
+	},
+	// EVMChainID provides a chain ID used for internal testing
+	config.DefaultEVMChainID: {
+		Denom:         "atest",
+		ExtendedDenom: "atest",
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
+	},
+	TwelveDecimalsChainID.EVMChainID: {
+		Denom:         "ptest2",
+		ExtendedDenom: "atest2",
+		DisplayDenom:  "test2",
+		Decimals:      evmtypes.TwelveDecimals.Uint32(),
+	},
+	TwoDecimalsChainID.EVMChainID: {
+		Denom:         "ctest3",
+		ExtendedDenom: "atest3",
+		DisplayDenom:  "test3",
+		Decimals:      evmtypes.TwoDecimals.Uint32(),
+	},
+}
 
 type ChainID struct {
 	ChainID    string `json:"chain_id"`
@@ -79,25 +118,25 @@ var (
 			Denom:         ExampleAttoDenom,
 			ExtendedDenom: ExampleAttoDenom,
 			DisplayDenom:  ExampleDisplayDenom,
-			Decimals:      evmtypes.EighteenDecimals,
+			Decimals:      evmtypes.EighteenDecimals.Uint32(),
 		},
 		SixDecimalsChainID: {
 			Denom:         "utest",
 			ExtendedDenom: "atest",
 			DisplayDenom:  "test",
-			Decimals:      evmtypes.SixDecimals,
+			Decimals:      evmtypes.SixDecimals.Uint32(),
 		},
 		TwelveDecimalsChainID: {
 			Denom:         "ptest2",
 			ExtendedDenom: "atest2",
 			DisplayDenom:  "test2",
-			Decimals:      evmtypes.TwelveDecimals,
+			Decimals:      evmtypes.TwelveDecimals.Uint32(),
 		},
 		TwoDecimalsChainID: {
 			Denom:         "ctest3",
 			ExtendedDenom: "atest3",
 			DisplayDenom:  "test3",
-			Decimals:      evmtypes.TwoDecimals,
+			Decimals:      evmtypes.TwoDecimals.Uint32(),
 		},
 	}
 

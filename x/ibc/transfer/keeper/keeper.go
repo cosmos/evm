@@ -4,12 +4,11 @@ import (
 	"github.com/cosmos/evm/x/ibc/transfer/types"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 
+	"cosmossdk.io/core/address"
 	corestore "cosmossdk.io/core/store"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 // Keeper defines the modified IBC transfer keeper that embeds the original one.
@@ -25,10 +24,9 @@ type Keeper struct {
 // NewKeeper creates a new IBC transfer Keeper instance
 func NewKeeper(
 	cdc codec.BinaryCodec,
+	addressCodec address.Codec,
 	storeService corestore.KVStoreService,
-	paramSpace paramtypes.Subspace,
 
-	ics4Wrapper porttypes.ICS4Wrapper,
 	channelKeeper transfertypes.ChannelKeeper,
 	msgRouter transfertypes.MessageRouter,
 	authKeeper types.AccountKeeper,
@@ -38,13 +36,13 @@ func NewKeeper(
 ) Keeper {
 	// create the original IBC transfer keeper for embedding
 	transferKeeper := keeper.NewKeeper(
-		cdc, storeService, paramSpace,
-		ics4Wrapper, channelKeeper, msgRouter,
+		cdc, addressCodec, storeService,
+		channelKeeper, msgRouter,
 		authKeeper, bankKeeper, authority,
 	)
 
 	return Keeper{
-		Keeper:        &transferKeeper,
+		Keeper:        transferKeeper,
 		bankKeeper:    bankKeeper,
 		erc20Keeper:   erc20Keeper,
 		accountKeeper: authKeeper,

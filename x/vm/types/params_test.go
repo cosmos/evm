@@ -24,7 +24,7 @@ func TestParamsValidate(t *testing.T) {
 		},
 		{
 			name:    "valid",
-			params:  NewParams(false, extraEips, nil, nil, DefaultAccessControl),
+			params:  NewParams(extraEips, nil, nil, DefaultAccessControl),
 			expPass: true,
 		},
 		{
@@ -77,22 +77,17 @@ func TestParamsValidate(t *testing.T) {
 
 func TestParamsEIPs(t *testing.T) {
 	extraEips := []int64{2929, 1884, 1344}
-	params := NewParams(false, extraEips, nil, nil, DefaultAccessControl)
+	params := NewParams(extraEips, nil, nil, DefaultAccessControl)
 	actual := params.EIPs()
 
 	require.Equal(t, []int{2929, 1884, 1344}, actual)
 }
 
 func TestParamsValidatePriv(t *testing.T) {
-	require.Error(t, validateBool(""))
-	require.NoError(t, validateBool(true))
-	require.Error(t, validateEIPs(""))
 	require.NoError(t, validateEIPs([]int64{1884}))
 	require.ErrorContains(t, validateEIPs([]int64{1884, 1884, 1885}), "duplicate EIP: 1884")
 	require.NoError(t, validateChannels([]string{"channel-0"}))
-	require.Error(t, validateChannels(false))
-	require.Error(t, validateChannels(int64(123)))
-	require.Error(t, validateChannels(""))
+	require.Error(t, validateChannels([]string{"invalid"}))
 }
 
 func TestIsLondon(t *testing.T) {

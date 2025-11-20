@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	"github.com/cosmos/evm/mempool"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -61,7 +63,7 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	// the corresponding EvmChainID validation, we need to sign the transaction before calling it
 
 	// Sign transaction
-	msg := args.ToTransaction()
+	msg := evmtypes.NewTxFromArgs(&args)
 	if err := msg.Sign(signer, b.ClientCtx.Keyring); err != nil {
 		b.Logger.Debug("failed to sign tx", "error", err.Error())
 		return common.Hash{}, err
@@ -107,6 +109,12 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
 	if err != nil {
+		// Check if this is a nonce gap error that was successfully queued
+		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
+			// Transaction was successfully queued due to nonce gap, return success to client
+			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
+			return txHash, nil
+		}
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
 		return txHash, err
 	}

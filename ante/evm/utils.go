@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -25,7 +26,6 @@ type DecoratorUtils struct {
 	BaseFee            *big.Int
 	MempoolMinGasPrice sdkmath.LegacyDec
 	GlobalMinGasPrice  sdkmath.LegacyDec
-	BlockTxIndex       uint64
 	TxGasLimit         uint64
 	GasWanted          uint64
 	MinPriority        int64
@@ -43,13 +43,14 @@ type DecoratorUtils struct {
 func NewMonoDecoratorUtils(
 	ctx sdk.Context,
 	ek anteinterfaces.EVMKeeper,
+	evmParams *evmtypes.Params,
+	feemarketParams *feemarkettypes.Params,
 ) (*DecoratorUtils, error) {
-	evmParams := ek.GetParams(ctx)
 	ethCfg := evmtypes.GetEthChainConfig()
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	blockHeight := big.NewInt(ctx.BlockHeight())
 	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
-	baseFee := ek.GetBaseFee(ctx)
+	baseFee := evmtypes.GetBaseFee(ctx.BlockHeight(), ethCfg, feemarketParams)
 
 	if rules.IsLondon && baseFee == nil {
 		return nil, errorsmod.Wrap(
@@ -58,20 +59,19 @@ func NewMonoDecoratorUtils(
 		)
 	}
 
-	globalMinGasPrice := ek.GetMinGasPrice(ctx)
+	globalMinGasPrice := feemarketParams.MinGasPrice
 
 	// Mempool gas price should be scaled to the 18 decimals representation.
 	// If it is already a 18 decimal token, this is a no-op.
 	mempoolMinGasPrice := evmtypes.ConvertAmountTo18DecimalsLegacy(ctx.MinGasPrices().AmountOf(evmDenom))
 
 	return &DecoratorUtils{
-		EvmParams:          evmParams,
+		EvmParams:          *evmParams,
 		Rules:              rules,
 		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight, uint64(ctx.BlockTime().Unix())), //#nosec G115 -- int overflow is not a concern here
 		BaseFee:            baseFee,
 		MempoolMinGasPrice: mempoolMinGasPrice,
 		GlobalMinGasPrice:  globalMinGasPrice,
-		BlockTxIndex:       ek.GetTxIndexTransient(ctx),
 		GasWanted:          0,
 		MinPriority:        int64(math.MaxInt64),
 		// TxGasLimit and TxFee are set to zero because they are updated

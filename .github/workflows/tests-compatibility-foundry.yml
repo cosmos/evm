@@ -1,0 +1,72 @@
+name: Compatibility Tests for Foundry
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tests/evm-tools-compatibility/foundry/**'
+      - '../../scripts/tests_compatibility_setup.sh'
+      - '../../scripts/tests_compatibility_foundry.sh'
+      - 'local_node.sh'
+      - 'tests-compatibility-foundry.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'tests/evm-tools-compatibility/foundry/**'
+      - '../../scripts/tests_compatibility_setup.sh'
+      - '../../scripts/tests_compatibility_foundry.sh'
+      - 'local_node.sh'
+      - 'tests-compatibility-foundry.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  foundry-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl git
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Build and install evmd
+        run: |
+          make install
+      
+      - name: Run foundry compatibility tests
+        run: |
+          chmod +x scripts/tests_compatibility_foundry.sh
+          ./scripts/tests_compatibility_foundry.sh --verbose
+        env:
+          COMPAT_DIR: ${{ github.workspace }}/tests/evm-tools-compatibility

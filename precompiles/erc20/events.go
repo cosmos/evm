@@ -57,8 +57,7 @@ func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from,
 	return nil
 }
 
-// EmitApprovalEvent creates a new approval event emitted on Approve, IncreaseAllowance
-// and DecreaseAllowance transactions.
+// EmitApprovalEvent creates a new approval event emitted on Approve transactions.
 func (p Precompile) EmitApprovalEvent(ctx sdk.Context, stateDB vm.StateDB, owner, spender common.Address, value *big.Int) error {
 	// Prepare the event topics
 	event := p.Events[EventTypeApproval]

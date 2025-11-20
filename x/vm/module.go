@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -17,6 +18,7 @@ import (
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -35,6 +37,7 @@ var (
 
 	_ appmodule.HasBeginBlocker = AppModule{}
 	_ appmodule.HasEndBlocker   = AppModule{}
+	_ appmodule.HasPreBlocker   = AppModule{}
 )
 
 // AppModuleBasic defines the basic application module used by the evm module.
@@ -104,16 +107,20 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 // AppModule implements an application module for the evm module.
 type AppModule struct {
 	AppModuleBasic
-	keeper *keeper.Keeper
-	ak     types.AccountKeeper
+	keeper      *keeper.Keeper
+	ak          types.AccountKeeper
+	bankKeeper  types.BankKeeper
+	initializer *sync.Once
 }
 
 // NewAppModule creates a new AppModule object
-func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper, ac address.Codec) AppModule {
+func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper, bankKeeper types.BankKeeper, ac address.Codec) AppModule {
 	return AppModule{
 		AppModuleBasic: AppModuleBasic{ac: ac},
 		keeper:         k,
 		ak:             ak,
+		bankKeeper:     bankKeeper,
+		initializer:    &sync.Once{},
 	}
 }
 
@@ -127,6 +134,15 @@ func (AppModule) Name() string {
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
+}
+
+func (am AppModule) PreBlock(goCtx context.Context) (appmodule.ResponsePreBlock, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
+	am.initializer.Do(func() {
+		SetGlobalConfigVariables(coinInfo)
+	})
+	return &sdk.ResponsePreBlock{ConsensusParamsChanged: false}, nil
 }
 
 // BeginBlock returns the begin blocker for the evm module.
@@ -147,7 +163,7 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState types.GenesisState
 	cdc.MustUnmarshalJSON(data, &genesisState)
-	InitGenesis(ctx, am.keeper, am.ak, genesisState)
+	InitGenesis(ctx, am.keeper, am.ak, am.bankKeeper, genesisState, am.initializer)
 	return []abci.ValidatorUpdate{}
 }
 
@@ -176,3 +192,39 @@ func (am AppModule) IsAppModule() {}
 
 // IsOnePerModuleType implements the depinject.OnePerModuleType interface.
 func (am AppModule) IsOnePerModuleType() {}
+
+// setBaseDenom registers the display denom and base denom and sets the
+// base denom for the chain. The function registered different values based on
+// the EvmCoinInfo to allow different configurations in mainnet and testnet.
+func setBaseDenom(ci types.EvmCoinInfo) (err error) {
+	// Defer setting the base denom, and capture any potential error from it.
+	// So when failing because the denom was already registered, we ignore it and set
+	// the corresponding denom to be base denom
+	defer func() {
+		err = sdk.SetBaseDenom(ci.Denom)
+	}()
+	if err := sdk.RegisterDenom(ci.DisplayDenom, math.LegacyOneDec()); err != nil {
+		return err
+	}
+
+	// sdk.RegisterDenom will automatically overwrite the base denom when the
+	// new setBaseDenom() units are lower than the current base denom's units.
+	return sdk.RegisterDenom(ci.Denom, math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
+}
+
+func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
+	// set the denom info for the chain
+	if err := setBaseDenom(coinInfo); err != nil {
+		panic(err)
+	}
+
+	configurator := types.NewEVMConfigurator()
+	err := configurator.
+		WithExtendedEips(types.DefaultCosmosEVMActivators).
+		// NOTE: we're using the 18 decimals default for the example chain
+		WithEVMCoinInfo(coinInfo).
+		Configure()
+	if err != nil {
+		panic(err)
+	}
+}

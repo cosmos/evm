@@ -4,21 +4,25 @@ import (
 	"cmp"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
+	"github.com/spf13/viper"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	errorsmod "cosmossdk.io/errors"
 
+	"github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
@@ -57,21 +61,40 @@ func Bech32StringFromHexAddress(hexAddr string) string {
 }
 
 // HexAddressFromBech32String converts a hex address to a bech32 encoded address.
-func HexAddressFromBech32String(addr string) (res common.Address, err error) {
-	if strings.Contains(addr, sdk.PrefixValidator) {
-		valAddr, err := sdk.ValAddressFromBech32(addr)
-		if err != nil {
-			return res, err
+func HexAddressFromBech32String(addr string) (common.Address, error) {
+	decodeFns := []func(string) ([]byte, error){
+		func(s string) ([]byte, error) {
+			accAddr, err := sdk.AccAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return accAddr.Bytes(), nil
+		},
+		func(s string) ([]byte, error) {
+			valAddr, err := sdk.ValAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return valAddr.Bytes(), nil
+		},
+		func(s string) ([]byte, error) {
+			consAddr, err := sdk.ConsAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return consAddr.Bytes(), nil
+		},
+	}
+
+	var lastErr error
+	for _, fn := range decodeFns {
+		bz, err := fn(addr)
+		if err == nil {
+			return common.BytesToAddress(bz), nil
 		}
-		return common.BytesToAddress(valAddr.Bytes()), nil
+		lastErr = err
 	}
-
-	accAddr, err := sdk.AccAddressFromBech32(addr)
-	if err != nil {
-		return res, err
-	}
-
-	return common.BytesToAddress(accAddr), nil
+	return common.Address{}, errorsmod.Wrapf(lastErr, "failed to convert bech32 string to address")
 }
 
 // IsSupportedKey returns true if the pubkey type is supported by the chain
@@ -100,6 +123,12 @@ func IsSupportedKey(pubkey cryptotypes.PubKey) bool {
 	default:
 		return false
 	}
+}
+
+// IsBech32Address checks if the address is a valid bech32 address.
+func IsBech32Address(address string) bool {
+	_, _, err := bech32.DecodeAndConvert(address)
+	return err == nil
 }
 
 // GetAccAddressFromBech32 returns the sdk.Account address of given address,
@@ -172,9 +201,44 @@ func SortSlice[T cmp.Ordered](slice []T) {
 }
 
 func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
+	if i.Sign() < 0 {
+		return nil, fmt.Errorf("trying to convert negative *big.Int (%d) to uint256.Int", i)
+	}
 	result, overflow := uint256.FromBig(i)
 	if overflow {
 		return nil, fmt.Errorf("overflow trying to convert *big.Int (%d) to uint256.Int (%s)", i, result)
 	}
 	return result, nil
+}
+
+// Bytes32ToString converts a bytes32 value to string by trimming null bytes
+func Bytes32ToString(data [32]byte) string {
+	// Find the first null byte
+	var i int
+	for i = 0; i < len(data); i++ {
+		if data[i] == 0 {
+			break
+		}
+	}
+	return string(data[:i])
+}
+
+// GetChainIDFromHome returns the chain ID from the client configuration
+// in the given home directory.
+func GetChainIDFromHome(home string) (string, error) {
+	v := viper.New()
+	v.AddConfigPath(filepath.Join(home, "config"))
+	v.SetConfigName("client")
+	v.SetConfigType("toml")
+
+	if err := v.ReadInConfig(); err != nil {
+		return "", err
+	}
+	conf := new(config.ClientConfig)
+
+	if err := v.Unmarshal(conf); err != nil {
+		return "", err
+	}
+
+	return conf.ChainID, nil
 }

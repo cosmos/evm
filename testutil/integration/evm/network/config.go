@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testtx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -27,7 +29,8 @@ type Config struct {
 	chainID       string
 	eip155ChainID *big.Int
 
-	customGenesisState CustomGenesisState
+	customGenesisState    CustomGenesisState
+	customConsensusParams *cmtproto.ConsensusParams
 
 	customBaseAppOpts []func(*baseapp.BaseApp)
 
@@ -52,7 +55,7 @@ func DefaultConfig() Config {
 
 	return Config{
 		chainID:             testconstants.ExampleChainID.ChainID,
-		eip155ChainID:       big.NewInt(testconstants.ExampleEIP155ChainID),
+		eip155ChainID:       big.NewInt(testconstants.EighteenDecimalsChainID),
 		chainCoins:          DefaultChainCoins(),
 		initialAmounts:      DefaultInitialAmounts(),
 		initialBondedAmount: DefaultInitialBondedAmount(),
@@ -104,7 +107,7 @@ func getGenAccountsAndBalances(cfg Config, validators []stakingtypes.Validator) 
 	}
 	genAccounts = append(genAccounts, createGenesisAccounts(valAccs)...)
 
-	return
+	return genAccounts, balances
 }
 
 // ConfigOption defines a function that can modify the NetworkConfig.
@@ -130,10 +133,10 @@ func WithChainID(chainID testconstants.ChainID) ConfigOption {
 
 		if cfg.chainCoins.IsBaseEqualToEVM() {
 			cfg.chainCoins.baseCoin.Denom = evmCoinInfo.Denom
-			cfg.chainCoins.baseCoin.Decimals = evmCoinInfo.Decimals
+			cfg.chainCoins.baseCoin.Decimals = evmtypes.Decimals(evmCoinInfo.Decimals)
 		}
 		cfg.chainCoins.evmCoin.Denom = evmCoinInfo.Denom
-		cfg.chainCoins.evmCoin.Decimals = evmCoinInfo.Decimals
+		cfg.chainCoins.evmCoin.Decimals = evmtypes.Decimals(evmCoinInfo.Decimals)
 	}
 }
 
@@ -199,5 +202,14 @@ func WithValidatorOperators(keys []sdktypes.AccAddress) ConfigOption {
 func WithCustomBaseAppOpts(opts ...func(*baseapp.BaseApp)) ConfigOption {
 	return func(cfg *Config) {
 		cfg.customBaseAppOpts = opts
+	}
+}
+
+// WithConsensusParams sets the custom consensus parameters for the network.
+func WithConsensusParams(params *cmtproto.ConsensusParams) ConfigOption {
+	return func(cfg *Config) {
+		if params != nil {
+			cfg.customConsensusParams = params
+		}
 	}
 }

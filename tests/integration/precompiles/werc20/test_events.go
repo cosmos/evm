@@ -72,13 +72,12 @@ func (s *PrecompileUnitTestSuite) SetupTest(chainID testconstants.ChainID) {
 	s.Require().True(found, "expected wevmos precompile to be registered in the tokens map")
 	s.Require().Equal(s.precompileAddrHex, tokenPair.Erc20Address, "expected a different address of the contract")
 
-	precompile, err := werc20.NewPrecompile(
+	precompile := werc20.NewPrecompile(
 		tokenPair,
 		s.network.App.GetBankKeeper(),
 		s.network.App.GetErc20Keeper(),
 		s.network.App.GetTransferKeeper(),
 	)
-	s.Require().NoError(err, "failed to instantiate the werc20 precompile")
 	s.Require().NotNil(precompile)
 	s.precompile = precompile
 }

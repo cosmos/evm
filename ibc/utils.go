@@ -3,8 +3,6 @@ package ibc
 import (
 	"strings"
 
-	"github.com/cosmos/evm/utils"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
@@ -14,34 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
-
-// GetTransferSenderRecipient returns the sender and recipient sdk.AccAddresses
-// from an ICS20 FungibleTokenPacketData as well as the original sender bech32
-// address from the packet data. This function fails if:
-//   - the packet data is not FungibleTokenPacketData
-//   - sender address is invalid
-//   - recipient address is invalid
-func GetTransferSenderRecipient(data transfertypes.FungibleTokenPacketData) (
-	sender, recipient sdk.AccAddress,
-	senderBech32, recipientBech32 string,
-	err error,
-) {
-	// validate the sender bech32 address from the counterparty chain
-	// and change the bech32 human readable prefix (HRP) of the sender to `evmos`
-	sender, err = utils.GetAccAddressFromBech32(data.Sender)
-	if err != nil {
-		return nil, nil, "", "", errorsmod.Wrap(err, "invalid sender")
-	}
-
-	// validate the recipient bech32 address from the counterparty chain
-	// and change the bech32 human readable prefix (HRP) of the recipient to `evmos`
-	recipient, err = utils.GetAccAddressFromBech32(data.Receiver)
-	if err != nil {
-		return nil, nil, "", "", errorsmod.Wrap(err, "invalid recipient")
-	}
-
-	return sender, recipient, data.Sender, data.Receiver, nil
-}
 
 // GetTransferAmount returns the amount from an ICS20 FungibleTokenPacketData as a string.
 func GetTransferAmount(packet channeltypes.Packet) (string, error) {
@@ -105,28 +75,10 @@ func GetSentCoin(rawDenom, rawAmt string) sdk.Coin {
 	}
 }
 
-// IsBaseDenomFromSourceChain checks if the given denom has only made a single hop.
-// It returns true if the denomination is single-hop, false otherwise.
-// This function expects to receive a string representing a token like
-// the denom string of the `FungibleTokenPacketData` of a received packet.
-// If the coin denom starts with `factory/` then it is a token factory coin, and we should not convert it
-// NOTE: Check https://docs.osmosis.zone/osmosis-core/modules/tokenfactory/ for more information
-func IsBaseDenomFromSourceChain(rawDenom string) bool {
-	// Parse the raw denomination to get its Denom
-	denom := transfertypes.ExtractDenomFromPath(rawDenom)
-
-	// Split the denom of the Denom into its components
-	denomComponents := strings.Split(denom.Base, "/")
-
-	// Each hop in the path is represented by a pair of port and channel ids
-	// If the number of components in the path is equal to or more than 2, it has hopped multiple chains
-	return len(denom.GetTrace()) == 0 && len(denomComponents) == 1
-}
-
 // GetDenom returns the denomination from the corresponding IBC denomination. If the
 // denomination is not an IBC voucher or the trace is not found, it returns an error.
 func GetDenom(
-	transferKeeper transferkeeper.Keeper,
+	transferKeeper TransferKeeper,
 	ctx sdk.Context,
 	voucherDenom string,
 ) (transfertypes.Denom, error) {
