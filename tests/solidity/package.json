@@ -15,7 +15,7 @@
   "dependencies": {
     "truffle": "5.11.5",
     "yargs": "^18.0.0",
-    "patch-package": "^6.4.7"
+    "patch-package": "^8.0.0"
   },
   "scripts": {
     "test": "node test-helper.js",
