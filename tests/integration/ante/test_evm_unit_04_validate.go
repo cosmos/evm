@@ -276,15 +276,6 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 	}
 }
 
-// mockProtoTxProvider is a mock implementation of ProtoTxProvider for testing
-type mockProtoTxProvider struct {
-	protoTx *tx.Tx
-}
-
-func (m *mockProtoTxProvider) GetProtoTx() *tx.Tx {
-	return m.protoTx
-}
-
 // mockTx is a mock transaction that implements sdktypes.Tx and ProtoTxProvider
 type mockTx struct {
 	protoTx *tx.Tx
@@ -328,10 +319,10 @@ func (s *EvmUnitAnteTestSuite) TestValidateTx() {
 
 		return &tx.Tx{
 			Body: &tx.TxBody{
-				Messages:      []*codectypes.Any{},
-				Memo:          "",
-				TimeoutHeight: 0,
-				ExtensionOptions: []*codectypes.Any{option},
+				Messages:                    []*codectypes.Any{},
+				Memo:                        "",
+				TimeoutHeight:               0,
+				ExtensionOptions:            []*codectypes.Any{option},
 				NonCriticalExtensionOptions: []*codectypes.Any{},
 			},
 			AuthInfo: &tx.AuthInfo{
