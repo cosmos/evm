@@ -88,8 +88,16 @@ func ValidateTx(tx sdktypes.Tx) (*tx.Fee, error) {
 		return nil, errorsmod.Wrap(errortypes.ErrInvalidRequest, "for eth tx AuthInfo SignerInfos should be empty")
 	}
 
+	if authInfo.Fee == nil {
+		return nil, errorsmod.Wrap(errortypes.ErrInvalidRequest, "authInfo.Fee should not be nil")
+	}
+
 	if authInfo.Fee.Payer != "" || authInfo.Fee.Granter != "" {
 		return nil, errorsmod.Wrap(errortypes.ErrInvalidRequest, "for eth tx AuthInfo Fee payer and granter should be empty")
+	}
+
+	if authInfo.Tip != nil {
+		return nil, errorsmod.Wrap(errortypes.ErrInvalidRequest, "authInfo.Tip must be nil")
 	}
 
 	sigs := protoTx.Signatures
