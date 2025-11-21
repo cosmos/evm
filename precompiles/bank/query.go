@@ -5,6 +5,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -35,6 +38,7 @@ func (p Precompile) Balances(
 	if err != nil {
 		return nil, fmt.Errorf("error calling account balances in bank precompile: %s", err)
 	}
+	fmt.Println("Bank Precompile Balances for account:", account.String())
 
 	i := 0
 	balances := make([]Balance, 0)
@@ -48,9 +52,13 @@ func (p Precompile) Balances(
 			ctx.GasMeter().ConsumeGas(GasBalances, "ERC-20 extension balances method")
 		}
 
-		contractAddress, err := p.erc20Keeper.GetCoinAddress(ctx, coin.Denom)
-		if err != nil {
-			return false
+		// if denom is the evm native denom, use zero address
+		var contractAddress common.Address
+		if coin.Denom != evmtypes.GetEVMCoinDenom() {
+			contractAddress, err = p.erc20Keeper.GetCoinAddress(ctx, coin.Denom)
+			if err != nil {
+				return false
+			}
 		}
 
 		balances = append(balances, Balance{
@@ -77,6 +85,7 @@ func (p Precompile) TotalSupply(
 	i := 0
 	totalSupply := make([]Balance, 0)
 
+	var err error
 	p.bankKeeper.IterateTotalSupply(ctx, func(coin sdk.Coin) bool {
 		defer func() { i++ }()
 
@@ -86,9 +95,12 @@ func (p Precompile) TotalSupply(
 			ctx.GasMeter().ConsumeGas(GasTotalSupply, "ERC-20 extension totalSupply method")
 		}
 
-		contractAddress, err := p.erc20Keeper.GetCoinAddress(ctx, coin.Denom)
-		if err != nil {
-			return false
+		var contractAddress common.Address
+		if coin.Denom != evmtypes.GetEVMCoinDenom() {
+			contractAddress, err = p.erc20Keeper.GetCoinAddress(ctx, coin.Denom)
+			if err != nil {
+				return false
+			}
 		}
 
 		totalSupply = append(totalSupply, Balance{
