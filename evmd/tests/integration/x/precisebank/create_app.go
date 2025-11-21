@@ -3,22 +3,18 @@ package precisebank
 import (
 	"encoding/json"
 	"os"
-	"sort"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/spf13/cast"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
 	eapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/integration"
-	srvflags "github.com/cosmos/evm/server/flags"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	precisebankmodule "github.com/cosmos/evm/x/precisebank"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -99,48 +95,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		app.BankKeeper,
 		app.AccountKeeper,
 	)
-
-	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
-
-	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
-	storeNames := make([]string, 0, len(evmStoreKeys))
-	for name := range evmStoreKeys {
-		storeNames = append(storeNames, name)
-	}
-	sort.Strings(storeNames)
-	nonTransientKeys := make([]storetypes.StoreKey, 0, len(storeNames))
-	for _, name := range storeNames {
-		nonTransientKeys = append(nonTransientKeys, evmStoreKeys[name])
-	}
-	for _, k := range oKeys {
-		nonTransientKeys = append(nonTransientKeys, k)
-	}
-
-	tracer := cast.ToString(appOptions.Get(srvflags.EVMTracer))
-	app.EVMKeeper = evmkeeper.NewKeeper(
-		app.AppCodec(),
-		app.GetKey(evmtypes.StoreKey),
-		storetypes.NewObjectStoreKey(evmtypes.ObjectKey),
-		nonTransientKeys,
-		authtypes.NewModuleAddress(govtypes.ModuleName),
-		app.AccountKeeper,
-		app.BankKeeper,
-		app.StakingKeeper,
-		app.FeeMarketKeeper,
-		&app.ConsensusParamsKeeper,
-		nil,
-		evmChainID,
-		tracer,
-	).WithStaticPrecompiles(
-		eapp.StaticPrecompiles(
-			*app.StakingKeeper,
-			app.DistributionKeeper,
-			app.PreciseBankKeeper,
-			app.GovKeeper,
-			app.IBCKeeper.ClientKeeper,
-			app.AppCodec(),
-		),
-	)
+	app.EVMKeeper.SetBankKeeper(app.PreciseBankKeeper)
 
 	// override init chainer to include precisebank genesis init
 	app.SetInitChainer(app.initChainer)
@@ -265,8 +220,8 @@ func (app *PreciseBankPrecompileApp) initChainer(ctx sdk.Context, req *abci.Requ
 	return resp, nil
 }
 
-// addErc20ModulePermissions mirrors the production app's keeper wiring by
-// registering the ERC20 module account permissions after the fact.
+// addModulePermissions mirrors the production app's keeper wiring by
+// registering the precisebank module account permissions after the fact.
 func (app *PreciseBankPrecompileApp) addModulePermissions() {
 	perms := app.AccountKeeper.GetModulePermissions()
 

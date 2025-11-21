@@ -417,6 +417,12 @@ func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.ExperimentalEVMMempool) {
 	k.evmMempool = evmMempool
 }
 
+// SetBankKeeper allows swapping the bank keeper (and wrapper) after initialization.
+// Useful for tests that wrap the bank keeper with additional functionality.
+func (k *Keeper) SetBankKeeper(bk types.BankKeeper) {
+	k.bankWrapper = wrappers.NewBankWrapper(bk)
+}
+
 // GetEvmMempool returns the evm mempool
 func (k Keeper) GetEvmMempool() *evmmempool.ExperimentalEVMMempool {
 	return k.evmMempool
