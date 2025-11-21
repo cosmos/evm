@@ -111,7 +111,7 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 			s.Require().Equal(nonce, acc.Nonce)
 			if tc.vesting {
 				totalBalance = s.network.App.GetBankKeeper().GetBalance(ctx, account.Bytes(), s.network.GetBaseDenom()).Amount
-				s.Require().Equal(totalBalance.BigInt(), common.U2560.Add(balance, balance).ToBig())
+				s.Require().Equal(totalBalance.BigInt(), uint256.NewInt(0).Add(balance, balance).ToBig())
 			}
 		} else {
 			s.Require().Equal(common.U2560, acc.Balance)
@@ -128,7 +128,7 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 			s.Require().Equal(nonce, acc.Nonce)
 			if tc.vesting {
 				totalBalance = s.network.App.GetBankKeeper().GetBalance(ctx, account.Bytes(), s.network.GetBaseDenom()).Amount
-				s.Require().Equal(totalBalance.BigInt(), common.U2560.Add(balance, balance).ToBig())
+				s.Require().Equal(totalBalance.BigInt(), uint256.NewInt(0).Add(balance, balance).ToBig())
 			}
 		} else {
 			s.Require().Equal(common.U2560, acc.Balance)

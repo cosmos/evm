@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/testutil"
@@ -281,6 +282,8 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 			denom := transfertypes.NewDenom(registeredDenom, hop)
 			s.network.App.GetTransferKeeper().SetDenom(ctx, denom)
 
+			ibcKeeper := s.network.App.(evm.IBCKeeperProvider).GetIBCKeeper()
+
 			// Set Cosmos Channel
 			channel := channeltypes.Channel{
 				State:          channeltypes.INIT,
@@ -288,10 +291,10 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 				Counterparty:   channeltypes.NewCounterparty(transfertypes.PortID, sourceChannel),
 				ConnectionHops: []string{sourceChannel},
 			}
-			s.network.App.GetIBCKeeper().ChannelKeeper.SetChannel(ctx, transfertypes.PortID, cosmosEVMChannel, channel)
+			ibcKeeper.ChannelKeeper.SetChannel(ctx, transfertypes.PortID, cosmosEVMChannel, channel)
 
 			// Set Next Sequence Send
-			s.network.App.GetIBCKeeper().ChannelKeeper.SetNextSequenceSend(ctx, transfertypes.PortID, cosmosEVMChannel, 1)
+			ibcKeeper.ChannelKeeper.SetNextSequenceSend(ctx, transfertypes.PortID, cosmosEVMChannel, 1)
 
 			tranasferKeeper := s.network.App.GetTransferKeeper()
 			erc20Keeper := keeper.NewKeeper(

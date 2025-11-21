@@ -2,9 +2,11 @@ package app
 
 import (
 	"fmt"
-	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	distributionprecompile "github.com/cosmos/evm/precompiles/distribution"
 	"maps"
+
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	evmaddress "github.com/cosmos/evm/encoding/address"
+	distributionprecompile "github.com/cosmos/evm/precompiles/distribution"
 
 	evmibcutils "github.com/cosmos/evm/ibc"
 	"github.com/cosmos/evm/precompiles/bech32"
@@ -17,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
@@ -46,7 +47,7 @@ func StaticPrecompiles(
 	// Clone the mapping from the latest EVM fork.
 	precompiles := maps.Clone(vm.PrecompiledContractsPrague)
 
-	addrCodec := addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	// Stateless precompiles
 	bech32Precompile, err := bech32.NewPrecompile(defaultBech32BaseGas)

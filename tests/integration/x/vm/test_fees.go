@@ -511,11 +511,11 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			if tc.expectPassVerify {
 				s.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.EnableFeemarket {
-					baseFee := s.Network.App.GetFeeMarketKeeper().GetBaseFee(s.Network.GetContext())
+					baseFee := s.Network.App.GetEVMKeeper().GetBaseFee(s.Network.GetContext())
 					s.Require().Equal(
 						fees,
 						sdk.NewCoins(
-							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(tx.GetEffectiveFee(baseFee.TruncateInt().BigInt()))),
+							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(tx.GetEffectiveFee(baseFee))),
 						),
 						"valid test %d failed, fee value is wrong  - '%s'", i, tc.name,
 					)

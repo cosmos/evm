@@ -9,7 +9,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
+	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	"github.com/cosmos/ibc-go/v10/modules/core/keeper"
 )
@@ -53,4 +56,16 @@ func (app *App) GetAccountKeeper() authkeeper.AccountKeeper {
 
 func (app *App) GetStakingKeeper() *stakingkeeper.Keeper {
 	return app.StakingKeeper
+}
+
+func (app App) GetMintKeeper() mintkeeper.Keeper {
+	return app.MintKeeper
+}
+
+func (app App) GetSlashingKeeper() slashingkeeper.Keeper {
+	return app.SlashingKeeper
+}
+
+func (app App) GetDistrKeeper() distrkeeper.Keeper {
+	return app.DistributionKeeper
 }

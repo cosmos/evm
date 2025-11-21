@@ -984,7 +984,7 @@ func (s *KeeperTestSuite) TestSetBalance() {
 			},
 			false,
 			func() *uint256.Int {
-				return common.U2560.Add(totalBalance, amount)
+				return uint256.NewInt(0).Add(totalBalance, amount)
 			},
 		},
 		{

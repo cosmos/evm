@@ -11,7 +11,12 @@ import (
 
 // GetCoinbaseAddress returns the block proposer's validator operator address.
 func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddress) (common.Address, error) {
-	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, GetProposerAddress(ctx, proposerAddress))
+	proposerAddress = GetProposerAddress(ctx, proposerAddress)
+	if len(proposerAddress) == 0 {
+		// it's ok that proposer address don't exsits in some contexts like CheckTx.
+		return common.Address{}, nil
+	}
+	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, proposerAddress)
 	if err != nil {
 		return common.Address{}, errorsmod.Wrapf(
 			stakingtypes.ErrNoValidatorFound,

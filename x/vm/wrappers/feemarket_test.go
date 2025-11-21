@@ -48,7 +48,7 @@ func TestGetBaseFee(t *testing.T) {
 		{
 			name:      "success - nil base fee",
 			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-			expResult: nil,
+			expResult: big.NewInt(0),
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
 					GetBaseFee(gomock.Any()).
@@ -85,24 +85,58 @@ func TestGetBaseFee(t *testing.T) {
 					Return(sdkmath.LegacyNewDecWithPrec(1, 13)) // multiplied by 1e12 is still less than 1
 			},
 		},
+		{
+			name: "defensive - zero decimals returns zero without panic",
+			coinInfo: evmtypes.EvmCoinInfo{
+				Denom:         "aevmos",
+				ExtendedDenom: "aevmos",
+				DisplayDenom:  "evmos",
+				Decimals:      0, // invalid/uninitialized
+			},
+			expResult: big.NewInt(0),
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDec(1e18))
+			},
+		},
+		{
+			name: "defensive - invalid decimals (19) returns zero without panic",
+			coinInfo: evmtypes.EvmCoinInfo{
+				Denom:         "aevmos",
+				ExtendedDenom: "aevmos",
+				DisplayDenom:  "evmos",
+				Decimals:      19, // exceeds max supported
+			},
+			expResult: big.NewInt(0),
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDec(1e18))
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
 			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
-			result := feeMarketWrapper.GetBaseFee(sdk.Context{}, evmtypes.Decimals(tc.coinInfo.Decimals))
-
-			require.Equal(t, tc.expResult, result)
+			// skip EVMConfigurator for defensive cases
+			if tc.coinInfo.Decimals == 0 || tc.coinInfo.Decimals > 18 {
+				result := feeMarketWrapper.GetBaseFee(sdk.Context{}, evmtypes.Decimals(tc.coinInfo.Decimals))
+				require.Equal(t, tc.expResult, result)
+			} else {
+				// Setup EVM configurator to have access to the EVM coin info.
+				configurator := evmtypes.NewEVMConfigurator()
+				configurator.ResetTestConfig()
+				err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
+				require.NoError(t, err, "failed to configure EVMConfigurator")
+				result := feeMarketWrapper.GetBaseFee(sdk.Context{}, evmtypes.Decimals(tc.coinInfo.Decimals))
+				require.Equal(t, tc.expResult, result)
+			}
 		})
 	}
 }
