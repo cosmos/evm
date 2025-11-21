@@ -104,17 +104,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			"invalid - module balance insufficient",
 			func() {
-				// Ensure module account has 0 balance
-				moduleAddr := s.network.App.GetAccountKeeper().GetModuleAddress(types.ModuleName)
-				existingBalance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), moduleAddr, types.IntegerCoinDenom())
-				if existingBalance.IsPositive() {
-					err := s.network.App.GetBankKeeper().BurnCoins(
-						s.network.GetContext(),
-						types.ModuleName,
-						sdk.NewCoins(existingBalance),
-					)
-					s.Require().NoError(err)
-				}
+				// Module account starts with 0 balance (no setup needed)
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
