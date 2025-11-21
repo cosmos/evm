@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "truffle": "5.11.5",
-    "yargs": "^17.0.1",
+    "yargs": "^18.0.0",
     "patch-package": "^6.4.7"
   },
   "scripts": {
