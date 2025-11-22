@@ -45,6 +45,30 @@ func TestMempoolTxRebroadcasting(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunTxRebroadcasting)
 }
 
+func TestMempoolTxTrackerPersistence(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxTrackerPersistence)
+}
+
+func TestMempoolTxTrackerResubmission(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxTrackerResubmission)
+}
+
+func TestMempoolTxTrackerMultipleAccounts(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxTrackerMultipleAccounts)
+}
+
+func TestMempoolTxTrackerNonceGaps(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxTrackerNonceGaps)
+}
+
+func TestMempoolTxTrackerWithReplacement(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxTrackerWithReplacement)
+}
+
+func TestMempoolTxTrackerNonceGapEIP7702(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxTrackerNonceGapEIP7702)
+}
+
 func TestMinimumGasPricesZero(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero)
 }

@@ -140,7 +140,26 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
 	}
+	if localsSlice := cast.ToStringSlice(appOpts.Get(srvflags.EVMMempoolLocals)); len(localsSlice) > 0 {
+		legacyConfig.Locals = localsSlice
+	}
+	if noLocals := appOpts.Get(srvflags.EVMMempoolNoLocals); noLocals != nil {
+		legacyConfig.NoLocals = cast.ToBool(noLocals)
+	}
+	if homeDir := cast.ToString(appOpts.Get(flags.FlagHome)); homeDir != "" {
+		if journal := cast.ToString(appOpts.Get(srvflags.EVMMempoolJournal)); journal != "" {
+			legacyConfig.Journal = journal
+		}
+		legacyConfig.Journal = filepath.Join(homeDir, "data", "txpool", legacyConfig.Journal)
+	} else {
+		logger.Warn("no home directory set, disabling local transaction journaling")
+		legacyConfig.Journal = ""
+	}
+	if rejournal := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolRejournal)); rejournal != 0 {
+		legacyConfig.Rejournal = rejournal
+	}
 
+	legacyConfig = legacyConfig.Sanitize()
 	return &legacyConfig
 }
 
