@@ -20,7 +20,6 @@ import (
 
 	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/utils"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -176,12 +175,11 @@ func (b *Backend) ProcessBlock(
 	targetOneFeeHistory.BlobGasUsedRatio = 0
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		ctx := types.ContextWithHeight(blockHeight)
-		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
+		feeParams, err := b.getFeeMarketParamsAtHeight(blockHeight)
 		if err != nil {
 			return err
 		}
-		nextBaseFee, err := types.CalcBaseFee(cfg, &header, params.Params)
+		nextBaseFee, err := types.CalcBaseFee(cfg, &header, feeParams)
 		if err != nil {
 			return err
 		}
