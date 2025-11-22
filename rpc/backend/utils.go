@@ -338,7 +338,7 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 	return proofs
 }
 
-// FindEthTxIndexByHash finds tx index by iterating all valid eth transactions.
+// Fallback to find tx index by iterating all valid eth transactions for legacy blocks that don't have AttributeKeyTxIndex in events
 func FindEthTxIndexByHash(txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults, b *Backend) (int32, error) {
 	msgs := b.EthMsgsFromCometBlock(block, blockRes)
 	for i := range msgs {

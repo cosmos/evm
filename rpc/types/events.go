@@ -188,10 +188,11 @@ func (p *ParsedTxs) updateTx(eventIndex int, attrs []abci.EventAttribute) error 
 		// if hash is different, index the new one too
 		p.TxHashes[tx.Hash] = eventIndex
 	}
-	// override the tx because the second event is more trustworthy
+	// preserve EthTxIndex from the first event set by PatchTxResponses if not set in the second event from msg_server
 	if tx.EthTxIndex == -1 {
 		tx.EthTxIndex = p.Txs[eventIndex].EthTxIndex
 	}
+	// override the tx because the second event is more trustworthy
 	p.Txs[eventIndex] = tx
 	return nil
 }

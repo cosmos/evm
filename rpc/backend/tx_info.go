@@ -59,6 +59,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 
 	if res.EthTxIndex == -1 {
 		var err error
+		// Fallback to find tx index by iterating all valid eth transactions
 		res.EthTxIndex, err = FindEthTxIndexByHash(txHash, block, blockRes, b)
 		if err != nil {
 			return nil, err
