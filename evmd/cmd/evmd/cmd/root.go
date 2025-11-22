@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
 
+	iavlx "github.com/cosmos/cosmos-sdk/iavl"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
@@ -293,6 +296,7 @@ func newApp(
 		cast.ToUint32(appOpts.Get(sdkserver.FlagStateSyncSnapshotKeepRecent)),
 	)
 
+	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 	baseappOptions := []func(*baseapp.BaseApp){
 		baseapp.SetPruning(pruningOpts),
 		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))),
@@ -307,6 +311,26 @@ func newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(sdkserver.FlagIAVLCacheSize))),
 		baseapp.SetIAVLDisableFastNode(cast.ToBool(appOpts.Get(sdkserver.FlagDisableIAVLFastNode))),
 		baseapp.SetChainID(chainID),
+		func(bapp *baseapp.BaseApp) {
+			db, err := iavlx.LoadDB(
+				filepath.Join(homeDir, "data", "iavlx"),
+				&iavlx.Options{
+					ZeroCopy:             false,
+					WriteWAL:             true,
+					WalSyncBuffer:        0,
+					DisableCompaction:    true,
+					RetainVersions:       3,
+					ChangesetMaxTarget:   134217728,
+					ReaderUpdateInterval: 1, // TODO: temporary to make things work
+					EvictDepth:           20,
+				},
+				bapp.Logger(),
+			)
+			if err != nil {
+				panic(fmt.Errorf("failed to load iavlx db: %w", err))
+			}
+			bapp.SetCMS(db)
+		},
 	}
 
 	return evmd.NewExampleApp(
