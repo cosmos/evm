@@ -13,6 +13,7 @@ import (
 	protov2 "google.golang.org/protobuf/proto"
 
 	evmapi "github.com/cosmos/evm/api/cosmos/evm/vm/v1"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -30,10 +31,11 @@ import (
 )
 
 var (
-	_ sdk.Msg    = &MsgEthereumTx{}
-	_ sdk.Tx     = &MsgEthereumTx{}
-	_ ante.GasTx = &MsgEthereumTx{}
-	_ sdk.Msg    = &MsgUpdateParams{}
+	_ sdk.Msg                   = &MsgEthereumTx{}
+	_ sdk.Tx                    = &MsgEthereumTx{}
+	_ ante.GasTx                = &MsgEthereumTx{}
+	_ interfaces.IMsgEthereumTx = &MsgEthereumTx{}
+	_ sdk.Msg                   = &MsgUpdateParams{}
 )
 
 // message type and route constants
