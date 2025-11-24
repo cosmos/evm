@@ -1411,6 +1411,22 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		log.Trace("Removed unpayable queued transactions", "count", len(drops))
 		queuedNofundsMeter.Mark(int64(len(drops)))
 
+		// Drop all transactions that now fail the pools RecheckTxFn
+		//
+		// Note this is happening after the nonce removal above since this
+		// check is slower, we would like it to happen on the fewest txs as
+		// possible.
+		//
+		// TODO: We can BlockSTM this by collecting all txs into a list and
+		// then running the ante handlers on them in one parallel batch.
+		// However this requires a small refactor of BlockSTM to remove its
+		// dependency on DeliverTx and allow it to use any fn in parallel.
+		drops, _ = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
+		for _, tx := range drops {
+			pool.all.Remove(tx.Hash())
+		}
+		log.Trace("Removed queued transactions that failed recheck", "count", len(drops))
+
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))
 		for _, tx := range readies {
@@ -1600,6 +1616,24 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
 
+		// Drop all transactions that now fail the pools RecheckTxFn
+		//
+		// Note this is happening after the nonce removal above since this
+		// check is slower, we would like it to happen on the fewest txs as
+		// possible.
+		//
+		// TODO: We can BlockSTM this by collecting all txs into a list and
+		// then running the ante handlers on them in one parallel batch.
+		// However this requires a small refactor of BlockSTM to remove its
+		// dependency on DeliverTx and allow it to use any fn in parallel.
+		drops, recheckInvalids := list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
+		for _, tx := range drops {
+			hash := tx.Hash()
+			pool.all.Remove(hash)
+			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+		}
+
+		invalids := append(costInvalids, recheckInvalids...)
 		for _, tx := range invalids {
 			hash := tx.Hash()
 			log.Trace("Demoting pending transaction", "hash", hash)
