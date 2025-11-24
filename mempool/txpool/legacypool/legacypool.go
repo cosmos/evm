@@ -257,7 +257,7 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFn func(t *types.Transaction) error // Called on every tx in the pending pool every block, evicts txs on error
+	RecheckTxFn func(t *types.Transaction) error // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
 }
 
 type txpoolResetRequest struct {
