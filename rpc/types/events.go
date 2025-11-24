@@ -9,6 +9,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	"github.com/cosmos/evm/server/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -133,7 +134,7 @@ func ParseTxResult(result *abci.ExecTxResult, tx sdk.Tx) (*ParsedTxs, error) {
 			p.Txs[i].Failed = true
 
 			// replace gasUsed with gasLimit because that's what's actually deducted.
-			gasLimit := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx).GetGas()
+			gasLimit := tx.GetMsgs()[i].(interfaces.IMsgEthereumTx).GetGas()
 			p.Txs[i].GasUsed = gasLimit
 		}
 	}

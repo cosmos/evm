@@ -23,6 +23,7 @@ import (
 	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -181,9 +182,9 @@ func (s *TestSuite) buildFormattedBlock(
 	validator sdk.AccAddress,
 	baseFee *big.Int,
 ) map[string]interface{} {
-	var msgs []*evmtypes.MsgEthereumTx
+	var msgs []interfaces.IMsgEthereumTx
 	if tx != nil {
-		msgs = []*evmtypes.MsgEthereumTx{tx}
+		msgs = []interfaces.IMsgEthereumTx{tx}
 	}
 	ethBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee)
 	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, s.backend.ChainConfig())
@@ -195,7 +196,7 @@ func (s *TestSuite) buildFormattedBlock(
 func (s *TestSuite) buildEthBlock(
 	blockRes *cmtrpctypes.ResultBlockResults,
 	resBlock *cmtrpctypes.ResultBlock,
-	msgs []*evmtypes.MsgEthereumTx,
+	msgs []interfaces.IMsgEthereumTx,
 	validator sdk.AccAddress,
 	baseFee *big.Int,
 ) *ethtypes.Block {
