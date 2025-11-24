@@ -19,6 +19,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -91,7 +92,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 	// only supports `MsgEthereumTx` style tx
 	for _, tx := range pendingTxs {
 		for _, msg := range (*tx).GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
+			ethMsg, ok := msg.(interfaces.IMsgEthereumTx)
 			if !ok {
 				// not ethereum tx
 				break
@@ -247,7 +248,7 @@ func (b *Backend) ProcessBlock(
 		}
 		txGasUsed := uint64(cometTxResult.GasUsed) // #nosec G115
 		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
+			ethMsg, ok := msg.(interfaces.IMsgEthereumTx)
 			if !ok {
 				continue
 			}

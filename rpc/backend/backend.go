@@ -20,6 +20,7 @@ import (
 
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	"github.com/cosmos/evm/server/config"
 	servertypes "github.com/cosmos/evm/server/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -74,7 +75,7 @@ type EVMBackend interface {
 	CometBlockByHash(blockHash common.Hash) (*tmrpctypes.ResultBlock, error)
 	BlockNumberFromComet(blockNrOrHash types.BlockNumberOrHash) (types.BlockNumber, error)
 	BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, error)
-	EthMsgsFromCometBlock(block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []*evmtypes.MsgEthereumTx
+	EthMsgsFromCometBlock(block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []interfaces.IMsgEthereumTx
 	BlockBloomFromCometBlock(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error)
 	HeaderByNumber(blockNum types.BlockNumber) (*ethtypes.Header, error)
 	HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error)

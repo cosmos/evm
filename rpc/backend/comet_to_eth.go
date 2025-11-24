@@ -14,6 +14,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -87,8 +88,8 @@ func (b *Backend) BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, e
 func (b *Backend) EthMsgsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-) []*evmtypes.MsgEthereumTx {
-	var result []*evmtypes.MsgEthereumTx
+) []interfaces.IMsgEthereumTx {
+	var result []interfaces.IMsgEthereumTx
 	block := resBlock.Block
 
 	txResults := blockRes.TxsResults
@@ -110,7 +111,7 @@ func (b *Backend) EthMsgsFromCometBlock(
 		}
 
 		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
+			ethMsg, ok := msg.(interfaces.IMsgEthereumTx)
 			if !ok {
 				continue
 			}
@@ -225,7 +226,7 @@ func (b *Backend) MinerFromCometBlock(
 func (b *Backend) ReceiptsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	msgs []*evmtypes.MsgEthereumTx,
+	msgs []interfaces.IMsgEthereumTx,
 ) ([]*ethtypes.Receipt, error) {
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
@@ -237,18 +238,19 @@ func (b *Backend) ReceiptsFromCometBlock(
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
 	for i, ethMsg := range msgs {
-		txResult, err := b.GetTxByEthHash(ethMsg.Hash())
+		tx := ethMsg.AsTransaction()
+		txResult, err := b.GetTxByEthHash(tx.Hash())
 		if err != nil {
-			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
+			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", tx.Hash().Hex(), err.Error())
 		}
 
 		cumulatedGasUsed += txResult.GasUsed
 
 		var effectiveGasPrice *big.Int
 		if baseFee != nil {
-			effectiveGasPrice = rpctypes.EffectiveGasPrice(ethMsg.Raw.Transaction, baseFee)
+			effectiveGasPrice = rpctypes.EffectiveGasPrice(tx, baseFee)
 		} else {
-			effectiveGasPrice = ethMsg.Raw.GasFeeCap()
+			effectiveGasPrice = tx.GasFeeCap()
 		}
 
 		var status uint64
@@ -259,8 +261,8 @@ func (b *Backend) ReceiptsFromCometBlock(
 		}
 
 		contractAddress := common.Address{}
-		if ethMsg.Raw.To() == nil {
-			contractAddress = crypto.CreateAddress(ethMsg.GetSender(), ethMsg.Raw.Nonce())
+		if tx.To() == nil {
+			contractAddress = crypto.CreateAddress(common.Address(ethMsg.GetFrom().Bytes()), tx.Nonce())
 		}
 
 		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
@@ -277,7 +279,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 
 		receipt := &ethtypes.Receipt{
 			// Consensus fields: These fields are defined by the Yellow Paper
-			Type:              ethMsg.Raw.Type(),
+			Type:              tx.Type(),
 			PostState:         nil,
 			Status:            status, // convert to 1=success, 0=failure
 			CumulativeGasUsed: cumulatedGasUsed,
@@ -285,7 +287,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			Logs:              logs,
 
 			// Implementation fields: These fields are added by geth when processing a transaction.
-			TxHash:            ethMsg.Hash(),
+			TxHash:            tx.Hash(),
 			ContractAddress:   contractAddress,
 			GasUsed:           txResult.GasUsed,
 			EffectiveGasPrice: effectiveGasPrice,
