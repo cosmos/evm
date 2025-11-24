@@ -1427,7 +1427,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
 			}
-			log.Trace("Removed queued transactions that failed recheck", "count", len(costDrops))
+			log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
 		}
 
 		// Gather all executable transactions and promote them
