@@ -1404,12 +1404,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
-		for _, tx := range drops {
+		costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
+		for _, tx := range costDrops {
 			pool.all.Remove(tx.Hash())
 		}
-		log.Trace("Removed unpayable queued transactions", "count", len(drops))
-		queuedNofundsMeter.Mark(int64(len(drops)))
+		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
+		queuedNofundsMeter.Mark(int64(len(costDrops)))
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1421,12 +1421,13 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// then running the ante handlers on them in one parallel batch.
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
+		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
-			drops, _ = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
-			for _, tx := range drops {
+			recheckDrops, _ := list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
+			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
 			}
-			log.Trace("Removed queued transactions that failed recheck", "count", len(drops))
+			log.Trace("Removed queued transactions that failed recheck", "count", len(costDrops))
 		}
 
 		// Gather all executable transactions and promote them
@@ -1449,8 +1450,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		}
 		queuedRateLimitMeter.Mark(int64(len(caps)))
 		// Mark all the items dropped as removed
-		pool.priced.Removed(len(forwards) + len(drops) + len(caps))
-		queuedGauge.Dec(int64(len(forwards) + len(drops) + len(caps)))
+		pool.priced.Removed(len(forwards) + len(costDrops) + len(recheckDrops) + len(caps))
+		queuedGauge.Dec(int64(len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)))
 
 		// Delete the entire queue entry if it became empty.
 		if list.Empty() {
@@ -1629,9 +1630,10 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckInvalids []*types.Transaction
+		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
-			drops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
-			for _, tx := range drops {
+			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
+			for _, tx := range recheckDrops {
 				hash := tx.Hash()
 				pool.all.Remove(hash)
 				log.Trace("Removed pending transaction that failed recheck", "hash", hash)
@@ -1646,7 +1648,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			// Internal shuffle shouldn't touch the lookup set.
 			pool.enqueueTx(hash, tx, false)
 		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+		pendingGauge.Dec(int64(len(olds) + len(drops) + len(recheckDrops) + len(invalids)))
 
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
