@@ -149,6 +149,18 @@ func NewExperimentalEVMMempool(
 		}
 
 		_, err = config.AnteHandler(ctx, txBuilder.GetTx(), false)
+		// Transactions should not be removed if they fail for a nonce error
+		switch true {
+		case errors.Is(err, ErrNonceGap):
+			logger.Debug("nonce gap detected, keeping transaction", "error", err)
+			return nil
+		case errors.Is(err, sdkerrors.ErrInvalidAddress):
+			logger.Debug("invalid address, keeping transaction", "error", err)
+			return nil
+		case errors.Is(err, sdkerrors.ErrOutOfGas):
+			logger.Debug("out of gas, keeping transaction", "error", err)
+			return nil
+		}
 		return err
 	}
 
