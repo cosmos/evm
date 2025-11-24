@@ -391,6 +391,9 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 		return false // Cannot validate, keep transaction
 	}
 
+	// TODO: We may be able to just fully remove this and never remove from the
+	// evm pool when comet tells us to. Relying only on the anteHandler check
+	// in promote/demote executables to remove txs.
 	_, err = m.anteHandler(ctx, tx, true)
 	// Keep nonce gap transactions, remove others that fail validation
 	if errors.Is(err, ErrNonceGap) || errors.Is(err, sdkerrors.ErrInvalidSequence) || errors.Is(err, sdkerrors.ErrOutOfGas) {
