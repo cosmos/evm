@@ -300,10 +300,6 @@ func (msg *MsgEthereumTx) UnmarshalBinary(b []byte, signer ethtypes.Signer) erro
 	return msg.FromSignedEthereumTx(tx, signer)
 }
 
-func (msg *MsgEthereumTx) Hash() common.Hash {
-	return msg.AsTransaction().Hash()
-}
-
 // BuildTx builds the canonical cosmos tx from ethereum msg
 func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.Tx, error) {
 	return msg.BuildTxWithEvmParams(b, Params{
