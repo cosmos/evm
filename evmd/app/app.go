@@ -141,7 +141,8 @@ type App struct {
 	interfaceRegistry codectypes.InterfaceRegistry
 
 	// keys to access the substores
-	keys map[string]*storetypes.KVStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	oKeys map[string]*storetypes.ObjectStoreKey
 
 	// pending tx listeners, used for websockets
 	pendingTxListeners []baseevmante.PendingTxListener
@@ -206,24 +207,6 @@ func New(
 		evmtypes.StoreKey, feemarkettypes.StoreKey,
 	)
 	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
-	nonTransientKeys := make([]storetypes.StoreKey, len(keys)+len(oKeys))
-	i := 0
-	for _, k := range keys {
-		nonTransientKeys[i] = k
-		i++
-	}
-	for _, k := range oKeys {
-		nonTransientKeys[i] = k
-		i++
-	}
-	// Setup Parallel Execution via blockstm txn runner
-	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
-		encodingConfig.TxConfig.TxDecoder(),
-		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
-		"astake",
-	))
 
 	// register streaming services
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -237,7 +220,12 @@ func New(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
+		oKeys:             oKeys,
 	}
+
+	// Setup Parallel Execution via blockstm txn runner
+	// initialize block-stm runner with a fallback denom; overridden after InitGenesis when the real EVM denom is available
+	// app.configureBlockSTM("")
 
 	// Disable block gas meter--block gas is tracked elsewhere
 	app.SetDisableBlockGasMeter(true)
@@ -332,7 +320,7 @@ func New(
 		appCodec,
 		keys[evmtypes.StoreKey],
 		oKeys[evmtypes.ObjectKey],
-		nonTransientKeys,
+		app.getNonTransientKeys(),
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.BankKeeper,
@@ -353,7 +341,7 @@ func New(
 		),
 	)
 	// Enable Virtual Fee Collection for endblocker accumulation to fee collector module account
-	app.EVMKeeper.EnableVirtualFeeCollection()
+	// app.EVMKeeper.EnableVirtualFeeCollection()
 
 	// ***** IBC Configuration *****
 
@@ -555,6 +543,35 @@ func New(
 	return app
 }
 
+func (app *App) configureBlockSTM(denom string) {
+	enableEstimate := true
+	if denom == "" {
+		denom = evmtypes.DefaultEVMExtendedDenom
+	}
+
+	app.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
+		app.txConfig.TxDecoder(),
+		app.getNonTransientKeys(),
+		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		enableEstimate,
+		denom,
+	))
+}
+
+func (app *App) getNonTransientKeys() []storetypes.StoreKey {
+	nonTransientKeys := make([]storetypes.StoreKey, len(app.keys)+len(app.oKeys))
+	i := 0
+	for _, k := range app.keys {
+		nonTransientKeys[i] = k
+		i++
+	}
+	for _, k := range app.oKeys {
+		nonTransientKeys[i] = k
+		i++
+	}
+	return nonTransientKeys
+}
+
 func (app *App) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 	options := baseevmante.HandlerOptions{
 		Cdc:                    app.appCodec,
@@ -665,6 +682,14 @@ func (app *App) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {
 		panic(err)
 	}
+	// resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
+	// if err != nil {
+	// 	return resp, err
+	// }
+	// // After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
+	// app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
+	// return resp, nil
+
 	return app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 }
 
