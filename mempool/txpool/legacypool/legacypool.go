@@ -256,6 +256,8 @@ type LegacyPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
 	BroadcastTxFn func(txs []*types.Transaction) error
+
+	RecheckTxFn func(t *types.Transaction) error // Called on every tx in the pending pool every block, evicts txs on error
 }
 
 type txpoolResetRequest struct {

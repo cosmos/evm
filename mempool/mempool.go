@@ -134,6 +134,24 @@ func NewExperimentalEVMMempool(
 		}
 	}
 
+	legacyPool.RecheckTxFn = func(t *ethtypes.Transaction) error {
+		var msg evmtypes.MsgEthereumTx
+		msg.FromEthereumTx(t)
+
+		txBuilder := txConfig.NewTxBuilder()
+		if err := txBuilder.SetMsgs(&msg); err != nil {
+			return fmt.Errorf("failed to set msg in tx builder: %w", err)
+		}
+
+		ctx, err := blockchain.GetLatestContext()
+		if err != nil {
+			return fmt.Errorf("failed to get latest context: %w", err)
+		}
+
+		_, err = config.AnteHandler(ctx, txBuilder.GetTx(), false)
+		return err
+	}
+
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
