@@ -1421,11 +1421,13 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// then running the ante handlers on them in one parallel batch.
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
-		drops, _ = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
-		for _, tx := range drops {
-			pool.all.Remove(tx.Hash())
+		if pool.RecheckTxFn != nil {
+			drops, _ = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
+			for _, tx := range drops {
+				pool.all.Remove(tx.Hash())
+			}
+			log.Trace("Removed queued transactions that failed recheck", "count", len(drops))
 		}
-		log.Trace("Removed queued transactions that failed recheck", "count", len(drops))
 
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))
@@ -1626,11 +1628,14 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// then running the ante handlers on them in one parallel batch.
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
-		drops, recheckInvalids := list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
-		for _, tx := range drops {
-			hash := tx.Hash()
-			pool.all.Remove(hash)
-			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+		var recheckInvalids []*types.Transaction
+		if pool.RecheckTxFn != nil {
+			drops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
+			for _, tx := range drops {
+				hash := tx.Hash()
+				pool.all.Remove(hash)
+				log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+			}
 		}
 
 		invalids := append(costInvalids, recheckInvalids...)
