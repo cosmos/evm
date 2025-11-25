@@ -29,7 +29,6 @@ import (
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 	ibcapi "github.com/cosmos/ibc-go/v10/modules/core/api"
-	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"cosmossdk.io/log"
@@ -51,15 +50,17 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
 
-var _ evm.IBCApp = (*BankPrecompileApp)(nil)
+var _ evm.IBCApp = (*IBCApp)(nil)
 
-type BankPrecompileApp struct {
+type IBCApp struct {
 	eapp.App
 
 	Erc20Keeper   erc20keeper.Keeper
 	erc20StoreKey *storetypes.KVStoreKey
 
 	TransferKeeper transferkeeper.Keeper
+	transferKey    *storetypes.KVStoreKey
+
 	CallbackKeeper ibccallbackskeeper.ContractKeeper
 }
 
@@ -71,16 +72,21 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		panic(err)
 	}
 
+	logger := log.NewNopLogger()
+	db := dbm.NewMemDB()
+	loadLatest := false
+	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID)
+
 	eapp := eapp.New(
-		log.NewNopLogger(),
-		dbm.NewMemDB(),
+		logger,
+		db,
 		nil,
-		true,
-		NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID),
+		loadLatest,
+		appOptions,
 	)
 
 	// wrap evm app with bank precompile app
-	app := &BankPrecompileApp{
+	app := &IBCApp{
 		App: *eapp,
 	}
 
@@ -88,13 +94,11 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	app.addErc20ModulePermissions()
 	app.overrideModuleOrder()
 
-	// add erc20 store key to app.storeKeys
-	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
-	app.extendEvmStoreKeys(erc20StoreKey)
-
 	// mount erc20 store
-	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
+	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
 	app.erc20StoreKey = erc20StoreKey
+	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
+	app.extendEvmStoreKey(erc20types.StoreKey, erc20StoreKey)
 
 	// set erc20 keeper to app
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -109,21 +113,20 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	)
 	app.GetEVMKeeper().SetErc20Keeper(&app.Erc20Keeper)
 
+	// mount ibc transfer store
+	ibcTransferStoreKey := storetypes.NewKVStoreKey(ibctransfertypes.StoreKey)
+	app.transferKey = ibcTransferStoreKey
+	app.MountStore(ibcTransferStoreKey, storetypes.StoreTypeIAVL)
+	app.extendEvmStoreKey(ibctransfertypes.StoreKey, ibcTransferStoreKey)
+
 	// get authority address
 	authAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
-	keys := app.GetEVMKeeper().KVStoreKeys()
-	storeKeyIface := keys[ibctransfertypes.StoreKey]
-	kvStoreKey, ok := storeKeyIface.(*storetypes.KVStoreKey)
-	if !ok {
-		panic("expected *storetypes.KVStoreKey for ibc transfer store key")
-	}
-
+	// set ibc transfer keeper to app
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		app.AppCodec(),
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		runtime.NewKVStoreService(kvStoreKey),
+		runtime.NewKVStoreService(ibcTransferStoreKey),
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -176,11 +179,6 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	app.IBCKeeper.SetRouter(ibcRouter)
 	app.IBCKeeper.SetRouterV2(ibcRouterV2)
 
-	clientKeeper := app.IBCKeeper.ClientKeeper
-	storeProvider := app.IBCKeeper.ClientKeeper.GetStoreProvider()
-	tmLightClientModule := ibctm.NewLightClientModule(app.AppCodec(), storeProvider)
-	clientKeeper.AddRoute(ibctm.ModuleName, &tmLightClientModule)
-
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
 	fmGen := feemarkettypes.DefaultGenesisState()
@@ -192,6 +190,12 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	mintGen := minttypes.DefaultGenesisState()
 	mintGen.Params.MintDenom = constants.ExampleAttoDenom
 	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
+
+	// load latest app state
+	// This metthod seals the app, so it must be called after all keepers are set
+	if err := app.LoadLatestVersion(); err != nil {
+		panic(err)
+	}
 
 	return app, genesisState
 }
@@ -209,22 +213,29 @@ func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64) simutil
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
-// extendEvmStoreKeys records the ERC20 store key inside the EVM keeper so its
-// snapshot store (used during precompile execution) can see the ERC20 KV store.
-func (app *BankPrecompileApp) extendEvmStoreKeys(key storetypes.StoreKey) {
+// extendEvmStoreKeys records the target store key inside the EVM keeper so its
+// snapshot store (used during precompile execution) can see the target KV store.
+func (app *IBCApp) extendEvmStoreKey(keyName string, key storetypes.StoreKey) {
 	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
-	if _, exists := evmStoreKeys[erc20types.StoreKey]; exists {
-		return
+	evmStoreKeys[keyName] = key
+}
+
+// GetKey returns the KVStoreKey for the provided store key, including test-only modules.
+func (app *IBCApp) GetKey(storeKey string) *storetypes.KVStoreKey {
+	if storeKey == erc20types.StoreKey {
+		return app.erc20StoreKey
+	}
+	if storeKey == ibctransfertypes.StoreKey {
+		return app.transferKey
 	}
 
-	evmStoreKeys[erc20types.StoreKey] = key
-	evmStoreKeys[ibctransfertypes.StoreKey] = key
+	return app.App.GetKey(storeKey)
 }
 
 // overrideModuleOrder reproduces the base app's module ordering but inserts the
 // ERC20 module so it runs in begin/end blockers and genesis alongside the rest
 // of the modules.
-func (app *BankPrecompileApp) overrideModuleOrder() {
+func (app *IBCApp) overrideModuleOrder() {
 	app.ModuleManager.SetOrderBeginBlockers(
 		minttypes.ModuleName,
 		ibcexported.ModuleName,
@@ -280,7 +291,7 @@ func (app *BankPrecompileApp) overrideModuleOrder() {
 // the ERC20 module's InitGenesis. The main evmd application does not (yet)
 // register the ERC20 module with the module manager, so we have to call it here
 // to ensure the keeper's state exists for tests that rely on ERC20 module.
-func (app *BankPrecompileApp) bankInitChainer(ctx sdk.Context, req *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
+func (app *IBCApp) bankInitChainer(ctx sdk.Context, req *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
 	var genesisState eapp.GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
@@ -316,7 +327,7 @@ func (app *BankPrecompileApp) bankInitChainer(ctx sdk.Context, req *abcitypes.Re
 
 // addErc20ModulePermissions mirrors the production app's keeper wiring by
 // registering the ERC20 module account permissions after the fact.
-func (app *BankPrecompileApp) addErc20ModulePermissions() {
+func (app *IBCApp) addErc20ModulePermissions() {
 	perms := app.AccountKeeper.GetModulePermissions()
 	if _, exists := perms[erc20types.ModuleName]; exists {
 		return
@@ -328,7 +339,7 @@ func (app *BankPrecompileApp) addErc20ModulePermissions() {
 	)
 
 	perms[ibctransfertypes.ModuleName] = authtypes.NewPermissionsForAddress(
-		erc20types.ModuleName,
+		ibctransfertypes.ModuleName,
 		[]string{authtypes.Minter, authtypes.Burner},
 	)
 }
