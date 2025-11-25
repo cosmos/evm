@@ -136,11 +136,15 @@ func NewExperimentalEVMMempool(
 
 	legacyPool.RecheckTxFn = func(chain legacypool.BlockChain, t *ethtypes.Transaction) error {
 		var msg evmtypes.MsgEthereumTx
-		msg.FromEthereumTx(t)
+
+		signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
+		if err := msg.FromSignedEthereumTx(t, signer); err != nil {
+			return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
+		}
 
 		txBuilder := txConfig.NewTxBuilder()
-		if err := txBuilder.SetMsgs(&msg); err != nil {
-			return fmt.Errorf("failed to set msg in tx builder: %w", err)
+		cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
+
 		bc, ok := chain.(*Blockchain)
 		if !ok {
 			return fmt.Errorf("unexpected type for blockchain, must be concrete type mempool.Blockchain")
@@ -151,7 +155,7 @@ func NewExperimentalEVMMempool(
 			return fmt.Errorf("failed to get latest context: %w", err)
 		}
 
-		_, err = config.AnteHandler(ctx, txBuilder.GetTx(), false)
+		_, err = config.AnteHandler(ctx, cosmosTx, false)
 		return err
 	}
 
