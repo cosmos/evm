@@ -11,7 +11,6 @@ const (
 	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
 	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
 	NodeArgsMaxTxs                     = "--mempool.max-txs=0"
-	NodeArgsLogLevel                   = "--log_level=info"
 )
 
 // TestOptions defines the options for a test case.
@@ -47,7 +46,6 @@ func DefaultNodeArgs() []string {
 		NodeArgsJsonrpcAllowUnprotectedTxs,
 		NodeArgsMinimumGasPrice,
 		NodeArgsMaxTxs,
-		NodeArgsLogLevel,
 	}
 }
 

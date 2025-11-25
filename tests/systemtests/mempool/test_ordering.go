@@ -57,11 +57,11 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 			TxType:         suite.TxTypeEVM,
 			IsDynamicFeeTx: false,
 		},
-		// {
-		// 	Description:    "EVM DynamicFeeTx",
-		// 	TxType:         suite.TxTypeEVM,
-		// 	IsDynamicFeeTx: true,
-		// },
+		{
+			Description:    "EVM DynamicFeeTx",
+			TxType:         suite.TxTypeEVM,
+			IsDynamicFeeTx: true,
+		},
 	}
 
 	s := NewTestSuite(base)
