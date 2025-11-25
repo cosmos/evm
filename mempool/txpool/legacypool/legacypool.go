@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -42,6 +43,7 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/mempool/txpool"
+	"github.com/cosmos/evm/x/vm/statedb"
 )
 
 const (
@@ -257,7 +259,7 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFn func(chain BlockChain, t *types.Transaction) error // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
+	RecheckTxFn func(ctx sdk.Context, t *types.Transaction) error // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
 }
 
 type txpoolResetRequest struct {
@@ -1424,7 +1426,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.chain, tx) != nil
+				return pool.RecheckTxFn(pool.CurrentCacheContext(), tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1635,7 +1637,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.chain, tx) != nil
+				return pool.RecheckTxFn(pool.CurrentCacheContext(), tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
@@ -1946,4 +1948,15 @@ func (pool *LegacyPool) Clear() {
 // authorizations from the specific address cached in the pool.
 func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
+}
+
+func (pool *LegacyPool) CurrentCacheContext() sdk.Context {
+	db, ok := pool.currentState.(*statedb.StateDB)
+	if !ok {
+		panic("unexpected type for current state on pool, expected *statedb.StateDB")
+	}
+
+	currentContext := db.GetContext()
+	cacheCtx, _ := currentContext.CacheContext()
+	return cacheCtx
 }

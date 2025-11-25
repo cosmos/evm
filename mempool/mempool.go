@@ -134,7 +134,7 @@ func NewExperimentalEVMMempool(
 		}
 	}
 
-	legacyPool.RecheckTxFn = func(chain legacypool.BlockChain, t *ethtypes.Transaction) error {
+	legacyPool.RecheckTxFn = func(ctx sdk.Context, t *ethtypes.Transaction) error {
 		var msg evmtypes.MsgEthereumTx
 
 		signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
@@ -148,21 +148,10 @@ func NewExperimentalEVMMempool(
 			return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
 		}
 
-		bc, ok := chain.(*Blockchain)
-		if !ok {
-			return fmt.Errorf("unexpected type for blockchain, must be concrete type mempool.Blockchain")
-		}
-
-		ctx, err := bc.GetLatestContext()
-		if err != nil {
-			return fmt.Errorf("failed to get latest context: %w", err)
-		}
-
 		_, err = config.AnteHandler(ctx, cosmosTx, false)
 		if errors.Is(err, ErrNonceGap) ||
 			errors.Is(err, sdkerrors.ErrInvalidSequence) ||
-			errors.Is(err, sdkerrors.ErrOutOfGas) ||
-			errors.Is(err, ErrNonceLow) {
+			errors.Is(err, sdkerrors.ErrOutOfGas) {
 			return nil
 		}
 		return err
