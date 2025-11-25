@@ -156,6 +156,12 @@ func NewExperimentalEVMMempool(
 		}
 
 		_, err = config.AnteHandler(ctx, cosmosTx, false)
+		if errors.Is(err, ErrNonceGap) ||
+			errors.Is(err, sdkerrors.ErrInvalidSequence) ||
+			errors.Is(err, sdkerrors.ErrOutOfGas) ||
+			errors.Is(err, ErrNonceLow) {
+			return nil
+		}
 		return err
 	}
 
