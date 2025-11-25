@@ -179,6 +179,9 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	app.IBCKeeper.SetRouter(ibcRouter)
 	app.IBCKeeper.SetRouterV2(ibcRouterV2)
 
+	// override init chainer to include ERC20 and IBC transfer genesis execution
+	app.SetInitChainer(app.initChainer)
+
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
 	fmGen := feemarkettypes.DefaultGenesisState()
@@ -190,6 +193,11 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	mintGen := minttypes.DefaultGenesisState()
 	mintGen.Params.MintDenom = constants.ExampleAttoDenom
 	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
+
+	// ensure transfer module has a genesis entry so InitGenesis sets the port
+	// and avoids "invalid port: transfer" errors during channel creation
+	transferGen := ibctransfertypes.DefaultGenesisState()
+	genesisState[ibctransfertypes.ModuleName] = app.AppCodec().MustMarshalJSON(transferGen)
 
 	// load latest app state
 	// This metthod seals the app, so it must be called after all keepers are set
@@ -287,40 +295,33 @@ func (app *IBCApp) overrideModuleOrder() {
 	app.ModuleManager.SetOrderExportGenesis(initOrder...)
 }
 
-// bankInitChainer replays the default app.InitChainer and then manually invokes
+// initChainer replays the default app.InitChainer and then manually invokes
 // the ERC20 module's InitGenesis. The main evmd application does not (yet)
 // register the ERC20 module with the module manager, so we have to call it here
 // to ensure the keeper's state exists for tests that rely on ERC20 module.
-func (app *IBCApp) bankInitChainer(ctx sdk.Context, req *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
+func (app *IBCApp) initChainer(ctx sdk.Context, req *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
 	var genesisState eapp.GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
 	}
-
-	// erc20 module init genesis
-	rawErc20Genesis, ok := genesisState[erc20types.ModuleName]
-	if !ok {
-		return app.App.InitChainer(ctx, req)
-	}
-
-	var erc20Genesis erc20types.GenesisState
-	app.AppCodec().MustUnmarshalJSON(rawErc20Genesis, &erc20Genesis)
 
 	resp, err := app.App.InitChainer(ctx, req)
 	if err != nil {
 		return resp, err
 	}
 
-	erc20module.InitGenesis(ctx, app.Erc20Keeper, app.AccountKeeper, erc20Genesis)
-
-	// ibc transfer module init genesis
-	rawTransferGenesis, ok := genesisState[ibctransfertypes.ModuleName]
-	if !ok {
-		return app.App.InitChainer(ctx, req)
+	// erc20 module init genesis (if provided)
+	if rawErc20Genesis, ok := genesisState[erc20types.ModuleName]; ok {
+		var erc20Genesis erc20types.GenesisState
+		app.AppCodec().MustUnmarshalJSON(rawErc20Genesis, &erc20Genesis)
+		erc20module.InitGenesis(ctx, app.Erc20Keeper, app.AccountKeeper, erc20Genesis)
 	}
 
-	transferModule := transfer.NewAppModule(app.TransferKeeper)
-	transferModule.InitGenesis(ctx, app.AppCodec(), rawTransferGenesis)
+	// ibc transfer module init genesis (if provided)
+	if rawTransferGenesis, ok := genesisState[ibctransfertypes.ModuleName]; ok {
+		transferModule := transfer.NewAppModule(app.TransferKeeper)
+		transferModule.InitGenesis(ctx, app.AppCodec(), rawTransferGenesis)
+	}
 
 	return resp, nil
 }
