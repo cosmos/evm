@@ -5,6 +5,9 @@ package systemtests
 import (
 	"testing"
 
+	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
+	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 
@@ -51,8 +54,8 @@ func TestMempoolCosmosTxsCompatibility(t *testing.T) {
 }
 
 /*
-- EIP-712 Tests
-*/
+ * EIP-712 Tests
+ */
 func TestEIP712BankSend(t *testing.T) {
 	suite.RunWithSharedSuite(t, eip712.RunEIP712BankSend)
 }
