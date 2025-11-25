@@ -257,7 +257,7 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFn func(chain BlockChain, t *types.Transaction) error // Called on every tx during promoteExecutables and demoteUnexecutables, removes based on failure
+	RecheckTxFn func(t *types.Transaction) error // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
 }
 
 type txpoolResetRequest struct {
@@ -1423,9 +1423,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
-			recheckDrops, _ := list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.chain, tx) != nil
-			})
+			recheckDrops, _ := list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
 			}
@@ -1634,9 +1632,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckInvalids []*types.Transaction
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
-			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.chain, tx) != nil
-			})
+			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool { return pool.RecheckTxFn(tx) != nil })
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
 				pool.all.Remove(hash)

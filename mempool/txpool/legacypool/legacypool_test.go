@@ -2706,7 +2706,7 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 
 	// Set up RecheckTxFn to fail tx1
-	pool.RecheckTxFn = func(c BlockChain, tx *types.Transaction) error {
+	pool.RecheckTxFn = func(tx *types.Transaction) error {
 		if tx.Nonce() == 1 {
 			return errors.New("recheck failed for tx1")
 		}
@@ -2789,7 +2789,7 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 
 	// Set up RecheckTxFn to fail tx10 and tx22
-	pool.RecheckTxFn = func(c BlockChain, tx *types.Transaction) error {
+	pool.RecheckTxFn = func(tx *types.Transaction) error {
 		if tx == tx10 || tx == tx22 {
 			return errors.New("recheck failed")
 		}
