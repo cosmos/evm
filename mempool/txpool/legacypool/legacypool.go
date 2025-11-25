@@ -1423,8 +1423,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
-			recheckDrops, _ := list.Filter(func(tx *types.Transaction) bool {
 				return pool.RecheckTxFn(pool.chain, tx) != nil
+			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
