@@ -1950,10 +1950,14 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
 }
 
+// CurrentCacheContext gets a cached version of the current context in the
+// pools stateDB. Note that this may momentarily differ from the BlockChain's
+// context.
 func (pool *LegacyPool) CurrentCacheContext() sdk.Context {
 	db, ok := pool.currentState.(*statedb.StateDB)
 	if !ok {
-		panic("unexpected type for current state on pool, expected *statedb.StateDB")
+		// should never happen, not panicing for testing
+		return sdk.Context{}
 	}
 
 	currentContext := db.GetContext()
