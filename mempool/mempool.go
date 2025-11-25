@@ -144,6 +144,9 @@ func NewExperimentalEVMMempool(
 
 		txBuilder := txConfig.NewTxBuilder()
 		cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
+		if err != nil {
+			return fmt.Errorf("building cosmos tx from evm tx: %w", err)
+		}
 
 		bc, ok := chain.(*Blockchain)
 		if !ok {
