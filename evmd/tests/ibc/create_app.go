@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/evm"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	eapp "github.com/cosmos/evm/evmd/app"
+	ics20precmopile "github.com/cosmos/evm/precompiles/ics20"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -91,6 +92,14 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	app.setIBCTransferKeeper()
 	app.setIBCTransferStack()
 
+	ics20Percompile := ics20precmopile.NewPrecompile(
+		app.GetBankKeeper(),
+		app.GetStakingKeeper(),
+		app.GetTransferKeeper(),
+		app.GetIBCKeeper().ChannelKeeper,
+	)
+	app.App.GetEVMKeeper().RegisterStaticPrecompile(ics20Percompile.Address(), ics20Percompile)
+
 	// override module order of abci interface calls
 	app.overrideModuleOrder()
 
@@ -118,6 +127,10 @@ func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64) simutil
 
 func (app IBCApp) GetErc20Keeper() *erc20keeper.Keeper {
 	return &app.Erc20Keeper
+}
+
+func (app IBCApp) GetTransferKeeper() transferkeeper.Keeper {
+	return app.TransferKeeper
 }
 
 // GetKey returns the KVStoreKey for the provided store key, including test-only modules.
