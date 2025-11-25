@@ -1,8 +1,8 @@
-//go:build system_test
-
 package mempool
 
 import (
+	"fmt"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -50,10 +50,50 @@ func (s *TestSuite) AfterEachAction(t *testing.T, ctx *TestContext) {
 }
 
 func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
-	for _, txInfo := range ctx.ExpPending {
+	t.Logf("=== AfterEachCase: Starting verification ===")
+	t.Logf("AfterEachCase: Waiting for %d transactions to commit", len(ctx.ExpPending))
+
+	// Log all expected transactions first
+	for i, txInfo := range ctx.ExpPending {
+		t.Logf("Expected tx %d/%d: hash=%s, node=%s, type=%s",
+			i+1, len(ctx.ExpPending), txInfo.TxHash, txInfo.DstNodeID, txInfo.TxType)
+	}
+
+	// Now wait for each transaction
+	for i, txInfo := range ctx.ExpPending {
+		t.Logf("Waiting for tx %d/%d to commit: hash=%s, node=%s, type=%s",
+			i+1, len(ctx.ExpPending), txInfo.TxHash, txInfo.DstNodeID, txInfo.TxType)
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, txPoolContentTimeout)
+		if err != nil {
+			t.Logf("ERROR: Failed to wait for tx %d/%d (hash=%s, node=%s): %v",
+				i+1, len(ctx.ExpPending), txInfo.TxHash, txInfo.DstNodeID, err)
+
+			// On error, dump mempool state from all nodes for debugging
+			t.Logf("Dumping mempool state from all nodes for debugging:")
+			for _, nodeID := range s.Nodes() {
+				pending, queued, mempoolErr := s.TxPoolContent(nodeID, txInfo.TxType, 5*time.Second)
+				if mempoolErr != nil {
+					t.Logf("  %s: Failed to get mempool state: %v", nodeID, mempoolErr)
+				} else {
+					t.Logf("  %s: pending=%d, queued=%d", nodeID, len(pending), len(queued))
+					if len(pending) > 0 {
+						t.Logf("    Pending: %v", pending)
+					}
+					if len(queued) > 0 {
+						t.Logf("    Queued: %v", queued)
+					}
+				}
+			}
+
+			// Dump node logs for debugging
+			t.Logf("Dumping node logs for debugging (last 100 lines from each node):")
+			s.DumpAllNodeLogs(t, 100)
+		} else {
+			t.Logf("SUCCESS: Tx %d/%d committed (hash=%s)", i+1, len(ctx.ExpPending), txInfo.TxHash)
+		}
 		require.NoError(t, err)
 	}
+	t.Logf("=== AfterEachCase: All %d transactions committed successfully ===", len(ctx.ExpPending))
 }
 
 type TestContext struct {
@@ -90,4 +130,30 @@ func (c *TestContext) PromoteExpTxs(count int) {
 	promoted := c.ExpQueued[:count]
 	c.ExpPending = append(c.ExpPending, promoted...)
 	c.ExpQueued = c.ExpQueued[count:]
+}
+
+// DumpNodeLogs dumps the last N lines of node logs for debugging
+func (s *TestSuite) DumpNodeLogs(t *testing.T, nodeID string, tailLines int) {
+	t.Helper()
+	logPath := fmt.Sprintf("testnet/%s.out", nodeID)
+
+	t.Logf("=== Last %d lines of %s logs ===", tailLines, nodeID)
+
+	// Try to read the last N lines of the log file
+	content, err := exec.Command("tail", "-n", fmt.Sprintf("%d", tailLines), logPath).Output()
+	if err != nil {
+		t.Logf("Failed to read logs from %s: %v", logPath, err)
+		return
+	}
+
+	t.Logf("%s", string(content))
+	t.Logf("=== End of %s logs ===", nodeID)
+}
+
+// DumpAllNodeLogs dumps logs from all nodes
+func (s *TestSuite) DumpAllNodeLogs(t *testing.T, tailLines int) {
+	t.Helper()
+	for _, nodeID := range s.Nodes() {
+		s.DumpNodeLogs(t, nodeID, tailLines)
+	}
 }
