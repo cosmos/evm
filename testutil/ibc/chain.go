@@ -162,7 +162,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 			},
 			{
 				Denom:    types.DefaultEVMDisplayDenom,
-				Exponent: 6,
+				Exponent: 18,
 				Aliases:  nil,
 			},
 		},
