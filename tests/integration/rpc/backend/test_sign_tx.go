@@ -129,7 +129,7 @@ func (s *TestSuite) TestSendTransaction() {
 			if tc.expPass {
 				// Sign the transaction and get the hash
 
-				ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
+				ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
 				msg := evmtypes.NewTxFromArgs(&callArgsDefault)
 				err := msg.Sign(ethSigner, s.backend.ClientCtx.Keyring)
 				s.Require().NoError(err)
@@ -256,7 +256,7 @@ func broadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int,
 	RegisterBaseFee(QueryClient, baseFee)
 	RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 	RegisterConsensusParams(client, height)
-	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig(suite.Ctx()))
+	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
 	msg := evmtypes.NewTxFromArgs(&callArgsDefault)
 	err := msg.Sign(ethSigner, suite.backend.ClientCtx.Keyring)
 	suite.Require().NoError(err)

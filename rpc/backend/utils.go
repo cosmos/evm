@@ -150,7 +150,7 @@ func (b *Backend) ProcessBlock(
 	} else {
 		targetOneFeeHistory.BaseFee = blockBaseFee
 	}
-	cfg := b.ChainConfig(ctx)
+	cfg := b.ChainConfig()
 	gasLimitUint64, ok := (*ethBlock)["gasLimit"].(hexutil.Uint64)
 	if !ok {
 		return fmt.Errorf("invalid gas limit type: %T", (*ethBlock)["gasLimit"])

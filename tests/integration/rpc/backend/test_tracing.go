@@ -35,7 +35,7 @@ func (s *TestSuite) TestTraceTransaction() {
 	armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 	_ = s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 
-	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
+	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
 
 	txEncoder := s.backend.ClientCtx.TxConfig.TxEncoder()
 

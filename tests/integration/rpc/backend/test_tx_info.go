@@ -47,7 +47,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 	}
 
 	blockTime := uint64(block.Time.UTC().Unix()) //nolint:gosec // G115
-	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, blockTime, 0, big.NewInt(1), s.backend.ChainConfig(s.Ctx()))
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, blockTime, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -129,7 +129,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 
 func (s *TestSuite) TestGetTransactionsByHashPending() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig(s.Ctx()))
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -189,7 +189,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 
 func (s *TestSuite) TestGetTxByEthHash() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig(s.Ctx()))
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -307,7 +307,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 		blockTime,
 		0,
 		big.NewInt(1),
-		s.backend.ChainConfig(s.Ctx()),
+		s.backend.ChainConfig(),
 	)
 	testCases := []struct {
 		name         string
@@ -403,7 +403,7 @@ func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 		blockTime,
 		0,
 		big.NewInt(1),
-		s.backend.ChainConfig(s.Ctx()),
+		s.backend.ChainConfig(),
 	)
 	testCases := []struct {
 		name         string

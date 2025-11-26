@@ -180,7 +180,7 @@ func (s *TestSuite) buildFormattedBlock(
 		msgs = []*evmtypes.MsgEthereumTx{tx}
 	}
 	ethBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee)
-	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, s.backend.ChainConfig(s.Ctx()))
+	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, s.backend.ChainConfig())
 	s.Require().NoError(err)
 
 	return res
@@ -250,7 +250,7 @@ func (s *TestSuite) signAndEncodeEthTx(msgEthereumTx *evmtypes.MsgEthereumTx) []
 	from, priv := utiltx.NewAddrKey()
 	signer := utiltx.NewSigner(priv)
 
-	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
+	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
 	msgEthereumTx.From = from.Bytes()
 	err := msgEthereumTx.Sign(ethSigner, signer)
 	s.Require().NoError(err)

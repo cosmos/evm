@@ -46,7 +46,7 @@ func (b *Backend) Resend(ctx context.Context, args evmtypes.TransactionArgs, gas
 
 	// The signer used should always be the 'latest' known one because we expect
 	// signers to be backwards-compatible with old transactions.
-	cfg := b.ChainConfig(ctx)
+	cfg := b.ChainConfig()
 	if cfg == nil {
 		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64()).EthereumConfig(nil)
 	}
@@ -130,7 +130,7 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 	}
 
 	ethereumTx := &evmtypes.MsgEthereumTx{}
-	ethSigner := ethtypes.LatestSigner(b.ChainConfig(ctx))
+	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
 	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
 		b.Logger.Error("transaction converting failed", "error", err.Error())
 		return common.Hash{}, fmt.Errorf("failed to convert ethereum transaction: %w", err)

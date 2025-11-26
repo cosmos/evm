@@ -99,7 +99,7 @@ func (b *Backend) GetTransactionByHash(ctx context.Context, txHash common.Hash) 
 		blockTime,
 		index,
 		baseFee,
-		b.ChainConfig(ctx),
+		b.ChainConfig(),
 	), nil
 }
 
@@ -133,7 +133,7 @@ func (b *Backend) GetTransactionByHashPending(ctx context.Context, txHash common
 				uint64(0),
 				uint64(0),
 				nil,
-				b.ChainConfig(ctx),
+				b.ChainConfig(),
 			), nil
 		}
 	}
@@ -450,7 +450,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(ctx context.Context, block *cmtr
 		blockTime,
 		index,
 		baseFee,
-		b.ChainConfig(ctx),
+		b.ChainConfig(),
 	), nil
 }
 
@@ -563,8 +563,8 @@ func (b *Backend) getAccessListExcludes(ctx context.Context, args evmtypes.Trans
 		addressesToExclude[*args.To] = struct{}{}
 	}
 
-	isMerge := b.ChainConfig(ctx).MergeNetsplitBlock != nil
-	precompiles := vm.ActivePrecompiles(b.ChainConfig(ctx).Rules(header.Number, isMerge, header.Time))
+	isMerge := b.ChainConfig().MergeNetsplitBlock != nil
+	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isMerge, header.Time))
 	for _, addr := range precompiles {
 		addressesToExclude[addr] = struct{}{}
 	}
@@ -579,7 +579,7 @@ func (b *Backend) getAccessListExcludes(ctx context.Context, args evmtypes.Trans
 	for _, auth := range args.AuthorizationList {
 		// validate authorization (duplicating stateTransition.validateAuthorization() logic from geth: https://github.com/ethereum/go-ethereum/blob/bf8f63dcd27e178bd373bfe41ea718efee2851dd/core/state_transition.go#L575)
 		nonceOverflow := auth.Nonce+1 < auth.Nonce
-		invalidChainID := !auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig(ctx).ChainID) != 0
+		invalidChainID := !auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig().ChainID) != 0
 		if nonceOverflow || invalidChainID {
 			b.Logger.Error("invalid authorization", "auth", auth)
 			continue
@@ -615,7 +615,7 @@ func (b *Backend) initAccessListTracer(ctx context.Context, args evmtypes.Transa
 		nonce64 := hexutil.Uint64(nonce)
 		args.Nonce = &nonce64
 	}
-	if err = args.CallDefaults(b.RPCGasCap(), header.BaseFee, b.ChainConfig(ctx).ChainID); err != nil {
+	if err = args.CallDefaults(b.RPCGasCap(), header.BaseFee, b.ChainConfig().ChainID); err != nil {
 		b.Logger.Error("failed to set default call args", "error", err)
 		return nil, nil, err
 	}

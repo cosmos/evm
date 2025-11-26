@@ -92,7 +92,7 @@ type EVMBackend interface {
 
 	// Chain Info
 	ChainID(ctx context.Context) (*hexutil.Big, error)
-	ChainConfig(ctx context.Context) *params.ChainConfig
+	ChainConfig() *params.ChainConfig
 	GlobalMinGasPrice(ctx context.Context) (*big.Int, error)
 	BaseFee(ctx context.Context, blockRes *tmrpctypes.ResultBlockResults) (*big.Int, error)
 	CurrentHeader(ctx context.Context) (*ethtypes.Header, error)

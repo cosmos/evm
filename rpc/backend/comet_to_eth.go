@@ -59,7 +59,7 @@ func (b *Backend) RPCBlockFromCometBlock(
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
 
-	return rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, b.ChainConfig(ctx))
+	return rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, b.ChainConfig())
 }
 
 // BlockNumberFromComet returns the BlockNumber from BlockNumberOrHash

@@ -42,7 +42,7 @@ func (b *Backend) ChainID(ctx context.Context) (result *hexutil.Big, err error) 
 		return (*hexutil.Big)(b.EvmChainID), nil
 	}
 
-	if config := b.ChainConfig(ctx); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {
+	if config := b.ChainConfig(); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {
 		return (*hexutil.Big)(config.ChainID), nil
 	}
 
@@ -50,9 +50,7 @@ func (b *Backend) ChainID(ctx context.Context) (result *hexutil.Big, err error) 
 }
 
 // ChainConfig returns the latest ethereum chain configuration
-func (b *Backend) ChainConfig(ctx context.Context) *params.ChainConfig {
-	_, span := tracer.Start(ctx, "ChainConfig")
-	defer span.End()
+func (b *Backend) ChainConfig() *params.ChainConfig {
 	return evmtypes.GetEthChainConfig()
 }
 

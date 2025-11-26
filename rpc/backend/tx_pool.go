@@ -55,7 +55,7 @@ func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map
 		}
 
 		for _, tx := range txList {
-			rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig(ctx))
+			rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig())
 			content[StatusPending][addrStr][strconv.FormatUint(tx.Nonce(), 10)] = rpcTx
 		}
 	}
@@ -68,7 +68,7 @@ func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map
 		}
 
 		for _, tx := range txList {
-			rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig(ctx))
+			rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig())
 			content[StatusQueued][addrStr][strconv.FormatUint(tx.Nonce(), 10)] = rpcTx
 		}
 	}
@@ -102,7 +102,7 @@ func (b *Backend) ContentFrom(ctx context.Context, addr common.Address) (result 
 	// Build the pending transactions
 	dump := make(map[string]*types.RPCTransaction, len(pending)) // variable name comes from go-ethereum: https://github.com/ethereum/go-ethereum/blob/0dacfef8ac42e7be5db26c2956f2b238ba7c75e8/internal/ethapi/api.go#L221
 	for _, tx := range pending {
-		rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig(ctx))
+		rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig())
 		dump[fmt.Sprintf("%d", tx.Nonce())] = rpcTx
 	}
 	content[StatusPending] = dump
@@ -110,7 +110,7 @@ func (b *Backend) ContentFrom(ctx context.Context, addr common.Address) (result 
 	// Build the queued transactions
 	dump = make(map[string]*types.RPCTransaction, len(queue)) // variable name comes from go-ethereum: https://github.com/ethereum/go-ethereum/blob/0dacfef8ac42e7be5db26c2956f2b238ba7c75e8/internal/ethapi/api.go#L221
 	for _, tx := range queue {
-		rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig(ctx))
+		rpcTx := types.NewRPCPendingTransaction(tx, curHeader, b.ChainConfig())
 		dump[fmt.Sprintf("%d", tx.Nonce())] = rpcTx
 	}
 	content[StatusQueued] = dump

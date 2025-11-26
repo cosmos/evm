@@ -298,7 +298,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 	emptyEvmChainIDTx := s.buildEthereumTxWithChainID(nil)
 	invalidChainID := big.NewInt(1)
 	// Sign the ethTx
-	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
+	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
 	err := ethTx.Sign(ethSigner, s.signer)
 	s.Require().NoError(err)
 
