@@ -1972,6 +1972,11 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // pools stateDB. Note that this may momentarily differ from the BlockChain's
 // context.
 func (pool *LegacyPool) CurrentCacheContext() sdk.Context {
+	if pool.currentState == vm.StateDB(nil) || pool.currentState == nil {
+		// block 0 before state/context is available
+		return sdk.Context{}
+	}
+
 	db, ok := pool.currentState.(*statedb.StateDB)
 	if !ok {
 		// should never happen, not panicing for testing
