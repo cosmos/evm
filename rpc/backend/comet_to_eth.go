@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
@@ -22,10 +25,15 @@ import (
 // RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
 // given CometBFT block and its block result.
 func (b *Backend) RPCHeaderFromCometBlock(
+	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-) (map[string]interface{}, error) {
-	ethBlock, err := b.EthBlockFromCometBlock(resBlock, blockRes)
+) (result map[string]interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "RPCHeaderFromCometBlock")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	ethBlock, err := b.EthBlockFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
@@ -36,26 +44,35 @@ func (b *Backend) RPCHeaderFromCometBlock(
 // RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
 // given CometBFT block and its block result.
 func (b *Backend) RPCBlockFromCometBlock(
+	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 	fullTx bool,
-) (map[string]interface{}, error) {
-	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
-	ethBlock, err := b.EthBlockFromCometBlock(resBlock, blockRes)
+) (result map[string]interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "RPCBlockFromCometBlock")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	msgs := b.EthMsgsFromCometBlock(ctx, resBlock, blockRes)
+	ethBlock, err := b.EthBlockFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
 
-	return rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, b.ChainConfig())
+	return rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, b.ChainConfig(ctx))
 }
 
 // BlockNumberFromComet returns the BlockNumber from BlockNumberOrHash
-func (b *Backend) BlockNumberFromComet(blockNrOrHash rpctypes.BlockNumberOrHash) (rpctypes.BlockNumber, error) {
+func (b *Backend) BlockNumberFromComet(ctx context.Context, blockNrOrHash rpctypes.BlockNumberOrHash) (result rpctypes.BlockNumber, err error) {
+	ctx, span := tracer.Start(ctx, "BlockNumberFromComet", trace.WithAttributes(attribute.String("blockNrOrHash", unwrapBlockNOrHash(blockNrOrHash))))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	switch {
 	case blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber == nil:
 		return rpctypes.EthEarliestBlockNumber, fmt.Errorf("types BlockHash and BlockNumber cannot be both nil")
 	case blockNrOrHash.BlockHash != nil:
-		blockNumber, err := b.BlockNumberFromCometByHash(*blockNrOrHash.BlockHash)
+		blockNumber, err := b.BlockNumberFromCometByHash(ctx, *blockNrOrHash.BlockHash)
 		if err != nil {
 			return rpctypes.EthEarliestBlockNumber, err
 		}
@@ -68,8 +85,12 @@ func (b *Backend) BlockNumberFromComet(blockNrOrHash rpctypes.BlockNumberOrHash)
 }
 
 // BlockNumberFromCometByHash returns the block height of given block hash
-func (b *Backend) BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, error) {
-	resHeader, err := b.RPCClient.HeaderByHash(b.Ctx, blockHash.Bytes())
+func (b *Backend) BlockNumberFromCometByHash(ctx context.Context, blockHash common.Hash) (result *big.Int, err error) {
+	ctx, span := tracer.Start(ctx, "BlockNumberFromCometByHash", trace.WithAttributes(attribute.String("blockHash", blockHash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	resHeader, err := b.RPCClient.HeaderByHash(ctx, blockHash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -85,9 +106,12 @@ func (b *Backend) BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, e
 // CometBFT block. It also ensures consistency over the correct txs indexes
 // across RPC endpoints
 func (b *Backend) EthMsgsFromCometBlock(
+	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) []*evmtypes.MsgEthereumTx {
+	ctx, span := tracer.Start(ctx, "EthMsgsFromCometBlock")
+	defer span.End()
 	var result []*evmtypes.MsgEthereumTx
 	block := resBlock.Block
 
@@ -125,26 +149,31 @@ func (b *Backend) EthMsgsFromCometBlock(
 // RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
 // given CometBFT block and its block result.
 func (b *Backend) EthBlockFromCometBlock(
+	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-) (*ethtypes.Block, error) {
+) (result *ethtypes.Block, err error) {
+	ctx, span := tracer.Start(ctx, "EthBlockFromCometBlock")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	cmtBlock := resBlock.Block
 
 	// 1. get base fee
-	baseFee, err := b.BaseFee(blockRes)
+	baseFee, err := b.BaseFee(ctx, blockRes)
 	if err != nil {
 		// handle the error for pruned node.
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", cmtBlock.Height, "error", err)
 	}
 
 	// 2. get miner
-	miner, err := b.MinerFromCometBlock(resBlock)
+	miner, err := b.MinerFromCometBlock(ctx, resBlock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get miner(block proposer) address from comet block")
 	}
 
 	// 3. get block gasLimit
-	ctx := rpctypes.ContextWithHeight(cmtBlock.Height)
+	ctx = rpctypes.ContextWithHeight(cmtBlock.Height, ctx)
 	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.ClientCtx, cmtBlock.Height)
 	if err != nil {
 		b.Logger.Error("failed to query consensus params", "error", err.Error())
@@ -154,7 +183,7 @@ func (b *Backend) EthBlockFromCometBlock(
 	ethHeader := rpctypes.MakeHeader(cmtBlock.Header, gasLimit, miner, baseFee)
 
 	// 5. get MsgEthereumTxs
-	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
+	msgs := b.EthMsgsFromCometBlock(ctx, resBlock, blockRes)
 	txs := make([]*ethtypes.Transaction, len(msgs))
 	for i, ethMsg := range msgs {
 		txs[i] = ethMsg.AsTransaction()
@@ -168,7 +197,7 @@ func (b *Backend) EthBlockFromCometBlock(
 	}
 
 	// 7. receipts
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, msgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block: %w", err)
 	}
@@ -191,8 +220,13 @@ func (b *Backend) EthBlockFromCometBlock(
 }
 
 func (b *Backend) MinerFromCometBlock(
+	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
-) (common.Address, error) {
+) (result common.Address, err error) {
+	ctx, span := tracer.Start(ctx, "MinerFromCometBlock")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	cmtBlock := resBlock.Block
 
 	req := &evmtypes.QueryValidatorAccountRequest{
@@ -201,7 +235,7 @@ func (b *Backend) MinerFromCometBlock(
 
 	var validatorAccAddr sdk.AccAddress
 
-	ctx := rpctypes.ContextWithHeight(cmtBlock.Height)
+	ctx = rpctypes.ContextWithHeight(cmtBlock.Height, ctx)
 	res, err := b.QueryClient.ValidatorAccount(ctx, req)
 	if err != nil {
 		b.Logger.Debug(
@@ -223,11 +257,16 @@ func (b *Backend) MinerFromCometBlock(
 }
 
 func (b *Backend) ReceiptsFromCometBlock(
+	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 	msgs []*evmtypes.MsgEthereumTx,
-) ([]*ethtypes.Receipt, error) {
-	baseFee, err := b.BaseFee(blockRes)
+) (result []*ethtypes.Receipt, err error) {
+	ctx, span := tracer.Start(ctx, "ReceiptsFromCometBlock")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	baseFee, err := b.BaseFee(ctx, blockRes)
 	if err != nil {
 		// handle the error for pruned node.
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", resBlock.Block.Height, "error", err)
@@ -237,7 +276,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
 	for i, ethMsg := range msgs {
-		txResult, err := b.GetTxByEthHash(ethMsg.Hash())
+		txResult, err := b.GetTxByEthHash(ctx, ethMsg.Hash())
 		if err != nil {
 			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
 		}
@@ -306,7 +345,11 @@ func (b *Backend) ReceiptsFromCometBlock(
 }
 
 // BlockBloom query block bloom filter from block results
-func (b *Backend) BlockBloomFromCometBlock(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
+func (b *Backend) BlockBloomFromCometBlock(ctx context.Context, blockRes *cmtrpctypes.ResultBlockResults) (result ethtypes.Bloom, err error) {
+	ctx, span := tracer.Start(ctx, "BlockBloomFromCometBlock")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	for _, event := range blockRes.FinalizeBlockEvents {
 		if event.Type != evmtypes.EventTypeBlockBloom {
 			continue

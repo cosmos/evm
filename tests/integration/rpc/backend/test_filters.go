@@ -78,7 +78,7 @@ func (s *TestSuite) TestGetLogs() {
 			s.SetupTest()
 
 			tc.registerMock(tc.blockHash)
-			logs, err := s.backend.GetLogs(tc.blockHash)
+			logs, err := s.backend.GetLogs(s.Ctx(), tc.blockHash)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -110,7 +110,7 @@ func (s *TestSuite) TestBloomStatus() {
 			s.SetupTest()
 
 			tc.registerMock()
-			bloom, _ := s.backend.BloomStatus()
+			bloom, _ := s.backend.BloomStatus(s.Ctx())
 
 			if tc.expPass {
 				s.Require().Equal(tc.expResult, bloom)

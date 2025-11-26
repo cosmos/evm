@@ -35,7 +35,7 @@ func (s *TestSuite) TestTraceTransaction() {
 	armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 	_ = s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 
-	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
+	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
 
 	txEncoder := s.backend.ClientCtx.TxConfig.TxEncoder()
 
@@ -196,7 +196,7 @@ func (s *TestSuite) TestTraceTransaction() {
 
 			err := s.backend.Indexer.IndexBlock(tc.block, tc.responseBlock)
 			s.Require().NoError(err)
-			txResult, err := s.backend.TraceTransaction(txHash, nil)
+			txResult, err := s.backend.TraceTransaction(s.Ctx(), txHash, nil)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -369,7 +369,7 @@ func (s *TestSuite) TestTraceCall() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			result, err := s.backend.TraceCall(tc.args, tc.blockNrOrHash, tc.config)
+			result, err := s.backend.TraceCall(s.Ctx(), tc.args, tc.blockNrOrHash, tc.config)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -457,7 +457,7 @@ func (s *TestSuite) TestTraceBlock() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			traceResults, err := s.backend.TraceBlock(1, tc.config, tc.resBlock)
+			traceResults, err := s.backend.TraceBlock(s.Ctx(), 1, tc.config, tc.resBlock)
 
 			if tc.expPass {
 				s.Require().NoError(err)

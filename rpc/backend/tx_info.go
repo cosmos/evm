@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -14,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -30,13 +33,17 @@ import (
 )
 
 // GetTransactionByHash returns the Ethereum format transaction identified by Ethereum transaction hash
-func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransaction, error) {
-	res, err := b.GetTxByEthHash(txHash)
+func (b *Backend) GetTransactionByHash(ctx context.Context, txHash common.Hash) (result *rpctypes.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionByHash", trace.WithAttributes(attribute.String("txHash", txHash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	res, err := b.GetTxByEthHash(ctx, txHash)
 	if err != nil {
-		return b.GetTransactionByHashPending(txHash)
+		return b.GetTransactionByHashPending(ctx, txHash)
 	}
 
-	block, err := b.CometBlockByNumber(rpctypes.BlockNumber(res.Height))
+	block, err := b.CometBlockByNumber(ctx, rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +59,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		return nil, errors.New("invalid ethereum tx")
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &block.Block.Height)
+	blockRes, err := b.RPCClient.BlockResults(ctx, &block.Block.Height)
 	if err != nil {
 		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
 		return nil, fmt.Errorf("block result not found: %w", err)
@@ -60,7 +67,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 
 	if res.EthTxIndex == -1 {
 		// Fallback to find tx index by iterating all valid eth transactions
-		msgs := b.EthMsgsFromCometBlock(block, blockRes)
+		msgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
 		for i := range msgs {
 			if msgs[i].Hash() == txHash {
 				if i > math.MaxInt32 {
@@ -76,7 +83,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		return nil, errors.New("can't find index of ethereum tx")
 	}
 
-	baseFee, err := b.BaseFee(blockRes)
+	baseFee, err := b.BaseFee(ctx, blockRes)
 	if err != nil {
 		// handle the error for pruned node.
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", blockRes.Height, "error", err)
@@ -92,15 +99,19 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		blockTime,
 		index,
 		baseFee,
-		b.ChainConfig(),
+		b.ChainConfig(ctx),
 	), nil
 }
 
 // GetTransactionByHashPending find pending tx from mempool
-func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPCTransaction, error) {
+func (b *Backend) GetTransactionByHashPending(ctx context.Context, txHash common.Hash) (result *rpctypes.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionByHashPending", trace.WithAttributes(attribute.String("txHash", txHash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	hexTx := txHash.Hex()
 	// try to find tx in mempool
-	txs, err := b.PendingTransactions()
+	txs, err := b.PendingTransactions(ctx)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
 		return nil, nil
@@ -122,7 +133,7 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 				uint64(0),
 				uint64(0),
 				nil,
-				b.ChainConfig(),
+				b.ChainConfig(ctx),
 			), nil
 		}
 	}
@@ -132,12 +143,16 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 }
 
 // GetGasUsed returns gasUsed from transaction
-func (b *Backend) GetGasUsed(res *servertypes.TxResult, price *big.Int, gas uint64) uint64 {
+func (b *Backend) GetGasUsed(res *servertypes.TxResult, _ *big.Int, _ uint64) uint64 {
 	return res.GasUsed
 }
 
 // GetTransactionReceipt returns the transaction receipt identified by hash.
-func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error) {
+func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (result map[string]interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionReceipt", trace.WithAttributes(attribute.String("hash", hash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	hexTx := hash.Hex()
 	b.Logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
 
@@ -146,10 +161,9 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	baseDelay := 50 * time.Millisecond
 
 	var res *servertypes.TxResult
-	var err error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		res, err = b.GetTxByEthHash(hash)
+		res, err = b.GetTxByEthHash(ctx, hash)
 		if err == nil {
 			break // Found the transaction
 		}
@@ -174,7 +188,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, nil
 	}
 
-	resBlock, err := b.CometBlockByNumber(rpctypes.BlockNumber(res.Height))
+	resBlock, err := b.CometBlockByNumber(ctx, rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		b.Logger.Debug("block not found", "height", res.Height, "error", err.Error())
 		return nil, fmt.Errorf("block not found at height %d: %w", res.Height, err)
@@ -186,14 +200,14 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("failed to decode tx: %w", err)
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &res.Height)
+	blockRes, err := b.RPCClient.BlockResults(ctx, &res.Height)
 	if err != nil {
 		b.Logger.Debug("failed to retrieve block results", "height", res.Height, "error", err.Error())
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
 	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
+	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
@@ -214,10 +228,14 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 }
 
 // GetTransactionLogs returns the transaction logs identified by hash.
-func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) {
+func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (result []*ethtypes.Log, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionLogs", trace.WithAttributes(attribute.String("hash", hash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	hexTx := hash.Hex()
 
-	res, err := b.GetTxByEthHash(hash)
+	res, err := b.GetTxByEthHash(ctx, hash)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
 		return nil, nil
@@ -228,7 +246,7 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 		return nil, nil
 	}
 
-	resBlockResult, err := b.RPCClient.BlockResults(b.Ctx, &res.Height)
+	resBlockResult, err := b.RPCClient.BlockResults(ctx, &res.Height)
 	if err != nil {
 		b.Logger.Debug("block result not found", "number", res.Height, "error", err.Error())
 		return nil, nil
@@ -252,14 +270,18 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 }
 
 // GetTransactionByBlockHashAndIndex returns the transaction identified by hash and index.
-func (b *Backend) GetTransactionByBlockHashAndIndex(hash common.Hash, idx hexutil.Uint) (*rpctypes.RPCTransaction, error) {
+func (b *Backend) GetTransactionByBlockHashAndIndex(ctx context.Context, hash common.Hash, idx hexutil.Uint) (result *rpctypes.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionByBlockHashAndIndex", trace.WithAttributes(attribute.String("hash", hash.Hex()), attribute.Int64("idx", int64(idx))))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	b.Logger.Debug("eth_getTransactionByBlockHashAndIndex", "hash", hash.Hex(), "index", idx)
 	sc, ok := b.ClientCtx.Client.(cmtrpcclient.SignClient)
 	if !ok {
 		return nil, errors.New("invalid rpc client")
 	}
 
-	block, err := sc.BlockByHash(b.Ctx, hash.Bytes())
+	block, err := sc.BlockByHash(ctx, hash.Bytes())
 	if err != nil {
 		b.Logger.Debug("block not found", "hash", hash.Hex(), "error", err.Error())
 		return nil, nil
@@ -270,14 +292,18 @@ func (b *Backend) GetTransactionByBlockHashAndIndex(hash common.Hash, idx hexuti
 		return nil, nil
 	}
 
-	return b.GetTransactionByBlockAndIndex(block, idx)
+	return b.GetTransactionByBlockAndIndex(ctx, block, idx)
 }
 
 // GetTransactionByBlockNumberAndIndex returns the transaction identified by number and index.
-func (b *Backend) GetTransactionByBlockNumberAndIndex(blockNum rpctypes.BlockNumber, idx hexutil.Uint) (*rpctypes.RPCTransaction, error) {
+func (b *Backend) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNum rpctypes.BlockNumber, idx hexutil.Uint) (result *rpctypes.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionByBlockNumberAndIndex", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64()), attribute.Int64("idx", int64(idx))))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	b.Logger.Debug("eth_getTransactionByBlockNumberAndIndex", "number", blockNum, "index", idx)
 
-	block, err := b.CometBlockByNumber(blockNum)
+	block, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
 		b.Logger.Debug("block not found", "height", blockNum.Int64(), "error", err.Error())
 		return nil, nil
@@ -288,20 +314,24 @@ func (b *Backend) GetTransactionByBlockNumberAndIndex(blockNum rpctypes.BlockNum
 		return nil, nil
 	}
 
-	return b.GetTransactionByBlockAndIndex(block, idx)
+	return b.GetTransactionByBlockAndIndex(ctx, block, idx)
 }
 
 // GetTxByEthHash uses `/tx_query` to find transaction by ethereum tx hash
 // TODO: Don't need to convert once hashing is fixed on CometBFT
 // https://github.com/cometbft/cometbft/issues/6539
-func (b *Backend) GetTxByEthHash(hash common.Hash) (*servertypes.TxResult, error) {
+func (b *Backend) GetTxByEthHash(ctx context.Context, hash common.Hash) (result *servertypes.TxResult, err error) {
+	ctx, span := tracer.Start(ctx, "GetTxByEthHash", trace.WithAttributes(attribute.String("hash", hash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	if b.Indexer != nil {
 		return b.Indexer.GetByTxHash(hash)
 	}
 
 	// fallback to CometBFT tx indexer
 	query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, hash.Hex())
-	txResult, err := b.QueryCometTxIndexer(query, func(txs *rpctypes.ParsedTxs) *rpctypes.ParsedTx {
+	txResult, err := b.QueryCometTxIndexer(ctx, query, func(txs *rpctypes.ParsedTxs) *rpctypes.ParsedTx {
 		return txs.GetTxByHash(hash)
 	})
 	if err != nil {
@@ -311,7 +341,11 @@ func (b *Backend) GetTxByEthHash(hash common.Hash) (*servertypes.TxResult, error
 }
 
 // GetTxByTxIndex uses `/tx_query` to find transaction by tx index of valid ethereum txs
-func (b *Backend) GetTxByTxIndex(height int64, index uint) (*servertypes.TxResult, error) {
+func (b *Backend) GetTxByTxIndex(ctx context.Context, height int64, index uint) (result *servertypes.TxResult, err error) {
+	ctx, span := tracer.Start(ctx, "GetTxByTxIndex", trace.WithAttributes(attribute.Int64("height", height), attribute.Int64("index", int64(index))))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	int32Index := int32(index) //#nosec G115 -- checked for int overflow already
 	if b.Indexer != nil {
 		return b.Indexer.GetByBlockAndIndex(height, int32Index)
@@ -322,7 +356,7 @@ func (b *Backend) GetTxByTxIndex(height int64, index uint) (*servertypes.TxResul
 		height, evmtypes.TypeMsgEthereumTx,
 		evmtypes.AttributeKeyTxIndex, index,
 	)
-	txResult, err := b.QueryCometTxIndexer(query, func(txs *rpctypes.ParsedTxs) *rpctypes.ParsedTx {
+	txResult, err := b.QueryCometTxIndexer(ctx, query, func(txs *rpctypes.ParsedTxs) *rpctypes.ParsedTx {
 		return txs.GetTxByTxIndex(int(index)) // #nosec G115 -- checked for int overflow already
 	})
 	if err != nil {
@@ -332,8 +366,12 @@ func (b *Backend) GetTxByTxIndex(height int64, index uint) (*servertypes.TxResul
 }
 
 // QueryCometTxIndexer query tx in CometBFT tx indexer
-func (b *Backend) QueryCometTxIndexer(query string, txGetter func(*rpctypes.ParsedTxs) *rpctypes.ParsedTx) (*servertypes.TxResult, error) {
-	resTxs, err := b.ClientCtx.Client.TxSearch(b.Ctx, query, false, nil, nil, "")
+func (b *Backend) QueryCometTxIndexer(ctx context.Context, query string, txGetter func(*rpctypes.ParsedTxs) *rpctypes.ParsedTx) (result *servertypes.TxResult, err error) {
+	ctx, span := tracer.Start(ctx, "QueryCometTxIndexer")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	resTxs, err := b.ClientCtx.Client.TxSearch(ctx, query, false, nil, nil, "")
 	if err != nil {
 		return nil, err
 	}
@@ -358,15 +396,19 @@ func (b *Backend) QueryCometTxIndexer(query string, txGetter func(*rpctypes.Pars
 }
 
 // GetTransactionByBlockAndIndex is the common code shared by `GetTransactionByBlockNumberAndIndex` and `GetTransactionByBlockHashAndIndex`.
-func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, idx hexutil.Uint) (*rpctypes.RPCTransaction, error) {
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &block.Block.Height)
+func (b *Backend) GetTransactionByBlockAndIndex(ctx context.Context, block *cmtrpctypes.ResultBlock, idx hexutil.Uint) (result *rpctypes.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "GetTransactionByBlockAndIndex", trace.WithAttributes(attribute.Int64("blockHeight", block.Block.Height), attribute.Int64("idx", int64(idx))))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	blockRes, err := b.RPCClient.BlockResults(ctx, &block.Block.Height)
 	if err != nil {
 		return nil, nil
 	}
 
 	var msg *evmtypes.MsgEthereumTx
 	// find in tx indexer
-	res, err := b.GetTxByTxIndex(block.Block.Height, uint(idx))
+	res, err := b.GetTxByTxIndex(ctx, block.Block.Height, uint(idx))
 	if err == nil {
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(block.Block.Txs[res.TxIndex])
 		if err != nil {
@@ -383,7 +425,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 		}
 	} else {
 		i := int(idx) // #nosec G115
-		ethMsgs := b.EthMsgsFromCometBlock(block, blockRes)
+		ethMsgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
 		if i >= len(ethMsgs) {
 			b.Logger.Debug("block txs index out of bound", "index", i)
 			return nil, nil
@@ -392,7 +434,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 		msg = ethMsgs[i]
 	}
 
-	baseFee, err := b.BaseFee(blockRes)
+	baseFee, err := b.BaseFee(ctx, blockRes)
 	if err != nil {
 		// handle the error for pruned node.
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Block.Height, "error", err)
@@ -408,31 +450,36 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 		blockTime,
 		index,
 		baseFee,
-		b.ChainConfig(),
+		b.ChainConfig(ctx),
 	), nil
 }
 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
 func (b *Backend) CreateAccessList(
+	ctx context.Context,
 	args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
 	overrides *json.RawMessage,
-) (*rpctypes.AccessListResult, error) {
-	accessList, gasUsed, vmErr, err := b.createAccessList(args, blockNrOrHash, overrides)
+) (result *rpctypes.AccessListResult, err error) {
+	ctx, span := tracer.Start(ctx, "CreateAccessList", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("blockNrOrHash", unwrapBlockNOrHash(blockNrOrHash))))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	accessList, gasUsed, vmErr, err := b.createAccessList(ctx, args, blockNrOrHash, overrides)
 	if err != nil {
 		return nil, err
 	}
 
 	hexGasUsed := hexutil.Uint64(gasUsed)
-	result := rpctypes.AccessListResult{
+	res := rpctypes.AccessListResult{
 		AccessList: &accessList,
 		GasUsed:    &hexGasUsed,
 	}
 	if vmErr != nil {
-		result.Error = vmErr.Error()
+		res.Error = vmErr.Error()
 	}
-	return &result, nil
+	return &res, nil
 }
 
 // createAccessList creates the access list for the transaction.
@@ -441,29 +488,32 @@ func (b *Backend) CreateAccessList(
 // If the access list has not converged, an error is returned.
 // If the transaction itself fails, an vmErr is returned.
 func (b *Backend) createAccessList(
+	ctx context.Context,
 	args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
 	overrides *json.RawMessage,
 ) (ethtypes.AccessList, uint64, error, error) {
-	args, err := b.SetTxDefaults(args)
+	ctx, span := tracer.Start(ctx, "createAccessList")
+	defer span.End()
+	args, err := b.SetTxDefaults(ctx, args)
 	if err != nil {
 		b.Logger.Error("failed to set tx defaults", "error", err)
 		return nil, 0, nil, err
 	}
 
-	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
+	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
 		b.Logger.Error("failed to get block number", "error", err)
 		return nil, 0, nil, err
 	}
 
-	addressesToExclude, err := b.getAccessListExcludes(args, blockNum)
+	addressesToExclude, err := b.getAccessListExcludes(ctx, args, blockNum)
 	if err != nil {
 		b.Logger.Error("failed to get access list excludes", "error", err)
 		return nil, 0, nil, err
 	}
 
-	prevTracer, traceArgs, err := b.initAccessListTracer(args, blockNum, addressesToExclude)
+	prevTracer, traceArgs, err := b.initAccessListTracer(ctx, args, blockNum, addressesToExclude)
 	if err != nil {
 		b.Logger.Error("failed to init access list tracer", "error", err)
 		return nil, 0, nil, err
@@ -473,7 +523,7 @@ func (b *Backend) createAccessList(
 	for {
 		accessList := prevTracer.AccessList()
 		traceArgs.AccessList = &accessList
-		res, err := b.DoCall(*traceArgs, blockNum, overrides)
+		res, err := b.DoCall(ctx, *traceArgs, blockNum, overrides)
 		if err != nil {
 			b.Logger.Error("failed to apply transaction", "error", err)
 			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", traceArgs.ToTransaction(ethtypes.LegacyTxType).Hash(), err)
@@ -497,8 +547,10 @@ func (b *Backend) createAccessList(
 // getAccessListExcludes returns the addresses to exclude from the access list.
 // This includes the sender account, the target account (if provided), precompiles,
 // and any addresses in the authorization list.
-func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber) (map[common.Address]struct{}, error) {
-	header, err := b.HeaderByNumber(blockNum)
+func (b *Backend) getAccessListExcludes(ctx context.Context, args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber) (map[common.Address]struct{}, error) {
+	ctx, span := tracer.Start(ctx, "getAccessListExcludes")
+	defer span.End()
+	header, err := b.HeaderByNumber(ctx, blockNum)
 	if err != nil {
 		b.Logger.Error("failed to get header by number", "error", err)
 		return nil, err
@@ -511,8 +563,8 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 		addressesToExclude[*args.To] = struct{}{}
 	}
 
-	isMerge := b.ChainConfig().MergeNetsplitBlock != nil
-	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isMerge, header.Time))
+	isMerge := b.ChainConfig(ctx).MergeNetsplitBlock != nil
+	precompiles := vm.ActivePrecompiles(b.ChainConfig(ctx).Rules(header.Number, isMerge, header.Time))
 	for _, addr := range precompiles {
 		addressesToExclude[addr] = struct{}{}
 	}
@@ -527,7 +579,7 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 	for _, auth := range args.AuthorizationList {
 		// validate authorization (duplicating stateTransition.validateAuthorization() logic from geth: https://github.com/ethereum/go-ethereum/blob/bf8f63dcd27e178bd373bfe41ea718efee2851dd/core/state_transition.go#L575)
 		nonceOverflow := auth.Nonce+1 < auth.Nonce
-		invalidChainID := !auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig().ChainID) != 0
+		invalidChainID := !auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig(ctx).ChainID) != 0
 		if nonceOverflow || invalidChainID {
 			b.Logger.Error("invalid authorization", "auth", auth)
 			continue
@@ -544,8 +596,10 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 // initAccessListTracer initializes the access list tracer for the transaction.
 // It sets the default call arguments and creates a new access list tracer.
 // If an access list is provided in args, it uses that instead of creating a new one.
-func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber, addressesToExclude map[common.Address]struct{}) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
-	header, err := b.HeaderByNumber(blockNum)
+func (b *Backend) initAccessListTracer(ctx context.Context, args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber, addressesToExclude map[common.Address]struct{}) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
+	ctx, span := tracer.Start(ctx, "initAccessListTracer")
+	defer span.End()
+	header, err := b.HeaderByNumber(ctx, blockNum)
 	if err != nil {
 		b.Logger.Error("failed to get header by number", "error", err)
 		return nil, nil, err
@@ -553,7 +607,7 @@ func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum r
 
 	if args.Nonce == nil {
 		pending := blockNum == rpctypes.EthPendingBlockNumber
-		nonce, err := b.getAccountNonce(args.GetFrom(), pending, blockNum.Int64(), b.Logger)
+		nonce, err := b.getAccountNonce(ctx, args.GetFrom(), pending, blockNum.Int64(), b.Logger)
 		if err != nil {
 			b.Logger.Error("failed to get account nonce", "error", err)
 			return nil, nil, err
@@ -561,7 +615,7 @@ func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum r
 		nonce64 := hexutil.Uint64(nonce)
 		args.Nonce = &nonce64
 	}
-	if err = args.CallDefaults(b.RPCGasCap(), header.BaseFee, b.ChainConfig().ChainID); err != nil {
+	if err = args.CallDefaults(b.RPCGasCap(), header.BaseFee, b.ChainConfig(ctx).ChainID); err != nil {
 		b.Logger.Error("failed to set default call args", "error", err)
 		return nil, nil, err
 	}

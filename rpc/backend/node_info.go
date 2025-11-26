@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"time"
@@ -31,7 +32,7 @@ import (
 )
 
 // Accounts returns the list of accounts available to this node.
-func (b *Backend) Accounts() ([]common.Address, error) {
+func (b *Backend) Accounts(_ context.Context) ([]common.Address, error) {
 	addresses := make([]common.Address, 0) // return [] instead of nil if empty
 
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
@@ -63,8 +64,12 @@ func (b *Backend) Accounts() ([]common.Address, error) {
 // - highestBlock:  block number of the highest block header this node has received from peers
 // - pulledStates:  number of state entries processed until now
 // - knownStates:   number of known state entries that still need to be pulled
-func (b *Backend) Syncing() (interface{}, error) {
-	status, err := b.ClientCtx.Client.Status(b.Ctx)
+func (b *Backend) Syncing(ctx context.Context) (result interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "Syncing")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	status, err := b.ClientCtx.Client.Status(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -83,13 +88,15 @@ func (b *Backend) Syncing() (interface{}, error) {
 }
 
 // SetEtherbase sets the etherbase of the miner
-func (b *Backend) SetEtherbase(etherbase common.Address) bool {
+func (b *Backend) SetEtherbase(ctx context.Context, etherbase common.Address) bool {
+	ctx, span := tracer.Start(ctx, "SetEtherbase")
+	defer span.End()
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
 		b.Logger.Debug("account unlock with HTTP access is forbidden")
 		return false
 	}
 
-	delAddr, err := b.GetCoinbase()
+	delAddr, err := b.GetCoinbase(ctx)
 	if err != nil {
 		b.Logger.Debug("failed to get coinbase address", "error", err.Error())
 		return false
@@ -121,7 +128,7 @@ func (b *Backend) SetEtherbase(etherbase common.Address) bool {
 	denom := minGasPrices[0].Denom
 
 	delCommonAddr := common.BytesToAddress(delAddr.Bytes())
-	nonce, err := b.GetTransactionCount(delCommonAddr, rpctypes.EthPendingBlockNumber)
+	nonce, err := b.GetTransactionCount(ctx, delCommonAddr, rpctypes.EthPendingBlockNumber)
 	if err != nil {
 		b.Logger.Debug("failed to get nonce", "error", err.Error())
 		return false
@@ -154,7 +161,7 @@ func (b *Backend) SetEtherbase(etherbase common.Address) bool {
 		return false
 	}
 
-	if err := tx.Sign(b.ClientCtx.CmdContext, txFactory, keyInfo.Name, builder, false); err != nil {
+	if err := tx.Sign(ctx, txFactory, keyInfo.Name, builder, false); err != nil {
 		b.Logger.Debug("failed to sign tx", "error", err.Error())
 		return false
 	}
@@ -190,7 +197,7 @@ func (b *Backend) SetEtherbase(etherbase common.Address) bool {
 // keys stored on the keyring.
 //
 // NOTE: The key will be both armored and encrypted using the same passphrase.
-func (b *Backend) ImportRawKey(privkey, password string) (common.Address, error) {
+func (b *Backend) ImportRawKey(_ context.Context, privkey, password string) (common.Address, error) {
 	priv, err := crypto.HexToECDSA(privkey)
 	if err != nil {
 		return common.Address{}, err
@@ -222,7 +229,7 @@ func (b *Backend) ImportRawKey(privkey, password string) (common.Address, error)
 }
 
 // ListAccounts will return a list of addresses for accounts this node manages.
-func (b *Backend) ListAccounts() ([]common.Address, error) {
+func (b *Backend) ListAccounts(ctx context.Context) ([]common.Address, error) {
 	addrs := []common.Address{}
 
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
@@ -247,7 +254,7 @@ func (b *Backend) ListAccounts() ([]common.Address, error) {
 }
 
 // NewAccount will create a new account and returns the address for the new account.
-func (b *Backend) NewMnemonic(uid string,
+func (b *Backend) NewMnemonic(ctx context.Context, uid string,
 	_ keyring.Language,
 	hdPath,
 	bip39Passphrase string,
@@ -263,7 +270,7 @@ func (b *Backend) NewMnemonic(uid string,
 // SetGasPrice sets the minimum accepted gas price for the miner.
 // NOTE: this function accepts only integers to have the same interface than go-eth
 // to use float values, the gas prices must be configured using the configuration file
-func (b *Backend) SetGasPrice(gasPrice hexutil.Big) bool {
+func (b *Backend) SetGasPrice(ctx context.Context, gasPrice hexutil.Big) bool {
 	appConf, err := config.GetConfig(b.ClientCtx.Viper)
 	if err != nil {
 		b.Logger.Debug("could not get the server config", "error", err.Error())

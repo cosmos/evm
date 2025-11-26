@@ -72,7 +72,7 @@ func (s *TestSuite) TestBlockNumber() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			blockNumber, err := s.backend.BlockNumber()
+			blockNumber, err := s.backend.BlockNumber(s.Ctx())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -217,7 +217,7 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock(tc.blockNumber, math.NewIntFromBigInt(tc.baseFee), tc.validator, tc.txBz)
 
-			block, err := s.backend.GetBlockByNumber(tc.blockNumber, tc.fullTx)
+			block, err := s.backend.GetBlockByNumber(s.Ctx(), tc.blockNumber, tc.fullTx)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -381,7 +381,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock(tc.hash, math.NewIntFromBigInt(tc.baseFee), tc.validator, tc.txBz)
 
-			block, err := s.backend.GetBlockByHash(tc.hash, tc.fullTx)
+			block, err := s.backend.GetBlockByHash(s.Ctx(), tc.hash, tc.fullTx)
 
 			if tc.expPass {
 				if tc.expNoop {
@@ -471,7 +471,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.hash)
-			count := s.backend.GetBlockTransactionCountByHash(tc.hash)
+			count := s.backend.GetBlockTransactionCountByHash(s.Ctx(), tc.hash)
 			if tc.expPass {
 				s.Require().Equal(tc.expCount, *count)
 			} else {
@@ -547,7 +547,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.blockNum)
-			count := s.backend.GetBlockTransactionCountByNumber(tc.blockNum)
+			count := s.backend.GetBlockTransactionCountByNumber(s.Ctx(), tc.blockNum)
 			if tc.expPass {
 				s.Require().Equal(tc.expCount, *count)
 			} else {
@@ -645,7 +645,7 @@ func (s *TestSuite) TestCometBlockByNumber() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.blockNumber)
-			resultBlock, err := s.backend.CometBlockByNumber(tc.blockNumber)
+			resultBlock, err := s.backend.CometBlockByNumber(s.Ctx(), tc.blockNumber)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -701,7 +701,7 @@ func (s *TestSuite) TestCometBlockResultByNumber() {
 			tc.registerMock(tc.blockNumber)
 
 			client := s.backend.ClientCtx.Client.(*mocks.Client)
-			blockRes, err := client.BlockResults(s.backend.Ctx, &tc.blockNumber) //#nosec G601 -- fine for tests
+			blockRes, err := client.BlockResults(s.Ctx(), &tc.blockNumber) //#nosec G601 -- fine for tests
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -773,7 +773,7 @@ func (s *TestSuite) TestBlockNumberFromComet() {
 			}
 
 			tc.registerMock(tc.hash)
-			blockNum, err := s.backend.BlockNumberFromComet(blockNrOrHash)
+			blockNum, err := s.backend.BlockNumberFromComet(s.Ctx(), blockNrOrHash)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -836,7 +836,7 @@ func (s *TestSuite) TestBlockNumberFromCometByHash() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.hash)
-			blockNum, err := s.backend.BlockNumberFromCometByHash(tc.hash)
+			blockNum, err := s.backend.BlockNumberFromCometByHash(s.Ctx(), tc.hash)
 			if tc.expPass {
 				expHeight := big.NewInt(resHeader.Header.Height)
 				s.Require().NoError(err)
@@ -902,7 +902,7 @@ func (s *TestSuite) TestBlockBloomFromCometBlock() {
 	}
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
-			blockBloom, err := s.backend.BlockBloomFromCometBlock(tc.blockRes)
+			blockBloom, err := s.backend.BlockBloomFromCometBlock(s.Ctx(), tc.blockRes)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -1124,7 +1124,7 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 				err := s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults)
 				s.Require().NoError(err)
 			}
-			block, err := s.backend.RPCBlockFromCometBlock(tc.resBlock, tc.blockRes, tc.fullTx)
+			block, err := s.backend.RPCBlockFromCometBlock(s.Ctx(), tc.resBlock, tc.blockRes, tc.fullTx)
 
 			var tx *evmtypes.MsgEthereumTx
 			if tc.expTxs {
@@ -1200,7 +1200,7 @@ func (s *TestSuite) TestEthMsgsFromCometBlock() {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			s.SetupTest() // reset test and queries
 
-			msgs := s.backend.EthMsgsFromCometBlock(tc.resBlock, tc.blockRes)
+			msgs := s.backend.EthMsgsFromCometBlock(s.Ctx(), tc.resBlock, tc.blockRes)
 			for i, expMsg := range tc.expMsgs {
 				expBytes, err := json.Marshal(expMsg)
 				s.Require().Nil(err)
@@ -1345,10 +1345,10 @@ func (s *TestSuite) TestHeaderByNumber() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.blockNumber, math.NewIntFromBigInt(tc.baseFee))
-			header, err := s.backend.HeaderByNumber(tc.blockNumber)
+			header, err := s.backend.HeaderByNumber(s.Ctx(), tc.blockNumber)
 
 			if tc.expPass {
-				msgs := s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
+				msgs := s.backend.EthMsgsFromCometBlock(s.Ctx(), resBlock, blockRes)
 				expHeader := s.buildEthBlock(blockRes, resBlock, msgs, validator, tc.baseFee).Header()
 
 				s.Require().NoError(err)
@@ -1467,10 +1467,10 @@ func (s *TestSuite) TestHeaderByHash() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.hash, math.NewIntFromBigInt(tc.baseFee))
-			header, err := s.backend.HeaderByHash(tc.hash)
+			header, err := s.backend.HeaderByHash(s.Ctx(), tc.hash)
 
 			if tc.expPass {
-				msgs := s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
+				msgs := s.backend.EthMsgsFromCometBlock(s.Ctx(), resBlock, blockRes)
 				expHeader := s.buildEthBlock(blockRes, resBlock, msgs, validator, tc.baseFee).Header()
 
 				s.Require().NoError(err)
@@ -1567,12 +1567,12 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock(tc.blockNumber)
 
-			ethBlock, err := s.backend.EthBlockByNumber(tc.blockNumber)
+			ethBlock, err := s.backend.EthBlockByNumber(s.Ctx(), tc.blockNumber)
 
 			if tc.expPass {
 				s.Require().NoError(err)
 
-				msgs := s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
+				msgs := s.backend.EthMsgsFromCometBlock(s.Ctx(), resBlock, blockRes)
 				txs := make([]*ethtypes.Transaction, len(msgs))
 				for i, m := range msgs {
 					txs[i] = m.AsTransaction()
@@ -1681,12 +1681,12 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 				s.Require().NoError(s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults))
 			}
 
-			ethBlock, err := s.backend.EthBlockFromCometBlock(tc.resBlock, tc.blockRes)
+			ethBlock, err := s.backend.EthBlockFromCometBlock(s.Ctx(), tc.resBlock, tc.blockRes)
 
 			if tc.expPass {
 				s.Require().NoError(err)
 
-				msgs := s.backend.EthMsgsFromCometBlock(tc.resBlock, tc.blockRes)
+				msgs := s.backend.EthMsgsFromCometBlock(s.Ctx(), tc.resBlock, tc.blockRes)
 				txs := make([]*ethtypes.Transaction, len(msgs))
 				for i, m := range msgs {
 					txs[i] = m.AsTransaction()

@@ -2,6 +2,7 @@ package debug
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	stderrors "github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/rpc/backend"
 	rpctypes "github.com/cosmos/evm/rpc/types"
@@ -28,6 +32,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/server"
 )
+
+var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/debug")
 
 // HandlerT keeps track of the cpu profiler and trace execution
 type HandlerT struct {
@@ -66,32 +72,38 @@ func NewAPI(
 // and returns them as a JSON object.
 func (a *API) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfig) (interface{}, error) {
 	a.logger.Debug("debug_traceTransaction", "hash", hash)
-	return a.backend.TraceTransaction(hash, config)
+	ctx, span := tracer.Start(context.Background(), "eth_traceTransaction", trace.WithAttributes(attribute.String("hash", hash.String())))
+	defer span.End()
+	return a.backend.TraceTransaction(ctx, hash, config)
 }
 
 // TraceBlockByNumber returns the structured logs created during the execution of
 // EVM and returns them as a JSON object.
-func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
+func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.TraceConfig) (res []*evmtypes.TxTraceResult, err error) {
 	a.logger.Debug("debug_traceBlockByNumber", "height", height)
+	ctx, span := tracer.Start(context.Background(), "eth_traceBlockByNumber", trace.WithAttributes(attribute.Int64("height", int64(height))))
+	defer span.End()
 	if height == 0 {
 		return nil, errors.New("genesis is not traceable")
 	}
 	// Get CometBFT Block
-	resBlock, err := a.backend.CometBlockByNumber(height)
+	resBlock, err := a.backend.CometBlockByNumber(ctx, height)
 	if err != nil {
 		a.logger.Debug("get block failed", "height", height, "error", err.Error())
 		return nil, err
 	}
 
-	return a.backend.TraceBlock(rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
+	return a.backend.TraceBlock(ctx, rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
 }
 
 // TraceBlockByHash returns the structured logs created during the execution of
 // EVM and returns them as a JSON object.
 func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
 	a.logger.Debug("debug_traceBlockByHash", "hash", hash)
+	ctx, span := tracer.Start(context.Background(), "eth_traceBlockByHash")
+	defer span.End()
 	// Get CometBFT Block
-	resBlock, err := a.backend.CometBlockByHash(hash)
+	resBlock, err := a.backend.CometBlockByHash(ctx, hash)
 	if err != nil {
 		a.logger.Debug("get block failed", "hash", hash.Hex(), "error", err.Error())
 		return nil, err
@@ -102,13 +114,15 @@ func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) (
 		return nil, errors.New("block not found")
 	}
 
-	return a.backend.TraceBlock(rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
+	return a.backend.TraceBlock(ctx, rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
 }
 
 // TraceBlock returns the structured logs created during the execution of
 // EVM and returns them as a JSON object. It accepts an RLP-encoded block.
-func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
+func (a *API) TraceBlock(ctx context.Context, tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
 	a.logger.Debug("debug_traceBlock", "size", len(tblockRlp))
+	ctx, span := tracer.Start(ctx, "eth_traceBlock")
+	defer span.End()
 	// Decode RLP-encoded block
 	var block types.Block
 	if err := rlp.DecodeBytes(tblockRlp, &block); err != nil {
@@ -125,7 +139,7 @@ func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) 
 	a.logger.Debug("decoded block", "number", blockNumber, "hash", block.Hash().Hex())
 
 	// Get CometBFT block by number (not hash, as Ethereum block hash may differ from CometBFT hash)
-	resBlock, err := a.backend.CometBlockByNumber(blockNumber)
+	resBlock, err := a.backend.CometBlockByNumber(ctx, blockNumber)
 	if err != nil {
 		a.logger.Debug("get block failed", "number", blockNumber, "error", err.Error())
 		return nil, err
@@ -136,29 +150,32 @@ func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) 
 		return nil, errors.New("block not found")
 	}
 
-	return a.backend.TraceBlock(blockNumber, config, resBlock)
+	return a.backend.TraceBlock(ctx, blockNumber, config, resBlock)
 }
 
 // TraceCall lets you trace a given eth_call. It collects the structured logs
 // created during the execution of EVM if the given transaction was added on
 // top of the provided block and returns them as a JSON object.
-func (a *API) TraceCall(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error) {
+func (a *API) TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error) {
 	a.logger.Debug("debug_traceCall", "args", args, "block number or hash", blockNrOrHash)
-	return a.backend.TraceCall(args, blockNrOrHash, config)
+	ctx, span := tracer.Start(context.Background(), "eth_traceCall")
+	defer span.End()
+	return a.backend.TraceCall(ctx, args, blockNrOrHash, config)
 }
 
 // GetRawBlock retrieves the RLP-encoded block by block number or hash.
-func (a *API) GetRawBlock(blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (a *API) GetRawBlock(ctx context.Context, blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
 	a.logger.Debug("debug_getRawBlock", "block number or hash", blockNrOrHash)
-
+	ctx, span := tracer.Start(ctx, "eth_getRawBlock")
+	defer span.End()
 	// Get block number from blockNrOrHash
-	blockNum, err := a.backend.BlockNumberFromComet(blockNrOrHash)
+	blockNum, err := a.backend.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get Ethereum block by number
-	block, err := a.backend.EthBlockByNumber(blockNum)
+	block, err := a.backend.EthBlockByNumber(ctx, blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -407,10 +424,12 @@ func (a *API) SetGCPercent(v int) (int, error) {
 
 // GetHeaderRlp retrieves the RLP encoded for of a single header.
 func (a *API) GetHeaderRlp(number uint64) (hexutil.Bytes, error) {
+	ctx, span := tracer.Start(context.Background(), "eth_getHeaderRlp")
+	defer span.End()
 	if !a.profilingEnabled {
 		return nil, rpctypes.ErrProfilingDisabled
 	}
-	header, err := a.backend.HeaderByNumber(rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
+	header, err := a.backend.HeaderByNumber(ctx, rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
 	if err != nil {
 		return nil, err
 	}
@@ -420,10 +439,12 @@ func (a *API) GetHeaderRlp(number uint64) (hexutil.Bytes, error) {
 
 // GetBlockRlp retrieves the RLP encoded for of a single block.
 func (a *API) GetBlockRlp(number uint64) (hexutil.Bytes, error) {
+	ctx, span := tracer.Start(context.Background(), "eth_getBlockRlp")
+	defer span.End()
 	if !a.profilingEnabled {
 		return nil, rpctypes.ErrProfilingDisabled
 	}
-	block, err := a.backend.EthBlockByNumber(rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
+	block, err := a.backend.EthBlockByNumber(ctx, rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
 	if err != nil {
 		return nil, err
 	}
@@ -433,10 +454,12 @@ func (a *API) GetBlockRlp(number uint64) (hexutil.Bytes, error) {
 
 // PrintBlock retrieves a block and returns its pretty printed form.
 func (a *API) PrintBlock(number uint64) (string, error) {
+	ctx, span := tracer.Start(context.Background(), "eth_printBlock")
+	defer span.End()
 	if !a.profilingEnabled {
 		return "", rpctypes.ErrProfilingDisabled
 	}
-	block, err := a.backend.EthBlockByNumber(rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
+	block, err := a.backend.EthBlockByNumber(ctx, rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
 	if err != nil {
 		return "", err
 	}

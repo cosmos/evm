@@ -1,27 +1,43 @@
 package backend
 
 import (
+	"context"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // GetLogs returns all the logs from all the ethereum transactions in a block.
-func (b *Backend) GetLogs(hash common.Hash) ([][]*ethtypes.Log, error) {
-	resBlock, err := b.CometBlockByHash(hash)
+func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) (result [][]*ethtypes.Log, err error) {
+	ctx, span := tracer.Start(ctx, "GetLogs", trace.WithAttributes(attribute.String("hash", hash.Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	resBlock, err := b.CometBlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
 	if resBlock == nil {
 		return nil, errors.Errorf("block not found for hash %s", hash)
 	}
-	return b.GetLogsByHeight(&resBlock.Block.Height)
+	return b.GetLogsByHeight(ctx, &resBlock.Block.Height)
 }
 
 // GetLogsByHeight returns all the logs from all the ethereum transactions in a block.
-func (b *Backend) GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error) {
+func (b *Backend) GetLogsByHeight(ctx context.Context, height *int64) (result [][]*ethtypes.Log, err error) {
+	var heightAttr int64
+	if height != nil {
+		heightAttr = *height
+	}
+	ctx, span := tracer.Start(ctx, "GetLogsByHeight", trace.WithAttributes(attribute.Int64("height", heightAttr)))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	// NOTE: we query the state in case the tx result logs are not persisted after an upgrade.
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, height)
+	blockRes, err := b.RPCClient.BlockResults(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -31,6 +47,8 @@ func (b *Backend) GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error) {
 
 // BloomStatus returns the BloomBitsBlocks and the number of processed sections maintained
 // by the chain indexer.
-func (b *Backend) BloomStatus() (uint64, uint64) {
+func (b *Backend) BloomStatus(ctx context.Context) (uint64, uint64) {
+	ctx, span := tracer.Start(ctx, "BloomStatus")
+	defer span.End()
 	return 4096, 0
 }

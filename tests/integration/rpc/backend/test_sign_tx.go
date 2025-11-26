@@ -129,13 +129,13 @@ func (s *TestSuite) TestSendTransaction() {
 			if tc.expPass {
 				// Sign the transaction and get the hash
 
-				ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
+				ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
 				msg := evmtypes.NewTxFromArgs(&callArgsDefault)
 				err := msg.Sign(ethSigner, s.backend.ClientCtx.Keyring)
 				s.Require().NoError(err)
 				tc.expHash = msg.AsTransaction().Hash()
 			}
-			responseHash, err := s.backend.SendTransaction(tc.args)
+			responseHash, err := s.backend.SendTransaction(s.Ctx(), tc.args)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expHash, responseHash)
@@ -180,7 +180,7 @@ func (s *TestSuite) TestSign() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			responseBz, err := s.backend.Sign(tc.fromAddr, tc.inputBz)
+			responseBz, err := s.backend.Sign(s.Ctx(), tc.fromAddr, tc.inputBz)
 			if tc.expPass {
 				signature, _, err := s.backend.ClientCtx.Keyring.SignByAddress((sdk.AccAddress)(from.Bytes()), tc.inputBz, signingtypes.SignMode_SIGN_MODE_TEXTUAL)
 				signature[goethcrypto.RecoveryIDOffset] += 27
@@ -228,7 +228,7 @@ func (s *TestSuite) TestSignTypedData() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			responseBz, err := s.backend.SignTypedData(tc.fromAddr, tc.inputTypedData)
+			responseBz, err := s.backend.SignTypedData(s.Ctx(), tc.fromAddr, tc.inputTypedData)
 
 			if tc.expPass {
 				sigHash, _, _ := apitypes.TypedDataAndHash(tc.inputTypedData)
@@ -256,7 +256,7 @@ func broadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int,
 	RegisterBaseFee(QueryClient, baseFee)
 	RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 	RegisterConsensusParams(client, height)
-	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
+	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig(suite.Ctx()))
 	msg := evmtypes.NewTxFromArgs(&callArgsDefault)
 	err := msg.Sign(ethSigner, suite.backend.ClientCtx.Keyring)
 	suite.Require().NoError(err)

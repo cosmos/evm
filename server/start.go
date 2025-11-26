@@ -11,6 +11,7 @@ import (
 
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -667,6 +668,7 @@ func startGrpcServer(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize),
 		),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, clientCtx, err

@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -49,10 +50,12 @@ func (s sortGasAndReward) Less(i, j int) bool {
 // If the pending value is true, it will iterate over the mempool (pending)
 // txs in order to compute and return the pending tx sequence.
 // Todo: include the ability to specify a blockNumber
-func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height int64, logger log.Logger) (uint64, error) {
+func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, pending bool, height int64, logger log.Logger) (uint64, error) {
+	ctx, span := tracer.Start(ctx, "getAccountNonce")
+	defer span.End()
 	queryClient := authtypes.NewQueryClient(b.ClientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
-	ctx := types.ContextWithHeight(height)
+	ctx = types.ContextWithHeight(height, ctx)
 	res, err := queryClient.Account(ctx, &authtypes.QueryAccountRequest{Address: adr})
 	if err != nil {
 		st, ok := status.FromError(err)
@@ -81,7 +84,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 
 	// the account retriever doesn't include the uncommitted transactions on the nonce so we need to
 	// to manually add them.
-	pendingTxs, err := b.PendingTransactions()
+	pendingTxs, err := b.PendingTransactions(ctx)
 	if err != nil {
 		logger.Error("failed to fetch pending transactions", "error", err.Error())
 		return nonce, nil
@@ -122,6 +125,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 //   - Transaction reward percentiles based on effective gas tip values
 //
 // Parameters:
+//   - ctx: Context for the request
 //   - cometBlock: The raw CometBFT block containing transaction data
 //   - ethBlock: Ethereum-formatted block with gas limit and usage information
 //   - rewardPercentiles: Percentile values (0-100) for reward calculation
@@ -130,20 +134,23 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 //
 // Returns an error if block processing fails due to invalid data types or calculation errors.
 func (b *Backend) ProcessBlock(
+	ctx context.Context,
 	cometBlock *cmtrpctypes.ResultBlock,
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
 	cometBlockResult *cmtrpctypes.ResultBlockResults,
 	targetOneFeeHistory *types.OneFeeHistory,
 ) error {
+	ctx, span := tracer.Start(ctx, "ProcessBlock")
+	defer span.End()
 	blockHeight := cometBlock.Block.Height
-	blockBaseFee, err := b.BaseFee(cometBlockResult)
+	blockBaseFee, err := b.BaseFee(ctx, cometBlockResult)
 	if err != nil || blockBaseFee == nil {
 		targetOneFeeHistory.BaseFee = big.NewInt(0)
 	} else {
 		targetOneFeeHistory.BaseFee = blockBaseFee
 	}
-	cfg := b.ChainConfig()
+	cfg := b.ChainConfig(ctx)
 	gasLimitUint64, ok := (*ethBlock)["gasLimit"].(hexutil.Uint64)
 	if !ok {
 		return fmt.Errorf("invalid gas limit type: %T", (*ethBlock)["gasLimit"])
@@ -176,7 +183,7 @@ func (b *Backend) ProcessBlock(
 	targetOneFeeHistory.BlobGasUsedRatio = 0
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		ctx := types.ContextWithHeight(blockHeight)
+		ctx = types.ContextWithHeight(blockHeight, ctx)
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
 			return err

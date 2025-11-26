@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"go.opentelemetry.io/otel"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -26,6 +27,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+)
+
+var (
+	otelTracer = otel.Tracer("cosmos/evm/x/vm")
 )
 
 // NewEVMWithOverridePrecompiles creates a new EVM instance with opcode hooks and optionally overrides
@@ -196,6 +201,8 @@ func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
 func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
+	ctx, span := ctx.StartSpan(otelTracer, "ApplyTransaction")
+	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
@@ -376,6 +383,8 @@ func (k *Keeper) ApplyMessageWithConfig(
 	internal bool,
 	overrides *rpctypes.StateOverride,
 ) (*types.MsgEthereumTxResponse, error) {
+	ctx, span := ctx.StartSpan(otelTracer, "ApplyMessageWithConfig")
+	defer span.End()
 	var (
 		ret          []byte // return bytes from evm execution
 		vmErr        error  // vm errors do not effect consensus and are therefore not assigned to err

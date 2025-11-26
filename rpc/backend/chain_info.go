@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	gomath "math"
 	"math/big"
@@ -12,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -27,15 +30,19 @@ import (
 )
 
 // ChainID is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (b *Backend) ChainID() (*hexutil.Big, error) {
+func (b *Backend) ChainID(ctx context.Context) (result *hexutil.Big, err error) {
+	ctx, span := tracer.Start(ctx, "ChainID")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	// if current block is at or past the EIP-155 replay-protection fork block, return EvmChainID from config
-	bn, err := b.BlockNumber()
+	bn, err := b.BlockNumber(ctx)
 	if err != nil {
 		b.Logger.Debug("failed to fetch latest block number", "error", err.Error())
 		return (*hexutil.Big)(b.EvmChainID), nil
 	}
 
-	if config := b.ChainConfig(); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {
+	if config := b.ChainConfig(ctx); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {
 		return (*hexutil.Big)(config.ChainID), nil
 	}
 
@@ -43,13 +50,19 @@ func (b *Backend) ChainID() (*hexutil.Big, error) {
 }
 
 // ChainConfig returns the latest ethereum chain configuration
-func (b *Backend) ChainConfig() *params.ChainConfig {
+func (b *Backend) ChainConfig(ctx context.Context) *params.ChainConfig {
+	_, span := tracer.Start(ctx, "ChainConfig")
+	defer span.End()
 	return evmtypes.GetEthChainConfig()
 }
 
 // GlobalMinGasPrice returns MinGasPrice param from FeeMarket
-func (b *Backend) GlobalMinGasPrice() (*big.Int, error) {
-	res, err := b.QueryClient.GlobalMinGasPrice(b.Ctx, &evmtypes.QueryGlobalMinGasPriceRequest{})
+func (b *Backend) GlobalMinGasPrice(ctx context.Context) (result *big.Int, err error) {
+	ctx, span := tracer.Start(ctx, "GlobalMinGasPrice")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	res, err := b.QueryClient.GlobalMinGasPrice(ctx, &evmtypes.QueryGlobalMinGasPriceRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +76,14 @@ func (b *Backend) GlobalMinGasPrice() (*big.Int, error) {
 // If the base fee is not enabled globally, the query returns nil.
 // If the London hard fork is not activated at the current height, the query will
 // return nil.
-func (b *Backend) BaseFee(blockRes *cmtrpctypes.ResultBlockResults) (*big.Int, error) {
+func (b *Backend) BaseFee(ctx context.Context, blockRes *cmtrpctypes.ResultBlockResults) (result *big.Int, err error) {
+	ctx, span := tracer.Start(ctx, "BaseFee", trace.WithAttributes(attribute.Int64("height", blockRes.Height)))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	// return BaseFee if London hard fork is activated and feemarket is enabled
-	res, err := b.QueryClient.BaseFee(rpctypes.ContextWithHeight(blockRes.Height), &evmtypes.QueryBaseFeeRequest{})
+	ctx = rpctypes.ContextWithHeight(blockRes.Height, ctx)
+	res, err := b.QueryClient.BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
 	if err != nil || res.BaseFee == nil {
 		// we can't tell if it's london HF not enabled or the state is pruned,
 		// in either case, we'll fallback to parsing from begin blocker event,
@@ -93,28 +111,36 @@ func (b *Backend) BaseFee(blockRes *cmtrpctypes.ResultBlockResults) (*big.Int, e
 // CurrentHeader returns the latest block header
 // This will return error as per node configuration
 // if the ABCI responses are discarded ('discard_abci_responses' config param)
-func (b *Backend) CurrentHeader() (*ethtypes.Header, error) {
-	return b.HeaderByNumber(rpctypes.EthLatestBlockNumber)
+func (b *Backend) CurrentHeader(ctx context.Context) (result *ethtypes.Header, err error) {
+	ctx, span := tracer.Start(ctx, "CurrentHeader")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
+	return b.HeaderByNumber(ctx, rpctypes.EthLatestBlockNumber)
 }
 
 // PendingTransactions returns the transactions that are in the transaction pool
 // and have a from address that is one of the accounts this node manages.
-func (b *Backend) PendingTransactions() ([]*sdk.Tx, error) {
+func (b *Backend) PendingTransactions(ctx context.Context) (result []*sdk.Tx, err error) {
+	ctx, span := tracer.Start(ctx, "PendingTransactions")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	mc, ok := b.ClientCtx.Client.(cmtrpcclient.MempoolClient)
 	if !ok {
 		return nil, errors.New("invalid rpc client")
 	}
 
-	res, err := mc.UnconfirmedTxs(b.Ctx, nil)
+	res, err := mc.UnconfirmedTxs(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*sdk.Tx, 0, len(res.Txs))
+	result = make([]*sdk.Tx, 0, len(res.Txs))
 	for _, txBz := range res.Txs {
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
-		if err != nil {
-			return nil, err
+		tx, decodeErr := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+		if decodeErr != nil {
+			return nil, decodeErr
 		}
 		result = append(result, &tx)
 	}
@@ -123,13 +149,17 @@ func (b *Backend) PendingTransactions() ([]*sdk.Tx, error) {
 }
 
 // GetCoinbase is the address that staking rewards will be send to (alias for Etherbase).
-func (b *Backend) GetCoinbase() (sdk.AccAddress, error) {
+func (b *Backend) GetCoinbase(ctx context.Context) (result sdk.AccAddress, err error) {
+	ctx, span := tracer.Start(ctx, "GetCoinbase")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	node, err := b.ClientCtx.GetNode()
 	if err != nil {
 		return nil, err
 	}
 
-	status, err := node.Status(b.Ctx)
+	status, err := node.Status(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +168,7 @@ func (b *Backend) GetCoinbase() (sdk.AccAddress, error) {
 		ConsAddress: sdk.ConsAddress(status.ValidatorInfo.Address).String(),
 	}
 
-	res, err := b.QueryClient.ValidatorAccount(b.Ctx, req)
+	res, err := b.QueryClient.ValidatorAccount(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -154,10 +184,13 @@ var (
 
 // FeeHistory returns data relevant for fee estimation based on the specified range of blocks.
 func (b *Backend) FeeHistory(
+	ctx context.Context,
 	userBlockCount math.HexOrDecimal64, // number blocks to fetch, maximum is 100
 	lastBlock rpc.BlockNumber, // the block to start search , to oldest
 	rewardPercentiles []float64, // percentiles to fetch reward
 ) (*rpctypes.FeeHistoryResult, error) {
+	ctx, span := tracer.Start(ctx, "FeeHistory", trace.WithAttributes(attribute.Int64("blockCount", int64(userBlockCount)), attribute.Int64("lastBlock", int64(lastBlock))))
+	defer span.End()
 	for i, p := range rewardPercentiles {
 		if p < 0 || p > 100 {
 			return nil, fmt.Errorf("%w: %f", errInvalidPercentile, p)
@@ -166,7 +199,7 @@ func (b *Backend) FeeHistory(
 			return nil, fmt.Errorf("%w: #%d:%f > #%d:%f", errInvalidPercentile, i-1, rewardPercentiles[i-1], i, p)
 		}
 	}
-	blkNumber, err := b.BlockNumber()
+	blkNumber, err := b.BlockNumber(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -241,21 +274,21 @@ func (b *Backend) FeeHistory(
 				// fetch block
 				// CometBFT block
 				blockNum := rpctypes.BlockNumber(blockStart + int64(index))
-				cometBlock, err := b.CometBlockByNumber(blockNum)
+				cometBlock, err := b.CometBlockByNumber(ctx, blockNum)
 				if cometBlock == nil {
 					chanErr <- err
 					return
 				}
 
 				// eth block
-				ethBlock, err := b.GetBlockByNumber(blockNum, true)
+				ethBlock, err := b.GetBlockByNumber(ctx, blockNum, true)
 				if ethBlock == nil {
 					chanErr <- err
 					return
 				}
 
 				// CometBFT block result
-				cometBlockResult, err := b.CometBlockResultByNumber(&cometBlock.Block.Height)
+				cometBlockResult, err := b.CometBlockResultByNumber(ctx, &cometBlock.Block.Height)
 				if cometBlockResult == nil {
 					b.Logger.Debug("block result not found", "height", cometBlock.Block.Height, "error", err.Error())
 					chanErr <- err
@@ -263,7 +296,7 @@ func (b *Backend) FeeHistory(
 				}
 
 				oneFeeHistory := rpctypes.OneFeeHistory{}
-				err = b.ProcessBlocker(cometBlock, &ethBlock, rewardPercentiles, cometBlockResult, &oneFeeHistory)
+				err = b.ProcessBlocker(ctx, cometBlock, &ethBlock, rewardPercentiles, cometBlockResult, &oneFeeHistory)
 				if err != nil {
 					chanErr <- err
 					return
@@ -320,13 +353,15 @@ func (b *Backend) FeeHistory(
 // SuggestGasTipCap returns the suggested tip cap
 // Although we don't support tx prioritization yet, but we return a positive value to help client to
 // mitigate the base fee changes.
-func (b *Backend) SuggestGasTipCap(baseFee *big.Int) (*big.Int, error) {
+func (b *Backend) SuggestGasTipCap(ctx context.Context, baseFee *big.Int) (*big.Int, error) {
+	ctx, span := tracer.Start(ctx, "SuggestGasTipCap")
+	defer span.End()
 	if baseFee == nil {
 		// london hardfork not enabled or feemarket not enabled
 		return big.NewInt(0), nil
 	}
 
-	params, err := b.QueryClient.FeeMarket.Params(b.Ctx, &feemarkettypes.QueryParamsRequest{})
+	params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 	if err != nil {
 		return nil, err
 	}

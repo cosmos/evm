@@ -44,13 +44,13 @@ type BackendI interface { //nolint: revive
 // Implemented by Backend.
 type EVMBackend interface {
 	// Node specific queries
-	Accounts() ([]common.Address, error)
-	Syncing() (interface{}, error)
-	SetEtherbase(etherbase common.Address) bool
-	SetGasPrice(gasPrice hexutil.Big) bool
-	ImportRawKey(privkey, password string) (common.Address, error)
-	ListAccounts() ([]common.Address, error)
-	NewMnemonic(uid string, language keyring.Language, hdPath, bip39Passphrase string, algo keyring.SignatureAlgo) (*keyring.Record, error)
+	Accounts(ctx context.Context) ([]common.Address, error)
+	Syncing(ctx context.Context) (interface{}, error)
+	SetEtherbase(ctx context.Context, etherbase common.Address) bool
+	SetGasPrice(ctx context.Context, gasPrice hexutil.Big) bool
+	ImportRawKey(ctx context.Context, privkey, password string) (common.Address, error)
+	ListAccounts(ctx context.Context) ([]common.Address, error)
+	NewMnemonic(ctx context.Context, uid string, language keyring.Language, hdPath, bip39Passphrase string, algo keyring.SignatureAlgo) (*keyring.Record, error)
 	UnprotectedAllowed() bool
 	RPCGasCap() uint64            // global gas cap for eth_call over rpc: DoS protection
 	RPCEVMTimeout() time.Duration // global timeout for eth_call over rpc: DoS protection
@@ -58,83 +58,83 @@ type EVMBackend interface {
 	RPCMinGasPrice() *big.Int
 
 	// Sign Tx
-	Sign(address common.Address, data hexutil.Bytes) (hexutil.Bytes, error)
-	SendTransaction(args evmtypes.TransactionArgs) (common.Hash, error)
-	SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error)
+	Sign(ctx context.Context, address common.Address, data hexutil.Bytes) (hexutil.Bytes, error)
+	SendTransaction(ctx context.Context, args evmtypes.TransactionArgs) (common.Hash, error)
+	SignTypedData(ctx context.Context, address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error)
 
 	// Blocks Info
-	BlockNumber() (hexutil.Uint64, error)
-	GetHeaderByNumber(blockNum types.BlockNumber) (map[string]interface{}, error)
-	GetHeaderByHash(hash common.Hash) (map[string]interface{}, error)
-	GetBlockByNumber(blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error)
-	GetBlockByHash(hash common.Hash, fullTx bool) (map[string]interface{}, error)
-	GetBlockTransactionCountByHash(hash common.Hash) *hexutil.Uint
-	GetBlockTransactionCountByNumber(blockNum types.BlockNumber) *hexutil.Uint
-	CometBlockByNumber(blockNum types.BlockNumber) (*tmrpctypes.ResultBlock, error)
-	CometBlockByHash(blockHash common.Hash) (*tmrpctypes.ResultBlock, error)
-	BlockNumberFromComet(blockNrOrHash types.BlockNumberOrHash) (types.BlockNumber, error)
-	BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, error)
-	EthMsgsFromCometBlock(block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []*evmtypes.MsgEthereumTx
-	BlockBloomFromCometBlock(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error)
-	HeaderByNumber(blockNum types.BlockNumber) (*ethtypes.Header, error)
-	HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error)
-	RPCBlockFromCometBlock(resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults, fullTx bool) (map[string]interface{}, error)
-	EthBlockByNumber(blockNum types.BlockNumber) (*ethtypes.Block, error)
-	EthBlockFromCometBlock(resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) (*ethtypes.Block, error)
-	GetBlockReceipts(blockNrOrHash types.BlockNumberOrHash) ([]map[string]interface{}, error)
+	BlockNumber(ctx context.Context) (hexutil.Uint64, error)
+	GetHeaderByNumber(ctx context.Context, blockNum types.BlockNumber) (map[string]interface{}, error)
+	GetHeaderByHash(ctx context.Context, hash common.Hash) (map[string]interface{}, error)
+	GetBlockByNumber(ctx context.Context, blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error)
+	GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (map[string]interface{}, error)
+	GetBlockTransactionCountByHash(ctx context.Context, hash common.Hash) *hexutil.Uint
+	GetBlockTransactionCountByNumber(ctx context.Context, blockNum types.BlockNumber) *hexutil.Uint
+	CometBlockByNumber(ctx context.Context, blockNum types.BlockNumber) (*tmrpctypes.ResultBlock, error)
+	CometBlockByHash(ctx context.Context, blockHash common.Hash) (*tmrpctypes.ResultBlock, error)
+	BlockNumberFromComet(ctx context.Context, blockNrOrHash types.BlockNumberOrHash) (types.BlockNumber, error)
+	BlockNumberFromCometByHash(ctx context.Context, blockHash common.Hash) (*big.Int, error)
+	EthMsgsFromCometBlock(ctx context.Context, block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []*evmtypes.MsgEthereumTx
+	BlockBloomFromCometBlock(ctx context.Context, blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error)
+	HeaderByNumber(ctx context.Context, blockNum types.BlockNumber) (*ethtypes.Header, error)
+	HeaderByHash(ctx context.Context, blockHash common.Hash) (*ethtypes.Header, error)
+	RPCBlockFromCometBlock(ctx context.Context, resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults, fullTx bool) (map[string]interface{}, error)
+	EthBlockByNumber(ctx context.Context, blockNum types.BlockNumber) (*ethtypes.Block, error)
+	EthBlockFromCometBlock(ctx context.Context, resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) (*ethtypes.Block, error)
+	GetBlockReceipts(ctx context.Context, blockNrOrHash types.BlockNumberOrHash) ([]map[string]interface{}, error)
 
 	// Account Info
-	GetCode(address common.Address, blockNrOrHash types.BlockNumberOrHash) (hexutil.Bytes, error)
-	GetBalance(address common.Address, blockNrOrHash types.BlockNumberOrHash) (*hexutil.Big, error)
-	GetStorageAt(address common.Address, key string, blockNrOrHash types.BlockNumberOrHash) (hexutil.Bytes, error)
-	GetProof(address common.Address, storageKeys []string, blockNrOrHash types.BlockNumberOrHash) (*types.AccountResult, error)
-	GetTransactionCount(address common.Address, blockNum types.BlockNumber) (*hexutil.Uint64, error)
+	GetCode(ctx context.Context, address common.Address, blockNrOrHash types.BlockNumberOrHash) (hexutil.Bytes, error)
+	GetBalance(ctx context.Context, address common.Address, blockNrOrHash types.BlockNumberOrHash) (*hexutil.Big, error)
+	GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash types.BlockNumberOrHash) (hexutil.Bytes, error)
+	GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash types.BlockNumberOrHash) (*types.AccountResult, error)
+	GetTransactionCount(ctx context.Context, address common.Address, blockNum types.BlockNumber) (*hexutil.Uint64, error)
 
 	// Chain Info
-	ChainID() (*hexutil.Big, error)
-	ChainConfig() *params.ChainConfig
-	GlobalMinGasPrice() (*big.Int, error)
-	BaseFee(blockRes *tmrpctypes.ResultBlockResults) (*big.Int, error)
-	CurrentHeader() (*ethtypes.Header, error)
-	PendingTransactions() ([]*sdk.Tx, error)
-	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*types.FeeHistoryResult, error)
-	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
+	ChainID(ctx context.Context) (*hexutil.Big, error)
+	ChainConfig(ctx context.Context) *params.ChainConfig
+	GlobalMinGasPrice(ctx context.Context) (*big.Int, error)
+	BaseFee(ctx context.Context, blockRes *tmrpctypes.ResultBlockResults) (*big.Int, error)
+	CurrentHeader(ctx context.Context) (*ethtypes.Header, error)
+	PendingTransactions(ctx context.Context) ([]*sdk.Tx, error)
+	GetCoinbase(ctx context.Context) (sdk.AccAddress, error)
+	FeeHistory(ctx context.Context, blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*types.FeeHistoryResult, error)
+	SuggestGasTipCap(ctx context.Context, baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
-	GetTransactionByHash(txHash common.Hash) (*types.RPCTransaction, error)
-	GetTxByEthHash(txHash common.Hash) (*servertypes.TxResult, error)
-	GetTxByTxIndex(height int64, txIndex uint) (*servertypes.TxResult, error)
-	GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, idx hexutil.Uint) (*types.RPCTransaction, error)
-	GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error)
-	GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error)
-	GetTransactionByBlockHashAndIndex(hash common.Hash, idx hexutil.Uint) (*types.RPCTransaction, error)
-	GetTransactionByBlockNumberAndIndex(blockNum types.BlockNumber, idx hexutil.Uint) (*types.RPCTransaction, error)
-	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, overrides *json.RawMessage) (*types.AccessListResult, error)
+	GetTransactionByHash(ctx context.Context, txHash common.Hash) (*types.RPCTransaction, error)
+	GetTxByEthHash(ctx context.Context, txHash common.Hash) (*servertypes.TxResult, error)
+	GetTxByTxIndex(ctx context.Context, height int64, txIndex uint) (*servertypes.TxResult, error)
+	GetTransactionByBlockAndIndex(ctx context.Context, block *tmrpctypes.ResultBlock, idx hexutil.Uint) (*types.RPCTransaction, error)
+	GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error)
+	GetTransactionLogs(ctx context.Context, hash common.Hash) ([]*ethtypes.Log, error)
+	GetTransactionByBlockHashAndIndex(ctx context.Context, hash common.Hash, idx hexutil.Uint) (*types.RPCTransaction, error)
+	GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNum types.BlockNumber, idx hexutil.Uint) (*types.RPCTransaction, error)
+	CreateAccessList(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, overrides *json.RawMessage) (*types.AccessListResult, error)
 
 	// Send Transaction
-	Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
-	SendRawTransaction(data hexutil.Bytes) (common.Hash, error)
-	SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.TransactionArgs, error)
-	EstimateGas(args evmtypes.TransactionArgs, blockNrOrHash *types.BlockNumberOrHash, overrides *json.RawMessage) (hexutil.Uint64, error)
-	DoCall(args evmtypes.TransactionArgs, blockNr types.BlockNumber, overrides *json.RawMessage) (*evmtypes.MsgEthereumTxResponse, error)
-	GasPrice() (*hexutil.Big, error)
+	Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
+	SendRawTransaction(ctx context.Context, data hexutil.Bytes) (common.Hash, error)
+	SetTxDefaults(ctx context.Context, args evmtypes.TransactionArgs) (evmtypes.TransactionArgs, error)
+	EstimateGas(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash *types.BlockNumberOrHash, overrides *json.RawMessage) (hexutil.Uint64, error)
+	DoCall(ctx context.Context, args evmtypes.TransactionArgs, blockNr types.BlockNumber, overrides *json.RawMessage) (*evmtypes.MsgEthereumTxResponse, error)
+	GasPrice(ctx context.Context) (*hexutil.Big, error)
 
 	// Filter API
-	GetLogs(hash common.Hash) ([][]*ethtypes.Log, error)
-	GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error)
-	BloomStatus() (uint64, uint64)
+	GetLogs(ctx context.Context, hash common.Hash) ([][]*ethtypes.Log, error)
+	GetLogsByHeight(ctx context.Context, height *int64) ([][]*ethtypes.Log, error)
+	BloomStatus(ctx context.Context) (uint64, uint64)
 
 	// TxPool API
-	Content() (map[string]map[string]map[string]*types.RPCTransaction, error)
-	ContentFrom(address common.Address) (map[string]map[string]*types.RPCTransaction, error)
-	Inspect() (map[string]map[string]map[string]string, error)
-	Status() (map[string]hexutil.Uint, error)
+	Content(ctx context.Context) (map[string]map[string]map[string]*types.RPCTransaction, error)
+	ContentFrom(ctx context.Context, address common.Address) (map[string]map[string]*types.RPCTransaction, error)
+	Inspect(ctx context.Context) (map[string]map[string]map[string]string, error)
+	Status(ctx context.Context) (map[string]hexutil.Uint, error)
 
 	// Tracing
-	TraceTransaction(hash common.Hash, config *types.TraceConfig) (interface{}, error)
-	TraceBlock(height types.BlockNumber, config *types.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
-	TraceCall(args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
+	TraceTransaction(ctx context.Context, hash common.Hash, config *types.TraceConfig) (interface{}, error)
+	TraceBlock(ctx context.Context, height types.BlockNumber, config *types.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
+	TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
 }
 
 var _ BackendI = (*Backend)(nil)
@@ -145,6 +145,7 @@ var _ BackendI = (*Backend)(nil)
 // block results, and a target fee history entry to populate.
 //
 // Parameters:
+//   - ctx: Context for the request
 //   - tendermintBlock: The raw Tendermint block data
 //   - ethBlock: The Ethereum-formatted block representation
 //   - rewardPercentiles: Percentiles used for fee reward calculation
@@ -153,6 +154,7 @@ var _ BackendI = (*Backend)(nil)
 //
 // Returns an error if block processing fails.
 type ProcessBlocker func(
+	ctx context.Context,
 	tendermintBlock *tmrpctypes.ResultBlock,
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
@@ -162,7 +164,6 @@ type ProcessBlocker func(
 
 // Backend implements the BackendI interface
 type Backend struct {
-	Ctx                 context.Context
 	ClientCtx           client.Context
 	RPCClient           tmrpcclient.SignClient
 	QueryClient         *types.QueryClient // gRPC query client
@@ -199,7 +200,6 @@ func NewBackend(
 	}
 
 	b := &Backend{
-		Ctx:                 context.Background(),
 		ClientCtx:           clientCtx,
 		RPCClient:           rpcClient,
 		QueryClient:         types.NewQueryClient(clientCtx),

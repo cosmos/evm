@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"go.opentelemetry.io/otel"
 
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/rpc/backend"
@@ -19,6 +20,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+var (
+	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/personal")
 )
 
 // PrivateAccountAPI is the personal_ prefixed set of APIs in the Web3 JSON-RPC spec.
@@ -55,13 +60,17 @@ func NewAPI(
 // NOTE: The key will be both armored and encrypted using the same passphrase.
 func (api *PrivateAccountAPI) ImportRawKey(privkey, password string) (common.Address, error) {
 	api.logger.Debug("personal_importRawKey")
-	return api.backend.ImportRawKey(privkey, password)
+	ctx, span := tracer.Start(context.Background(), "ImportRawKey")
+	defer span.End()
+	return api.backend.ImportRawKey(ctx, privkey, password)
 }
 
 // ListAccounts will return a list of addresses for accounts this node manages.
 func (api *PrivateAccountAPI) ListAccounts() ([]common.Address, error) {
 	api.logger.Debug("personal_listAccounts")
-	return api.backend.ListAccounts()
+	ctx, span := tracer.Start(context.Background(), "ListAccounts")
+	defer span.End()
+	return api.backend.ListAccounts(ctx)
 }
 
 // LockAccount will lock the account associated with the given address when it's unlocked.
@@ -76,13 +85,15 @@ func (api *PrivateAccountAPI) LockAccount(address common.Address) bool {
 // NewAccount will create a new account and returns the address for the new account.
 func (api *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {
 	api.logger.Debug("personal_newAccount")
+	ctx, span := tracer.Start(context.Background(), "NewAccount")
+	defer span.End()
 
 	name := "key_" + time.Now().UTC().Format(time.RFC3339)
 
 	// create the mnemonic and save the account
 	hdPath := api.hdPathIter()
 
-	info, err := api.backend.NewMnemonic(name, keyring.English, hdPath.String(), password, hd.EthSecp256k1)
+	info, err := api.backend.NewMnemonic(ctx, name, keyring.English, hdPath.String(), password, hd.EthSecp256k1)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -110,9 +121,11 @@ func (api *PrivateAccountAPI) UnlockAccount(_ context.Context, addr common.Addre
 // SendTransaction will create a transaction from the given arguments and
 // tries to sign it with the key associated with args.To. If the given password isn't
 // able to decrypt the key it fails.
-func (api *PrivateAccountAPI) SendTransaction(_ context.Context, args evmtypes.TransactionArgs, _ string) (common.Hash, error) {
+func (api *PrivateAccountAPI) SendTransaction(ctx context.Context, args evmtypes.TransactionArgs, _ string) (common.Hash, error) {
 	api.logger.Debug("personal_sendTransaction", "address", args.To.String())
-	return api.backend.SendTransaction(args)
+	ctx, span := tracer.Start(ctx, "SendTransaction")
+	defer span.End()
+	return api.backend.SendTransaction(ctx, args)
 }
 
 // Sign calculates an Ethereum ECDSA signature for:
@@ -124,9 +137,11 @@ func (api *PrivateAccountAPI) SendTransaction(_ context.Context, args evmtypes.T
 // The key used to calculate the signature is decrypted with the given password.
 //
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
-func (api *PrivateAccountAPI) Sign(_ context.Context, data hexutil.Bytes, addr common.Address, _ string) (hexutil.Bytes, error) {
+func (api *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, _ string) (hexutil.Bytes, error) {
 	api.logger.Debug("personal_sign", "data", data, "address", addr.String())
-	return api.backend.Sign(addr, data)
+	ctx, span := tracer.Start(ctx, "Sign")
+	defer span.End()
+	return api.backend.Sign(ctx, addr, data)
 }
 
 // EcRecover returns the address for the account that was used to create the signature.
@@ -139,8 +154,10 @@ func (api *PrivateAccountAPI) Sign(_ context.Context, data hexutil.Bytes, addr c
 // the V value must be 27 or 28 for legacy reasons.
 //
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecove
-func (api *PrivateAccountAPI) EcRecover(_ context.Context, data, sig hexutil.Bytes) (common.Address, error) {
+func (api *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	api.logger.Debug("personal_ecRecover", "data", data, "sig", sig)
+	ctx, span := tracer.Start(ctx, "EcRecover")
+	defer span.End()
 
 	if len(sig) != crypto.SignatureLength {
 		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)

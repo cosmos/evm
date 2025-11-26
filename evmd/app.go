@@ -128,6 +128,8 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	cosmosevmserver "github.com/cosmos/evm/server"
+
+	_ "github.com/cosmos/cosmos-sdk/telemetry"
 )
 
 func init() {

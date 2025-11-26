@@ -90,25 +90,27 @@ func newFilter(logger log.Logger, backend Backend, criteria filters.FilterCriter
 
 // Logs searches the blockchain for matching log entries, returning all from the
 // first block that contains matches, updating the start of the filter accordingly.
-func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) (logs []*ethtypes.Log, err error) {
+func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) (logs []*ethtypes.Log, err error) {
+	ctx, span := tracer.Start(ctx, "Filter.Logs")
+	defer span.End()
 	if blockLimit == 0 {
 		return nil, nil
 	}
 
 	// If we're doing singleton block filtering, execute and return
 	if f.criteria.BlockHash != nil && *f.criteria.BlockHash != (common.Hash{}) {
-		resBlock, err := f.backend.CometBlockByHash(*f.criteria.BlockHash)
+		resBlock, err := f.backend.CometBlockByHash(ctx, *f.criteria.BlockHash)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch header by hash %s: %w", f.criteria.BlockHash, err)
 		}
 
-		blockRes, err := f.backend.CometBlockResultByNumber(&resBlock.Block.Height)
+		blockRes, err := f.backend.CometBlockResultByNumber(ctx, &resBlock.Block.Height)
 		if err != nil {
 			f.logger.Debug("failed to fetch block result from CometBFT", "height", resBlock.Block.Height, "error", err.Error())
 			return nil, err
 		}
 
-		bloom, err := f.backend.BlockBloomFromCometBlock(blockRes)
+		bloom, err := f.backend.BlockBloomFromCometBlock(ctx, blockRes)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +124,7 @@ func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) (logs [
 	}
 
 	// Figure out the limits of the filter range
-	header, err := f.backend.HeaderByNumber(types.EthLatestBlockNumber)
+	header, err := f.backend.HeaderByNumber(ctx, types.EthLatestBlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch header by number (latest): %w", err)
 	}
@@ -171,13 +173,13 @@ func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) (logs [
 
 	for height := from; height <= to; height++ {
 		h := int64(height) //#nosec G115
-		blockRes, err := f.backend.CometBlockResultByNumber(&h)
+		blockRes, err := f.backend.CometBlockResultByNumber(ctx, &h)
 		if err != nil {
 			f.logger.Debug("failed to fetch block result from CometBFT", "height", height, "error", err.Error())
 			return nil, fmt.Errorf("failed to fetch block result from CometBFT: %w", err)
 		}
 
-		bloom, err := f.backend.BlockBloomFromCometBlock(blockRes)
+		bloom, err := f.backend.BlockBloomFromCometBlock(ctx, blockRes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query block bloom filter from block results: %w", err)
 		}

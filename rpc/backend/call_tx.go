@@ -13,6 +13,8 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -28,19 +30,23 @@ import (
 
 // Resend accepts an existing transaction and a new gas price and limit. It will remove
 // the given transaction from the pool and reinsert it with the new gas price and limit.
-func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error) {
+func (b *Backend) Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (result common.Hash, err error) {
+	ctx, span := tracer.Start(ctx, "Resend", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	if args.Nonce == nil {
 		return common.Hash{}, fmt.Errorf("missing transaction nonce in transaction spec")
 	}
 
-	args, err := b.SetTxDefaults(args)
+	args, err = b.SetTxDefaults(ctx, args)
 	if err != nil {
 		return common.Hash{}, err
 	}
 
 	// The signer used should always be the 'latest' known one because we expect
 	// signers to be backwards-compatible with old transactions.
-	cfg := b.ChainConfig()
+	cfg := b.ChainConfig(ctx)
 	if cfg == nil {
 		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64()).EthereumConfig(nil)
 	}
@@ -62,15 +68,15 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 		return common.Hash{}, err
 	}
 
-	pending, err := b.PendingTransactions()
+	pending, err := b.PendingTransactions(ctx)
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	for _, tx := range pending {
+	for _, txItem := range pending {
 		// FIXME does Resend api possible at all?  https://github.com/evmos/ethermint/issues/905
-		p, err := evmtypes.UnwrapEthereumMsg(tx, common.Hash{})
-		if err != nil {
+		p, unwrapErr := evmtypes.UnwrapEthereumMsg(txItem, common.Hash{})
+		if unwrapErr != nil {
 			// not valid ethereum tx
 			continue
 		}
@@ -78,8 +84,8 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 		pTx := p.AsTransaction()
 
 		wantSigHash := signer.Hash(matchTx)
-		pFrom, err := ethtypes.Sender(signer, pTx)
-		if err != nil {
+		pFrom, senderErr := ethtypes.Sender(signer, pTx)
+		if senderErr != nil {
 			continue
 		}
 
@@ -92,7 +98,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 				args.Gas = gasLimit
 			}
 
-			return b.SendTransaction(args) // TODO: this calls SetTxDefaults again, refactor to avoid calling it twice
+			return b.SendTransaction(ctx, args) // TODO: this calls SetTxDefaults again, refactor to avoid calling it twice
 		}
 	}
 
@@ -100,7 +106,11 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 }
 
 // SendRawTransaction send a raw Ethereum transaction.
-func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
+func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (result common.Hash, err error) {
+	ctx, span := tracer.Start(ctx, "SendRawTransaction")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	// RLP decode raw transaction bytes
 	tx := &ethtypes.Transaction{}
 	if err := tx.UnmarshalBinary(data); err != nil {
@@ -120,7 +130,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 
 	ethereumTx := &evmtypes.MsgEthereumTx{}
-	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
+	ethSigner := ethtypes.LatestSigner(b.ChainConfig(ctx))
 	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
 		b.Logger.Error("transaction converting failed", "error", err.Error())
 		return common.Hash{}, fmt.Errorf("failed to convert ethereum transaction: %w", err)
@@ -165,7 +175,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			if err != nil {
 				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
 			}
-			nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
+			nonce, err := b.getAccountNonce(ctx, from, false, b.ClientCtx.Height, b.Logger)
 			if err != nil {
 				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
 			}
@@ -188,12 +198,16 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 
 // SetTxDefaults populates tx message with default values in case they are not
 // provided on the args
-func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.TransactionArgs, error) {
+func (b *Backend) SetTxDefaults(ctx context.Context, args evmtypes.TransactionArgs) (result evmtypes.TransactionArgs, err error) {
+	ctx, span := tracer.Start(ctx, "SetTxDefaults")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return args, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
 
-	head, _ := b.CurrentHeader() // #nosec G703 -- no need to check error cause we're already checking that head == nil
+	head, _ := b.CurrentHeader(ctx) // #nosec G703 -- no need to check error cause we're already checking that head == nil
 	if head == nil {
 		return args, errors.New("latest header is nil")
 	}
@@ -204,7 +218,7 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 		// In this clause, user left some fields unspecified.
 		if head.BaseFee != nil && args.GasPrice == nil {
 			if args.MaxPriorityFeePerGas == nil {
-				tip, err := b.SuggestGasTipCap(head.BaseFee)
+				tip, err := b.SuggestGasTipCap(ctx, head.BaseFee)
 				if err != nil {
 					return args, err
 				}
@@ -228,7 +242,7 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 			}
 
 			if args.GasPrice == nil {
-				price, err := b.SuggestGasTipCap(head.BaseFee)
+				price, err := b.SuggestGasTipCap(ctx, head.BaseFee)
 				if err != nil {
 					return args, err
 				}
@@ -254,7 +268,7 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 	if args.Nonce == nil {
 		// get the nonce from the account retriever
 		// ignore error in case tge account doesn't exist yet
-		nonce, _ := b.getAccountNonce(*args.From, true, 0, b.Logger) // #nosec G703s
+		nonce, _ := b.getAccountNonce(ctx, *args.From, true, 0, b.Logger) // #nosec G703s
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 
@@ -300,7 +314,7 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 
 		blockNr := rpctypes.NewBlockNumber(big.NewInt(0))
 		blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNr}
-		estimated, err := b.EstimateGas(callArgs, &blockNrOrHash, nil)
+		estimated, err := b.EstimateGas(ctx, callArgs, &blockNrOrHash, nil)
 		if err != nil {
 			return args, err
 		}
@@ -317,14 +331,23 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 
 // EstimateGas returns an estimate of gas usage for the given smart contract call.
 func (b *Backend) EstimateGas(
+	ctx context.Context,
 	args evmtypes.TransactionArgs,
 	blockNrOrHash *rpctypes.BlockNumberOrHash,
 	overrides *json.RawMessage,
-) (hexutil.Uint64, error) {
+) (result hexutil.Uint64, err error) {
+	var toAddr string
+	if args.To != nil {
+		toAddr = args.To.Hex()
+	}
+	ctx, span := tracer.Start(ctx, "EstimateGas", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr)))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	blockNr := rpctypes.EthPendingBlockNumber
 	if blockNrOrHash != nil {
 		var err error
-		blockNr, err = b.BlockNumberFromComet(*blockNrOrHash)
+		blockNr, err = b.BlockNumberFromComet(ctx, *blockNrOrHash)
 		if err != nil {
 			return 0, err
 		}
@@ -335,7 +358,7 @@ func (b *Backend) EstimateGas(
 		return 0, err
 	}
 
-	header, err := b.CometHeaderByNumber(blockNr)
+	header, err := b.CometHeaderByNumber(ctx, blockNr)
 	if err != nil {
 		// the error message imitates geth behavior
 		return 0, errors.New("header not found")
@@ -357,7 +380,8 @@ func (b *Backend) EstimateGas(
 	// From ContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
-	res, err := b.QueryClient.EstimateGas(rpctypes.ContextWithHeight(blockNr.Int64()), &req)
+	ctx = rpctypes.ContextWithHeight(blockNr.Int64(), ctx)
+	res, err := b.QueryClient.EstimateGas(ctx, &req)
 	if err != nil {
 		return 0, err
 	}
@@ -370,15 +394,24 @@ func (b *Backend) EstimateGas(
 // DoCall performs a simulated call operation through the evmtypes. It returns the
 // estimated gas used on the operation or an error if fails.
 func (b *Backend) DoCall(
+	ctx context.Context,
 	args evmtypes.TransactionArgs,
 	blockNr rpctypes.BlockNumber,
 	overrides *json.RawMessage,
-) (*evmtypes.MsgEthereumTxResponse, error) {
+) (result *evmtypes.MsgEthereumTxResponse, err error) {
+	var toAddr string
+	if args.To != nil {
+		toAddr = args.To.Hex()
+	}
+	ctx, span := tracer.Start(ctx, "DoCall", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr), attribute.Int64("blockNr", blockNr.Int64())))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	bz, err := json.Marshal(&args)
 	if err != nil {
 		return nil, err
 	}
-	header, err := b.CometHeaderByNumber(blockNr)
+	header, err := b.CometHeaderByNumber(ctx, blockNr)
 	if err != nil {
 		// the error message imitates geth behavior
 		return nil, errors.New("header not found")
@@ -400,7 +433,7 @@ func (b *Backend) DoCall(
 	// From ContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
-	ctx := rpctypes.ContextWithHeight(blockNr.Int64())
+	ctx = rpctypes.ContextWithHeight(blockNr.Int64(), ctx)
 	timeout := b.RPCEVMTimeout()
 
 	// Setup context so it may be canceled the call has completed
@@ -429,37 +462,37 @@ func (b *Backend) DoCall(
 }
 
 // GasPrice returns the current gas price based on Cosmos EVM' gas price oracle.
-func (b *Backend) GasPrice() (*hexutil.Big, error) {
-	var (
-		result *big.Int
-		err    error
-	)
+func (b *Backend) GasPrice(ctx context.Context) (result *hexutil.Big, err error) {
+	ctx, span := tracer.Start(ctx, "GasPrice")
+	defer span.End()
+	defer func() { span.RecordError(err) }()
 
-	head, err := b.CurrentHeader()
+	head, err := b.CurrentHeader(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	var gasPrice *big.Int
 	if head.BaseFee != nil {
-		result, err = b.SuggestGasTipCap(head.BaseFee)
+		gasPrice, err = b.SuggestGasTipCap(ctx, head.BaseFee)
 		if err != nil {
 			return nil, err
 		}
-		result = result.Add(result, head.BaseFee)
+		gasPrice = gasPrice.Add(gasPrice, head.BaseFee)
 	} else {
-		result = b.RPCMinGasPrice()
+		gasPrice = b.RPCMinGasPrice()
 	}
 
 	// return at least GlobalMinGasPrice from FeeMarket module
-	minGasPrice, err := b.GlobalMinGasPrice()
+	minGasPrice, err := b.GlobalMinGasPrice(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if result.Cmp(minGasPrice) < 0 {
-		result = minGasPrice
+	if gasPrice.Cmp(minGasPrice) < 0 {
+		gasPrice = minGasPrice
 	}
 
-	return (*hexutil.Big)(result), nil
+	return (*hexutil.Big)(gasPrice), nil
 }
 
 // handleRevertError returns revert related error.

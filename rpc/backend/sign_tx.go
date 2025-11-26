@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -12,6 +13,8 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/mempool"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -24,14 +27,22 @@ import (
 )
 
 // SendTransaction sends transaction based on received args using Node's key to sign it
-func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, error) {
+func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.TransactionArgs) (result common.Hash, err error) {
+	var toAddr string
+	if args.To != nil {
+		toAddr = args.To.Hex()
+	}
+	ctx, span := tracer.Start(ctx, "SendTransaction", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr)))
+	defer span.End()
+	defer func() { span.RecordError(err) }()
+
 	// Look up the wallet containing the requested signer
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
 		b.Logger.Debug("account unlock with HTTP access is forbidden")
 		return common.Hash{}, fmt.Errorf("account unlock with HTTP access is forbidden")
 	}
 
-	_, err := b.ClientCtx.Keyring.KeyByAddress(sdk.AccAddress(args.GetFrom().Bytes()))
+	_, err = b.ClientCtx.Keyring.KeyByAddress(sdk.AccAddress(args.GetFrom().Bytes()))
 	if err != nil {
 		b.Logger.Error("failed to find key in keyring", "address", args.GetFrom(), "error", err.Error())
 		return common.Hash{}, fmt.Errorf("failed to find key in the node's keyring; %s; %s", keystore.ErrNoMatch, err.Error())
@@ -41,23 +52,23 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 		return common.Hash{}, fmt.Errorf("chainId does not match node's (have=%v, want=%v)", args.ChainID, (*hexutil.Big)(b.EvmChainID))
 	}
 
-	args, err = b.SetTxDefaults(args)
+	args, err = b.SetTxDefaults(ctx, args)
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	bn, err := b.BlockNumber()
+	bn, err := b.BlockNumber(ctx)
 	if err != nil {
 		b.Logger.Debug("failed to fetch latest block number", "error", err.Error())
 		return common.Hash{}, err
 	}
 
-	header, err := b.CurrentHeader()
+	header, err := b.CurrentHeader(ctx)
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	signer := ethtypes.MakeSigner(b.ChainConfig(), new(big.Int).SetUint64(uint64(bn)), header.Time)
+	signer := ethtypes.MakeSigner(b.ChainConfig(ctx), new(big.Int).SetUint64(uint64(bn)), header.Time)
 
 	// LegacyTx derives EvmChainID from the signature. To make sure the msg.ValidateBasic makes
 	// the corresponding EvmChainID validation, we need to sign the transaction before calling it
@@ -124,7 +135,7 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 }
 
 // Sign signs the provided data using the private key of address via Geth's signature standard.
-func (b *Backend) Sign(address common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
+func (b *Backend) Sign(_ context.Context, address common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
 	from := sdk.AccAddress(address.Bytes())
 
 	_, err := b.ClientCtx.Keyring.KeyByAddress(from)
@@ -145,7 +156,7 @@ func (b *Backend) Sign(address common.Address, data hexutil.Bytes) (hexutil.Byte
 }
 
 // SignTypedData signs EIP-712 conformant typed data
-func (b *Backend) SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error) {
+func (b *Backend) SignTypedData(_ context.Context, address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error) {
 	from := sdk.AccAddress(address.Bytes())
 
 	_, err := b.ClientCtx.Keyring.KeyByAddress(from)

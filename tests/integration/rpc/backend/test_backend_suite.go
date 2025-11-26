@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bufio"
+	"context"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -102,10 +103,14 @@ func (s *TestSuite) SetupTest() {
 	s.backend.Cfg.EVM.EVMChainID = ChainID.EVMChainID
 	s.backend.QueryClient.QueryClient = mocks.NewEVMQueryClient(s.T())
 	s.backend.QueryClient.FeeMarket = mocks.NewFeeMarketQueryClient(s.T())
-	s.backend.Ctx = rpctypes.ContextWithHeight(1)
 
 	// Add codec
 	s.backend.ClientCtx.Codec = encodingConfig.Codec
+}
+
+// Ctx returns a context with height set for testing
+func (s *TestSuite) Ctx() context.Context {
+	return rpctypes.ContextWithHeight(1, context.Background())
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
@@ -175,7 +180,7 @@ func (s *TestSuite) buildFormattedBlock(
 		msgs = []*evmtypes.MsgEthereumTx{tx}
 	}
 	ethBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee)
-	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, s.backend.ChainConfig())
+	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, s.backend.ChainConfig(s.Ctx()))
 	s.Require().NoError(err)
 
 	return res
@@ -208,7 +213,7 @@ func (s *TestSuite) buildEthBlock(
 	}
 
 	// 5) Build receipts
-	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := s.backend.ReceiptsFromCometBlock(s.Ctx(), resBlock, blockRes, msgs)
 	s.Require().NoError(err)
 
 	// 6) Gas used
@@ -245,7 +250,7 @@ func (s *TestSuite) signAndEncodeEthTx(msgEthereumTx *evmtypes.MsgEthereumTx) []
 	from, priv := utiltx.NewAddrKey()
 	signer := utiltx.NewSigner(priv)
 
-	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
+	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig(s.Ctx()))
 	msgEthereumTx.From = from.Bytes()
 	err := msgEthereumTx.Sign(ethSigner, signer)
 	s.Require().NoError(err)
