@@ -25,8 +25,8 @@ import (
 // and returns them as a JSON object.
 func (b *Backend) TraceTransaction(ctx context.Context, hash common.Hash, config *rpctypes.TraceConfig) (result interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "TraceTransaction", trace.WithAttributes(attribute.String("hash", hash.Hex())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	// Get transaction by hash
 	transaction, err := b.GetTxByEthHash(ctx, hash)
@@ -160,8 +160,8 @@ func (b *Backend) TraceBlock(ctx context.Context, height rpctypes.BlockNumber,
 	block *tmrpctypes.ResultBlock,
 ) (result []*evmtypes.TxTraceResult, err error) {
 	ctx, span := tracer.Start(ctx, "TraceBlock", trace.WithAttributes(attribute.Int64("height", height.Int64()), attribute.String("blockHash", common.BytesToHash(block.BlockID.Hash).Hex())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	txs := block.Block.Txs
 	txsLength := len(txs)
@@ -255,8 +255,8 @@ func (b *Backend) TraceCall(
 		toAddr = args.To.Hex()
 	}
 	ctx, span := tracer.Start(ctx, "TraceCall", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr), attribute.String("blockNrOrHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	// Marshal tx args
 	bz, err := json.Marshal(&args)

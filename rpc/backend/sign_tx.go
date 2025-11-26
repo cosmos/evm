@@ -33,8 +33,8 @@ func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.Transaction
 		toAddr = args.To.Hex()
 	}
 	ctx, span := tracer.Start(ctx, "SendTransaction", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr)))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	// Look up the wallet containing the requested signer
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {

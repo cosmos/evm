@@ -110,7 +110,7 @@ func (s *TestSuite) TestBloomStatus() {
 			s.SetupTest()
 
 			tc.registerMock()
-			bloom, _ := s.backend.BloomStatus(s.Ctx())
+			bloom, _ := s.backend.BloomStatus()
 
 			if tc.expPass {
 				s.Require().Equal(tc.expResult, bloom)

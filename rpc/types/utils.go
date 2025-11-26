@@ -101,8 +101,9 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 var tracer = otel.Tracer("evm/rpc/types")
 
 // BlockMaxGasFromConsensusParams returns the gas limit for the current block from the chain consensus params.
-func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (int64, error) {
+func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (_ int64, err error) {
 	goCtx, span := tracer.Start(goCtx, "BlockMaxGasFromConsensusParams")
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	cmtrpcclient, ok := clientCtx.Client.(cmtrpcclient.Client)

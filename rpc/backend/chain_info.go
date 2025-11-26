@@ -32,8 +32,8 @@ import (
 // ChainID is the EIP-155 replay-protection chain id for the current ethereum chain config.
 func (b *Backend) ChainID(ctx context.Context) (result *hexutil.Big, err error) {
 	ctx, span := tracer.Start(ctx, "ChainID")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	// if current block is at or past the EIP-155 replay-protection fork block, return EvmChainID from config
 	bn, err := b.BlockNumber(ctx)
@@ -57,8 +57,8 @@ func (b *Backend) ChainConfig() *params.ChainConfig {
 // GlobalMinGasPrice returns MinGasPrice param from FeeMarket
 func (b *Backend) GlobalMinGasPrice(ctx context.Context) (result *big.Int, err error) {
 	ctx, span := tracer.Start(ctx, "GlobalMinGasPrice")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	res, err := b.QueryClient.GlobalMinGasPrice(ctx, &evmtypes.QueryGlobalMinGasPriceRequest{})
 	if err != nil {
@@ -76,8 +76,8 @@ func (b *Backend) GlobalMinGasPrice(ctx context.Context) (result *big.Int, err e
 // return nil.
 func (b *Backend) BaseFee(ctx context.Context, blockRes *cmtrpctypes.ResultBlockResults) (result *big.Int, err error) {
 	ctx, span := tracer.Start(ctx, "BaseFee", trace.WithAttributes(attribute.Int64("height", blockRes.Height)))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	// return BaseFee if London hard fork is activated and feemarket is enabled
 	ctx = rpctypes.ContextWithHeight(blockRes.Height, ctx)
@@ -111,8 +111,8 @@ func (b *Backend) BaseFee(ctx context.Context, blockRes *cmtrpctypes.ResultBlock
 // if the ABCI responses are discarded ('discard_abci_responses' config param)
 func (b *Backend) CurrentHeader(ctx context.Context) (result *ethtypes.Header, err error) {
 	ctx, span := tracer.Start(ctx, "CurrentHeader")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	return b.HeaderByNumber(ctx, rpctypes.EthLatestBlockNumber)
 }
@@ -121,8 +121,8 @@ func (b *Backend) CurrentHeader(ctx context.Context) (result *ethtypes.Header, e
 // and have a from address that is one of the accounts this node manages.
 func (b *Backend) PendingTransactions(ctx context.Context) (result []*sdk.Tx, err error) {
 	ctx, span := tracer.Start(ctx, "PendingTransactions")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	mc, ok := b.ClientCtx.Client.(cmtrpcclient.MempoolClient)
 	if !ok {
@@ -149,8 +149,8 @@ func (b *Backend) PendingTransactions(ctx context.Context) (result []*sdk.Tx, er
 // GetCoinbase is the address that staking rewards will be send to (alias for Etherbase).
 func (b *Backend) GetCoinbase(ctx context.Context) (result sdk.AccAddress, err error) {
 	ctx, span := tracer.Start(ctx, "GetCoinbase")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	node, err := b.ClientCtx.GetNode()
 	if err != nil {
@@ -188,8 +188,8 @@ func (b *Backend) FeeHistory(
 	rewardPercentiles []float64, // percentiles to fetch reward
 ) (_ *rpctypes.FeeHistoryResult, err error) {
 	ctx, span := tracer.Start(ctx, "FeeHistory", trace.WithAttributes(attribute.Int64("blockCount", int64(userBlockCount)), attribute.Int64("lastBlock", int64(lastBlock))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 	for i, p := range rewardPercentiles {
 		if p < 0 || p > 100 {
 			return nil, fmt.Errorf("%w: %f", errInvalidPercentile, p)
@@ -352,8 +352,9 @@ func (b *Backend) FeeHistory(
 // SuggestGasTipCap returns the suggested tip cap
 // Although we don't support tx prioritization yet, but we return a positive value to help client to
 // mitigate the base fee changes.
-func (b *Backend) SuggestGasTipCap(ctx context.Context, baseFee *big.Int) (*big.Int, error) {
+func (b *Backend) SuggestGasTipCap(ctx context.Context, baseFee *big.Int) (_ *big.Int, err error) {
 	ctx, span := tracer.Start(ctx, "SuggestGasTipCap")
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	if baseFee == nil {
 		// london hardfork not enabled or feemarket not enabled

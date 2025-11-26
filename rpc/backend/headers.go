@@ -17,8 +17,8 @@ import (
 // objects or if false only the hashes of the transactions.
 func (b *Backend) GetHeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (result map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "GetHeaderByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	resBlock, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
@@ -49,8 +49,8 @@ func (b *Backend) GetHeaderByNumber(ctx context.Context, blockNum rpctypes.Block
 // hash.
 func (b *Backend) GetHeaderByHash(ctx context.Context, hash common.Hash) (result map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "GetHeaderByHash", trace.WithAttributes(attribute.String("hash", hash.Hex())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	resBlock, err := b.CometBlockByHash(ctx, hash)
 	if err != nil {
@@ -80,8 +80,8 @@ func (b *Backend) GetHeaderByHash(ctx context.Context, hash common.Hash) (result
 // HeaderByNumber returns the block header identified by height.
 func (b *Backend) HeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (result *ethtypes.Header, err error) {
 	ctx, span := tracer.Start(ctx, "HeaderByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	resBlock, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
@@ -109,8 +109,8 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNum
 // HeaderByHash returns the block header identified by hash.
 func (b *Backend) HeaderByHash(ctx context.Context, blockHash common.Hash) (result *ethtypes.Header, err error) {
 	ctx, span := tracer.Start(ctx, "HeaderByHash", trace.WithAttributes(attribute.String("blockHash", blockHash.Hex())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	resBlock, err := b.CometBlockByHash(ctx, blockHash)
 	if err != nil {

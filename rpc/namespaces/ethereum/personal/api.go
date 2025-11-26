@@ -148,7 +148,7 @@ func (api *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecove
 func (api *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	api.logger.Debug("personal_ecRecover", "data", data, "sig", sig)
-	ctx, span := tracer.Start(ctx, "EcRecover")
+	_, span := tracer.Start(ctx, "EcRecover")
 	defer span.End()
 
 	if len(sig) != crypto.SignatureLength {

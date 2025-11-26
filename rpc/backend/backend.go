@@ -123,7 +123,7 @@ type EVMBackend interface {
 	// Filter API
 	GetLogs(ctx context.Context, hash common.Hash) ([][]*ethtypes.Log, error)
 	GetLogsByHeight(ctx context.Context, height *int64) ([][]*ethtypes.Log, error)
-	BloomStatus(ctx context.Context) (uint64, uint64)
+	BloomStatus() (uint64, uint64)
 
 	// TxPool API
 	Content(ctx context.Context) (map[string]map[string]map[string]*types.RPCTransaction, error)

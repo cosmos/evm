@@ -52,7 +52,7 @@ type Backend interface {
 	GetLogsByHeight(ctx context.Context, height *int64) ([][]*ethtypes.Log, error)
 	BlockBloomFromCometBlock(ctx context.Context, blockRes *coretypes.ResultBlockResults) (ethtypes.Bloom, error)
 
-	BloomStatus(ctx context.Context) (uint64, uint64)
+	BloomStatus() (uint64, uint64)
 
 	RPCFilterCap() int32
 	RPCLogsCap() int32

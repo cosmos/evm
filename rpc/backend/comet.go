@@ -19,8 +19,8 @@ import (
 // block number
 func (b *Backend) CometBlockByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (result *cmtrpctypes.ResultBlock, err error) {
 	ctx, span := tracer.Start(ctx, "CometBlockByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	height, err := b.getHeightByBlockNum(ctx, blockNum)
 	if err != nil {
@@ -44,8 +44,8 @@ func (b *Backend) CometBlockByNumber(ctx context.Context, blockNum rpctypes.Bloc
 // block number
 func (b *Backend) CometHeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (result *cmtrpctypes.ResultHeader, err error) {
 	ctx, span := tracer.Start(ctx, "CometHeaderByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	height, err := b.getHeightByBlockNum(ctx, blockNum)
 	if err != nil {
@@ -62,8 +62,8 @@ func (b *Backend) CometBlockResultByNumber(ctx context.Context, height *int64) (
 		heightAttr = *height
 	}
 	ctx, span := tracer.Start(ctx, "CometBlockResultByNumber", trace.WithAttributes(attribute.Int64("height", heightAttr)))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	if height != nil && *height == 0 {
 		height = nil
@@ -79,8 +79,8 @@ func (b *Backend) CometBlockResultByNumber(ctx context.Context, height *int64) (
 // CometBlockByHash returns a CometBFT-formatted block by block number
 func (b *Backend) CometBlockByHash(ctx context.Context, blockHash common.Hash) (result *cmtrpctypes.ResultBlock, err error) {
 	ctx, span := tracer.Start(ctx, "CometBlockByHash", trace.WithAttributes(attribute.String("blockHash", blockHash.Hex())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	resBlock, err := b.RPCClient.BlockByHash(ctx, blockHash.Bytes())
 	if err != nil {
@@ -98,8 +98,8 @@ func (b *Backend) CometBlockByHash(ctx context.Context, blockHash common.Hash) (
 
 func (b *Backend) getHeightByBlockNum(ctx context.Context, blockNum rpctypes.BlockNumber) (height int64, err error) {
 	ctx, span := tracer.Start(ctx, "getHeightByBlockNum", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	if blockNum == rpctypes.EthEarliestBlockNumber {
 		status, err := b.ClientCtx.Client.Status(ctx)

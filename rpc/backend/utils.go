@@ -50,8 +50,9 @@ func (s sortGasAndReward) Less(i, j int) bool {
 // If the pending value is true, it will iterate over the mempool (pending)
 // txs in order to compute and return the pending tx sequence.
 // Todo: include the ability to specify a blockNumber
-func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, pending bool, height int64, logger log.Logger) (uint64, error) {
+func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, pending bool, height int64, logger log.Logger) (_ uint64, err error) {
 	ctx, span := tracer.Start(ctx, "getAccountNonce")
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	queryClient := authtypes.NewQueryClient(b.ClientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
@@ -140,8 +141,9 @@ func (b *Backend) ProcessBlock(
 	rewardPercentiles []float64,
 	cometBlockResult *cmtrpctypes.ResultBlockResults,
 	targetOneFeeHistory *types.OneFeeHistory,
-) error {
+) (err error) {
 	ctx, span := tracer.Start(ctx, "ProcessBlock")
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	blockHeight := cometBlock.Block.Height
 	blockBaseFee, err := b.BaseFee(ctx, cometBlockResult)

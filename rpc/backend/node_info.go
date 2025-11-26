@@ -66,8 +66,8 @@ func (b *Backend) Accounts() ([]common.Address, error) {
 // - knownStates:   number of known state entries that still need to be pulled
 func (b *Backend) Syncing(ctx context.Context) (result interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "Syncing")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	status, err := b.ClientCtx.Client.Status(ctx)
 	if err != nil {

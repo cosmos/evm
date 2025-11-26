@@ -28,8 +28,8 @@ import (
 // GetCode returns the contract code at the given address and block number.
 func (b *Backend) GetCode(ctx context.Context, address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (bz hexutil.Bytes, err error) {
 	ctx, span := tracer.Start(ctx, "GetCode", trace.WithAttributes(attribute.String("address", address.String()), attribute.String("blockNorHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
@@ -52,8 +52,8 @@ func (b *Backend) GetCode(ctx context.Context, address common.Address, blockNrOr
 // GetProof returns an account object with proof and any storage proofs
 func (b *Backend) GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpctypes.BlockNumberOrHash) (result *rpctypes.AccountResult, err error) {
 	ctx, span := tracer.Start(ctx, "GetProof", trace.WithAttributes(attribute.String("address", address.String()), attribute.StringSlice("storageKeys", storageKeys), attribute.String("blockNorHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
@@ -138,8 +138,8 @@ func (b *Backend) GetProof(ctx context.Context, address common.Address, storageK
 // GetStorageAt returns the contract storage at the given address, block number, and key.
 func (b *Backend) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpctypes.BlockNumberOrHash) (result hexutil.Bytes, err error) {
 	ctx, span := tracer.Start(ctx, "GetStorageAt", trace.WithAttributes(attribute.String("address", address.String()), attribute.String("key", key), attribute.String("blockNorHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
@@ -164,8 +164,8 @@ func (b *Backend) GetStorageAt(ctx context.Context, address common.Address, key 
 // GetBalance returns the provided account's *spendable* balance up to the provided block number.
 func (b *Backend) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (result *hexutil.Big, err error) {
 	ctx, span := tracer.Start(ctx, "GetBalance", trace.WithAttributes(attribute.String("address", address.String()), attribute.String("blockNorHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
@@ -203,8 +203,8 @@ func (b *Backend) GetBalance(ctx context.Context, address common.Address, blockN
 // GetTransactionCount returns the number of transactions at the given address up to the given block number.
 func (b *Backend) GetTransactionCount(ctx context.Context, address common.Address, blockNum rpctypes.BlockNumber) (result *hexutil.Uint64, err error) {
 	ctx, span := tracer.Start(ctx, "GetTransactionCount", trace.WithAttributes(attribute.String("address", address.String()), attribute.Int64("blockNum", blockNum.Int64())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	n := hexutil.Uint64(0)
 	bn, err := b.BlockNumber(ctx)

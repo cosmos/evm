@@ -30,8 +30,8 @@ func (b *Backend) RPCHeaderFromCometBlock(
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) (result map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "RPCHeaderFromCometBlock")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	ethBlock, err := b.EthBlockFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
@@ -50,8 +50,8 @@ func (b *Backend) RPCBlockFromCometBlock(
 	fullTx bool,
 ) (result map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "RPCBlockFromCometBlock")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	msgs := b.EthMsgsFromCometBlock(ctx, resBlock, blockRes)
 	ethBlock, err := b.EthBlockFromCometBlock(ctx, resBlock, blockRes)
@@ -65,8 +65,8 @@ func (b *Backend) RPCBlockFromCometBlock(
 // BlockNumberFromComet returns the BlockNumber from BlockNumberOrHash
 func (b *Backend) BlockNumberFromComet(ctx context.Context, blockNrOrHash rpctypes.BlockNumberOrHash) (result rpctypes.BlockNumber, err error) {
 	ctx, span := tracer.Start(ctx, "BlockNumberFromComet", trace.WithAttributes(attribute.String("blockNrOrHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	switch {
 	case blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber == nil:
@@ -87,8 +87,8 @@ func (b *Backend) BlockNumberFromComet(ctx context.Context, blockNrOrHash rpctyp
 // BlockNumberFromCometByHash returns the block height of given block hash
 func (b *Backend) BlockNumberFromCometByHash(ctx context.Context, blockHash common.Hash) (result *big.Int, err error) {
 	ctx, span := tracer.Start(ctx, "BlockNumberFromCometByHash", trace.WithAttributes(attribute.String("blockHash", blockHash.Hex())))
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	resHeader, err := b.RPCClient.HeaderByHash(ctx, blockHash.Bytes())
 	if err != nil {
@@ -154,8 +154,8 @@ func (b *Backend) EthBlockFromCometBlock(
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) (result *ethtypes.Block, err error) {
 	ctx, span := tracer.Start(ctx, "EthBlockFromCometBlock")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	cmtBlock := resBlock.Block
 
@@ -224,8 +224,8 @@ func (b *Backend) MinerFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 ) (result common.Address, err error) {
 	ctx, span := tracer.Start(ctx, "MinerFromCometBlock")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	cmtBlock := resBlock.Block
 
@@ -263,8 +263,8 @@ func (b *Backend) ReceiptsFromCometBlock(
 	msgs []*evmtypes.MsgEthereumTx,
 ) (result []*ethtypes.Receipt, err error) {
 	ctx, span := tracer.Start(ctx, "ReceiptsFromCometBlock")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	baseFee, err := b.BaseFee(ctx, blockRes)
 	if err != nil {
@@ -347,8 +347,8 @@ func (b *Backend) ReceiptsFromCometBlock(
 // BlockBloom query block bloom filter from block results
 func (b *Backend) BlockBloomFromCometBlock(ctx context.Context, blockRes *cmtrpctypes.ResultBlockResults) (result ethtypes.Bloom, err error) {
 	ctx, span := tracer.Start(ctx, "BlockBloomFromCometBlock")
-	defer span.End()
 	defer func() { span.RecordError(err) }()
+	defer span.End()
 
 	for _, event := range blockRes.FinalizeBlockEvents {
 		if event.Type != evmtypes.EventTypeBlockBloom {
