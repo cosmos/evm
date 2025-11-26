@@ -1462,9 +1462,11 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 		}
 		queuedRateLimitMeter.Mark(int64(len(caps)))
+
 		// Mark all the items dropped as removed
-		pool.priced.Removed(len(forwards) + len(costDrops) + len(recheckDrops) + len(caps))
-		queuedGauge.Dec(int64(len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)))
+		totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		pool.priced.Removed(totalDropped)
+		queuedGauge.Dec(int64(totalDropped))
 
 		// Delete the entire queue entry if it became empty.
 		if list.Empty() {
