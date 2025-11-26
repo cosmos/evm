@@ -134,28 +134,7 @@ func NewExperimentalEVMMempool(
 		}
 	}
 
-	legacyPool.RecheckTxFn = func(ctx sdk.Context, t *ethtypes.Transaction) error {
-		var msg evmtypes.MsgEthereumTx
-
-		signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
-		if err := msg.FromSignedEthereumTx(t, signer); err != nil {
-			return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
-		}
-
-		txBuilder := txConfig.NewTxBuilder()
-		cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
-		if err != nil {
-			return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
-		}
-
-		_, err = config.AnteHandler(ctx, cosmosTx, false)
-		if errors.Is(err, ErrNonceGap) ||
-			errors.Is(err, sdkerrors.ErrInvalidSequence) ||
-			errors.Is(err, sdkerrors.ErrOutOfGas) {
-			return nil
-		}
-		return err
-	}
+	legacyPool.RecheckTxFn = recheckTxFn(txConfig, config.AnteHandler)
 
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
@@ -530,4 +509,38 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 		}
 	}
 	return nil
+}
+
+// recheckTxFn creates a new recheckTxFn that is used to validate an eth
+// transaction via an anteHandler sequence.
+func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFn {
+	return func(ctx sdk.Context, t *ethtypes.Transaction) error {
+		var msg evmtypes.MsgEthereumTx
+
+		signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
+		if err := msg.FromSignedEthereumTx(t, signer); err != nil {
+			return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
+		}
+
+		txBuilder := txConfig.NewTxBuilder()
+		cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
+		if err != nil {
+			return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
+		}
+
+		_, err = anteHandler(ctx, cosmosTx, false)
+		return dropAnteNonceErr(err)
+	}
+}
+
+// dropAnteNonceErr returns nil if err is considered an error that should be
+// ignored from the anteHandlers in the context of the recheckTxFn. If the
+// error should not be ignored, it is returned unmodified.
+func dropAnteNonceErr(err error) error {
+	if errors.Is(err, ErrNonceGap) ||
+		errors.Is(err, sdkerrors.ErrInvalidSequence) ||
+		errors.Is(err, sdkerrors.ErrOutOfGas) {
+		return nil
+	}
+	return err
 }

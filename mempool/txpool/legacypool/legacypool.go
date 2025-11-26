@@ -211,6 +211,8 @@ func (config *Config) sanitize() Config {
 	return conf
 }
 
+type RecheckTxFn func(ctx sdk.Context, t *types.Transaction) error
+
 // LegacyPool contains all currently known transactions. Transactions
 // enter the pool when they are received from the network or submitted
 // locally. They exit the pool when they are included in the blockchain.
@@ -264,7 +266,7 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFn func(ctx sdk.Context, t *types.Transaction) error // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
+	RecheckTxFn RecheckTxFn // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
 }
 
 type txpoolResetRequest struct {
