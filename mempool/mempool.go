@@ -51,11 +51,12 @@ type (
 		cosmosPool   sdkmempool.ExtMempool
 
 		/** Utils **/
-		logger        log.Logger
-		txConfig      client.TxConfig
-		blockchain    *Blockchain
-		blockGasLimit uint64 // Block gas limit from consensus parameters
-		minTip        *uint256.Int
+		logger               log.Logger
+		txConfig             client.TxConfig
+		blockchain           *Blockchain
+		blockGasLimit        uint64 // Block gas limit from consensus parameters
+		minTip               *uint256.Int
+		recheckCachedAnteCtx sdk.Context // Reference to the latest sdk Context that should be used by the recheckTxFn
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -135,8 +136,6 @@ func NewExperimentalEVMMempool(
 		}
 	}
 
-	legacyPool.RecheckTxFn = recheckTxFn(txConfig, config.AnteHandler)
-
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
@@ -195,6 +194,7 @@ func NewExperimentalEVMMempool(
 		anteHandler:   config.AnteHandler,
 	}
 
+	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
@@ -512,31 +512,20 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 	return nil
 }
 
-// recheckTxFn creates a new recheckTxFn that is used to validate an eth
-// transaction via an anteHandler sequence.
-func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFn {
-	return func(chain legacypool.BlockChain, t *ethtypes.Transaction) error {
-		var msg evmtypes.MsgEthereumTx
-
-		signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
-		if err := msg.FromSignedEthereumTx(t, signer); err != nil {
-			return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
-		}
-
-		txBuilder := txConfig.NewTxBuilder()
-		cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
-		if err != nil {
-			return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
-		}
-
+func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFnFactory {
+	return func(chain legacypool.BlockChain) legacypool.RecheckTxFn {
 		bc, ok := chain.(*Blockchain)
 		if !ok {
-			return fmt.Errorf("unexpected type for BlockChain, expected *mempool.Blockchain")
+			panic("unexpected type for BlockChain, expected *mempool.Blockchain")
 		}
 
 		ctx, err := bc.GetLatestContext()
 		if err != nil {
-			return fmt.Errorf("getting latest context from blockchain: %w", err)
+			// TODO: we probably dont want to panic here, but for POC im saying
+			// this is ok, the only real other option here is to nuke the
+			// entire mempool, or force another recheck but we cant be sure
+			// that will also not fail here
+			panic(fmt.Errorf("getting latest context from blockchain: %w", err))
 		}
 		cacheCtx, _ := ctx.CacheContext()
 
@@ -546,8 +535,23 @@ func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypo
 		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
 		cacheCtx = cacheCtx.WithConsensusParams(cp)
 
-		_, err = anteHandler(cacheCtx, cosmosTx, false)
-		return tolerateAnteErr(err)
+		return func(t *ethtypes.Transaction) error {
+			var msg evmtypes.MsgEthereumTx
+
+			signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
+			if err := msg.FromSignedEthereumTx(t, signer); err != nil {
+				return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
+			}
+
+			txBuilder := txConfig.NewTxBuilder()
+			cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
+			if err != nil {
+				return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
+			}
+
+			_, err = anteHandler(cacheCtx, cosmosTx, false)
+			return tolerateAnteErr(err)
+		}
 	}
 }
 

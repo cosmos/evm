@@ -2705,12 +2705,14 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	}
 	pool.mu.RUnlock()
 
-	// Set up RecheckTxFn to fail tx1
-	pool.RecheckTxFn = func(_ BlockChain, tx *types.Transaction) error {
-		if tx.Nonce() == 1 {
-			return errors.New("recheck failed for tx1")
+	// Set up RecheckTxFnFactory to fail tx1
+	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
+		return func(tx *types.Transaction) error {
+			if tx.Nonce() == 1 {
+				return errors.New("recheck failed for tx1")
+			}
+			return nil
 		}
-		return nil
 	}
 
 	// Reset will always try and promote executables from queued to go to
@@ -2792,12 +2794,14 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 	pool.mu.RUnlock()
 
-	// Set up RecheckTxFn to fail tx10 and tx22
-	pool.RecheckTxFn = func(_ BlockChain, tx *types.Transaction) error {
-		if tx == tx10 || tx == tx22 {
-			return errors.New("recheck failed")
+	// Set up RecheckTxFnFactory to fail tx10 and tx22
+	pool.RecheckTxFnFactory = func(chain BlockChain) RecheckTxFn {
+		return func(tx *types.Transaction) error {
+			if tx == tx10 || tx == tx22 {
+				return errors.New("recheck failed")
+			}
+			return nil
 		}
-		return nil
 	}
 
 	// Trigger demoteUnexecutables via Reset

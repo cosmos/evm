@@ -209,7 +209,8 @@ func (config *Config) sanitize() Config {
 	return conf
 }
 
-type RecheckTxFn func(chain BlockChain, t *types.Transaction) error
+type RecheckTxFn func(t *types.Transaction) error
+type RecheckTxFnFactory func(chain BlockChain) RecheckTxFn
 
 // LegacyPool contains all currently known transactions. Transactions
 // enter the pool when they are received from the network or submitted
@@ -264,7 +265,7 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFn RecheckTxFn // Called on every tx during promoteExecutables and demoteExecutables, removes based on failure
+	RecheckTxFnFactory RecheckTxFnFactory
 }
 
 type txpoolResetRequest struct {
@@ -1429,10 +1430,11 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFn != nil {
+		if pool.RecheckTxFnFactory != nil {
 			recheckStart := time.Now()
+			recheckFn := pool.RecheckTxFnFactory(pool.chain)
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.chain, tx) != nil
+				return recheckFn(tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1645,10 +1647,11 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckInvalids []*types.Transaction
 		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFn != nil {
+		if pool.RecheckTxFnFactory != nil {
 			recheckStart := time.Now()
+			recheckFn := pool.RecheckTxFnFactory(pool.chain)
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.chain, tx) != nil
+				return recheckFn(tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
