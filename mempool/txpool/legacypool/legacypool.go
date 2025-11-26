@@ -27,9 +27,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -45,7 +42,6 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/mempool/txpool"
-	"github.com/cosmos/evm/x/vm/statedb"
 )
 
 const (
@@ -213,7 +209,7 @@ func (config *Config) sanitize() Config {
 	return conf
 }
 
-type RecheckTxFn func(ctx sdk.Context, t *types.Transaction) error
+type RecheckTxFn func(chain BlockChain, t *types.Transaction) error
 
 // LegacyPool contains all currently known transactions. Transactions
 // enter the pool when they are received from the network or submitted
@@ -1435,9 +1431,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
 			recheckStart := time.Now()
-			recheckCtx := pool.CurrentCacheContext()
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(recheckCtx, tx) != nil
+				return pool.RecheckTxFn(pool.chain, tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1652,9 +1647,8 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
 			recheckStart := time.Now()
-			recheckCtx := pool.CurrentCacheContext()
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(recheckCtx, tx) != nil
+				return pool.RecheckTxFn(pool.chain, tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
@@ -1968,31 +1962,4 @@ func (pool *LegacyPool) Clear() {
 // authorizations from the specific address cached in the pool.
 func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
-}
-
-// CurrentCacheContext gets a cached version of the current context in the
-// pools stateDB. Note that this may momentarily differ from the BlockChain's
-// context.
-func (pool *LegacyPool) CurrentCacheContext() sdk.Context {
-	if pool.currentState == vm.StateDB(nil) || pool.currentState == nil {
-		// block 0 before state/context is available
-		return sdk.Context{}
-	}
-
-	db, ok := pool.currentState.(*statedb.StateDB)
-	if !ok {
-		// should never happen, not panicing for testing
-		return sdk.Context{}
-	}
-
-	currentContext := db.GetContext()
-	cacheCtx, _ := currentContext.CacheContext()
-
-	// set the latest blocks gas limit as the max gas in cp. this is necessary
-	// to validate each tx's gas wanted
-	maxGas := int64(pool.currentHead.Load().GasLimit)
-	cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
-	cacheCtx = cacheCtx.WithConsensusParams(cp)
-
-	return cacheCtx
 }

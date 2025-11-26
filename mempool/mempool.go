@@ -11,6 +11,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
@@ -514,7 +515,7 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 // recheckTxFn creates a new recheckTxFn that is used to validate an eth
 // transaction via an anteHandler sequence.
 func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFn {
-	return func(ctx sdk.Context, t *ethtypes.Transaction) error {
+	return func(chain legacypool.BlockChain, t *ethtypes.Transaction) error {
 		var msg evmtypes.MsgEthereumTx
 
 		signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
@@ -528,7 +529,24 @@ func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypo
 			return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
 		}
 
-		_, err = anteHandler(ctx, cosmosTx, false)
+		bc, ok := chain.(*Blockchain)
+		if !ok {
+			return fmt.Errorf("unexpected type for BlockChain, expected *mempool.Blockchain")
+		}
+
+		ctx, err := bc.GetLatestContext()
+		if err != nil {
+			return fmt.Errorf("getting latest context from blockchain: %w", err)
+		}
+		cacheCtx, _ := ctx.CacheContext()
+
+		// set the latest blocks gas limit as the max gas in cp. this is necessary
+		// to validate each tx's gas wanted
+		maxGas := int64(bc.CurrentBlock().GasLimit)
+		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
+		cacheCtx = cacheCtx.WithConsensusParams(cp)
+
+		_, err = anteHandler(cacheCtx, cosmosTx, false)
 		return tolerateAnteErr(err)
 	}
 }
