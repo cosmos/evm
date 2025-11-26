@@ -9,13 +9,13 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	cmttypes "github.com/cometbft/cometbft/types"
-
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -51,12 +51,11 @@ type (
 		cosmosPool   sdkmempool.ExtMempool
 
 		/** Utils **/
-		logger               log.Logger
-		txConfig             client.TxConfig
-		blockchain           *Blockchain
-		blockGasLimit        uint64 // Block gas limit from consensus parameters
-		minTip               *uint256.Int
-		recheckCachedAnteCtx sdk.Context // Reference to the latest sdk Context that should be used by the recheckTxFn
+		logger        log.Logger
+		txConfig      client.TxConfig
+		blockchain    *Blockchain
+		blockGasLimit uint64 // Block gas limit from consensus parameters
+		minTip        *uint256.Int
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -531,7 +530,10 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 
 		// set the latest blocks gas limit as the max gas in cp. this is necessary
 		// to validate each tx's gas wanted
-		maxGas := int64(bc.CurrentBlock().GasLimit)
+		maxGas, err := utils.SafeInt64(bc.CurrentBlock().GasLimit)
+		if err != nil {
+			panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
+		}
 		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
 		cacheCtx = cacheCtx.WithConsensusParams(cp)
 

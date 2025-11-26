@@ -209,8 +209,10 @@ func (config *Config) sanitize() Config {
 	return conf
 }
 
-type RecheckTxFn func(t *types.Transaction) error
-type RecheckTxFnFactory func(chain BlockChain) RecheckTxFn
+type (
+	RecheckTxFn        func(t *types.Transaction) error
+	RecheckTxFnFactory func(chain BlockChain) RecheckTxFn
+)
 
 // LegacyPool contains all currently known transactions. Transactions
 // enter the pool when they are received from the network or submitted
