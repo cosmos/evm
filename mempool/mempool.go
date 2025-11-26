@@ -287,6 +287,10 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 	defer m.mtx.Unlock()
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
+	// Wait for the legacypool to Reset at >= blockHeight (this may have
+	// already happened), to ensure
+	m.legacyTxPool.WaitForReorgHeight(ctx, ctx.BlockHeight())
+
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
 	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
