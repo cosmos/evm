@@ -1431,8 +1431,9 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
 			recheckStart := time.Now()
+			recheckCtx := pool.CurrentCacheContext()
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.CurrentCacheContext(), tx) != nil
+				return pool.RecheckTxFn(recheckCtx, tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1645,8 +1646,9 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
 			recheckStart := time.Now()
+			recheckCtx := pool.CurrentCacheContext()
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.RecheckTxFn(pool.CurrentCacheContext(), tx) != nil
+				return pool.RecheckTxFn(recheckCtx, tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
