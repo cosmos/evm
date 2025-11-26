@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
@@ -1985,5 +1987,12 @@ func (pool *LegacyPool) CurrentCacheContext() sdk.Context {
 
 	currentContext := db.GetContext()
 	cacheCtx, _ := currentContext.CacheContext()
+
+	// set the latest blocks gas limit as the max gas in cp. this is necessary
+	// to validate each tx's gas wanted
+	maxGas := int64(pool.currentHead.Load().GasLimit)
+	cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
+	cacheCtx = cacheCtx.WithConsensusParams(cp)
+
 	return cacheCtx
 }
