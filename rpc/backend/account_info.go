@@ -240,13 +240,3 @@ func (b *Backend) GetTransactionCount(ctx context.Context, address common.Addres
 	n = hexutil.Uint64(nonce)
 	return &n, nil
 }
-
-func unwrapBlockNOrHash(blockNOrHash rpctypes.BlockNumberOrHash) string {
-	if blockNOrHash.BlockHash != nil {
-		return blockNOrHash.BlockHash.String()
-	}
-	if blockNOrHash.BlockNumber != nil {
-		return fmt.Sprintf("%d", *blockNOrHash.BlockNumber)
-	}
-	return ""
-}

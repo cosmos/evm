@@ -135,7 +135,7 @@ func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.Transaction
 }
 
 // Sign signs the provided data using the private key of address via Geth's signature standard.
-func (b *Backend) Sign(_ context.Context, address common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
+func (b *Backend) Sign(address common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
 	from := sdk.AccAddress(address.Bytes())
 
 	_, err := b.ClientCtx.Keyring.KeyByAddress(from)
@@ -156,7 +156,7 @@ func (b *Backend) Sign(_ context.Context, address common.Address, data hexutil.B
 }
 
 // SignTypedData signs EIP-712 conformant typed data
-func (b *Backend) SignTypedData(_ context.Context, address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error) {
+func (b *Backend) SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error) {
 	from := sdk.AccAddress(address.Bytes())
 
 	_, err := b.ClientCtx.Keyring.KeyByAddress(from)

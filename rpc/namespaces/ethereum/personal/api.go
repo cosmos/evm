@@ -60,17 +60,13 @@ func NewAPI(
 // NOTE: The key will be both armored and encrypted using the same passphrase.
 func (api *PrivateAccountAPI) ImportRawKey(privkey, password string) (common.Address, error) {
 	api.logger.Debug("personal_importRawKey")
-	ctx, span := tracer.Start(context.Background(), "ImportRawKey")
-	defer span.End()
-	return api.backend.ImportRawKey(ctx, privkey, password)
+	return api.backend.ImportRawKey(privkey, password)
 }
 
 // ListAccounts will return a list of addresses for accounts this node manages.
 func (api *PrivateAccountAPI) ListAccounts() ([]common.Address, error) {
 	api.logger.Debug("personal_listAccounts")
-	ctx, span := tracer.Start(context.Background(), "ListAccounts")
-	defer span.End()
-	return api.backend.ListAccounts(ctx)
+	return api.backend.ListAccounts()
 }
 
 // LockAccount will lock the account associated with the given address when it's unlocked.
@@ -85,15 +81,13 @@ func (api *PrivateAccountAPI) LockAccount(address common.Address) bool {
 // NewAccount will create a new account and returns the address for the new account.
 func (api *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {
 	api.logger.Debug("personal_newAccount")
-	ctx, span := tracer.Start(context.Background(), "NewAccount")
-	defer span.End()
 
 	name := "key_" + time.Now().UTC().Format(time.RFC3339)
 
 	// create the mnemonic and save the account
 	hdPath := api.hdPathIter()
 
-	info, err := api.backend.NewMnemonic(ctx, name, keyring.English, hdPath.String(), password, hd.EthSecp256k1)
+	info, err := api.backend.NewMnemonic(name, keyring.English, hdPath.String(), password, hd.EthSecp256k1)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -139,9 +133,7 @@ func (api *PrivateAccountAPI) SendTransaction(ctx context.Context, args evmtypes
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
 func (api *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, _ string) (hexutil.Bytes, error) {
 	api.logger.Debug("personal_sign", "data", data, "address", addr.String())
-	ctx, span := tracer.Start(ctx, "Sign")
-	defer span.End()
-	return api.backend.Sign(ctx, addr, data)
+	return api.backend.Sign(addr, data)
 }
 
 // EcRecover returns the address for the account that was used to create the signature.

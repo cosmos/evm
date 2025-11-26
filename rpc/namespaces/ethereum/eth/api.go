@@ -277,10 +277,8 @@ func (e *PublicAPI) SendTransaction(args evmtypes.TransactionArgs) (common.Hash,
 
 // Accounts returns the list of accounts available to this node.
 func (e *PublicAPI) Accounts() ([]common.Address, error) {
-	ctx, span := tracer.Start(context.Background(), "eth_accounts")
-	defer span.End()
 	e.logger.Debug("eth_accounts")
-	return e.backend.Accounts(ctx)
+	return e.backend.Accounts()
 }
 
 // GetBalance returns the provided account's balance up to the provided block number.
@@ -454,10 +452,8 @@ func (e *PublicAPI) Syncing() (interface{}, error) {
 
 // Sign signs the provided data using the private key of address via Geth's signature standard.
 func (e *PublicAPI) Sign(address common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
-	ctx, span := tracer.Start(context.Background(), "eth_sign")
-	defer span.End()
 	e.logger.Debug("eth_sign", "address", address.Hex(), "data", common.Bytes2Hex(data))
-	return e.backend.Sign(ctx, address, data)
+	return e.backend.Sign(address, data)
 }
 
 // GetTransactionLogs returns the logs given a transaction hash.
@@ -471,10 +467,8 @@ func (e *PublicAPI) GetTransactionLogs(txHash common.Hash) ([]*ethtypes.Log, err
 
 // SignTypedData signs EIP-712 conformant typed data
 func (e *PublicAPI) SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error) {
-	ctx, span := tracer.Start(context.Background(), "eth_signTypedData")
-	defer span.End()
 	e.logger.Debug("eth_signTypedData", "address", address.Hex(), "data", typedData)
-	return e.backend.SignTypedData(ctx, address, typedData)
+	return e.backend.SignTypedData(address, typedData)
 }
 
 // FillTransaction fills the defaults (nonce, gas, gasPrice or 1559 fields)

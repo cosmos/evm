@@ -344,3 +344,13 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 	}
 	return proofs
 }
+
+func unwrapBlockNOrHash(blockNOrHash types.BlockNumberOrHash) string {
+	if blockNOrHash.BlockHash != nil {
+		return blockNOrHash.BlockHash.String()
+	}
+	if blockNOrHash.BlockNumber != nil {
+		return fmt.Sprintf("%d", *blockNOrHash.BlockNumber)
+	}
+	return ""
+}

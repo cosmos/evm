@@ -129,6 +129,8 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	cosmosevmserver "github.com/cosmos/evm/server"
 
+	// import telemetry for side effects.
+	// telemetry package contains an init that instantiates the otel sdk.
 	_ "github.com/cosmos/cosmos-sdk/telemetry"
 )
 
@@ -411,7 +413,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 

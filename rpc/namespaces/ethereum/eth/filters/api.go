@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	"go.opentelemetry.io/otel"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -279,7 +278,7 @@ func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getfilterlogs
 func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ethtypes.Log, error) {
-	ctx, span := trace.StartSpan(ctx, "GetFilterLogs")
+	ctx, span := tracer.Start(ctx, "GetFilterLogs")
 	defer span.End()
 	api.filtersMu.Lock()
 	f, found := api.filters[id]

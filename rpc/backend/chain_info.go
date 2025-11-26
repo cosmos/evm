@@ -186,9 +186,10 @@ func (b *Backend) FeeHistory(
 	userBlockCount math.HexOrDecimal64, // number blocks to fetch, maximum is 100
 	lastBlock rpc.BlockNumber, // the block to start search , to oldest
 	rewardPercentiles []float64, // percentiles to fetch reward
-) (*rpctypes.FeeHistoryResult, error) {
+) (_ *rpctypes.FeeHistoryResult, err error) {
 	ctx, span := tracer.Start(ctx, "FeeHistory", trace.WithAttributes(attribute.Int64("blockCount", int64(userBlockCount)), attribute.Int64("lastBlock", int64(lastBlock))))
 	defer span.End()
+	defer func() { span.RecordError(err) }()
 	for i, p := range rewardPercentiles {
 		if p < 0 || p > 100 {
 			return nil, fmt.Errorf("%w: %f", errInvalidPercentile, p)

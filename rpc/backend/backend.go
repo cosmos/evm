@@ -44,13 +44,13 @@ type BackendI interface { //nolint: revive
 // Implemented by Backend.
 type EVMBackend interface {
 	// Node specific queries
-	Accounts(ctx context.Context) ([]common.Address, error)
+	Accounts() ([]common.Address, error)
 	Syncing(ctx context.Context) (interface{}, error)
 	SetEtherbase(ctx context.Context, etherbase common.Address) bool
 	SetGasPrice(ctx context.Context, gasPrice hexutil.Big) bool
-	ImportRawKey(ctx context.Context, privkey, password string) (common.Address, error)
-	ListAccounts(ctx context.Context) ([]common.Address, error)
-	NewMnemonic(ctx context.Context, uid string, language keyring.Language, hdPath, bip39Passphrase string, algo keyring.SignatureAlgo) (*keyring.Record, error)
+	ImportRawKey(privkey, password string) (common.Address, error)
+	ListAccounts() ([]common.Address, error)
+	NewMnemonic(uid string, language keyring.Language, hdPath, bip39Passphrase string, algo keyring.SignatureAlgo) (*keyring.Record, error)
 	UnprotectedAllowed() bool
 	RPCGasCap() uint64            // global gas cap for eth_call over rpc: DoS protection
 	RPCEVMTimeout() time.Duration // global timeout for eth_call over rpc: DoS protection
@@ -58,9 +58,9 @@ type EVMBackend interface {
 	RPCMinGasPrice() *big.Int
 
 	// Sign Tx
-	Sign(ctx context.Context, address common.Address, data hexutil.Bytes) (hexutil.Bytes, error)
+	Sign(address common.Address, data hexutil.Bytes) (hexutil.Bytes, error)
 	SendTransaction(ctx context.Context, args evmtypes.TransactionArgs) (common.Hash, error)
-	SignTypedData(ctx context.Context, address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error)
+	SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error)
 
 	// Blocks Info
 	BlockNumber(ctx context.Context) (hexutil.Uint64, error)

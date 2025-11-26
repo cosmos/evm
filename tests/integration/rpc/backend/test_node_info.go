@@ -154,7 +154,7 @@ func (s *TestSuite) TestAccounts() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			output, err := s.backend.Accounts(s.Ctx())
+			output, err := s.backend.Accounts()
 
 			if tc.expPass {
 				s.Require().NoError(err)

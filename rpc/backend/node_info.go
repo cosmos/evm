@@ -32,7 +32,7 @@ import (
 )
 
 // Accounts returns the list of accounts available to this node.
-func (b *Backend) Accounts(_ context.Context) ([]common.Address, error) {
+func (b *Backend) Accounts() ([]common.Address, error) {
 	addresses := make([]common.Address, 0) // return [] instead of nil if empty
 
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
@@ -197,7 +197,7 @@ func (b *Backend) SetEtherbase(ctx context.Context, etherbase common.Address) bo
 // keys stored on the keyring.
 //
 // NOTE: The key will be both armored and encrypted using the same passphrase.
-func (b *Backend) ImportRawKey(_ context.Context, privkey, password string) (common.Address, error) {
+func (b *Backend) ImportRawKey(privkey, password string) (common.Address, error) {
 	priv, err := crypto.HexToECDSA(privkey)
 	if err != nil {
 		return common.Address{}, err
@@ -229,7 +229,7 @@ func (b *Backend) ImportRawKey(_ context.Context, privkey, password string) (com
 }
 
 // ListAccounts will return a list of addresses for accounts this node manages.
-func (b *Backend) ListAccounts(ctx context.Context) ([]common.Address, error) {
+func (b *Backend) ListAccounts() ([]common.Address, error) {
 	addrs := []common.Address{}
 
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
@@ -254,7 +254,7 @@ func (b *Backend) ListAccounts(ctx context.Context) ([]common.Address, error) {
 }
 
 // NewAccount will create a new account and returns the address for the new account.
-func (b *Backend) NewMnemonic(ctx context.Context, uid string,
+func (b *Backend) NewMnemonic(uid string,
 	_ keyring.Language,
 	hdPath,
 	bip39Passphrase string,

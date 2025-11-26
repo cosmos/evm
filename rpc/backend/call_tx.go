@@ -118,6 +118,8 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 		return common.Hash{}, err
 	}
 
+	span.SetAttributes(attribute.String("tx_hash", tx.Hash().Hex()))
+
 	// check the local node config in case unprotected txs are disabled
 	if !b.UnprotectedAllowed() {
 		if !tx.Protected() {

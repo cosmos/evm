@@ -180,7 +180,7 @@ func (s *TestSuite) TestSign() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			responseBz, err := s.backend.Sign(s.Ctx(), tc.fromAddr, tc.inputBz)
+			responseBz, err := s.backend.Sign(tc.fromAddr, tc.inputBz)
 			if tc.expPass {
 				signature, _, err := s.backend.ClientCtx.Keyring.SignByAddress((sdk.AccAddress)(from.Bytes()), tc.inputBz, signingtypes.SignMode_SIGN_MODE_TEXTUAL)
 				signature[goethcrypto.RecoveryIDOffset] += 27
@@ -228,7 +228,7 @@ func (s *TestSuite) TestSignTypedData() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			responseBz, err := s.backend.SignTypedData(s.Ctx(), tc.fromAddr, tc.inputTypedData)
+			responseBz, err := s.backend.SignTypedData(tc.fromAddr, tc.inputTypedData)
 
 			if tc.expPass {
 				sigHash, _, _ := apitypes.TypedDataAndHash(tc.inputTypedData)
