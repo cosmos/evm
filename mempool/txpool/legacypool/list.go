@@ -353,7 +353,7 @@ func (l *list) Forward(threshold uint64) types.Transactions {
 	return txs
 }
 
-// Filter removes all transactions from the list with a cost or gas limit higher
+// CostFilter removes all transactions from the list with a cost or gas limit higher
 // than the provided thresholds. Every removed transaction is returned for any
 // post-removal maintenance. Strict-mode invalidated transactions are also
 // returned.
