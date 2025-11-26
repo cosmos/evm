@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -57,6 +58,38 @@ func TestToAnyMsgs(t *testing.T) {
 					require.Equal(t, expectedAny.Value, anyMsgs[0].Value)
 				}
 			}
+		})
+	}
+}
+
+func TestToFeeAmount(t *testing.T) {
+	const denom1 = "atest1"
+	const denom2 = "atest2"
+	testCases := []struct {
+		name     string
+		coins    sdk.Coins
+		expected []*basev1beta1.Coin
+	}{
+		{
+			name:     "single coin",
+			coins:    sdk.NewCoins(sdk.NewInt64Coin(denom1, 100)),
+			expected: []*basev1beta1.Coin{{Denom: denom1, Amount: "100"}},
+		},
+		{
+			name:     "multiple coins",
+			coins:    sdk.NewCoins(sdk.NewInt64Coin(denom1, 100), sdk.NewInt64Coin(denom2, 50)),
+			expected: []*basev1beta1.Coin{{Denom: denom1, Amount: "100"}, {Denom: denom2, Amount: "50"}},
+		},
+		{
+			name:     "empty coins",
+			coins:    sdk.NewCoins(),
+			expected: []*basev1beta1.Coin{},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ToFeeAmount(tc.coins)
+			require.Equal(t, tc.expected, result)
 		})
 	}
 }
