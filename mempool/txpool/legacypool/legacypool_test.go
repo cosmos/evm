@@ -2811,10 +2811,10 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	// also be invalidated and dropped back down to the queued pool
 	pool.mu.RLock()
 	if pool.all.Get(tx10.Hash()) != nil {
-		t.Errorf("tx1 should be removed from all pools after failing recheck")
+		t.Errorf("tx10 should be removed from all pools after failing recheck")
 	}
 	if pool.all.Get(tx22.Hash()) != nil {
-		t.Errorf("tx1 should be removed from all pools after failing recheck")
+		t.Errorf("tx22 should be removed from all pools after failing recheck")
 	}
 
 	if pool.pending[from1] != nil {
@@ -2831,10 +2831,15 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 		t.Errorf("from2 should have no queued transactions")
 	}
 
+	// tx10 and tx22 got dropped
 	dropped := pendingRecheckDropMeter.Snapshot().Count()
 	if dropped != 2 {
 		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
 	}
+
+	// tx11 and tx12 were invalidated since a tx from the same sender with a
+	// lower nonce was just dropped, they need to be validated again before
+	// being moved to pending, so they are back in queued
 	invaliated := pendingRecheckInvalidateMeter.Snapshot().Count()
 	if invaliated != 2 {
 		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
