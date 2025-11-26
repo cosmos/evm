@@ -529,17 +529,17 @@ func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypo
 		}
 
 		_, err = anteHandler(ctx, cosmosTx, false)
-		return dropAnteNonceErr(err)
+		return tolerateAnteErr(err)
 	}
 }
 
-// dropAnteNonceErr returns nil if err is considered an error that should be
+// tolerateAnteErr returns nil if err is considered an error that should be
 // ignored from the anteHandlers in the context of the recheckTxFn. If the
 // error should not be ignored, it is returned unmodified.
-func dropAnteNonceErr(err error) error {
 	if errors.Is(err, ErrNonceGap) ||
 		errors.Is(err, sdkerrors.ErrInvalidSequence) ||
 		errors.Is(err, sdkerrors.ErrOutOfGas) {
+func tolerateAnteErr(err error) error {
 		return nil
 	}
 	return err
