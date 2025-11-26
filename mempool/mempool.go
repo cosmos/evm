@@ -537,7 +537,7 @@ func recheckTxFn(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypo
 // ignored from the anteHandlers in the context of the recheckTxFn. If the
 // error should not be ignored, it is returned unmodified.
 func tolerateAnteErr(err error) error {
-	if errors.Is(err, ErrNonceGap) || errors.Is(err, sdkerrors.ErrInvalidSequence) {
+	if errors.Is(err, ErrNonceGap) {
 		return nil
 	}
 	return err
