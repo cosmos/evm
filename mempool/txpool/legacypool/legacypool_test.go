@@ -2738,6 +2738,10 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	if pool.all.Get(tx2.Hash()) == nil {
 		t.Errorf("tx2 should still be in the all lookup")
 	}
+	dropped := queuedRecheckDropMeter.Snapshot().Count()
+	if dropped != 1 {
+		t.Error("1 queued recheck drops should have been recorded by meter, got", dropped)
+	}
 	pool.mu.RUnlock()
 }
 
@@ -2825,6 +2829,15 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 	if pool.queue[from2] != nil {
 		t.Errorf("from2 should have no queued transactions")
+	}
+
+	dropped := pendingRecheckDropMeter.Snapshot().Count()
+	if dropped != 2 {
+		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
+	}
+	invaliated := pendingRecheckInvalidateMeter.Snapshot().Count()
+	if invaliated != 2 {
+		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
 	}
 	pool.mu.RUnlock()
 }

@@ -86,17 +86,22 @@ var (
 
 var (
 	// Metrics for the pending pool
-	pendingDiscardMeter   = metrics.NewRegisteredMeter("txpool/pending/discard", nil)
-	pendingReplaceMeter   = metrics.NewRegisteredMeter("txpool/pending/replace", nil)
-	pendingRateLimitMeter = metrics.NewRegisteredMeter("txpool/pending/ratelimit", nil) // Dropped due to rate limiting
-	pendingNofundsMeter   = metrics.NewRegisteredMeter("txpool/pending/nofunds", nil)   // Dropped due to out-of-funds
+	pendingDiscardMeter           = metrics.NewRegisteredMeter("txpool/pending/discard", nil)
+	pendingReplaceMeter           = metrics.NewRegisteredMeter("txpool/pending/replace", nil)
+	pendingRateLimitMeter         = metrics.NewRegisteredMeter("txpool/pending/ratelimit", nil)         // Dropped due to rate limiting
+	pendingNofundsMeter           = metrics.NewRegisteredMeter("txpool/pending/nofunds", nil)           // Dropped due to out-of-funds
+	pendingRecheckDropMeter       = metrics.NewRegisteredMeter("txpool/pending/recheckdrop", nil)       // Dropped due to antehandler failing
+	pendingRecheckInvalidateMeter = metrics.NewRegisteredMeter("txpool/pending/recheckinvalidate", nil) // Invalidated due to antehandler failing on earlier nonce tx
+	pendingRecheckDurationTimer   = metrics.NewRegisteredTimer("txpool/pending/rechecktime", nil)       // How long rechecking txs in the pending pool takes (demoteUnexecutables)
 
 	// Metrics for the queued pool
-	queuedDiscardMeter   = metrics.NewRegisteredMeter("txpool/queued/discard", nil)
-	queuedReplaceMeter   = metrics.NewRegisteredMeter("txpool/queued/replace", nil)
-	queuedRateLimitMeter = metrics.NewRegisteredMeter("txpool/queued/ratelimit", nil) // Dropped due to rate limiting
-	queuedNofundsMeter   = metrics.NewRegisteredMeter("txpool/queued/nofunds", nil)   // Dropped due to out-of-funds
-	queuedEvictionMeter  = metrics.NewRegisteredMeter("txpool/queued/eviction", nil)  // Dropped due to lifetime
+	queuedDiscardMeter         = metrics.NewRegisteredMeter("txpool/queued/discard", nil)
+	queuedReplaceMeter         = metrics.NewRegisteredMeter("txpool/queued/replace", nil)
+	queuedRateLimitMeter       = metrics.NewRegisteredMeter("txpool/queued/ratelimit", nil)   // Dropped due to rate limiting
+	queuedNofundsMeter         = metrics.NewRegisteredMeter("txpool/queued/nofunds", nil)     // Dropped due to out-of-funds
+	queuedEvictionMeter        = metrics.NewRegisteredMeter("txpool/queued/eviction", nil)    // Dropped due to lifetime
+	queuedRecheckDropMeter     = metrics.NewRegisteredMeter("txpool/queued/recheckdrop", nil) // Dropped due to antehandler failing
+	queuedRecheckDurationTimer = metrics.NewRegisteredTimer("txpool/queued/rechecktime", nil) // How long rechecking txs in the queued pool takes (promoteExecutables)
 
 	// General tx metrics
 	knownTxMeter       = metrics.NewRegisteredMeter("txpool/known", nil)
@@ -1425,6 +1430,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
+			recheckStart := time.Now()
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
 				return pool.RecheckTxFn(pool.CurrentCacheContext(), tx) != nil
 			})
@@ -1432,6 +1438,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 				pool.all.Remove(tx.Hash())
 			}
 			log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
+			queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
+			queuedRecheckDurationTimer.UpdateSince(recheckStart)
 		}
 
 		// Gather all executable transactions and promote them
@@ -1636,6 +1644,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckInvalids []*types.Transaction
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFn != nil {
+			recheckStart := time.Now()
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
 				return pool.RecheckTxFn(pool.CurrentCacheContext(), tx) != nil
 			})
@@ -1644,6 +1653,9 @@ func (pool *LegacyPool) demoteUnexecutables() {
 				pool.all.Remove(hash)
 				log.Trace("Removed pending transaction that failed recheck", "hash", hash)
 			}
+			pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
+			pendingRecheckInvalidateMeter.Mark(int64(len(recheckInvalids)))
+			pendingRecheckDurationTimer.UpdateSince(recheckStart)
 		}
 
 		invalids := append(costInvalids, recheckInvalids...)
