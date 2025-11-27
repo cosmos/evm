@@ -92,13 +92,8 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	app.setIBCTransferKeeper()
 	app.setIBCTransferStack()
 
-	ics20Percompile := ics20precmopile.NewPrecompile(
-		app.GetBankKeeper(),
-		app.GetStakingKeeper(),
-		app.GetTransferKeeper(),
-		app.GetIBCKeeper().ChannelKeeper,
-	)
-	app.App.GetEVMKeeper().RegisterStaticPrecompile(ics20Percompile.Address(), ics20Percompile)
+	// set ics20 precmopile
+	app.setICS20Precompile()
 
 	// override module order of abci interface calls
 	app.overrideModuleOrder()
@@ -259,6 +254,16 @@ func (app *IBCApp) setIBCTransferStack() {
 
 	app.IBCKeeper.SetRouter(ibcRouter)
 	app.IBCKeeper.SetRouterV2(ibcRouterV2)
+}
+
+func (app *IBCApp) setICS20Precompile() {
+	ics20Percompile := ics20precmopile.NewPrecompile(
+		app.GetBankKeeper(),
+		app.GetStakingKeeper(),
+		app.GetTransferKeeper(),
+		app.GetIBCKeeper().ChannelKeeper,
+	)
+	app.App.GetEVMKeeper().RegisterStaticPrecompile(ics20Percompile.Address(), ics20Percompile)
 }
 
 // overrideModuleOrder reproduces the base app's module ordering but inserts the
