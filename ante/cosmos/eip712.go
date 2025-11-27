@@ -139,6 +139,7 @@ func (svd LegacyEip712SigVerificationDecorator) AnteHandle(ctx sdk.Context,
 		ChainID:       chainID,
 		AccountNumber: accNum,
 		Sequence:      acc.GetSequence(),
+		Address:       acc.GetAddress().String(),
 	}
 
 	if simulate {
