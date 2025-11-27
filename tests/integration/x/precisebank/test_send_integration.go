@@ -112,6 +112,11 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 	for moduleName := range macPerms {
 		if moduleName != types.ModuleName && moduleName != stakingtypes.BondedPoolName {
 			senderModuleName = moduleName
+			break
+		}
+		if s.network.App.GetAccountKeeper().GetModuleAddress(moduleName) != nil {
+			senderModuleName = moduleName
+			break
 		}
 	}
 
