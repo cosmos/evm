@@ -169,8 +169,6 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	vals, err := evmAppA.StakingKeeper.GetAllValidators(suite.chainA.GetContext())
 	suite.Require().NoError(err)
 
-	fmt.Println("CHOI - DelegationAmount: ", DelegationAmount)
-
 	_, err = evmAppA.GetEVMKeeper().CallEVM(
 		ctxA,
 		contractData.ABI,

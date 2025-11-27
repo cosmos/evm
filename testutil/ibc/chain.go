@@ -174,7 +174,9 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 		URIHash: types.DefaultEVMDenom,
 	}}
 
-	app := SetupWithGenesisValSet(tb, valSet, genAccs, chainID, sdk.DefaultPowerReduction, metadata, genBals...)
+	// scale power reduction to the configured EVM coin decimals so tokens/shares stay in sync
+	powerReduction := sdkmath.NewIntWithDecimal(1, int(types.DefaultEVMDecimals))
+	app := SetupWithGenesisValSet(tb, valSet, genAccs, chainID, powerReduction, metadata, genBals...)
 	// create current header and call begin block
 	header := cmtproto.Header{
 		ChainID: chainID,
