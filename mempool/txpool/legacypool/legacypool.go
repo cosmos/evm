@@ -1218,10 +1218,6 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 			// Run the background reorg and announcements
 			go pool.runReorg(nextDone, reset, dirtyAccounts, queuedEvents)
 
-			if reset != nil && reset.newHead != nil {
-				// Update counter to new latest reorg reset height
-			}
-
 			// Prepare everything for the next round of reorg
 			curDone, nextDone = nextDone, make(chan struct{})
 			launchNextRun = false
@@ -1260,6 +1256,7 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 			}
 			queuedEvents[addr].Put(tx)
 		case <-pool.reorgSubscriptionCh:
+			launchNextRun = true
 			pool.reorgDoneCh <- nextDone
 		case <-curDone:
 			curDone = nil
@@ -1279,9 +1276,6 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
 	defer func(t0 time.Time) {
 		reorgDurationTimer.Update(time.Since(t0))
-		if reset != nil && reset.newHead != nil {
-			pool.latestReorgHeight.Store(reset.newHead.Number.Int64())
-		}
 	}(time.Now())
 	defer close(done)
 
@@ -1343,6 +1337,9 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 
 	dropBetweenReorgHistogram.Update(int64(pool.changesSinceReorg))
 	pool.changesSinceReorg = 0 // Reset change counter
+	if reset != nil && reset.newHead != nil {
+		pool.latestReorgHeight.Store(reset.newHead.Number.Int64())
+	}
 	pool.mu.Unlock()
 
 	// Notify subsystems for newly added transactions
