@@ -2,9 +2,10 @@ package integration
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/cosmos/evm"
 	eapp "github.com/cosmos/evm/evmd/app"
-	"os"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 

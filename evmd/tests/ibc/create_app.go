@@ -151,7 +151,7 @@ func (app *IBCApp) GetKey(storeKey string) *storetypes.KVStoreKey {
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
-// extendEvmStoreKeys records the target store key inside the EVM keeper so its
+// extendEvmStoreKey records the target store key inside the EVM keeper so its
 // snapshot store (used during precompile execution) can see the target KV store.
 func (app *IBCApp) extendEvmStoreKey(keyName string, key storetypes.StoreKey) {
 	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()

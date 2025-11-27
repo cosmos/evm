@@ -24,7 +24,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
@@ -74,7 +73,6 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	app := &PreciseBankPrecompileApp{
 		App: *basicApp,
 	}
-	vestingtypes.RegisterInterfaces(app.InterfaceRegistry())
 
 	// add precisebank module permissioin to account keeper
 	app.addModulePermissions()
