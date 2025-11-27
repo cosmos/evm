@@ -1,12 +1,12 @@
-package integration
+package vm
 
 import (
 	"encoding/json"
 	"testing"
 
 	evm "github.com/cosmos/evm"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/server/config"
-	"github.com/cosmos/evm/tests/integration/x/vm"
 	testapp "github.com/cosmos/evm/testutil/app"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
@@ -15,11 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
 func BenchmarkGasEstimation(b *testing.B) {
-	vmAppCreator := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
+	vmAppCreator := testapp.ToEvmAppCreator[evm.VMIntegrationApp](integration.CreateEvmd, "evm.VMIntegrationApp")
 	// Setup benchmark test environment
 	keys := keyring.New(2)
 	// Set custom balance based on test params
@@ -84,35 +83,4 @@ func BenchmarkGasEstimation(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func TestKeeperTestSuite(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
-	s := vm.NewKeeperTestSuite(create)
-	s.EnableFeemarket = false
-	s.EnableLondonHF = true
-	suite.Run(t, s)
-}
-
-func TestNestedEVMExtensionCallSuite(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
-	s := vm.NewNestedEVMExtensionCallSuite(create)
-	suite.Run(t, s)
-}
-
-func TestGenesisTestSuite(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
-	s := vm.NewGenesisTestSuite(create)
-	suite.Run(t, s)
-}
-
-func TestVmAnteTestSuite(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
-	s := vm.NewEvmAnteTestSuite(create)
-	suite.Run(t, s)
-}
-
-func TestIterateContracts(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
-	vm.TestIterateContracts(t, create)
 }
