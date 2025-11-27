@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	consensuskeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
@@ -68,4 +69,8 @@ func (app App) GetSlashingKeeper() slashingkeeper.Keeper {
 
 func (app App) GetDistrKeeper() distrkeeper.Keeper {
 	return app.DistributionKeeper
+}
+
+func (app App) GetConsensusParamsKeeper() consensuskeeper.Keeper {
+	return app.ConsensusParamsKeeper
 }

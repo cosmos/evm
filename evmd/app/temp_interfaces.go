@@ -4,7 +4,6 @@ import (
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
 	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	consensuskeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -37,11 +36,6 @@ func (app App) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
 }
 
 func (app App) GetFeeGrantKeeper() feegrantkeeper.Keeper {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (app App) GetConsensusParamsKeeper() consensuskeeper.Keeper {
 	//TODO implement me
 	panic("implement me")
 }
