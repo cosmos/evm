@@ -9,12 +9,14 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -192,6 +194,7 @@ func NewExperimentalEVMMempool(
 		anteHandler:   config.AnteHandler,
 	}
 
+	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
@@ -365,6 +368,9 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 		return false // Cannot validate, keep transaction
 	}
 
+	// TODO: We may be able to just fully remove this and never remove from the
+	// evm pool when comet tells us to. Relying only on the anteHandler check
+	// in promote/demote executables to remove txs.
 	_, err = m.anteHandler(ctx, tx, true)
 	// Keep nonce gap transactions, remove others that fail validation
 	if errors.Is(err, ErrNonceGap) || errors.Is(err, sdkerrors.ErrInvalidSequence) || errors.Is(err, sdkerrors.ErrOutOfGas) {
@@ -508,4 +514,60 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 		}
 	}
 	return nil
+}
+
+func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFnFactory {
+	return func(chain legacypool.BlockChain) legacypool.RecheckTxFn {
+		bc, ok := chain.(*Blockchain)
+		if !ok {
+			panic("unexpected type for BlockChain, expected *mempool.Blockchain")
+		}
+
+		ctx, err := bc.GetLatestContext()
+		if err != nil {
+			// TODO: we probably dont want to panic here, but for POC im saying
+			// this is ok, the only real other option here is to nuke the
+			// entire mempool, or force another recheck but we cant be sure
+			// that will also not fail here
+			panic(fmt.Errorf("getting latest context from blockchain: %w", err))
+		}
+		cacheCtx, _ := ctx.CacheContext()
+
+		// set the latest blocks gas limit as the max gas in cp. this is necessary
+		// to validate each tx's gas wanted
+		maxGas, err := utils.SafeInt64(bc.CurrentBlock().GasLimit)
+		if err != nil {
+			panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
+		}
+		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
+		cacheCtx = cacheCtx.WithConsensusParams(cp)
+
+		return func(t *ethtypes.Transaction) error {
+			var msg evmtypes.MsgEthereumTx
+
+			signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
+			if err := msg.FromSignedEthereumTx(t, signer); err != nil {
+				return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
+			}
+
+			txBuilder := txConfig.NewTxBuilder()
+			cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
+			if err != nil {
+				return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
+			}
+
+			_, err = anteHandler(cacheCtx, cosmosTx, false)
+			return tolerateAnteErr(err)
+		}
+	}
+}
+
+// tolerateAnteErr returns nil if err is considered an error that should be
+// ignored from the anteHandlers in the context of the recheckTxFn. If the
+// error should not be ignored, it is returned unmodified.
+func tolerateAnteErr(err error) error {
+	if errors.Is(err, ErrNonceGap) {
+		return nil
+	}
+	return err
 }
