@@ -353,7 +353,7 @@ func (l *list) Forward(threshold uint64) types.Transactions {
 	return txs
 }
 
-// Filter removes all transactions from the list with a cost or gas limit higher
+// CostFilter removes all transactions from the list with a cost or gas limit higher
 // than the provided thresholds. Every removed transaction is returned for any
 // post-removal maintenance. Strict-mode invalidated transactions are also
 // returned.
@@ -362,7 +362,7 @@ func (l *list) Forward(threshold uint64) types.Transactions {
 // a point in calculating all the costs or if the balance covers all. If the threshold
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
-func (l *list) Filter(costLimit *uint256.Int, gasLimit uint64) (types.Transactions, types.Transactions) {
+func (l *list) CostFilter(costLimit *uint256.Int, gasLimit uint64) (removed types.Transactions, invalids types.Transactions) {
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
@@ -370,15 +370,18 @@ func (l *list) Filter(costLimit *uint256.Int, gasLimit uint64) (types.Transactio
 	l.costcap = new(uint256.Int).Set(costLimit) // Lower the caps to the thresholds
 	l.gascap = gasLimit
 
-	// Filter out all the transactions above the account's funds
-	removed := l.txs.Filter(func(tx *types.Transaction) bool {
+	return l.Filter(func(tx *types.Transaction) bool {
 		return tx.Gas() > gasLimit || tx.Cost().Cmp(costLimit.ToBig()) > 0
 	})
+}
 
+// Filter filters txs in the list by a filter function. If the filter rn
+// returns false for a tx, it is removed.
+func (l *list) Filter(filterFn func(tx *types.Transaction) bool) (removed types.Transactions, invalids types.Transactions) {
+	removed = l.txs.Filter(filterFn)
 	if len(removed) == 0 {
 		return nil, nil
 	}
-	var invalids types.Transactions
 	// If the list was strict, filter anything above the lowest nonce
 	if l.strict {
 		lowest := uint64(math.MaxUint64)
@@ -389,9 +392,11 @@ func (l *list) Filter(costLimit *uint256.Int, gasLimit uint64) (types.Transactio
 		}
 		invalids = l.txs.filter(func(tx *types.Transaction) bool { return tx.Nonce() > lowest })
 	}
+
 	// Reset total cost
 	l.subTotalCost(removed)
 	l.subTotalCost(invalids)
+
 	l.txs.reheap()
 	return removed, invalids
 }

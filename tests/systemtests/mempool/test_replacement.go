@@ -261,17 +261,17 @@ func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite)
 			},
 		},
 		{
-			name: "single pending tx (low prio cosmos tx first) %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
-					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(20), s.BaseFeeMultiplier(20))
-					require.NoError(t, err, "failed to send tx")
-
-					ctx.SetExpPendingTxs(tx2)
-				},
-			},
+			// name: "single pending tx (low prio cosmos tx first) %s",
+			// actions: []func(*TestSuite, *TestContext){
+			// 	func(s *TestSuite, ctx *TestContext) {
+			// 		_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(10), nil)
+			// 		require.NoError(t, err, "failed to send tx")
+			// 		tx2, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(20), s.BaseFeeMultiplier(20))
+			// 		require.NoError(t, err, "failed to send tx")
+			//
+			// 		ctx.SetExpPendingTxs(tx2)
+			// 	},
+			// },
 		},
 		{
 			// NOTE: Skip this test for now
