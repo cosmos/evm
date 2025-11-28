@@ -2751,7 +2751,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 
 		wg.Add(1)
 		go func() {
-			for i := 0; i < 10; i++ {
+			for i := 0; i < 20; i++ {
 				oldHead := &types.Header{Number: big.NewInt(int64(i)), BaseFee: big.NewInt(10)}
 				newHead := &types.Header{Number: big.NewInt(int64(i + 1)), BaseFee: big.NewInt(10)}
 				pool.Reset(oldHead, newHead)

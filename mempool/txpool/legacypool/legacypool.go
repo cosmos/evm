@@ -1268,7 +1268,6 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 			}
 			queuedEvents[addr].Put(tx)
 		case <-pool.reorgSubscriptionCh:
-			launchNextRun = true
 			pool.reorgDoneCh <- nextDone
 		case <-curDone:
 			curDone = nil
