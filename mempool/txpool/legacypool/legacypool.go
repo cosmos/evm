@@ -1978,6 +1978,8 @@ func (pool *LegacyPool) Clear() {
 // this will also return.
 func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
 	for pool.latestReorgHeight.Load() < height {
+		// reorg loop has not run at the target height, subscribe to the
+		// outcome of the next reorg loop iteration to know when to check again
 		sub, err := pool.SubscribeToNextReorg()
 		if err != nil {
 			return
