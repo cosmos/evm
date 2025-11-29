@@ -152,7 +152,11 @@ func (hub *Hub) refreshWallets() {
 	for _, info := range infos {
 		for _, id := range hub.productIDs {
 			// Windows and macOS use UsageID matching, Linux uses Interface matching
-			if info.ProductID == id && (info.UsagePage == hub.usageID || info.Interface == hub.endpointID) {
+			// Ledger product IDs use MMII format where MM is device model and II is interface flags.
+			// Match either exact legacy IDs (0x0001, 0x0004, etc.) or device model prefix for
+			// WebUSB/app-specific IDs (e.g., 0x4011 matches 0x4000 prefix for Nano X with Ethereum app).
+			modelMatch := id >= 0x1000 && (info.ProductID>>8 == id>>8)
+			if (info.ProductID == id || modelMatch) && (info.UsagePage == hub.usageID || info.Interface == hub.endpointID) {
 				devices = append(devices, info)
 				break
 			}
