@@ -55,16 +55,10 @@ var _ evm.Erc20PrecompileApp = (*Erc20PrecompileApp)(nil)
 type Erc20PrecompileApp struct {
 	eapp.App
 
-	Erc20Keeper   erc20keeper.Keeper
-	erc20StoreKey *storetypes.KVStoreKey
-
-	PreciseBankKeeper   precisebankkeeper.Keeper
-	precisebankStoreKey *storetypes.KVStoreKey
-
-	TransferKeeper transferkeeper.Keeper
-	transferKey    *storetypes.KVStoreKey
-
-	CallbackKeeper ibccallbackskeeper.ContractKeeper
+	Erc20Keeper       erc20keeper.Keeper
+	PreciseBankKeeper precisebankkeeper.Keeper
+	TransferKeeper    transferkeeper.Keeper
+	CallbackKeeper    ibccallbackskeeper.ContractKeeper
 }
 
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
@@ -77,24 +71,17 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		panic(err)
 	}
 
+	// instantiate basic evm app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := false
 	appOptions := integration.NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
+	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions, baseAppOptions...)
 
-	eapp := eapp.New(
-		logger,
-		db,
-		nil,
-		loadLatest,
-		appOptions,
-		baseAppOptions...,
-	)
-
-	// wrap evm app with bank precompile app
+	// wrap basic evmd app
 	app := &Erc20PrecompileApp{
-		App: *eapp,
+		App: *evmApp,
 	}
 
 	// add module permissioin to account keeper
@@ -105,9 +92,6 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	app.setPrecisebankKeeper()
 	app.setIBCTransferKeeper()
 	app.setIBCTransferStack()
-
-	// override module order of abci interface calls
-	app.overrideModuleOrder()
 
 	// override init chainer to include erc20 genesis init
 	app.SetInitChainer(app.initChainer)
@@ -135,18 +119,6 @@ func (app Erc20PrecompileApp) GetTransferKeeper() transferkeeper.Keeper {
 	return app.TransferKeeper
 }
 
-// GetKey returns the KVStoreKey for the provided store key, including test-only modules.
-func (app *Erc20PrecompileApp) GetKey(storeKey string) *storetypes.KVStoreKey {
-	if storeKey == erc20types.StoreKey {
-		return app.erc20StoreKey
-	}
-	if storeKey == ibctransfertypes.StoreKey {
-		return app.transferKey
-	}
-
-	return app.App.GetKey(storeKey)
-}
-
 // Helper funcitons
 //
 // Note: Dont't use this method in production code - only for test setup
@@ -163,7 +135,6 @@ func (app *Erc20PrecompileApp) extendEvmStoreKey(keyName string, key storetypes.
 func (app *Erc20PrecompileApp) setERC20Keeper() {
 	// mount erc20 store
 	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
-	app.erc20StoreKey = erc20StoreKey
 	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
 	app.extendEvmStoreKey(erc20types.StoreKey, erc20StoreKey)
 
@@ -194,7 +165,6 @@ func (app *Erc20PrecompileApp) setPrecisebankKeeper() {
 
 	// mount precisebank store
 	app.MountStore(precisebankStoreKey, storetypes.StoreTypeIAVL)
-	app.precisebankStoreKey = precisebankStoreKey
 
 	// set precisebank keeper to app
 	app.PreciseBankKeeper = precisebankkeeper.NewKeeper(
@@ -209,7 +179,6 @@ func (app *Erc20PrecompileApp) setPrecisebankKeeper() {
 func (app *Erc20PrecompileApp) setIBCTransferKeeper() {
 	// mount ibc transfer store
 	ibcTransferStoreKey := storetypes.NewKVStoreKey(ibctransfertypes.StoreKey)
-	app.transferKey = ibcTransferStoreKey
 	app.MountStore(ibcTransferStoreKey, storetypes.StoreTypeIAVL)
 	app.extendEvmStoreKey(ibctransfertypes.StoreKey, ibcTransferStoreKey)
 

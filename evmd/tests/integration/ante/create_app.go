@@ -36,31 +36,23 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		panic(err)
 	}
 
+	// instantiate basic evm app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := false
 	appOptions := integration.NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
-
-	eapp := eapp.New(
-		logger,
-		db,
-		nil,
-		loadLatest,
-		appOptions,
-		baseAppOptions...,
-	)
+	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions, baseAppOptions...)
 
 	// wrap evm app with bank precompile app
 	app := &AnteIntegrationApp{
-		App: *eapp,
+		App: *evmApp,
 	}
 
 	// set keepers
 	app.setFeeGrantKeeper()
 
-	// load latest app state
-	// This metthod seals the app, so it must be called after all keepers are set
+	// seal app
 	if err := app.LoadLatestVersion(); err != nil {
 		panic(err)
 	}

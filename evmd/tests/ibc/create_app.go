@@ -27,7 +27,6 @@ import (
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
@@ -36,21 +35,14 @@ import (
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/runtime"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
 
 var _ evm.IBCApp = (*IBCApp)(nil)
@@ -75,14 +67,16 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		panic(err)
 	}
 
+	// instantiate basic evm app
 	logger := log.NewNopLogger()
 	db := dbm.NewMemDB()
 	loadLatest := false
 	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID)
+	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions)
 
-	// wrap evm app with bank precompile app
+	// wrap basic evmd app
 	app := &IBCApp{
-		App: *eapp.New(logger, db, nil, loadLatest, appOptions),
+		App: *evmApp,
 	}
 
 	// add module permissions to account keeper
@@ -97,17 +91,13 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	// set ics20 precmopile
 	app.setICS20Precompile()
 
-	// override module order of abci interface calls
-	app.overrideModuleOrder()
-
 	// override init chainer to include ERC20 and IBC transfer genesis execution
 	app.SetInitChainer(app.initChainer)
 
 	// set default genesis state
 	genesisState := app.setDefaultGenesis()
 
-	// load latest app state
-	// This metthod seals the app, so it must be called after all keepers are set
+	// seal app
 	if err := app.LoadLatestVersion(); err != nil {
 		panic(err)
 	}
@@ -259,45 +249,6 @@ func (app *IBCApp) setICS20Precompile() {
 		app.GetIBCKeeper().ChannelKeeper,
 	)
 	app.App.GetEVMKeeper().RegisterStaticPrecompile(ics20Percompile.Address(), ics20Percompile)
-}
-
-// overrideModuleOrder reproduces the base app's module ordering but inserts the
-// ERC20 module so it runs in begin/end blockers and genesis alongside the rest
-// of the modules.
-func (app *IBCApp) overrideModuleOrder() {
-	app.ModuleManager.SetOrderBeginBlockers(
-		minttypes.ModuleName,
-		ibcexported.ModuleName,
-		ibctransfertypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName,
-		stakingtypes.ModuleName,
-		genutiltypes.ModuleName,
-		ibcexported.ModuleName,
-		feemarkettypes.ModuleName,
-		erc20types.ModuleName,
-		evmtypes.ModuleName,
-	)
-
-	initOrder := []string{
-		authtypes.ModuleName,
-		banktypes.ModuleName,
-		distrtypes.ModuleName,
-		stakingtypes.ModuleName,
-		slashingtypes.ModuleName,
-		govtypes.ModuleName,
-		minttypes.ModuleName,
-		ibcexported.ModuleName,
-		evmtypes.ModuleName,
-		erc20types.ModuleName,
-		feemarkettypes.ModuleName,
-		ibctransfertypes.ModuleName,
-		genutiltypes.ModuleName,
-		upgradetypes.ModuleName,
-		consensustypes.ModuleName,
-	}
-	app.ModuleManager.SetOrderInitGenesis(initOrder...)
-	app.ModuleManager.SetOrderExportGenesis(initOrder...)
 }
 
 // initChainer replays the default app.InitChainer and then manually invokes

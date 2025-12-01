@@ -35,33 +35,21 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		panic(err)
 	}
 
+	// instantiate basic evm app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := true
 	appOptions := integration.NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
+	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions, baseAppOptions...)
 
-	eapp := eapp.New(
-		logger,
-		db,
-		nil,
-		loadLatest,
-		appOptions,
-		baseAppOptions...,
-	)
-
+	// wrap basic evmd app
 	app := &SlashingPrecompileApp{
-		App: *eapp,
+		App: *evmApp,
 	}
 
-	slashingPrecompile := slashingprecompile.NewPrecompile(
-		app.GetSlashingKeeper(),
-		slashingkeeper.NewMsgServerImpl(app.GetSlashingKeeper()),
-		app.GetBankKeeper(),
-		evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
-		evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
-	)
-	app.App.GetEVMKeeper().RegisterStaticPrecompile(slashingPrecompile.Address(), slashingPrecompile)
+	// set slashing precompile
+	app.setSlashingPrecompile()
 
 	return app
 }
@@ -72,4 +60,15 @@ func (app *SlashingPrecompileApp) GetSlashingKeeper() slashingkeeper.Keeper {
 
 func (app *SlashingPrecompileApp) GetDistrKeeper() distrkeeper.Keeper {
 	return app.DistributionKeeper
+}
+
+func (app *SlashingPrecompileApp) setSlashingPrecompile() {
+	slashingPrecompile := slashingprecompile.NewPrecompile(
+		app.GetSlashingKeeper(),
+		slashingkeeper.NewMsgServerImpl(app.GetSlashingKeeper()),
+		app.GetBankKeeper(),
+		evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
+		evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
+	)
+	app.App.GetEVMKeeper().RegisterStaticPrecompile(slashingPrecompile.Address(), slashingPrecompile)
 }

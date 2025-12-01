@@ -15,25 +15,14 @@ import (
 	erc20module "github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
 
 var _ evm.BankPrecompileApp = (*BankPrecompileApp)(nil)
@@ -41,8 +30,7 @@ var _ evm.BankPrecompileApp = (*BankPrecompileApp)(nil)
 type BankPrecompileApp struct {
 	eapp.App
 
-	Erc20Keeper   erc20keeper.Keeper
-	erc20StoreKey *storetypes.KVStoreKey
+	Erc20Keeper erc20keeper.Keeper
 }
 
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
@@ -55,39 +43,27 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		panic(err)
 	}
 
+	// instantiate basic evm app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := false
 	appOptions := integration.NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
+	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions, baseAppOptions...)
 
-	eapp := eapp.New(
-		logger,
-		db,
-		nil,
-		loadLatest,
-		appOptions,
-		baseAppOptions...,
-	)
-
-	// wrap evm app with bank precompile app
+	// wrap basic evmd app
 	app := &BankPrecompileApp{
-		App: *eapp,
+		App: *evmApp,
 	}
 
-	// add erc20 module permissioin to account keeper
-	app.addErc20ModulePermissions()
-	app.overrideModuleOrder()
+	// add erc20 module permission to account keeper
+	testutil.AddModulePermissions(app, erc20types.ModuleName, true, true)
 
 	// add erc20 store key to app.storeKeys
 	app.setERC20Keeper()
 
 	// register bank precompile
-	bankPrecmopile := bankprecompile.NewPrecompile(
-		app.GetBankKeeper(),
-		app.GetErc20Keeper(),
-	)
-	app.App.GetEVMKeeper().RegisterStaticPrecompile(bankPrecmopile.Address(), bankPrecmopile)
+	app.setBankPrecompile()
 
 	// override init chainer to include erc20 genesis init
 	app.SetInitChainer(app.bankInitChainer)
@@ -107,14 +83,6 @@ func (app *BankPrecompileApp) GetErc20Keeper() *erc20keeper.Keeper {
 	return &app.Erc20Keeper
 }
 
-func (app *BankPrecompileApp) GetKey(storeKey string) *storetypes.KVStoreKey {
-	if storeKey == erc20types.StoreKey {
-		return app.erc20StoreKey
-	}
-
-	return app.App.GetKey(storeKey)
-}
-
 // Helper funcitons
 //
 // Note: Dont't use this method in production code - only for test setup
@@ -124,7 +92,6 @@ func (app *BankPrecompileApp) GetKey(storeKey string) *storetypes.KVStoreKey {
 func (app *BankPrecompileApp) setERC20Keeper() {
 	// mount erc20 store
 	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
-	app.erc20StoreKey = erc20StoreKey
 	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
 	testutil.ExtendEvmStoreKey(app, erc20types.StoreKey, erc20StoreKey)
 
@@ -148,56 +115,12 @@ func (app *BankPrecompileApp) setERC20Keeper() {
 	erc20types.RegisterMsgServer(app.MsgServiceRouter(), &app.Erc20Keeper)
 }
 
-// overrideModuleOrder reproduces the base app's module ordering but inserts the
-// ERC20 module so it runs in begin/end blockers and genesis alongside the rest
-// of the modules.
-func (app *BankPrecompileApp) overrideModuleOrder() {
-	app.ModuleManager.SetOrderBeginBlockers(
-		minttypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName,
-		stakingtypes.ModuleName,
-		genutiltypes.ModuleName,
-		ibcexported.ModuleName,
-		feemarkettypes.ModuleName,
-		erc20types.ModuleName,
-		evmtypes.ModuleName,
+func (app *BankPrecompileApp) setBankPrecompile() {
+	bankPrecmopile := bankprecompile.NewPrecompile(
+		app.GetBankKeeper(),
+		app.GetErc20Keeper(),
 	)
-
-	app.ModuleManager.SetOrderEndBlockers(
-		banktypes.ModuleName,
-		govtypes.ModuleName,
-		stakingtypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName,
-		authtypes.ModuleName,
-		ibcexported.ModuleName,
-		erc20types.ModuleName,
-		evmtypes.ModuleName,
-		feemarkettypes.ModuleName,
-		minttypes.ModuleName,
-		genutiltypes.ModuleName,
-		upgradetypes.ModuleName,
-	)
-
-	initOrder := []string{
-		authtypes.ModuleName,
-		banktypes.ModuleName,
-		distrtypes.ModuleName,
-		stakingtypes.ModuleName,
-		slashingtypes.ModuleName,
-		govtypes.ModuleName,
-		minttypes.ModuleName,
-		ibcexported.ModuleName,
-		evmtypes.ModuleName,
-		erc20types.ModuleName,
-		feemarkettypes.ModuleName,
-		genutiltypes.ModuleName,
-		upgradetypes.ModuleName,
-		consensustypes.ModuleName,
-	}
-	app.ModuleManager.SetOrderInitGenesis(initOrder...)
-	app.ModuleManager.SetOrderExportGenesis(initOrder...)
+	app.App.GetEVMKeeper().RegisterStaticPrecompile(bankPrecmopile.Address(), bankPrecmopile)
 }
 
 // bankInitChainer replays the default app.InitChainer and then manually invokes
@@ -226,18 +149,4 @@ func (app *BankPrecompileApp) bankInitChainer(ctx sdk.Context, req *abci.Request
 	erc20module.InitGenesis(ctx, app.Erc20Keeper, app.AccountKeeper, erc20Genesis)
 
 	return resp, nil
-}
-
-// addErc20ModulePermissions mirrors the production app's keeper wiring by
-// registering the ERC20 module account permissions after the fact.
-func (app *BankPrecompileApp) addErc20ModulePermissions() {
-	perms := app.AccountKeeper.GetModulePermissions()
-	if _, exists := perms[erc20types.ModuleName]; exists {
-		return
-	}
-
-	perms[erc20types.ModuleName] = authtypes.NewPermissionsForAddress(
-		erc20types.ModuleName,
-		[]string{authtypes.Minter, authtypes.Burner},
-	)
 }
