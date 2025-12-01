@@ -770,9 +770,20 @@ func (app *App) AutoCliOpts() autocli.AppOptions {
 		modules[entry.name] = entry.module
 	}
 
+	moduleOptions := runtimeservices.ExtractAutoCLIOptions(app.ModuleManager.Modules)
+	moduleOptionNames := make([]string, 0, len(moduleOptions))
+	for name := range moduleOptions {
+		moduleOptionNames = append(moduleOptionNames, name)
+	}
+	sort.Strings(moduleOptionNames)
+	sortedModuleOptions := make(map[string]*autocliv1.ModuleOptions, len(moduleOptions))
+	for _, name := range moduleOptionNames {
+		sortedModuleOptions[name] = moduleOptions[name]
+	}
+
 	return autocli.AppOptions{
 		Modules:               modules,
-		ModuleOptions:         runtimeservices.ExtractAutoCLIOptions(app.ModuleManager.Modules),
+		ModuleOptions:         sortedModuleOptions,
 		AddressCodec:          evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		ValidatorAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		ConsensusAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
