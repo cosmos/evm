@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
+	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -14,9 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-
-	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"go.opentelemetry.io/otel"
 
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc/types"
@@ -137,7 +137,11 @@ type EVMBackend interface {
 	TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
 }
 
-var _ BackendI = (*Backend)(nil)
+var (
+	_ BackendI = (*Backend)(nil)
+
+	tracer = otel.Tracer("evm/rpc/backend")
+)
 
 // ProcessBlocker is a function type that processes a block and its associated data
 // for fee history calculation. It takes a Tendermint block, its corresponding
