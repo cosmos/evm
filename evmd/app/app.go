@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	goruntime "runtime"
+	"sort"
 
 	"github.com/spf13/cast"
 
@@ -561,16 +562,27 @@ func (app *App) configureBlockSTM(denom string) {
 }
 
 func (app *App) getNonTransientKeys() []storetypes.StoreKey {
-	nonTransientKeys := make([]storetypes.StoreKey, len(app.keys)+len(app.oKeys))
-	i := 0
-	for _, k := range app.keys {
-		nonTransientKeys[i] = k
-		i++
+	total := len(app.keys) + len(app.oKeys)
+	nonTransientKeys := make([]storetypes.StoreKey, 0, total)
+
+	keyNames := make([]string, 0, len(app.keys))
+	for name := range app.keys {
+		keyNames = append(keyNames, name)
 	}
-	for _, k := range app.oKeys {
-		nonTransientKeys[i] = k
-		i++
+	sort.Strings(keyNames)
+	for _, name := range keyNames {
+		nonTransientKeys = append(nonTransientKeys, app.keys[name])
 	}
+
+	objKeyNames := make([]string, 0, len(app.oKeys))
+	for name := range app.oKeys {
+		objKeyNames = append(objKeyNames, name)
+	}
+	sort.Strings(objKeyNames)
+	for _, name := range objKeyNames {
+		nonTransientKeys = append(nonTransientKeys, app.oKeys[name])
+	}
+
 	return nonTransientKeys
 }
 
