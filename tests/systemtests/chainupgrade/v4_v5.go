@@ -17,8 +17,13 @@ import (
 )
 
 const (
+<<<<<<< HEAD:tests/systemtests/upgrade_test.go
+	upgradeHeight int64 = 22
+	upgradeName         = "v0.6.0"
+=======
 	upgradeHeight int64 = 12
 	upgradeName         = "v0.5.0-to-v0.6.0" // must match UpgradeName in evmd/upgrades.go
+>>>>>>> main:tests/systemtests/chainupgrade/v4_v5.go
 )
 
 // RunChainUpgrade exercises an on-chain software upgrade using the injected shared suite.

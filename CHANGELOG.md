@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## v0.6.0 - EpixChain Upgrade
+
+### IMPROVEMENTS
+
+- Upgraded EpixChain from cosmos/evm v0.5.0 to v0.6.0
+- Updated EVMKeeper constructor to remove evmChainID parameter as per v0.5.0 migration guide
+- Improved EVM configuration handling - chain ID now retrieved from app options instead of constructor parameters
+- Enhanced denom metadata for EpixChain native token (aepix/epix) with proper 18-decimal precision
+- Added EpixChain-specific upgrade handler with correct token metadata and official website URI
+- Removed deprecated evmAppOptions references and updated all function signatures
+- Fixed test helpers to properly pass evmChainID through app options
+
+### API-BREAKING
+
+- Removed `evmChainID` and `evmAppOptions` parameters from `NewExampleApp` function signature
+- Updated `EVMKeeper.NewKeeper()` constructor to match v0.5.0 specification (removed evmChainID parameter)
+- EVM chain configuration now set at application level before keeper creation
+
+### STATE BREAKING
+
+- Added comprehensive denom metadata for aepix/epix tokens in bank module
+- Updated upgrade handler to set proper EpixChain token metadata during network upgrade
+
 ## UNRELEASED
 
 ### DEPENDENCIES

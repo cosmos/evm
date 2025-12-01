@@ -28,7 +28,7 @@ describe('Staking – edge case revert test', function () {
         });
         await waitWithTimeout(stakingReverter.deploymentTransaction(), DEFAULT_TIMEOUT, RETRY_DELAY_FUNC)
 
-        validatorAddress = 'epixvaloper1cml96vmptgw99syqrrz8az79xer2pcgpvdwweq';
+        validatorAddress = 'epixvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pwetwmnh';
         
         console.log('StakingReverter deployed at:', await stakingReverter.getAddress());
         console.log('Using validator address:', validatorAddress);
@@ -50,8 +50,7 @@ describe('Staking – edge case revert test', function () {
             const tx = await stakingReverter.callPrecompileBeforeAndAfterRevert(1, validatorAddress, {
                 gasLimit: GAS_LIMIT
             });
-            await waitWithTimeout(tx, DEFAULT_TIMEOUT, RETRY_DELAY_FUNC);
-            const receipt = await tx.wait();
+            const receipt = await waitWithTimeout(tx, DEFAULT_TIMEOUT, RETRY_DELAY_FUNC);
             
             console.log('Transaction hash:', receipt.hash);
             console.log('Gas used:', receipt.gasUsed.toString());

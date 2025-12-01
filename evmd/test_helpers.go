@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/evmd/config"
+	srvflags "github.com/cosmos/evm/server/flags"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/x/vm/types"
@@ -57,6 +58,7 @@ func setup(withGenesis bool, invCheckPeriod uint, chainID string, evmChainID uin
 	appOptions := make(simtestutil.AppOptionsMap, 0)
 	appOptions[flags.FlagHome] = defaultNodeHome
 	appOptions[server.FlagInvCheckPeriod] = invCheckPeriod
+	appOptions[srvflags.EVMChainID] = evmChainID
 
 	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, baseapp.SetChainID(chainID))
 	if withGenesis {

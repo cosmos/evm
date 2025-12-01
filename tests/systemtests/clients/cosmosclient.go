@@ -209,6 +209,14 @@ func (c *CosmosClient) GetBalance(nodeID string, address sdk.AccAddress, denom s
 
 // newClientContext creates a new client context for the Cosmos SDK.
 func newClientContext(config *Config) (*client.Context, error) {
+	// Set the correct bech32 prefix for EpixChain
+	// NOTE: This is necessary because the cosmossdk.io/systemtests framework
+	// appears to reset or override the SDK config set in TestMain
+	sdkConfig := sdk.GetConfig()
+	sdkConfig.SetBech32PrefixForAccount("epix", "epixpub")
+	sdkConfig.SetBech32PrefixForValidator("epixvaloper", "epixvaloperpub")
+	sdkConfig.SetBech32PrefixForConsensusNode("epixvalcons", "epixvalconspub")
+
 	// Use the encoding config setup which properly initializes EIP-712
 	encodingConfig := evmencoding.MakeConfig(config.EVMChainID.Uint64())
 

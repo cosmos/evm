@@ -10,7 +10,8 @@ describe('Distribution – withdraw validator commission', function () {
 
     before(async () => {
         const signers   = await ethers.getSigners()
-        validator       = signers[signers.length - 1]
+        // Use the first signer which is the validator created in 1_create_and_edit_validator.js
+        validator       = signers[0]
         distribution    = await ethers.getContractAt('DistributionI', DIST_ADDRESS)
     })
 

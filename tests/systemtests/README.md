@@ -2,7 +2,7 @@
 
 ## Overview
 
-The systemtests suite is an end-to-end test suite that runs the evmd process and sends RPC requests from separate Ethereum/Cosmos clients. The systemtests for cosmos/evm use the `cosmossdk.io/systemtests` package by default. For more details, please refer to https://github.com/cosmos/cosmos-sdk/tree/main/tests/systemtests.
+The systemtests suite is an end-to-end test suite that runs the epixd process and sends RPC requests from separate Ethereum/Cosmos clients. The systemtests for cosmos/evm use the `cosmossdk.io/systemtests` package by default. For more details, please refer to https://github.com/cosmos/cosmos-sdk/tree/main/tests/systemtests.
 
 ## Preparation
 
@@ -17,7 +17,7 @@ Or via manual steps
 ```shell
 make build
 mkdir -= ./tests/systemtests/binaries
-cp ./build/evmd ./tests/systemtests/binaries
+cp ./build/epixd ./tests/systemtests/binaries
 cp ./build/evmd ./tests/systemtests/binaries/v0.4
 ```
 
@@ -28,7 +28,7 @@ Each scenario now has its own `Test…` wrapper in `main_test.go`, so you can ta
 ```shell
 cd tests/systemtests
 go test -failfast -mod=readonly -tags=system_test ./... -run TestMempoolTxsOrdering \
-  --verbose --binary evmd --block-time 3s --chain-id local-4221
+  --verbose --binary epixd --block-time 3s --chain-id local-4221
 ```
 
 Mempool scenarios:

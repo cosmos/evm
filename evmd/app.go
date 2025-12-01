@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-path/filepath
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cast"
 
@@ -516,6 +516,12 @@ func NewExampleApp(
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 
+	// Set global chain config before creating EVM keeper
+	ethCfg := evmtypes.DefaultChainConfig(evmChainID)
+	if err := evmtypes.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
+
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
@@ -527,7 +533,6 @@ func NewExampleApp(
 		app.FeeMarketKeeper,
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
-		evmChainID,
 		tracer,
 	).WithStaticPrecompiles(
 		precompiletypes.DefaultStaticPrecompiles(

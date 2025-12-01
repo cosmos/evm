@@ -7,6 +7,10 @@ import (
 
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
+
+	"cosmossdk.io/systemtests"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
@@ -15,6 +19,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// Set up the global SDK config with correct bech32 prefixes
+	// This must be done before any encoding/client operations
+	cfg := sdk.GetConfig()
+	config.SetBech32Prefixes(cfg)
+	config.SetBip44CoinType(cfg)
+
 	systemtests.RunTests(m)
 }
 

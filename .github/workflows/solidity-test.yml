@@ -17,6 +17,9 @@ jobs:
           go-version: '1.25'
           check-latest: true
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
@@ -25,6 +28,13 @@ jobs:
             go.mod
             go.sum
             *.toml
+      - name: Cache yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: tests/solidity/node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('tests/solidity/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: Test Solidity
         run: |
           make test-solidity
