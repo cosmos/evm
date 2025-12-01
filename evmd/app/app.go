@@ -745,14 +745,29 @@ func (app *App) SetClientCtx(clientCtx client.Context) {
 
 // AutoCliOpts returns the autocli options for the app.
 func (app *App) AutoCliOpts() autocli.AppOptions {
-	modules := make(map[string]appmodule.AppModule, 0)
+	type moduleEntry struct {
+		name   string
+		module appmodule.AppModule
+	}
+	entries := make([]moduleEntry, 0, len(app.ModuleManager.Modules))
 	for _, m := range app.ModuleManager.Modules {
-		if moduleWithName, ok := m.(module.HasName); ok {
-			moduleName := moduleWithName.Name()
-			if appModule, ok := moduleWithName.(appmodule.AppModule); ok {
-				modules[moduleName] = appModule
-			}
+		moduleWithName, hasName := m.(module.HasName)
+		appModule, isAppModule := m.(appmodule.AppModule)
+		if !hasName || !isAppModule {
+			continue
 		}
+		entries = append(entries, moduleEntry{
+			name:   moduleWithName.Name(),
+			module: appModule,
+		})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].name < entries[j].name
+	})
+
+	modules := make(map[string]appmodule.AppModule, len(entries))
+	for _, entry := range entries {
+		modules[entry.name] = entry.module
 	}
 
 	return autocli.AppOptions{
@@ -784,8 +799,13 @@ func (app *App) GetKey(storeKey string) *storetypes.KVStoreKey {
 // GetStoreKeys returns all the stored store keys.
 func (app *App) GetStoreKeys() []storetypes.StoreKey {
 	keys := make([]storetypes.StoreKey, 0, len(app.keys))
-	for _, key := range app.keys {
-		keys = append(keys, key)
+	storeNames := make([]string, 0, len(app.keys))
+	for name := range app.keys {
+		storeNames = append(storeNames, name)
+	}
+	sort.Strings(storeNames)
+	for _, name := range storeNames {
+		keys = append(keys, app.keys[name])
 	}
 
 	return keys
