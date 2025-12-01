@@ -65,6 +65,10 @@ type (
 		mtx sync.Mutex
 
 		eventBus *cmttypes.EventBus
+
+		/** Transaction Reaping **/
+		reapList  *reapList
+		reapGuard sync.Map
 	}
 )
 
@@ -192,9 +196,21 @@ func NewExperimentalEVMMempool(
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
+		reapList:      newReapList(),
 	}
 
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
+
+	// Once we have validated that the tx is valid (and can be promoted, set it
+	// to be reaped)
+	legacyPool.OnTxPromoted = evmMempool.MarkTxToBeReaped
+
+	// Once we are removing the tx, we no longer need to block it from being
+	// sent to the reaplist again and can remove from the guard
+	legacyPool.OnTxRemoved = func(tx *ethtypes.Transaction) {
+		evmMempool.reapGuard.Delete(tx.Hash())
+	}
+
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
@@ -350,6 +366,59 @@ func (m *ExperimentalEVMMempool) InsertEVMTxAynsc(tx sdk.Tx) error {
 
 	m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
 	return nil
+}
+
+// ReapNewValidTxs removes and returns the oldest transactions from the reap list
+// until maxBytes or maxGas limits are reached. Transactions are removed in FIFO order
+// (oldest first) from the head of the doubly linked list.
+func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	m.logger.Debug("reaping transactions", "maxBytes", maxBytes, "maxGas", maxGas, "available_txs")
+	txs := m.reapList.Reap(maxBytes, maxGas, func(tx *ethtypes.Transaction) ([]byte, error) {
+		// Create MsgEthereumTx from the eth transaction
+		msg := &evmtypes.MsgEthereumTx{}
+		msg.FromEthereumTx(tx)
+
+		// Build cosmos tx
+		txBuilder := m.txConfig.NewTxBuilder()
+		if err := txBuilder.SetMsgs(msg); err != nil {
+			return nil, fmt.Errorf("failed to set msg in tx builder: %w", err)
+		}
+
+		// Encode to bytes
+		txBytes, err := m.txConfig.TxEncoder()(txBuilder.GetTx())
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode transaction: %w", err)
+		}
+
+		return txBytes, nil
+	})
+	m.logger.Debug("reap complete", "txs_reaped", len(txs))
+
+	// NOTE: We are not removing txs from the mempool's reapGuard here since it
+	// is possible that a transaction was promoted (and therefore added to the
+	// reapList), then it is demoted (but not removed), and then promoted back
+	// to pending, in which case MarkTxToBeReaped (our OnPromoted callback)
+	// will be called again. Thus, we only remove txs from the reapGuard when
+	// they are fully removed from the mempool and the mempool will no longer
+	// try and add them to the reapList.
+
+	return txs, nil
+}
+
+// MarkTxToBeReaped adds a transaction to the reap list when it's promoted to pending status.
+// This is called by the legacy pool when transactions become executable.
+// The transaction is added to the tail of the doubly linked list for O(1) insertion.
+func (m *ExperimentalEVMMempool) MarkTxToBeReaped(tx *ethtypes.Transaction) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	if _, loaded := m.reapGuard.LoadOrStore(tx.Hash(), nil); loaded {
+		return
+	}
+	m.reapList.Insert(tx)
 }
 
 // Select returns a unified iterator over both EVM and Cosmos transactions.

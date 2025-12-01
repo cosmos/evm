@@ -268,6 +268,8 @@ type LegacyPool struct {
 	BroadcastTxFn func(txs []*types.Transaction) error
 
 	RecheckTxFnFactory RecheckTxFnFactory
+	OnTxPromoted       func(tx *types.Transaction)
+	OnTxRemoved        func(tx *types.Transaction)
 }
 
 type txpoolResetRequest struct {
@@ -852,7 +854,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
-		pool.queue[from] = newList(false)
+		pool.queue[from] = newList(false, pool.OnTxRemoved)
 	}
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
 	if !inserted {
@@ -892,7 +894,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) bool {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newList(true)
+		pool.pending[addr] = newList(true, pool.OnTxRemoved)
 	}
 	list := pool.pending[addr]
 
@@ -1452,6 +1454,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
 				promoted = append(promoted, tx)
+				if pool.OnTxPromoted != nil {
+					// user supplied callback
+					pool.OnTxPromoted(tx)
+				}
 			}
 		}
 		log.Trace("Promoted queued transactions", "count", len(promoted))

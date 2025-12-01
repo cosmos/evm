@@ -106,6 +106,11 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 
 func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.ReapTxsHandler {
 	return func(req *abci.RequestReapTxs) (*abci.ResponseReapTxs, error) {
-		return nil, nil
+		maxBytes, maxGas := req.GetMaxBytes(), req.GetMaxGas()
+		txs, err := evmMempool.ReapNewValidTxs(maxBytes, maxGas)
+		if err != nil {
+			return nil, fmt.Errorf("reaping new valid txs from evm mempool with %d max bytes and %d max gas: %w", maxBytes, maxGas, err)
+		}
+		return &abci.ResponseReapTxs{Txs: txs}, nil
 	}
 }

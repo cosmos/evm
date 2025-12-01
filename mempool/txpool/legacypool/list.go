@@ -276,16 +276,19 @@ type list struct {
 	costcap   *uint256.Int // Price of the highest costing transaction (reset only if exceeds balance)
 	gascap    uint64       // Gas limit of the highest spending transaction (reset only if exceeds block limit)
 	totalcost *uint256.Int // Total cost of all transactions in the list
+
+	onTxRemoved func(tx *types.Transaction) // User callback called when transactions are removed
 }
 
 // newList creates a new transaction list for maintaining nonce-indexable fast,
 // gapped, sortable transaction lists.
-func newList(strict bool) *list {
+func newList(strict bool, onTxRemoved func(tx *types.Transaction)) *list {
 	return &list{
-		strict:    strict,
-		txs:       NewSortedMap(),
-		costcap:   new(uint256.Int),
-		totalcost: new(uint256.Int),
+		strict:      strict,
+		txs:         NewSortedMap(),
+		costcap:     new(uint256.Int),
+		totalcost:   new(uint256.Int),
+		onTxRemoved: onTxRemoved,
 	}
 }
 
@@ -417,6 +420,9 @@ func (l *list) Remove(tx *types.Transaction) (bool, types.Transactions) {
 	nonce := tx.Nonce()
 	if removed := l.txs.Remove(nonce); !removed {
 		return false, nil
+	}
+	if l.onTxRemoved != nil {
+		l.onTxRemoved(tx)
 	}
 	l.subTotalCost([]*types.Transaction{tx})
 	// In strict mode, filter out non-executable transactions
