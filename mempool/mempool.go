@@ -282,6 +282,76 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 	return nil
 }
 
+var (
+	ErrInvalidTx    = errors.New("tx is invalid")
+	ErrMempoolFull  = errors.New("mempool is full")
+	ErrAlreadyKnown = errors.New("tx already known")
+)
+
+// InsertEVMTxAynsc inserts a tx to the EVM mempool asynchronously. No
+// validation will be run on the tx at insert time besides checking to see if
+// the tx is a valid EVM tx. If it is not an EVM tx, ErrTxIsNotEVM will be returned.
+func (m *ExperimentalEVMMempool) InsertEVMTxAynsc(tx sdk.Tx) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	ethMsg, err := m.getEVMMessage(tx)
+	if err != nil {
+		return fmt.Errorf("%w, tx is not an evm tx: %w", ErrInvalidTx, err)
+	}
+
+	hash := ethMsg.Hash()
+	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
+
+	errs := m.txPool.Add([]*ethtypes.Transaction{ethMsg.AsTransaction()}, false)
+	if len(errs) > 1 {
+		// we should only get a single error per tx we send to add, and we are
+		// only sending a single one, panic if this is violated.
+		panic(fmt.Errorf("more errors than expected when adding tx to pool, got %d, expected 1", len(errs)))
+	}
+	if len(errs) > 0 && errs[0] != nil {
+		// got an error adding, multiple packages error types can be returned
+		// here, convert to a simplified error set
+		err := errs[0]
+		m.logger.Error("failed to insert EVM transaction", "error", err, "tx_hash", hash)
+
+		switch {
+		case errors.Is(err, txpool.ErrAlreadyKnown):
+			return ErrAlreadyKnown
+		case errors.Is(err, legacypool.ErrTxPoolOverflow) || errors.Is(err, txpool.ErrUnderpriced) || errors.Is(err, legacypool.ErrFutureReplacePending):
+			// ErrUnderpriced is grouped here since this is returned if the
+			// mempool is full but the tx cheaper than the cheapest tx in the
+			// pool so it cannot bump another tx out
+			//
+			// ErrFutureReplacePending is grouped here since this is returned
+			// if the tx pool is full and this tx is priced higher than the
+			// cheapest tx in the pool (i.e. it is beneficial to accept it and
+			// remove the cheaper txs). However this tx is also nonce gapped
+			// (future), and to add it we must drop a tx from the pending pool.
+			// Now this is actually not beneficial to add this tx since it may
+			// not become executable for a long time, but the pending tx is
+			// currently executable, so we opt to not add this tx. This will
+			// only happen if the pool is full, so we simply return that the
+			// pool is full so the user can wait until the pool is not full and
+			// retry this tx.
+			return ErrMempoolFull
+		case errors.Is(err, txpool.ErrReplaceUnderpriced):
+			// Submitting this tx again will result in the same error unless
+			// the current tx it is trying to replace is discarded for some
+			// reason, this is unlikely so we simply return that this tx is
+			// invalid in order to signal to the user that they should modify
+			// it before resubmission.
+			fallthrough
+		default:
+			// failed some level of validation
+			return ErrInvalidTx
+		}
+	}
+
+	m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
+	return nil
+}
+
 // Select returns a unified iterator over both EVM and Cosmos transactions.
 // The iterator prioritizes transactions based on their fees and manages proper
 // sequencing. The i parameter contains transaction hashes to exclude from selection.
