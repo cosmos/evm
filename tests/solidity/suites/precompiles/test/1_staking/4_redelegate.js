@@ -60,24 +60,44 @@ function formatRedelegation(res) {
 describe('Staking – redelegate with event and state assertions', function () {
     this.timeout(120000); // 2 minutes timeout
     const STAKING_ADDRESS = '0x0000000000000000000000000000000000000800'
+    const BECH32_ADDRESS = '0x0000000000000000000000000000000000000400'
     const GAS_LIMIT = 1_000_000 // skip gas estimation for simplicity
 
-    let staking, signer
+    let staking, bech32, signer, dstValBech32
 
     before(async () => {
-        [signer] = await hre.ethers.getSigners()
+        const signers = await hre.ethers.getSigners()
+        signer = signers[0] // This is the test validator created in create_and_edit_validator
+
         // instantiate StakingI and Bech32I precompile contracts
         staking = await hre.ethers.getContractAt('StakingI', STAKING_ADDRESS)
+        bech32 = await hre.ethers.getContractAt('Bech32I', BECH32_ADDRESS)
+
+        // Convert signer's hex address to validator operator bech32 address using staticCall
+        // This will be the destination validator (test validator)
+        dstValBech32 = await bech32.hexToBech32.staticCall(signer.address, 'epixvaloper')
+        console.log('Destination validator bech32:', dstValBech32)
     })
 
     it('should redelegate tokens and emit Redelegate event', async function () {
-        const signerBech32 = 'epix1cml96vmptgw99syqrrz8az79xer2pcgp95srxm'
-        const srcValBech32 = 'epixvaloper1cml96vmptgw99syqrrz8az79xer2pcgpvdwweq'
-        const dstValBech32 = 'epixvaloper1cml96vmptgw99syqrrz8az79xer2pcgpvdwweq'
+        // Convert signer's hex address to bech32 for comparisons
+        const signerBech32 = await bech32.hexToBech32.staticCall(signer.address, 'epix')
+        // Use genesis validator as source (epixvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pwetwmnh)
+        const srcValBech32 = 'epixvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pwetwmnh'
+        // Use test validator as destination (created in create_and_edit_validator test)
+        // dstValBech32 is set in the before hook using bech32 conversion
 
         // decode bech32 → hex for event comparisons
-        const srcValHex = '0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101'
-        const dstValHex = '0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101'
+        const srcValHex = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E' // genesis validator
+        const dstValHex = signer.address // test validator (signers[0])
+
+        // First, delegate some tokens to the genesis validator so we have something to redelegate
+        const delegateAmount = hre.ethers.parseEther('0.001')
+        const delegateTx = await staking
+            .connect(signer)
+            .delegate(signer.address, srcValBech32, delegateAmount, {gasLimit: GAS_LIMIT})
+        await waitWithTimeout(delegateTx, DEFAULT_TIMEOUT, RETRY_DELAY_FUNC)
+        console.log('Delegated', delegateAmount.toString(), 'to genesis validator')
 
         // 1) query current delegations to both validators before redelegation
         const beforeSrcDelegationRaw = await staking.delegation(signer.address, srcValBech32)

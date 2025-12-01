@@ -5,17 +5,18 @@ const { findEvent, waitWithTimeout, DEFAULT_TIMEOUT, RETRY_DELAY_FUNC} = require
 describe('Gov Precompile', function () {
     const GOV_ADDRESS = '0x0000000000000000000000000000000000000805'
     const GAS_LIMIT = 1_000_000
-    const COSMOS_ADDR = 'cosmos1cml96vmptgw99syqrrz8az79xer2pcgp95srxm'
-    const GOV_MODULE_ADDR = 'cosmos10d07y265gmmuvt4z0w9aw880jnsr700j6zn9kn'
+    // Use epix prefix for EpixChain instead of cosmos
+    const EPIX_ADDR = 'epix1cml96vmptgw99syqrrz8az79xer2pcgpsl7kpq'
+    const GOV_MODULE_ADDR = 'epix10d07y265gmmuvt4z0w9aw880jnsr700j0fas3g'
 
     let gov, signer, globalProposalId
 
     before(async () => {
         [signer] = await hre.ethers.getSigners()
         gov = await hre.ethers.getContractAt('IGov', GOV_ADDRESS)
-        
+
         // Create a single proposal to be reused across tests
-        const jsonProposal = buildProposal(COSMOS_ADDR)
+        const jsonProposal = buildProposal(EPIX_ADDR)
         const deposit = { denom: 'atest', amount: hre.ethers.parseEther('1') }
 
         const tx = await gov

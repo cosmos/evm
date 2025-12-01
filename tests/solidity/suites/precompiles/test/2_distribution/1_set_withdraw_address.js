@@ -15,7 +15,9 @@ describe('Distribution – set withdraw address', function () {
     });
 
     it('should set withdraw address and emit SetWithdrawerAddress event', async function () {
-        const newWithdrawAddress = 'cosmos1fx944mzagwdhx0wz7k9tfztc8g3lkfk6pzezqh';
+        // Use epix prefix instead of cosmos for EpixChain
+        // 0x498B5AeC5D439b733dC2F58AB489783A23FB26dA converts to epix1fx944mzagwdhx0wz7k9tfztc8g3lkfk65fhh8v
+        const newWithdrawAddress = 'epix1fx944mzagwdhx0wz7k9tfztc8g3lkfk65fhh8v';
         const tx = await distribution
             .connect(signer)
             .setWithdrawAddress(signer.address, newWithdrawAddress, {gasLimit: GAS_LIMIT});
