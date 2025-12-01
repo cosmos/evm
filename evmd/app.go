@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-path/filepath
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cast"
 
