@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-metrics"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -26,7 +28,12 @@ var _ types.MsgServer = &Keeper{}
 // executed (i.e applied) against the go-ethereum EVM. The provided SDK Context is set to the Keeper
 // so that it can implements and call the StateDB methods without receiving it as a function
 // parameter.
-func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (_ *types.MsgEthereumTxResponse, err error) {
+	goCtx, span := tracer.Start(goCtx, "EthereumTx", trace.WithAttributes(
+		attribute.String("hash", msg.Hash().String()),
+	))
+	// defer func() { span.RecordError(err) }()
+	defer span.End()
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	tx := msg.AsTransaction()
@@ -116,12 +123,19 @@ func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (*t
 // proposal passes, it updates the module parameters. The update can only be
 // performed if the requested authority is the Cosmos SDK governance module
 // account.
-func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (_ *types.MsgUpdateParamsResponse, err error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	ctx, span := ctx.StartSpan(tracer, "UpdateParams", trace.WithAttributes(
+		attribute.String("authority", req.Authority),
+		attribute.String("params", req.Params.String()),
+	))
+	// defer func() { span.RecordError(err) }()
+	defer span.End()
+
 	if k.authority.String() != req.Authority {
 		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
 	}
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
 	if err := k.SetParams(ctx, req.Params); err != nil {
 		return nil, err
 	}
@@ -133,14 +147,19 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 // proposal passes, it creates the preinstalls. The registration can only be
 // performed if the requested authority is the Cosmos SDK governance module
 // account.
-func (k *Keeper) RegisterPreinstalls(goCtx context.Context, req *types.MsgRegisterPreinstalls) (*types.
-	MsgRegisterPreinstallsResponse, error,
+func (k *Keeper) RegisterPreinstalls(goCtx context.Context, req *types.MsgRegisterPreinstalls) (
+	_ *types.MsgRegisterPreinstallsResponse, err error,
 ) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	ctx, span := ctx.StartSpan(tracer, "RegisterPreinstalls", trace.WithAttributes(
+		attribute.String("authority", req.Authority),
+	))
+	// defer func() { span.RecordError(err) }()
+	defer span.End()
 	if k.authority.String() != req.Authority {
 		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
 	}
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
 	if err := k.AddPreinstalls(ctx, req.Preinstalls); err != nil {
 		return nil, err
 	}

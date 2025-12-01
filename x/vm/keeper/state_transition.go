@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -195,7 +197,12 @@ func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types
 // returning.
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
-func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ *types.MsgEthereumTxResponse, err error) {
+	ctx, span := ctx.StartSpan(tracer, "ApplyTransaction", trace.WithAttributes(
+		attribute.String("hash", tx.Hash().String()),
+	))
+	// defer func() { span.RecordError(err) }()
+	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
@@ -369,22 +376,31 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 func (k *Keeper) ApplyMessageWithConfig(
 	ctx sdk.Context,
 	msg core.Message,
-	tracer *tracing.Hooks,
+	tracingHooks *tracing.Hooks,
 	commit bool,
 	cfg *statedb.EVMConfig,
 	txConfig statedb.TxConfig,
 	internal bool,
 	overrides *rpctypes.StateOverride,
-) (*types.MsgEthereumTxResponse, error) {
+) (_ *types.MsgEthereumTxResponse, err error) {
 	var (
 		ret          []byte // return bytes from evm execution
 		vmErr        error  // vm errors do not effect consensus and are therefore not assigned to err
 		floorDataGas uint64
 	)
 
+	ctx, span := ctx.StartSpan(tracer, "ApplyMessageWithConfig", trace.WithAttributes(
+		attribute.String("hash", txConfig.TxHash.String()),
+		attribute.Int("tx_index", int(txConfig.TxIndex)),
+		attribute.Bool("commit", commit),
+		attribute.Bool("internal", internal),
+	))
+	// defer func() { span.RecordError(err) }()
+	defer span.End()
+
 	stateDB := statedb.New(ctx, k, txConfig)
 	ethCfg := types.GetEthChainConfig()
-	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
+	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracingHooks, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if overrides != nil {
@@ -452,8 +468,12 @@ func (k *Keeper) ApplyMessageWithConfig(
 		// - reset sender's nonce to msg.Nonce() before calling evm.
 		// - increase sender's nonce by one no matter the result.
 		stateDB.SetNonce(sender.Address(), msg.Nonce, tracing.NonceChangeEoACall)
-		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
+		var contractAddr common.Address
+		ret, contractAddr, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
+		if vmErr != nil {
+			span.AddEvent("contract_creation", trace.WithAttributes(attribute.String("contract_address", contractAddr.String())))
+		}
 	} else {
 		// Apply EIP-7702 authorizations.
 		if msg.SetCodeAuthorizations != nil {
@@ -513,6 +533,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	var vmError string
 	if vmErr != nil {
 		vmError = vmErr.Error()
+		span.AddEvent("vm_error", trace.WithAttributes(attribute.String("vm_err", vmError)))
 	}
 
 	// The dirty states in `StateDB` is either committed or discarded after return
@@ -545,7 +566,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	if !internal {
 		gasUsed = math.LegacyMaxDec(gasUsed, minimumGasUsed)
 	}
-	// reset leftoverGas, to be used by the tracer
+	// reset leftoverGas, to be used by the tracingHooks
 	leftoverGas = msg.GasLimit - gasUsed.TruncateInt().Uint64()
 
 	// if the execution reverted, we return the revert reason as the return data

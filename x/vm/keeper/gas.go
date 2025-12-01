@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/params"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -32,7 +34,11 @@ func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *para
 // consumed in the transaction. Additionally, the function sets the total gas consumed to the value
 // returned by the EVM execution, thus ignoring the previous intrinsic gas consumed during in the
 // AnteHandler.
-func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) error {
+func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "RefundGas", trace.WithAttributes(attribute.Int64("leftover_gas", int64(leftoverGas))))
+	// defer func() { span.RecordError(err) }()
+	defer span.End()
+
 	// Return EVM tokens for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(leftoverGas), msg.GasPrice)
 

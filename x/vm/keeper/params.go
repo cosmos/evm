@@ -15,6 +15,8 @@ import (
 
 // GetParams returns the total set of evm parameters.
 func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
+	ctx, span := ctx.StartSpan(tracer, "GetParams")
+	defer span.End()
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.KeyPrefixParams)
 	if bz == nil {
