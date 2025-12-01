@@ -1,14 +1,17 @@
 package evmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -47,6 +50,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	app.SetMempool(evmMempool)
 	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
 	app.SetCheckTxHandler(checkTxHandler)
+	app.SetInsertTxHandler(app.NewInsertTxHandler(evmMempool))
+	app.SetReapTxsHandler(app.NewReapTxsHandler(evmMempool))
 
 	txVerifier := NewNoCheckProposalTxVerifier(app.BaseApp)
 	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, txVerifier)
@@ -69,4 +74,17 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		BlockGasLimit:    server.GetBlockGasLimit(appOpts, logger),
 		MinTip:           server.GetMinTip(appOpts, logger),
 	}, nil
+}
+
+func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
+	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
+
+		return &abci.ResponseInsertTx{Code: code}, nil
+	}
+}
+
+func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.ReapTxsHandler {
+	return func(req *abci.RequestReapTxs) (*abci.ResponseReapTxs, error) {
+		return nil, nil
+	}
 }
