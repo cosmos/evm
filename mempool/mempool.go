@@ -196,8 +196,8 @@ func NewExperimentalEVMMempool(
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
-		reapList:      newReapList(),
 	}
+	evmMempool.reapList = NewReapList(evmMempool.encodeEVMTx)
 
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 
@@ -376,25 +376,7 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 	defer m.mtx.Unlock()
 
 	m.logger.Debug("reaping transactions", "maxBytes", maxBytes, "maxGas", maxGas, "available_txs")
-	txs := m.reapList.Reap(maxBytes, maxGas, func(tx *ethtypes.Transaction) ([]byte, error) {
-		// Create MsgEthereumTx from the eth transaction
-		msg := &evmtypes.MsgEthereumTx{}
-		msg.FromEthereumTx(tx)
-
-		// Build cosmos tx
-		txBuilder := m.txConfig.NewTxBuilder()
-		if err := txBuilder.SetMsgs(msg); err != nil {
-			return nil, fmt.Errorf("failed to set msg in tx builder: %w", err)
-		}
-
-		// Encode to bytes
-		txBytes, err := m.txConfig.TxEncoder()(txBuilder.GetTx())
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode transaction: %w", err)
-		}
-
-		return txBytes, nil
-	})
+	txs := m.reapList.Reap(maxBytes, maxGas)
 	m.logger.Debug("reap complete", "txs_reaped", len(txs))
 
 	// NOTE: We are not removing txs from the mempool's reapGuard here since it
@@ -418,7 +400,27 @@ func (m *ExperimentalEVMMempool) MarkTxToBeReaped(tx *ethtypes.Transaction) {
 	if _, loaded := m.reapGuard.LoadOrStore(tx.Hash(), nil); loaded {
 		return
 	}
-	m.reapList.Insert(tx)
+	m.reapList.Push(tx)
+}
+
+func (m *ExperimentalEVMMempool) encodeEVMTx(tx *ethtypes.Transaction) ([]byte, error) {
+	// Create MsgEthereumTx from the eth transaction
+	msg := &evmtypes.MsgEthereumTx{}
+	msg.FromEthereumTx(tx)
+
+	// Build cosmos tx
+	txBuilder := m.txConfig.NewTxBuilder()
+	if err := txBuilder.SetMsgs(msg); err != nil {
+		return nil, fmt.Errorf("failed to set msg in tx builder: %w", err)
+	}
+
+	// Encode to bytes
+	txBytes, err := m.txConfig.TxEncoder()(txBuilder.GetTx())
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode transaction: %w", err)
+	}
+
+	return txBytes, nil
 }
 
 // Select returns a unified iterator over both EVM and Cosmos transactions.
