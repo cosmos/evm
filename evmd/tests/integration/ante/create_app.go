@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/evm"
 	eapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	"github.com/cosmos/evm/evmd/testutil"
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
@@ -78,18 +79,11 @@ func (app AnteIntegrationApp) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
-// extendEvmStoreKey records the target store key inside the EVM keeper so its
-// snapshot store (used during precompile execution) can see the target KV store.
-func (app *AnteIntegrationApp) extendEvmStoreKey(keyName string, key storetypes.StoreKey) {
-	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
-	evmStoreKeys[keyName] = key
-}
-
 func (app *AnteIntegrationApp) setFeeGrantKeeper() {
 	// mount erc20 store
 	feeGrantStoreKey := storetypes.NewKVStoreKey(feegrant.StoreKey)
 	app.MountStore(feeGrantStoreKey, storetypes.StoreTypeIAVL)
-	app.extendEvmStoreKey(feegrant.StoreKey, feeGrantStoreKey)
+	testutil.ExtendEvmStoreKey(app, feegrant.StoreKey, feeGrantStoreKey)
 
 	// set erc20 keeper to app
 	app.FeeGrantKeeper = feegrantkeeper.NewKeeper(

@@ -3,9 +3,11 @@ package testutil
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
+
+	"github.com/cosmos/evm"
 	eapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/cmd/evmd/config"
-	"testing"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -22,6 +24,7 @@ import (
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -147,4 +150,28 @@ func SetupTestingApp(chainID string) func() (ibctesting.TestingApp, map[string]j
 		)
 		return app, app.DefaultGenesis()
 	}
+}
+
+// ExtendEvmStoreKey records the target store key inside the EVM keeper so its
+// snapshot store (used during precompile execution) can see the target KV store.
+func ExtendEvmStoreKey(app evm.TestApp, keyName string, key storetypes.StoreKey) {
+	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
+	evmStoreKeys[keyName] = key
+}
+
+// AddModulePermissions mirrors the production app's keeper wiring by
+// registering the module account permissions after the fact.
+func AddModulePermissions(app evm.TestApp, moduleName string, isMinter, isBurner bool) {
+	permissions := []string{}
+	if isMinter {
+		permissions = append(permissions, authtypes.Minter)
+	}
+	if isBurner {
+		permissions = append(permissions, authtypes.Burner)
+	}
+
+	perms := app.GetAccountKeeper().GetModulePermissions()
+	perms[moduleName] = authtypes.NewPermissionsForAddress(
+		moduleName, []string{authtypes.Minter, authtypes.Burner},
+	)
 }

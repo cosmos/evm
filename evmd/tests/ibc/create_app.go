@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/evm"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	eapp "github.com/cosmos/evm/evmd/app"
+	"github.com/cosmos/evm/evmd/testutil"
 	ics20precmopile "github.com/cosmos/evm/precompiles/ics20"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
@@ -85,7 +86,8 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	}
 
 	// add module permissions to account keeper
-	app.addModulePermissions()
+	testutil.AddModulePermissions(app, erc20types.ModuleName, true, true)
+	testutil.AddModulePermissions(app, ibctransfertypes.ModuleName, true, true)
 
 	// set keepers
 	app.setERC20Keeper()
@@ -146,19 +148,12 @@ func (app *IBCApp) GetKey(storeKey string) *storetypes.KVStoreKey {
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
-// extendEvmStoreKey records the target store key inside the EVM keeper so its
-// snapshot store (used during precompile execution) can see the target KV store.
-func (app *IBCApp) extendEvmStoreKey(keyName string, key storetypes.StoreKey) {
-	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
-	evmStoreKeys[keyName] = key
-}
-
 func (app *IBCApp) setERC20Keeper() {
 	// mount erc20 store
 	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
 	app.erc20StoreKey = erc20StoreKey
 	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
-	app.extendEvmStoreKey(erc20types.StoreKey, erc20StoreKey)
+	testutil.ExtendEvmStoreKey(app, erc20types.StoreKey, erc20StoreKey)
 
 	// set erc20 keeper to app
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -185,7 +180,7 @@ func (app *IBCApp) setIBCTransferKeeper() {
 	ibcTransferStoreKey := storetypes.NewKVStoreKey(ibctransfertypes.StoreKey)
 	app.transferKey = ibcTransferStoreKey
 	app.MountStore(ibcTransferStoreKey, storetypes.StoreTypeIAVL)
-	app.extendEvmStoreKey(ibctransfertypes.StoreKey, ibcTransferStoreKey)
+	testutil.ExtendEvmStoreKey(app, ibctransfertypes.StoreKey, ibcTransferStoreKey)
 
 	// get authority address
 	authAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
@@ -284,22 +279,6 @@ func (app *IBCApp) overrideModuleOrder() {
 		evmtypes.ModuleName,
 	)
 
-	app.ModuleManager.SetOrderEndBlockers(
-		banktypes.ModuleName,
-		govtypes.ModuleName,
-		stakingtypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName,
-		authtypes.ModuleName,
-		ibcexported.ModuleName,
-		erc20types.ModuleName,
-		evmtypes.ModuleName,
-		feemarkettypes.ModuleName,
-		minttypes.ModuleName,
-		genutiltypes.ModuleName,
-		upgradetypes.ModuleName,
-	)
-
 	initOrder := []string{
 		authtypes.ModuleName,
 		banktypes.ModuleName,
@@ -386,23 +365,4 @@ func (app *IBCApp) setDefaultGenesis() map[string]json.RawMessage {
 	genesisState[ibctransfertypes.ModuleName] = app.AppCodec().MustMarshalJSON(transferGen)
 
 	return genesisState
-}
-
-// addModulePermissions mirrors the production app's keeper wiring by
-// registering the module account permissions after the fact.
-func (app *IBCApp) addModulePermissions() {
-	perms := app.AccountKeeper.GetModulePermissions()
-	if _, exists := perms[erc20types.ModuleName]; exists {
-		return
-	}
-
-	perms[erc20types.ModuleName] = authtypes.NewPermissionsForAddress(
-		erc20types.ModuleName,
-		[]string{authtypes.Minter, authtypes.Burner},
-	)
-
-	perms[ibctransfertypes.ModuleName] = authtypes.NewPermissionsForAddress(
-		ibctransfertypes.ModuleName,
-		[]string{authtypes.Minter, authtypes.Burner},
-	)
 }

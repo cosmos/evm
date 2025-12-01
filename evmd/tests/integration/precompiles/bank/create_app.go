@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/evm"
 	eapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	"github.com/cosmos/evm/evmd/testutil"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	erc20module "github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -79,25 +80,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	app.overrideModuleOrder()
 
 	// add erc20 store key to app.storeKeys
-	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
-	app.extendEvmStoreKeys(erc20StoreKey)
-
-	// mount erc20 store
-	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
-	app.erc20StoreKey = erc20StoreKey
-
-	// set erc20 keeper to app
-	app.Erc20Keeper = erc20keeper.NewKeeper(
-		erc20StoreKey,
-		app.AppCodec(),
-		authtypes.NewModuleAddress(govtypes.ModuleName),
-		app.AccountKeeper,
-		app.BankKeeper,
-		app.EVMKeeper,
-		app.StakingKeeper,
-		nil,
-	)
-	app.GetEVMKeeper().SetErc20Keeper(&app.Erc20Keeper)
+	app.setERC20Keeper()
 
 	// register bank precompile
 	bankPrecmopile := bankprecompile.NewPrecompile(
@@ -138,15 +121,31 @@ func (app *BankPrecompileApp) GetKey(storeKey string) *storetypes.KVStoreKey {
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
-// extendEvmStoreKeys records the ERC20 store key inside the EVM keeper so its
-// snapshot store (used during precompile execution) can see the ERC20 KV store.
-func (app *BankPrecompileApp) extendEvmStoreKeys(key storetypes.StoreKey) {
-	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
-	if _, exists := evmStoreKeys[erc20types.StoreKey]; exists {
-		return
-	}
+func (app *BankPrecompileApp) setERC20Keeper() {
+	// mount erc20 store
+	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
+	app.erc20StoreKey = erc20StoreKey
+	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
+	testutil.ExtendEvmStoreKey(app, erc20types.StoreKey, erc20StoreKey)
 
-	evmStoreKeys[erc20types.StoreKey] = key
+	// set erc20 keeper to app
+	app.Erc20Keeper = erc20keeper.NewKeeper(
+		erc20StoreKey,
+		app.AppCodec(),
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.EVMKeeper,
+		app.StakingKeeper,
+		nil,
+	)
+	app.GetEVMKeeper().SetErc20Keeper(&app.Erc20Keeper)
+
+	// register erc20 interfaces so tx decoding works for x/erc20 tx msgs.
+	erc20types.RegisterInterfaces(app.InterfaceRegistry())
+
+	// register Msg service for ERC20 so MsgConvertERC20/ConvertCoin can be routed.
+	erc20types.RegisterMsgServer(app.MsgServiceRouter(), &app.Erc20Keeper)
 }
 
 // overrideModuleOrder reproduces the base app's module ordering but inserts the

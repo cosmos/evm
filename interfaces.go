@@ -53,15 +53,15 @@ type TestApp interface {
 	GetMempool() mempool.ExtMempool
 
 	// keeper getters
-	VMKeeperProvider
+	AccountKeeperProvider
 	BankKeeperProvider
 	StakingKeeperProvider
+	VMKeeperProvider
 }
 
 // EvmApp defines the interface for an EVM application.
 type EvmApp interface { //nolint:revive
 	TestApp
-	AccountKeeperProvider
 	AnteHandlerProvider
 	CallbackKeeperProvider
 	ConsensusParamsKeeperProvider
@@ -187,7 +187,6 @@ type (
 	}
 	Erc20PrecompileApp interface {
 		TestApp
-		AccountKeeperProvider
 		BankKeeperProvider
 		Erc20KeeperProvider
 		PreciseBankKeeperProvider
@@ -216,7 +215,6 @@ type (
 	}
 	StakingPrecompileApp interface {
 		TestApp
-		AccountKeeperProvider
 		BankKeeperProvider
 		StakingKeeperProvider
 	}
@@ -237,7 +235,6 @@ type (
 	// network setup can access the necessary modules.
 	IntegrationNetworkApp interface {
 		TestApp
-		AccountKeeperProvider
 		DistrKeeperProvider
 		Erc20KeeperProvider
 		FeeMarketKeeperProvider
