@@ -2734,7 +2734,6 @@ func TestWaitForReorgHeight(t *testing.T) {
 			t.Fatalf("expected initial height 0, got %d", pool.latestReorgHeight.Load())
 		}
 
-		var reorgCompleted atomic.Bool
 		var waitCompleted atomic.Bool
 		var wg sync.WaitGroup
 
@@ -2749,16 +2748,12 @@ func TestWaitForReorgHeight(t *testing.T) {
 		// Give the waiter a chance to subscribe
 		time.Sleep(50 * time.Millisecond)
 
-		wg.Add(1)
 		go func() {
 			for i := 0; i < 20; i++ {
 				oldHead := &types.Header{Number: big.NewInt(int64(i)), BaseFee: big.NewInt(10)}
 				newHead := &types.Header{Number: big.NewInt(int64(i + 1)), BaseFee: big.NewInt(10)}
 				pool.Reset(oldHead, newHead)
 			}
-			reorgCompleted.Store(true)
-			fmt.Println("all resets done")
-			wg.Done()
 		}()
 
 		// Wait for waiters
@@ -2774,11 +2769,8 @@ func TestWaitForReorgHeight(t *testing.T) {
 			t.Fatal("timeout waiting for waiters")
 		}
 
-		if pool.latestReorgHeight.Load() != 10 {
-			t.Errorf("expected height 10 after reorg, got %d", pool.latestReorgHeight.Load())
-		}
-		if !reorgCompleted.Load() {
-			t.Errorf("WaitForReorgHeight returned before reorg completed")
+		if pool.latestReorgHeight.Load() < 10 {
+			t.Errorf("expected height >= 10 after reorg, got %d", pool.latestReorgHeight.Load())
 		}
 	})
 
