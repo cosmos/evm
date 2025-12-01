@@ -343,6 +343,8 @@ func New(
 			app.AppCodec(),
 		),
 	)
+
+	// TODO: Enable Virtual Fee Collection optionally
 	// Enable Virtual Fee Collection for endblocker accumulation to fee collector module account
 	// app.EVMKeeper.EnableVirtualFeeCollection()
 
@@ -696,6 +698,8 @@ func (app *App) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {
 		panic(err)
 	}
+
+	// TODO: Enable BlockSTM Optionally
 	// resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	// if err != nil {
 	// 	return resp, err
