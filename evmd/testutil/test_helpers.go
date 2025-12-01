@@ -171,7 +171,5 @@ func AddModulePermissions(app evm.TestApp, moduleName string, isMinter, isBurner
 	}
 
 	perms := app.GetAccountKeeper().GetModulePermissions()
-	perms[moduleName] = authtypes.NewPermissionsForAddress(
-		moduleName, []string{authtypes.Minter, authtypes.Burner},
-	)
+	perms[moduleName] = authtypes.NewPermissionsForAddress(moduleName, permissions)
 }
