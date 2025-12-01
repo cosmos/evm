@@ -33,10 +33,9 @@ func (rl *reapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	)
 
 	for idx, tx := range rl.txs {
-		nextStart = idx + 1
-
 		txBytes, err := rl.encodeTx(tx)
 		if err != nil {
+			nextStart = idx + 1
 			continue
 		}
 
@@ -51,6 +50,7 @@ func (rl *reapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		result = append(result, txBytes)
 		totalBytes += txSize
 		totalGas += txGas
+		nextStart = idx + 1
 	}
 	rl.txsLock.RUnlock()
 
@@ -59,10 +59,11 @@ func (rl *reapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	// where the next set of valid txs start in nextStart
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
-	if nextStart == len(rl.txs)-1 {
+	if nextStart >= len(rl.txs) {
 		rl.txs = types.Transactions{}
+	} else {
+		rl.txs = rl.txs[nextStart:]
 	}
-	rl.txs = rl.txs[nextStart:len(rl.txs)]
 
 	return result
 }
