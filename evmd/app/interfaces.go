@@ -1,3 +1,6 @@
+//go:build !all_precompiles
+// +build !all_precompiles
+
 package app
 
 import (
