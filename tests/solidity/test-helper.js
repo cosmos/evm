@@ -322,14 +322,41 @@ function setupNetwork ({ runConfig, timeout }) {
     })
 
     logger.info(`Starting epixd process... timeout: ${timeout}ms`)
+
+    // Buffer to collect output for debugging
+    let outputBuffer = ''
+    const maxBufferLines = 50
+
     if (runConfig.verboseLog) {
       osdProc.stdout.pipe(process.stdout)
       osdProc.stderr.pipe(process.stderr)
     }
 
+    osdProc.on('error', (err) => {
+      logger.err(`Failed to start epixd process: ${err.message}`)
+      reject(err)
+    })
+
+    osdProc.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        const error = new Error(`epixd process exited with code ${code}`)
+        error.output = outputBuffer
+        logger.err(`epixd exited unexpectedly with code ${code}`)
+        logger.err(`Last ${maxBufferLines} lines of output:\n${outputBuffer}`)
+        reject(error)
+      }
+    })
 
     osdProc.stdout.on('data', (d) => {
       const oLine = d.toString()
+
+      // Keep last N lines in buffer for debugging
+      outputBuffer += oLine
+      const lines = outputBuffer.split('\n')
+      if (lines.length > maxBufferLines) {
+        outputBuffer = lines.slice(-maxBufferLines).join('\n')
+      }
+
       if (runConfig.verboseLog) {
         process.stdout.write(oLine)
       }
@@ -342,6 +369,14 @@ function setupNetwork ({ runConfig, timeout }) {
 
     osdProc.stderr.on('data', (d) => {
       const oLine = d.toString()
+
+      // Keep last N lines in buffer for debugging
+      outputBuffer += oLine
+      const lines = outputBuffer.split('\n')
+      if (lines.length > maxBufferLines) {
+        outputBuffer = lines.slice(-maxBufferLines).join('\n')
+      }
+
       if (runConfig.verboseLog) {
         process.stdout.write(oLine)
       }
@@ -354,7 +389,11 @@ function setupNetwork ({ runConfig, timeout }) {
   })
 
   const timeoutPromise = new Promise((resolve, reject) => {
-    setTimeout(() => reject(new Error('Start epixd timeout!')), timeout)
+    setTimeout(() => {
+      const error = new Error(`Start epixd timeout after ${timeout}ms! The node failed to emit "Starting JSON-RPC server" message.`)
+      error.hint = 'Check if the node is starting correctly. Try running scripts/local_node.sh manually to debug.'
+      reject(error)
+    }, timeout)
   })
   return Promise.race([spawnPromise, timeoutPromise])
 }
@@ -371,7 +410,7 @@ async function main () {
 
     console.log(`Running Tests: ${allTests.join()}`)
 
-    proc = await setupNetwork({ runConfig, timeout: 200000 })
+    proc = await setupNetwork({ runConfig, timeout: 300000 })
 
     // sleep for 20s to wait blocks being produced
     //
