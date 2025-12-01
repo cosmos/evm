@@ -10,6 +10,7 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	cosmosevmutils "github.com/cosmos/evm/utils"
+	epixminttypes "github.com/cosmos/evm/x/epixmint/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
@@ -61,6 +62,7 @@ var maccPerms = map[string][]string{
 	govtypes.ModuleName:            {authtypes.Burner},
 
 	// Cosmos EVM modules
+	epixminttypes.ModuleName:    {authtypes.Minter},
 	vmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:   nil,
 	erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},
