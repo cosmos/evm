@@ -11,21 +11,18 @@ import (
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	eapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/integration"
-	"github.com/cosmos/evm/testutil/constants"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/x/erc20"
 	erc20module "github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	erc20v2 "github.com/cosmos/evm/x/erc20/v2"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
@@ -33,21 +30,12 @@ import (
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
 
 var _ evm.Erc20PrecompileApp = (*Erc20PrecompileApp)(nil)
@@ -85,7 +73,8 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	}
 
 	// add module permissioin to account keeper
-	app.addModulePermissions()
+	testutil.AddModulePermissions(app, erc20types.ModuleName, true, true)
+	testutil.AddModulePermissions(app, ibctransfertypes.ModuleName, true, true)
 
 	// set keepers
 	app.setERC20Keeper()
@@ -96,8 +85,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	// override init chainer to include erc20 genesis init
 	app.SetInitChainer(app.initChainer)
 
-	// load latest app state
-	// This metthod seals the app, so it must be called after all keepers are set
+	// seal app
 	if err := app.LoadLatestVersion(); err != nil {
 		panic(err)
 	}
@@ -251,74 +239,19 @@ func (app *Erc20PrecompileApp) setIBCTransferStack() {
 	app.IBCKeeper.SetRouterV2(ibcRouterV2)
 }
 
-// overrideModuleOrder reproduces the base app's module ordering but inserts the
-// ERC20 module so it runs in begin/end blockers and genesis alongside the rest
-// of the modules.
-func (app *Erc20PrecompileApp) overrideModuleOrder() {
-	app.ModuleManager.SetOrderBeginBlockers(
-		minttypes.ModuleName,
-		ibcexported.ModuleName,
-		ibctransfertypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName,
-		stakingtypes.ModuleName,
-		genutiltypes.ModuleName,
-		ibcexported.ModuleName,
-		feemarkettypes.ModuleName,
-		erc20types.ModuleName,
-		evmtypes.ModuleName,
-	)
-
-	app.ModuleManager.SetOrderEndBlockers(
-		banktypes.ModuleName,
-		govtypes.ModuleName,
-		stakingtypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName,
-		authtypes.ModuleName,
-		ibcexported.ModuleName,
-		erc20types.ModuleName,
-		evmtypes.ModuleName,
-		feemarkettypes.ModuleName,
-		minttypes.ModuleName,
-		genutiltypes.ModuleName,
-		upgradetypes.ModuleName,
-	)
-
-	initOrder := []string{
-		authtypes.ModuleName,
-		banktypes.ModuleName,
-		distrtypes.ModuleName,
-		stakingtypes.ModuleName,
-		slashingtypes.ModuleName,
-		govtypes.ModuleName,
-		minttypes.ModuleName,
-		ibcexported.ModuleName,
-		evmtypes.ModuleName,
-		erc20types.ModuleName,
-		feemarkettypes.ModuleName,
-		ibctransfertypes.ModuleName,
-		genutiltypes.ModuleName,
-		upgradetypes.ModuleName,
-		consensustypes.ModuleName,
-	}
-	app.ModuleManager.SetOrderInitGenesis(initOrder...)
-	app.ModuleManager.SetOrderExportGenesis(initOrder...)
-}
-
 // initChainer replays the default app.InitChainer and then manually invokes
-// the ERC20 module's InitGenesis. The main evmd application does not (yet)
-// register the ERC20 module with the module manager, so we have to call it here
-// to ensure the keeper's state exists for tests that rely on ERC20 module.
+// the ERC20 & Transfer module's InitGenesis. The main evmd application does not (yet)
+// register the that modules with the module manager, so we have to call them here
+// to ensure the keeper's state exists for tests that rely on that modules.
 func (app *Erc20PrecompileApp) initChainer(ctx sdk.Context, req *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
-	var genesisState eapp.GenesisState
-	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
-		panic(err)
-	}
-
 	resp, err := app.App.InitChainer(ctx, req)
 	if err != nil {
 		return resp, err
+	}
+
+	var genesisState eapp.GenesisState
+	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
+		panic(err)
 	}
 
 	// ensure module accounts exist for test-only modules at runtime
@@ -343,34 +276,6 @@ func (app *Erc20PrecompileApp) initChainer(ctx sdk.Context, req *abcitypes.Reque
 	}
 
 	return resp, nil
-}
-
-// setdefaultGenesis sets default genesis states of modules
-func (app *Erc20PrecompileApp) setDefaultGenesis() map[string]json.RawMessage {
-	// disable base fee for testing
-	genesisState := app.DefaultGenesis()
-	fmGen := feemarkettypes.DefaultGenesisState()
-	fmGen.Params.NoBaseFee = true
-	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
-	stakingGen := stakingtypes.DefaultGenesisState()
-	stakingGen.Params.BondDenom = constants.ExampleAttoDenom
-	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
-	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = constants.ExampleAttoDenom
-	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
-
-	// set default erc20 module genesis state
-	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
-	genesisState[erc20types.ModuleName] = app.AppCodec().MustMarshalJSON(erc20GenState)
-
-	// ensure transfer module has a genesis entry so InitGenesis sets the port
-	// and avoids "invalid port: transfer" errors during channel creation
-	transferGen := ibctransfertypes.DefaultGenesisState()
-	genesisState[ibctransfertypes.ModuleName] = app.AppCodec().MustMarshalJSON(transferGen)
-
-	return genesisState
 }
 
 // addModulePermissions mirrors the production app's keeper wiring by

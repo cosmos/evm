@@ -66,7 +66,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	app.setBankPrecompile()
 
 	// override init chainer to include erc20 genesis init
-	app.SetInitChainer(app.bankInitChainer)
+	app.SetInitChainer(app.initChainer)
 
 	// load latest app state
 	// This metthod seals the app, so it must be called after all keepers are set
@@ -89,6 +89,7 @@ func (app *BankPrecompileApp) GetErc20Keeper() *erc20keeper.Keeper {
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
+// set erc20 keeper to app
 func (app *BankPrecompileApp) setERC20Keeper() {
 	// mount erc20 store
 	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
@@ -123,30 +124,26 @@ func (app *BankPrecompileApp) setBankPrecompile() {
 	app.App.GetEVMKeeper().RegisterStaticPrecompile(bankPrecmopile.Address(), bankPrecmopile)
 }
 
-// bankInitChainer replays the default app.InitChainer and then manually invokes
+// initChainer replays the default app.InitChainer and then manually invokes
 // the ERC20 module's InitGenesis. The main evmd application does not (yet)
 // register the ERC20 module with the module manager, so we have to call it here
 // to ensure the keeper's state exists for tests that rely on ERC20 module.
-func (app *BankPrecompileApp) bankInitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
-	var genesisState eapp.GenesisState
-	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
-		panic(err)
-	}
-
-	rawErc20Genesis, ok := genesisState[erc20types.ModuleName]
-	if !ok {
-		return app.App.InitChainer(ctx, req)
-	}
-
-	var erc20Genesis erc20types.GenesisState
-	app.AppCodec().MustUnmarshalJSON(rawErc20Genesis, &erc20Genesis)
-
+func (app *BankPrecompileApp) initChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	resp, err := app.App.InitChainer(ctx, req)
 	if err != nil {
 		return resp, err
 	}
 
-	erc20module.InitGenesis(ctx, app.Erc20Keeper, app.AccountKeeper, erc20Genesis)
+	var genesisState eapp.GenesisState
+	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
+		panic(err)
+	}
+
+	if rawErc20Genesis, ok := genesisState[erc20types.ModuleName]; ok {
+		var erc20Genesis erc20types.GenesisState
+		app.AppCodec().MustUnmarshalJSON(rawErc20Genesis, &erc20Genesis)
+		erc20module.InitGenesis(ctx, app.Erc20Keeper, app.AccountKeeper, erc20Genesis)
+	}
 
 	return resp, nil
 }

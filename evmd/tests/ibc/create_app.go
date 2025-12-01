@@ -50,12 +50,8 @@ var _ evm.IBCApp = (*IBCApp)(nil)
 type IBCApp struct {
 	eapp.App
 
-	Erc20Keeper   erc20keeper.Keeper
-	erc20StoreKey *storetypes.KVStoreKey
-
+	Erc20Keeper    erc20keeper.Keeper
 	TransferKeeper transferkeeper.Keeper
-	transferKey    *storetypes.KVStoreKey
-
 	CallbackKeeper ibccallbackskeeper.ContractKeeper
 }
 
@@ -120,28 +116,16 @@ func (app IBCApp) GetTransferKeeper() transferkeeper.Keeper {
 	return app.TransferKeeper
 }
 
-// GetKey returns the KVStoreKey for the provided store key, including test-only modules.
-func (app *IBCApp) GetKey(storeKey string) *storetypes.KVStoreKey {
-	if storeKey == erc20types.StoreKey {
-		return app.erc20StoreKey
-	}
-	if storeKey == ibctransfertypes.StoreKey {
-		return app.transferKey
-	}
-
-	return app.App.GetKey(storeKey)
-}
-
 // Helper funcitons
 //
 // Note: Dont't use this method in production code - only for test setup
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
+// set erc20 keeper to app
 func (app *IBCApp) setERC20Keeper() {
 	// mount erc20 store
 	erc20StoreKey := storetypes.NewKVStoreKey(erc20types.StoreKey)
-	app.erc20StoreKey = erc20StoreKey
 	app.MountStore(erc20StoreKey, storetypes.StoreTypeIAVL)
 	testutil.ExtendEvmStoreKey(app, erc20types.StoreKey, erc20StoreKey)
 
@@ -165,10 +149,10 @@ func (app *IBCApp) setERC20Keeper() {
 	erc20types.RegisterMsgServer(app.MsgServiceRouter(), &app.Erc20Keeper)
 }
 
+// set ibc transfer keeper to app
 func (app *IBCApp) setIBCTransferKeeper() {
 	// mount ibc transfer store
 	ibcTransferStoreKey := storetypes.NewKVStoreKey(ibctransfertypes.StoreKey)
-	app.transferKey = ibcTransferStoreKey
 	app.MountStore(ibcTransferStoreKey, storetypes.StoreTypeIAVL)
 	testutil.ExtendEvmStoreKey(app, ibctransfertypes.StoreKey, ibcTransferStoreKey)
 
@@ -195,6 +179,7 @@ func (app *IBCApp) setIBCTransferKeeper() {
 	ibctransfertypes.RegisterMsgServer(app.MsgServiceRouter(), app.TransferKeeper)
 }
 
+// set ibc transfer stack to app
 func (app *IBCApp) setIBCTransferStack() {
 	/*
 		Create Transfer Stack
@@ -252,18 +237,18 @@ func (app *IBCApp) setICS20Precompile() {
 }
 
 // initChainer replays the default app.InitChainer and then manually invokes
-// the ERC20 module's InitGenesis. The main evmd application does not (yet)
-// register the ERC20 module with the module manager, so we have to call it here
-// to ensure the keeper's state exists for tests that rely on ERC20 module.
+// the ERC20 & Transfer modules' InitGenesis. The main evmd application does not (yet)
+// register the ERC20 & Transfer modules with the module manager, so we have to call them here
+// to ensure the keeper's state exists for tests that rely on that modules.
 func (app *IBCApp) initChainer(ctx sdk.Context, req *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
-	var genesisState eapp.GenesisState
-	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
-		panic(err)
-	}
-
 	resp, err := app.App.InitChainer(ctx, req)
 	if err != nil {
 		return resp, err
+	}
+
+	var genesisState eapp.GenesisState
+	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
+		panic(err)
 	}
 
 	// ensure module accounts exist for test-only modules at runtime
@@ -290,7 +275,7 @@ func (app *IBCApp) initChainer(ctx sdk.Context, req *abcitypes.RequestInitChain)
 	return resp, nil
 }
 
-// setdefaultGenesis sets default genesis states of modules
+// setDefaultGenesis sets default genesis states of modules
 func (app *IBCApp) setDefaultGenesis() map[string]json.RawMessage {
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

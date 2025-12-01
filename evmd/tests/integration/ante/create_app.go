@@ -60,7 +60,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	return app
 }
 
-// Missing Erc20PrecompileApp interface methods
+// Missing AnteIntegrationApp interface methods
 func (app AnteIntegrationApp) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 	return app.FeeGrantKeeper
 }
@@ -71,6 +71,7 @@ func (app AnteIntegrationApp) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 // In production, store keys, abci method call orders, initChainer,
 // and module permissions should be setup in app.go
 
+// set feegrant keeper to app
 func (app *AnteIntegrationApp) setFeeGrantKeeper() {
 	// mount erc20 store
 	feeGrantStoreKey := storetypes.NewKVStoreKey(feegrant.StoreKey)
