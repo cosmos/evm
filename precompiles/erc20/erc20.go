@@ -1,11 +1,13 @@
 package erc20
 
 import (
-	"embed"
+	"bytes"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	_ "embed"
 
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -17,9 +19,6 @@ import (
 )
 
 const (
-	// abiPath defines the path to the ERC-20 precompile ABI JSON file.
-	abiPath = "abi.json"
-
 	// NOTE: These gas values have been derived from tests that have been concluded on a testing branch, which
 	// is not being merged to the main branch. The reason for this was to not clutter the repository with the
 	// necessary tests for this use case.
@@ -42,13 +41,13 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   embed.FS
+	f   []byte
 	ABI abi.ABI
 )
 
 func init() {
 	var err error
-	ABI, err = cmn.LoadABI(f, abiPath)
+	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
 		panic(err)
 	}
@@ -68,12 +67,6 @@ type Precompile struct {
 	BankKeeper cmn.BankKeeper
 }
 
-// LoadABI loads the IERC20Metadata ABI from the embedded abi.json file
-// for the erc20 precompile.
-func LoadABI() (abi.ABI, error) {
-	return cmn.LoadABI(f, abiPath)
-}
-
 // NewPrecompile creates a new ERC-20 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
@@ -84,10 +77,10 @@ func NewPrecompile(
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.GasConfig{},
-			TransientKVGasConfig: storetypes.GasConfig{},
-			ContractAddress:      tokenPair.GetERC20Contract(),
-			BalanceHandler:       cmn.NewBalanceHandler(bankKeeper),
+			KvGasConfig:           storetypes.GasConfig{},
+			TransientKVGasConfig:  storetypes.GasConfig{},
+			ContractAddress:       tokenPair.GetERC20Contract(),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		ABI:            ABI,
 		tokenPair:      tokenPair,

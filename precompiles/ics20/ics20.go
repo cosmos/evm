@@ -1,12 +1,14 @@
 package ics20
 
 import (
-	"embed"
+	"bytes"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	_ "embed"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -16,22 +18,19 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// PrecompileAddress of the ICS-20 EVM extension in hex format.
-const PrecompileAddress = "0x0000000000000000000000000000000000000802"
-
 var _ vm.PrecompiledContract = &Precompile{}
 
 var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   embed.FS
+	f   []byte
 	ABI abi.ABI
 )
 
 func init() {
 	var err error
-	ABI, err = cmn.LoadABI(f, "abi.json")
+	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
 		panic(err)
 	}
@@ -57,10 +56,10 @@ func NewPrecompile(
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.KVGasConfig(),
-			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ContractAddress:      common.HexToAddress(evmtypes.ICS20PrecompileAddress),
-			BalanceHandler:       cmn.NewBalanceHandler(bankKeeper),
+			KvGasConfig:           storetypes.KVGasConfig(),
+			TransientKVGasConfig:  storetypes.TransientGasConfig(),
+			ContractAddress:       common.HexToAddress(evmtypes.ICS20PrecompileAddress),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		ABI:            ABI,
 		bankKeeper:     bankKeeper,

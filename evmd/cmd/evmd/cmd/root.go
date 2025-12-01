@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cosmos/evm/utils"
+
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
@@ -19,8 +21,9 @@ import (
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdebug "github.com/cosmos/evm/client/debug"
 	evmdconfig "github.com/cosmos/evm/config"
-	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/config"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -57,7 +60,7 @@ func extractEVMChainID(chainID string) uint64 {
 	parts := strings.Split(chainID, "_")
 	if len(parts) < 2 {
 		// Fallback to default if parsing fails
-		return evmdconfig.EVMChainID
+		return evmdconfig.EpixMainnetChainID
 	}
 
 	// Get the part after underscore and before dash
@@ -66,7 +69,7 @@ func extractEVMChainID(chainID string) uint64 {
 	evmChainID, err := strconv.ParseUint(numericPart, 10, 64)
 	if err != nil {
 		// Fallback to default if parsing fails
-		return evmdconfig.EVMChainID
+		return evmdconfig.EpixMainnetChainID
 	}
 
 	return evmChainID
@@ -103,7 +106,7 @@ func NewRootCmd() *cobra.Command {
 		WithHomeDir(evmdconfig.MustGetDefaultNodeHome()).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
-		WithKeyringOptions(cosmosevmkeyring.Option()).
+		WithKeyringOptions(hd.EthSecp256k1Option()).
 		WithLedgerHasProtobuf(true)
 
 	rootCmd := &cobra.Command{
@@ -149,7 +152,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			var evmChainID uint64 = evmdconfig.EVMChainID // default
+			var evmChainID uint64 = evmdconfig.EpixMainnetChainID // default
 
 			chainIDFromCtx := initClientCtx.ChainID
 
@@ -164,7 +167,7 @@ func NewRootCmd() *cobra.Command {
 				evmChainID = extractEVMChainID(chainIDFromCtx)
 			}
 
-			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmChainID)
+			customAppTemplate, customAppConfig := config.InitAppConfig(evmdconfig.EpixChainDenom, evmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -415,11 +418,11 @@ func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err err
 	if chainID == "" {
 		// If not available load from home
 		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
+		chainID, err = utils.GetChainIDFromHome(homeDir)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	return
+	return chainID, err
 }

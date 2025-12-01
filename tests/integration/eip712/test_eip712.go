@@ -10,7 +10,6 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
-	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
 	"github.com/cosmos/evm/testutil/constants"
@@ -72,8 +71,6 @@ func (s *TestSuite) SetupTest() {
 	s.config = nw.GetEncodingConfig()
 	s.clientCtx = client.Context{}.WithTxConfig(s.config.TxConfig)
 	s.denom = evmtypes.GetEVMCoinDenom()
-
-	sdk.GetConfig().SetBech32PrefixForAccount(config.Bech32Prefix, "")
 }
 
 // createTestAddress creates random test addresses for messages

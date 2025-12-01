@@ -2,23 +2,24 @@ package evmd
 
 import (
 	"context"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/evm/x/vm/types"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
+	"github.com/cosmos/evm/x/vm/types"
 
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // UpgradeName defines the on-chain upgrade name for the sample EVMD upgrade
-// from v0.4.0 to v0.5.0.
+// from v0.5.0 to v0.6.0.
 //
 // NOTE: This upgrade defines a reference implementation of what an upgrade
 // could look like when an application is migrating from EVMD version
 // v0.4.0 to v0.5.x
-const UpgradeName = "v0.4.0-to-v0.5.0"
+const UpgradeName = "v0.5.0-to-v0.6.0"
 
 func (app EVMD) RegisterUpgradeHandlers() {
 	app.UpgradeKeeper.SetUpgradeHandler(
@@ -59,7 +60,12 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			if err != nil {
 				return nil, err
 			}
-
+			// Initialize EvmCoinInfo in the module store. Chains bootstrapped before v0.5.0
+			// binaries never stored this information (it lived only in process globals),
+			// so migrating nodes would otherwise see an empty EvmCoinInfo on upgrade.
+			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
+				return nil, err
+			}
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},
 	)

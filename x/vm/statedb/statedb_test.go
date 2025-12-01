@@ -191,7 +191,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(ctx, db)
@@ -265,7 +265,7 @@ func (suite *StateDBTestSuite) TestBalance() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -295,9 +295,7 @@ func (suite *StateDBTestSuite) TestState() {
 		{"set state even if same as original value (due to possible reverts within precompile calls)", func(db *statedb.StateDB) {
 			db.SetState(address, key1, value1)
 			db.SetState(address, key1, common.Hash{})
-		}, statedb.Storage{
-			key1: common.Hash{},
-		}},
+		}, statedb.Storage{}},
 		{"set state", func(db *statedb.StateDB) {
 			// check empty initial state
 			suite.Require().Equal(common.Hash{}, db.GetState(address, key1))
@@ -320,7 +318,7 @@ func (suite *StateDBTestSuite) TestState() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -430,7 +428,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 
 			{
@@ -469,7 +467,7 @@ func (suite *StateDBTestSuite) TestNestedSnapshot() {
 	value1 := common.BigToHash(big.NewInt(1))
 	value2 := common.BigToHash(big.NewInt(2))
 
-	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
 
 	rev1 := db.Snapshot()
 	db.SetState(address, key, value1)
@@ -587,7 +585,7 @@ func (suite *StateDBTestSuite) TestLog() {
 	// use a non-default tx config
 	txConfig := statedb.NewTxConfig(
 		txHash,
-		1, 1,
+		1,
 	)
 	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), txConfig)
 	data := []byte("hello world")
@@ -604,7 +602,7 @@ func (suite *StateDBTestSuite) TestLog() {
 		Data:        data,
 		BlockNumber: 1,
 		TxIndex:     1,
-		Index:       1,
+		Index:       0,
 	}
 	suite.Require().Equal(expecedLog, db.Logs()[0])
 
@@ -652,7 +650,7 @@ func (suite *StateDBTestSuite) TestRefund() {
 }
 
 func (suite *StateDBTestSuite) TestIterateStorage() {
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 
 	key1 := common.BigToHash(big.NewInt(1))
 	value1 := common.BigToHash(big.NewInt(2))

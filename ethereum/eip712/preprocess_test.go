@@ -29,7 +29,7 @@ import (
 // Testing Constants
 var (
 	// chainID is used in EIP-712 tests.
-	chainID = uint64(constants.ExampleEIP155ChainID)
+	chainID = uint64(constants.EighteenDecimalsChainID)
 
 	ctx = client.Context{}.WithTxConfig(
 		encoding.MakeConfig(chainID).TxConfig,
