@@ -21,7 +21,7 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 		return params
 	}
 	k.cdc.MustUnmarshal(bz, &params)
-	return
+	return params
 }
 
 // SetParams sets the EVM params each in their individual key for better get performance

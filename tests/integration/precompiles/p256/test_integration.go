@@ -16,6 +16,7 @@ import (
 	"github.com/cometbft/cometbft/crypto"
 
 	"github.com/cosmos/evm/precompiles/p256"
+	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -123,6 +124,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		When("the precompile is not enabled in the EVM params", func() {
 			BeforeAll(func() {
 				customGenesis := evmtypes.DefaultGenesisState()
+				customGenesis.Params.EvmDenom = constants.ChainsCoinInfo[constants.EighteenDecimalsChainID].Denom
 				customGenesis.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
 				params := customGenesis.Params
 				addr := s.precompileAddress.String()

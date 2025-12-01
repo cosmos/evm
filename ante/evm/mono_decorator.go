@@ -79,7 +79,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	evmDenom := evmtypes.GetEVMCoinDenom()
 
 	// 1. setup ctx
-	ctx, err = SetupContextAndResetTransientGas(ctx, tx, md.evmKeeper)
+	ctx, err = SetupContextAndResetTransientGas(ctx, tx)
 	if err != nil {
 		return ctx, err
 	}
@@ -265,14 +265,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	// 10. gas wanted
-	if err := CheckGasWanted(ctx, md.feeMarketKeeper, tx, decUtils.Rules.IsLondon, md.feemarketParams); err != nil {
-		return ctx, err
-	}
-
-	// 11. emit events
-	txIdx := uint64(msgIndex) //nolint:gosec // G115
-	EmitTxHashEvent(ctx, ethMsg, decUtils.BlockTxIndex, txIdx)
+	// Emit event unconditionally - ctx.TxIndex() will be valid during block execution
+	EmitTxHashEvent(ctx, ethMsg, uint64(ctx.TxIndex())) // #nosec G115 -- no overlfow here
 
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
 		return ctx, err

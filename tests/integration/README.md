@@ -26,7 +26,9 @@ All tests defined here can be used by any client application that implements the
 You can find usage examples under `evmd/tests/integration`.
 
 For instance, if you want to test your own application with the Bank Precompile Integration Test Suite,
-implement your own `CreateApp` function and pass it in as shown below:
+
+1. Refer to interfaces.go file and implement `EvmApp` interface in your own app.
+2. Refer to the `evmd/tests/integration/create_app.go` file and implement your own `CreateApp` function and pass it in as shown below:
 
 ```go
 package integration
@@ -35,15 +37,20 @@ import (
     "testing"
 
     "github.com/stretchr/testify/suite"
+    "github.com/cosmos/cosmos-sdk/baseapp"
+    evm "github.com/cosmos/evm"
+    testapp "github.com/cosmos/evm/testutil/app"
     "github.com/cosmos/evm/tests/integration/precompiles/bank"
 )
 
 func TestBankPrecompileTestSuite(t *testing.T) {
-    s := bank.NewPrecompileTestSuite(CreateEvmd)
+    create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
+    s := bank.NewPrecompileTestSuite(create)
     suite.Run(t, s)
 }
 
 func TestBankPrecompileIntegrationTestSuite(t *testing.T) {
-    bank.TestIntegrationSuite(t, CreateEvmd)
+    create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
+    bank.TestIntegrationSuite(t, create)
 }
 ```

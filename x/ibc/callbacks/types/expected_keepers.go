@@ -22,7 +22,7 @@ type AccountKeeper interface {
 
 // EVMKeeper defines the expected EVM keeper interface used on erc20
 type EVMKeeper interface {
-	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...any) (*evmtypes.MsgEthereumTxResponse, error)
 	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account

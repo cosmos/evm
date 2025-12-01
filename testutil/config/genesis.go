@@ -3,14 +3,12 @@ package config
 import (
 	"encoding/json"
 
-	"github.com/cosmos/evm/config"
+	"cosmossdk.io/math"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	"cosmossdk.io/math"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 // GenesisState of the blockchain is represented here as a map of raw json
@@ -29,6 +27,9 @@ type GenesisState map[string]json.RawMessage
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.EvmDenom = testconstants.ExampleAttoDenom
+	evmGenState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: testconstants.
+		ExampleAttoDenom}
 
 	return evmGenState
 }
@@ -44,14 +45,13 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 
 	return erc20GenState
 }
-
 // NewMintGenesisState returns the default genesis state for the mint module.
 //
 // NOTE: for the Epix chain implementation we are setting up the minting parameters
 // for the initial inflation rate of 10.527 billion EPIX per year.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = config.ExampleChainDenom
+	mintGenState.Params.MintDenom = testconstants.ExampleAttoDenom
 
 	// Set Epix-specific minting parameters
 	// Initial inflation: 10.527 billion EPIX per year / 42 billion max supply = ~25.06%

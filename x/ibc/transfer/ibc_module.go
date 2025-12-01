@@ -15,8 +15,8 @@ type IBCModule struct {
 
 // NewIBCModule creates a new IBCModule given the keeper
 func NewIBCModule(k keeper.Keeper) IBCModule {
-	transferModule := ibctransfer.NewIBCModule(*k.Keeper)
+	transferModule := ibctransfer.NewIBCModule(k.Keeper)
 	return IBCModule{
-		IBCModule: &transferModule,
+		IBCModule: transferModule,
 	}
 }

@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"io"
-	"path/filepath"
-
+path/filepath
 	"os"
 
 	"github.com/spf13/cast"
@@ -25,9 +23,9 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
-	evmconfig "github.com/cosmos/evm/config"
 	evmencoding "github.com/cosmos/evm/encoding"
 	evmaddress "github.com/cosmos/evm/encoding/address"
+	evmconfig "github.com/cosmos/evm/evmd/config"
 	evmmempool "github.com/cosmos/evm/mempool"
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -174,9 +172,8 @@ type EVMD struct {
 	pendingTxListeners []evmante.PendingTxListener
 
 	// keys to access the substores
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	oKeys map[string]*storetypes.ObjectStoreKey
 
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
@@ -276,8 +273,15 @@ func NewExampleApp(
 	}
 
 	keys := storetypes.NewKVStoreKeys(storeKeys...)
+	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	tkeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey, feemarkettypes.TransientKey)
+	var nonTransientKeys []storetypes.StoreKey
+	for _, k := range keys {
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	for _, k := range oKeys {
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -297,7 +301,7 @@ func NewExampleApp(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
-		tkeys:             tkeys,
+		oKeys:             oKeys,
 	}
 
 	// removed x/params: no ParamsKeeper initialization
@@ -331,6 +335,7 @@ func NewExampleApp(
 		authAddr,
 		logger,
 	)
+	app.BankKeeper = app.BankKeeper.WithObjStoreKey(oKeys[banktypes.ObjectStoreKey])
 
 	// optional: enable sign mode textual by overwriting the default tx config (after setting the bank keeper)
 	enabledSignModes := append(authtx.DefaultSignModes, signingtypes.SignMode_SIGN_MODE_TEXTUAL) //nolint:gocritic
@@ -420,7 +425,6 @@ func NewExampleApp(
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibcexported.StoreKey]),
-		nil,
 		app.UpgradeKeeper,
 		authAddr,
 	)
@@ -437,7 +441,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-			// register the governance hooks
+		// register the governance hooks
 		),
 	)
 
@@ -457,7 +461,6 @@ func NewExampleApp(
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
-		tkeys[feemarkettypes.TransientKey],
 	)
 
 	// Set up PreciseBank keeper
@@ -522,7 +525,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		appCodec, keys[evmtypes.StoreKey], oKeys[evmtypes.ObjectKey], nonTransientKeys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
@@ -539,6 +542,7 @@ func NewExampleApp(
 			&app.Erc20Keeper,
 			&app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
+			app.IBCKeeper.ClientKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
 			appCodec,
@@ -559,8 +563,8 @@ func NewExampleApp(
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		appCodec,
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -568,7 +572,6 @@ func NewExampleApp(
 		app.Erc20Keeper, // Add ERC20 Keeper for ERC20 transfers
 		authAddr,
 	)
-	app.TransferKeeper.SetAddressCodec(evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()))
 
 	/*
 		Create Transfer Stack
@@ -596,7 +599,10 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
+	callbacksMiddleware := ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
+	callbacksMiddleware.SetICS4Wrapper(app.IBCKeeper.ChannelKeeper)
+	callbacksMiddleware.SetUnderlyingApplication(transferStack)
+	transferStack = callbacksMiddleware
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -734,11 +740,12 @@ func NewExampleApp(
 
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
 	// to get the full block gas used.
-
 	// Build EndBlockers order
 	endBlockers := []string{
-		govtypes.ModuleName, stakingtypes.ModuleName,
-		authtypes.ModuleName, banktypes.ModuleName,
+		banktypes.ModuleName,
+		govtypes.ModuleName,
+		stakingtypes.ModuleName,
+		authtypes.ModuleName,
 
 		// Cosmos EVM EndBlockers
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
@@ -833,7 +840,7 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
-	app.MountTransientStores(tkeys)
+	app.MountObjectStores(oKeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
@@ -1037,20 +1044,6 @@ func (app *EVMD) GetKey(storeKey string) *storetypes.KVStoreKey {
 	return app.keys[storeKey]
 }
 
-// GetTKey returns the TransientStoreKey for the provided store key.
-//
-// NOTE: This is solely to be used for testing purposes.
-func (app *EVMD) GetTKey(storeKey string) *storetypes.TransientStoreKey {
-	return app.tkeys[storeKey]
-}
-
-// GetMemKey returns the MemStoreKey for the provided mem key.
-//
-// NOTE: This is solely used for testing purposes.
-func (app *EVMD) GetMemKey(storeKey string) *storetypes.MemoryStoreKey {
-	return app.memKeys[storeKey]
-}
-
 // SimulationManager implements the SimulationApp interface
 func (app *EVMD) SimulationManager() *module.SimulationManager {
 	return app.sm
@@ -1166,10 +1159,6 @@ func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
 	return app.AccountKeeper
 }
 
-func (app *EVMD) GetAuthzKeeper() authzkeeper.Keeper {
-	return app.AuthzKeeper
-}
-
 func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
 	return app.DistrKeeper
 }
@@ -1218,7 +1207,7 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.
 func (app *EVMD) Close() error {
 	var err error
-	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
 		app.Logger().Info("Shutting down mempool")
 		err = m.Close()
 	}

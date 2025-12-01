@@ -3,13 +3,12 @@ package evmd
 import (
 	"context"
 
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	storetypes "cosmossdk.io/store/types"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-
-	storetypes "cosmossdk.io/store/types"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // UpgradeName defines the on-chain upgrade name for the EpixChain upgrade
@@ -56,7 +55,6 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			// Since EpixChain is an 18-decimal chain, we skip this step
 
 			sdkCtx.Logger().Info("EpixChain denom metadata updated successfully")
-
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},
 	)

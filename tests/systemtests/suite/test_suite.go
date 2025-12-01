@@ -1,21 +1,36 @@
 package suite
 
 import (
+	"crypto/ecdsa"
+	"fmt"
 	"math/big"
+	"slices"
+	"sync"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/tests/systemtests/clients"
 
 	"cosmossdk.io/systemtests"
+<<<<<<< HEAD
 	"github.com/cosmos/evm/tests/systemtests/clients"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
+=======
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+>>>>>>> main
 )
 
-// SystemTestSuite implements the TestSuite interface and
+// BaseTestSuite implements the TestSuite interface and
 // provides methods for managing test lifecycle,
 // sending transactions, querying state,
 // and managing expected mempool state.
-type SystemTestSuite struct {
+type BaseTestSuite struct {
 	*systemtests.SystemUnderTest
 	options *TestOptions
 
@@ -23,99 +38,136 @@ type SystemTestSuite struct {
 	EthClient    *clients.EthClient
 	CosmosClient *clients.CosmosClient
 
+	// Accounts shared across clients
+	accounts     []*TestAccount
+	accountsByID map[string]*TestAccount
+
+	// Chain management
+	chainMu         sync.Mutex
+	currentNodeArgs []string
+
 	// Most recently retrieved base fee
 	baseFee *big.Int
-
-	// Expected transaction hashes
-	expPendingTxs []*TxInfo
-	expQueuedTxs  []*TxInfo
 }
 
-func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
-	ethClient, err := clients.NewEthClient()
+func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
+	ethClient, ethAccounts, err := clients.NewEthClient()
 	require.NoError(t, err)
 
-	cosmosClient, err := clients.NewCosmosClient()
+	cosmosClient, cosmosAccounts, err := clients.NewCosmosClient()
 	require.NoError(t, err)
 
-	return &SystemTestSuite{
+	accountCount := len(ethAccounts)
+	require.Equal(t, accountCount, len(cosmosAccounts), "ethereum/cosmos account mismatch")
+	accounts := make([]*TestAccount, accountCount)
+	accountsByID := make(map[string]*TestAccount, accountCount)
+	for i := 0; i < accountCount; i++ {
+		id := fmt.Sprintf("acc%d", i)
+		ethAcc, ok := ethAccounts[id]
+		require.Truef(t, ok, "ethereum account %s not found", id)
+		cosmosAcc, ok := cosmosAccounts[id]
+		require.Truef(t, ok, "cosmos account %s not found", id)
+		acc := &TestAccount{
+			ID:           id,
+			Address:      ethAcc.Address,
+			AccAddress:   cosmosAcc.AccAddress,
+			AccNumber:    cosmosAcc.AccountNumber,
+			ECDSAPrivKey: ethAcc.PrivKey,
+			PrivKey:      cosmosAcc.PrivKey,
+			Eth:          ethAcc,
+			Cosmos:       cosmosAcc,
+		}
+		accounts[i] = acc
+		accountsByID[id] = acc
+	}
+
+	suite := &BaseTestSuite{
 		SystemUnderTest: systemtests.Sut,
 		EthClient:       ethClient,
 		CosmosClient:    cosmosClient,
+		accounts:        accounts,
+		accountsByID:    accountsByID,
 	}
+	return suite
+}
+
+var (
+	sharedSuiteOnce sync.Once
+	sharedSuite     *BaseTestSuite
+)
+
+func GetSharedSuite(t *testing.T) *BaseTestSuite {
+	t.Helper()
+
+	sharedSuiteOnce.Do(func() {
+		sharedSuite = NewBaseTestSuite(t)
+	})
+
+	return sharedSuite
+}
+
+// RunWithSharedSuite retrieves the shared suite instance and executes the provided test function.
+func RunWithSharedSuite(t *testing.T, fn func(*testing.T, *BaseTestSuite)) {
+	t.Helper()
+	fn(t, GetSharedSuite(t))
+}
+
+// TestAccount aggregates account metadata usable across both Ethereum and Cosmos flows.
+type TestAccount struct {
+	ID         string
+	Address    common.Address
+	AccAddress sdk.AccAddress
+	AccNumber  uint64
+
+	ECDSAPrivKey *ecdsa.PrivateKey
+	PrivKey      *ethsecp256k1.PrivKey
+
+	Eth    *clients.EthAccount
+	Cosmos *clients.CosmosAccount
 }
 
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
-func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+	t.Helper()
+
 	if len(nodeStartArgs) == 0 {
 		nodeStartArgs = DefaultNodeArgs()
 	}
 
+<<<<<<< HEAD
 	s.ResetChain(t)
 	s.ModifyGenesisJSON(t, setupTestDenomMetadata(t))
+=======
+	s.LockChain()
+	defer s.UnlockChain()
+
+	if !s.ChainStarted {
+		s.currentNodeArgs = nil
+	}
+
+	if s.ChainStarted && slices.Equal(nodeStartArgs, s.currentNodeArgs) {
+		// Chain already running with desired configuration; nothing to do.
+		return
+	}
+
+	if s.ChainStarted {
+		s.ResetChain(t)
+	}
+
+>>>>>>> main
 	s.StartChain(t, nodeStartArgs...)
+	s.currentNodeArgs = append([]string(nil), nodeStartArgs...)
 	s.AwaitNBlocks(t, 2)
 }
 
-// BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
-func (s *SystemTestSuite) BeforeEachCase(t *testing.T) {
-	// Reset expected pending/queued transactions
-	s.expPendingTxs = []*TxInfo{}
-	s.expQueuedTxs = []*TxInfo{}
-
-	// Get current base fee
-	currentBaseFee, err := s.GetLatestBaseFee("node0")
-	require.NoError(t, err)
-
-	s.baseFee = currentBaseFee
+// LockChain acquires exclusive control over the underlying chain lifecycle.
+func (s *BaseTestSuite) LockChain() {
+	s.chainMu.Lock()
 }
 
-// JustAfterEach checks the expected mempool state right after each test case
-func (s *SystemTestSuite) AfterEachAction(t *testing.T) {
-	// Check pending txs exist in mempool or already committed - concurrently
-	err := s.CheckTxsPendingAsync(s.GetExpPendingTxs())
-	require.NoError(t, err)
-
-	// Check queued txs only exist in local mempool (queued txs should be only EVM txs)
-	err = s.CheckTxsQueuedSync(s.GetExpQueuedTxs())
-	require.NoError(t, err)
-
-	// Wait for block commit
-	s.AwaitNBlocks(t, 1)
-
-	// Get current base fee and set it to suite.baseFee
-	currentBaseFee, err := s.GetLatestBaseFee("node0")
-	require.NoError(t, err)
-
-	s.baseFee = currentBaseFee
-}
-
-// AfterEach waits for all expected pending transactions to be committed
-func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
-	// Check all expected pending txs are committed
-	for _, txInfo := range s.GetExpPendingTxs() {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*60)
-		require.NoError(t, err)
-	}
-
-	// Check all evm pending txs are cleared in mempool
-	for i := range s.Nodes() {
-		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
-		require.NoError(t, err)
-
-		require.Len(t, pending, 0, "pending txs are not cleared in mempool")
-	}
-
-	// Check all cosmos pending txs are cleared in mempool
-	for i := range s.Nodes() {
-		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeCosmos)
-		require.NoError(t, err)
-
-		require.Len(t, pending, 0, "pending txs are not cleared in mempool")
-	}
-
-	// Wait for block commit
-	s.AwaitNBlocks(t, 1)
+// UnlockChain releases the chain lifecycle lock.
+func (s *BaseTestSuite) UnlockChain() {
+	s.chainMu.Unlock()
 }
 
 // setupTestDenomMetadata returns a function that sets up the required denom metadata for "atest" in genesis

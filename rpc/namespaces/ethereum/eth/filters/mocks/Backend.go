@@ -686,7 +686,8 @@ func (_c *Backend_RPCLogsCap_Call) RunAndReturn(run func() int32) *Backend_RPCLo
 func NewBackend(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *Backend {
+},
+) *Backend {
 	mock := &Backend{}
 	mock.Mock.Test(t)
 

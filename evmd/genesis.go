@@ -2,7 +2,7 @@ package evmd
 
 import (
 	"encoding/json"
-	"github.com/cosmos/evm/config"
+
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	epixminttypes "github.com/cosmos/evm/x/epixmint/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -53,10 +53,10 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 // for the initial inflation rate of 10.527 billion EPIX per year.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = config.ExampleChainDenom
 
 	// Set Epix-specific minting parameters
 	// Initial inflation: 10.527 billion EPIX per year / 42 billion max supply = ~25.06%
+	mintGenState.Params.MintDenom = testconstants.ExampleAttoDenom
 	mintGenState.Params.InflationRateChange = math.LegacyMustNewDecFromStr("0.130000000000000000") // 13% max annual change
 	mintGenState.Params.InflationMax = math.LegacyMustNewDecFromStr("1.000000000000000000")        // 100% max (42B max supply)
 	mintGenState.Params.InflationMin = math.LegacyMustNewDecFromStr("0.070000000000000000")        // 7% minimum
@@ -65,7 +65,6 @@ func NewMintGenesisState() *minttypes.GenesisState {
 
 	// Set initial inflation rate
 	mintGenState.Minter.Inflation = math.LegacyMustNewDecFromStr("0.250642857142857000") // Initial rate
-
 	return mintGenState
 }
 
@@ -102,23 +101,23 @@ func NewBankGenesisState() *banktypes.GenesisState {
 	// Add metadata for aepix/epix denominations
 	epixMetadata := banktypes.Metadata{
 		Description: "The native staking and governance token of the EpixChain",
-		Base:        config.EpixChainDenom, // "aepix"
+		Base:        testconstants.ExampleAttoDenom, // "aepix"
 		// NOTE: Denom units MUST be increasing by exponent
 		DenomUnits: []*banktypes.DenomUnit{
 			{
-				Denom:    config.EpixChainDenom, // "aepix"
+				Denom:    testconstants.ExampleAttoDenom, // "aepix"
 				Exponent: 0,
 				Aliases:  []string{"aepix"},
 			},
 			{
-				Denom:    config.EpixDisplayDenom, // "epix"
+				Denom:    testconstants.ExampleDisplayDenom, // "epix"
 				Exponent: 18,
 				Aliases:  []string{"epix"},
 			},
 		},
 		Name:    "EpixChain",
 		Symbol:  "EPIX",
-		Display: config.EpixDisplayDenom, // "epix"
+		Display: testconstants.ExampleDisplayDenom, // "epix"
 	}
 
 	bankGenState.DenomMetadata = []banktypes.Metadata{epixMetadata}

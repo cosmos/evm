@@ -12,7 +12,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
@@ -67,12 +66,6 @@ func (n *IntegrationNetwork) GetAuthClient() authtypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
 	authtypes.RegisterQueryServer(queryHelper, authkeeper.NewQueryServer(n.app.GetAccountKeeper()))
 	return authtypes.NewQueryClient(queryHelper)
-}
-
-func (n *IntegrationNetwork) GetAuthzClient() authz.QueryClient {
-	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	authz.RegisterQueryServer(queryHelper, n.app.GetAuthzKeeper())
-	return authz.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetStakingClient() stakingtypes.QueryClient {

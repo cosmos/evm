@@ -2,19 +2,19 @@ package integration
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
 	dbm "github.com/cosmos/cosmos-db"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/evmd"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
-	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -26,7 +26,9 @@ import (
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
 // This version uses a noop mempool to avoid state issues during transaction processing
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
-	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".epixd")
+	// A temporary home directory is created and used to prevent race conditions
+	// related to home directory locks in chains that use the WASM module.
+	defaultNodeHome, err := os.MkdirTemp("", "epixd-temp-homedir")
 	if err != nil {
 		panic(err)
 	}
@@ -51,12 +53,17 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
+	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
+	if err != nil {
+		panic(err)
+	}
+
 	app := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
-		NewAppOptionsWithFlagHomeAndChainID("", constants.ExampleEIP155ChainID),
+		NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID),
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
@@ -64,10 +71,10 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	fmGen.Params.NoBaseFee = true
 	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
 	stakingGen := stakingtypes.DefaultGenesisState()
-	stakingGen.Params.BondDenom = config.ExampleChainDenom
+	stakingGen.Params.BondDenom = constants.ExampleAttoDenom
 	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
 	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = config.ExampleChainDenom
+	mintGen.Params.MintDenom = constants.ExampleAttoDenom
 	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
 
 	return app, genesisState
