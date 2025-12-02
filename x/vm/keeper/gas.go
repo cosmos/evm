@@ -36,7 +36,7 @@ func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *para
 // AnteHandler.
 func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "RefundGas", trace.WithAttributes(attribute.Int64("leftover_gas", int64(leftoverGas))))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	// Return EVM tokens for remaining gas, exchanged at the original rate.

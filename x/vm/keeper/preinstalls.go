@@ -15,7 +15,7 @@ import (
 
 func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "AddPreinstalls")
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	for _, preinstall := range preinstalls {
 		address := common.HexToAddress(preinstall.Address)

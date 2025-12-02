@@ -19,7 +19,7 @@ import (
 // EVMConfig creates the EVMConfig based on current state
 func (k *Keeper) EVMConfig(ctx sdk.Context, proposerAddress sdk.ConsAddress) (_ *statedb.EVMConfig, err error) {
 	ctx, span := ctx.StartSpan(tracer, "EVMConfig", trace.WithAttributes(attribute.String("proposer", proposerAddress.String())))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	params := k.GetParams(ctx)
 	feemarketParams := k.feeMarketWrapper.GetParams(ctx)

@@ -39,10 +39,12 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	ctx sdk.Context,
 	msg core.Message,
 	cfg *statedb.EVMConfig,
-	tracer *tracing.Hooks,
+	tracingHooks *tracing.Hooks,
 	stateDB vm.StateDB,
 	overridePrecompiles bool,
 ) *vm.EVM {
+	ctx, span := ctx.StartSpan(tracer, "NewEVMWithOverridePrecompiles")
+	defer span.End()
 	ctx = k.SetConsensusParamsInCtx(ctx)
 	blockCtx := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
@@ -59,10 +61,10 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 
 	ethCfg := types.GetEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
-	if tracer == nil {
-		tracer = k.Tracer(ctx, msg, ethCfg)
+	if tracingHooks == nil {
+		tracingHooks = k.Tracer(ctx, msg, ethCfg)
 	}
-	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
+	vmConfig := k.VMConfig(ctx, msg, cfg, tracingHooks)
 
 	signer := msg.From
 	accessControl := types.NewRestrictedPermissionPolicy(&cfg.Params.AccessControl, signer)
@@ -99,14 +101,16 @@ func (k *Keeper) NewEVM(
 	ctx sdk.Context,
 	msg core.Message,
 	cfg *statedb.EVMConfig,
-	tracer *tracing.Hooks,
+	tracingHooks *tracing.Hooks,
 	stateDB vm.StateDB,
 ) *vm.EVM {
+	ctx, span := ctx.StartSpan(tracer, "NewEVM")
+	defer span.End()
 	return k.NewEVMWithOverridePrecompiles(
 		ctx,
 		msg,
 		cfg,
-		tracer,
+		tracingHooks,
 		stateDB,
 		true,
 	)
@@ -123,6 +127,9 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			k.Logger(ctx).Error("failed to cast height to int64", "error", err)
 			return common.Hash{}
 		}
+
+		ctx, span := ctx.StartSpan(tracer, "GetHashFnInner", trace.WithAttributes(attribute.Int64("height", h)))
+		defer span.End()
 
 		switch {
 		case ctx.BlockHeight() == h:
@@ -201,7 +208,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 	ctx, span := ctx.StartSpan(tracer, "ApplyTransaction", trace.WithAttributes(
 		attribute.String("hash", tx.Hash().String()),
 	))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
@@ -325,14 +332,16 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
-func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+	ctx, span := ctx.StartSpan(tracer, "ApplyMessage")
+	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
 
 	txConfig := statedb.NewEmptyTxConfig()
-	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal, nil)
+	return k.ApplyMessageWithConfig(ctx, msg, tracingHooks, commit, cfg, txConfig, internal, nil)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -395,7 +404,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 		attribute.Bool("commit", commit),
 		attribute.Bool("internal", internal),
 	))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	stateDB := statedb.New(ctx, k, txConfig)
@@ -471,7 +480,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 		var contractAddr common.Address
 		ret, contractAddr, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
-		if vmErr != nil {
+		if vmErr == nil {
 			span.AddEvent("contract_creation", trace.WithAttributes(attribute.String("contract_address", contractAddr.String())))
 		}
 	} else {

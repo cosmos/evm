@@ -243,7 +243,7 @@ func (k *Keeper) PostTxProcessing(
 		attribute.String("sender", sender.String()),
 		attribute.String("hash", receipt.TxHash.String()),
 	))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	if k.hooks == nil {
 		return nil

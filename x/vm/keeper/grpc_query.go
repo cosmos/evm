@@ -51,7 +51,7 @@ const (
 func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (_ *types.QueryAccountResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "Account", trace.WithAttributes(attribute.String("address", req.Address)))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -78,7 +78,7 @@ func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (_ *t
 func (k Keeper) CosmosAccount(c context.Context, req *types.QueryCosmosAccountRequest) (_ *types.QueryCosmosAccountResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "CosmosAccount", trace.WithAttributes(attribute.String("address", req.Address)))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -111,7 +111,7 @@ func (k Keeper) CosmosAccount(c context.Context, req *types.QueryCosmosAccountRe
 func (k Keeper) ValidatorAccount(c context.Context, req *types.QueryValidatorAccountRequest) (_ *types.QueryValidatorAccountResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "ValidatorAccount", trace.WithAttributes(attribute.String("address", req.ConsAddress)))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -154,7 +154,7 @@ func (k Keeper) ValidatorAccount(c context.Context, req *types.QueryValidatorAcc
 func (k Keeper) Balance(c context.Context, req *types.QueryBalanceRequest) (_ *types.QueryBalanceResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "Balance", trace.WithAttributes(attribute.String("address", req.Address)))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -184,7 +184,7 @@ func (k Keeper) Storage(c context.Context, req *types.QueryStorageRequest) (_ *t
 		attribute.String("address", req.Address),
 		attribute.String("key", req.Key),
 	))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -215,7 +215,7 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (_ *types.Q
 	ctx, span := ctx.StartSpan(tracer, "Code", trace.WithAttributes(
 		attribute.String("address", req.Address),
 	))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -245,8 +245,8 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (_ *types.Q
 // Params implements the Query/Params gRPC method
 func (k Keeper) Params(c context.Context, _ *types.QueryParamsRequest) (_ *types.QueryParamsResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx, span := ctx.StartSpan(tracer, "Storage", trace.WithAttributes())
-	// defer func() { span.RecordError(err) }()
+	ctx, span := ctx.StartSpan(tracer, "Params", trace.WithAttributes())
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	params := k.GetParams(ctx)
@@ -259,8 +259,8 @@ func (k Keeper) Params(c context.Context, _ *types.QueryParamsRequest) (_ *types
 // EthCall implements eth_call rpc api.
 func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.MsgEthereumTxResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx, span := ctx.StartSpan(tracer, "Storage", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
-	// defer func() { span.RecordError(err) }()
+	ctx, span := ctx.StartSpan(tracer, "EthCall", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -309,7 +309,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 // EstimateGas implements eth_estimateGas rpc api.
 func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (_ *types.EstimateGasResponse, err error) {
 	c, span := tracer.Start(c, "EstimateGas", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	return k.EstimateGasInternal(c, req, types.RPC)
 }
@@ -321,8 +321,8 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (_ *ty
 // an accurate gas estimation for EVM extensions transactions.
 func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest, fromType types.CallType) (_ *types.EstimateGasResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx, span := ctx.StartSpan(tracer, "EstimateGas", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
-	// defer func() { span.RecordError(err) }()
+	ctx, span := ctx.StartSpan(tracer, "EstimateGasInternal", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -541,7 +541,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *types.QueryTraceTxResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "TraceTx")
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil || req.Msg == nil {
@@ -649,7 +649,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest) (_ *types.QueryTraceBlockResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "TraceBlock")
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil {
@@ -724,7 +724,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (_ *types.QueryTraceCallResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
 	ctx, span := ctx.StartSpan(tracer, "TraceCall")
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 
 	if req == nil || req.Args == nil {
@@ -808,7 +808,7 @@ func (k *Keeper) traceTx(
 	commitMessage bool,
 ) (_ *any, err error) {
 	ctx, span := ctx.StartSpan(tracer, "traceTx")
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
@@ -828,7 +828,7 @@ func (k *Keeper) traceTxWithMsg(
 	commitMessage bool,
 ) (_ *any, err error) {
 	ctx, span := ctx.StartSpan(tracer, "traceTxWithMsg")
-	// defer func() { span.RecordError(err) }()
+	defer func() { span.RecordError(err) }()
 	defer span.End()
 	// Assemble the structured logger or the JavaScript tracer
 	var (
