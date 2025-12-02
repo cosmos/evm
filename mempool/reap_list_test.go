@@ -17,11 +17,13 @@ import (
 )
 
 // Helper function to create a test transaction with specific gas
-func testTx(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gas uint64, value int64) *types.Transaction {
+func testTx(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gas uint64) *types.Transaction {
+	t.Helper()
+
 	tx := types.NewTransaction(
 		nonce,
 		common.Address{},
-		big.NewInt(value),
+		big.NewInt(txValue),
 		gas,
 		big.NewInt(1),
 		nil,
@@ -45,7 +47,7 @@ func failingEncoder(failNonces map[uint64]bool) func(tx *types.Transaction) ([]b
 		if failNonces[tx.Nonce()] {
 			return nil, errors.New("encoding failed")
 		}
-		return make([]byte, 5), nil
+		return make([]byte, 100+(tx.Nonce()*10)), nil
 	}
 }
 
@@ -62,7 +64,7 @@ func TestReapList_SingleTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	rl := mempool.NewReapList(deterministicEncoder(100))
-	tx := testTx(t, key, 0, 21000, 100)
+	tx := testTx(t, key, 0, 21000)
 	rl.Push(tx)
 
 	result := rl.Reap(0, 0)
@@ -83,7 +85,7 @@ func TestReapList_NoLimits(t *testing.T) {
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -101,7 +103,7 @@ func TestReapList_MaxBytesLimit(t *testing.T) {
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -123,9 +125,11 @@ func TestReapList_MaxGasLimit(t *testing.T) {
 
 	// Add transactions with varying gas
 	txGases := []uint64{21000, 30000, 40000, 50000, 60000}
-	for i, gas := range txGases {
-		tx := testTx(t, key, uint64(i), gas, 100)
+	var nonce uint64
+	for _, gas := range txGases {
+		tx := testTx(t, key, nonce, gas)
 		rl.Push(tx)
+		nonce++
 	}
 
 	// Limit to 100000 gas (should get first 3 txs: 21000 + 30000 + 40000 = 91000)
@@ -146,9 +150,11 @@ func TestReapList_BothLimits(t *testing.T) {
 
 	// Add transactions with varying gas
 	txGases := []uint64{21000, 30000, 40000, 50000, 60000}
-	for i, gas := range txGases {
-		tx := testTx(t, key, uint64(i), gas, 100)
+	var nonce uint64
+	for _, gas := range txGases {
+		tx := testTx(t, key, nonce, gas)
 		rl.Push(tx)
+		nonce++
 	}
 
 	// Limit to 250 bytes (2.5 txs) and 70000 gas (first 3 txs would be 91000)
@@ -175,7 +181,7 @@ func TestReapList_ExactBytesLimit(t *testing.T) {
 
 	// Add 5 transactions
 	for i := uint64(0); i < 5; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -193,9 +199,11 @@ func TestReapList_ExactGasLimit(t *testing.T) {
 
 	// Add transactions with specific gas amounts
 	txGases := []uint64{21000, 30000, 40000}
-	for i, gas := range txGases {
-		tx := testTx(t, key, uint64(i), gas, 100)
+	var nonce uint64
+	for _, gas := range txGases {
+		tx := testTx(t, key, nonce, gas)
 		rl.Push(tx)
+		nonce++
 	}
 
 	// Limit to exactly 51000 gas (21000 + 30000 = 51000, exactly 2 txs)
@@ -214,7 +222,7 @@ func TestReapList_EncodingFailure(t *testing.T) {
 
 	// Add 5 transactions (nonces 0-4)
 	for i := uint64(0); i < 5; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -246,8 +254,9 @@ func TestReapList_OrderPreservation(t *testing.T) {
 	rl := mempool.NewReapList(encoder)
 
 	// Add transactions in specific order
-	for i := uint64(0); i < 5; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+	var nonce uint64
+	for ; nonce < 5; nonce++ {
+		tx := testTx(t, key, nonce, 21000)
 		rl.Push(tx)
 	}
 
@@ -256,9 +265,10 @@ func TestReapList_OrderPreservation(t *testing.T) {
 	require.Len(t, result, 5, "should reap all transactions")
 
 	// Verify order is preserved (oldest to newest)
-	for i := 0; i < 5; i++ {
-		nonce := binary.LittleEndian.Uint64(result[i])
-		require.Equal(t, uint64(i), nonce, "transactions should be in order")
+	nonce = 0
+	for ; nonce < 5; nonce++ {
+		nonce := binary.LittleEndian.Uint64(result[nonce])
+		require.Equal(t, nonce, nonce, "transactions should be in order")
 	}
 }
 
@@ -270,7 +280,7 @@ func TestReapList_MultipleReaps(t *testing.T) {
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -299,7 +309,7 @@ func TestReapList_PushAfterReap(t *testing.T) {
 
 	// Add 5 transactions
 	for i := uint64(0); i < 5; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -309,7 +319,7 @@ func TestReapList_PushAfterReap(t *testing.T) {
 
 	// Add 3 more
 	for i := uint64(5); i < 8; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 
@@ -331,7 +341,7 @@ func TestReapList_ConcurrentPushAndReap(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := uint64(0); i < 100; i++ {
-			tx := testTx(t, key, i, 21000, 100)
+			tx := testTx(t, key, i, 21000)
 			rl.Push(tx)
 		}
 	}()
@@ -366,7 +376,7 @@ func TestReapList_FirstTransactionExceedsLimit(t *testing.T) {
 	rl := mempool.NewReapList(deterministicEncoder(1000))
 
 	// Add transaction
-	tx := testTx(t, key, 0, 21000, 100)
+	tx := testTx(t, key, 0, 21000)
 	rl.Push(tx)
 
 	// Try to reap with limit smaller than first tx
@@ -393,7 +403,7 @@ func TestReapList_AllTransactionsFailEncoding(t *testing.T) {
 
 	// Add transactions
 	for i := uint64(0); i < 5; i++ {
-		tx := testTx(t, key, i, 21000, 100)
+		tx := testTx(t, key, i, 21000)
 		rl.Push(tx)
 	}
 

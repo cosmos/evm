@@ -67,7 +67,7 @@ type (
 		eventBus *cmttypes.EventBus
 
 		/** Transaction Reaping **/
-		reapList  *reapList
+		reapList  *ReapList
 		reapGuard sync.Map
 	}
 )

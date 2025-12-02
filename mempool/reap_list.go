@@ -5,19 +5,18 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
-type reapList struct {
-	txs      types.Transactions
+type ReapList struct {
+	txs      ethtypes.Transactions
 	txLookup map[common.Hash]int
 	txsLock  sync.RWMutex
 	encodeTx func(tx *ethtypes.Transaction) ([]byte, error)
 }
 
-func NewReapList(encodeTx func(tx *ethtypes.Transaction) ([]byte, error)) *reapList {
-	return &reapList{
+func NewReapList(encodeTx func(tx *ethtypes.Transaction) ([]byte, error)) *ReapList {
+	return &ReapList{
 		encodeTx: encodeTx,
 		txLookup: make(map[common.Hash]int),
 	}
@@ -29,7 +28,7 @@ func NewReapList(encodeTx func(tx *ethtypes.Transaction) ([]byte, error)) *reapL
 //
 // If encoding fails for a tx, it is removed from the reap list and is not
 // returned.
-func (rl *reapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
+func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
@@ -69,14 +68,14 @@ func (rl *reapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	}
 
 	if nextStart >= len(rl.txs) {
-		rl.txs = types.Transactions{}
+		rl.txs = ethtypes.Transactions{}
 	} else {
 		// In order to remove the txs that were returned from reap, we can simply
 		// reslice the list since all removed txs were from the start, and we saved
 		// where the next set of valid txs start in nextStart.
 		//
 		// Also compact away any nil values from the new slice.
-		rl.txs = slices.DeleteFunc(rl.txs[nextStart:], func(tx *types.Transaction) bool {
+		rl.txs = slices.DeleteFunc(rl.txs[nextStart:], func(tx *ethtypes.Transaction) bool {
 			return tx == nil
 		})
 	}
@@ -92,7 +91,7 @@ func (rl *reapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 
 // Push inserts a tx to the back of the reap list as the "newest" transaction
 // (last to be returned if Reap was called now).
-func (rl *reapList) Push(tx *ethtypes.Transaction) {
+func (rl *ReapList) Push(tx *ethtypes.Transaction) {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
@@ -103,7 +102,7 @@ func (rl *reapList) Push(tx *ethtypes.Transaction) {
 // Drop removes an individual tx from the reap list. If the tx is not in the
 // list, no changes are made. This should only be called when a tx that was
 // previously validated, becomes invalid.
-func (rl *reapList) Drop(tx *ethtypes.Transaction) {
+func (rl *ReapList) Drop(tx *ethtypes.Transaction) {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
