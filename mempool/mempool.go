@@ -203,11 +203,18 @@ func NewExperimentalEVMMempool(
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
-	legacyPool.OnTxPromoted = evmMempool.MarkTxToBeReaped
+	legacyPool.OnTxPromoted = evmMempool.markTxToBeReaped
 
 	// Once we are removing the tx, we no longer need to block it from being
 	// sent to the reaplist again and can remove from the guard
 	legacyPool.OnTxRemoved = func(tx *ethtypes.Transaction) {
+		// tx was invalidated for some reason or was included in a block
+		// (either way it is no longer in the mempool), if this tx is in the
+		// reap list we need remove it from there (no longer need to gossip to
+		// others about the tx) + the reap guard (since we may see this tx at a
+		// later time, in which case we should gossip it again) by readding to
+		// the reap guard.
+		evmMempool.reapList.Drop(tx)
 		evmMempool.reapGuard.Delete(tx.Hash())
 	}
 
@@ -387,10 +394,10 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 	return txs, nil
 }
 
-// MarkTxToBeReaped adds a transaction to the reap list when it's promoted to pending status.
+// markTxToBeReaped adds a transaction to the reap list when it's promoted to pending status.
 // This is called by the legacy pool when transactions become executable.
 // The transaction is added to the tail of the doubly linked list for O(1) insertion.
-func (m *ExperimentalEVMMempool) MarkTxToBeReaped(tx *ethtypes.Transaction) {
+func (m *ExperimentalEVMMempool) markTxToBeReaped(tx *ethtypes.Transaction) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -677,8 +684,11 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 		cacheCtx = cacheCtx.WithConsensusParams(cp)
 
 		return func(t *ethtypes.Transaction) error {
-			var msg evmtypes.MsgEthereumTx
+			if anteHandler == nil {
+				return nil
+			}
 
+			var msg evmtypes.MsgEthereumTx
 			signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
 			if err := msg.FromSignedEthereumTx(t, signer); err != nil {
 				return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
