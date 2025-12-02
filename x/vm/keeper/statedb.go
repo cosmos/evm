@@ -27,7 +27,7 @@ var _ statedb.Keeper = &Keeper{}
 
 // GetAccount returns nil if account is not exist
 func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account {
-	ctx, span := ctx.StartSpan(tracer, "GetAccount")
+	ctx, span := ctx.StartSpan(tracer, "GetAccount", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	acct := k.GetAccountWithoutBalance(ctx, addr)
 	if acct == nil {
@@ -40,7 +40,10 @@ func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Accou
 
 // GetState loads contract state from database.
 func (k *Keeper) GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash {
-	ctx, span := ctx.StartSpan(tracer, "GetState")
+	ctx, span := ctx.StartSpan(tracer, "GetState", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+		attribute.String("key", key.Hex()),
+	))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStoragePrefix(addr))
 
@@ -54,7 +57,10 @@ func (k *Keeper) GetState(ctx sdk.Context, addr common.Address, key common.Hash)
 
 // GetFastState loads contract state from database.
 func (k *Keeper) GetFastState(ctx sdk.Context, addr common.Address, key common.Hash) []byte {
-	ctx, span := ctx.StartSpan(tracer, "GetFastState")
+	ctx, span := ctx.StartSpan(tracer, "GetFastState", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+		attribute.String("key", key.Hex()),
+	))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStoragePrefix(addr))
 
@@ -63,7 +69,7 @@ func (k *Keeper) GetFastState(ctx sdk.Context, addr common.Address, key common.H
 
 // GetCodeHash loads the code hash from the database for the given contract address.
 func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
-	ctx, span := ctx.StartSpan(tracer, "GetCodeHash")
+	ctx, span := ctx.StartSpan(tracer, "GetCodeHash", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
 	bz := store.Get(addr.Bytes())
@@ -101,7 +107,7 @@ func (k *Keeper) GetCode(ctx sdk.Context, codeHash common.Hash) []byte {
 
 // ForEachStorage iterate contract storage, callback return false to break early
 func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(key, value common.Hash) bool) {
-	ctx, span := ctx.StartSpan(tracer, "ForEachStorage")
+	ctx, span := ctx.StartSpan(tracer, "ForEachStorage", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	store := ctx.KVStore(k.storeKey)
 	prefix := types.AddressStoragePrefix(addr)
@@ -122,7 +128,7 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 
 // SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
 func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) (err error) {
-	ctx, span := ctx.StartSpan(tracer, "SetBalance", trace.WithAttributes(attribute.String("address", addr.String()), attribute.String("amount", amount.String())))
+	ctx, span := ctx.StartSpan(tracer, "SetBalance", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 
@@ -153,7 +159,10 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 
 // SetAccount updates nonce/balance/codeHash together.
 func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) (err error) {
-	ctx, span := ctx.StartSpan(tracer, "SetAccount")
+	ctx, span := ctx.StartSpan(tracer, "SetAccount", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+		attribute.Int64("nonce", int64(account.Nonce)),
+	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 	// update account
@@ -189,7 +198,10 @@ func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account stated
 
 // SetState update contract storage.
 func (k *Keeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
-	ctx, span := ctx.StartSpan(tracer, "SetState")
+	ctx, span := ctx.StartSpan(tracer, "SetState", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+		attribute.String("key", key.Hex()),
+	))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStoragePrefix(addr))
 	store.Set(key.Bytes(), value)
@@ -204,7 +216,10 @@ func (k *Keeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash,
 // DeleteState deletes the entry for the given key in the contract storage
 // at the defined contract address.
 func (k *Keeper) DeleteState(ctx sdk.Context, addr common.Address, key common.Hash) {
-	ctx, span := ctx.StartSpan(tracer, "DeleteState")
+	ctx, span := ctx.StartSpan(tracer, "DeleteState", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+		attribute.String("key", key.Hex()),
+	))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStoragePrefix(addr))
 	store.Delete(key.Bytes())
@@ -218,7 +233,10 @@ func (k *Keeper) DeleteState(ctx sdk.Context, addr common.Address, key common.Ha
 
 // SetCodeHash sets the code hash for the given contract address.
 func (k *Keeper) SetCodeHash(ctx sdk.Context, addrBytes, hashBytes []byte) {
-	ctx, span := ctx.StartSpan(tracer, "SetCodeHash")
+	ctx, span := ctx.StartSpan(tracer, "SetCodeHash", trace.WithAttributes(
+		attribute.String("address", common.BytesToAddress(addrBytes).Hex()),
+		attribute.String("code_hash", common.BytesToHash(hashBytes).Hex()),
+	))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
 	store.Set(addrBytes, hashBytes)
@@ -232,7 +250,7 @@ func (k *Keeper) SetCodeHash(ctx sdk.Context, addrBytes, hashBytes []byte) {
 
 // DeleteCodeHash deletes the code hash for the given contract address from the store.
 func (k *Keeper) DeleteCodeHash(ctx sdk.Context, addr common.Address) {
-	ctx, span := ctx.StartSpan(tracer, "DeleteCodeHash", trace.WithAttributes(attribute.String("address", addr.String())))
+	ctx, span := ctx.StartSpan(tracer, "DeleteCodeHash", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
 	store.Delete(addr.Bytes())
@@ -246,7 +264,10 @@ func (k *Keeper) DeleteCodeHash(ctx sdk.Context, addr common.Address) {
 // SetCode sets the given contract code bytes for the corresponding code hash bytes key
 // in the code store.
 func (k *Keeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
-	ctx, span := ctx.StartSpan(tracer, "SetCode")
+	ctx, span := ctx.StartSpan(tracer, "SetCode", trace.WithAttributes(
+		attribute.String("code_hash", common.BytesToHash(codeHash).Hex()),
+		attribute.Int("code_size", len(code)),
+	))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCode)
 	store.Set(codeHash, code)
@@ -260,7 +281,7 @@ func (k *Keeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
 // DeleteCode deletes the contract code for the given code hash bytes in
 // the corresponding store.
 func (k *Keeper) DeleteCode(ctx sdk.Context, codeHash []byte) {
-	ctx, span := ctx.StartSpan(tracer, "DeleteCode")
+	ctx, span := ctx.StartSpan(tracer, "DeleteCode", trace.WithAttributes(attribute.String("code_hash", common.BytesToHash(codeHash).Hex())))
 	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCode)
 	store.Delete(codeHash)
@@ -278,7 +299,7 @@ func (k *Keeper) DeleteCode(ctx sdk.Context, codeHash []byte) {
 // - remove the code hash
 // - remove auth account
 func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address) error {
-	ctx, span := ctx.StartSpan(tracer, "DeleteAccount")
+	ctx, span := ctx.StartSpan(tracer, "DeleteAccount", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)

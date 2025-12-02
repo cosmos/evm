@@ -540,7 +540,11 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 // be tracer-dependent.
 func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *types.QueryTraceTxResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx, span := ctx.StartSpan(tracer, "TraceTx")
+	ctx, span := ctx.StartSpan(tracer, "TraceTx", trace.WithAttributes(
+		attribute.Int64("block_number", req.BlockNumber),
+		attribute.String("block_hash", req.BlockHash),
+		attribute.Int("predecessor_count", len(req.Predecessors)),
+	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 
@@ -648,7 +652,11 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 // The return value will be tracer dependent.
 func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest) (_ *types.QueryTraceBlockResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx, span := ctx.StartSpan(tracer, "TraceBlock")
+	ctx, span := ctx.StartSpan(tracer, "TraceBlock", trace.WithAttributes(
+		attribute.Int64("block_number", req.BlockNumber),
+		attribute.String("block_hash", req.BlockHash),
+		attribute.Int("tx_count", len(req.Txs)),
+	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 
@@ -723,7 +731,10 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 // be tracer dependent.
 func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (_ *types.QueryTraceCallResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx, span := ctx.StartSpan(tracer, "TraceCall")
+	ctx, span := ctx.StartSpan(tracer, "TraceCall", trace.WithAttributes(
+		attribute.Int64("block_number", req.BlockNumber),
+		attribute.String("block_hash", req.BlockHash),
+	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 
@@ -807,7 +818,9 @@ func (k *Keeper) traceTx(
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
 ) (_ *any, err error) {
-	ctx, span := ctx.StartSpan(tracer, "traceTx")
+	ctx, span := ctx.StartSpan(tracer, "traceTx", trace.WithAttributes(
+		attribute.String("tx_hash", tx.Hash().Hex()),
+	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
@@ -827,7 +840,11 @@ func (k *Keeper) traceTxWithMsg(
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
 ) (_ *any, err error) {
-	ctx, span := ctx.StartSpan(tracer, "traceTxWithMsg")
+	ctx, span := ctx.StartSpan(tracer, "traceTxWithMsg", trace.WithAttributes(
+		attribute.String("tx_hash", txConfig.TxHash.Hex()),
+		attribute.Int("tx_index", int(txConfig.TxIndex)),
+		attribute.String("from", msg.From.Hex()),
+	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
 	// Assemble the structured logger or the JavaScript tracer

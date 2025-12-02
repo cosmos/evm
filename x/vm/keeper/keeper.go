@@ -192,7 +192,9 @@ func (k Keeper) GetAuthority() sdk.AccAddress {
 
 // CollectTxBloom collects all tx blooms and emit a single block bloom event
 func (k Keeper) CollectTxBloom(ctx sdk.Context) {
-	ctx, span := ctx.StartSpan(tracer, "CollectTxBloom")
+	ctx, span := ctx.StartSpan(tracer, "CollectTxBloom", trace.WithAttributes(
+		attribute.Int64("block_height", ctx.BlockHeight()),
+	))
 	defer span.End()
 	store := prefix.NewObjStore(ctx.ObjectStore(k.objectKey), types.KeyPrefixObjectBloom)
 	it := store.Iterator(nil, nil)
@@ -210,7 +212,10 @@ func (k Keeper) CollectTxBloom(ctx sdk.Context) {
 // SetTxBloom sets the given bloom bytes to the object store. This value is reset on
 // every block.
 func (k Keeper) SetTxBloom(ctx sdk.Context, bloom *big.Int) {
-	ctx, span := ctx.StartSpan(tracer, "SetTxBloom")
+	ctx, span := ctx.StartSpan(tracer, "SetTxBloom", trace.WithAttributes(
+		attribute.Int("tx_index", ctx.TxIndex()),
+		attribute.Int("msg_index", ctx.MsgIndex()),
+	))
 	defer span.End()
 	store := ctx.ObjectStore(k.objectKey)
 	store.Set(types.ObjectBloomKey(ctx.TxIndex(), ctx.MsgIndex()), bloom)
@@ -240,8 +245,8 @@ func (k *Keeper) PostTxProcessing(
 	receipt *ethtypes.Receipt,
 ) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "PostTxProcessing", trace.WithAttributes(
-		attribute.String("sender", sender.String()),
-		attribute.String("hash", receipt.TxHash.String()),
+		attribute.String("sender", sender.Hex()),
+		attribute.String("tx_hash", receipt.TxHash.Hex()),
 	))
 	defer func() { span.RecordError(err) }()
 	defer span.End()
@@ -262,7 +267,7 @@ func (k *Keeper) HasHooks() bool {
 
 // GetAccountStorage return state storage associated with an account
 func (k Keeper) GetAccountStorage(ctx sdk.Context, address common.Address) types.Storage {
-	ctx, span := ctx.StartSpan(tracer, "GetAccountStorage", trace.WithAttributes(attribute.String("address", address.String())))
+	ctx, span := ctx.StartSpan(tracer, "GetAccountStorage", trace.WithAttributes(attribute.String("address", address.Hex())))
 	defer span.End()
 	storage := types.Storage{}
 
@@ -286,7 +291,7 @@ func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *ethparams.Chai
 // GetAccountWithoutBalance load nonce and codehash without balance,
 // more efficient in cases where balance is not needed.
 func (k *Keeper) GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) *statedb.Account {
-	ctx, span := ctx.StartSpan(tracer, "GetAccountWithoutBalance")
+	ctx, span := ctx.StartSpan(tracer, "GetAccountWithoutBalance", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
@@ -304,7 +309,7 @@ func (k *Keeper) GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) 
 
 // GetAccountOrEmpty returns empty account if not exist.
 func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account {
-	ctx, span := ctx.StartSpan(tracer, "GetAccountOrEmpty")
+	ctx, span := ctx.StartSpan(tracer, "GetAccountOrEmpty", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	acct := k.GetAccount(ctx, addr)
 	if acct != nil {
@@ -320,7 +325,7 @@ func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb
 
 // GetNonce returns the sequence number of an account, returns 0 if not exists.
 func (k *Keeper) GetNonce(ctx sdk.Context, addr common.Address) uint64 {
-	ctx, span := ctx.StartSpan(tracer, "GetNonce")
+	ctx, span := ctx.StartSpan(tracer, "GetNonce", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
@@ -333,7 +338,7 @@ func (k *Keeper) GetNonce(ctx sdk.Context, addr common.Address) uint64 {
 
 // SpendableCoin load account's balance of gas token.
 func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int {
-	ctx, span := ctx.StartSpan(tracer, "SpendableCoin")
+	ctx, span := ctx.StartSpan(tracer, "SpendableCoin", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
@@ -350,7 +355,7 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 
 // GetBalance load account's balance of gas token.
 func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
-	ctx, span := ctx.StartSpan(tracer, "GetBalance")
+	ctx, span := ctx.StartSpan(tracer, "GetBalance", trace.WithAttributes(attribute.String("address", addr.Hex())))
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
@@ -370,7 +375,7 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 // - `0`: london hardfork enabled but feemarket is not enabled.
 // - `n`: both london hardfork and feemarket are enabled.
 func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
-	ctx, span := ctx.StartSpan(tracer, "GetBaseFee")
+	ctx, span := ctx.StartSpan(tracer, "GetBaseFee", trace.WithAttributes(attribute.Int64("block_height", ctx.BlockHeight())))
 	defer span.End()
 	ethCfg := types.GetEthChainConfig()
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {

@@ -43,7 +43,10 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	stateDB vm.StateDB,
 	overridePrecompiles bool,
 ) *vm.EVM {
-	ctx, span := ctx.StartSpan(tracer, "NewEVMWithOverridePrecompiles")
+	ctx, span := ctx.StartSpan(tracer, "NewEVMWithOverridePrecompiles", trace.WithAttributes(
+		attribute.Bool("override_precompiles", overridePrecompiles),
+		attribute.String("from", msg.From.Hex()),
+	))
 	defer span.End()
 	ctx = k.SetConsensusParamsInCtx(ctx)
 	blockCtx := vm.BlockContext{
@@ -333,7 +336,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
 func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
-	ctx, span := ctx.StartSpan(tracer, "ApplyMessage")
+	ctx, span := ctx.StartSpan(tracer, "ApplyMessage", trace.WithAttributes(
+		attribute.Bool("commit", commit),
+		attribute.Bool("internal", internal),
+		attribute.String("from", msg.From.Hex()),
+	))
 	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
