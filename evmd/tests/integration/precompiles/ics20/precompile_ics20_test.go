@@ -17,7 +17,18 @@ func TestICS20PrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func TestICS20PrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToIBCAppCreator[evm.ICS20PrecompileApp](ibc.SetupEvmdWithBlockSTM, "evm.ICS20PrecompileApp")
+	s := ics20.NewPrecompileTestSuite(t, create)
+	suite.Run(t, s)
+}
+
 func TestICS20PrecompileIntegrationTestSuite(t *testing.T) {
 	create := testapp.ToIBCAppCreator[evm.ICS20PrecompileApp](ibc.SetupEvmd, "evm.ICS20PrecompileApp")
+	ics20.TestPrecompileIntegrationTestSuite(t, create)
+}
+
+func TestICS20PrecompileIntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToIBCAppCreator[evm.ICS20PrecompileApp](ibc.SetupEvmdWithBlockSTM, "evm.ICS20PrecompileApp")
 	ics20.TestPrecompileIntegrationTestSuite(t, create)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/evmd/testutil"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
+	srvflags "github.com/cosmos/evm/server/flags"
 	erc20module "github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -36,6 +37,14 @@ type BankPrecompileApp struct {
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
 // This version uses a noop mempool to avoid state issues during transaction processing
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return craeteEvmd(chainID, evmChainID, false, customBaseAppOptions...)
+}
+
+func CreateEvmdWithBlockSTM(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return craeteEvmd(chainID, evmChainID, true, customBaseAppOptions...)
+}
+
+func craeteEvmd(chainID string, evmChainID uint64, enableBlockSTM bool, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
 	// A temporary home directory is created and used to prevent race conditions
 	// related to home directory locks in chains that use the WASM module.
 	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
@@ -48,6 +57,9 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	logger := log.NewNopLogger()
 	loadLatest := false
 	appOptions := integration.NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
+	if enableBlockSTM {
+		appOptions[srvflags.EVMTxRunner] = "block-stm"
+	}
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions, baseAppOptions...)
 

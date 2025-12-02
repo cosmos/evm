@@ -58,6 +58,14 @@ type IBCApp struct {
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
+	return setupEvmd(false)
+}
+
+func SetupEvmdWithBlockSTM() (ibctesting.TestingApp, map[string]json.RawMessage) {
+	return setupEvmd(true)
+}
+
+func setupEvmd(enableBlockSTM bool) (ibctesting.TestingApp, map[string]json.RawMessage) {
 	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
 	if err != nil {
 		panic(err)
@@ -68,6 +76,9 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	db := dbm.NewMemDB()
 	loadLatest := false
 	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID)
+	if enableBlockSTM {
+		appOptions[srvflags.EVMTxRunner] = "block-stm"
+	}
 	evmApp := eapp.New(logger, db, nil, loadLatest, appOptions)
 
 	// wrap basic evmd app

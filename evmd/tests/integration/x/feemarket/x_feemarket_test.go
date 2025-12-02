@@ -16,3 +16,9 @@ func TestFeeMarketKeeperTestSuite(t *testing.T) {
 	s := feemarket.NewTestKeeperTestSuite(create)
 	suite.Run(t, s)
 }
+
+func TestFeeMarketKeeperTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	s := feemarket.NewTestKeeperTestSuite(create)
+	suite.Run(t, s)
+}

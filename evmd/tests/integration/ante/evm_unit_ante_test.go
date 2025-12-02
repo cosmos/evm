@@ -15,3 +15,8 @@ func TestEvmUnitAnteTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.AnteIntegrationApp](integration.CreateEvmd, "evm.AnteIntegrationApp")
 	suite.Run(t, ante.NewEvmUnitAnteTestSuite(create))
 }
+
+func TestEvmUnitAnteTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.AnteIntegrationApp](integration.CreateEvmdWithBlockSTM, "evm.AnteIntegrationApp")
+	suite.Run(t, ante.NewEvmUnitAnteTestSuite(create))
+}

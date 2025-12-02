@@ -16,7 +16,18 @@ func TestSlashingPrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func TestStakingPrecompileIntegrationTestSuite(t *testing.T) {
+func TestSlashingPrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.SlashingPrecompileApp](CreateEvmdWithBlockSTM, "evm.SlashingPrecompileApp")
+	s := slashing.NewPrecompileTestSuite(create)
+	suite.Run(t, s)
+}
+
+func TestSlashingPrecompileIntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.SlashingPrecompileApp](CreateEvmd, "evm.SlashingPrecompileApp")
+	slashing.TestPrecompileIntegrationTestSuite(t, create)
+}
+
+func TestSlashingPrecompileIntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.SlashingPrecompileApp](CreateEvmdWithBlockSTM, "evm.SlashingPrecompileApp")
 	slashing.TestPrecompileIntegrationTestSuite(t, create)
 }

@@ -16,3 +16,9 @@ func TestBech32PrecompileTestSuite(t *testing.T) {
 	s := bech32.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
+
+func TestBech32PrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.Bech32PrecompileApp](integration.CreateEvmdWithBlockSTM, "evm.Bech32PrecompileApp")
+	s := bech32.NewPrecompileTestSuite(create)
+	suite.Run(t, s)
+}

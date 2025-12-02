@@ -173,6 +173,9 @@ type App struct {
 
 	// module configurator
 	configurator module.Configurator
+
+	// parallel execution (block-stm) enabled
+	blockSTMEnabled bool
 }
 
 // New returns a reference to an initialized App.
@@ -226,9 +229,12 @@ func New(
 		oKeys:             oKeys,
 	}
 
-	// Setup Parallel Execution via blockstm txn runner
-	// initialize block-stm runner with a fallback denom; overridden after InitGenesis when the real EVM denom is available
-	// app.configureBlockSTM("")
+	app.blockSTMEnabled = appOpts.Get(srvflags.EVMTxRunner) == "block-stm"
+	if app.blockSTMEnabled {
+		// Setup Parallel Execution via blockstm txn runner
+		// initialize block-stm runner with a fallback denom; overridden after InitGenesis when the real EVM denom is available
+		app.configureBlockSTM("")
+	}
 
 	// Disable block gas meter--block gas is tracked elsewhere
 	app.SetDisableBlockGasMeter(true)
@@ -344,9 +350,10 @@ func New(
 		),
 	)
 
-	// TODO: Enable Virtual Fee Collection optionally
-	// Enable Virtual Fee Collection for endblocker accumulation to fee collector module account
-	// app.EVMKeeper.EnableVirtualFeeCollection()
+	if app.blockSTMEnabled {
+		// Enable Virtual Fee Collection for endblocker accumulation to fee collector module account
+		app.EVMKeeper.EnableVirtualFeeCollection()
+	}
 
 	// ***** IBC Configuration *****
 
@@ -699,14 +706,15 @@ func (app *App) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.
 		panic(err)
 	}
 
-	// TODO: Enable BlockSTM Optionally
-	// resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
-	// if err != nil {
-	// 	return resp, err
-	// }
-	// // After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
-	// app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
-	// return resp, nil
+	if app.blockSTMEnabled {
+		resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
+		if err != nil {
+			return resp, err
+		}
+		// After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
+		app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
+		return resp, nil
+	}
 
 	return app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 }

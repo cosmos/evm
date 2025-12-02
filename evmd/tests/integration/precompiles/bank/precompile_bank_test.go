@@ -16,7 +16,18 @@ func TestBankPrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func TestBankPrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmdWithBlockSTM, "evm.BankPrecompileApp")
+	s := bank.NewPrecompileTestSuite(create)
+	suite.Run(t, s)
+}
+
 func TestBankPrecompileIntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
+	bank.TestIntegrationSuite(t, create)
+}
+
+func TestBankPrecompileIntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmdWithBlockSTM, "evm.BankPrecompileApp")
 	bank.TestIntegrationSuite(t, create)
 }

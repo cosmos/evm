@@ -16,7 +16,18 @@ func TestErc20PrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func TestErc20PrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](CreateEvmdWithBlockSTM, "evm.Erc20PrecompileApp")
+	s := erc20.NewPrecompileTestSuite(create)
+	suite.Run(t, s)
+}
+
 func TestErc20IntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](CreateEvmd, "evm.Erc20PrecompileApp")
+	erc20.TestIntegrationTestSuite(t, create)
+}
+
+func TestErc20IntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](CreateEvmdWithBlockSTM, "evm.Erc20PrecompileApp")
 	erc20.TestIntegrationTestSuite(t, create)
 }

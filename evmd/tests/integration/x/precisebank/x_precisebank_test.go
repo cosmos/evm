@@ -16,8 +16,21 @@ func TestPreciseBankGenesis(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func TestPreciseBankGenesisWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
+	s := precisebank.NewGenesisTestSuite(create)
+	suite.Run(t, s)
+}
+
 func TestPreciseBankKeeper(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
 	s := precisebank.NewKeeperIntegrationTestSuite(create)
 	suite.Run(t, s)
 }
+
+// TODO: enable this test after fix block-stm related interface implementation of x/precisebank module
+// func TestPreciseBankKeeperWithBlockSTM(t *testing.T) {
+// 	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+// 	s := precisebank.NewKeeperIntegrationTestSuite(create)
+// 	suite.Run(t, s)
+// }

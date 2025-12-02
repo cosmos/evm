@@ -14,6 +14,15 @@ func TestDistributionPrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func TestDistributionPrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	s := distribution.NewPrecompileTestSuite(integration.CreateEvmdWithBlockSTM)
+	suite.Run(t, s)
+}
+
 func TestDistributionPrecompileIntegrationTestSuite(t *testing.T) {
 	distribution.TestPrecompileIntegrationTestSuite(t, integration.CreateEvmd)
+}
+
+func TestDistributionPrecompileIntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	distribution.TestPrecompileIntegrationTestSuite(t, integration.CreateEvmdWithBlockSTM)
 }
