@@ -13,10 +13,12 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
+	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/server/types"
@@ -29,6 +31,7 @@ const shutdownTimeout = 200 * time.Millisecond
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
+	InsertTx(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error)
 }
 
 // StartJSONRPC starts the JSON-RPC server
@@ -56,13 +59,27 @@ func StartJSONRPC(
 	handler := &CustomSlogHandler{logger: logger}
 	slog.SetDefault(slog.New(handler))
 
+	// todo: can be moved to config
+	// use app-side mempool instead of cometbft.BroadcastTxAsync(tx)
+	const enableAppMempool = true
+
+	evmBackend := backend.NewBackend(
+		srvCtx,
+		clientCtx,
+		indexer,
+		mempool,
+		backend.WithUnprotectedTxs(config.JSONRPC.AllowUnprotectedTxs),
+		backend.WithAppMempool(enableAppMempool),
+		backend.WithApplication(app),
+		backend.WithLogger(srvCtx.Logger),
+	)
+
+	apis := rpc.BuildRPCs(config.JSONRPC.API, srvCtx, clientCtx, stream, func() backend.BackendI {
+		return evmBackend
+	})
+
 	rpcServer := ethrpc.NewServer()
-
 	rpcServer.SetBatchLimits(config.JSONRPC.BatchRequestLimit, config.JSONRPC.BatchResponseMaxSize)
-	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
-	rpcAPIArr := config.JSONRPC.API
-
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

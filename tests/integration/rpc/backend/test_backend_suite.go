@@ -83,7 +83,8 @@ func (s *TestSuite) SetupTest() {
 
 	nw := network.New(s.create, s.options...)
 	encodingConfig := nw.GetEncodingConfig()
-	clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
+	clientCtx := client.Context{}.
+		WithChainID(ChainID.ChainID).
 		WithHeight(1).
 		WithTxConfig(encodingConfig.TxConfig).
 		WithCodec(encodingConfig.Codec).
@@ -92,10 +93,9 @@ func (s *TestSuite) SetupTest() {
 		WithAccountRetriever(client.TestAccountRetriever{Accounts: accounts}).
 		WithClient(mocks.NewClient(s.T()))
 
-	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	s.backend = rpcbackend.NewBackend(ctx, clientCtx, idxer, nil, rpcbackend.WithLogger(ctx.Logger))
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true

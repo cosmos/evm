@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"strings"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -146,9 +147,19 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
-	txHash := ethereumTx.AsTransaction().Hash()
+	txHash := tx.Hash()
+
+	// publish tx directly to app-side mempool, avoiding broadcasting to consensus layer.
+	if b.UseAppMempool {
+		if err := b.mempoolInsertTx(txHash, txBytes); err != nil {
+			return common.Hash{}, err
+		}
+
+		return tx.Hash(), nil
+	}
 
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
+
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
@@ -184,6 +195,39 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 
 	return txHash, nil
+}
+
+// mempoolInsertTx inserts a tx into the app-side mempool.
+// bytes are expected to be already encoded in cosmos tx format.
+func (b *Backend) mempoolInsertTx(hash common.Hash, cometTxBytes []byte) error {
+	if b.Application == nil {
+		return errors.New("abci application is not set")
+	}
+
+	req := &abci.RequestInsertTx{Tx: cometTxBytes}
+
+	res, err := b.Application.InsertTx(req)
+	switch {
+	case err != nil && res == nil:
+		b.Logger.Error(
+			"Failed to insert tx into app-side mempool",
+			"error", err.Error(),
+			"hash", hash.Hex(),
+		)
+		return fmt.Errorf("InsertTx failed: %w", err)
+	case err != nil && res != nil:
+		b.Logger.Error(
+			"Failed to insert tx into app-side mempool",
+			"error", err.Error(),
+			"hash", hash.Hex(),
+			"code", res.Code,
+		)
+		return errorsmod.ABCIError("mempool", res.Code, "insert tx failed")
+	case res.Code > 0:
+		return errorsmod.ABCIError("mempool", res.Code, "non-zero code returned")
+	default:
+		return nil
+	}
 }
 
 // SetTxDefaults populates tx message with default values in case they are not
