@@ -372,13 +372,9 @@ func (m *ExperimentalEVMMempool) InsertEVMTxAsync(tx sdk.Tx) error {
 	return nil
 }
 
-// ReapNewValidTxs removes and returns the oldest transactions from the reap list
-// until maxBytes or maxGas limits are reached. Transactions are removed in FIFO order
-// (oldest first) from the head of the doubly linked list.
+// ReapNewValidTxs removes and returns the oldest transactions from the reap
+// list until maxBytes or maxGas limits are reached.
 func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	m.logger.Debug("reaping transactions", "maxBytes", maxBytes, "maxGas", maxGas, "available_txs")
 	txs := m.reapList.Reap(maxBytes, maxGas)
 	m.logger.Debug("reap complete", "txs_reaped", len(txs))
