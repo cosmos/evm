@@ -45,7 +45,7 @@ func ExportGenesis(ctx sdk.Context, k keeper.Keeper) *GenesisState {
 	if !found {
 		return DefaultGenesis()
 	}
-	
+
 	return &GenesisState{
 		Cache: &cache,
 	}

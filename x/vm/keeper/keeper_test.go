@@ -9,7 +9,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttime "github.com/cometbft/cometbft/types/time"
 
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/types/mocks"
@@ -40,6 +40,9 @@ func TestKeeperTestSuite(t *testing.T) {
 }
 
 func (suite *KeeperTestSuite) SetupTest() {
+	// Set bech32 prefixes
+	testconfig.SetBech32Prefixes(sdk.GetConfig())
+
 	key := storetypes.NewKVStoreKey(vmtypes.StoreKey)
 	oKey := storetypes.NewObjectStoreKey(vmtypes.ObjectKey)
 	allKeys := []storetypes.StoreKey{key, oKey}
@@ -72,7 +75,6 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.fmKeeper,
 		suite.consensusKeeper,
 		suite.erc20Keeper,
-		constants.EighteenDecimalsChainID,
 		"",
 	)
 }

@@ -85,7 +85,7 @@ func (k *Keeper) UpdateCache(ctx context.Context) error {
 	start := time.Now()
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	
+
 	// Get the bond denom for staking calculations
 	bondDenom, err := k.stakingKeeper.BondDenom(ctx)
 	if err != nil {
@@ -162,7 +162,6 @@ func (k *Keeper) UpdateCache(ctx context.Context) error {
 
 		unbondingDelegations, err := k.stakingKeeper.GetAllUnbondingDelegations(ctx, accAddr)
 		if err != nil {
-
 			continue
 		}
 
@@ -178,7 +177,6 @@ func (k *Keeper) UpdateCache(ctx context.Context) error {
 	for _, holder := range holderMap {
 		holder.TotalBalance = holder.LiquidBalance.Add(holder.BondedBalance).Add(holder.UnbondingBalance)
 
-
 		if holder.TotalBalance.GT(math.ZeroInt()) {
 			holders = append(holders, *holder)
 		}
@@ -193,7 +191,7 @@ func (k *Keeper) UpdateCache(ctx context.Context) error {
 	if len(holders) > 1000 {
 		holders = holders[:1000]
 	}
-	
+
 	for i := range holders {
 		holders[i].Rank = uint32(i + 1)
 	}
@@ -210,7 +208,7 @@ func (k *Keeper) UpdateCache(ctx context.Context) error {
 	}
 
 	duration := time.Since(start)
-	k.logger.Info("completed top holders cache update", 
+	k.logger.Info("completed top holders cache update",
 		"duration", duration,
 		"total_holders", len(holders),
 		"block_height", sdkCtx.BlockHeight(),

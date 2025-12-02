@@ -25,10 +25,6 @@ func NewHolderInfoWithTag(address string, liquidBalance, bondedBalance, unbondin
 	return holder
 }
 
-
-
-
-
 // NewTopHoldersCache creates a new TopHoldersCache instance
 func NewTopHoldersCache(holders []HolderInfo, lastUpdated, blockHeight int64) TopHoldersCache {
 	return TopHoldersCache{
@@ -43,11 +39,11 @@ func (h HolderInfo) Validate() error {
 	if h.Address == "" {
 		return ErrInvalidAddress
 	}
-	
+
 	if _, err := sdk.AccAddressFromBech32(h.Address); err != nil {
 		return ErrInvalidAddress
 	}
-	
+
 	if h.LiquidBalance.IsNegative() {
 		return ErrInvalidBalance
 	}
@@ -64,7 +60,7 @@ func (h HolderInfo) Validate() error {
 	if !h.TotalBalance.Equal(expectedTotal) {
 		return ErrInvalidBalance
 	}
-	
+
 	return nil
 }
 
@@ -73,23 +69,21 @@ func (t TopHoldersCache) Validate() error {
 	if len(t.Holders) > 1000 {
 		return ErrTooManyHolders
 	}
-	
+
 	for i, holder := range t.Holders {
 		if err := holder.Validate(); err != nil {
 			return err
 		}
-		
+
 		if holder.Rank != uint32(i+1) {
 			return ErrInvalidRank
 		}
-		
+
 		// Check that holders are sorted by total balance (descending)
 		if i > 0 && holder.TotalBalance.GT(t.Holders[i-1].TotalBalance) {
 			return ErrInvalidSorting
 		}
 	}
-	
+
 	return nil
 }
-
-

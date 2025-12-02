@@ -159,7 +159,7 @@ func (s *IntegrationTestSuite) TestSupplyOfQueryTypes() {
 
 	// Test denomination conversion logic
 	// 1 epix = 10^18 aepix
-	aepixAmount := sdkmath.NewInt(1000000000000000000) // 1 epix in aepix
+	aepixAmount := sdkmath.NewInt(1000000000000000000)      // 1 epix in aepix
 	conversionFactor := sdkmath.NewInt(1000000000000000000) // 10^18
 	epixAmount := aepixAmount.Quo(conversionFactor)
 	s.Require().Equal(sdkmath.NewInt(1), epixAmount)

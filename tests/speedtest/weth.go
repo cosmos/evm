@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package main	
+package main
 
 import (
 	"errors"
@@ -208,7 +208,6 @@ func (_Weth *WethTransactorRaw) Transact(opts *bind.TransactOpts, method string,
 func (_Weth *WethCaller) Allowance(opts *bind.CallOpts, arg0 common.Address, arg1 common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _Weth.contract.Call(opts, &out, "allowance", arg0, arg1)
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -216,7 +215,6 @@ func (_Weth *WethCaller) Allowance(opts *bind.CallOpts, arg0 common.Address, arg
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
@@ -239,7 +237,6 @@ func (_Weth *WethCallerSession) Allowance(arg0 common.Address, arg1 common.Addre
 func (_Weth *WethCaller) BalanceOf(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _Weth.contract.Call(opts, &out, "balanceOf", arg0)
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -247,7 +244,6 @@ func (_Weth *WethCaller) BalanceOf(opts *bind.CallOpts, arg0 common.Address) (*b
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
@@ -270,7 +266,6 @@ func (_Weth *WethCallerSession) BalanceOf(arg0 common.Address) (*big.Int, error)
 func (_Weth *WethCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
 	err := _Weth.contract.Call(opts, &out, "decimals")
-
 	if err != nil {
 		return *new(uint8), err
 	}
@@ -278,7 +273,6 @@ func (_Weth *WethCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 
 	return out0, err
-
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
@@ -301,7 +295,6 @@ func (_Weth *WethCallerSession) Decimals() (uint8, error) {
 func (_Weth *WethCaller) Name(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _Weth.contract.Call(opts, &out, "name")
-
 	if err != nil {
 		return *new(string), err
 	}
@@ -309,7 +302,6 @@ func (_Weth *WethCaller) Name(opts *bind.CallOpts) (string, error) {
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
-
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -332,7 +324,6 @@ func (_Weth *WethCallerSession) Name() (string, error) {
 func (_Weth *WethCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _Weth.contract.Call(opts, &out, "symbol")
-
 	if err != nil {
 		return *new(string), err
 	}
@@ -340,7 +331,6 @@ func (_Weth *WethCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
-
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -363,7 +353,6 @@ func (_Weth *WethCallerSession) Symbol() (string, error) {
 func (_Weth *WethCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _Weth.contract.Call(opts, &out, "totalSupply")
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -371,7 +360,6 @@ func (_Weth *WethCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
@@ -593,7 +581,6 @@ type WethApproval struct {
 //
 // Solidity: event Approval(address indexed src, address indexed guy, uint256 wad)
 func (_Weth *WethFilterer) FilterApproval(opts *bind.FilterOpts, src []common.Address, guy []common.Address) (*WethApprovalIterator, error) {
-
 	var srcRule []interface{}
 	for _, srcItem := range src {
 		srcRule = append(srcRule, srcItem)
@@ -614,7 +601,6 @@ func (_Weth *WethFilterer) FilterApproval(opts *bind.FilterOpts, src []common.Ad
 //
 // Solidity: event Approval(address indexed src, address indexed guy, uint256 wad)
 func (_Weth *WethFilterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *WethApproval, src []common.Address, guy []common.Address) (event.Subscription, error) {
-
 	var srcRule []interface{}
 	for _, srcItem := range src {
 		srcRule = append(srcRule, srcItem)
@@ -746,7 +732,6 @@ type WethDeposit struct {
 //
 // Solidity: event Deposit(address indexed dst, uint256 wad)
 func (_Weth *WethFilterer) FilterDeposit(opts *bind.FilterOpts, dst []common.Address) (*WethDepositIterator, error) {
-
 	var dstRule []interface{}
 	for _, dstItem := range dst {
 		dstRule = append(dstRule, dstItem)
@@ -763,7 +748,6 @@ func (_Weth *WethFilterer) FilterDeposit(opts *bind.FilterOpts, dst []common.Add
 //
 // Solidity: event Deposit(address indexed dst, uint256 wad)
 func (_Weth *WethFilterer) WatchDeposit(opts *bind.WatchOpts, sink chan<- *WethDeposit, dst []common.Address) (event.Subscription, error) {
-
 	var dstRule []interface{}
 	for _, dstItem := range dst {
 		dstRule = append(dstRule, dstItem)
@@ -892,7 +876,6 @@ type WethTransfer struct {
 //
 // Solidity: event Transfer(address indexed src, address indexed dst, uint256 wad)
 func (_Weth *WethFilterer) FilterTransfer(opts *bind.FilterOpts, src []common.Address, dst []common.Address) (*WethTransferIterator, error) {
-
 	var srcRule []interface{}
 	for _, srcItem := range src {
 		srcRule = append(srcRule, srcItem)
@@ -913,7 +896,6 @@ func (_Weth *WethFilterer) FilterTransfer(opts *bind.FilterOpts, src []common.Ad
 //
 // Solidity: event Transfer(address indexed src, address indexed dst, uint256 wad)
 func (_Weth *WethFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *WethTransfer, src []common.Address, dst []common.Address) (event.Subscription, error) {
-
 	var srcRule []interface{}
 	for _, srcItem := range src {
 		srcRule = append(srcRule, srcItem)
@@ -1045,7 +1027,6 @@ type WethWithdrawal struct {
 //
 // Solidity: event Withdrawal(address indexed src, uint256 wad)
 func (_Weth *WethFilterer) FilterWithdrawal(opts *bind.FilterOpts, src []common.Address) (*WethWithdrawalIterator, error) {
-
 	var srcRule []interface{}
 	for _, srcItem := range src {
 		srcRule = append(srcRule, srcItem)
@@ -1062,7 +1043,6 @@ func (_Weth *WethFilterer) FilterWithdrawal(opts *bind.FilterOpts, src []common.
 //
 // Solidity: event Withdrawal(address indexed src, uint256 wad)
 func (_Weth *WethFilterer) WatchWithdrawal(opts *bind.WatchOpts, sink chan<- *WethWithdrawal, src []common.Address) (event.Subscription, error) {
-
 	var srcRule []interface{}
 	for _, srcItem := range src {
 		srcRule = append(srcRule, srcItem)

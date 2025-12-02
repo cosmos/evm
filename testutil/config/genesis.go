@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -45,6 +46,7 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 
 	return erc20GenState
 }
+
 // NewMintGenesisState returns the default genesis state for the mint module.
 //
 // NOTE: for the Epix chain implementation we are setting up the minting parameters
@@ -79,4 +81,11 @@ func NewFeeMarketGenesisState() *feemarkettypes.GenesisState {
 	feeMarketGenState.Params.EnableHeight = 0
 
 	return feeMarketGenState
+}
+
+// SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.
+func SetBech32Prefixes(config *sdk.Config) {
+	config.SetBech32PrefixForAccount(testconstants.ExampleBech32Prefix, testconstants.ExampleBech32Prefix+sdk.PrefixPublic)
+	config.SetBech32PrefixForValidator(testconstants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator, testconstants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic)
+	config.SetBech32PrefixForConsensusNode(testconstants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus, testconstants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus+sdk.PrefixPublic)
 }

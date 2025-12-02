@@ -50,8 +50,8 @@ func TestEmissionCalculation(t *testing.T) {
 	initialAmount := 10.527e9 // 10.527 billion EPIX
 
 	testCases := []struct {
-		name         string
-		years        float64
+		name                string
+		years               float64
 		expectedDecayFactor float64
 	}{
 		{
@@ -123,23 +123,23 @@ func TestTwentyYearEmissionTotal(t *testing.T) {
 func TestEmissionRateDecrease(t *testing.T) {
 	// Test that emission rate decreases each year by approximately 25%
 	initialAmount := 10.527e9 // 10.527 billion EPIX
-	
+
 	testCases := []struct {
 		year         int
 		expectedRate float64
 	}{
-		{0, 10.527e9},                    // Year 0: 10.527B
-		{1, 10.527e9 * 0.75},            // Year 1: 7.895B
-		{2, 10.527e9 * 0.75 * 0.75},     // Year 2: 5.921B
-		{5, 10.527e9 * math.Pow(0.75, 5)}, // Year 5: ~3.331B
+		{0, 10.527e9},                       // Year 0: 10.527B
+		{1, 10.527e9 * 0.75},                // Year 1: 7.895B
+		{2, 10.527e9 * 0.75 * 0.75},         // Year 2: 5.921B
+		{5, 10.527e9 * math.Pow(0.75, 5)},   // Year 5: ~3.331B
 		{10, 10.527e9 * math.Pow(0.75, 10)}, // Year 10: ~563M
 		{20, 10.527e9 * math.Pow(0.75, 20)}, // Year 20: ~16M
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Year_%d", tc.year), func(t *testing.T) {
 			actualRate := initialAmount * math.Pow(0.75, float64(tc.year))
-			require.InDelta(t, tc.expectedRate, actualRate, tc.expectedRate*0.001, 
+			require.InDelta(t, tc.expectedRate, actualRate, tc.expectedRate*0.001,
 				"Emission rate should match expected value for year %d", tc.year)
 		})
 	}
@@ -148,35 +148,35 @@ func TestEmissionRateDecrease(t *testing.T) {
 func TestBlockTimeAdjustment(t *testing.T) {
 	// Test that changing block time adjusts the per-block emission correctly
 	initialAmount, _ := sdkmath.NewIntFromString("10527000000000000000000000000") // 10.527B EPIX
-	
+
 	testCases := []struct {
-		name             string
-		blockTimeSeconds uint64
+		name                  string
+		blockTimeSeconds      uint64
 		expectedBlocksPerYear uint64
 	}{
 		{"3 second blocks", 3, 10_512_000},
 		{"6 second blocks", 6, 5_256_000},
 		{"12 second blocks", 12, 2_628_000},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Calculate blocks per year
 			secondsPerYear := uint64(365 * 24 * 60 * 60)
 			blocksPerYear := secondsPerYear / tc.blockTimeSeconds
 			require.Equal(t, tc.expectedBlocksPerYear, blocksPerYear)
-			
+
 			// Calculate per-block emission at genesis
 			perBlockEmission := initialAmount.Quo(sdkmath.NewIntFromUint64(blocksPerYear))
-			
+
 			// Verify per-block emission is positive
 			require.True(t, perBlockEmission.IsPositive(), "Per-block emission should be positive")
-			
+
 			// Verify that faster blocks = smaller per-block emission
 			if tc.blockTimeSeconds < 6 {
 				// Faster blocks should have smaller per-block emission
 				referencePerBlock := initialAmount.Quo(sdkmath.NewIntFromUint64(5_256_000))
-				require.True(t, perBlockEmission.LT(referencePerBlock), 
+				require.True(t, perBlockEmission.LT(referencePerBlock),
 					"Faster blocks should have smaller per-block emission")
 			}
 		})

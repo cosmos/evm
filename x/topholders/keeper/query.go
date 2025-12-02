@@ -45,7 +45,6 @@ func (k *Keeper) TopHolders(ctx context.Context, req *types.QueryTopHoldersReque
 	end := offset + limit
 
 	if start >= uint64(len(cache.Holders)) {
-
 		return types.NewQueryTopHoldersResponse(
 			[]types.HolderInfo{},
 			&query.PageResponse{
@@ -89,12 +88,12 @@ func (k *Keeper) CacheStatus(ctx context.Context, req *types.QueryCacheStatusReq
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
-	
+
 	cache, found := k.GetTopHoldersCache(ctx)
 	if !found {
 		return types.NewQueryCacheStatusResponse(0, 0, 0, k.IsUpdating()), nil
 	}
-	
+
 	return types.NewQueryCacheStatusResponse(
 		cache.LastUpdated,
 		cache.BlockHeight,

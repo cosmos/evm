@@ -2,7 +2,6 @@ package eip712_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -36,10 +35,7 @@ var (
 	)
 
 	// feePayerAddress is the address of the fee payer used in EIP-712 tests.
-	feePayerAddress = fmt.Sprintf(
-		"%s17xpfvakm2amg962yls6f84z3kell8c5lserqta",
-		constants.ExampleBech32Prefix,
-	)
+	feePayerAddress = "epix14c94egqw8v9pg3l4vj8lazj062uwde94j8d3ga"
 )
 
 type TestCaseStruct struct {
@@ -54,15 +50,24 @@ type TestCaseStruct struct {
 
 func TestLedgerPreprocessing(t *testing.T) {
 	// Update bech32 prefix
-	sdk.GetConfig().SetBech32PrefixForAccount(constants.ExampleBech32Prefix, "")
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount(constants.ExampleBech32Prefix, constants.ExampleBech32Prefix+sdk.PrefixPublic)
+	config.SetBech32PrefixForValidator(constants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator, constants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic)
+	config.SetBech32PrefixForConsensusNode(constants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus, constants.ExampleBech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus+sdk.PrefixPublic)
+
 	evmConfigurator := evmtypes.NewEVMConfigurator().
 		WithEVMCoinInfo(constants.ExampleChainCoinInfo[constants.ExampleChainID])
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
 
+	// Reinitialize ctx with the updated config
+	testCtx := client.Context{}.WithTxConfig(
+		encoding.MakeConfig(chainID).TxConfig,
+	)
+
 	testCases := []TestCaseStruct{
-		createBasicTestCase(t),
-		createPopulatedTestCase(t),
+		createBasicTestCase(t, testCtx),
+		createPopulatedTestCase(t, testCtx),
 	}
 
 	for _, tc := range testCases {
@@ -162,9 +167,9 @@ func TestInvalidChainId(t *testing.T) {
 	require.Error(t, err)
 }
 
-func createBasicTestCase(t *testing.T) TestCaseStruct {
+func createBasicTestCase(t *testing.T, testCtx client.Context) TestCaseStruct {
 	t.Helper()
-	txBuilder := ctx.TxConfig.NewTxBuilder()
+	txBuilder := testCtx.TxConfig.NewTxBuilder()
 
 	feePayer, err := sdk.AccAddressFromBech32(feePayerAddress)
 	require.NoError(t, err)
@@ -200,9 +205,9 @@ func createBasicTestCase(t *testing.T) TestCaseStruct {
 	}
 }
 
-func createPopulatedTestCase(t *testing.T) TestCaseStruct {
+func createPopulatedTestCase(t *testing.T, testCtx client.Context) TestCaseStruct {
 	t.Helper()
-	basicTestCase := createBasicTestCase(t)
+	basicTestCase := createBasicTestCase(t, testCtx)
 	txBuilder := basicTestCase.txBuilder
 
 	gasLimit := uint64(200000)
