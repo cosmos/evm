@@ -92,7 +92,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 		}
 
 		code := abci.CodeTypeOK
-		if err := evmMempool.InsertEVMTxAynsc(tx); err != nil {
+		if err := evmMempool.InsertEVMTxAsync(tx); err != nil {
 			if errors.Is(err, evmmempool.ErrMempoolFull) {
 				code = abci.CodeTypeRetry
 			} else {
