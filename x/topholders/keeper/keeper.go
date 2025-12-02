@@ -24,10 +24,10 @@ var (
 
 // Keeper of the topholders store
 type Keeper struct {
-	cdc           codec.BinaryCodec
-	storeKey      storetypes.StoreKey
-	memKey        storetypes.StoreKey
-	authority     string
+	cdc       codec.BinaryCodec
+	storeKey  storetypes.StoreKey
+	memKey    storetypes.StoreKey
+	authority string
 
 	bankKeeper    types.BankKeeper
 	stakingKeeper types.StakingKeeper

@@ -138,8 +138,6 @@ func validateMaxSupply(i interface{}) error {
 	return nil
 }
 
-
-
 func validateCommunityPoolRate(i interface{}) error {
 	v, ok := i.(math.LegacyDec)
 	if !ok {

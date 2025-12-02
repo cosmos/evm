@@ -59,7 +59,7 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		calldata  []byte
+		calldata       []byte
 		expClientState []byte
 		expErr         bool
 	)
@@ -238,8 +238,8 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 
 				misbehaviour := &ibctm.Misbehaviour{
 					ClientId: clientID,
-					Header1: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
-					Header2: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header1:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header2:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
 				}
 
 				anyMisbehavior, err := clienttypes.PackClientMessage(misbehaviour)

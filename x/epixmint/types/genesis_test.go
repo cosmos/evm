@@ -12,7 +12,7 @@ import (
 
 func TestDefaultGenesisState(t *testing.T) {
 	genState := types.DefaultGenesisState()
-	
+
 	require.NotNil(t, genState)
 	require.Equal(t, types.DefaultParams(), genState.Params)
 }
@@ -20,7 +20,7 @@ func TestDefaultGenesisState(t *testing.T) {
 func TestNewGenesisState(t *testing.T) {
 	params := types.DefaultParams()
 	genState := types.NewGenesisState(params)
-	
+
 	require.NotNil(t, genState)
 	require.Equal(t, params, genState.Params)
 }

@@ -21,9 +21,9 @@ func TestNewFeatures(t *testing.T) {
 	// Test 1: Create holder with bonded and unbonding balances
 	holder := types.NewHolderInfo(
 		"epix12apeeggrumg9y4gwtez9smh7pjq9vecc4hc936",
-		math.NewInt(1000000),  // liquid: 1 EPIX
-		math.NewInt(5000000),  // bonded: 5 EPIX
-		math.NewInt(2000000),  // unbonding: 2 EPIX
+		math.NewInt(1000000), // liquid: 1 EPIX
+		math.NewInt(5000000), // bonded: 5 EPIX
+		math.NewInt(2000000), // unbonding: 2 EPIX
 		1,
 	)
 
@@ -41,7 +41,7 @@ func TestNewFeatures(t *testing.T) {
 	// Test 2: Create holder with module tag
 	moduleHolder := types.NewHolderInfoWithTag(
 		"epix1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8j52fwy", // distribution module address
-		math.NewInt(10000000), // 10 EPIX
+		math.NewInt(10000000),                         // 10 EPIX
 		math.ZeroInt(),
 		math.ZeroInt(),
 		2,

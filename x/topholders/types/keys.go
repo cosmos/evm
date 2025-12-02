@@ -18,7 +18,7 @@ const (
 var (
 	// TopHoldersKey is the key for storing the cached top holders data
 	TopHoldersKey = []byte{0x01}
-	
+
 	// LastUpdateKey is the key for storing the last update timestamp
 	LastUpdateKey = []byte{0x02}
 )

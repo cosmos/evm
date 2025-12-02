@@ -6,7 +6,7 @@ const (
 
 	// EpixMainnetChainID is the chain ID for Epix mainnet
 	EpixMainnetChainID = 1916
-	
+
 	// EpixChainDenom is the denomination of the Epix chain's base coin.
 	EpixChainDenom = "aepix"
 

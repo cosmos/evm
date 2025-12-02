@@ -201,7 +201,7 @@ type EVMD struct {
 	PreciseBankKeeper precisebankkeeper.Keeper
 	EpixMintKeeper    epixmintkeeper.Keeper
 	TopHoldersKeeper  topholderskeeper.Keeper // Optional: only initialized if enabled in config
-	topHoldersEnabled bool                      // Track if TopHolders module is enabled
+	topHoldersEnabled bool                    // Track if TopHolders module is enabled
 	EVMMempool        *evmmempool.ExperimentalEVMMempool
 
 	// the module manager

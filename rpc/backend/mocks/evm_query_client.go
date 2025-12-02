@@ -565,6 +565,80 @@ func (_m *EVMQueryClient) ValidatorAccount(ctx context.Context, in *types.QueryV
 	return r0, r1
 }
 
+// HexToBech32 provides a mock function with given fields: ctx, in, opts
+func (_m *EVMQueryClient) HexToBech32(ctx context.Context, in *types.QueryHexToBech32Request, opts ...grpc.CallOption) (*types.QueryHexToBech32Response, error) {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, in)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HexToBech32")
+	}
+
+	var r0 *types.QueryHexToBech32Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.QueryHexToBech32Request, ...grpc.CallOption) (*types.QueryHexToBech32Response, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.QueryHexToBech32Request, ...grpc.CallOption) *types.QueryHexToBech32Response); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.QueryHexToBech32Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.QueryHexToBech32Request, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Bech32ToHex provides a mock function with given fields: ctx, in, opts
+func (_m *EVMQueryClient) Bech32ToHex(ctx context.Context, in *types.QueryBech32ToHexRequest, opts ...grpc.CallOption) (*types.QueryBech32ToHexResponse, error) {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, in)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Bech32ToHex")
+	}
+
+	var r0 *types.QueryBech32ToHexResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.QueryBech32ToHexRequest, ...grpc.CallOption) (*types.QueryBech32ToHexResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.QueryBech32ToHexRequest, ...grpc.CallOption) *types.QueryBech32ToHexResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.QueryBech32ToHexResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.QueryBech32ToHexRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewEVMQueryClient creates a new instance of EVMQueryClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewEVMQueryClient(t interface {

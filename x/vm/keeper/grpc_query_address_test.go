@@ -10,11 +10,12 @@ import (
 )
 
 func TestHexToBech32Query(t *testing.T) {
-	suite := KeeperTestSuite{}
+	suite := &KeeperTestSuite{}
+	suite.SetT(t)
 	suite.SetupTest()
 
 	ctx := context.Background()
-	
+
 	testCases := []struct {
 		name        string
 		request     *types.QueryHexToBech32Request
@@ -30,8 +31,8 @@ func TestHexToBech32Query(t *testing.T) {
 			expectedRes: "epix12apeeggrumg9y4gwtez9smh7pjq9vecc4hc936",
 		},
 		{
-			name: "empty request",
-			request: nil,
+			name:        "empty request",
+			request:     nil,
 			expectError: true,
 		},
 		{
@@ -52,8 +53,8 @@ func TestHexToBech32Query(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := suite.app.EvmKeeper.HexToBech32(ctx, tc.request)
-			
+			res, err := suite.vmKeeper.HexToBech32(ctx, tc.request)
+
 			if tc.expectError {
 				require.Error(t, err)
 				require.Nil(t, res)
@@ -67,11 +68,12 @@ func TestHexToBech32Query(t *testing.T) {
 }
 
 func TestBech32ToHexQuery(t *testing.T) {
-	suite := KeeperTestSuite{}
+	suite := &KeeperTestSuite{}
+	suite.SetT(t)
 	suite.SetupTest()
 
 	ctx := context.Background()
-	
+
 	testCases := []struct {
 		name        string
 		request     *types.QueryBech32ToHexRequest
@@ -87,8 +89,8 @@ func TestBech32ToHexQuery(t *testing.T) {
 			expectedRes: "0x57439ca103e6D052550E5e44586eFE0C80566718",
 		},
 		{
-			name: "empty request",
-			request: nil,
+			name:        "empty request",
+			request:     nil,
 			expectError: true,
 		},
 		{
@@ -109,8 +111,8 @@ func TestBech32ToHexQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := suite.app.EvmKeeper.Bech32ToHex(ctx, tc.request)
-			
+			res, err := suite.vmKeeper.Bech32ToHex(ctx, tc.request)
+
 			if tc.expectError {
 				require.Error(t, err)
 				require.Nil(t, res)
@@ -124,30 +126,31 @@ func TestBech32ToHexQuery(t *testing.T) {
 }
 
 func TestAddressConversionRoundTrip(t *testing.T) {
-	suite := KeeperTestSuite{}
+	suite := &KeeperTestSuite{}
+	suite.SetT(t)
 	suite.SetupTest()
 
 	ctx := context.Background()
-	
+
 	// Test round-trip conversion
 	originalHex := "0x57439ca103e6D052550E5e44586eFE0C80566718"
-	
+
 	// Convert hex to bech32
 	hexToBech32Req := &types.QueryHexToBech32Request{
 		HexAddress: originalHex,
 	}
-	bech32Res, err := suite.app.EvmKeeper.HexToBech32(ctx, hexToBech32Req)
+	bech32Res, err := suite.vmKeeper.HexToBech32(ctx, hexToBech32Req)
 	require.NoError(t, err)
 	require.NotNil(t, bech32Res)
-	
+
 	// Convert bech32 back to hex
 	bech32ToHexReq := &types.QueryBech32ToHexRequest{
 		Bech32Address: bech32Res.Bech32Address,
 	}
-	hexRes, err := suite.app.EvmKeeper.Bech32ToHex(ctx, bech32ToHexReq)
+	hexRes, err := suite.vmKeeper.Bech32ToHex(ctx, bech32ToHexReq)
 	require.NoError(t, err)
 	require.NotNil(t, hexRes)
-	
+
 	// Verify round-trip conversion
 	require.Equal(t, originalHex, hexRes.HexAddress)
 }
