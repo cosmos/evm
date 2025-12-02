@@ -3995,7 +3995,31 @@
           "amount": "23689540000000000000000000"
         }
       ],
-      "denom_metadata": [],
+      "denom_metadata": [
+        {
+          "description": "The native staking and governance token of the EpixChain",
+          "denom_units": [
+            {
+              "denom": "aepix",
+              "exponent": 0,
+              "aliases": [
+                "aepix"
+              ]
+            },
+            {
+              "denom": "epix",
+              "exponent": 18,
+              "aliases": [
+                "epix"
+              ]
+            }
+          ],
+          "base": "aepix",
+          "display": "epix",
+          "name": "EpixChain",
+          "symbol": "EPIX"
+        }
+      ],
       "send_enabled": []
     },
     "consensus": null,
