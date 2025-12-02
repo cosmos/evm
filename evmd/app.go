@@ -16,8 +16,6 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	_ "github.com/cosmos/cosmos-sdk/telemetry"
-
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
