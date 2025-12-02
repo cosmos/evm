@@ -307,10 +307,7 @@ var (
 // InsertEVMTxAynsc inserts a tx to the EVM mempool asynchronously. No
 // validation will be run on the tx at insert time besides checking to see if
 // the tx is a valid EVM tx. If it is not an EVM tx, ErrTxIsNotEVM will be returned.
-func (m *ExperimentalEVMMempool) InsertEVMTxAynsc(tx sdk.Tx) error {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
+func (m *ExperimentalEVMMempool) InsertEVMTxAsync(tx sdk.Tx) error {
 	ethMsg, err := m.getEVMMessage(tx)
 	if err != nil {
 		return fmt.Errorf("%w, tx is not an evm tx: %w", ErrInvalidTx, err)
