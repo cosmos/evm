@@ -396,11 +396,7 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 
 // markTxToBeReaped adds a transaction to the reap list when it's promoted to pending status.
 // This is called by the legacy pool when transactions become executable.
-// The transaction is added to the tail of the doubly linked list for O(1) insertion.
 func (m *ExperimentalEVMMempool) markTxToBeReaped(tx *ethtypes.Transaction) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	if _, loaded := m.reapGuard.LoadOrStore(tx.Hash(), nil); loaded {
 		return
 	}
