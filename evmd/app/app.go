@@ -745,45 +745,19 @@ func (app *App) SetClientCtx(clientCtx client.Context) {
 
 // AutoCliOpts returns the autocli options for the app.
 func (app *App) AutoCliOpts() autocli.AppOptions {
-	type moduleEntry struct {
-		name   string
-		module appmodule.AppModule
-	}
-	entries := make([]moduleEntry, 0, len(app.ModuleManager.Modules))
+	modules := make(map[string]appmodule.AppModule, 0)
 	for _, m := range app.ModuleManager.Modules {
-		moduleWithName, hasName := m.(module.HasName)
-		appModule, isAppModule := m.(appmodule.AppModule)
-		if !hasName || !isAppModule {
-			continue
+		if moduleWithName, ok := m.(module.HasName); ok {
+			moduleName := moduleWithName.Name()
+			if appModule, ok := moduleWithName.(appmodule.AppModule); ok {
+				modules[moduleName] = appModule
+			}
 		}
-		entries = append(entries, moduleEntry{
-			name:   moduleWithName.Name(),
-			module: appModule,
-		})
-	}
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].name < entries[j].name
-	})
-
-	modules := make(map[string]appmodule.AppModule, len(entries))
-	for _, entry := range entries {
-		modules[entry.name] = entry.module
-	}
-
-	moduleOptions := runtimeservices.ExtractAutoCLIOptions(app.ModuleManager.Modules)
-	moduleOptionNames := make([]string, 0, len(moduleOptions))
-	for name := range moduleOptions {
-		moduleOptionNames = append(moduleOptionNames, name)
-	}
-	sort.Strings(moduleOptionNames)
-	sortedModuleOptions := make(map[string]*autocliv1.ModuleOptions, len(moduleOptions))
-	for _, name := range moduleOptionNames {
-		sortedModuleOptions[name] = moduleOptions[name]
 	}
 
 	return autocli.AppOptions{
 		Modules:               modules,
-		ModuleOptions:         sortedModuleOptions,
+		ModuleOptions:         runtimeservices.ExtractAutoCLIOptions(app.ModuleManager.Modules),
 		AddressCodec:          evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		ValidatorAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		ConsensusAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
