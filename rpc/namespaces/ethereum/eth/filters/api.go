@@ -17,7 +17,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/trace"
+	evmtrace "github.com/cosmos/evm/trace"
 
 	"cosmossdk.io/log"
 
@@ -227,7 +227,7 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getlogs
 func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) (_ []*ethtypes.Log, err error) {
 	ctx, span := tracer.Start(ctx, "GetLogs")
-	defer func() { trace.EndSpanErr(span, err) }()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	var filter *Filter
 	if crit.BlockHash != nil {
 		// Block filter requested, construct a single-shot filter
@@ -280,7 +280,7 @@ func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getfilterlogs
 func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) (_ []*ethtypes.Log, err error) {
 	ctx, span := tracer.Start(ctx, "GetFilterLogs")
-	defer func() { trace.EndSpanErr(span, err) }()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	api.filtersMu.Lock()
 	f, found := api.filters[id]
 	api.filtersMu.Unlock()
