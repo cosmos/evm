@@ -807,11 +807,16 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		if old != nil {
 			pool.all.Remove(old.Hash())
 			pool.priced.Removed(1)
+			pool.TxRemoved(old)
 			pendingReplaceMeter.Mark(1)
 		}
 		pool.all.Add(tx)
 		pool.priced.Put(tx)
 		pool.queueTxEvent(tx)
+
+		// tx went straight to the pending queue and bypassed the queue, mark
+		// it as promoted
+		pool.TxPromoted(tx)
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
 		// Successful promotion, bump the heartbeat
