@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 )
 
+//nolint:staticcheck
 var (
 	protoCodec    codec.ProtoCodecMarshaler
 	aminoCodec    *codec.LegacyAmino
@@ -166,6 +167,7 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 	}
 
 	// WrapTxToTypedData expects the payload as an Amino Sign Doc
+	//nolint:staticcheck
 	signBytes := legacytx.StdSignBytes(
 		signDoc.ChainId,
 		signDoc.AccountNumber,

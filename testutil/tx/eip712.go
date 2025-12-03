@@ -77,6 +77,7 @@ func PrepareEIP712CosmosTx(
 	fee := legacytx.NewStdFee(txArgs.Gas, txArgs.Fees) //nolint:all
 
 	msgs := txArgs.Msgs
+	//nolint:staticcheck
 	data := legacytx.StdSignBytes(ctx.ChainID(), accNumber, nonce, 0, fee, msgs, "")
 
 	typedDataArgs := typedDataArgs{

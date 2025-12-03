@@ -92,6 +92,8 @@ func FeeChecker(
 	}
 
 	feeCoins := feeTx.GetFee()
+
+	//nolint:staticcheck
 	feeAmtDec := sdkmath.LegacyNewDecFromInt(feeCoins.AmountOfNoDenomValidation(denom))
 
 	feeCap := feeAmtDec.QuoInt(gas)

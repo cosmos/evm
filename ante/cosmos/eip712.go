@@ -25,6 +25,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
+//nolint:staticcheck
 var evmCodec codec.ProtoCodecMarshaler
 
 func init() {
@@ -177,6 +178,7 @@ func VerifySignature(
 			return errorsmod.Wrap(errortypes.ErrNoSignatures, "tx doesn't contain any msgs to verify signature")
 		}
 
+		//nolint:staticcheck
 		txBytes := legacytx.StdSignBytes(
 			signerData.ChainID,
 			signerData.AccountNumber,

@@ -16,12 +16,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	abci "github.com/cometbft/cometbft/abci/types"
+
 	"github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -146,44 +149,101 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
-	txHash := ethereumTx.AsTransaction().Hash()
+	txHash := tx.Hash()
+
+	// publish tx directly to app-side mempool, avoiding broadcasting to consensus layer.
+	if b.UseAppMempool {
+		if err := b.mempoolInsertTx(txHash, txBytes); err != nil {
+			return b.handleSendTxError(tx, ethSigner, err)
+		}
+
+		return txHash, nil
+	}
 
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
+
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
+
 	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			return txHash, nil
-		}
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
-			from, err := ethSigner.Sender(tx)
-			if err != nil {
-				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
-			}
-			nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
-			if err != nil {
-				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
-			}
-
-			// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
-			if tx.Nonce() < nonce {
-				return common.Hash{}, err
-			}
-
-			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
-			return txHash, nil
-		}
-
-		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
+		return b.handleSendTxError(tx, ethSigner, err)
 	}
 
 	return txHash, nil
+}
+
+// mempoolInsertTx inserts a tx into the app-side mempool.
+// bytes are expected to be already encoded in cosmos tx format.
+func (b *Backend) mempoolInsertTx(hash common.Hash, cometTxBytes []byte) error {
+	if b.Application == nil {
+		return errors.New("abci application is not set")
+	}
+
+	res, err := b.Application.InsertTx(&abci.RequestInsertTx{Tx: cometTxBytes})
+
+	code := uint32(0)
+	if res != nil {
+		code = res.Code
+	}
+
+	if txRes := client.CheckCometError(err, cometTxBytes); txRes != nil {
+		err = errorsmod.ABCIError(txRes.Codespace, txRes.Code, txRes.RawLog)
+	}
+
+	switch {
+	case err != nil && code != 0:
+		b.Logger.Error(
+			"Failed to insert tx into app-side mempool",
+			"error", err.Error(),
+			"hash", hash.Hex(),
+			"code", code,
+		)
+		return fmt.Errorf("%w: code %d", err, code)
+	case err != nil:
+		return err
+	case code > 0:
+		return fmt.Errorf("unable to insert tx: code %d", code)
+	default:
+		return nil
+	}
+}
+
+// handleSendTxError temporary workaround for check-tx backward compatibility
+func (b *Backend) handleSendTxError(tx *ethtypes.Transaction, signer ethtypes.Signer, err error) (common.Hash, error) {
+	txHash := tx.Hash()
+
+	// Check if this is a nonce gap error that was successfully queued
+	if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
+		// Transaction was successfully queued due to nonce gap, return success to client
+		b.Logger.Debug("Transaction queued due to nonce gap", "hash", txHash.Hex())
+		return txHash, nil
+	}
+
+	if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
+		from, err := signer.Sender(tx)
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
+		}
+
+		nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
+		}
+
+		// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
+		if tx.Nonce() < nonce {
+			return common.Hash{}, err
+		}
+
+		// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
+		return txHash, nil
+	}
+
+	b.Logger.Error("Failed to broadcast tx", "error", err.Error())
+
+	return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 }
 
 // SetTxDefaults populates tx message with default values in case they are not
