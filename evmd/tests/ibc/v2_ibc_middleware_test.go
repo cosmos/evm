@@ -10,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -45,7 +43,7 @@ type MiddlewareV2TestSuite struct {
 }
 
 func (suite *MiddlewareV2TestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1, integration.SetupEvmd)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1, SetupEvmd)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
@@ -144,7 +142,7 @@ func (suite *MiddlewareV2TestSuite) TestOnSendPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
 			packetData = transfertypes.NewFungibleTokenPacketData(
@@ -248,7 +246,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacket() {
 				tc.malleate()
 			}
 
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 			// erc20 module is routed as top level middleware
 			transferStack := evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
 			sourceClient := suite.pathBToA.EndpointB.ClientID
@@ -323,7 +321,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
 
 			evmCtx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 			// MOCK erc20 native coin transfer from chainA to chainB
 			// 1: Convert erc20 tokens to native erc20 coins for sending through IBC.
 			_, err := evmApp.Erc20Keeper.ConvertERC20(
@@ -482,7 +480,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
 			sendAmt := ibctesting.DefaultCoinAmount
@@ -607,7 +605,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
 
 			evmCtx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 
 			// MOCK erc20 native coin transfer from chainA to chainB
 			// 1: Convert erc20 tokens to native erc20 coins for sending through IBC.
@@ -744,7 +742,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
 			packetData = transfertypes.NewFungibleTokenPacketData(
@@ -841,7 +839,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
 
 			evmCtx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*IBCApp)
 
 			// MOCK erc20 native coin transfer from chainA to chainB
 			// 1: Convert erc20 tokens to native erc20 coins for sending through IBC.

@@ -242,8 +242,10 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 	s.Require().NoError(s.network.NextBlock())
 
 	genState := vm.ExportGenesis(s.network.GetContext(), s.network.App.GetEVMKeeper())
-	// Exported accounts 4 default preinstalls
-	s.Require().Len(genState.Accounts, 8)
+	// Exported accounts
+	// - 5 default preinstalls
+	// - 2 deployed contracts
+	s.Require().Len(genState.Accounts, 7)
 
 	addrs := make([]string, len(genState.Accounts))
 	for i, acct := range genState.Accounts {

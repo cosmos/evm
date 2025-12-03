@@ -463,8 +463,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				execRevertErr := evmtypes.NewExecErrorWithReason(bz)
 				s.Require().ErrorContains(execRevertErr, tc.errContains)
 				consumed := ctx.GasMeter().GasConsumed()
-				// LessThanOrEqual because the gas is consumed before the error is returned
-				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+
+				if tc.errContains == "out of gas" {
+					s.Require().Greater(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
+				} else {
+					s.Require().LessOrEqual(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
+				}
 			}
 		})
 	}

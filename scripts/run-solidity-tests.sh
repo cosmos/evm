@@ -10,7 +10,7 @@ rm -rf "$HOME"/.tmp-evmd-solidity-tests
 set -e
 
 # build evmd binary
-make install
+make install BUILD_TAGS=all_precompiles
 
 cd tests/solidity || exit
 

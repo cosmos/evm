@@ -11,6 +11,7 @@
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
+- [\#845](https://github.com/cosmos/evm/pull/845) Modify tests to inject minimum app
 
 ### FEATURES
 

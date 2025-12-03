@@ -18,6 +18,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 // Config specifies the concrete encoding types to use for a given app.
@@ -49,6 +50,7 @@ func MakeConfig(evmChainID uint64) Config {
 	enccodec.RegisterLegacyAminoCodec(cdc)
 	enccodec.RegisterInterfaces(interfaceRegistry)
 	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
+	vestingtypes.RegisterInterfaces(interfaceRegistry)
 
 	// This is needed for the EIP712 txs because currently is using
 	// the deprecated method legacytx.StdSignBytes
