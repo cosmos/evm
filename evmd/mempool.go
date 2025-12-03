@@ -92,7 +92,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 }
 
 const (
-	CodeTypeNoRetry = abci.CodeTypeRetry + 1
+	CodeTypeNoRetry = 1
 )
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
@@ -101,9 +101,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 
 		tx, err := app.TxDecode(txBytes)
 		if err != nil {
-			// TODO: is this the right response here for completely invalid txs
-			// that we cannot process?
-			return &abci.ResponseInsertTx{Code: CodeTypeNoRetry}, fmt.Errorf("decoding tx: %w", err)
+			return nil, fmt.Errorf("decoding tx: %w", err)
 		}
 
 		code := abci.CodeTypeOK
