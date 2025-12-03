@@ -68,8 +68,7 @@ type (
 		eventBus *cmttypes.EventBus
 
 		/** Transaction Reaping **/
-		reapList  *ReapList
-		reapGuard sync.Map
+		reapList *ReapList
 	}
 )
 
@@ -248,23 +247,34 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
 // EVM transactions are routed to the EVM transaction pool, while all other
-// transactions are inserted into the Cosmos sdkmempool. The method assumes
-// transactions have already passed CheckTx validation.
+// transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
+	return m.insertTx(goCtx, tx, true)
+}
+
+// Insert adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
+// transactions are routed to the EVM transaction pool, while all other
+// transactions are inserted into the Cosmos sdkmempool. For EVM txs, this
+// method operations async and does not guarantee the tx to have entered the
+// pending pool after return.
+func (m *ExperimentalEVMMempool) InsertAsync(tx sdk.Tx) error {
+	// TODO: fix context, may have to update sdk
+	return m.insertTx(sdk.Context{}, tx, false)
+}
+
+func (m *ExperimentalEVMMempool) insertTx(goCtx context.Context, tx sdk.Tx, sync bool) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
-	blockHeight := ctx.BlockHeight()
+	m.logger.Debug("inserting transaction into mempool")
 
-	m.logger.Debug("inserting transaction into mempool", "block_height", blockHeight)
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		// Insert into EVM pool
 		hash := ethMsg.Hash()
 		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
-		errs := m.txPool.Add(ethTxs, true)
+		errs := m.txPool.Add(ethTxs, sync)
 		if len(errs) > 0 && errs[0] != nil {
 			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
@@ -316,10 +326,7 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 	return nil
 }
 
-// InsertEVMTxAynsc inserts a tx to the EVM mempool asynchronously. No
-// validation will be run on the tx at insert time besides checking to see if
-// the tx is a valid EVM tx. If it is not an EVM tx, ErrTxIsNotEVM will be returned.
-func (m *ExperimentalEVMMempool) InsertEVMTxAsync(tx sdk.Tx) error {
+func (m *ExperimentalEVMMempool) InsertTxAsnyc(tx sdk.Tx) error {
 	ethMsg, err := m.getEVMMessage(tx)
 	if err != nil {
 		return err

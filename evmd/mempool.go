@@ -96,6 +96,7 @@ const (
 )
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
+	// TODO: get conetxt
 	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
 		txBytes := req.GetTx()
 
@@ -105,7 +106,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 		}
 
 		code := abci.CodeTypeOK
-		if err := evmMempool.InsertEVMTxAsync(tx); err != nil {
+		if err := evmMempool.InsertAsync(tx); err != nil {
 			if errors.Is(err, evmmempool.ErrMempoolFull) {
 				code = abci.CodeTypeRetry
 			} else {
