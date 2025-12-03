@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -19,6 +20,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -49,10 +51,12 @@ func (s sortGasAndReward) Less(i, j int) bool {
 // If the pending value is true, it will iterate over the mempool (pending)
 // txs in order to compute and return the pending tx sequence.
 // Todo: include the ability to specify a blockNumber
-func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height int64, logger log.Logger) (uint64, error) {
+func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, pending bool, height int64, logger log.Logger) (_ uint64, err error) {
+	ctx, span := tracer.Start(ctx, "getAccountNonce")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	queryClient := authtypes.NewQueryClient(b.ClientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
-	ctx := types.ContextWithHeight(height)
+	ctx = types.ContextWithHeight(ctx, height)
 	res, err := queryClient.Account(ctx, &authtypes.QueryAccountRequest{Address: adr})
 	if err != nil {
 		st, ok := status.FromError(err)
@@ -81,7 +85,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 
 	// the account retriever doesn't include the uncommitted transactions on the nonce so we need to
 	// to manually add them.
-	pendingTxs, err := b.PendingTransactions()
+	pendingTxs, err := b.PendingTransactions(ctx)
 	if err != nil {
 		logger.Error("failed to fetch pending transactions", "error", err.Error())
 		return nonce, nil
@@ -122,6 +126,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 //   - Transaction reward percentiles based on effective gas tip values
 //
 // Parameters:
+//   - ctx: Context for the request
 //   - cometBlock: The raw CometBFT block containing transaction data
 //   - ethBlock: Ethereum-formatted block with gas limit and usage information
 //   - rewardPercentiles: Percentile values (0-100) for reward calculation
@@ -130,14 +135,17 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 //
 // Returns an error if block processing fails due to invalid data types or calculation errors.
 func (b *Backend) ProcessBlock(
+	ctx context.Context,
 	cometBlock *cmtrpctypes.ResultBlock,
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
 	cometBlockResult *cmtrpctypes.ResultBlockResults,
 	targetOneFeeHistory *types.OneFeeHistory,
-) error {
+) (err error) {
+	ctx, span := tracer.Start(ctx, "ProcessBlock")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	blockHeight := cometBlock.Block.Height
-	blockBaseFee, err := b.BaseFee(cometBlockResult)
+	blockBaseFee, err := b.BaseFee(ctx, cometBlockResult)
 	if err != nil || blockBaseFee == nil {
 		targetOneFeeHistory.BaseFee = big.NewInt(0)
 	} else {
@@ -176,7 +184,7 @@ func (b *Backend) ProcessBlock(
 	targetOneFeeHistory.BlobGasUsedRatio = 0
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		ctx := types.ContextWithHeight(blockHeight)
+		ctx = types.ContextWithHeight(ctx, blockHeight)
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
 			return err
@@ -336,4 +344,14 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 		proofs = append(proofs, proof)
 	}
 	return proofs
+}
+
+func unwrapBlockNOrHash(blockNOrHash types.BlockNumberOrHash) string {
+	if blockNOrHash.BlockHash != nil {
+		return blockNOrHash.BlockHash.String()
+	}
+	if blockNOrHash.BlockNumber != nil {
+		return fmt.Sprintf("%d", *blockNOrHash.BlockNumber)
+	}
+	return ""
 }

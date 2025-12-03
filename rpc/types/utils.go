@@ -6,12 +6,14 @@ import (
 	"math/big"
 	"strings"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -97,8 +99,13 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 	}
 }
 
+var tracer = otel.Tracer("evm/rpc/types")
+
 // BlockMaxGasFromConsensusParams returns the gas limit for the current block from the chain consensus params.
-func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (int64, error) {
+func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (_ int64, err error) {
+	goCtx, span := tracer.Start(goCtx, "BlockMaxGasFromConsensusParams")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
 	cmtrpcclient, ok := clientCtx.Client.(cmtrpcclient.Client)
 	if !ok {
 		panic("incorrect tm rpc client")

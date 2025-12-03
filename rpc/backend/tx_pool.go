@@ -1,14 +1,18 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 )
 
 const (
@@ -19,14 +23,17 @@ const (
 // The code style for this API is based off of the Go-Ethereum implementation:
 
 // Content returns the transactions contained within the transaction pool.
-func (b *Backend) Content() (map[string]map[string]map[string]*types.RPCTransaction, error) {
+func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map[string]*types.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "Content")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
 	content := map[string]map[string]map[string]*types.RPCTransaction{
 		StatusPending: make(map[string]map[string]*types.RPCTransaction),
 		StatusQueued:  make(map[string]map[string]*types.RPCTransaction),
 	}
 
 	// Get current block header
-	curHeader, err := b.CurrentHeader()
+	curHeader, err := b.CurrentHeader(ctx)
 	if err != nil {
 		return content, fmt.Errorf("failed to get current header: %w", err)
 	}
@@ -70,11 +77,14 @@ func (b *Backend) Content() (map[string]map[string]map[string]*types.RPCTransact
 }
 
 // ContentFrom returns the transactions contained within the transaction pool
-func (b *Backend) ContentFrom(addr common.Address) (map[string]map[string]*types.RPCTransaction, error) {
+func (b *Backend) ContentFrom(ctx context.Context, addr common.Address) (result map[string]map[string]*types.RPCTransaction, err error) {
+	ctx, span := tracer.Start(ctx, "ContentFrom", trace.WithAttributes(attribute.String("address", addr.Hex())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
 	content := make(map[string]map[string]*types.RPCTransaction, 2)
 
 	// Get current block header
-	curHeader, err := b.CurrentHeader()
+	curHeader, err := b.CurrentHeader(ctx)
 	if err != nil {
 		return content, fmt.Errorf("failed to get current header: %w", err)
 	}
@@ -108,7 +118,7 @@ func (b *Backend) ContentFrom(addr common.Address) (map[string]map[string]*types
 }
 
 // Inspect returns the content of the transaction pool and flattens it into an easily inspectable list.
-func (b *Backend) Inspect() (map[string]map[string]map[string]string, error) {
+func (b *Backend) Inspect(_ context.Context) (map[string]map[string]map[string]string, error) {
 	inspect := map[string]map[string]map[string]string{
 		StatusPending: make(map[string]map[string]string),
 		StatusQueued:  make(map[string]map[string]string),
@@ -155,7 +165,7 @@ func (b *Backend) Inspect() (map[string]map[string]map[string]string, error) {
 }
 
 // Status returns the number of pending and queued transaction in the pool.
-func (b *Backend) Status() (map[string]hexutil.Uint, error) {
+func (b *Backend) Status(_ context.Context) (map[string]hexutil.Uint, error) {
 	// Get the global mempool instance
 	evmMempool := b.Mempool
 	if evmMempool == nil {

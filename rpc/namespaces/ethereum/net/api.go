@@ -5,11 +5,16 @@ import (
 	"fmt"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	"go.opentelemetry.io/otel"
 
 	"github.com/cosmos/evm/server/config"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
+)
+
+var (
+	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/net")
 )
 
 // PublicAPI is the eth_ prefixed set of APIs in the Web3 JSON-RPC spec.
@@ -37,7 +42,8 @@ func (s *PublicAPI) Version() string {
 
 // Listening returns if client is actively listening for network connections.
 func (s *PublicAPI) Listening() bool {
-	ctx := context.Background()
+	ctx, span := tracer.Start(context.Background(), "Listening")
+	defer span.End()
 	netInfo, err := s.tmClient.NetInfo(ctx)
 	if err != nil {
 		return false
@@ -47,7 +53,8 @@ func (s *PublicAPI) Listening() bool {
 
 // PeerCount returns the number of peers currently connected to the client.
 func (s *PublicAPI) PeerCount() int {
-	ctx := context.Background()
+	ctx, span := tracer.Start(context.Background(), "PeerCount")
+	defer span.End()
 	netInfo, err := s.tmClient.NetInfo(ctx)
 	if err != nil {
 		return 0
