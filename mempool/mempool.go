@@ -222,7 +222,6 @@ func NewExperimentalEVMMempool(
 		// later time, in which case we should gossip it again) by readding to
 		// the reap guard.
 		evmMempool.reapList.Drop(tx)
-		evmMempool.reapGuard.Delete(tx.Hash())
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -385,23 +384,13 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 	txs := m.reapList.Reap(maxBytes, maxGas)
 	m.logger.Debug("reap complete", "txs_reaped", len(txs))
 
-	// NOTE: We are not removing txs from the mempool's reapGuard here since it
-	// is possible that a transaction was promoted (and therefore added to the
-	// reapList), then it is demoted (but not removed), and then promoted back
-	// to pending, in which case MarkTxToBeReaped (our OnPromoted callback)
-	// will be called again. Thus, we only remove txs from the reapGuard when
-	// they are fully removed from the mempool and the mempool will no longer
-	// try and add them to the reapList.
-
 	return txs, nil
 }
 
-// markTxToBeReaped adds a transaction to the reap list when it's promoted to pending status.
-// This is called by the legacy pool when transactions become executable.
+// markTxToBeReaped adds a transaction to the reap list when it's promoted to
+// pending status. This is called by the legacy pool when transactions become
+// executable.
 func (m *ExperimentalEVMMempool) markTxToBeReaped(tx *ethtypes.Transaction) {
-	if _, loaded := m.reapGuard.LoadOrStore(tx.Hash(), nil); loaded {
-		return
-	}
 	m.reapList.Push(tx)
 }
 

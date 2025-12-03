@@ -9,16 +9,26 @@ import (
 )
 
 type ReapList struct {
-	txs      ethtypes.Transactions
-	txLookup map[common.Hash]int
-	txsLock  sync.RWMutex
+	// txs is a list of transactions.
+	txs ethtypes.Transactions
+
+	// txIndex is a map of tx hashes to what index that tx is stored in inside
+	// of txs. This serves a dual purpose of allowing for fast drops from txs
+	// without iteration, and guarding txs from being added to the ReapList
+	// twice before they are explicitly dropped.
+	txIndex map[common.Hash]int
+
+	// txsLock protects txLookup and txs.
+	txsLock sync.RWMutex
+
+	// encodeTx encodes a tx to bytes.
 	encodeTx func(tx *ethtypes.Transaction) ([]byte, error)
 }
 
 func NewReapList(encodeTx func(tx *ethtypes.Transaction) ([]byte, error)) *ReapList {
 	return &ReapList{
 		encodeTx: encodeTx,
-		txLookup: make(map[common.Hash]int),
+		txIndex:  make(map[common.Hash]int),
 	}
 }
 
@@ -37,6 +47,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		totalGas   uint64
 		result     [][]byte
 		nextStart  int
+		removed    []common.Hash
 	)
 
 	for idx, tx := range rl.txs {
@@ -55,6 +66,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 			// reap, we will reslice the list to be txs[nextStart:], which will
 			// no longer contain this tx.
 			nextStart = idx + 1
+			removed = append(removed, tx.Hash())
 			continue
 		}
 
@@ -67,6 +79,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		}
 
 		result = append(result, txBytes)
+		removed = append(removed, tx.Hash())
 		totalBytes += txSize
 		totalGas += txGas
 		nextStart = idx + 1
@@ -85,10 +98,19 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		})
 	}
 
-	// rebuild the lookup
-	rl.txLookup = make(map[common.Hash]int)
+	// rebuild the index
+	rl.txIndex = make(map[common.Hash]int)
 	for i, tx := range rl.txs {
-		rl.txLookup[tx.Hash()] = i
+		rl.txIndex[tx.Hash()] = i
+	}
+
+	// NOTE: We need to keep the txs that were just reaped in the txIndex, so
+	// that it can properly guard against these txs being added to the ReapList
+	// again. These txs are likely still in the mempool, and callers may try to
+	// add them to the ReapList again, which is not allowed. Removing from the
+	// txIndex will only be done during Drop.
+	for _, hash := range removed {
+		rl.txIndex[hash] = -1
 	}
 
 	return result
@@ -100,8 +122,12 @@ func (rl *ReapList) Push(tx *ethtypes.Transaction) {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
+	if _, ok := rl.txIndex[tx.Hash()]; ok {
+		return
+	}
+
 	rl.txs = append(rl.txs, tx)
-	rl.txLookup[tx.Hash()] = len(rl.txs) - 1
+	rl.txIndex[tx.Hash()] = len(rl.txs) - 1
 }
 
 // Drop removes an individual tx from the reap list. If the tx is not in the
@@ -111,10 +137,13 @@ func (rl *ReapList) Drop(tx *ethtypes.Transaction) {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
-	idx, ok := rl.txLookup[tx.Hash()]
+	hash := tx.Hash()
+	idx, ok := rl.txIndex[hash]
 	if !ok {
 		return
 	}
+	delete(rl.txIndex, hash)
+
 	if idx < 0 || idx >= len(rl.txs) {
 		return
 	}
