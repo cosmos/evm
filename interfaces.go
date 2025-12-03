@@ -218,12 +218,6 @@ type (
 		BankKeeperProvider
 		StakingKeeperProvider
 	}
-	WERC20PrecompileApp interface {
-		TestApp
-		BankKeeperProvider
-		Erc20KeeperProvider
-		TransferKeeperProvider
-	}
 
 	// Base interface required by the integration network helpers. Any app used by
 	// evm/testutil/integration must satisfy these keeper providers so the shared

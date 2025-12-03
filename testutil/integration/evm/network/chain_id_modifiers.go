@@ -6,7 +6,6 @@ package network
 
 import (
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -73,41 +72,9 @@ func GenerateBankGenesisMetadata(evmChainID uint64) []banktypes.Metadata {
 
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // erc20 module on the testing suite depending on the chainID.
-func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
-	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
-
-	return erc20GenesisState
-}
-
-// updateErc20GenesisStateForChainID modify the default genesis state for the
-// erc20 module on the testing suite depending on the chainID.
 func updateVMGenesisStateForChainID(chainID testconstants.ChainID, vmGenesisState evmtypes.GenesisState) evmtypes.GenesisState {
 	vmGenesisState.Params.EvmDenom = testconstants.ChainsCoinInfo[chainID.EVMChainID].Denom
 	vmGenesisState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: testconstants.ChainsCoinInfo[chainID.EVMChainID].ExtendedDenom}
 
 	return vmGenesisState
-}
-
-// updateErc20TokenPairs modifies the erc20 token pairs to use the correct
-// WEVMOS depending on ChainID
-func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
-	testnetAddress := GetWEVMOSContractHex(chainID)
-	coinInfo := testconstants.ExampleChainCoinInfo[chainID]
-
-	mainnetAddress := GetWEVMOSContractHex(testconstants.ExampleChainID)
-
-	updatedTokenPairs := make([]erc20types.TokenPair, len(tokenPairs))
-	for i, tokenPair := range tokenPairs {
-		if tokenPair.Erc20Address == mainnetAddress {
-			updatedTokenPairs[i] = erc20types.TokenPair{
-				Erc20Address:  testnetAddress,
-				Denom:         coinInfo.Denom,
-				Enabled:       tokenPair.Enabled,
-				ContractOwner: tokenPair.ContractOwner,
-			}
-		} else {
-			updatedTokenPairs[i] = tokenPair
-		}
-	}
-	return updatedTokenPairs
 }
