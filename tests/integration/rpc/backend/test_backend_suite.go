@@ -110,7 +110,7 @@ func (s *TestSuite) SetupTest() {
 
 // Ctx returns a context with height set for testing
 func (s *TestSuite) Ctx() context.Context {
-	return rpctypes.NewContextWithHeight(1, context.Background())
+	return rpctypes.NewContextWithHeight(1)
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
