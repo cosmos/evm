@@ -3,6 +3,7 @@ package txpool_test
 import (
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -98,14 +99,19 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	// wait for newHeadCh to be initialized
 	<-waitForSubscription
 
-	// override broadcast fn to wait until we advance the chain a few blocks
-	broadcastGuard := make(chan struct{})
-	legacyPool.BroadcastTxFn = func(txs []*types.Transaction) error {
-		<-broadcastGuard
-		return nil
+	// override recheck fn to wait until we advance the chain a few blocks
+	recheckGuard := make(chan struct{})
+	once := sync.Once{} // only want to simulate the slow reorg once
+	legacyPool.RecheckTxFnFactory = func(_ legacypool.BlockChain) legacypool.RecheckTxFn {
+		return func(_ *types.Transaction) error {
+			once.Do(func() {
+				<-recheckGuard
+			})
+			return nil
+		}
 	}
 
-	// add tx1 to the pool so that the blocking broadcast fn will be called,
+	// add tx1 to the pool so that the blocking recheck fn will be called,
 	// simulating a slow runReorg
 	tx1, _ := types.SignTx(types.NewTransaction(1, common.Address{}, big.NewInt(100), 100_000, big.NewInt(int64(gasTip)+1), nil), signer, key)
 	errs := pool.Add([]*types.Transaction{tx1}, false)
@@ -113,7 +119,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// broadcast fn is now blocking, waiting for broadcastGuard
+	// recheck fn is now blocking, waiting for recheckGuard
 
 	// during this time, we will simulate advancing the chain multiple times by
 	// sending headers on the newHeadCh
@@ -121,20 +127,14 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	newHeadCh <- core.ChainHeadEvent{Header: height2Header}
 	newHeadCh <- core.ChainHeadEvent{Header: height3Header}
 
-	// now that we have advanced the headers, unblock the broadcast fn
-	broadcastGuard <- struct{}{}
+	// now that we have advanced the headers, unblock the recheck fn
+	recheckGuard <- struct{}{}
 
 	// a runReorg call will now be scheduled with oldHead=genesis and
 	// newHead=height3
 
 	time.Sleep(500 * time.Millisecond)
 
-	// push another tx to make sure that runReorg was processed with the above
-	// headers
-	legacyPool.BroadcastTxFn = func(txs []*types.Transaction) error { return nil }
-	tx2, _ := types.SignTx(types.NewTransaction(2, common.Address{}, big.NewInt(100), 100_000, big.NewInt(int64(gasTip)+1), nil), signer, key)
-	errs = pool.Add([]*types.Transaction{tx2}, false)
-	for _, err := range errs {
-		require.NoError(t, err)
-	}
+	// sync the pool to make sure that runReorg has processed the above headers
+	require.NoError(t, pool.Sync())
 }
