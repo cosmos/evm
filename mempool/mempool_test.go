@@ -61,7 +61,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// Account 0: Insert 3 sequential transactions (nonce 0, 1, 2) - should all go to pending
 	for nonce := uint64(0); nonce < 3; nonce++ {
 		tx := createMsgEthereumTx(t, txConfig, accounts[0].key, nonce, big.NewInt(1e9))
-		err := mp.InsertEVMTxAsync(tx)
+		err := mp.Insert(sdk.Context{}, tx)
 		require.NoError(t, err, "failed to insert pending tx for account 0, nonce %d", nonce)
 	}
 
@@ -154,7 +154,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 
 	// insert a single tx for an account at nonce 0
 	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e9))
-	require.NoError(t, mp.InsertEVMTxAsync(tx))
+	require.NoError(t, mp.Insert(sdk.Context{}, tx))
 
 	// wait for another reset to make sure the pool processes the above
 	// txn into pending
@@ -225,11 +225,11 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	require.NoError(t, mp.GetTxPool().Sync())
 
 	tx0 := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e9))
-	require.NoError(t, mp.InsertEVMTxAsync(tx0))
+	require.NoError(t, mp.Insert(sdk.Context{}, tx0))
 	tx1 := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e9))
-	require.NoError(t, mp.InsertEVMTxAsync(tx1))
+	require.NoError(t, mp.Insert(sdk.Context{}, tx1))
 	tx2 := createMsgEthereumTx(t, txConfig, accounts[0].key, 2, big.NewInt(1e9))
-	require.NoError(t, mp.InsertEVMTxAsync(tx2))
+	require.NoError(t, mp.Insert(sdk.Context{}, tx2))
 
 	// wait for another reset to make sure the pool processes the above
 	// txns into pending
@@ -237,7 +237,7 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	require.Equal(t, 3, mp.CountTx())
 
 	// simulate comet calling removeTx, a new height being published, and
-	// our accounts nonce increments to 1, so tx 1 will be invalidated
+	// our accounts nonce increments to 1, so tx 0 will be invalidated
 	// after the next reset
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Unset()
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Return(&statedb.Account{
@@ -266,8 +266,8 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	txs, err := mp.ReapNewValidTxs(0, 0)
 	require.NoError(t, err)
 	require.Len(t, txs, 2)
-	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[0]), uint64(1))
-	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[1]), uint64(1))
+	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[0]), uint64(1)) // 1 or 2
+	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[1]), uint64(1)) // 1 or 2
 }
 
 // Helper types and functions
