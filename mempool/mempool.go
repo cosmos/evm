@@ -204,7 +204,7 @@ func NewExperimentalEVMMempool(
 		anteHandler:        config.AnteHandler,
 		operateExclusively: config.OperateExclusively,
 	}
-	evmMempool.reapList = NewReapList(evmMempool.encodeEVMTx)
+	evmMempool.reapList = NewReapList(evmMempool.encodeToCosmos)
 
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 
@@ -405,7 +405,7 @@ func (m *ExperimentalEVMMempool) markTxToBeReaped(tx *ethtypes.Transaction) {
 	m.reapList.Push(tx)
 }
 
-func (m *ExperimentalEVMMempool) encodeEVMTx(tx *ethtypes.Transaction) ([]byte, error) {
+func (m *ExperimentalEVMMempool) encodeToCosmos(tx *ethtypes.Transaction) ([]byte, error) {
 	// Create MsgEthereumTx from the eth transaction
 	msg := &evmtypes.MsgEthereumTx{}
 	msg.FromEthereumTx(tx)
