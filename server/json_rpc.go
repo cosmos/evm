@@ -70,9 +70,7 @@ func StartJSONRPC(
 		backend.WithLogger(srvCtx.Logger),
 	)
 
-	apis := rpc.BuildRPCs(config.JSONRPC.API, srvCtx, clientCtx, stream, func() backend.BackendI {
-		return evmBackend
-	})
+	apis := rpc.BuildRPCs(config.JSONRPC.API, srvCtx, clientCtx, stream, evmBackend)
 
 	rpcServer := ethrpc.NewServer()
 	rpcServer.SetBatchLimits(config.JSONRPC.BatchRequestLimit, config.JSONRPC.BatchResponseMaxSize)

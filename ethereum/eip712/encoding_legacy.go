@@ -175,6 +175,7 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte, eip155ChainID uint64) (api
 	}
 
 	// WrapTxToTypedData expects the payload as an Amino Sign Doc
+	//nolint:staticcheck
 	signBytes := legacytx.StdSignBytes(
 		signDoc.ChainId,
 		signDoc.AccountNumber,

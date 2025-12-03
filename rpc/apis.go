@@ -44,7 +44,7 @@ type APICreator = func(
 	ctx *server.Context,
 	clientCtx client.Context,
 	stream *stream.RPCStream,
-	backendProvider func() backend.BackendI,
+	backend backend.BackendI,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -56,12 +56,10 @@ func init() {
 			ctx *server.Context,
 			clientCtx client.Context,
 			stream *stream.RPCStream,
-			backendProvider func() backend.BackendI,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backendProvider()
-
 			// should not happen, but just in case
-			filterBackend, ok := evmBackend.(filters.Backend)
+			filterBackend, ok := backend.(filters.Backend)
 			if !ok {
 				panic("backend does not implement filter.Backend")
 			}
@@ -70,7 +68,7 @@ func init() {
 				{
 					Namespace: EthNamespace,
 					Version:   apiVersion,
-					Service:   eth.NewPublicAPI(ctx.Logger, evmBackend),
+					Service:   eth.NewPublicAPI(ctx.Logger, backend),
 					Public:    true,
 				},
 				{
@@ -81,7 +79,7 @@ func init() {
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, func() backend.BackendI) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, backend.BackendI) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -95,7 +93,7 @@ func init() {
 			ctx *server.Context,
 			clientCtx client.Context,
 			_ *stream.RPCStream,
-			_ func() backend.BackendI,
+			_ backend.BackendI,
 		) []rpc.API {
 			return []rpc.API{
 				{
@@ -110,13 +108,13 @@ func init() {
 			ctx *server.Context,
 			_ client.Context,
 			_ *stream.RPCStream,
-			backendProvider func() backend.BackendI,
+			backend backend.BackendI,
 		) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
 					Version:   apiVersion,
-					Service:   personal.NewAPI(ctx.Logger, backendProvider()),
+					Service:   personal.NewAPI(ctx.Logger, backend),
 					Public:    false,
 				},
 			}
@@ -125,13 +123,13 @@ func init() {
 			ctx *server.Context,
 			_ client.Context,
 			_ *stream.RPCStream,
-			backendProvider func() backend.BackendI,
+			backend backend.BackendI,
 		) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
 					Version:   apiVersion,
-					Service:   txpool.NewPublicAPI(ctx.Logger, backendProvider()),
+					Service:   txpool.NewPublicAPI(ctx.Logger, backend),
 					Public:    true,
 				},
 			}
@@ -140,14 +138,13 @@ func init() {
 			ctx *server.Context,
 			_ client.Context,
 			_ *stream.RPCStream,
-			backendProvider func() backend.BackendI,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backendProvider()
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
 					Version:   apiVersion,
-					Service:   debug.NewAPI(ctx, evmBackend, evmBackend.GetConfig().JSONRPC.EnableProfiling),
+					Service:   debug.NewAPI(ctx, backend, backend.GetConfig().JSONRPC.EnableProfiling),
 					Public:    true,
 				},
 			}
@@ -156,13 +153,13 @@ func init() {
 			ctx *server.Context,
 			_ client.Context,
 			_ *stream.RPCStream,
-			backendProvider func() backend.BackendI,
+			backend backend.BackendI,
 		) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
 					Version:   apiVersion,
-					Service:   miner.NewPrivateAPI(ctx, backendProvider()),
+					Service:   miner.NewPrivateAPI(ctx, backend),
 					Public:    false,
 				},
 			}
@@ -176,7 +173,7 @@ func BuildRPCs(
 	ctx *server.Context,
 	clientCtx client.Context,
 	stream *stream.RPCStream,
-	backendProvider func() backend.BackendI,
+	backend backend.BackendI,
 ) []rpc.API {
 	var apis []rpc.API
 
@@ -187,7 +184,7 @@ func BuildRPCs(
 			continue
 		}
 
-		api := creator(ctx, clientCtx, stream, backendProvider)
+		api := creator(ctx, clientCtx, stream, backend)
 
 		apis = append(apis, api...)
 	}
