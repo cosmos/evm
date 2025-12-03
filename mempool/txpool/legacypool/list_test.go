@@ -38,7 +38,7 @@ func TestStrictListAdd(t *testing.T) {
 		txs[i] = transaction(uint64(i), 0, key)
 	}
 	// Insert the transactions in a random order
-	list := newList(true, nil)
+	list := newList(true)
 	for _, v := range rand.Perm(len(txs)) {
 		list.Add(txs[v], DefaultConfig.PriceBump)
 	}
@@ -57,7 +57,7 @@ func TestStrictListAdd(t *testing.T) {
 // expected that the list does not panic.
 func TestListAddVeryExpensive(t *testing.T) {
 	key, _ := crypto.GenerateKey()
-	list := newList(true, nil)
+	list := newList(true)
 	for i := 0; i < 3; i++ {
 		value := big.NewInt(100)
 		gasprice, _ := new(big.Int).SetString("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0)
@@ -80,7 +80,7 @@ func BenchmarkListAdd(b *testing.B) {
 	priceLimit := uint256.NewInt(DefaultConfig.PriceLimit)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		list := newList(true, nil)
+		list := newList(true)
 		for _, v := range rand.Perm(len(txs)) {
 			list.Add(txs[v], DefaultConfig.PriceBump)
 			list.CostFilter(priceLimit, DefaultConfig.PriceBump)
@@ -99,7 +99,7 @@ func BenchmarkListCapOneTx(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		list := newList(true, nil)
+		list := newList(true)
 		// Insert the transactions in a random order
 		for _, v := range rand.Perm(len(txs)) {
 			list.Add(txs[v], DefaultConfig.PriceBump)
