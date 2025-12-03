@@ -49,6 +49,11 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 
 		txBytes, err := rl.encodeTx(tx)
 		if err != nil {
+			// while we are not explicitly calling drop to remove this bad tx,
+			// it will still be removed since we are setting nextStart to be >
+			// the idx of this tx in the list. Once we have collected txs to
+			// reap, we will reslice the list to be txs[nextStart:], which will
+			// no longer contain this tx.
 			nextStart = idx + 1
 			continue
 		}
