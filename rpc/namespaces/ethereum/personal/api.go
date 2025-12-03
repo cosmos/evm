@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/rpc/backend"
+	"github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -115,10 +116,10 @@ func (api *PrivateAccountAPI) UnlockAccount(_ context.Context, addr common.Addre
 // SendTransaction will create a transaction from the given arguments and
 // tries to sign it with the key associated with args.To. If the given password isn't
 // able to decrypt the key it fails.
-func (api *PrivateAccountAPI) SendTransaction(ctx context.Context, args evmtypes.TransactionArgs, _ string) (common.Hash, error) {
+func (api *PrivateAccountAPI) SendTransaction(ctx context.Context, args evmtypes.TransactionArgs, _ string) (_ common.Hash, err error) {
 	api.logger.Debug("personal_sendTransaction", "address", args.To.String())
 	ctx, span := tracer.Start(ctx, "SendTransaction")
-	defer span.End()
+	defer func() { trace.EndSpanErr(span, err) }()
 	return api.backend.SendTransaction(ctx, args)
 }
 
@@ -146,10 +147,10 @@ func (api *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr
 // the V value must be 27 or 28 for legacy reasons.
 //
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecove
-func (api *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
+func (api *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (_ common.Address, err error) {
 	api.logger.Debug("personal_ecRecover", "data", data, "sig", sig)
 	_, span := tracer.Start(ctx, "EcRecover")
-	defer span.End()
+	defer func() { trace.EndSpanErr(span, err) }()
 
 	if len(sig) != crypto.SignatureLength {
 		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)

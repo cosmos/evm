@@ -16,6 +16,7 @@ import (
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,8 +26,7 @@ import (
 // and returns them as a JSON object.
 func (b *Backend) TraceTransaction(ctx context.Context, hash common.Hash, config *rpctypes.TraceConfig) (result interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "TraceTransaction", trace.WithAttributes(attribute.String("hash", hash.Hex())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// Get transaction by hash
 	transaction, err := b.GetTxByEthHash(ctx, hash)
@@ -160,8 +160,7 @@ func (b *Backend) TraceBlock(ctx context.Context, height rpctypes.BlockNumber,
 	block *tmrpctypes.ResultBlock,
 ) (result []*evmtypes.TxTraceResult, err error) {
 	ctx, span := tracer.Start(ctx, "TraceBlock", trace.WithAttributes(attribute.Int64("height", height.Int64()), attribute.String("blockHash", common.BytesToHash(block.BlockID.Hash).Hex())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	txs := block.Block.Txs
 	txsLength := len(txs)
@@ -255,8 +254,7 @@ func (b *Backend) TraceCall(
 		toAddr = args.To.Hex()
 	}
 	ctx, span := tracer.Start(ctx, "TraceCall", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr), attribute.String("blockNrOrHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// Marshal tx args
 	bz, err := json.Marshal(&args)

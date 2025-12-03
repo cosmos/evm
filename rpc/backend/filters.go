@@ -8,13 +8,14 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	evmtrace "github.com/cosmos/evm/trace"
 )
 
 // GetLogs returns all the logs from all the ethereum transactions in a block.
 func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) (result [][]*ethtypes.Log, err error) {
 	ctx, span := tracer.Start(ctx, "GetLogs", trace.WithAttributes(attribute.String("hash", hash.Hex())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	resBlock, err := b.CometBlockByHash(ctx, hash)
 	if err != nil {
@@ -33,8 +34,7 @@ func (b *Backend) GetLogsByHeight(ctx context.Context, height *int64) (result []
 		heightAttr = *height
 	}
 	ctx, span := tracer.Start(ctx, "GetLogsByHeight", trace.WithAttributes(attribute.Int64("height", heightAttr)))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// NOTE: we query the state in case the tx result logs are not persisted after an upgrade.
 	blockRes, err := b.RPCClient.BlockResults(ctx, height)

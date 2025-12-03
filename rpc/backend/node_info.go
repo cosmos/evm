@@ -16,6 +16,7 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -66,8 +67,7 @@ func (b *Backend) Accounts() ([]common.Address, error) {
 // - knownStates:   number of known state entries that still need to be pulled
 func (b *Backend) Syncing(ctx context.Context) (result interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "Syncing")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	status, err := b.ClientCtx.Client.Status(ctx)
 	if err != nil {

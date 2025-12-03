@@ -20,6 +20,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -52,8 +53,7 @@ func (s sortGasAndReward) Less(i, j int) bool {
 // Todo: include the ability to specify a blockNumber
 func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, pending bool, height int64, logger log.Logger) (_ uint64, err error) {
 	ctx, span := tracer.Start(ctx, "getAccountNonce")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	queryClient := authtypes.NewQueryClient(b.ClientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
 	ctx = types.ContextWithHeight(height, ctx)
@@ -143,8 +143,7 @@ func (b *Backend) ProcessBlock(
 	targetOneFeeHistory *types.OneFeeHistory,
 ) (err error) {
 	ctx, span := tracer.Start(ctx, "ProcessBlock")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	blockHeight := cometBlock.Block.Height
 	blockBaseFee, err := b.BaseFee(ctx, cometBlockResult)
 	if err != nil || blockBaseFee == nil {

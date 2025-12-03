@@ -20,6 +20,7 @@ import (
 
 	"github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -32,8 +33,7 @@ import (
 // the given transaction from the pool and reinsert it with the new gas price and limit.
 func (b *Backend) Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (result common.Hash, err error) {
 	ctx, span := tracer.Start(ctx, "Resend", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if args.Nonce == nil {
 		return common.Hash{}, fmt.Errorf("missing transaction nonce in transaction spec")
@@ -108,8 +108,7 @@ func (b *Backend) Resend(ctx context.Context, args evmtypes.TransactionArgs, gas
 // SendRawTransaction send a raw Ethereum transaction.
 func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (result common.Hash, err error) {
 	ctx, span := tracer.Start(ctx, "SendRawTransaction")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// RLP decode raw transaction bytes
 	tx := &ethtypes.Transaction{}
@@ -202,8 +201,7 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 // provided on the args
 func (b *Backend) SetTxDefaults(ctx context.Context, args evmtypes.TransactionArgs) (result evmtypes.TransactionArgs, err error) {
 	ctx, span := tracer.Start(ctx, "SetTxDefaults")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return args, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
@@ -343,8 +341,7 @@ func (b *Backend) EstimateGas(
 		toAddr = args.To.Hex()
 	}
 	ctx, span := tracer.Start(ctx, "EstimateGas", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr)))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	blockNr := rpctypes.EthPendingBlockNumber
 	if blockNrOrHash != nil {
@@ -406,8 +403,7 @@ func (b *Backend) DoCall(
 		toAddr = args.To.Hex()
 	}
 	ctx, span := tracer.Start(ctx, "DoCall", trace.WithAttributes(attribute.String("from", args.GetFrom().Hex()), attribute.String("to", toAddr), attribute.Int64("blockNr", blockNr.Int64())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	bz, err := json.Marshal(&args)
 	if err != nil {
@@ -466,8 +462,7 @@ func (b *Backend) DoCall(
 // GasPrice returns the current gas price based on Cosmos EVM' gas price oracle.
 func (b *Backend) GasPrice(ctx context.Context) (result *hexutil.Big, err error) {
 	ctx, span := tracer.Start(ctx, "GasPrice")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	head, err := b.CurrentHeader(ctx)
 	if err != nil {

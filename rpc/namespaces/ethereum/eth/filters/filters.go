@@ -17,6 +17,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/trace"
 
 	"cosmossdk.io/log"
 )
@@ -92,7 +93,7 @@ func newFilter(logger log.Logger, backend Backend, criteria filters.FilterCriter
 // first block that contains matches, updating the start of the filter accordingly.
 func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) (logs []*ethtypes.Log, err error) {
 	ctx, span := tracer.Start(ctx, "Filter.Logs")
-	defer span.End()
+	defer func() { trace.EndSpanErr(span, err) }()
 	if blockLimit == 0 {
 		return nil, nil
 	}

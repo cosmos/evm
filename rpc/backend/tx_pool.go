@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 )
 
 const (
@@ -24,8 +25,7 @@ const (
 // Content returns the transactions contained within the transaction pool.
 func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map[string]*types.RPCTransaction, err error) {
 	ctx, span := tracer.Start(ctx, "Content")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	content := map[string]map[string]map[string]*types.RPCTransaction{
 		StatusPending: make(map[string]map[string]*types.RPCTransaction),
@@ -79,8 +79,7 @@ func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map
 // ContentFrom returns the transactions contained within the transaction pool
 func (b *Backend) ContentFrom(ctx context.Context, addr common.Address) (result map[string]map[string]*types.RPCTransaction, err error) {
 	ctx, span := tracer.Start(ctx, "ContentFrom", trace.WithAttributes(attribute.String("address", addr.Hex())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	content := make(map[string]map[string]*types.RPCTransaction, 2)
 

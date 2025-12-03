@@ -26,6 +26,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -82,8 +83,7 @@ func (a *API) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfig) (
 func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.TraceConfig) (res []*evmtypes.TxTraceResult, err error) {
 	a.logger.Debug("debug_traceBlockByNumber", "height", height)
 	ctx, span := tracer.Start(context.Background(), "eth_traceBlockByNumber", trace.WithAttributes(attribute.Int64("height", int64(height))))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if height == 0 {
 		return nil, errors.New("genesis is not traceable")
 	}
@@ -123,8 +123,7 @@ func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) (
 func (a *API) TraceBlock(ctx context.Context, tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) (_ []*evmtypes.TxTraceResult, err error) {
 	a.logger.Debug("debug_traceBlock", "size", len(tblockRlp))
 	ctx, span := tracer.Start(ctx, "eth_traceBlock")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// Decode RLP-encoded block
 	var block types.Block
 	if err := rlp.DecodeBytes(tblockRlp, &block); err != nil {
@@ -169,8 +168,7 @@ func (a *API) TraceCall(ctx context.Context, args evmtypes.TransactionArgs, bloc
 func (a *API) GetRawBlock(ctx context.Context, blockNrOrHash rpctypes.BlockNumberOrHash) (_ hexutil.Bytes, err error) {
 	a.logger.Debug("debug_getRawBlock", "block number or hash", blockNrOrHash)
 	ctx, span := tracer.Start(ctx, "eth_getRawBlock")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// Get block number from blockNrOrHash
 	blockNum, err := a.backend.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
@@ -428,8 +426,7 @@ func (a *API) SetGCPercent(v int) (int, error) {
 // GetHeaderRlp retrieves the RLP encoded for of a single header.
 func (a *API) GetHeaderRlp(number uint64) (_ hexutil.Bytes, err error) {
 	ctx, span := tracer.Start(context.Background(), "eth_getHeaderRlp")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if !a.profilingEnabled {
 		return nil, rpctypes.ErrProfilingDisabled
 	}
@@ -444,8 +441,7 @@ func (a *API) GetHeaderRlp(number uint64) (_ hexutil.Bytes, err error) {
 // GetBlockRlp retrieves the RLP encoded for of a single block.
 func (a *API) GetBlockRlp(number uint64) (_ hexutil.Bytes, err error) {
 	ctx, span := tracer.Start(context.Background(), "eth_getBlockRlp")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if !a.profilingEnabled {
 		return nil, rpctypes.ErrProfilingDisabled
 	}
@@ -460,8 +456,7 @@ func (a *API) GetBlockRlp(number uint64) (_ hexutil.Bytes, err error) {
 // PrintBlock retrieves a block and returns its pretty printed form.
 func (a *API) PrintBlock(number uint64) (_ string, err error) {
 	ctx, span := tracer.Start(context.Background(), "eth_printBlock")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if !a.profilingEnabled {
 		return "", rpctypes.ErrProfilingDisabled
 	}

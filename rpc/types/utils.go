@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/cosmos/evm/trace"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -103,8 +104,7 @@ var tracer = otel.Tracer("evm/rpc/types")
 // BlockMaxGasFromConsensusParams returns the gas limit for the current block from the chain consensus params.
 func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (_ int64, err error) {
 	goCtx, span := tracer.Start(goCtx, "BlockMaxGasFromConsensusParams")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { trace.EndSpanErr(span, err) }()
 
 	cmtrpcclient, ok := clientCtx.Client.(cmtrpcclient.Client)
 	if !ok {

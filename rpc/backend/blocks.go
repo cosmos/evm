@@ -16,6 +16,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
@@ -27,8 +28,7 @@ import (
 // rpc.
 func (b *Backend) BlockNumber(ctx context.Context) (result hexutil.Uint64, err error) {
 	ctx, span := tracer.Start(ctx, "GetBlockNumber")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// do any grpc query, ignore the response and use the returned block height
 	var header metadata.MD
@@ -55,8 +55,7 @@ func (b *Backend) BlockNumber(ctx context.Context) (result hexutil.Uint64, err e
 // objects or if false only the hashes of the transactions.
 func (b *Backend) GetBlockByNumber(ctx context.Context, blockNum types.BlockNumber, fullTx bool) (result map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "GetBlockByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64()), attribute.Bool("fullTx", fullTx)))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	resBlock, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
@@ -87,8 +86,7 @@ func (b *Backend) GetBlockByNumber(ctx context.Context, blockNum types.BlockNumb
 // hash.
 func (b *Backend) GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (result map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "GetBlockByHash", trace.WithAttributes(attribute.String("hash", hash.Hex()), attribute.Bool("fullTx", fullTx)))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	resBlock, err := b.CometBlockByHash(ctx, hash)
 	if err != nil {
@@ -171,8 +169,7 @@ func (b *Backend) getBlockTransactionCount(ctx context.Context, block *cmtrpctyp
 // EthBlockByNumber returns the Ethereum Block identified by number.
 func (b *Backend) EthBlockByNumber(ctx context.Context, blockNum types.BlockNumber) (result *ethtypes.Block, err error) {
 	ctx, span := tracer.Start(ctx, "EthBlockByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	resBlock, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
@@ -203,8 +200,7 @@ func (b *Backend) GetBlockReceipts(
 	blockNrOrHash types.BlockNumberOrHash,
 ) (result []map[string]interface{}, err error) {
 	ctx, span := tracer.Start(ctx, "GetBlockReceipts", trace.WithAttributes(attribute.String("blockNrOrHash", unwrapBlockNOrHash(blockNrOrHash))))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
