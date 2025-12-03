@@ -47,9 +47,10 @@ type (
 		vmKeeper VMKeeperI
 
 		/** Mempools **/
-		txPool       *txpool.TxPool
-		legacyTxPool *legacypool.LegacyPool
-		cosmosPool   sdkmempool.ExtMempool
+		txPool             *txpool.TxPool
+		legacyTxPool       *legacypool.LegacyPool
+		cosmosPool         sdkmempool.ExtMempool
+		operateExclusively bool
 
 		/** Utils **/
 		logger        log.Logger
@@ -80,8 +81,13 @@ type EVMMempoolConfig struct {
 	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
 	AnteHandler      sdk.AnteHandler
 	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
-	BlockGasLimit    uint64 // Block gas limit from consensus parameters
-	MinTip           *uint256.Int
+	// Block gas limit from consensus parameters
+	BlockGasLimit uint64
+	MinTip        *uint256.Int
+	// OperateExclusively indicates whether this mempool is the ONLY mempool in the chain.
+	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
+	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
+	OperateExclusively bool
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -186,16 +192,17 @@ func NewExperimentalEVMMempool(
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:      vmKeeper,
-		txPool:        txPool,
-		legacyTxPool:  txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:    cosmosPool,
-		logger:        logger,
-		txConfig:      txConfig,
-		blockchain:    blockchain,
-		blockGasLimit: config.BlockGasLimit,
-		minTip:        config.MinTip,
-		anteHandler:   config.AnteHandler,
+		vmKeeper:           vmKeeper,
+		txPool:             txPool,
+		legacyTxPool:       txPool.Subpools[0].(*legacypool.LegacyPool),
+		cosmosPool:         cosmosPool,
+		logger:             logger,
+		txConfig:           txConfig,
+		blockchain:         blockchain,
+		blockGasLimit:      config.BlockGasLimit,
+		minTip:             config.MinTip,
+		anteHandler:        config.AnteHandler,
+		operateExclusively: config.OperateExclusively,
 	}
 	evmMempool.reapList = NewReapList(evmMempool.encodeEVMTx)
 
@@ -221,6 +228,11 @@ func NewExperimentalEVMMempool(
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
+}
+
+// IsExclusive returns true if this mempool is the ONLY mempool in the chain.
+func (m *ExperimentalEVMMempool) IsExclusive() bool {
+	return m.operateExclusively
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
@@ -426,6 +438,10 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Wait for the legacypool to Reset at >= blockHeight (this may have
+	// already happened), to ensure all txs in pending pool are valid.
+	m.legacyTxPool.WaitForReorgHeight(ctx, ctx.BlockHeight())
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 

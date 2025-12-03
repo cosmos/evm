@@ -18,6 +18,7 @@
 package legacypool
 
 import (
+	"context"
 	"errors"
 	"maps"
 	"math/big"
@@ -255,13 +256,15 @@ type LegacyPool struct {
 	all     *lookup                      // All transactions to allow lookups
 	priced  *pricedList                  // All transactions sorted by price
 
-	reqResetCh      chan *txpoolResetRequest
-	reqPromoteCh    chan *accountSet
-	queueTxEventCh  chan *types.Transaction
-	reorgDoneCh     chan chan struct{}
-	reorgShutdownCh chan struct{}  // requests shutdown of scheduleReorgLoop
-	wg              sync.WaitGroup // tracks loop, scheduleReorgLoop
-	initDoneCh      chan struct{}  // is closed once the pool is initialized (for tests)
+	reqResetCh          chan *txpoolResetRequest
+	reqPromoteCh        chan *accountSet
+	queueTxEventCh      chan *types.Transaction
+	reorgDoneCh         chan chan struct{}
+	reorgShutdownCh     chan struct{}  // requests shutdown of scheduleReorgLoop
+	reorgSubscriptionCh chan struct{}  // notifies the reorg loop that a subscriber wants to wait on nextDone
+	wg                  sync.WaitGroup // tracks loop, scheduleReorgLoop
+	initDoneCh          chan struct{}  // is closed once the pool is initialized (for tests)
+	latestReorgHeight   atomic.Int64   // Latest height that the reorg loop has completed
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
@@ -289,22 +292,24 @@ func New(config Config, chain BlockChain) *LegacyPool {
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
-		config:          config,
-		chain:           chain,
-		chainconfig:     chain.Config(),
-		signer:          types.LatestSigner(chain.Config()),
-		pending:         make(map[common.Address]*list),
-		queue:           make(map[common.Address]*list),
-		beats:           make(map[common.Address]time.Time),
-		all:             newLookup(),
-		reqResetCh:      make(chan *txpoolResetRequest),
-		reqPromoteCh:    make(chan *accountSet),
-		queueTxEventCh:  make(chan *types.Transaction),
-		reorgDoneCh:     make(chan chan struct{}),
-		reorgShutdownCh: make(chan struct{}),
-		initDoneCh:      make(chan struct{}),
+		config:              config,
+		chain:               chain,
+		chainconfig:         chain.Config(),
+		signer:              types.LatestSigner(chain.Config()),
+		pending:             make(map[common.Address]*list),
+		queue:               make(map[common.Address]*list),
+		beats:               make(map[common.Address]time.Time),
+		all:                 newLookup(),
+		reqResetCh:          make(chan *txpoolResetRequest),
+		reqPromoteCh:        make(chan *accountSet),
+		queueTxEventCh:      make(chan *types.Transaction),
+		reorgDoneCh:         make(chan chan struct{}),
+		reorgShutdownCh:     make(chan struct{}),
+		reorgSubscriptionCh: make(chan struct{}),
+		initDoneCh:          make(chan struct{}),
 	}
 	pool.priced = newPricedList(pool.all)
+	pool.latestReorgHeight.Store(0)
 
 	return pool
 }
@@ -1281,7 +1286,8 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 				queuedEvents[addr] = NewSortedMap()
 			}
 			queuedEvents[addr].Put(tx)
-
+		case <-pool.reorgSubscriptionCh:
+			pool.reorgDoneCh <- nextDone
 		case <-curDone:
 			curDone = nil
 
@@ -1361,6 +1367,9 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 
 	dropBetweenReorgHistogram.Update(int64(pool.changesSinceReorg))
 	pool.changesSinceReorg = 0 // Reset change counter
+	if reset != nil && reset.newHead != nil {
+		pool.latestReorgHeight.Store(reset.newHead.Number.Int64())
+	}
 	pool.mu.Unlock()
 
 	// Notify subsystems for newly added transactions
@@ -1996,6 +2005,43 @@ func (pool *LegacyPool) Clear() {
 	pool.pending = make(map[common.Address]*list)
 	pool.queue = make(map[common.Address]*list)
 	pool.pendingNonces = newNoncer(pool.currentState)
+}
+
+// WaitForReorgHeight blocks until the reorg loop has reset at a head with
+// height >= height. If the context is cancelled or the pool is shutting down,
+// this will also return.
+func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
+	for pool.latestReorgHeight.Load() < height {
+		// reorg loop has not run at the target height, subscribe to the
+		// outcome of the next reorg loop iteration to know when to check again
+		sub, err := pool.SubscribeToNextReorg()
+		if err != nil {
+			return
+		}
+
+		// need to check again in case reorg has finished in between initial
+		// check and subscribing to next reorg
+		if pool.latestReorgHeight.Load() >= height {
+			return
+		}
+
+		select {
+		case <-sub:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// SubscribeToNextReorg returns a channel that will close when the next reorg
+// loop completes. An error is returned if the loop is shutting down.
+func (pool *LegacyPool) SubscribeToNextReorg() (chan struct{}, error) {
+	select {
+	case pool.reorgSubscriptionCh <- struct{}{}:
+		return <-pool.reorgDoneCh, nil
+	case <-pool.reorgShutdownCh:
+		return nil, errors.New("shutdown")
+	}
 }
 
 // HasPendingAuth returns a flag indicating whether there are pending

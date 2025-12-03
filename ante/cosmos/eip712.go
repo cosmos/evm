@@ -177,7 +177,8 @@ func VerifySignature(
 			return errorsmod.Wrap(errortypes.ErrNoSignatures, "tx doesn't contain any msgs to verify signature")
 		}
 
-		txBytes := legacytx.StdSignBytes( //nolint:staticcheck
+		//nolint:staticcheck
+		txBytes := legacytx.StdSignBytes(
 			signerData.ChainID,
 			signerData.AccountNumber,
 			signerData.Sequence,

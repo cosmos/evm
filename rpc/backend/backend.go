@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
@@ -170,23 +171,50 @@ type Backend struct {
 	EvmChainID          *big.Int
 	Cfg                 config.Config
 	AllowUnprotectedTxs bool
+	UseAppMempool       bool
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
+	Application         Application
 	Mempool             *evmmempool.ExperimentalEVMMempool
 }
 
-func (b *Backend) GetConfig() config.Config {
-	return b.Cfg
+// Opt is a function type that configures the backend.
+type Opt func(*Backend)
+
+// Application represents ABCI application itself (us).
+// This is used for opaque ABCI calls instead of injecting BaseApp into Backend.
+type Application interface {
+	InsertTx(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error)
+}
+
+// WithUnprotectedTxs sets whether to allow unprotected transactions.
+func WithUnprotectedTxs(value bool) Opt {
+	return func(b *Backend) { b.AllowUnprotectedTxs = value }
+}
+
+// WithAppMempool sets whether to use the app-side mempool instead of
+// broadcasting the tx to cometbft mempool.
+func WithAppMempool(value bool) Opt {
+	return func(b *Backend) { b.UseAppMempool = value }
+}
+
+// WithLogger sets the logger for the backend.
+func WithLogger(logger log.Logger) Opt {
+	return func(b *Backend) { b.Logger = logger.With("module", "backend") }
+}
+
+// WithApplication sets the ABCI application for the backend.
+func WithApplication(abciApp Application) Opt {
+	return func(b *Backend) { b.Application = abciApp }
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
 func NewBackend(
 	ctx *server.Context,
-	logger log.Logger,
 	clientCtx client.Context,
-	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	opts ...Opt,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
@@ -199,17 +227,29 @@ func NewBackend(
 	}
 
 	b := &Backend{
-		Ctx:                 context.Background(),
-		ClientCtx:           clientCtx,
-		RPCClient:           rpcClient,
-		QueryClient:         types.NewQueryClient(clientCtx),
-		Logger:              logger.With("module", "backend"),
-		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
+		Ctx:         context.Background(),
+		ClientCtx:   clientCtx,
+		RPCClient:   rpcClient,
+		QueryClient: types.NewQueryClient(clientCtx),
+		//nolint:gosec // G115 // won't exceed uint64
+		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)),
 		Cfg:                 appConf,
-		AllowUnprotectedTxs: allowUnprotectedTxs,
+		AllowUnprotectedTxs: false,
+		UseAppMempool:       false,
 		Indexer:             indexer,
 		Mempool:             mempool,
+		Logger:              log.NewNopLogger(),
 	}
+
 	b.ProcessBlocker = b.ProcessBlock
+
+	for _, opt := range opts {
+		opt(b)
+	}
+
 	return b
+}
+
+func (b *Backend) GetConfig() config.Config {
+	return b.Cfg
 }
