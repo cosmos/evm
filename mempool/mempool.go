@@ -317,12 +317,6 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 	return nil
 }
 
-var (
-	ErrInvalidTx    = errors.New("tx is invalid")
-	ErrMempoolFull  = errors.New("mempool is full")
-	ErrAlreadyKnown = errors.New("tx already known")
-)
-
 // InsertEVMTxAynsc inserts a tx to the EVM mempool asynchronously. No
 // validation will be run on the tx at insert time besides checking to see if
 // the tx is a valid EVM tx. If it is not an EVM tx, ErrTxIsNotEVM will be returned.
