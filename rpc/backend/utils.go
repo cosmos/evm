@@ -56,7 +56,7 @@ func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, p
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	queryClient := authtypes.NewQueryClient(b.ClientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
-	ctx = types.ContextWithHeight(height, ctx)
+	ctx = types.ContextWithHeight(ctx, height)
 	res, err := queryClient.Account(ctx, &authtypes.QueryAccountRequest{Address: adr})
 	if err != nil {
 		st, ok := status.FromError(err)
@@ -184,7 +184,7 @@ func (b *Backend) ProcessBlock(
 	targetOneFeeHistory.BlobGasUsedRatio = 0
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		ctx = types.ContextWithHeight(blockHeight, ctx)
+		ctx = types.ContextWithHeight(ctx, blockHeight)
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
 			return err

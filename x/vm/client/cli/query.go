@@ -70,7 +70,7 @@ func GetStorageCmd() *cobra.Command {
 				Key:     key,
 			}
 
-			res, err := queryClient.Storage(rpctypes.ContextWithHeight(clientCtx.Height), req)
+			res, err := queryClient.Storage(rpctypes.NewContextWithHeight(clientCtx.Height), req)
 			if err != nil {
 				return err
 			}
@@ -107,7 +107,7 @@ func GetCodeCmd() *cobra.Command {
 				Address: address,
 			}
 
-			res, err := queryClient.Code(rpctypes.ContextWithHeight(clientCtx.Height), req)
+			res, err := queryClient.Code(rpctypes.NewContextWithHeight(clientCtx.Height), req)
 			if err != nil {
 				return err
 			}
@@ -144,7 +144,7 @@ func GetAccountCmd() *cobra.Command {
 				Address: address,
 			}
 
-			res, err := queryClient.Account(rpctypes.ContextWithHeight(clientCtx.Height), req)
+			res, err := queryClient.Account(rpctypes.NewContextWithHeight(clientCtx.Height), req)
 			if err != nil {
 				return err
 			}

@@ -169,7 +169,7 @@ func (b *Backend) EthBlockFromCometBlock(
 	}
 
 	// 3. get block gasLimit
-	ctx = rpctypes.ContextWithHeight(cmtBlock.Height, ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, cmtBlock.Height)
 	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.ClientCtx, cmtBlock.Height)
 	if err != nil {
 		b.Logger.Error("failed to query consensus params", "error", err.Error())
@@ -230,7 +230,7 @@ func (b *Backend) MinerFromCometBlock(
 
 	var validatorAccAddr sdk.AccAddress
 
-	ctx = rpctypes.ContextWithHeight(cmtBlock.Height, ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, cmtBlock.Height)
 	res, err := b.QueryClient.ValidatorAccount(ctx, req)
 	if err != nil {
 		b.Logger.Debug(

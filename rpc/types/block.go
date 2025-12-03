@@ -48,21 +48,22 @@ func NewBlockNumber(n *big.Int) BlockNumber {
 	return BlockNumber(n.Int64())
 }
 
-// ContextWithHeight wraps a context with the a gRPC block height header. If the provided height is
-// 0, it will return an empty context and the gRPC query will use the latest block height for querying.
-// Note that all metadata is processed and removed by the CometBFT layer, so it won't be accessible at gRPC server level.
-func ContextWithHeight(height int64, ctxs ...context.Context) context.Context {
-	var ctx context.Context
-	if len(ctxs) == 0 {
-		ctx = context.Background()
-	} else {
-		ctx = ctxs[0]
-	}
-
+// ContextWithHeight wraps a context with the GRPCBlockHeightHeader set.
+// If height == 0, the original context is returned unmodified.
+func ContextWithHeight(ctx context.Context, height int64) context.Context {
 	if height == 0 {
 		return ctx
 	}
+	return metadata.AppendToOutgoingContext(ctx, grpctypes.GRPCBlockHeightHeader, fmt.Sprintf("%d", height))
+}
 
+// NewContextWithHeight wraps a new background context with the gRPC block height header. If the provided height is
+// 0, it will return an empty context and the gRPC query will use the latest block height for querying.
+func NewContextWithHeight(height int64) context.Context {
+	ctx := context.Background()
+	if height == 0 {
+		return ctx
+	}
 	return metadata.AppendToOutgoingContext(ctx, grpctypes.GRPCBlockHeightHeader, fmt.Sprintf("%d", height))
 }
 

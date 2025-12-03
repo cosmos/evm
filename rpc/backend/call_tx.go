@@ -376,10 +376,10 @@ func (b *Backend) EstimateGas(
 		Overrides:       bzOverrides,
 	}
 
-	// From ContextWithHeight: if the provided height is 0,
+	// From NewContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
-	ctx = rpctypes.ContextWithHeight(blockNr.Int64(), ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, blockNr.Int64())
 	res, err := b.QueryClient.EstimateGas(ctx, &req)
 	if err != nil {
 		return 0, err
@@ -428,10 +428,10 @@ func (b *Backend) DoCall(
 		Overrides:       bzOverrides,
 	}
 
-	// From ContextWithHeight: if the provided height is 0,
+	// From NewContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
-	ctx = rpctypes.ContextWithHeight(blockNr.Int64(), ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, blockNr.Int64())
 	timeout := b.RPCEVMTimeout()
 
 	// Setup context so it may be canceled the call has completed

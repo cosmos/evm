@@ -110,7 +110,7 @@ func (s *TestSuite) SetupTest() {
 
 // Ctx returns a context with height set for testing
 func (s *TestSuite) Ctx() context.Context {
-	return rpctypes.ContextWithHeight(1, context.Background())
+	return rpctypes.NewContextWithHeight(1, context.Background())
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
@@ -198,7 +198,7 @@ func (s *TestSuite) buildEthBlock(
 
 	// 1) Gas limit from consensus params
 	// if failed to query consensus params, default gasLimit is applied.
-	gasLimit, _ := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.ContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
+	gasLimit, _ := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.NewContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
 
 	// 2) Miner from provided validator
 	miner := common.BytesToAddress(validator.Bytes())

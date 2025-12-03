@@ -78,7 +78,7 @@ func (b *Backend) BaseFee(ctx context.Context, blockRes *cmtrpctypes.ResultBlock
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// return BaseFee if London hard fork is activated and feemarket is enabled
-	ctx = rpctypes.ContextWithHeight(blockRes.Height, ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, blockRes.Height)
 	res, err := b.QueryClient.BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
 	if err != nil || res.BaseFee == nil {
 		// we can't tell if it's london HF not enabled or the state is pruned,

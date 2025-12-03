@@ -36,7 +36,7 @@ func (b *Backend) GetCode(ctx context.Context, address common.Address, blockNrOr
 		return nil, err
 	}
 
-	ctx = rpctypes.ContextWithHeight(blockNum.Int64(), ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, blockNum.Int64())
 	req := &evmtypes.QueryCodeRequest{
 		Address: address.String(),
 	}
@@ -81,7 +81,7 @@ func (b *Backend) GetProof(ctx context.Context, address common.Address, storageK
 		height = int64(bn) //#nosec G115 -- checked for int overflow already
 	}
 
-	ctx = rpctypes.ContextWithHeight(height, ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, height)
 	clientCtx := b.ClientCtx.WithHeight(height).WithCmdContext(ctx)
 
 	// query storage proofs
@@ -144,7 +144,7 @@ func (b *Backend) GetStorageAt(ctx context.Context, address common.Address, key 
 		return nil, err
 	}
 
-	ctx = rpctypes.ContextWithHeight(blockNum.Int64(), ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, blockNum.Int64())
 	req := &evmtypes.QueryStorageRequest{
 		Address: address.String(),
 		Key:     key,
@@ -168,7 +168,7 @@ func (b *Backend) GetBalance(ctx context.Context, address common.Address, blockN
 	if err != nil {
 		return nil, err
 	}
-	ctx = rpctypes.ContextWithHeight(blockNum.Int64(), ctx)
+	ctx = rpctypes.ContextWithHeight(ctx, blockNum.Int64())
 
 	req := &evmtypes.QueryBalanceRequest{
 		Address: address.String(),

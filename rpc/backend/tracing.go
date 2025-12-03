@@ -127,7 +127,7 @@ func (b *Backend) TraceTransaction(ctx context.Context, hash common.Hash, config
 		// So here we set the minimum requested height to 1.
 		contextHeight = 1
 	}
-	traceResult, err := b.QueryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight, ctx), &traceTxRequest)
+	traceResult, err := b.QueryClient.TraceTx(rpctypes.ContextWithHeight(ctx, contextHeight), &traceTxRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +202,10 @@ func (b *Backend) TraceBlock(ctx context.Context, height rpctypes.BlockNumber,
 	// minus one to get the context at the beginning of the block
 	contextHeight := height - 1
 	if contextHeight < 1 {
-		// 0 is a special value for `ContextWithHeight`.
+		// 0 is a special value for `NewContextWithHeight`.
 		contextHeight = 1
 	}
-	ctxWithHeight := rpctypes.ContextWithHeight(int64(contextHeight), ctx)
+	ctxWithHeight := rpctypes.ContextWithHeight(ctx, int64(contextHeight))
 
 	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
@@ -298,7 +298,7 @@ func (b *Backend) TraceCall(
 	}
 
 	// Use the block height as context for the query
-	ctxWithHeight := rpctypes.ContextWithHeight(contextHeight, ctx)
+	ctxWithHeight := rpctypes.ContextWithHeight(ctx, contextHeight)
 	traceResult, err := b.QueryClient.TraceCall(ctxWithHeight, &traceCallRequest)
 	if err != nil {
 		return nil, err
