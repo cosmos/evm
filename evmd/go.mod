@@ -1,6 +1,6 @@
 module github.com/cosmos/evm/evmd
 
-go 1.25.0
+go 1.25.5
 
 require (
 	cosmossdk.io/api v0.9.2
@@ -16,7 +16,7 @@ require (
 	cosmossdk.io/x/upgrade v0.2.0
 	github.com/cometbft/cometbft v0.39.0-beta.2
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-beta.0
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251203182402-86d6325417fa
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251027215440-22f0033d0aee
@@ -316,7 +316,6 @@ require (
 replace (
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	github.com/cosmos/cosmos-sdk => ../../cosmos-sdk
 	github.com/cosmos/evm => ../
 	// use Cosmos geth fork
 	// branch: release/1.16
