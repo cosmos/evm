@@ -59,17 +59,13 @@ func StartJSONRPC(
 	handler := &CustomSlogHandler{logger: logger}
 	slog.SetDefault(slog.New(handler))
 
-	// todo: can be moved to config
-	// use app-side mempool instead of cometbft.BroadcastTxAsync(tx)
-	const enableAppMempool = true
-
 	evmBackend := backend.NewBackend(
 		srvCtx,
 		clientCtx,
 		indexer,
 		mempool,
 		backend.WithUnprotectedTxs(config.JSONRPC.AllowUnprotectedTxs),
-		backend.WithAppMempool(enableAppMempool),
+		backend.WithAppMempool(mempool.IsExclusive()),
 		backend.WithApplication(app),
 		backend.WithLogger(srvCtx.Logger),
 	)
