@@ -864,7 +864,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
-		pool.queue[from] = newList(false, pool.OnTxRemoved)
+		pool.queue[from] = newList(false)
 	}
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
 	if !inserted {
@@ -904,7 +904,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) bool {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newList(true, pool.OnTxRemoved)
+		pool.pending[addr] = newList(true)
 	}
 	list := pool.pending[addr]
 
@@ -1373,6 +1373,15 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		for _, set := range events {
 			txs = append(txs, set.Flatten()...)
 		}
+
+		// NOTE: We are not calling PromoteTx here on txs with events queued
+		// for them (even though this does mean they were promoted), however it
+		// is possible that this tx was promoted a long time ago, but the
+		// runReorg was not scheduled until later, so the event has not been
+		// handled. Since this is a possible scenario we opt to call PromoteTx
+		// on site where the tx is inserted into the pending queue, not just
+		// when handling events.
+
 		// On successful transaction, broadcast the transaction through the Comet Mempool
 		// Two inefficiencies:
 		// 1. The transactions might have already been broadcasted, demoted, and repromoted
