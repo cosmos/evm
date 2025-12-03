@@ -8,12 +8,14 @@ import (
 	ibctransferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
+	"cosmossdk.io/core/appmodule"
+
 	"github.com/cosmos/cosmos-sdk/types/module"
 )
 
 var (
-	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
+	_ appmodule.AppModule   = AppModule{}
 )
 
 // AppModuleBasic embeds the IBC Transfer AppModuleBasic

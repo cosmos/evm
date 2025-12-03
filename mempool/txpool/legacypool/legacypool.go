@@ -268,8 +268,13 @@ type LegacyPool struct {
 	BroadcastTxFn func(txs []*types.Transaction) error
 
 	RecheckTxFnFactory RecheckTxFnFactory
-	OnTxPromoted       func(tx *types.Transaction)
-	OnTxRemoved        func(tx *types.Transaction)
+
+	// OnTxPromoted is called when a tx is promoted from queued to pending (may
+	// be called multiple times per tx)
+	OnTxPromoted func(tx *types.Transaction)
+	// OnTxRemoved is called when a tx is removed from the mempool (either
+	// explicitly via RemoveTx or implicitly during Reset)
+	OnTxRemoved func(tx *types.Transaction)
 }
 
 type txpoolResetRequest struct {

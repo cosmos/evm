@@ -29,7 +29,7 @@ import (
 const consensusVersion = 1
 
 var (
-	_ module.AppModule      = AppModule{}
+	_ appmodule.AppModule   = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 
 	_ appmodule.HasEndBlocker   = AppModule{}

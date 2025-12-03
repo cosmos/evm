@@ -25,7 +25,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-var evmCodec codec.ProtoCodecMarshaler
+var evmCodec codec.Codec
 
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
@@ -177,7 +177,7 @@ func VerifySignature(
 			return errorsmod.Wrap(errortypes.ErrNoSignatures, "tx doesn't contain any msgs to verify signature")
 		}
 
-		txBytes := legacytx.StdSignBytes(
+		txBytes := legacytx.StdSignBytes( //nolint:staticcheck
 			signerData.ChainID,
 			signerData.AccountNumber,
 			signerData.Sequence,
