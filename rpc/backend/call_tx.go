@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"strings"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -16,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
