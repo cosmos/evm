@@ -323,7 +323,7 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 func (m *ExperimentalEVMMempool) InsertEVMTxAsync(tx sdk.Tx) error {
 	ethMsg, err := m.getEVMMessage(tx)
 	if err != nil {
-		return fmt.Errorf("%w, tx is not an evm tx: %w", ErrInvalidTx, err)
+		return err
 	}
 
 	hash := ethMsg.Hash()
