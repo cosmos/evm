@@ -68,8 +68,7 @@ type (
 		eventBus *cmttypes.EventBus
 
 		/** Transaction Reaping **/
-		reapList  *ReapList
-		txEncoder *TxEncoder
+		reapList *ReapList
 	}
 )
 
@@ -212,7 +211,9 @@ func NewExperimentalEVMMempool(
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
 	legacyPool.OnTxPromoted = func(tx *ethtypes.Transaction) {
-		evmMempool.reapList.PushEVMTx(tx)
+		if err := evmMempool.reapList.PushEVMTx(tx); err != nil {
+			logger.Error("could not push evm tx to ReapList", "err", err)
+		}
 	}
 
 	// Once we are removing the tx, we no longer need to block it from being
@@ -281,7 +282,7 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 // perform a CheckTx (anteHandler) on the tx, so this tx may be invalid.
 // Checking the tx is the responsibility of the legacypool and it will drop the
 // tx if it is found to be invalid (now or at a later point).
-func (m *ExperimentalEVMMempool) insertEVMTx(goCtx context.Context, tx *ethtypes.Transaction, sync bool) error {
+func (m *ExperimentalEVMMempool) insertEVMTx(_ context.Context, tx *ethtypes.Transaction, sync bool) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 

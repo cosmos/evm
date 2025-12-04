@@ -5,9 +5,11 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/cometbft/cometbft/crypto/tmhash"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type EVMCosmosTxEncoder interface {

@@ -9,15 +9,17 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/cometbft/cometbft/crypto/tmhash"
+
 	"github.com/cosmos/evm/mempool"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // mockEncoder implements the EVMCosmosTxEncoder interface for testing
@@ -78,12 +80,6 @@ func newDeterministicEncoder(evmBytesPerTx, cosmosBytesPerTx uint64) *mockEncode
 func newFailingEVMEncoder(failNonces map[uint64]bool) *mockEncoder {
 	return &mockEncoder{
 		failEVMNonces: failNonces,
-	}
-}
-
-func newFailingCosmosEncoder(failHashes map[string]bool) *mockEncoder {
-	return &mockEncoder{
-		failCosmosHashes: failHashes,
 	}
 }
 
