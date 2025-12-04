@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/x/vm/types"
@@ -25,7 +27,15 @@ func (k Keeper) CallEVM(
 	gasCap *big.Int,
 	method string,
 	args ...any,
-) (*types.MsgEthereumTxResponse, error) {
+) (_ *types.MsgEthereumTxResponse, err error) {
+	ctx, span := ctx.StartSpan(tracer, "CallEVM", trace.WithAttributes(
+		attribute.String("from", from.Hex()),
+		attribute.String("contract", contract.Hex()),
+		attribute.String("method", method),
+		attribute.Bool("commit", commit),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	data, err := abi.Pack(method, args...)
 	if err != nil {
 		return nil, errorsmod.Wrap(
@@ -49,7 +59,19 @@ func (k Keeper) CallEVMWithData(
 	data []byte,
 	commit bool,
 	gasCap *big.Int,
-) (*types.MsgEthereumTxResponse, error) {
+) (_ *types.MsgEthereumTxResponse, err error) {
+	contractAddr := ""
+	if contract != nil {
+		contractAddr = contract.Hex()
+	}
+	ctx, span := ctx.StartSpan(tracer, "CallEVMWithData", trace.WithAttributes(
+		attribute.String("from", from.Hex()),
+		attribute.String("contract", contractAddr),
+		attribute.Bool("commit", commit),
+		attribute.Int("data_size", len(data)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
 		return nil, err

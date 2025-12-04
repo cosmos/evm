@@ -3,6 +3,8 @@ package keeper
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -19,7 +21,12 @@ type Precompiles struct {
 func (k *Keeper) GetPrecompileInstance(
 	ctx sdktypes.Context,
 	address common.Address,
-) (*Precompiles, bool, error) {
+) (_ *Precompiles, _ bool, err error) {
+	ctx, span := ctx.StartSpan(tracer, "GetPrecompileInstance", trace.WithAttributes(
+		attribute.String("address", address.Hex()),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	params := k.GetParams(ctx)
 	// Get the precompile from the static precompiles
 	if precompile, found, err := k.GetStaticPrecompileInstance(&params, address); err != nil {
@@ -54,7 +61,12 @@ func (k *Keeper) GetPrecompileInstance(
 // GetPrecompilesCallHook returns a closure that can be used to instantiate the EVM with a specific
 // precompile instance.
 func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
+	return func(evm *vm.EVM, _ common.Address, recipient common.Address) (err error) {
+		ctx, span := ctx.StartSpan(tracer, "PrecompileCallHook", trace.WithAttributes(
+			attribute.String("recipient", recipient.Hex()),
+		))
+		defer func() { span.RecordError(err) }()
+		defer span.End()
 		// Check if the recipient is a precompile contract and if so, load the precompile instance
 		precompiles, found, err := k.GetPrecompileInstance(ctx, recipient)
 		if err != nil {
@@ -75,7 +87,12 @@ func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
 // GetPrecompileRecipientCallHook returns a closure that can be used to instantiate the EVM with a specific
 // recipient from precompiles.
 func (k *Keeper) GetPrecompileRecipientCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
+	return func(evm *vm.EVM, _ common.Address, recipient common.Address) (err error) {
+		ctx, span := ctx.StartSpan(tracer, "PrecompileRecipientCallHook", trace.WithAttributes(
+			attribute.String("recipient", recipient.Hex()),
+		))
+		defer func() { span.RecordError(err) }()
+		defer span.End()
 		// Check if the recipient is a precompile contract and if so, load the precompile instance
 		_, found, err := k.GetPrecompileInstance(ctx, recipient)
 		if err != nil {

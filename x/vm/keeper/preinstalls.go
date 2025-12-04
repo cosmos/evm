@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -13,7 +15,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall) error {
+func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "AddPreinstalls", trace.WithAttributes(
+		attribute.Int("count", len(preinstalls)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	for _, preinstall := range preinstalls {
 		address := common.HexToAddress(preinstall.Address)
 		accAddress := sdk.AccAddress(address.Bytes())

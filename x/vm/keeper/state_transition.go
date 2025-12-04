@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -37,10 +39,15 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	ctx sdk.Context,
 	msg core.Message,
 	cfg *statedb.EVMConfig,
-	tracer *tracing.Hooks,
+	tracingHooks *tracing.Hooks,
 	stateDB vm.StateDB,
 	overridePrecompiles bool,
 ) *vm.EVM {
+	ctx, span := ctx.StartSpan(tracer, "NewEVMWithOverridePrecompiles", trace.WithAttributes(
+		attribute.Bool("override_precompiles", overridePrecompiles),
+		attribute.String("from", msg.From.Hex()),
+	))
+	defer span.End()
 	ctx = k.SetConsensusParamsInCtx(ctx)
 	blockCtx := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
@@ -57,10 +64,10 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 
 	ethCfg := types.GetEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
-	if tracer == nil {
-		tracer = k.Tracer(ctx, msg, ethCfg)
+	if tracingHooks == nil {
+		tracingHooks = k.Tracer(ctx, msg, ethCfg)
 	}
-	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
+	vmConfig := k.VMConfig(ctx, msg, cfg, tracingHooks)
 
 	signer := msg.From
 	accessControl := types.NewRestrictedPermissionPolicy(&cfg.Params.AccessControl, signer)
@@ -97,14 +104,16 @@ func (k *Keeper) NewEVM(
 	ctx sdk.Context,
 	msg core.Message,
 	cfg *statedb.EVMConfig,
-	tracer *tracing.Hooks,
+	tracingHooks *tracing.Hooks,
 	stateDB vm.StateDB,
 ) *vm.EVM {
+	ctx, span := ctx.StartSpan(tracer, "NewEVM")
+	defer span.End()
 	return k.NewEVMWithOverridePrecompiles(
 		ctx,
 		msg,
 		cfg,
-		tracer,
+		tracingHooks,
 		stateDB,
 		true,
 	)
@@ -121,6 +130,9 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			k.Logger(ctx).Error("failed to cast height to int64", "error", err)
 			return common.Hash{}
 		}
+
+		ctx, span := ctx.StartSpan(tracer, "GetHashFnInner", trace.WithAttributes(attribute.Int64("height", h)))
+		defer span.End()
 
 		switch {
 		case ctx.BlockHeight() == h:
@@ -195,7 +207,12 @@ func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types
 // returning.
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
-func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ *types.MsgEthereumTxResponse, err error) {
+	ctx, span := ctx.StartSpan(tracer, "ApplyTransaction", trace.WithAttributes(
+		attribute.String("hash", tx.Hash().String()),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
@@ -318,14 +335,20 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
-func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+	ctx, span := ctx.StartSpan(tracer, "ApplyMessage", trace.WithAttributes(
+		attribute.Bool("commit", commit),
+		attribute.Bool("internal", internal),
+		attribute.String("from", msg.From.Hex()),
+	))
+	defer span.End()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
 
 	txConfig := statedb.NewEmptyTxConfig()
-	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal, nil)
+	return k.ApplyMessageWithConfig(ctx, msg, tracingHooks, commit, cfg, txConfig, internal, nil)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -369,22 +392,31 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 func (k *Keeper) ApplyMessageWithConfig(
 	ctx sdk.Context,
 	msg core.Message,
-	tracer *tracing.Hooks,
+	tracingHooks *tracing.Hooks,
 	commit bool,
 	cfg *statedb.EVMConfig,
 	txConfig statedb.TxConfig,
 	internal bool,
 	overrides *rpctypes.StateOverride,
-) (*types.MsgEthereumTxResponse, error) {
+) (_ *types.MsgEthereumTxResponse, err error) {
 	var (
 		ret          []byte // return bytes from evm execution
 		vmErr        error  // vm errors do not effect consensus and are therefore not assigned to err
 		floorDataGas uint64
 	)
 
+	ctx, span := ctx.StartSpan(tracer, "ApplyMessageWithConfig", trace.WithAttributes(
+		attribute.String("hash", txConfig.TxHash.String()),
+		attribute.Int("tx_index", int(txConfig.TxIndex)),
+		attribute.Bool("commit", commit),
+		attribute.Bool("internal", internal),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
+
 	stateDB := statedb.New(ctx, k, txConfig)
 	ethCfg := types.GetEthChainConfig()
-	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
+	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracingHooks, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if overrides != nil {
@@ -452,14 +484,18 @@ func (k *Keeper) ApplyMessageWithConfig(
 		// - reset sender's nonce to msg.Nonce() before calling evm.
 		// - increase sender's nonce by one no matter the result.
 		stateDB.SetNonce(sender.Address(), msg.Nonce, tracing.NonceChangeEoACall)
-		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
+		var contractAddr common.Address
+		ret, contractAddr, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
+		if vmErr == nil {
+			span.AddEvent("contract_creation", trace.WithAttributes(attribute.String("contract_address", contractAddr.String())))
+		}
 	} else {
 		// Apply EIP-7702 authorizations.
 		if msg.SetCodeAuthorizations != nil {
 			for _, auth := range msg.SetCodeAuthorizations {
 				// Note errors are ignored, we simply skip invalid authorizations here.
-				if err := k.applyAuthorization(&auth, stateDB, ethCfg.ChainID); err != nil {
+				if err := k.applyAuthorization(ctx, &auth, stateDB, ethCfg.ChainID); err != nil {
 					k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
 				}
 			}
@@ -513,6 +549,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	var vmError string
 	if vmErr != nil {
 		vmError = vmErr.Error()
+		span.AddEvent("vm_error", trace.WithAttributes(attribute.String("vm_err", vmError)))
 	}
 
 	// The dirty states in `StateDB` is either committed or discarded after return
@@ -545,7 +582,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	if !internal {
 		gasUsed = math.LegacyMaxDec(gasUsed, minimumGasUsed)
 	}
-	// reset leftoverGas, to be used by the tracer
+	// reset leftoverGas, to be used by the tracingHooks
 	leftoverGas = msg.GasLimit - gasUsed.TruncateInt().Uint64()
 
 	// if the execution reverted, we return the revert reason as the return data
@@ -580,8 +617,14 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 }
 
 // applyAuthorization applies an EIP-7702 code delegation to the state.
-func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) error {
-	authority, err := k.validateAuthorization(auth, state, chainID)
+func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "applyAuthorization", trace.WithAttributes(
+		attribute.String("delegate_address", auth.Address.Hex()),
+		attribute.Int64("nonce", int64(auth.Nonce)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
+	authority, err := k.validateAuthorization(ctx, auth, state, chainID)
 	if err != nil {
 		return err
 	}
@@ -607,7 +650,13 @@ func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state v
 }
 
 // validateAuthorization validates an EIP-7702 authorization against the state.
-func (k *Keeper) validateAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+func (k *Keeper) validateAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+	ctx, span := ctx.StartSpan(tracer, "validateAuthorization", trace.WithAttributes(
+		attribute.String("delegate_address", auth.Address.Hex()),
+		attribute.Int64("nonce", int64(auth.Nonce)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	// Verify chain ID is null or equal to current chain ID.
 	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(chainID) != 0 {
 		return authority, core.ErrAuthorizationWrongChainID

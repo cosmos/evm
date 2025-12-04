@@ -3,6 +3,8 @@ package keeper
 import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -11,6 +13,10 @@ import (
 // It checks if the account has associated code and ensures that
 // the code is not a delegated contract (EIP-7702).
 func (k *Keeper) IsContract(ctx sdk.Context, addr common.Address) bool {
+	ctx, span := ctx.StartSpan(tracer, "IsContract", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+	))
+	defer span.End()
 	codeHash := k.GetCodeHash(ctx, addr)
 	code := k.GetCode(ctx, codeHash)
 

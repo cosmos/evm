@@ -4,6 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -26,7 +28,14 @@ func NewMultiEvmHooks(hooks ...types.EvmHooks) MultiEvmHooks {
 }
 
 // PostTxProcessing delegate the call to underlying hooks
-func (mh MultiEvmHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (mh MultiEvmHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "MultiEVMHooks.PostTxProcessing", trace.WithAttributes(
+		attribute.String("sender", sender.Hex()),
+		attribute.String("tx_hash", receipt.TxHash.Hex()),
+		attribute.Int("hooks_count", len(mh)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	for i := range mh {
 		if err := mh[i].PostTxProcessing(ctx, sender, msg, receipt); err != nil {
 			return errorsmod.Wrapf(err, "EVM hook %T failed", mh[i])
