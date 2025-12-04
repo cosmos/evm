@@ -30,6 +30,10 @@ type GenesisState map[string]json.RawMessage
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.EvmDenom = testconstants.ExampleAttoDenom
+	evmGenState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{
+		ExtendedDenom: testconstants.ExampleAttoDenom,
+	}
 	evmGenState.Preinstalls = evmtypes.DefaultPreinstalls
 
 	return evmGenState
