@@ -452,6 +452,10 @@ func (k Keeper) GetEvmMempool() *evmmempool.ExperimentalEVMMempool {
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.
 func (k Keeper) SetHeaderHash(ctx sdk.Context) {
+	ctx, span := ctx.StartSpan(tracer, "SetHeaderHash", trace.WithAttributes(
+		attribute.Int64("block_height", ctx.BlockHeight()),
+	))
+	defer span.End()
 	window := uint64(types.DefaultHistoryServeWindow)
 	params := k.GetParams(ctx)
 	if params.HistoryServeWindow > 0 {
@@ -470,6 +474,10 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 
 // GetHeaderHash sets block hash into EIP-2935 compatible storage contract.
 func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
+	ctx, span := ctx.StartSpan(tracer, "GetHeaderHash", trace.WithAttributes(
+		attribute.Int64("height", int64(height)),
+	))
+	defer span.End()
 	window := uint64(types.DefaultHistoryServeWindow)
 	params := k.GetParams(ctx)
 	if params.HistoryServeWindow > 0 {

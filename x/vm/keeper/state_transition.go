@@ -495,7 +495,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 		if msg.SetCodeAuthorizations != nil {
 			for _, auth := range msg.SetCodeAuthorizations {
 				// Note errors are ignored, we simply skip invalid authorizations here.
-				if err := k.applyAuthorization(&auth, stateDB, ethCfg.ChainID); err != nil {
+				if err := k.applyAuthorization(ctx, &auth, stateDB, ethCfg.ChainID); err != nil {
 					k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
 				}
 			}
@@ -617,8 +617,14 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 }
 
 // applyAuthorization applies an EIP-7702 code delegation to the state.
-func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) error {
-	authority, err := k.validateAuthorization(auth, state, chainID)
+func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "applyAuthorization", trace.WithAttributes(
+		attribute.String("delegate_address", auth.Address.Hex()),
+		attribute.Int64("nonce", int64(auth.Nonce)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
+	authority, err := k.validateAuthorization(ctx, auth, state, chainID)
 	if err != nil {
 		return err
 	}
@@ -644,7 +650,13 @@ func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state v
 }
 
 // validateAuthorization validates an EIP-7702 authorization against the state.
-func (k *Keeper) validateAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+func (k *Keeper) validateAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+	ctx, span := ctx.StartSpan(tracer, "validateAuthorization", trace.WithAttributes(
+		attribute.String("delegate_address", auth.Address.Hex()),
+		attribute.Int64("nonce", int64(auth.Nonce)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	// Verify chain ID is null or equal to current chain ID.
 	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(chainID) != 0 {
 		return authority, core.ErrAuthorizationWrongChainID
