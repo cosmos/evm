@@ -17,12 +17,11 @@ func TestStakingPrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-// enable after fix
-// func TestStakingPrecompileTestSuiteWithBlockSTM(t *testing.T) {
-// 	create := testapp.ToEvmAppCreator[evm.StakingPrecompileApp](integration.CreateEvmdWithBlockSTM, "evm.StakingPrecompileApp")
-// 	s := staking.NewPrecompileTestSuite(create)
-// 	suite.Run(t, s)
-// }
+func TestStakingPrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.StakingPrecompileApp](integration.CreateEvmdWithBlockSTM, "evm.StakingPrecompileApp")
+	s := staking.NewPrecompileTestSuite(create)
+	suite.Run(t, s)
+}
 
 func TestStakingPrecompileIntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.StakingPrecompileApp](integration.CreateEvmd, "evm.StakingPrecompileApp")

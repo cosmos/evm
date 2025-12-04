@@ -752,6 +752,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 			contract := vm.NewPrecompile(delegator.Addr, s.precompile.Address(), uint256.NewInt(0), tc.gas)
 			contractAddr := contract.Address()
 
+			// Deduct sufficient fee from user to fee_collector module account
+			// This setup is necessary for the block-stm-enabled app
+			sufficientFee := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1e18)))
+			err := s.network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(ctx, sufficientFee, s.keyring.GetAddr(0))
+			s.Require().NoError(err, "failed to deduct gas fees")
+
 			// malleate testcase
 			input := tc.malleate(delegator)
 
