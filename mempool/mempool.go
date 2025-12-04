@@ -428,33 +428,6 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 	return nil
 }
 
-func (m *ExperimentalEVMMempool) InsertTxAsnyc(tx sdk.Tx) error {
-	ethMsg, err := m.getEVMMessage(tx)
-	if err != nil {
-		return err
-	}
-
-	hash := ethMsg.Hash()
-	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
-
-	errs := m.txPool.Add([]*ethtypes.Transaction{ethMsg.AsTransaction()}, false)
-	if len(errs) > 1 {
-		// we should only get a single error per tx we send to add, and we are
-		// only sending a single one, panic if this is violated.
-		panic(fmt.Errorf("more errors than expected when adding tx to pool, got %d, expected 1", len(errs)))
-	}
-	if len(errs) > 0 && errs[0] != nil {
-		// got an error adding, multiple packages error types can be returned
-		// here, convert to a simplified error set
-		err := errs[0]
-		m.logger.Error("failed to insert EVM transaction", "error", err, "tx_hash", hash)
-
-	}
-
-	m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
-	return nil
-}
-
 // ReapNewValidTxs removes and returns the oldest transactions from the reap
 // list until maxBytes or maxGas limits are reached.
 func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {
