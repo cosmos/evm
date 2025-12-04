@@ -347,7 +347,7 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 	// execute the anteHandlers on our new context, and get a context that has
 	// the anteHandler updates written to it.
 	if _, err := m.anteHandler(ctx, tx, false); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidTx, err)
+		return fmt.Errorf("running anteHandler sequence for tx: %w", err)
 	}
 
 	// anteHandler has successfully completed, write its updates that are
