@@ -85,6 +85,8 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 //
 // The iteration is stopped when the callback function returns true.
 func (k Keeper) IterateContracts(ctx sdk.Context, cb func(addr common.Address, codeHash common.Hash) (stop bool)) {
+	ctx, span := ctx.StartSpan(tracer, "IterateContracts")
+	defer span.End()
 	store := ctx.KVStore(k.storeKey)
 	iterator := storetypes.KVStorePrefixIterator(store, types.KeyPrefixCodeHash)
 
@@ -101,6 +103,10 @@ func (k Keeper) IterateContracts(ctx sdk.Context, cb func(addr common.Address, c
 
 // GetCode loads contract code from database, implements `statedb.Keeper` interface.
 func (k *Keeper) GetCode(ctx sdk.Context, codeHash common.Hash) []byte {
+	ctx, span := ctx.StartSpan(tracer, "GetCode", trace.WithAttributes(
+		attribute.String("code_hash", codeHash.Hex()),
+	))
+	defer span.End()
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCode)
 	return store.Get(codeHash.Bytes())
 }

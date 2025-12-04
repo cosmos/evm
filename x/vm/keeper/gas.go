@@ -21,7 +21,13 @@ import (
 // GetEthIntrinsicGas returns the intrinsic gas cost for the transaction
 func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *params.ChainConfig,
 	isContractCreation bool,
-) (uint64, error) {
+) (_ uint64, err error) {
+	ctx, span := ctx.StartSpan(tracer, "GetEthIntrinsicGas", trace.WithAttributes(
+		attribute.Bool("is_contract_creation", isContractCreation),
+		attribute.Int("data_size", len(msg.Data)),
+	))
+	defer func() { span.RecordError(err) }()
+	defer span.End()
 	height := big.NewInt(ctx.BlockHeight())
 	homestead := cfg.IsHomestead(height)
 	istanbul := cfg.IsIstanbul(height)
@@ -72,6 +78,10 @@ func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64
 // 'gasUsed'
 func (k *Keeper) ResetGasMeterAndConsumeGas(ctx sdk.Context, gasUsed uint64) {
 	// reset the gas count
+	ctx, span := ctx.StartSpan(tracer, "ResetGasMeterAndConsumeGas", trace.WithAttributes(
+		attribute.Int64("gas_used", int64(gasUsed)),
+	))
+	defer span.End()
 	ctx.GasMeter().RefundGas(ctx.GasMeter().GasConsumed(), "reset the gas count")
 	ctx.GasMeter().ConsumeGas(gasUsed, "apply evm transaction")
 }

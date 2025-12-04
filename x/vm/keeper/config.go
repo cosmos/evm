@@ -50,7 +50,12 @@ func (k *Keeper) TxConfig(ctx sdk.Context, txHash common.Hash) statedb.TxConfig 
 
 // VMConfig creates an EVM configuration from the debug setting and the extra EIPs enabled on the
 // module parameters. The config generated uses the default JumpTable from the EVM.
-func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig, tracer *tracing.Hooks) vm.Config {
+func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig, tracingHooks *tracing.Hooks) vm.Config {
+	ctx, span := ctx.StartSpan(tracer, "VMConfig", trace.WithAttributes(
+		attribute.Bool("enable_preimage_recording", cfg.EnablePreimageRecording),
+		attribute.Int("extra_eips_count", len(cfg.Params.ExtraEIPs)),
+	))
+	defer span.End()
 	noBaseFee := true
 	if types.IsLondon(types.GetEthChainConfig(), ctx.BlockHeight()) {
 		noBaseFee = cfg.FeeMarketParams.NoBaseFee
@@ -58,7 +63,7 @@ func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig
 
 	return vm.Config{
 		EnablePreimageRecording: cfg.EnablePreimageRecording,
-		Tracer:                  tracer,
+		Tracer:                  tracingHooks,
 		NoBaseFee:               noBaseFee,
 		ExtraEips:               cfg.Params.EIPs(),
 	}
