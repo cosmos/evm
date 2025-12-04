@@ -98,18 +98,23 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	}
 
 	// rebuild the index
-	rl.txIndex = make(map[string]int)
-	for i, tx := range rl.txs {
-		rl.txIndex[tx.hash] = i
-	}
 
 	// NOTE: We need to keep the txs that were just reaped in the txIndex, so
 	// that it can properly guard against these txs being added to the ReapList
 	// again. These txs are likely still in the mempool, and callers may try to
 	// add them to the ReapList again, which is not allowed. Removing from the
 	// txIndex will only be done during Drop.
-	for _, hash := range removed {
-		rl.txIndex[hash] = -1
+	for _, removedHash := range removed {
+		if _, ok := rl.txIndex[removedHash]; !ok {
+			panic("removed a tx that was not in the tx index, this should not happen")
+		}
+		rl.txIndex[removedHash] = -1
+	}
+	for i, tx := range rl.txs {
+		if _, ok := rl.txIndex[tx.hash]; !ok {
+			panic("tx that was not reaped is not in the tx index, this should not happen")
+		}
+		rl.txIndex[tx.hash] = i
 	}
 
 	return result
