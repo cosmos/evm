@@ -60,7 +60,6 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		totalGas   uint64
 		result     [][]byte
 		nextStart  int
-		removed    []string
 	)
 
 	for idx, tx := range rl.txs {
@@ -80,10 +79,19 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		}
 
 		result = append(result, tx.bytes)
-		removed = append(removed, tx.hash)
 		totalBytes += txSize
 		totalGas += txGas
 		nextStart = idx + 1
+
+		// NOTE: We need to keep the txs that were just reaped in the txIndex, so
+		// that it can properly guard against these txs being added to the ReapList
+		// again. These txs are likely still in the mempool, and callers may try to
+		// add them to the ReapList again, which is not allowed. Removing from the
+		// txIndex will only be done during Drop.
+		if _, ok := rl.txIndex[tx.hash]; !ok {
+			panic("removed a tx that was not in the tx index, this should not happen")
+		}
+		rl.txIndex[tx.hash] = -1
 	}
 
 	if nextStart >= len(rl.txs) {
@@ -99,19 +107,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		})
 	}
 
-	// rebuild the index
-
-	// NOTE: We need to keep the txs that were just reaped in the txIndex, so
-	// that it can properly guard against these txs being added to the ReapList
-	// again. These txs are likely still in the mempool, and callers may try to
-	// add them to the ReapList again, which is not allowed. Removing from the
-	// txIndex will only be done during Drop.
-	for _, removedHash := range removed {
-		if _, ok := rl.txIndex[removedHash]; !ok {
-			panic("removed a tx that was not in the tx index, this should not happen")
-		}
-		rl.txIndex[removedHash] = -1
-	}
+	// rebuild the index since txs may have shifted indices
 	for i, tx := range rl.txs {
 		if _, ok := rl.txIndex[tx.hash]; !ok {
 			panic("tx that was not reaped is not in the tx index, this should not happen")
@@ -146,8 +142,7 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 		gas = feeTx.GetGas()
 	}
 
-	hash := fmt.Sprintf("%X", tmhash.Sum(txBytes))
-	rl.push(hash, txBytes, gas)
+	rl.push(cosmosHash(txBytes), txBytes, gas)
 	return nil
 }
 
@@ -180,7 +175,7 @@ func (rl *ReapList) DropCosmosTx(tx sdk.Tx) {
 	if err != nil {
 		return
 	}
-	rl.drop(fmt.Sprintf("%X", tmhash.Sum(txBytes)))
+	rl.drop(cosmosHash(txBytes))
 }
 
 // drop removes an individual tx from the reap list. If the tx is not in the
@@ -200,4 +195,8 @@ func (rl *ReapList) drop(hash string) {
 	}
 
 	rl.txs[idx] = nil
+}
+
+func cosmosHash(txBytes []byte) string {
+	return fmt.Sprintf("%X", tmhash.Sum(txBytes))
 }
