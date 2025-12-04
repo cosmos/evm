@@ -26,7 +26,7 @@ import (
 const ConsensusVersion = 1
 
 var (
-	_ module.AppModule      = AppModule{}
+	_ module.AppModule      = AppModule{} //nolint: staticcheck
 	_ module.AppModuleBasic = AppModuleBasic{}
 	_ module.HasABCIGenesis = AppModule{}
 

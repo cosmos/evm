@@ -1,11 +1,16 @@
 package evmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+
+	goruntime "runtime"
+
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/spf13/cast"
 
@@ -73,6 +78,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -201,6 +207,18 @@ type EVMD struct {
 	configurator module.Configurator
 }
 
+type customRunner struct {
+	*blockstm.STMRunner
+}
+
+func (r *customRunner) Run(ctx context.Context, ms storetypes.MultiStore, txs [][]byte, deliverTx sdk.DeliverTxFunc) ([]*abci.ExecTxResult, error) {
+	results, err := r.STMRunner.Run(ctx, ms, txs, deliverTx)
+	if err != nil {
+		return nil, err
+	}
+	return evmtypes.PatchTxResponses(results), nil
+}
+
 // NewExampleApp returns a reference to an initialized EVMD.
 func NewExampleApp(
 	logger log.Logger,
@@ -217,13 +235,13 @@ func NewExampleApp(
 	legacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
-
+	txDecoder := encodingConfig.TxConfig.TxDecoder()
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
 		db,
 		// use transaction decoder to support the sdk.Tx interface instead of sdk.StdTx
-		encodingConfig.TxConfig.TxDecoder(),
+		txDecoder,
 		baseAppOptions...,
 	)
 	bApp.SetCommitMultiStoreTracer(traceStore)
@@ -769,6 +787,18 @@ func NewExampleApp(
 			os.Exit(1)
 		}
 	}
+
+	bApp.SetBlockSTMTxRunner(&customRunner{
+		STMRunner: blockstm.NewSTMRunner(
+			encodingConfig.TxConfig.TxDecoder(),
+			nonTransientKeys,
+			min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+			true,
+			func(ms storetypes.MultiStore) string {
+				return app.EVMKeeper.GetParams(sdk.NewContext(ms, cmtproto.Header{}, false, log.NewNopLogger())).EvmDenom
+			},
+		),
+	})
 
 	return app
 }
