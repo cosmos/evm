@@ -20,13 +20,13 @@ func TestKeeperTestSuite(t *testing.T) {
 }
 
 // TODO: enable after fix
-// func TestKeeperTestSuiteWithBlockSTM(t *testing.T) {
-// 	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](integration.CreateEvmdWithBlockSTM, "evm.VMIntegrationApp")
-// 	s := vm.NewKeeperTestSuite(create)
-// 	s.EnableFeemarket = false
-// 	s.EnableLondonHF = true
-// 	suite.Run(t, s)
-// }
+func TestKeeperTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](integration.CreateEvmdWithBlockSTM, "evm.VMIntegrationApp")
+	s := vm.NewKeeperTestSuite(create)
+	s.EnableFeemarket = false
+	s.EnableLondonHF = true
+	suite.Run(t, s)
+}
 
 func TestNestedEVMExtensionCallSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](integration.CreateEvmd, "evm.VMIntegrationApp")
