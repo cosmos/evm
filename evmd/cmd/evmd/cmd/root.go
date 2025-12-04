@@ -152,17 +152,18 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			var evmChainID uint64 = evmdconfig.EpixMainnetChainID // default
+			// Initialize with default EVM chain ID
+			var evmChainID uint64 = evmdconfig.EpixMainnetChainID
 
-			chainIDFromCtx := initClientCtx.ChainID
-
-			// If not available in context, try to get it from command flags
-			if chainIDFromCtx == "" {
-				if chainIDFlag := cmd.Flag("chain-id"); chainIDFlag != nil && chainIDFlag.Value.String() != "" {
-					chainIDFromCtx = chainIDFlag.Value.String()
-				}
+			// Try to get chain ID from command flag or context
+			chainIDFromCtx := ""
+			if chainIDFlag := cmd.Flag("chain-id"); chainIDFlag != nil && chainIDFlag.Value.String() != "" {
+				chainIDFromCtx = chainIDFlag.Value.String()
+			} else if initClientCtx.ChainID != "" {
+				chainIDFromCtx = initClientCtx.ChainID
 			}
 
+			// Extract EVM chain ID from the chain ID if available
 			if chainIDFromCtx != "" {
 				evmChainID = extractEVMChainID(chainIDFromCtx)
 			}
