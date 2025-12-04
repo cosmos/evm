@@ -14,7 +14,7 @@ require (
 	cosmossdk.io/x/evidence v0.2.0
 	cosmossdk.io/x/feegrant v0.2.0
 	cosmossdk.io/x/upgrade v0.2.0
-	github.com/cometbft/cometbft v0.39.0-beta.2.0.20251204225818-0e4795722c65
+	github.com/cometbft/cometbft v0.39.0-beta.2.0.20251204231610-9778e12a3566
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-sdk v0.54.0-beta.0
 	github.com/cosmos/evm v0.2.0
