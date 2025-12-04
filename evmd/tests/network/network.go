@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,7 +34,6 @@ import (
 	evmconfig "github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/server/config"
 	evmtestutil "github.com/cosmos/evm/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -64,6 +64,28 @@ var (
 	lock     = new(sync.Mutex)
 	portPool = make(chan string, 200)
 )
+
+// extractEVMChainID extracts the EVM chain ID from a chain ID string.
+// For example, "epix_1917-1" returns 1917, "evmos-1" returns 9001 (default).
+func extractEVMChainID(chainID string) uint64 {
+	// Split by underscore and dash to get the numeric part
+	parts := strings.Split(chainID, "_")
+	if len(parts) < 2 {
+		// Fallback to default mainnet chain ID if parsing fails
+		return 1916
+	}
+
+	// Get the part after underscore and before dash
+	numericPart := strings.Split(parts[1], "-")[0]
+
+	evmChainID, err := strconv.ParseUint(numericPart, 10, 64)
+	if err != nil {
+		// Fallback to default mainnet chain ID if parsing fails
+		return 1916
+	}
+
+	return evmChainID
+}
 
 // AppConstructor defines a function which accepts a network configuration and
 // creates an ABCI Application to provide to CometBFT.
@@ -123,8 +145,8 @@ func DefaultConfig() Config {
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
-		BondDenom:         testconstants.ExampleAttoDenom,
-		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
+		BondDenom:         evmd.BaseDenom,
+		MinGasPrices:      fmt.Sprintf("0.000006%s", evmd.BaseDenom),
 		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, utils.AttoPowerReduction),
 		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, utils.AttoPowerReduction),
 		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, utils.AttoPowerReduction),
@@ -485,7 +507,9 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.EighteenDecimalsChainID)
+		// Extract EVM chain ID from the Cosmos chain ID
+		evmChainID := extractEVMChainID(cfg.ChainID)
+		customAppTemplate, _ := evmconfig.InitAppConfig(evmd.BaseDenom, evmChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

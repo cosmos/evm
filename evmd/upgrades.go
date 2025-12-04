@@ -10,7 +10,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -35,18 +34,18 @@ func (app EVMD) RegisterUpgradeHandlers() {
 				Description: "The native staking and governance token of the EpixChain",
 				DenomUnits: []*banktypes.DenomUnit{
 					{
-						Denom:    "aepix",
+						Denom:    BaseDenom,
 						Exponent: 0,
 						Aliases:  nil,
 					},
 					{
-						Denom:    "epix",
-						Exponent: 18,
+						Denom:    DisplayDenom,
+						Exponent: Decimals,
 						Aliases:  nil,
 					},
 				},
-				Base:    "aepix",
-				Display: "epix",
+				Base:    BaseDenom,
+				Display: DisplayDenom,
 				Name:    "EpixChain",
 				Symbol:  "EPIX",
 				URI:     "https://epix.zone/",
@@ -56,9 +55,9 @@ func (app EVMD) RegisterUpgradeHandlers() {
 
 			// Update EVM params to set the EvmDenom and ExtendedDenomOptions
 			evmParams := app.EVMKeeper.GetParams(sdkCtx)
-			evmParams.EvmDenom = testconstants.ExampleAttoDenom // "aepix"
+			evmParams.EvmDenom = BaseDenom
 			evmParams.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{
-				ExtendedDenom: testconstants.ExampleAttoDenom, // "aepix"
+				ExtendedDenom: BaseDenom,
 			}
 			if err := app.EVMKeeper.SetParams(sdkCtx, evmParams); err != nil {
 				return nil, err
