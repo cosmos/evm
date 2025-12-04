@@ -47,6 +47,7 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.FeeMarketKeeper,
 		app.txConfig,
 		app.clientCtx,
+		evmmempool.NewTxEncoder(app.txConfig),
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)
@@ -96,7 +97,6 @@ const (
 )
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
-	// TODO: get conetxt
 	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
 		txBytes := req.GetTx()
 
@@ -105,9 +105,11 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 			return nil, fmt.Errorf("decoding tx: %w", err)
 		}
 
+		ctx := app.GetContextForCheckTx(txBytes)
+
 		code := abci.CodeTypeOK
-		if err := evmMempool.InsertAsync(tx); err != nil {
-			if errors.Is(err, evmmempool.ErrMempoolFull) {
+		if err := evmMempool.Insert(ctx, tx); err != nil {
+			if errors.Is(err, evmmempool.ErrMempoolFull) || errors.Is(err, sdkmempool.ErrMempoolTxMaxCapacity) {
 				code = abci.CodeTypeRetry
 			} else {
 				code = CodeTypeNoRetry

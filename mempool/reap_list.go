@@ -23,6 +23,7 @@ type txWithHash struct {
 
 type ReapList struct {
 	// txs is a list of transactions and their respective hashes
+	// NOTE: this currently has unbound size
 	txs []*txWithHash
 
 	// txIndex is a map of tx hashes to what index that tx is stored in inside

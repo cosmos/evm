@@ -68,8 +68,7 @@ type (
 		eventBus *cmttypes.EventBus
 
 		/** Transaction Reaping **/
-		reapList *ReapList
-
+		reapList  *ReapList
 		txEncoder *TxEncoder
 	}
 )
@@ -206,7 +205,7 @@ func NewExperimentalEVMMempool(
 		anteHandler:        config.AnteHandler,
 		operateExclusively: config.OperateExclusively,
 	}
-	evmMempool.reapList = NewReapList(evmMempool.encodeEVMTx, evmMempool.encodeCosmosTx)
+	evmMempool.reapList = NewReapList(txEncoder)
 
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 
@@ -253,50 +252,148 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
-func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
-	return m.insertTx(goCtx, tx, true)
-}
-
-// Insert adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
-// transactions are routed to the EVM transaction pool, while all other
-// transactions are inserted into the Cosmos sdkmempool. For EVM txs, this
-// method operations async and does not guarantee the tx to have entered the
-// pending pool after return.
-func (m *ExperimentalEVMMempool) InsertAsync(tx sdk.Tx) error {
-	// TODO: fix context, may have to update sdk
-	return m.insertTx(sdk.Context{}, tx, false)
-}
-
-func (m *ExperimentalEVMMempool) insertTx(goCtx context.Context, tx sdk.Tx, sync bool) error {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
+func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	m.logger.Debug("inserting transaction into mempool")
 
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
-		// Insert into EVM pool
-		hash := ethMsg.Hash()
-		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
-		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
-		errs := m.txPool.Add(ethTxs, sync)
-		if len(errs) > 0 && errs[0] != nil {
-			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
-			return errs[0]
-		}
-		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
+		return m.insertEVMTx(ctx, ethMsg.AsTransaction())
+	}
+	return m.insertCosmosTx(ctx, tx)
+}
+
+// insertEVMTx inserts a EVM tx into the legacypool (EVM) mempool This does not
+// perform a CheckTx (anteHandler) on the tx, so this tx may be invalid.
+// Checking the tx is the responsibility of the legacypool and it will drop the
+// tx if it is found to be invalid (now or at a later point).
+func (m *ExperimentalEVMMempool) insertEVMTx(goCtx context.Context, tx *ethtypes.Transaction) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	hash := tx.Hash()
+	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
+
+	errs := m.txPool.Add([]*ethtypes.Transaction{tx}, false)
+	err := compactEVMTxAddErrs(errs)
+	if err != nil {
+		m.logger.Error("failed to insert EVM transaction", "err", err, "tx_hash", hash)
+		return err
+	}
+
+	m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
+	return nil
+}
+
+// compactEVMTxAddErrs simplifies the possible errors from txPool.Add into a
+// manageable set of errors by the caller.
+func compactEVMTxAddErrs(errs []error) error {
+	if len(errs) > 1 {
+		panic(fmt.Errorf("expected only a single error when compacting evm tx add errors"))
+	}
+	if len(errs) == 0 {
 		return nil
 	}
 
-	// Insert into cosmos pool for non-EVM transactions
-	m.logger.Debug("inserting Cosmos transaction", "error", err)
-	err = m.cosmosPool.Insert(goCtx, tx)
-	if err != nil {
-		m.logger.Error("failed to insert Cosmos transaction", "error", err)
-	} else {
-		m.logger.Debug("Cosmos transaction inserted successfully")
+	err := errs[0]
+	switch {
+	case errors.Is(err, txpool.ErrAlreadyKnown):
+		return ErrAlreadyKnown
+	case errors.Is(err, legacypool.ErrTxPoolOverflow) || errors.Is(err, txpool.ErrUnderpriced) || errors.Is(err, legacypool.ErrFutureReplacePending):
+		// ErrUnderpriced is grouped here since this is returned if the
+		// mempool is full but the tx cheaper than the cheapest tx in the
+		// pool so it cannot bump another tx out
+		//
+		// ErrFutureReplacePending is grouped here since this is returned
+		// if the tx pool is full and this tx is priced higher than the
+		// cheapest tx in the pool (i.e. it is beneficial to accept it and
+		// remove the cheaper txs). However this tx is also nonce gapped
+		// (future), and to add it we must drop a tx from the pending pool.
+		// Now this is actually not beneficial to add this tx since it may
+		// not become executable for a long time, but the pending tx is
+		// currently executable, so we opt to not add this tx. This will
+		// only happen if the pool is full, so we simply return that the
+		// pool is full so the user can wait until the pool is not full and
+		// retry this tx.
+		return ErrMempoolFull
+	case errors.Is(err, txpool.ErrReplaceUnderpriced):
+		// Submitting this tx again will result in the same error unless
+		// the current tx it is trying to replace is discarded for some
+		// reason, this is unlikely so we simply return that this tx is
+		// invalid in order to signal to the user that they should modify
+		// it before resubmission.
+		fallthrough
+	default:
+		// failed some level of validation
+		return ErrInvalidTx
 	}
-	return err
+}
+
+// insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
+// performs a CheckTx (anteHandler) call in the hot path.
+func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Insert into cosmos pool for non-EVM transactions
+	m.logger.Debug("inserting Cosmos transaction")
+
+	// TODO: What context do we use for this checktx? Do we want to share a
+	// context with the one that is running inside of the legacypool and being
+	// used to verify eth txs? Currently this context is the Check context and
+	// is completely separate from the context used to verify EVM txs. If we
+	// share a context here, then we would to block this on the verifications
+	// running inside of the legacypool, which may take awhile... but sharing a
+	// context between the two seems more correct. Note that the legacypool
+	// also uses two separate contexts right now (one for queued verification
+	// and one for pending. which one would we share with? should we combine
+	// the two? we cant directly a context between the two, since we may verify
+	// the same tx twice at the same height which would error for a valid tx,
+	// maybe we need some cache to ensure this doesnt happen, then they could
+	// be shared and we skip double verifications.)
+
+	// NOTE: this is a check tx back in the hot path of comet and will slow
+	// down the insert, however for our initial purposes we do not plan to have
+	// many (if any) cosmos txs, so we are accepting this limitation for now
+	// for simplicity.
+
+	// copying context/ms branching done in runTx
+
+	// get the current multistore in the context
+	ms := ctx.MultiStore()
+
+	// branch the multistore into so we have a place to make anteHandler writes
+	// without messing up the original state in case the anteHandler sequence
+	// fails
+	msCache := ms.CacheMultiStore()
+
+	// set the branched multistore as the multistore that the context will use.
+	// so writes happening via this context will use the branched multistore.
+	ctx = ctx.WithMultiStore(msCache)
+
+	// execute the anteHandlers on our new context, and get a context that has
+	// the anteHandler updates written to it.
+	if _, err := m.anteHandler(ctx, tx, false); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidTx, err)
+	}
+
+	// anteHandler has successfully completed, write its updates that are
+	// sitting in the branched multistore, back to their parent multistore.
+	// After this we will have updated the parent state and the next
+	// anteHandler invocation using this state will build off its updates.
+	msCache.Write()
+
+	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
+		m.logger.Error("failed to insert Cosmos transaction", "error", err)
+		return err
+	}
+
+	m.logger.Debug("Cosmos transaction inserted successfully")
+	if err := m.reapList.PushCosmosTx(tx); err != nil {
+		panic(fmt.Errorf("successfully inserted cosmos tx, but failed to insert into reap list: %w", err))
+	}
+	return nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -352,37 +449,6 @@ func (m *ExperimentalEVMMempool) InsertTxAsnyc(tx sdk.Tx) error {
 		err := errs[0]
 		m.logger.Error("failed to insert EVM transaction", "error", err, "tx_hash", hash)
 
-		switch {
-		case errors.Is(err, txpool.ErrAlreadyKnown):
-			return ErrAlreadyKnown
-		case errors.Is(err, legacypool.ErrTxPoolOverflow) || errors.Is(err, txpool.ErrUnderpriced) || errors.Is(err, legacypool.ErrFutureReplacePending):
-			// ErrUnderpriced is grouped here since this is returned if the
-			// mempool is full but the tx cheaper than the cheapest tx in the
-			// pool so it cannot bump another tx out
-			//
-			// ErrFutureReplacePending is grouped here since this is returned
-			// if the tx pool is full and this tx is priced higher than the
-			// cheapest tx in the pool (i.e. it is beneficial to accept it and
-			// remove the cheaper txs). However this tx is also nonce gapped
-			// (future), and to add it we must drop a tx from the pending pool.
-			// Now this is actually not beneficial to add this tx since it may
-			// not become executable for a long time, but the pending tx is
-			// currently executable, so we opt to not add this tx. This will
-			// only happen if the pool is full, so we simply return that the
-			// pool is full so the user can wait until the pool is not full and
-			// retry this tx.
-			return ErrMempoolFull
-		case errors.Is(err, txpool.ErrReplaceUnderpriced):
-			// Submitting this tx again will result in the same error unless
-			// the current tx it is trying to replace is discarded for some
-			// reason, this is unlikely so we simply return that this tx is
-			// invalid in order to signal to the user that they should modify
-			// it before resubmission.
-			fallthrough
-		default:
-			// failed some level of validation
-			return ErrInvalidTx
-		}
 	}
 
 	m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
@@ -463,6 +529,7 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	if err != nil {
 		m.logger.Error("failed to remove Cosmos transaction", "error", err)
 	} else {
+		m.reapList.DropCosmosTx(tx)
 		m.logger.Debug("Cosmos transaction removed successfully")
 	}
 	return err
