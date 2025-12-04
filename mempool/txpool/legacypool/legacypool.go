@@ -18,11 +18,11 @@
 package legacypool
 
 import (
-	"errors"
 	"maps"
 	"math/big"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -56,25 +57,6 @@ const (
 	// more expensive to propagate; larger transactions also take more resources
 	// to validate whether they fit into the pool or not.
 	txMaxSize = 4 * txSlotSize // 128KB
-)
-
-var (
-	// ErrTxPoolOverflow is returned if the transaction pool is full and can't accept
-	// another remote transaction.
-	ErrTxPoolOverflow = errors.New("txpool is full")
-
-	// ErrOutOfOrderTxFromDelegated is returned when the transaction with gapped
-	// nonce received from the accounts with delegation or pending delegation.
-	ErrOutOfOrderTxFromDelegated = errors.New("gapped-nonce tx from delegated accounts")
-
-	// ErrAuthorityReserved is returned if a transaction has an authorization
-	// signed by an address which already has in-flight transactions known to the
-	// pool.
-	ErrAuthorityReserved = errors.New("authority already reserved")
-
-	// ErrFutureReplacePending is returned if a future transaction replaces a pending
-	// one. Future transactions should only be able to replace other future transactions.
-	ErrFutureReplacePending = errors.New("future transaction tries to replace pending")
 )
 
 var (
@@ -135,43 +117,49 @@ type BlockChain interface {
 	StateAt(root common.Hash) (vm.StateDB, error)
 }
 
-// Config are the configuration parameters of the transaction pool.
+// Config defines the configuration for the EVM mempool transaction pool.
 type Config struct {
-	Locals    []common.Address // Addresses that should be treated by default as local
-	NoLocals  bool             // Whether local transaction handling should be disabled
-	Journal   string           // Journal of local transactions to survive node restarts
-	Rejournal time.Duration    // Time interval to regenerate the local transaction journal
-
-	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
-	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
-
-	AccountSlots uint64 // Number of executable transaction slots guaranteed per account
-	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
-	AccountQueue uint64 // Maximum number of non-executable transaction slots permitted per account
-	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
-
-	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+	// PriceLimit is the minimum gas price to enforce for acceptance into the pool
+	PriceLimit uint64 `mapstructure:"price-limit"`
+	// PriceBump is the minimum price bump percentage to replace an already existing transaction (nonce)
+	PriceBump uint64 `mapstructure:"price-bump"`
+	// AccountSlots is the number of executable transaction slots guaranteed per account
+	AccountSlots uint64 `mapstructure:"account-slots"`
+	// GlobalSlots is the maximum number of executable transaction slots for all accounts
+	GlobalSlots uint64 `mapstructure:"global-slots"`
+	// AccountQueue is the maximum number of non-executable transaction slots permitted per account
+	AccountQueue uint64 `mapstructure:"account-queue"`
+	// GlobalQueue is the maximum number of non-executable transaction slots for all accounts
+	GlobalQueue uint64 `mapstructure:"global-queue"`
+	// Lifetime is the maximum amount of time non-executable transaction are queued
+	Lifetime time.Duration `mapstructure:"lifetime"`
+	// Locals is the set of addresses that should be treated by default as local
+	Locals []string `mapstructure:"locals"`
+	// NoLocals disables local transaction handling, exempting local accounts from pricing and acceptance
+	NoLocals bool `mapstructure:"no-locals"`
+	// Journal is the path to the local transaction journal file
+	Journal string `mapstructure:"journal"`
+	// Rejournal is the time interval to regenerate the local transaction journal
+	Rejournal time.Duration `mapstructure:"rejournal"`
 }
 
-// DefaultConfig contains the default configurations for the transaction pool.
+// DefaultConfig returns the default mempool configuration
 var DefaultConfig = Config{
-	Journal:   "transactions.rlp",
-	Rejournal: time.Hour,
-
-	PriceLimit: 1,
-	PriceBump:  10,
-
-	AccountSlots: 16,
-	GlobalSlots:  4096 + 1024, // urgent + floating queue capacity with 4:1 ratio
-	AccountQueue: 64,
-	GlobalQueue:  1024,
-
-	Lifetime: 3 * time.Hour,
+	PriceLimit:   1,                  // Minimum gas price of 1 wei
+	PriceBump:    10,                 // 10% price bump to replace transaction
+	AccountSlots: 16,                 // 16 executable transaction slots per account
+	GlobalSlots:  5120,               // 4096 + 1024 = 5120 global executable slots
+	AccountQueue: 64,                 // 64 non-executable transaction slots per account
+	GlobalQueue:  1024,               // 1024 global non-executable slots
+	Lifetime:     3 * time.Hour,      // 3 hour lifetime for queued transactions
+	Locals:       []string{},         // No local addresses by default
+	NoLocals:     false,              // Local transaction handling enabled by default
+	Journal:      "transactions.rlp", // Default journal filename
+	Rejournal:    time.Hour,          // Regenerate journal every hour
 }
 
-// sanitize checks the provided user configurations and changes anything that's
-// unreasonable or unworkable.
-func (config *Config) sanitize() Config {
+// Sanitize checks the provided user configurations and changes anything that's unreasonable or unworkable.
+func (config *Config) Sanitize() Config {
 	conf := *config
 	if conf.PriceLimit < 1 {
 		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultConfig.PriceLimit)
@@ -200,6 +188,14 @@ func (config *Config) sanitize() Config {
 	if conf.Lifetime < 1 {
 		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultConfig.Lifetime)
 		conf.Lifetime = DefaultConfig.Lifetime
+	}
+	if conf.Journal != "" && !strings.HasSuffix(conf.Journal, ".rlp") {
+		log.Warn("Sanitizing invalid txpool journal", "provided", conf.Journal, "updated", DefaultConfig.Journal)
+		conf.Journal = DefaultConfig.Journal
+	}
+	if conf.Rejournal < time.Second {
+		log.Warn("Sanitizing invalid txpool rejournal time", "provided", conf.Rejournal, "updated", time.Second)
+		conf.Rejournal = time.Second
 	}
 	return conf
 }
@@ -266,7 +262,7 @@ type txpoolResetRequest struct {
 // transactions from the network.
 func New(config Config, chain BlockChain) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	config = (&config).sanitize()
+	config = config.Sanitize()
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
@@ -623,7 +619,7 @@ func (pool *LegacyPool) checkDelegationLimit(tx *types.Transaction) error {
 	if pending == nil {
 		// Transaction with gapped nonce is not supported for delegated accounts
 		if pool.pendingNonces.get(from) != tx.Nonce() {
-			return ErrOutOfOrderTxFromDelegated
+			return legacypool.ErrOutOfOrderTxFromDelegated
 		}
 		return nil
 	}
@@ -654,7 +650,7 @@ func (pool *LegacyPool) validateAuth(tx *types.Transaction) error {
 				count += queue.Len()
 			}
 			if count > 1 {
-				return ErrAuthorityReserved
+				return legacypool.ErrAuthorityReserved
 			}
 			// Because there is no exclusive lock held between different subpools
 			// when processing transactions, the SetCode transaction may be accepted
@@ -665,7 +661,7 @@ func (pool *LegacyPool) validateAuth(tx *types.Transaction) error {
 			// that attackers cannot easily stack a SetCode transaction when the sender
 			// is reserved by other pools.
 			if pool.reserver.Has(auth) {
-				return ErrAuthorityReserved
+				return legacypool.ErrAuthorityReserved
 			}
 		}
 	}
@@ -730,7 +726,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		// replacements to 25% of the slots
 		if pool.changesSinceReorg > int(pool.config.GlobalSlots/4) {
 			throttleTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
+			return false, legacypool.ErrTxPoolOverflow
 		}
 
 		// New transaction is better than our worse ones, make room for it.
@@ -741,7 +737,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		if !success {
 			log.Trace("Discarding overflown transaction", "hash", hash)
 			overflowedTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
+			return false, legacypool.ErrTxPoolOverflow
 		}
 
 		// If the new transaction is a future transaction it should never churn pending transactions
@@ -760,7 +756,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 					pool.priced.Put(dropTx)
 				}
 				log.Trace("Discarding future transaction replacing pending tx", "hash", hash)
-				return false, ErrFutureReplacePending
+				return false, legacypool.ErrFutureReplacePending
 			}
 		}
 

@@ -1,5 +1,4 @@
 //go:build rocksdb
-// +build rocksdb
 
 package config
 
@@ -8,9 +7,11 @@ import (
 	"runtime"
 	"strings"
 
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/linxGnu/grocksdb"
+
+	dbm "github.com/cosmos/cosmos-db"
+
+	"github.com/cosmos/cosmos-sdk/server/types"
 )
 
 // 3G block cache
