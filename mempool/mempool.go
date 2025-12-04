@@ -69,6 +69,8 @@ type (
 
 		/** Transaction Reaping **/
 		reapList *ReapList
+
+		txEncoder *TxEncoder
 	}
 )
 
@@ -100,6 +102,7 @@ func NewExperimentalEVMMempool(
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
 	clientCtx client.Context,
+	txEncoder *TxEncoder,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -203,13 +206,15 @@ func NewExperimentalEVMMempool(
 		anteHandler:        config.AnteHandler,
 		operateExclusively: config.OperateExclusively,
 	}
-	evmMempool.reapList = NewReapList(evmMempool.encodeToCosmos)
+	evmMempool.reapList = NewReapList(evmMempool.encodeEVMTx, evmMempool.encodeCosmosTx)
 
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
-	legacyPool.OnTxPromoted = evmMempool.markTxToBeReaped
+	legacyPool.OnTxPromoted = func(tx *ethtypes.Transaction) {
+		evmMempool.reapList.PushEVMTx(tx)
+	}
 
 	// Once we are removing the tx, we no longer need to block it from being
 	// sent to the reaplist again and can remove from the guard
@@ -220,7 +225,7 @@ func NewExperimentalEVMMempool(
 		// others about the tx) + the reap guard (since we may see this tx at a
 		// later time, in which case we should gossip it again) by readding to
 		// the reap guard.
-		evmMempool.reapList.Drop(tx)
+		evmMempool.reapList.DropEVMTx(tx)
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -392,33 +397,6 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 	m.logger.Debug("reap complete", "txs_reaped", len(txs))
 
 	return txs, nil
-}
-
-// markTxToBeReaped adds a transaction to the reap list when it's promoted to
-// pending status. This is called by the legacy pool when transactions become
-// executable.
-func (m *ExperimentalEVMMempool) markTxToBeReaped(tx *ethtypes.Transaction) {
-	m.reapList.Push(tx)
-}
-
-func (m *ExperimentalEVMMempool) encodeToCosmos(tx *ethtypes.Transaction) ([]byte, error) {
-	// Create MsgEthereumTx from the eth transaction
-	msg := &evmtypes.MsgEthereumTx{}
-	msg.FromEthereumTx(tx)
-
-	// Build cosmos tx
-	txBuilder := m.txConfig.NewTxBuilder()
-	if err := txBuilder.SetMsgs(msg); err != nil {
-		return nil, fmt.Errorf("failed to set msg in tx builder: %w", err)
-	}
-
-	// Encode to bytes
-	txBytes, err := m.txConfig.TxEncoder()(txBuilder.GetTx())
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	return txBytes, nil
 }
 
 // Select returns a unified iterator over both EVM and Cosmos transactions.
