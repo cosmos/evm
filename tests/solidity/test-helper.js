@@ -316,9 +316,17 @@ function setupNetwork ({ runConfig, timeout }) {
     const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
     const scriptPath = path.join(rootDir, 'scripts', 'local_node.sh');  // → ".../evm/scripts/local_node.sh"
 
+    // Extract chain ID from Go config to set CHAIN_ID environment variable
+    const goConfigPath = path.join(rootDir, 'server', 'config', 'config.go')
+    const evmChainId = extractChainIDFromGo(goConfigPath)
+    const cosmosChainId = `test_${evmChainId}-1`
+
+    logger.info(`Setting CHAIN_ID=${cosmosChainId} for local_node.sh`)
+
     const osdProc = spawn(scriptPath, ['-y'], {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
+      env: { ...process.env, CHAIN_ID: cosmosChainId }  // Pass CHAIN_ID to local_node.sh
     })
 
     logger.info(`Starting epixd process... timeout: ${timeout}ms`)
