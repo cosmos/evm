@@ -257,7 +257,22 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
-		return m.insertEVMTx(ctx, ethMsg.AsTransaction())
+		return m.insertEVMTx(ctx, ethMsg.AsTransaction(), true)
+	}
+	return m.insertCosmosTx(ctx, tx)
+}
+
+// Insert adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
+// transactions are routed to the EVM transaction pool, while all other
+// transactions are inserted into the Cosmos sdkmempool. EVM transactions are
+// inserted async, i.e. they are scheduled for promotion only, we do not wait
+// for it to complete.
+func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
+	m.logger.Debug("inserting transaction into mempool async")
+
+	ethMsg, err := m.getEVMMessage(tx)
+	if err == nil {
+		return m.insertEVMTx(ctx, ethMsg.AsTransaction(), false)
 	}
 	return m.insertCosmosTx(ctx, tx)
 }
@@ -266,14 +281,14 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // perform a CheckTx (anteHandler) on the tx, so this tx may be invalid.
 // Checking the tx is the responsibility of the legacypool and it will drop the
 // tx if it is found to be invalid (now or at a later point).
-func (m *ExperimentalEVMMempool) insertEVMTx(goCtx context.Context, tx *ethtypes.Transaction) error {
+func (m *ExperimentalEVMMempool) insertEVMTx(goCtx context.Context, tx *ethtypes.Transaction, sync bool) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
 	hash := tx.Hash()
 	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 
-	errs := m.txPool.Add([]*ethtypes.Transaction{tx}, false)
+	errs := m.txPool.Add([]*ethtypes.Transaction{tx}, sync)
 	err := compactEVMTxAddErrs(errs)
 	if err != nil {
 		m.logger.Error("failed to insert EVM transaction", "err", err, "tx_hash", hash)
@@ -287,14 +302,15 @@ func (m *ExperimentalEVMMempool) insertEVMTx(goCtx context.Context, tx *ethtypes
 // compactEVMTxAddErrs simplifies the possible errors from txPool.Add into a
 // manageable set of errors by the caller.
 func compactEVMTxAddErrs(errs []error) error {
-	if len(errs) > 1 {
+	if len(errs) != 1 {
 		panic(fmt.Errorf("expected only a single error when compacting evm tx add errors"))
-	}
-	if len(errs) == 0 {
-		return nil
 	}
 
 	err := errs[0]
+	if err == nil {
+		return nil
+	}
+
 	switch {
 	case errors.Is(err, txpool.ErrAlreadyKnown):
 		return ErrAlreadyKnown
@@ -324,7 +340,7 @@ func compactEVMTxAddErrs(errs []error) error {
 		fallthrough
 	default:
 		// failed some level of validation
-		return ErrInvalidTx
+		return fmt.Errorf("%w: %w", ErrInvalidTx, err)
 	}
 }
 

@@ -108,7 +108,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 		ctx := app.GetContextForCheckTx(txBytes)
 
 		code := abci.CodeTypeOK
-		if err := evmMempool.Insert(ctx, tx); err != nil {
+		if err := evmMempool.InsertAsync(ctx, tx); err != nil {
 			if errors.Is(err, evmmempool.ErrMempoolFull) || errors.Is(err, sdkmempool.ErrMempoolTxMaxCapacity) {
 				code = abci.CodeTypeRetry
 			} else {

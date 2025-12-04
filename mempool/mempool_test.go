@@ -121,7 +121,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// re submit tx 1 to the mempool to fill the nonce gap, since this is
 	// now a new valid txn, it should be returned by reap again
 	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e9))
-	err = mp.InsertEVMTxAsync(tx)
+	err = mp.Insert(sdk.Context{}, tx)
 	require.NoError(t, err, "failed to insert pending tx for account 0, nonce %d", 1)
 
 	// sync the pool tx 1 and 2 should now be promoted to pending
@@ -195,7 +195,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 	// insert the same tx again and make sure the tx can still be returned
 	// from the next call to reap
 	tx = createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e9))
-	require.NoError(t, mp.InsertEVMTxAsync(tx))
+	require.NoError(t, mp.Insert(sdk.Context{}, tx))
 
 	// sync the pool to make sure its promoted to pending
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -377,6 +377,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 		mockFeeMarketKeeper,
 		txConfig,
 		clientCtx,
+		mempool.NewTxEncoder(txConfig),
 		config,
 		1000, // cosmos pool max tx
 	)
