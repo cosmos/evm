@@ -30,7 +30,7 @@ type mockEncoder struct {
 	failCosmosHashes map[string]bool
 }
 
-func (m *mockEncoder) EncodeEVMTx(tx *types.Transaction) ([]byte, error) {
+func (m *mockEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 	if m.failEVMNonces != nil && m.failEVMNonces[tx.Nonce()] {
 		return nil, errors.New("encoding failed")
 	}
@@ -45,7 +45,7 @@ func (m *mockEncoder) EncodeEVMTx(tx *types.Transaction) ([]byte, error) {
 	return make([]byte, 100+(tx.Nonce()*10)), nil
 }
 
-func (m *mockEncoder) EncodeCosmosTx(tx sdk.Tx) ([]byte, error) {
+func (m *mockEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
 	// Create a deterministic byte representation for testing
 	// Use the tx id to ensure uniqueness
 	mockTx, ok := tx.(*mockCosmosTx)
@@ -352,13 +352,13 @@ func TestReapList_EncodingFailure(t *testing.T) {
 // nonceEncoder embeds nonce in bytes for order verification testing
 type nonceEncoder struct{}
 
-func (e *nonceEncoder) EncodeEVMTx(tx *types.Transaction) ([]byte, error) {
+func (e *nonceEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, tx.Nonce())
 	return buf, nil
 }
 
-func (e *nonceEncoder) EncodeCosmosTx(tx sdk.Tx) ([]byte, error) {
+func (e *nonceEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
 	return []byte("cosmos-tx"), nil
 }
 
@@ -520,11 +520,11 @@ func TestReapList_FirstTransactionExceedsLimit(t *testing.T) {
 // alwaysFailEncoder always returns an error for encoding
 type alwaysFailEncoder struct{}
 
-func (e *alwaysFailEncoder) EncodeEVMTx(tx *types.Transaction) ([]byte, error) {
+func (e *alwaysFailEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 	return nil, errors.New("encoding always fails")
 }
 
-func (e *alwaysFailEncoder) EncodeCosmosTx(tx sdk.Tx) ([]byte, error) {
+func (e *alwaysFailEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
 	return nil, errors.New("encoding always fails")
 }
 
@@ -630,14 +630,14 @@ type selectiveCosmosFailEncoder struct {
 	failID int
 }
 
-func (e *selectiveCosmosFailEncoder) EncodeEVMTx(tx *types.Transaction) ([]byte, error) {
+func (e *selectiveCosmosFailEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 	hash := tx.Hash().Bytes()
 	result := make([]byte, 100)
 	copy(result, hash)
 	return result, nil
 }
 
-func (e *selectiveCosmosFailEncoder) EncodeCosmosTx(tx sdk.Tx) ([]byte, error) {
+func (e *selectiveCosmosFailEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
 	mockTx, ok := tx.(*mockCosmosTx)
 	if ok && mockTx.id == e.failID {
 		return nil, errors.New("encoding failed for specific tx id")
