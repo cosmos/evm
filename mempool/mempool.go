@@ -710,6 +710,8 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 					// written to
 					ctx = newCtx.WithMultiStore(ms)
 				}
+			} else {
+				ctx = ctx.WithMultiStore(ms)
 			}
 			return tolerateAnteErr(err)
 		}
