@@ -13,9 +13,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 )
 
-//nolint:staticcheck
 var (
-	protoCodec    codec.ProtoCodecMarshaler
+	protoCodec    codec.Codec
 	aminoCodec    *codec.LegacyAmino
 	eip155ChainID uint64
 )
