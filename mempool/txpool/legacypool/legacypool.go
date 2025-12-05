@@ -211,8 +211,10 @@ func (config *Config) sanitize() Config {
 }
 
 type (
-	RecheckTxFn        func(t *types.Transaction) error
-	RecheckTxFnFactory func(chain BlockChain) RecheckTxFn
+	RecheckTxFn            func(t *types.Transaction) error
+	RecheckTxFnFactory     func(chain BlockChain) RecheckTxFn
+	RecheckTxRunner        func(t types.Transactions) []error
+	RecheckTxRunnerFactory func(chain BlockChain) RecheckTxRunner
 )
 
 // LegacyPool contains all currently known transactions. Transactions
@@ -270,7 +272,8 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFnFactory RecheckTxFnFactory
+	RecheckTxFnFactory         RecheckTxFnFactory
+	RecheckTxRunnerFactory RecheckTxRunnerFactory
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
@@ -1692,12 +1695,26 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckInvalids []*types.Transaction
 		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
+		// Try to execute in parallel
+		if pool.RecheckTxRunnerFactory != nil || pool.RecheckTxFnFactory != nil {
 			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
-			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
-			})
+			if pool.RecheckTxRunnerFactory != nil {
+				recheckRunner := pool.RecheckTxRunnerFactory(pool.chain)
+				inputTxs := list.Flatten()
+				recheckResults := recheckRunner(inputTxs)
+				for i, tx := range inputTxs {
+					if recheckResults[i] != nil {
+						recheckDrops = append(recheckDrops, tx)
+					} else {
+						recheckInvalids = append(recheckInvalids, tx)
+					}
+				}
+			} else if pool.RecheckTxFnFactory != nil {
+				recheckFn := pool.RecheckTxFnFactory(pool.chain)
+				recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
+					return recheckFn(tx) != nil
+				})
+			}
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
 				pool.all.Remove(hash)

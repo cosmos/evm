@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -21,7 +22,9 @@ import (
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -87,6 +90,9 @@ type EVMMempoolConfig struct {
 	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
 	OperateExclusively bool
+	// Stores is optional. Only required for using BlockSTM to execute checktx in parallel
+	// It should consist of all registered store keys in the configured chain.
+	Stores map[storetypes.StoreKey]int
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -210,6 +216,7 @@ func NewExperimentalEVMMempool(
 	// like a small, we should refactor this into something thats easier to
 	// reason about for callers and the legacypool itself.
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
+	legacyPool.RecheckTxRunnerFactory = recheckTxRunnerFactory(txConfig, config.AnteHandler, config.Stores, legacyPool.RecheckTxFnFactory)
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
@@ -646,6 +653,44 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 		}
 	}
 	return nil
+}
+
+func recheckTxRunnerFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler, stores map[storetypes.StoreKey]int, recheckTxFnFactory legacypool.RecheckTxFnFactory) legacypool.RecheckTxRunnerFactory {
+	return func(chain legacypool.BlockChain) legacypool.RecheckTxRunner {
+		bc, ok := chain.(*Blockchain)
+		if !ok {
+			panic("unexpected type for BlockChain, expected *mempool.Blockchain")
+		}
+		ctx, err := bc.GetLatestContext()
+		if err != nil {
+			// TODO: we probably dont want to panic here, but for POC im saying
+			// this is ok, the only real other option here is to nuke the
+			// entire mempool, or force another recheck but we cant be sure
+			// that will also not fail here
+			panic(fmt.Errorf("getting latest context from blockchain: %w", err))
+		}
+
+		return func(t types.Transactions) []error {
+			blockSize := len(t)
+			if blockSize == 0 {
+				return nil
+			}
+			results := make([]error, blockSize)
+			// TODO fixme executors
+			blockstm.ExecuteBlockWithEstimates(ctx, blockSize, stores, ctx.MultiStore(), 20, nil,
+				func(txn blockstm.TxnIndex, ms blockstm.MultiStore) {
+					var memTx *types.Transaction
+					if t != nil {
+						memTx = t[txn]
+					}
+					fn := recheckTxFnFactory(chain)
+					err = fn(memTx)
+					results[txn] = fn(memTx)
+				},
+			)
+			return results
+		}
+	}
 }
 
 func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFnFactory {
