@@ -1,6 +1,8 @@
 package bank
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
@@ -88,4 +90,26 @@ func (s *PrecompileTestSuite) SetupTest() sdk.Context {
 
 	s.precompile = s.setupBankPrecompile()
 	return ctx
+}
+
+// PrecompileSuiteConfig defines the inputs for running the testify suite against different app setups.
+type PrecompileSuiteConfig struct {
+	Name   string
+	Create network.CreateEvmApp
+}
+
+// RunPrecompileTestSuites executes the testify suites once per provided configuration.
+func RunPrecompileTestSuites(t *testing.T, configs ...PrecompileSuiteConfig) {
+	t.Helper()
+	if len(configs) == 0 {
+		t.Fatalf("no precompile suite configs provided")
+	}
+
+	for _, cfg := range configs {
+		config := cfg
+		t.Run(config.Name, func(t *testing.T) {
+			s := NewPrecompileTestSuite(config.Create)
+			suite.Run(t, s)
+		})
+	}
 }
