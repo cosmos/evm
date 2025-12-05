@@ -60,16 +60,6 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	app.SetInsertTxHandler(app.NewInsertTxHandler(evmMempool))
 	app.SetReapTxsHandler(app.NewReapTxsHandler(evmMempool))
 
-	// todo should be replaced with evmmempool.NewInsertTxHandler() as soon as it's implemented
-	app.SetInsertTxHandler(func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
-		res, err := app.CheckTx(&abci.RequestCheckTx{Tx: req.Tx})
-		if err != nil {
-			return nil, err
-		}
-
-		return &abci.ResponseInsertTx{Code: res.Code}, nil
-	})
-
 	txVerifier := NewNoCheckProposalTxVerifier(app.BaseApp)
 	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, txVerifier)
 	abciProposalHandler.SetSignerExtractionAdapter(
