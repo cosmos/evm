@@ -271,6 +271,7 @@ type LegacyPool struct {
 	BroadcastTxFn func(txs []*types.Transaction) error
 
 	RecheckTxFnFactory RecheckTxFnFactory
+	recheckTxFn        RecheckTxFn
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
@@ -1423,6 +1424,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
+	pool.recheckTxFn = pool.RecheckTxFnFactory(pool.chain)
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1473,9 +1475,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFnFactory != nil {
 			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
+				// dont write updates to state. we only want the rechecks from
+				// pendingExecutables to be run on a state that is the state at
+				// the latest height + the anteHandler execution of all txs in
+				// the pending pool.
+				return pool.recheckTxFn(tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1694,9 +1699,8 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckDrops []*types.Transaction
 		if pool.RecheckTxFnFactory != nil {
 			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
+				return pool.recheckTxFn(tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()

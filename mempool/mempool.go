@@ -314,20 +314,6 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 	// Insert into cosmos pool for non-EVM transactions
 	m.logger.Debug("inserting Cosmos transaction")
 
-	// TODO: What context do we use for this checktx? Do we want to share a
-	// context with the one that is running inside of the legacypool and being
-	// used to verify eth txs? Currently this context is the Check context and
-	// is completely separate from the context used to verify EVM txs. If we
-	// share a context here, then we would to block this on the verifications
-	// running inside of the legacypool, which may take awhile... but sharing a
-	// context between the two seems more correct. Note that the legacypool
-	// also uses two separate contexts right now (one for queued verification
-	// and one for pending. which one would we share with? should we combine
-	// the two? we cant directly a context between the two, since we may verify
-	// the same tx twice at the same height which would error for a valid tx,
-	// maybe we need some cache to ensure this doesnt happen, then they could
-	// be shared and we skip double verifications.)
-
 	// NOTE: this is a check tx back in the hot path of comet and will slow
 	// down the insert, however for our initial purposes we do not plan to have
 	// many (if any) cosmos txs, so we are accepting this limitation for now
@@ -655,6 +641,7 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 			panic("unexpected type for BlockChain, expected *mempool.Blockchain")
 		}
 
+		// when the recheckTxFactory is called, we get latest context on chain
 		ctx, err := bc.GetLatestContext()
 		if err != nil {
 			// TODO: we probably dont want to panic here, but for POC im saying
@@ -663,17 +650,29 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 			// that will also not fail here
 			panic(fmt.Errorf("getting latest context from blockchain: %w", err))
 		}
-		cacheCtx, _ := ctx.CacheContext()
 
-		// set the latest blocks gas limit as the max gas in cp. this is necessary
-		// to validate each tx's gas wanted
-		maxGas, err := utils.SafeInt64(bc.CurrentBlock().GasLimit)
-		if err != nil {
-			panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
+		// set the contexts multistore to a cache multistore
+		ms := ctx.MultiStore()
+		msCache := ms.CacheMultiStore()
+		ctx = ctx.WithMultiStore(msCache)
+
+		if ctx.ConsensusParams().Block == nil {
+			// set the latest blocks gas limit as the max gas in cp. this is
+			// necessary to validate each tx's gas wanted
+			maxGas, err := utils.SafeInt64(bc.CurrentBlock().GasLimit)
+			if err != nil {
+				panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
+			}
+			cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
+			ctx = ctx.WithConsensusParams(cp)
 		}
-		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
-		cacheCtx = cacheCtx.WithConsensusParams(cp)
 
+		// we are returning a closure over a branched mulitstore context here.
+		// initially the context is the base state at the latest chain height.
+		// this context will be updated on every call to the returned
+		// rechecktx function if `write` is true and the ante handler
+		// completes successfully. consecutive invocations will use the context
+		// with the updated state from previous invocations.
 		return func(t *ethtypes.Transaction) error {
 			if anteHandler == nil {
 				return nil
@@ -691,7 +690,18 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 				return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
 			}
 
-			_, err = anteHandler(cacheCtx, cosmosTx, false)
+			newCtx, err := anteHandler(ctx, cosmosTx, false)
+			if err == nil {
+				// write the ante handler updates if it did not fail back to
+				// the cache multistores parent that it was branched off of.
+				msCache.Write()
+			}
+			if !newCtx.IsZero() {
+				// set the context back to the updated ante handler context and
+				// set the ante handlers context to use the multistore that was
+				// written to
+				ctx = newCtx.WithMultiStore(ms)
+			}
 			return tolerateAnteErr(err)
 		}
 	}
