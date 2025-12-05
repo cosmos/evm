@@ -486,6 +486,12 @@ func (s *KeeperTestSuite) TestRefundGas() {
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			// Deduct sufficient fee from user to fee_collector module account
+			// This setup is necessary for the block-stm-enabled app
+			sufficientFee := sdk.NewCoins(sdk.NewCoin(types.GetEVMCoinDenom(), sdkmath.NewInt(1e18)))
+			err := unitNetwork.App.GetEVMKeeper().DeductTxCostsFromUserBalance(unitNetwork.GetContext(), sufficientFee, sender.Addr)
+			s.Require().NoError(err, "failed to deduct gas fees")
+
 			coreMsg, err := txFactory.GenerateGethCoreMsg(
 				sender.Priv,
 				types.EvmTxArgs{
@@ -632,6 +638,12 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			// Deduct sufficient fee from user to fee_collector module account
+			// This setup is necessary for the block-stm-enabled app
+			sufficientFee := sdk.NewCoins(sdk.NewCoin(types.GetEVMCoinDenom(), sdkmath.NewInt(1e18)))
+			err = s.Network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(s.Network.GetContext(), sufficientFee, s.Keyring.GetAddr(0))
+			s.Require().NoError(err, "failed to deduct gas fees")
+
 			tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), types.EvmTxArgs{
 				GasLimit: tc.gasLimit,
 			})

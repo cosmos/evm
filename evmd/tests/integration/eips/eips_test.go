@@ -15,3 +15,8 @@ func TestEIPs(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
 	eips.RunTests(t, create)
 }
+
+func TestEIPsWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	eips.RunTests(t, create)
+}

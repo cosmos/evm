@@ -13,3 +13,8 @@ func TestEIP7702IntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
 	eip7702.TestEIP7702IntegrationTestSuite(t, create)
 }
+
+func TestEIP7702IntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	eip7702.TestEIP7702IntegrationTestSuite(t, create)
+}

@@ -17,7 +17,18 @@ func TestGovPrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func TestGovPrecompileTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmdWithBlockSTM, "evm.GovPrecompileApp")
+	s := gov.NewPrecompileTestSuite(create)
+	suite.Run(t, s)
+}
+
 func TestGovPrecompileIntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmd, "evm.GovPrecompileApp")
+	gov.TestPrecompileIntegrationTestSuite(t, create)
+}
+
+func TestGovPrecompileIntegrationTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmdWithBlockSTM, "evm.GovPrecompileApp")
 	gov.TestPrecompileIntegrationTestSuite(t, create)
 }

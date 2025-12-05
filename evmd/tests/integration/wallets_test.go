@@ -15,3 +15,9 @@ func TestLedgerTestSuite(t *testing.T) {
 	s := wallets.NewLedgerTestSuite(create)
 	suite.Run(t, s)
 }
+
+func TestLedgerTestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	s := wallets.NewLedgerTestSuite(create)
+	suite.Run(t, s)
+}

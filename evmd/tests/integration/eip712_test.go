@@ -20,3 +20,14 @@ func TestEIP712TestSuite(t *testing.T) {
 	s = eip712.NewTestSuite(create, true)
 	suite.Run(t, s)
 }
+
+func TestEIP712TestSuiteWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	s := eip712.NewTestSuite(create, false)
+	suite.Run(t, s)
+
+	// Note that we don't test the Legacy EIP-712 Extension, since that case
+	// is sufficiently covered by the AnteHandler tests.
+	s = eip712.NewTestSuite(create, true)
+	suite.Run(t, s)
+}

@@ -1,10 +1,13 @@
 package bank
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
 	bank2 "github.com/cosmos/evm/precompiles/bank"
+	intsuite "github.com/cosmos/evm/tests/integration/suite"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -88,4 +91,14 @@ func (s *PrecompileTestSuite) SetupTest() sdk.Context {
 
 	s.precompile = s.setupBankPrecompile()
 	return ctx
+}
+
+// PrecompileSuiteConfig reuses the shared testify-suite config struct for precompile suites.
+type PrecompileSuiteConfig = intsuite.TestifySuiteConfig
+
+// RunPrecompileTestSuites executes the testify suites once per provided configuration.
+func RunPrecompileTestSuites(t *testing.T, configs ...PrecompileSuiteConfig) {
+	intsuite.RunTestifySuites(t, "Bank Precompile Test Suite", func(create network.CreateEvmApp) suite.TestingSuite {
+		return NewPrecompileTestSuite(create)
+	}, configs...)
 }

@@ -44,13 +44,12 @@ import (
 )
 
 func TestBankPrecompileTestSuite(t *testing.T) {
-    create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
-    s := bank.NewPrecompileTestSuite(create)
-    suite.Run(t, s)
+	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
+	bank.RunPrecompileTestSuites(t, bank.PrecompileSuiteConfig{Create: create})
 }
 
 func TestBankPrecompileIntegrationTestSuite(t *testing.T) {
-    create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
-    bank.TestIntegrationSuite(t, create)
+	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
+	bank.TestIntegrationSuite(t, bank.IntegrationSuiteConfig{Create: create})
 }
 ```

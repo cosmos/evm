@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/cosmos/evm"
+	eapp "github.com/cosmos/evm/evmd/app"
+
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
 	dbm "github.com/cosmos/cosmos-db"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/evmd"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -26,6 +27,14 @@ import (
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
 // This version uses a noop mempool to avoid state issues during transaction processing
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return createEvmd(chainID, evmChainID, false, customBaseAppOptions...)
+}
+
+func CreateEvmdWithBlockSTM(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return createEvmd(chainID, evmChainID, true, customBaseAppOptions...)
+}
+
+func createEvmd(chainID string, evmChainID uint64, enableBlockSTM bool, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
 	// A temporary home directory is created and used to prevent race conditions
 	// related to home directory locks in chains that use the WASM module.
 	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
@@ -37,10 +46,12 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	logger := log.NewNopLogger()
 	loadLatest := true
 	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
-
+	if enableBlockSTM {
+		appOptions[srvflags.EVMTxRunner] = "block-stm"
+	}
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	return evmd.NewExampleApp(
+	return eapp.New(
 		logger,
 		db,
 		nil,
@@ -58,7 +69,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		panic(err)
 	}
 
-	app := evmd.NewExampleApp(
+	app := eapp.New(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,

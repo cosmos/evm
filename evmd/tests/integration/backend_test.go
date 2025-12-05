@@ -15,3 +15,9 @@ func TestBackend(t *testing.T) {
 	s := backend.NewTestSuite(create)
 	suite.Run(t, s)
 }
+
+func TestBackendWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	s := backend.NewTestSuite(create)
+	suite.Run(t, s)
+}

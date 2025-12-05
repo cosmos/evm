@@ -463,8 +463,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				execRevertErr := evmtypes.NewExecErrorWithReason(bz)
 				s.Require().ErrorContains(execRevertErr, tc.errContains)
 				consumed := ctx.GasMeter().GasConsumed()
-				// LessThanOrEqual because the gas is consumed before the error is returned
-				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+
+				if tc.errContains == "out of gas" {
+					s.Require().Greater(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
+				} else {
+					s.Require().LessOrEqual(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
+				}
 			}
 		})
 	}
@@ -747,6 +751,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 
 			contract := vm.NewPrecompile(delegator.Addr, s.precompile.Address(), uint256.NewInt(0), tc.gas)
 			contractAddr := contract.Address()
+
+			// Deduct sufficient fee from user to fee_collector module account
+			// This setup is necessary for the block-stm-enabled app
+			sufficientFee := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1e18)))
+			err := s.network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(ctx, sufficientFee, s.keyring.GetAddr(0))
+			s.Require().NoError(err, "failed to deduct gas fees")
 
 			// malleate testcase
 			input := tc.malleate(delegator)

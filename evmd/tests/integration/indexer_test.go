@@ -12,3 +12,8 @@ func TestKVIndexer(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
 	indexer.TestKVIndexer(t, create)
 }
+
+func TestKVIndexerWithBlockSTM(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmdWithBlockSTM, "evm.IntegrationNetworkApp")
+	indexer.TestKVIndexer(t, create)
+}
