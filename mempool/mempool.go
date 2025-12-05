@@ -206,6 +206,9 @@ func NewExperimentalEVMMempool(
 	}
 	evmMempool.reapList = NewReapList(txEncoder)
 
+	// TODO: setting public callback functions here on the legacypool feels
+	// like a small, we should refactor this into something thats easier to
+	// reason about for callers and the legacypool itself.
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 
 	// Once we have validated that the tx is valid (and can be promoted, set it

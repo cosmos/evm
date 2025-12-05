@@ -13,8 +13,8 @@ import (
 )
 
 type EVMCosmosTxEncoder interface {
-	EncodeEVMTx(tx *ethtypes.Transaction) ([]byte, error)
-	EncodeCosmosTx(tx sdk.Tx) ([]byte, error)
+	EVMTx(tx *ethtypes.Transaction) ([]byte, error)
+	CosmosTx(tx sdk.Tx) ([]byte, error)
 }
 
 type txWithHash struct {
@@ -120,44 +120,61 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 
 // PushEVMTx enqueues an EVM tx into the reap list.
 func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
-	txBytes, err := rl.txEncoder.EncodeEVMTx(tx)
+	hash := tx.Hash().String()
+	if rl.exists(hash) {
+		return nil
+	}
+
+	txBytes, err := rl.txEncoder.EVMTx(tx)
 	if err != nil {
 		return fmt.Errorf("encoding evm tx to bytes: %w", err)
 	}
 
-	hash := tx.Hash()
-	rl.push(hash.String(), txBytes, tx.Gas())
+	rl.push(hash, txBytes, tx.Gas())
 	return nil
 }
 
 // PushCosmosTx enqueues a cosmos tx into the reap list.
 func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
-	txBytes, err := rl.txEncoder.EncodeCosmosTx(tx)
+	txBytes, err := rl.txEncoder.CosmosTx(tx)
 	if err != nil {
-		return fmt.Errorf("encoding evm tx to bytes: %w", err)
+		return fmt.Errorf("encoding cosmos tx to bytes: %w", err)
+	}
+
+	hash := cosmosHash(txBytes)
+	if rl.exists(hash) {
+		return nil
 	}
 
 	var gas uint64
 	if feeTx, ok := tx.(sdk.FeeTx); ok {
 		gas = feeTx.GetGas()
+	} else {
+		return fmt.Errorf("error getting tx gas: cosmos tx must implement sdk.FeeTx")
 	}
 
-	rl.push(cosmosHash(txBytes), txBytes, gas)
+	rl.push(hash, txBytes, gas)
 	return nil
 }
 
 // push inserts a tx to the back of the reap list as the "newest" transaction
-// (last to be returned if Reap was called now).
+// (last to be returned if Reap was called now). push assumes that a tx is not
+// already in the ReapList, this should be checked via exists.
 func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
-	if _, ok := rl.txIndex[hash]; ok {
-		return
-	}
-
 	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
 	rl.txIndex[hash] = len(rl.txs) - 1
+}
+
+// exists returns true if a hash is in the index, false otherwise.
+func (rl *ReapList) exists(hash string) bool {
+	rl.txsLock.RLock()
+	defer rl.txsLock.RUnlock()
+
+	_, ok := rl.txIndex[hash]
+	return ok
 }
 
 // DropEVMTx removes an EVM tx from the ReapList. This tx may or may not have
@@ -171,7 +188,7 @@ func (rl *ReapList) DropEVMTx(tx *ethtypes.Transaction) {
 // have already been reaped. This should only be called when a tx that was
 // previously validated, becomes invalid.
 func (rl *ReapList) DropCosmosTx(tx sdk.Tx) {
-	txBytes, err := rl.txEncoder.EncodeCosmosTx(tx)
+	txBytes, err := rl.txEncoder.CosmosTx(tx)
 	if err != nil {
 		return
 	}

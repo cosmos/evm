@@ -20,7 +20,7 @@ func NewTxEncoder(txConfig client.TxConfig) *TxEncoder {
 }
 
 // EncodeEVMTx encodes an evm tx to its sdk representation as bytes.
-func (e *TxEncoder) EncodeEVMTx(tx *ethtypes.Transaction) ([]byte, error) {
+func (e *TxEncoder) EVMTx(tx *ethtypes.Transaction) ([]byte, error) {
 	// Create MsgEthereumTx from the eth transaction
 	msg := &evmtypes.MsgEthereumTx{}
 	msg.FromEthereumTx(tx)
@@ -31,16 +31,10 @@ func (e *TxEncoder) EncodeEVMTx(tx *ethtypes.Transaction) ([]byte, error) {
 		return nil, fmt.Errorf("failed to set msg in tx builder: %w", err)
 	}
 
-	// Encode to bytes
-	txBytes, err := e.txConfig.TxEncoder()(txBuilder.GetTx())
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	return txBytes, nil
+	return e.CosmosTx(txBuilder.GetTx())
 }
 
 // EncodeCosmosTx encodes a cosmos tx to bytes.
-func (e *TxEncoder) EncodeCosmosTx(tx sdk.Tx) ([]byte, error) {
+func (e *TxEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
 	return e.txConfig.TxEncoder()(tx)
 }
