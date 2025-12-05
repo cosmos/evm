@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/mempool/txpool"
 )
@@ -490,7 +491,7 @@ func TestQueue2(t *testing.T) {
 	pool.enqueueTx(tx2.Hash(), tx2, true)
 	pool.enqueueTx(tx3.Hash(), tx3, true)
 
-	pool.promoteExecutables([]common.Address{from})
+	pool.promoteExecutables([]common.Address{from}, false)
 	if len(pool.pending) != 1 {
 		t.Error("expected pending length to be 1, got", len(pool.pending))
 	}
@@ -2812,8 +2813,6 @@ func TestWaitForReorgHeight(t *testing.T) {
 // TestPromoteExecutablesRecheckTx tests that promoteExecutables properly removes
 // a transaction from all pools if it fails the RecheckTxFn.
 func TestPromoteExecutablesRecheckTx(t *testing.T) {
-	t.Parallel()
-
 	pool, key := setupPool()
 	defer pool.Close()
 
@@ -2848,7 +2847,7 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 
 	// Set up RecheckTxFnFactory to fail tx1
 	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
-		return func(tx *types.Transaction) error {
+		return func(tx *types.Transaction, _ bool) error {
 			if tx.Nonce() == 1 {
 				return errors.New("recheck failed for tx1")
 			}
@@ -2890,8 +2889,6 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 // removes a transaction from all pools if it fails the RecheckTxFn and that
 // subsequent nonces are moved back into the queued pool.
 func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
-	t.Parallel()
-
 	pool, _ := setupPool()
 	defer pool.Close()
 
@@ -2937,7 +2934,7 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 
 	// Set up RecheckTxFnFactory to fail tx10 and tx22
 	pool.RecheckTxFnFactory = func(chain BlockChain) RecheckTxFn {
-		return func(tx *types.Transaction) error {
+		return func(tx *types.Transaction, _ bool) error {
 			if tx == tx10 || tx == tx22 {
 				return errors.New("recheck failed")
 			}
@@ -2990,6 +2987,204 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 }
 
+func TestPromoteExecutablesUsesPendingState(t *testing.T) {
+	t.Parallel()
+
+	pool, key := setupPool()
+	defer pool.Close()
+
+	// setup the recheck tx to only fail for tx2 and tx3 if they are properly
+	// evaluated on top of the state of tx0 and tx1.
+	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
+		erc20Balance := 100
+		return func(tx *types.Transaction, write bool) error {
+			var balance int
+			switch tx.Nonce() {
+			case 0:
+				balance = erc20Balance - 10
+			case 1:
+				balance = erc20Balance - 90
+			case 2:
+				balance = erc20Balance - 50
+			case 3:
+				balance = erc20Balance - 40
+			}
+			if balance < 0 {
+				return fmt.Errorf("not enough funds!")
+			}
+			if write {
+				erc20Balance = balance
+			}
+			return nil
+		}
+	}
+
+	// run reset to init the recheck tx fn
+	pool.Reset(nil, nil)
+
+	// Create transactions with sequential nonces
+	tx0 := transaction(0, 100000, key)
+	tx1 := transaction(1, 100000, key)
+	tx2 := transaction(2, 100000, key)
+	tx3 := transaction(3, 100000, key)
+
+	from, _ := deriveSender(tx0)
+	testAddBalance(pool, from, big.NewInt(100000000000000))
+
+	// Add tx 0 - will go to pending
+	if errs := pool.Add([]*types.Transaction{tx0}, true); errs[0] != nil {
+		t.Error("error adding tx0", "err", errs[0])
+	}
+	// Add tx 1 - will go to pending
+	if errs := pool.Add([]*types.Transaction{tx1}, true); errs[0] != nil {
+		t.Error("error adding tx1", "err", errs[0])
+	}
+
+	// Verify they made it to pending
+	pool.mu.RLock()
+	if pool.pending[from].Len() != 2 {
+		t.Errorf("pending transaction count mismatch: have %d, want %d", pool.pending[from].Len(), 2)
+	}
+	if pool.all.Count() != 2 {
+		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 2)
+	}
+	pool.mu.RUnlock()
+
+	// Add transaction 3 - nonce gapped, but it will fail recheck since tx0 and
+	// tx1 made it to pending outside of the context of a block update, they
+	// would have written their erc20 balance changes to state, making this tx
+	// now invalid.
+	if errs := pool.Add([]*types.Transaction{tx3}, true); errs[0] != nil {
+		t.Error("error adding tx3 to pool", "err", errs[0])
+	}
+
+	pool.mu.RLock()
+	if pool.pending[from].Len() != 2 {
+		t.Errorf("pending transaction count mismatch: have %d, want %d", pool.pending[from].Len(), 2)
+	}
+	if pool.queue[from] != nil {
+		t.Errorf("expected queue to be nil")
+	}
+	if pool.all.Count() != 2 {
+		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 2)
+	}
+	pool.mu.RUnlock()
+
+	// Add transaction 2 - valid tx that can make it to pending but it will
+	// recheck since tx0 and tx1 made it to pending outside of the context
+	// of a block update, they would have written their erc20 balance changes
+	// to state, making this tx now invalid.
+	if errs := pool.Add([]*types.Transaction{tx2}, true); errs[0] != nil {
+		t.Error("error adding tx2 to pool", "err", errs[0])
+	}
+
+	pool.mu.RLock()
+	if pool.pending[from].Len() != 2 {
+		t.Errorf("pending transaction count mismatch: have %d, want %d", pool.pending[from].Len(), 2)
+	}
+	if pool.queue[from] != nil {
+		t.Errorf("expected queue to be nil")
+	}
+	if pool.all.Count() != 2 {
+		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 2)
+	}
+	pool.mu.RUnlock()
+}
+
+func TestPromoteExecutablesUsesPendingStateBlockReset(t *testing.T) {
+	t.Parallel()
+
+	pool, key := setupPool()
+	defer pool.Close()
+
+	// setup the recheck tx to only fail for tx2 and tx3 if they are properly
+	// evaluated on top of the state of tx0 and tx1.
+	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
+		erc20Balance := 100
+		var nonce uint64 = 0
+		return func(tx *types.Transaction, write bool) error {
+			if tx.Nonce() != nonce {
+				return nil
+			}
+
+			var balance int
+			var newNonce uint64
+			switch tx.Nonce() {
+			case 0:
+				balance = erc20Balance - 10
+				newNonce = nonce + 1
+			case 1:
+				balance = erc20Balance - 90
+				newNonce = nonce + 1
+			case 2:
+				balance = erc20Balance - 50
+				newNonce = nonce + 1
+			}
+			if balance < 0 {
+				return fmt.Errorf("not enough funds!")
+			}
+			if write {
+				erc20Balance = balance
+				nonce = newNonce
+			}
+			return nil
+		}
+	}
+
+	// run reset to init the recheck tx fn
+	pool.Reset(nil, nil)
+
+	// Create transactions with sequential nonces
+	tx0 := transaction(0, 100000, key)
+	tx1 := transaction(1, 100000, key)
+	tx2 := transaction(2, 100000, key)
+
+	from, _ := deriveSender(tx0)
+	testAddBalance(pool, from, big.NewInt(100000000000000))
+
+	// Add tx 1 - Nonce gapped, will stay in queued
+	if errs := pool.Add([]*types.Transaction{tx1}, true); errs[0] != nil {
+		t.Error("error adding tx1", "err", errs[0])
+	}
+	// Add tx 2 - Nonce gapped, will stay in queued
+	if errs := pool.Add([]*types.Transaction{tx2}, true); errs[0] != nil {
+		t.Error("error adding tx2 to pool", "err", errs[0])
+	}
+
+	// Verify they are in queued
+	pool.mu.RLock()
+	if pool.queue[from].Len() != 2 {
+		t.Errorf("queued transaction count mismatch: have %d, want %d", pool.queue[from].Len(), 2)
+	}
+	if pool.all.Count() != 2 {
+		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 2)
+	}
+	pool.mu.RUnlock()
+
+	// manually enqueue tx0 to fill the nonce gap and so we dont auto promote
+	// them all to pending
+	_, err := pool.enqueueTx(tx0.Hash(), tx0, true)
+	require.NoError(t, err)
+
+	// run a reset so promote and demote will both be called
+	pool.Reset(nil, nil)
+
+	// expecting for tx0 and tx1 to be promoted, but tx2 is dropped since it
+	// will have failed the erc20 balance check during demote
+	pool.mu.RLock()
+	pending := pool.pending[from].Flatten()
+	if len(pending) != 2 {
+		t.Errorf("pending transaction count mismatch: have %d, want %d", pool.pending[from].Len(), 2)
+	}
+	if pool.queue[from] != nil {
+		t.Errorf("expected queue to be nil")
+	}
+	if pool.all.Count() != 2 {
+		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 2)
+	}
+	pool.mu.RUnlock()
+}
+
 // Benchmarks the speed of validating the contents of the pending queue of the
 // transaction pool.
 func BenchmarkPendingDemotion100(b *testing.B)   { benchmarkPendingDemotion(b, 100) }
@@ -3036,7 +3231,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.promoteExecutables(nil)
+		pool.promoteExecutables(nil, false)
 	}
 }
 

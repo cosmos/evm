@@ -211,7 +211,7 @@ func (config *Config) sanitize() Config {
 }
 
 type (
-	RecheckTxFn        func(t *types.Transaction) error
+	RecheckTxFn        func(t *types.Transaction, write bool) error
 	RecheckTxFnFactory func(chain BlockChain) RecheckTxFn
 )
 
@@ -1338,8 +1338,18 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 			promoteAddrs = append(promoteAddrs, addr)
 		}
 	}
+
 	// Check for pending transactions for every account that sent new ones
-	promoted := pool.promoteExecutables(promoteAddrs)
+	//
+	// Only write updates to state if we are running the context of a
+	// block update. If we are running during a reset (block update),
+	// then demoteUnexcutables is going to be called after this and run recheck
+	// on the same txs that we may promote here, so we need to ensure the state
+	// updates are not persisted or else we will, for example, increment an
+	// accounts nonce in state here, and then execute the same tx again during
+	// demoteUnexecutables which will then fail due to NonceTooLow.
+	writeRecheckUpdates := reset == nil
+	promoted := pool.promoteExecutables(promoteAddrs, writeRecheckUpdates)
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
@@ -1424,7 +1434,9 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
-	pool.recheckTxFn = pool.RecheckTxFnFactory(pool.chain)
+	if pool.RecheckTxFnFactory != nil {
+		pool.recheckTxFn = pool.RecheckTxFnFactory(pool.chain)
+	}
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1435,7 +1447,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.Transaction {
+func (pool *LegacyPool) promoteExecutables(accounts []common.Address, writeRecheckUpdates bool) []*types.Transaction {
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
@@ -1473,14 +1485,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
+		if pool.recheckTxFn != nil {
 			recheckStart := time.Now()
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				// dont write updates to state. we only want the rechecks from
-				// pendingExecutables to be run on a state that is the state at
-				// the latest height + the anteHandler execution of all txs in
-				// the pending pool.
-				return pool.recheckTxFn(tx) != nil
+				return pool.recheckTxFn(tx, writeRecheckUpdates) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1697,10 +1705,10 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckInvalids []*types.Transaction
 		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
+		if pool.recheckTxFn != nil {
 			recheckStart := time.Now()
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.recheckTxFn(tx) != nil
+				return pool.recheckTxFn(tx, true) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()

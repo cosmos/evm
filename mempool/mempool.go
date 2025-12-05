@@ -673,7 +673,7 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 		// rechecktx function if `write` is true and the ante handler
 		// completes successfully. consecutive invocations will use the context
 		// with the updated state from previous invocations.
-		return func(t *ethtypes.Transaction) error {
+		return func(t *ethtypes.Transaction, write bool) error {
 			if anteHandler == nil {
 				return nil
 			}
@@ -691,16 +691,18 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 			}
 
 			newCtx, err := anteHandler(ctx, cosmosTx, false)
-			if err == nil {
-				// write the ante handler updates if it did not fail back to
-				// the cache multistores parent that it was branched off of.
-				msCache.Write()
-			}
-			if !newCtx.IsZero() {
-				// set the context back to the updated ante handler context and
-				// set the ante handlers context to use the multistore that was
-				// written to
-				ctx = newCtx.WithMultiStore(ms)
+			if write {
+				if err == nil {
+					// write the ante handler updates if it did not fail back to
+					// the cache multistores parent that it was branched off of.
+					msCache.Write()
+				}
+				if !newCtx.IsZero() {
+					// set the context back to the updated ante handler context and
+					// set the ante handlers context to use the multistore that was
+					// written to
+					ctx = newCtx.WithMultiStore(ms)
+				}
 			}
 			return tolerateAnteErr(err)
 		}
