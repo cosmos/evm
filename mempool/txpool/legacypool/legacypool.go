@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -1305,8 +1306,10 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
+	fmt.Println("running reorg")
 	defer func(t0 time.Time) {
 		reorgDurationTimer.Update(time.Since(t0))
+		fmt.Println("reorg done")
 	}(time.Now())
 	defer close(done)
 
@@ -1323,6 +1326,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	pool.mu.Lock()
 	if reset != nil {
 		// Reset from the old head to the new, rescheduling any reorged transactions
+		fmt.Println("resetting legpool state")
 		pool.reset(reset.oldHead, reset.newHead)
 
 		// Nonces were reset, discard any events that became stale
@@ -1448,6 +1452,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *LegacyPool) promoteExecutables(accounts []common.Address, writeRecheckUpdates bool) []*types.Transaction {
+	fmt.Println("promoting executables")
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
@@ -1670,6 +1675,7 @@ func (pool *LegacyPool) truncateQueue() {
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
 func (pool *LegacyPool) demoteUnexecutables() {
+	fmt.Println("demoting unexecutables")
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {

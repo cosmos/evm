@@ -276,7 +276,9 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
-		return m.insertEVMTx(ctx, ethMsg.AsTransaction(), false)
+		ethTx := ethMsg.AsTransaction()
+		fmt.Printf("inserting async evm tx %s, nonce %d\n", ethTx.Hash(), ethTx.Nonce())
+		return m.insertEVMTx(ctx, ethTx, false)
 	}
 	return m.insertCosmosTx(ctx, tx)
 }
@@ -691,6 +693,11 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 			}
 
 			newCtx, err := anteHandler(ctx, cosmosTx, false)
+			if err != nil {
+				fmt.Printf("ante handler failed with err for tx %s (nonce %d) (write: %t): %w\n", t.Hash(), t.Nonce(), write, err)
+			} else {
+				fmt.Printf("ante handler success for tx %s (nonce %d) (write: %t)\n", t.Hash(), t.Nonce(), write)
+			}
 			if write {
 				if err == nil {
 					// write the ante handler updates if it did not fail back to
