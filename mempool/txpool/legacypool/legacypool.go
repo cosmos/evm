@@ -272,7 +272,7 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFnFactory         RecheckTxFnFactory
+	RecheckTxFnFactory     RecheckTxFnFactory
 	RecheckTxRunnerFactory RecheckTxRunnerFactory
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
@@ -1702,13 +1702,13 @@ func (pool *LegacyPool) demoteUnexecutables() {
 				recheckRunner := pool.RecheckTxRunnerFactory(pool.chain)
 				inputTxs := list.Flatten()
 				recheckResults := recheckRunner(inputTxs)
+				resultsMap := make(map[common.Hash]error)
 				for i, tx := range inputTxs {
-					if recheckResults[i] != nil {
-						recheckDrops = append(recheckDrops, tx)
-					} else {
-						recheckInvalids = append(recheckInvalids, tx)
-					}
+					resultsMap[tx.Hash()] = recheckResults[i]
 				}
+				recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
+					return resultsMap[tx.Hash()] != nil
+				})
 			} else if pool.RecheckTxFnFactory != nil {
 				recheckFn := pool.RecheckTxFnFactory(pool.chain)
 				recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {

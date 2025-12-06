@@ -216,7 +216,7 @@ func NewExperimentalEVMMempool(
 	// like a small, we should refactor this into something thats easier to
 	// reason about for callers and the legacypool itself.
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
-	legacyPool.RecheckTxRunnerFactory = recheckTxRunnerFactory(txConfig, config.AnteHandler, config.Stores, legacyPool.RecheckTxFnFactory)
+	legacyPool.RecheckTxRunnerFactory = recheckTxRunnerFactory(config.Stores, legacyPool.RecheckTxFnFactory)
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
@@ -655,7 +655,7 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 	return nil
 }
 
-func recheckTxRunnerFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler, stores map[storetypes.StoreKey]int, recheckTxFnFactory legacypool.RecheckTxFnFactory) legacypool.RecheckTxRunnerFactory {
+func recheckTxRunnerFactory(stores map[storetypes.StoreKey]int, recheckTxFnFactory legacypool.RecheckTxFnFactory) legacypool.RecheckTxRunnerFactory {
 	return func(chain legacypool.BlockChain) legacypool.RecheckTxRunner {
 		bc, ok := chain.(*Blockchain)
 		if !ok {
@@ -677,7 +677,7 @@ func recheckTxRunnerFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandle
 			}
 			results := make([]error, blockSize)
 			// TODO fixme executors
-			blockstm.ExecuteBlockWithEstimates(ctx, blockSize, stores, ctx.MultiStore(), 20, nil,
+			err = blockstm.ExecuteBlockWithEstimates(ctx, blockSize, stores, ctx.MultiStore(), 20, nil,
 				func(txn blockstm.TxnIndex, ms blockstm.MultiStore) {
 					var memTx *types.Transaction
 					if t != nil {
@@ -688,6 +688,9 @@ func recheckTxRunnerFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandle
 					results[txn] = fn(memTx)
 				},
 			)
+			if err != nil {
+				panic(fmt.Errorf("mempool panic running antehandlers via bstm %w", err))
+			}
 			return results
 		}
 	}
