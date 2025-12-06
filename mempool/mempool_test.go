@@ -86,6 +86,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 			return nil
 		}
 	}
+	legacyPool.RecheckTxRunnerFactory = nil
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -171,6 +172,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 			return nil
 		}
 	}
+	legacyPool.RecheckTxRunnerFactory = nil
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
