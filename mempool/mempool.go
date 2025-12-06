@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -670,7 +669,7 @@ func recheckTxRunnerFactory(stores map[storetypes.StoreKey]int, recheckTxFnFacto
 			panic(fmt.Errorf("getting latest context from blockchain: %w", err))
 		}
 
-		return func(t types.Transactions) []error {
+		return func(t ethtypes.Transactions) []error {
 			blockSize := len(t)
 			if blockSize == 0 {
 				return nil
@@ -679,7 +678,7 @@ func recheckTxRunnerFactory(stores map[storetypes.StoreKey]int, recheckTxFnFacto
 			// TODO fixme executors
 			err = blockstm.ExecuteBlockWithEstimates(ctx, blockSize, stores, ctx.MultiStore(), 20, nil,
 				func(txn blockstm.TxnIndex, ms blockstm.MultiStore) {
-					var memTx *types.Transaction
+					var memTx *ethtypes.Transaction
 					if t != nil {
 						memTx = t[txn]
 					}
