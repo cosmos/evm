@@ -9,6 +9,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // UpgradeName defines the on-chain upgrade name for the EpixChain upgrade
@@ -32,24 +34,42 @@ func (app EVMD) RegisterUpgradeHandlers() {
 				Description: "The native staking and governance token of the EpixChain",
 				DenomUnits: []*banktypes.DenomUnit{
 					{
-						Denom:    "aepix",
+						Denom:    BaseDenom,
 						Exponent: 0,
 						Aliases:  nil,
 					},
 					{
-						Denom:    "epix",
-						Exponent: 18,
+						Denom:    DisplayDenom,
+						Exponent: Decimals,
 						Aliases:  nil,
 					},
 				},
-				Base:    "aepix",
-				Display: "epix",
+				Base:    BaseDenom,
+				Display: DisplayDenom,
 				Name:    "EpixChain",
 				Symbol:  "EPIX",
 				URI:     "https://epix.zone/",
 			})
 
 			sdkCtx.Logger().Info("EpixChain denom metadata updated successfully")
+
+			// Update EVM params to set the EvmDenom and ExtendedDenomOptions
+			evmParams := app.EVMKeeper.GetParams(sdkCtx)
+			evmParams.EvmDenom = BaseDenom
+			evmParams.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{
+				ExtendedDenom: BaseDenom,
+			}
+			if err := app.EVMKeeper.SetParams(sdkCtx, evmParams); err != nil {
+				return nil, err
+			}
+			sdkCtx.Logger().Info("EVM params updated successfully")
+
+			// Initialize EVM coin info from the bank metadata
+			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
+				return nil, err
+			}
+			sdkCtx.Logger().Info("EVM coin info initialized successfully")
+
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},
 	)

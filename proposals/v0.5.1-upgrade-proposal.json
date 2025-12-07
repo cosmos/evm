@@ -5,14 +5,13 @@
       "authority": "epix10d07y265gmmuvt4z0w9aw880jnsr700j0fas3g",
       "plan": {
         "name": "v0.5.1",
-        "height": "1612500",
+        "height": "1550000",
         "info": "https://github.com/EpixZone/EpixChain/releases/tag/v0.5.1"
       }
     }
   ],
   "metadata": "EpixChain v0.5.1 Upgrade Proposal",
   "deposit": "5000000000000000000000aepix",
-  "title": "Upgrade EpixChain to v0.5.1 (Expedited)",
-  "summary": "This expedited upgrade migrates EpixChain to v0.5.1.\n\nKey changes:\n- Enhanced denom metadata for aepix/epix tokens\n- Improved EVM configuration handling\n- Updated function signatures for better compatibility\n\nRelease: https://github.com/EpixZone/EpixChain/releases/tag/v0.5.1\n\nBinary verification:\n- Build from source: `git checkout v0.5.1 && make install`\n- Verify version: `epixd version` should show `v0.5.1`",
-  "expedited": true
+  "title": "Upgrade EpixChain to v0.5.1",
+  "summary": "This upgrade migrates EpixChain to v0.5.1.\n\nKey changes:\n- Enhanced denom metadata for aepix/epix tokens\n- Improved EVM configuration handling\n- Updated function signatures for better compatibility\n\nRelease: https://github.com/EpixZone/EpixChain/releases/tag/v0.5.1\n\nBinary verification:\n- Build from source: `git checkout v0.5.1 && make install`\n- Verify version: `epixd version` should show `v0.5.1`"
 }
