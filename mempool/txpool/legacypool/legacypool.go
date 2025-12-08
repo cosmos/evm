@@ -1368,8 +1368,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	// updates are not persisted or else we will, for example, increment an
 	// accounts nonce in state here, and then execute the same tx again during
 	// demoteUnexecutables which will then fail due to NonceTooLow.
-	writeRecheckUpdates := reset == nil
-	promoted := pool.promoteExecutables(promoteAddrs, writeRecheckUpdates)
+	promoted := pool.promoteExecutables(promoteAddrs)
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
@@ -1468,7 +1467,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *LegacyPool) promoteExecutables(accounts []common.Address, writeRecheckUpdates bool) []*types.Transaction {
+func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.Transaction {
 	fmt.Println("promoting executables")
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
@@ -1515,7 +1514,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, writeReche
 		var recheckDrops []*types.Transaction
 		if pool.rechecker != nil {
 			recheckStart := time.Now()
-			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
+			recheckDrops, _ = list.FilterSorted(func(tx *types.Transaction) bool {
 				return checker(tx) != nil
 			})
 			for _, tx := range recheckDrops {
@@ -1736,7 +1735,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		var recheckDrops []*types.Transaction
 		if pool.rechecker != nil {
 			recheckStart := time.Now()
-			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
+			recheckDrops, recheckInvalids = list.FilterSorted(func(tx *types.Transaction) bool {
 				return pool.rechecker.Pending(tx) != nil
 			})
 			for _, tx := range recheckDrops {
