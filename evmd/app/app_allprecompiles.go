@@ -1,5 +1,5 @@
-//go:build all_precompiles
-// +build all_precompiles
+//go:build all_precompiles && !blockstm_test
+// +build all_precompiles,!blockstm_test
 
 package app
 

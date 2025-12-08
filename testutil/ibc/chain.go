@@ -473,11 +473,17 @@ func (chain *TestChain) SendMsgs(msgs ...sdk.Msg) (*abci.ExecTxResult, error) {
 		SenderAccount: chain.SenderAccount,
 	}
 
+	// make sure cached sender matches on-chain state before signing
+	chain.refreshSenderAccountFromState(&senderAccount)
+
 	return chain.SendMsgsWithSender(senderAccount, msgs...)
 }
 
 // SendMsgsWithSender delivers a transaction through the application using the provided sender.
 func (chain *TestChain) SendMsgsWithSender(sender SenderAccount, msgs ...sdk.Msg) (*abci.ExecTxResult, error) {
+	// sync sender from keeper so sequences reflect prior txs (Block-STM, failed EVM tx, etc.)
+	chain.refreshSenderAccountFromState(&sender)
+
 	if chain.SendMsgsOverride != nil {
 		return chain.SendMsgsOverride(msgs...)
 	}
@@ -523,6 +529,46 @@ func (chain *TestChain) SendMsgsWithSender(sender SenderAccount, msgs ...sdk.Msg
 	chain.Coordinator.IncrementTime()
 
 	return txResult, nil
+}
+
+// refreshSenderAccountFromState reloads the provided sender (and the chain caches) from
+// the account keeper so sequence/account-number values always mirror the committed state.
+// This is required once Block-STM runs Cosmos + EVM txs in parallel, because the helper's
+// in-memory SenderAccount no longer reflects automatic sequence increments performed by
+// the ante handler.
+func (chain *TestChain) refreshSenderAccountFromState(sender *SenderAccount) {
+	if sender == nil || sender.SenderAccount == nil {
+		return
+	}
+
+	app, ok := chain.App.(evm.AccountKeeperProvider)
+	if !ok {
+		return
+	}
+
+	addr := sender.SenderAccount.GetAddress()
+	if len(addr) == 0 {
+		return
+	}
+
+	acc := app.GetAccountKeeper().GetAccount(chain.GetContext(), addr)
+	require.NotNil(chain.TB, acc)
+
+	sender.SenderAccount = acc
+
+	if chain.SenderAccount != nil && chain.SenderAccount.GetAddress().Equals(addr) {
+		chain.SenderAccount = acc
+	}
+
+	for i := range chain.SenderAccounts {
+		if chain.SenderAccounts[i].SenderAccount == nil {
+			continue
+		}
+		if chain.SenderAccounts[i].SenderAccount.GetAddress().Equals(addr) {
+			chain.SenderAccounts[i].SenderAccount = acc
+			break
+		}
+	}
 }
 
 // GetClientState retrieves the client state for the provided clientID. The client is

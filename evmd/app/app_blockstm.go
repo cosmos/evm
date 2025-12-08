@@ -1,5 +1,5 @@
-//go:build !all_precompiles && !blockstm_test
-// +build !all_precompiles,!blockstm_test
+//go:build !all_precompiles && blockstm_test
+// +build !all_precompiles,blockstm_test
 
 package app
 
@@ -228,7 +228,7 @@ func New(
 
 	// Setup Parallel Execution via blockstm txn runner
 	// initialize block-stm runner with a fallback denom; overridden after InitGenesis when the real EVM denom is available
-	// app.configureBlockSTM("")
+	app.configureBlockSTM("")
 
 	// Disable block gas meter--block gas is tracked elsewhere
 	app.SetDisableBlockGasMeter(true)
@@ -699,16 +699,13 @@ func (app *App) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.
 		panic(err)
 	}
 
-	// TODO: Enable BlockSTM Optionally
-	// resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
-	// if err != nil {
-	// 	return resp, err
-	// }
-	// // After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
-	// app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
-	// return resp, nil
-
-	return app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
+	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
+	if err != nil {
+		return resp, err
+	}
+	// After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
+	app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
+	return resp, nil
 }
 
 // LoadHeight loads a particular height

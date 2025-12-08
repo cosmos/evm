@@ -176,7 +176,9 @@ test-all:
 	@echo "🔍 Running evm module tests..."
 	@go test -tags=test -mod=readonly -timeout=15m $(PACKAGES_NOSIMULATION)
 	@echo "🔍 Running evmd module tests..."
-	@cd evmd && go test -tags=test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
+	@cd evmd && go test -count=1 -tags=test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
+	@echo "🔍 Running evmd module tests..."
+	@cd evmd && go test -count=1 -tags=test,blockstm-test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
 
 run-tests:
 ifneq (,$(shell which tparse 2>/dev/null))
