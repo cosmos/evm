@@ -68,21 +68,28 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 	// returned function act on the same context, but they will not persist the
 	// changes outside of this queued checker. Note that Pending may update
 	// r.ctx, so this may act on the context of previous Pending rechecks.
-	ctx, _ := r.ctx.CacheContext()
 	fmt.Println("creating queued rechecker with branched ctx")
+	queueCtx, _ := r.ctx.CacheContext()
 	return func(tx *ethtypes.Transaction) error {
-		newCtx, err := r.recheckFn(ctx, tx)
+		txCtx, _ := queueCtx.CacheContext()
+		newCtx, err := r.recheckFn(txCtx, tx)
 		if err != nil {
-			fmt.Printf("queued ante handler failed with err for tx %s (nonce %d) (write: %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
+			fmt.Printf("queued ante handler failed with err for tx %s (nonce %d): %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
 		} else {
-			fmt.Printf("queued ante handler success for tx %s (nonce %d) (write: %t)\n", tx.Hash(), tx.Nonce())
+			fmt.Printf("queued ante handler success for tx %s (nonce %d): %t)\n", tx.Hash(), tx.Nonce())
 		}
 		if !newCtx.IsZero() {
-			// set the context back to the updated ante handler context and
-			// set the ante handlers context to use the multistore that was
-			// written to
+			// set the context back to the updated ante handler context
 			fmt.Printf("writing queued ante handler updates to branched ctx\n")
-			ctx = newCtx
+			queueCtx = newCtx
+			if tolerateAnteErr(err) == nil {
+				// successful recheckFn, update the main context since this tx
+				// will be promoted from queued to pending and we need future
+				// queued checkers at this height to operate knowing about this
+				// txns context updates
+				fmt.Printf("writing queued ante handler updates to MAAINNN ctx")
+				r.ctx = newCtx
+			}
 		}
 		return tolerateAnteErr(err)
 	}
