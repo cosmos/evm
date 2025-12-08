@@ -1,7 +1,6 @@
 package bank
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -47,21 +46,6 @@ type IntegrationTestSuite struct {
 	keyring     keyring.Keyring
 
 	precompile *bank2.Precompile
-}
-
-// IntegrationSuiteConfig allows registering the same specs against multiple app setups
-// (e.g. default vs BlockSTM) without re-running RunSpecs.
-type IntegrationSuiteConfig struct {
-	Name    string
-	Create  network.CreateEvmApp
-	Options []network.ConfigOption
-}
-
-func integrationSuiteName(base, name string, idx int) string {
-	if name == "" {
-		name = fmt.Sprintf("config-%d", idx+1)
-	}
-	return fmt.Sprintf("%s - %s", base, name)
 }
 
 func NewIntegrationTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *IntegrationTestSuite {
@@ -118,357 +102,349 @@ func (is *IntegrationTestSuite) SetupTest() {
 	is.precompile = is.setupBankPrecompile()
 }
 
-func TestIntegrationSuite(t *testing.T, configs ...IntegrationSuiteConfig) {
-	t.Helper()
-	if len(configs) == 0 {
-		t.Fatalf("no integration configs provided")
-	}
+func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
+	var is *IntegrationTestSuite
 
-	for i, config := range configs {
-		cfg := config
+	_ = Describe("Bank Extension -", func() {
+		var (
+			bankCallerContractAddr common.Address
+			bankCallerContract     evmtypes.CompiledContract
 
-		_ = Describe(integrationSuiteName("Bank Extension", cfg.Name, i), func() {
-			var (
-				is                     *IntegrationTestSuite
-				bankCallerContractAddr common.Address
-				bankCallerContract     evmtypes.CompiledContract
+			err    error
+			sender keyring.Key
+			amount *big.Int
 
-				err    error
-				sender keyring.Key
-				amount *big.Int
+			// contractData is a helper struct to hold the addresses and ABIs for the
+			// different contract instances that are subject to testing here.
+			contractData ContractData
+			passCheck    testutil.LogCheckArgs
 
-				// contractData is a helper struct to hold the addresses and ABIs for the
-				// different contract instances that are subject to testing here.
-				contractData ContractData
-				passCheck    testutil.LogCheckArgs
+			cosmosEVMTotalSupply *big.Int
+			xmplTotalSupply      *big.Int
+		)
 
-				cosmosEVMTotalSupply *big.Int
-				xmplTotalSupply      *big.Int
+		BeforeEach(func() {
+			is = NewIntegrationTestSuite(create, options...)
+			is.SetupTest()
+
+			// Default sender, amount
+			sender = is.keyring.GetKey(0)
+			amount = big.NewInt(1e18)
+
+			bankCallerContract, err = testdata.LoadBankCallerContract()
+			Expect(err).ToNot(HaveOccurred(), "failed to load BankCaller contract")
+
+			bankCallerContractAddr, err = is.factory.DeployContract(
+				sender.Priv,
+				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
+				testutiltypes.ContractDeploymentData{
+					Contract: bankCallerContract,
+				},
 			)
+			Expect(err).ToNot(HaveOccurred(), "failed to deploy ERC20 minter burner contract")
 
-			BeforeEach(func() {
-				is = NewIntegrationTestSuite(cfg.Create, cfg.Options...)
-				is.SetupTest()
+			contractData = ContractData{
+				ownerPriv:      sender.Priv,
+				precompileAddr: is.precompile.Address(),
+				precompileABI:  is.precompile.ABI,
+				contractAddr:   bankCallerContractAddr,
+				contractABI:    bankCallerContract.ABI,
+			}
 
-				// Default sender, amount
-				sender = is.keyring.GetKey(0)
-				amount = big.NewInt(1e18)
+			passCheck = testutil.LogCheckArgs{}.WithExpPass(true)
 
-				bankCallerContract, err = testdata.LoadBankCallerContract()
-				Expect(err).ToNot(HaveOccurred(), "failed to load BankCaller contract")
+			err = is.network.NextBlock()
+			Expect(err).ToNot(HaveOccurred(), "failed to advance block")
 
-				bankCallerContractAddr, err = is.factory.DeployContract(
-					sender.Priv,
-					evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
-					testutiltypes.ContractDeploymentData{
-						Contract: bankCallerContract,
-					},
-				)
-				Expect(err).ToNot(HaveOccurred(), "failed to deploy ERC20 minter burner contract")
+			// Get total supply from bank keeper
+			cosmosSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.bondDenom)
+			cosmosEVMTotalSupply = new(big.Int).Set(cosmosSupply.Amount.BigInt())
 
-				contractData = ContractData{
-					ownerPriv:      sender.Priv,
-					precompileAddr: is.precompile.Address(),
-					precompileABI:  is.precompile.ABI,
-					contractAddr:   bankCallerContractAddr,
-					contractABI:    bankCallerContract.ABI,
-				}
+			xmplSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.tokenDenom)
+			xmplTotalSupply = new(big.Int).Set(xmplSupply.Amount.BigInt())
+		})
 
-				passCheck = testutil.LogCheckArgs{}.WithExpPass(true)
+		Context("Direct precompile queries", func() {
+			Context("balances query", func() {
+				It("should return the correct balance", func() {
+					// New account with 0 balances (does not exist on the chain yet)
+					receiver := utiltx.GenerateAddress()
 
-				err = is.network.NextBlock()
-				Expect(err).ToNot(HaveOccurred(), "failed to advance block")
+					err := is.factory.FundAccount(sender, receiver.Bytes(), sdk.NewCoins(sdk.NewCoin(is.tokenDenom, math.NewIntFromBigInt(amount))))
+					Expect(err).ToNot(HaveOccurred(), "error while funding account")
+					Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
 
-				// Get total supply from bank keeper
-				cosmosSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.bondDenom)
-				cosmosEVMTotalSupply = new(big.Int).Set(cosmosSupply.Amount.BigInt())
+					queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, receiver)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-				xmplSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.tokenDenom)
-				xmplTotalSupply = new(big.Int).Set(xmplSupply.Amount.BigInt())
-			})
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-			Context("Direct precompile queries", func() {
-				Context("balances query", func() {
-					It("should return the correct balance", func() {
-						// New account with 0 balances (does not exist on the chain yet)
-						receiver := utiltx.GenerateAddress()
+					balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.tokenDenom)
+					Expect(err).ToNot(HaveOccurred(), "failed to get balance")
 
-						err := is.factory.FundAccount(sender, receiver.Bytes(), sdk.NewCoins(sdk.NewCoin(is.tokenDenom, math.NewIntFromBigInt(amount))))
-						Expect(err).ToNot(HaveOccurred(), "error while funding account")
-						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
-
-						queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, receiver)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.tokenDenom)
-						Expect(err).ToNot(HaveOccurred(), "failed to get balance")
-
-						Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
-						Expect(*balances[0].Amount).To(Equal(*amount))
-					})
-
-					It("should return a single token balance", func() {
-						// New account with 0 balances (does not exist on the chain yet)
-						receiver := utiltx.GenerateAddress()
-
-						err := utils.FundAccountWithBaseDenom(is.factory, is.network, sender, receiver.Bytes(), math.NewIntFromBigInt(amount))
-						Expect(err).ToNot(HaveOccurred(), "error while funding account")
-						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
-
-						queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, receiver)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.network.GetBaseDenom())
-						Expect(err).ToNot(HaveOccurred(), "failed to get balance")
-
-						Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
-						Expect(*balances[0].Amount).To(Equal(*amount))
-					})
-
-					It("should return no balance for new account", func() {
-						queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, utiltx.GenerateAddress())
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						Expect(balances).To(BeEmpty())
-					})
-
-					It("should consume the correct amount of gas", func() {
-						queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, sender.Addr)
-						res, err := is.factory.ExecuteContractCall(sender.Priv, queryArgs, balancesArgs)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						ethRes, err := evmtypes.DecodeTxResponse(res.Data)
-						Expect(err).ToNot(HaveOccurred(), "failed to decode tx response")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						gasUsed := Max(bank2.GasBalances, len(balances)*bank2.GasBalances)
-						// Here increasing the GasBalanceOf will increase the use of gas so they will never be equal
-						Expect(gasUsed).To(BeNumerically("<=", ethRes.GasUsed))
-					})
+					Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
+					Expect(*balances[0].Amount).To(Equal(*amount))
 				})
 
-				Context("totalSupply query", func() {
-					It("should return the correct total supply", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.TotalSupplyMethod)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+				It("should return a single token balance", func() {
+					// New account with 0 balances (does not exist on the chain yet)
+					receiver := utiltx.GenerateAddress()
 
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.TotalSupplyMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+					err := utils.FundAccountWithBaseDenom(is.factory, is.network, sender, receiver.Bytes(), math.NewIntFromBigInt(amount))
+					Expect(err).ToNot(HaveOccurred(), "error while funding account")
+					Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
 
-						Expect(balances[0].Amount.String()).To(Equal(cosmosEVMTotalSupply.String()))
-						Expect(balances[1].Amount.String()).To(Equal(xmplTotalSupply.String()))
-					})
+					queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, receiver)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.network.GetBaseDenom())
+					Expect(err).ToNot(HaveOccurred(), "failed to get balance")
+
+					Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
+					Expect(*balances[0].Amount).To(Equal(*amount))
 				})
 
-				Context("supplyOf query", func() {
-					It("should return the supply of Cosmos EVM", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.cosmosEVMAddr)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+				It("should return no balance for new account", func() {
+					queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, utiltx.GenerateAddress())
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-						Expect(out[0].(*big.Int).String()).To(Equal(cosmosEVMTotalSupply.String()))
-					})
+					Expect(balances).To(BeEmpty())
+				})
 
-					It("should return the supply of XMPL", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.xmplAddr)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+				It("should consume the correct amount of gas", func() {
+					queryArgs, balancesArgs := getTxAndCallArgs(directCall, contractData, bank2.BalancesMethod, sender.Addr)
+					res, err := is.factory.ExecuteContractCall(sender.Priv, queryArgs, balancesArgs)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+					ethRes, err := evmtypes.DecodeTxResponse(res.Data)
+					Expect(err).ToNot(HaveOccurred(), "failed to decode tx response")
 
-						Expect(out[0].(*big.Int).String()).To(Equal(xmplTotalSupply.String()))
-					})
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-					It("should return a supply of 0 for a non existing token", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, utiltx.GenerateAddress())
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						Expect(out[0].(*big.Int).Int64()).To(Equal(big.NewInt(0).Int64()))
-					})
-
-					It("should consume the correct amount of gas", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.xmplAddr)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// Here increasing the GasSupplyOf will increase the use of gas so they will never be equal
-						Expect(bank2.GasSupplyOf).To(BeNumerically("<=", ethRes.GasUsed))
-					})
+					gasUsed := Max(bank2.GasBalances, len(balances)*bank2.GasBalances)
+					// Here increasing the GasBalanceOf will increase the use of gas so they will never be equal
+					Expect(gasUsed).To(BeNumerically("<=", ethRes.GasUsed))
 				})
 			})
 
-			Context("Calls from a contract", func() {
-				const (
-					BalancesFunction = "callBalances"
-					TotalSupplyOf    = "callTotalSupply"
-					SupplyOfFunction = "callSupplyOf"
-				)
+			Context("totalSupply query", func() {
+				It("should return the correct total supply", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.TotalSupplyMethod)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-				Context("balances query", func() {
-					It("should return the correct balance", func() {
-						receiver := utiltx.GenerateAddress()
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.TotalSupplyMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-						err := is.factory.FundAccount(sender, receiver.Bytes(), sdk.NewCoins(sdk.NewCoin(is.tokenDenom, math.NewIntFromBigInt(amount))))
-						Expect(err).ToNot(HaveOccurred(), "error while funding account")
-						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+					Expect(balances[0].Amount.String()).To(Equal(cosmosEVMTotalSupply.String()))
+					Expect(balances[1].Amount.String()).To(Equal(xmplTotalSupply.String()))
+				})
+			})
 
-						queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, receiver)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+			Context("supplyOf query", func() {
+				It("should return the supply of Cosmos EVM", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.cosmosEVMAddr)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-						balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.tokenDenom)
-						Expect(err).ToNot(HaveOccurred(), "failed to get balance")
-
-						Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
-						Expect(*balances[0].Amount).To(Equal(*amount))
-					})
-
-					It("should return a single token balance", func() {
-						// New account with 0 balances (does not exist on the chain yet)
-						receiver := utiltx.GenerateAddress()
-
-						err := utils.FundAccountWithBaseDenom(is.factory, is.network, sender, receiver.Bytes(), math.NewIntFromBigInt(amount))
-						Expect(err).ToNot(HaveOccurred(), "error while funding account")
-						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
-
-						queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, receiver)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.network.GetBaseDenom())
-						Expect(err).ToNot(HaveOccurred(), "failed to get balance")
-
-						Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
-						Expect(*balances[0].Amount).To(Equal(*amount))
-					})
-
-					It("should return no balance for new account", func() {
-						queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, utiltx.GenerateAddress())
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						Expect(balances).To(BeEmpty())
-					})
-
-					It("should consume the correct amount of gas", func() {
-						queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, sender.Addr)
-						res, err := is.factory.ExecuteContractCall(sender.Priv, queryArgs, balancesArgs)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						ethRes, err := evmtypes.DecodeTxResponse(res.Data)
-						Expect(err).ToNot(HaveOccurred(), "failed to decode tx response")
-
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						gasUsed := Max(bank2.GasBalances, len(balances)*bank2.GasBalances)
-						// Here increasing the GasBalanceOf will increase the use of gas so they will never be equal
-						Expect(gasUsed).To(BeNumerically("<=", ethRes.GasUsed))
-					})
+					Expect(out[0].(*big.Int).String()).To(Equal(cosmosEVMTotalSupply.String()))
 				})
 
-				Context("totalSupply query", func() {
-					It("should return the correct total supply", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, TotalSupplyOf)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+				It("should return the supply of XMPL", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.xmplAddr)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						var balances []bank2.Balance
-						err = is.precompile.UnpackIntoInterface(&balances, bank2.TotalSupplyMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-						Expect(balances[0].Amount.String()).To(Equal(cosmosEVMTotalSupply.String()))
-						Expect(balances[1].Amount.String()).To(Equal(xmplTotalSupply.String()))
-					})
+					Expect(out[0].(*big.Int).String()).To(Equal(xmplTotalSupply.String()))
 				})
 
-				Context("supplyOf query", func() {
-					It("should return the supply of Cosmos EVM", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.cosmosEVMAddr)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+				It("should return a supply of 0 for a non existing token", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, utiltx.GenerateAddress())
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
-						Expect(out[0].(*big.Int).String()).To(Equal(cosmosEVMTotalSupply.String()))
-					})
+					Expect(out[0].(*big.Int).Int64()).To(Equal(big.NewInt(0).Int64()))
+				})
 
-					It("should return the supply of XMPL", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.xmplAddr)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+				It("should consume the correct amount of gas", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.xmplAddr)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						Expect(out[0].(*big.Int).String()).To(Equal(xmplTotalSupply.String()))
-					})
-
-					It("should return a supply of 0 for a non existing token", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, utiltx.GenerateAddress())
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-						Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-						Expect(out[0].(*big.Int).Int64()).To(Equal(big.NewInt(0).Int64()))
-					})
-
-					It("should consume the correct amount of gas", func() {
-						queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.xmplAddr)
-						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-						// Here increasing the GasSupplyOf will increase the use of gas so they will never be equal
-						Expect(bank2.GasSupplyOf).To(BeNumerically("<=", ethRes.GasUsed))
-					})
+					// Here increasing the GasSupplyOf will increase the use of gas so they will never be equal
+					Expect(bank2.GasSupplyOf).To(BeNumerically("<=", ethRes.GasUsed))
 				})
 			})
 		})
-	}
+
+		Context("Calls from a contract", func() {
+			const (
+				BalancesFunction = "callBalances"
+				TotalSupplyOf    = "callTotalSupply"
+				SupplyOfFunction = "callSupplyOf"
+			)
+
+			Context("balances query", func() {
+				It("should return the correct balance", func() {
+					receiver := utiltx.GenerateAddress()
+
+					err := is.factory.FundAccount(sender, receiver.Bytes(), sdk.NewCoins(sdk.NewCoin(is.tokenDenom, math.NewIntFromBigInt(amount))))
+					Expect(err).ToNot(HaveOccurred(), "error while funding account")
+					Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+
+					queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, receiver)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.tokenDenom)
+					Expect(err).ToNot(HaveOccurred(), "failed to get balance")
+
+					Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
+					Expect(*balances[0].Amount).To(Equal(*amount))
+				})
+
+				It("should return a single token balance", func() {
+					// New account with 0 balances (does not exist on the chain yet)
+					receiver := utiltx.GenerateAddress()
+
+					err := utils.FundAccountWithBaseDenom(is.factory, is.network, sender, receiver.Bytes(), math.NewIntFromBigInt(amount))
+					Expect(err).ToNot(HaveOccurred(), "error while funding account")
+					Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+
+					queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, receiver)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					balanceAfter, err := is.grpcHandler.GetBalanceFromBank(receiver.Bytes(), is.network.GetBaseDenom())
+					Expect(err).ToNot(HaveOccurred(), "failed to get balance")
+
+					Expect(math.NewInt(balances[0].Amount.Int64())).To(Equal(balanceAfter.Balance.Amount))
+					Expect(*balances[0].Amount).To(Equal(*amount))
+				})
+
+				It("should return no balance for new account", func() {
+					queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, utiltx.GenerateAddress())
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, balancesArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					Expect(balances).To(BeEmpty())
+				})
+
+				It("should consume the correct amount of gas", func() {
+					queryArgs, balancesArgs := getTxAndCallArgs(contractCall, contractData, BalancesFunction, sender.Addr)
+					res, err := is.factory.ExecuteContractCall(sender.Priv, queryArgs, balancesArgs)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					ethRes, err := evmtypes.DecodeTxResponse(res.Data)
+					Expect(err).ToNot(HaveOccurred(), "failed to decode tx response")
+
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.BalancesMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					gasUsed := Max(bank2.GasBalances, len(balances)*bank2.GasBalances)
+					// Here increasing the GasBalanceOf will increase the use of gas so they will never be equal
+					Expect(gasUsed).To(BeNumerically("<=", ethRes.GasUsed))
+				})
+			})
+
+			Context("totalSupply query", func() {
+				It("should return the correct total supply", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, TotalSupplyOf)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					var balances []bank2.Balance
+					err = is.precompile.UnpackIntoInterface(&balances, bank2.TotalSupplyMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					Expect(balances[0].Amount.String()).To(Equal(cosmosEVMTotalSupply.String()))
+					Expect(balances[1].Amount.String()).To(Equal(xmplTotalSupply.String()))
+				})
+			})
+
+			Context("supplyOf query", func() {
+				It("should return the supply of Cosmos EVM", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.cosmosEVMAddr)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					Expect(out[0].(*big.Int).String()).To(Equal(cosmosEVMTotalSupply.String()))
+				})
+
+				It("should return the supply of XMPL", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.xmplAddr)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					Expect(out[0].(*big.Int).String()).To(Equal(xmplTotalSupply.String()))
+				})
+
+				It("should return a supply of 0 for a non existing token", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, utiltx.GenerateAddress())
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
+					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
+
+					Expect(out[0].(*big.Int).Int64()).To(Equal(big.NewInt(0).Int64()))
+				})
+
+				It("should consume the correct amount of gas", func() {
+					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.xmplAddr)
+					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
+					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
+
+					// Here increasing the GasSupplyOf will increase the use of gas so they will never be equal
+					Expect(bank2.GasSupplyOf).To(BeNumerically("<=", ethRes.GasUsed))
+				})
+			})
+		})
+	})
 
 	// Run Ginkgo integration tests
 	RegisterFailHandler(Fail)
