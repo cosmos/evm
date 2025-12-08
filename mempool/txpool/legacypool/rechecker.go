@@ -94,7 +94,7 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 func tolerateAnteErr(err error) error {
 	// TODO: this is awful, we should not be checking the error string here,
 	// but importing this error from the mempool package is an import cycle.
-	if strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
+	if err == nil || strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
 		return nil
 	}
 	return err
