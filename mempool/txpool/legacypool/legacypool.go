@@ -271,8 +271,11 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	RecheckTxFnFactory RecheckTxFnFactory
-	recheckTxFn        RecheckTxFn
+	// RecheckTxFnFactory RecheckTxFnFactory
+	// recheckTxFn        RecheckTxFn
+	rechecker    *rechecker
+	txconverter  TxConverter
+	recheckCtxFn RecheckCtxFn
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
@@ -288,7 +291,7 @@ type txpoolResetRequest struct {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config Config, chain BlockChain) *LegacyPool {
+func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -313,7 +316,20 @@ func New(config Config, chain BlockChain) *LegacyPool {
 	pool.priced = newPricedList(pool.all)
 	pool.latestReorgHeight.Store(0)
 
+	for _, opt := range opts {
+		opt(pool)
+	}
+
 	return pool
+}
+
+type Option func(pool *LegacyPool)
+
+func WithRecheck(converter TxConverter, cp RecheckCtxFn) Option {
+	return func(pool *LegacyPool) {
+		pool.txconverter = converter
+		pool.recheckCtxFn = cp
+	}
 }
 
 // Filter returns whether the given transaction can be consumed by the legacy
@@ -1438,8 +1454,9 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
-	if pool.RecheckTxFnFactory != nil {
-		pool.recheckTxFn = pool.RecheckTxFnFactory(pool.chain)
+
+	if pool.txconverter != nil && pool.recheckCtxFn != nil {
+		pool.rechecker = newRechecker(pool.recheckCtxFn(statedb), pool.txconverter)
 	}
 
 	// Inject any transactions discarded due to reorgs
@@ -1455,6 +1472,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, writeReche
 	fmt.Println("promoting executables")
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
+
+	// create a checker instance to ensure all queued txs are valid
+	var checker func(tx *types.Transaction) error
+	if pool.rechecker != nil {
+		checker = pool.rechecker.NewQueuedChecker()
+	}
 
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
@@ -1490,10 +1513,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, writeReche
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckDrops []*types.Transaction
-		if pool.recheckTxFn != nil {
+		if pool.rechecker != nil {
 			recheckStart := time.Now()
 			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return pool.recheckTxFn(tx, writeRecheckUpdates) != nil
+				return checker(tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
@@ -1711,10 +1734,10 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// dependency on DeliverTx and allow it to use any fn in parallel.
 		var recheckInvalids []*types.Transaction
 		var recheckDrops []*types.Transaction
-		if pool.recheckTxFn != nil {
+		if pool.rechecker != nil {
 			recheckStart := time.Now()
 			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return pool.recheckTxFn(tx, true) != nil
+				return pool.rechecker.Pending(tx) != nil
 			})
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()

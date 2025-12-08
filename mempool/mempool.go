@@ -9,14 +9,12 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
-	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -131,7 +129,7 @@ func NewExperimentalEVMMempool(
 		legacyConfig = *config.LegacyPoolConfig
 	}
 
-	legacyPool := legacypool.New(legacyConfig, blockchain)
+	legacyPool := legacypool.New(legacyConfig, blockchain, legacypool.WithRecheck(txEncoder, RecheckContext))
 
 	// Set up broadcast function using clientCtx
 	if config.BroadCastTxFn != nil {
@@ -205,11 +203,6 @@ func NewExperimentalEVMMempool(
 		operateExclusively: config.OperateExclusively,
 	}
 	evmMempool.reapList = NewReapList(txEncoder)
-
-	// TODO: setting public callback functions here on the legacypool feels
-	// like a small, we should refactor this into something thats easier to
-	// reason about for callers and the legacypool itself.
-	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
@@ -634,96 +627,4 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 		}
 	}
 	return nil
-}
-
-func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFnFactory {
-	return func(chain legacypool.BlockChain) legacypool.RecheckTxFn {
-		bc, ok := chain.(*Blockchain)
-		if !ok {
-			panic("unexpected type for BlockChain, expected *mempool.Blockchain")
-		}
-
-		// when the recheckTxFactory is called, we get latest context on chain
-		ctx, err := bc.GetLatestContext()
-		if err != nil {
-			// TODO: we probably dont want to panic here, but for POC im saying
-			// this is ok, the only real other option here is to nuke the
-			// entire mempool, or force another recheck but we cant be sure
-			// that will also not fail here
-			panic(fmt.Errorf("getting latest context from blockchain: %w", err))
-		}
-
-		// set the contexts multistore to a cache multistore
-		ms := ctx.MultiStore()
-		msCache := ms.CacheMultiStore()
-		ctx = ctx.WithMultiStore(msCache)
-
-		if ctx.ConsensusParams().Block == nil {
-			// set the latest blocks gas limit as the max gas in cp. this is
-			// necessary to validate each tx's gas wanted
-			maxGas, err := utils.SafeInt64(bc.CurrentBlock().GasLimit)
-			if err != nil {
-				panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
-			}
-			cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
-			ctx = ctx.WithConsensusParams(cp)
-		}
-
-		// we are returning a closure over a branched mulitstore context here.
-		// initially the context is the base state at the latest chain height.
-		// this context will be updated on every call to the returned
-		// rechecktx function if `write` is true and the ante handler
-		// completes successfully. consecutive invocations will use the context
-		// with the updated state from previous invocations.
-		return func(t *ethtypes.Transaction, write bool) error {
-			if anteHandler == nil {
-				return nil
-			}
-
-			var msg evmtypes.MsgEthereumTx
-			signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
-			if err := msg.FromSignedEthereumTx(t, signer); err != nil {
-				return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)
-			}
-
-			txBuilder := txConfig.NewTxBuilder()
-			cosmosTx, err := msg.BuildTx(txBuilder, evmtypes.GetEVMCoinDenom())
-			if err != nil {
-				return fmt.Errorf("failed to build cosmos tx from evm tx: %w", err)
-			}
-
-			newCtx, err := anteHandler(ctx, cosmosTx, false)
-			if err != nil {
-				fmt.Printf("ante handler failed with err for tx %s (nonce %d) (write: %t): %w\n", t.Hash(), t.Nonce(), write, err)
-			} else {
-				fmt.Printf("ante handler success for tx %s (nonce %d) (write: %t)\n", t.Hash(), t.Nonce(), write)
-			}
-			if write {
-				if err == nil {
-					// write the ante handler updates if it did not fail back to
-					// the cache multistores parent that it was branched off of.
-					msCache.Write()
-				}
-				if !newCtx.IsZero() {
-					// set the context back to the updated ante handler context and
-					// set the ante handlers context to use the multistore that was
-					// written to
-					ctx = newCtx.WithMultiStore(ms)
-				}
-			} else {
-				ctx = ctx.WithMultiStore(ms)
-			}
-			return tolerateAnteErr(err)
-		}
-	}
-}
-
-// tolerateAnteErr returns nil if err is considered an error that should be
-// ignored from the anteHandlers in the context of the recheckTxFn. If the
-// error should not be ignored, it is returned unmodified.
-func tolerateAnteErr(err error) error {
-	if errors.Is(err, ErrNonceGap) {
-		return nil
-	}
-	return err
 }
