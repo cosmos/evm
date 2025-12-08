@@ -1456,7 +1456,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.pendingNonces = newNoncer(statedb)
 
 	if pool.txconverter != nil && pool.recheckCtxFn != nil {
-		pool.rechecker = newRechecker(pool.recheckCtxFn(statedb), pool.txconverter)
+		pool.rechecker = newRechecker(pool.recheckCtxFn(statedb, newHead), pool.txconverter)
 	}
 
 	// Inject any transactions discarded due to reorgs
