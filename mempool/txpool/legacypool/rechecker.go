@@ -1,7 +1,6 @@
 package legacypool
 
 import (
-	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -53,14 +52,9 @@ func newRechecker(ctx sdk.Context, recheckFn RecheckFn) *rechecker {
 // itself or the QueuedChecker.
 func (r *rechecker) Pending(tx *ethtypes.Transaction) error {
 	newCtx, err := r.recheckFn(r.pendingCtx, tx)
-	if err != nil {
-		fmt.Printf("pending ante handler failed with err for tx %s (nonce %d) (write: %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
-	} else {
-		fmt.Printf("pending ante handler success for tx %s (nonce %d) (write: %t)\n", tx.Hash(), tx.Nonce())
-	}
 	if !newCtx.IsZero() {
-		// Directly modify the ctx used for all future rechecks at this height.
-		fmt.Printf("writing pending ante handler updates to state\n")
+		// If we get back a valid new context, this should be the basis for all
+		// new rechecks at this height.
 		r.pendingCtx = newCtx
 		r.queueCtx = newCtx
 	}
@@ -78,25 +72,18 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 	// they are invoked successfully (since they will now be promoted to
 	// pending, we should run all future queued rechecks on a context that has
 	// been updated by this tx).
-	fmt.Println("creating queued rechecker with branched ctx")
 	ctx, _ := r.queueCtx.CacheContext()
+
 	return func(tx *ethtypes.Transaction) error {
 		newCtx, err := r.recheckFn(ctx, tx)
-		if err != nil {
-			fmt.Printf("queued ante handler failed with err for tx %s (nonce %d): %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
-		} else {
-			fmt.Printf("queued ante handler success for tx %s (nonce %d): %t)\n", tx.Hash(), tx.Nonce())
-		}
 		if !newCtx.IsZero() {
 			// set the context back to the updated ante handler context
-			fmt.Printf("writing queued ante handler updates to branched ctx\n")
 			ctx = newCtx
 			if err == nil {
 				// successful recheckFn, update the queue context since this tx
 				// will be promoted from queued to pending and we need future
 				// queued checkers at this height to operate knowing about this
 				// txns context updates
-				fmt.Printf("writing queued ante handler updates to MAAINNN ctx")
 				r.queueCtx = newCtx
 			}
 		}
