@@ -129,7 +129,8 @@ func NewExperimentalEVMMempool(
 		legacyConfig = *config.LegacyPoolConfig
 	}
 
-	legacyPool := legacypool.New(legacyConfig, blockchain, legacypool.WithRecheck(txEncoder, RecheckContext))
+	recheckTx := NewRecheckTx(txEncoder, config.AnteHandler)
+	legacyPool := legacypool.New(legacyConfig, blockchain, legacypool.WithRecheck(RecheckContext, recheckTx))
 
 	// Set up broadcast function using clientCtx
 	if config.BroadCastTxFn != nil {

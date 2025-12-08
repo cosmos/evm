@@ -274,8 +274,8 @@ type LegacyPool struct {
 	// RecheckTxFnFactory RecheckTxFnFactory
 	// recheckTxFn        RecheckTxFn
 	rechecker    *rechecker
-	txconverter  TxConverter
 	recheckCtxFn RecheckCtxFn
+	recheckFn    RecheckFn
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
@@ -325,10 +325,10 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 
 type Option func(pool *LegacyPool)
 
-func WithRecheck(converter TxConverter, cp RecheckCtxFn) Option {
+func WithRecheck(recheckCtxFn RecheckCtxFn, recheckFn RecheckFn) Option {
 	return func(pool *LegacyPool) {
-		pool.txconverter = converter
-		pool.recheckCtxFn = cp
+		pool.recheckCtxFn = recheckCtxFn
+		pool.recheckFn = recheckFn
 	}
 }
 
@@ -1455,8 +1455,8 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
 
-	if pool.txconverter != nil && pool.recheckCtxFn != nil {
-		pool.rechecker = newRechecker(pool.recheckCtxFn(statedb, newHead), pool.txconverter)
+	if pool.recheckFn != nil && pool.recheckCtxFn != nil {
+		pool.rechecker = newRechecker(pool.recheckCtxFn(statedb, newHead), pool.recheckFn)
 	}
 
 	// Inject any transactions discarded due to reorgs

@@ -5,11 +5,27 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
+
+type TxConverter interface {
+	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
+}
+
+func NewRecheckTx(converter TxConverter, anteHandler sdk.AnteHandler) legacypool.RecheckFn {
+	return func(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
+		cosmosTx, err := converter.EVMTxToCosmosTx(tx)
+		if err != nil {
+			return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
+		}
+
+		return anteHandler(ctx, cosmosTx, false)
+	}
+}
 
 func RecheckContext(db vm.StateDB, header *ethtypes.Header) sdk.Context {
 	statedb, ok := db.(*statedb.StateDB)

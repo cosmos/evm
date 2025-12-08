@@ -11,35 +11,41 @@ import (
 )
 
 type (
-	TxConverter interface {
-		EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
-	}
-
+	// RecheckCtxFn is a function that fetches an sdk context, given an EVM
+	// stateDB and block header.
 	RecheckCtxFn func(db vm.StateDB, header *types.Header) sdk.Context
 
+	// RecheckFn is a function that rechecks a tx for validity given a sdk
+	// context. This should return an updated context and an error if the tx
+	// could not be properly rechecked.
+	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+
+	// rechecker runs recheckFn on pending and queued txs in the pool, given an
+	// sdk context. The context should not be manually updated, if a new block
+	// arrives that updates the chains context, a new instance of the rechecker
+	// should be created.
 	rechecker struct {
-		ctx         sdk.Context
-		txConverter TxConverter
-		anteHandler sdk.AnteHandler
+		// ctx is the context that the recheckFn should be run with
+		ctx sdk.Context
+
+		// recheckFn is the function that performs the recheck of a tx
+		recheckFn RecheckFn
 	}
 )
 
-func newRechecker(ctx sdk.Context, txConverter TxConverter) *rechecker {
+// newRechecker creates a new rechecker that can recheck transactions only for
+// this ctx.
+func newRechecker(ctx sdk.Context, recheckFn RecheckFn) *rechecker {
 	return &rechecker{
-		ctx:         ctx,
-		txConverter: txConverter,
+		ctx:       ctx,
+		recheckFn: recheckFn,
 	}
 }
 
 // Pending rechecks a tx in the pending pool. Note this is not thread safe with
 // itself or the QueuedChecker.
 func (r *rechecker) Pending(tx *ethtypes.Transaction) error {
-	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
-	if err != nil {
-		return fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
-	}
-
-	newCtx, err := r.anteHandler(r.ctx, cosmosTx, false)
+	newCtx, err := r.recheckFn(r.ctx, tx)
 	if err != nil {
 		fmt.Printf("pending ante handler failed with err for tx %s (nonce %d) (write: %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
 	} else {
@@ -65,12 +71,7 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 	ctx, _ := r.ctx.CacheContext()
 	fmt.Println("creating queued rechecker with branched ctx")
 	return func(tx *ethtypes.Transaction) error {
-		cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
-		if err != nil {
-			return fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
-		}
-
-		newCtx, err := r.anteHandler(ctx, cosmosTx, false)
+		newCtx, err := r.recheckFn(ctx, tx)
 		if err != nil {
 			fmt.Printf("queued ante handler failed with err for tx %s (nonce %d) (write: %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
 		} else {
@@ -88,9 +89,11 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 }
 
 // tolerateAnteErr returns nil if err is considered an error that should be
-// ignored from the anteHandlers in the context of the recheckTxFn. If the
-// error should not be ignored, it is returned unmodified.
+// ignored from the recheckFn. If the error should not be ignored, it is
+// returned unmodified.
 func tolerateAnteErr(err error) error {
+	// TODO: this is awful, we should not be checking the error string here,
+	// but importing this error from the mempool package is an import cycle.
 	if strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
 		return nil
 	}
