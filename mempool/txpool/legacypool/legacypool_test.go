@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/mempool/txpool"
 )
@@ -2692,7 +2693,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			ctx := context.Background()
-			pool.WaitForReorgHeight(ctx, 5)
+			pool.WaitForReorgHeight(ctx, 5, 0)
 			waitCompleted.Store(true)
 		}()
 
@@ -2741,7 +2742,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			ctx := context.Background()
-			pool.WaitForReorgHeight(ctx, 10)
+			pool.WaitForReorgHeight(ctx, 10, 0)
 			waitCompleted.Store(true)
 		}()
 
@@ -2783,7 +2784,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				pool.WaitForReorgHeight(context.Background(), 7)
+				pool.WaitForReorgHeight(context.Background(), 7, 0)
 			}(i)
 		}
 
@@ -2884,6 +2885,68 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 		t.Error("1 queued recheck drops should have been recorded by meter, got", dropped)
 	}
 	pool.mu.RUnlock()
+}
+
+func TestPromoteExecutablesCancelReorg(t *testing.T) {
+	// ARRANGE
+	// Given a pool with txs
+	pool, _ := setupPool()
+	defer pool.Close()
+
+	const txsCount = 10
+
+	// Create for different account
+	keyGen := func() *ecdsa.PrivateKey {
+		key, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		return key
+	}
+
+	txs := make([]*types.Transaction, 0, txsCount)
+
+	for i := 0; i < txsCount; i++ {
+		tx := transaction(uint64(i), 100000, keyGen())
+		from, _ := deriveSender(tx)
+		txs = append(txs, tx)
+
+		testAddBalance(pool, from, big.NewInt(100000000000000))
+	}
+
+	// Given a recheck fn that imitates tx processing on cosmos-sdk side
+	const (
+		recheckDuration = 120 * time.Millisecond
+		maxReorgWait    = 2 * recheckDuration
+	)
+
+	recheckFn := func(tx *types.Transaction) error {
+		txHash := tx.Hash().Hex()
+
+		t.Logf("start: recheck: tx %s", txHash)
+		time.Sleep(recheckDuration)
+		t.Logf("end: recheck: tx %s", txHash)
+		return nil
+	}
+
+	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn { return recheckFn }
+
+	// ACT
+	go func() {
+		// Add all txs, should trigger requestPromoteExecutables
+		errs := pool.Add(txs, false)
+		require.NoError(t, errors.Join(errs...))
+	}()
+
+	// Wait for the reorg to complete
+	pool.WaitForReorgHeight(context.Background(), 1, maxReorgWait)
+
+	// ASSERT
+	// if true, that means that ONGOING cancellation is in progress
+	// because each reorg loop starts with reorgCancelRequested set to false
+	checkReorgCancelRequested := func() bool {
+		return pool.reorgCancelRequested.Load()
+	}
+
+	require.Eventually(t, checkReorgCancelRequested, 3*maxReorgWait, maxReorgWait/10)
 }
 
 // TestDemoteUnexecutablesRecheckTx tests that demoteUnexecutables properly

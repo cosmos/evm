@@ -337,12 +337,7 @@ func (m *ExperimentalEVMMempool) selectAfterReorg(ctx context.Context, txs [][]b
 		blockHeight = sdkCtx.BlockHeight()
 	)
 
-	// Wait for the legacypool to Reset at >= blockHeight
-	// (this may have already happened), to ensure txs in pending pool are valid.
-	reorgCtx, cancel := reorgContext(ctx, maxReorgWait)
-	defer cancel()
-
-	m.legacyTxPool.WaitForReorgHeight(reorgCtx, blockHeight)
+	m.legacyTxPool.WaitForReorgHeight(ctx, blockHeight, maxReorgWait)
 
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
@@ -609,26 +604,4 @@ func tolerateAnteErr(err error) error {
 		return nil
 	}
 	return err
-}
-
-// reorgContext returns a context with deadline that is either the original context's deadline or the timeout,
-// whichever is earlier. For original context with deadline, we subtract to reserve it for other operations.
-func reorgContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	dl, ok := ctx.Deadline()
-	if !ok {
-		return context.WithTimeout(ctx, timeout)
-	}
-
-	// if ctx already has deadline, we pick the earlier one, but subtract some time from the origin
-	// to reserve some time for other operations.
-	const reserveThreshold = 100 * time.Millisecond
-
-	dl = dl.Add(-reserveThreshold)
-	ourDL := time.Now().Add(timeout)
-
-	if ourDL.Before(dl) {
-		dl = ourDL
-	}
-
-	return context.WithDeadline(ctx, dl)
 }

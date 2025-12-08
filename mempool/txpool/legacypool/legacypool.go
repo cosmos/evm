@@ -256,15 +256,16 @@ type LegacyPool struct {
 	all     *lookup                      // All transactions to allow lookups
 	priced  *pricedList                  // All transactions sorted by price
 
-	reqResetCh          chan *txpoolResetRequest
-	reqPromoteCh        chan *accountSet
-	queueTxEventCh      chan *types.Transaction
-	reorgDoneCh         chan chan struct{}
-	reorgShutdownCh     chan struct{}  // requests shutdown of scheduleReorgLoop
-	reorgSubscriptionCh chan struct{}  // notifies the reorg loop that a subscriber wants to wait on nextDone
-	wg                  sync.WaitGroup // tracks loop, scheduleReorgLoop
-	initDoneCh          chan struct{}  // is closed once the pool is initialized (for tests)
-	latestReorgHeight   atomic.Int64   // Latest height that the reorg loop has completed
+	reqResetCh           chan *txpoolResetRequest
+	reqPromoteCh         chan *accountSet
+	queueTxEventCh       chan *types.Transaction
+	reorgDoneCh          chan chan struct{}
+	reorgShutdownCh      chan struct{}  // requests shutdown of scheduleReorgLoop
+	reorgSubscriptionCh  chan struct{}  // notifies the reorg loop that a subscriber wants to wait on nextDone
+	reorgCancelRequested atomic.Bool    // indicates that the reorg loop should be cancelled
+	wg                   sync.WaitGroup // tracks loop, scheduleReorgLoop
+	initDoneCh           chan struct{}  // is closed once the pool is initialized (for tests)
+	latestReorgHeight    atomic.Int64   // Latest height that the reorg loop has completed
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
@@ -285,21 +286,22 @@ func New(config Config, chain BlockChain) *LegacyPool {
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
-		config:              config,
-		chain:               chain,
-		chainconfig:         chain.Config(),
-		signer:              types.LatestSigner(chain.Config()),
-		pending:             make(map[common.Address]*list),
-		queue:               make(map[common.Address]*list),
-		beats:               make(map[common.Address]time.Time),
-		all:                 newLookup(),
-		reqResetCh:          make(chan *txpoolResetRequest),
-		reqPromoteCh:        make(chan *accountSet),
-		queueTxEventCh:      make(chan *types.Transaction),
-		reorgDoneCh:         make(chan chan struct{}),
-		reorgShutdownCh:     make(chan struct{}),
-		reorgSubscriptionCh: make(chan struct{}),
-		initDoneCh:          make(chan struct{}),
+		config:               config,
+		chain:                chain,
+		chainconfig:          chain.Config(),
+		signer:               types.LatestSigner(chain.Config()),
+		pending:              make(map[common.Address]*list),
+		queue:                make(map[common.Address]*list),
+		beats:                make(map[common.Address]time.Time),
+		all:                  newLookup(),
+		reqResetCh:           make(chan *txpoolResetRequest),
+		reqPromoteCh:         make(chan *accountSet),
+		queueTxEventCh:       make(chan *types.Transaction),
+		reorgDoneCh:          make(chan chan struct{}),
+		reorgShutdownCh:      make(chan struct{}),
+		reorgSubscriptionCh:  make(chan struct{}),
+		reorgCancelRequested: atomic.Bool{},
+		initDoneCh:           make(chan struct{}),
 	}
 	pool.priced = newPricedList(pool.all)
 	pool.latestReorgHeight.Store(0)
@@ -1285,6 +1287,9 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
+	// reset the cancel requested flag
+	pool.reorgCancelRequested.Store(false)
+
 	defer func(t0 time.Time) {
 		reorgDurationTimer.Update(time.Since(t0))
 	}(time.Now())
@@ -1322,8 +1327,13 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 			promoteAddrs = append(promoteAddrs, addr)
 		}
 	}
-	// Check for pending transactions for every account that sent new ones
-	promoted := pool.promoteExecutables(promoteAddrs, txReChecker)
+
+	// Check for pending transactions for every account that sent new ones.
+	// If reorg cancelled, submit leftovers (possiblePromotions) for another re-check
+	promoted, possiblePromotions := pool.promoteExecutables(promoteAddrs, txReChecker)
+	if possiblePromotions != nil {
+		defer pool.requestPromoteExecutables(possiblePromotions)
+	}
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
@@ -1409,13 +1419,10 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *LegacyPool) promoteExecutables(accounts []common.Address, txReChecker RecheckTxFn) []*types.Transaction {
-	// Track the promoted transactions to broadcast them at once
-	var promoted []*types.Transaction
-
+func (pool *LegacyPool) promoteExecutables(accounts []common.Address, txReChecker RecheckTxFn) (promoted []*types.Transaction, leftovers *accountSet) {
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
-	for _, addr := range accounts {
+	for i, addr := range accounts {
 		list := pool.queue[addr]
 		if list == nil {
 			continue // Just in case someone calls with a non existing account
@@ -1433,6 +1440,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, txReChecke
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
 		queuedNofundsMeter.Mark(int64(len(costDrops)))
+
+		// if reorg cancellation requested, return the promoted txs and leftovers
+		// we want to place this check here as checks/filters above are "cheap"
+		if pool.reorgCancelRequested.Load() && i < len(accounts)-1 {
+			return promoted, newAccountSet(pool.signer, accounts[i+1:]...)
+		}
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1492,7 +1505,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, txReChecke
 			}
 		}
 	}
-	return promoted
+
+	return promoted, nil
 }
 
 // truncatePending removes transactions from the pending queue if the pool is above the
@@ -1648,6 +1662,11 @@ func (pool *LegacyPool) demoteUnexecutables(recheckFn RecheckTxFn) {
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
+
+		// if reorg cancellation requested, return early
+		if pool.reorgCancelRequested.Load() {
+			return
+		}
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1975,7 +1994,10 @@ func (pool *LegacyPool) Clear() {
 // WaitForReorgHeight blocks until the reorg loop has reset at a head with
 // height >= height. If the context is cancelled or the pool is shutting down,
 // this will also return.
-func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
+func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64, timeout time.Duration) {
+	ctx, cancel := reorgContext(ctx, timeout)
+	defer cancel()
+
 	for pool.latestReorgHeight.Load() < height {
 		// reorg loop has not run at the target height, subscribe to the
 		// outcome of the next reorg loop iteration to know when to check again
@@ -2002,7 +2024,9 @@ func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
 // cancelReorgIteration cancels the current reorg loop iteration in order to return
 // a subset of "ready" txs as fast as possible
 func (pool *LegacyPool) cancelReorgIteration() {
-	// todo
+	if pool.reorgCancelRequested.CompareAndSwap(false, true) {
+		log.Debug("Reorg cancellation requested")
+	}
 }
 
 func (pool *LegacyPool) buildRecheckFn() RecheckTxFn {
@@ -2031,5 +2055,30 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
 }
 
-
 func noopRecheckFn(_ *types.Transaction) error { return nil }
+
+// reorgContext returns a context with deadline that is either the original context's deadline or the timeout,
+// whichever is earlier. For original context with deadline, we subtract to reserve it for other operations.
+func reorgContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout == 0 {
+		return ctx, func() {}
+	}
+
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return context.WithTimeout(ctx, timeout)
+	}
+
+	// if ctx already has deadline, we pick the earlier one, but subtract some time from the origin
+	// to reserve some time for other operations.
+	const reserveThreshold = 100 * time.Millisecond
+
+	dl = dl.Add(-reserveThreshold)
+	ourDL := time.Now().Add(timeout)
+
+	if ourDL.Before(dl) {
+		dl = ourDL
+	}
+
+	return context.WithDeadline(ctx, dl)
+}
