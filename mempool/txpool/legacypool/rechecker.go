@@ -25,6 +25,9 @@ type (
 	// arrives that updates the chains context, a new instance of the rechecker
 	// should be created.
 	rechecker struct {
+		// pendingCtx is the context that pending rechecks should be run on.
+		pendingCtx sdk.Context
+
 		// ctx is the context that the recheckFn should be run with
 		ctx sdk.Context
 
@@ -37,15 +40,16 @@ type (
 // this ctx.
 func newRechecker(ctx sdk.Context, recheckFn RecheckFn) *rechecker {
 	return &rechecker{
-		ctx:       ctx,
-		recheckFn: recheckFn,
+		pendingCtx: ctx,
+		ctx:        ctx,
+		recheckFn:  recheckFn,
 	}
 }
 
 // Pending rechecks a tx in the pending pool. Note this is not thread safe with
 // itself or the QueuedChecker.
 func (r *rechecker) Pending(tx *ethtypes.Transaction) error {
-	newCtx, err := r.recheckFn(r.ctx, tx)
+	newCtx, err := r.recheckFn(r.pendingCtx, tx)
 	if err != nil {
 		fmt.Printf("pending ante handler failed with err for tx %s (nonce %d) (write: %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
 	} else {
@@ -54,6 +58,7 @@ func (r *rechecker) Pending(tx *ethtypes.Transaction) error {
 	if !newCtx.IsZero() {
 		// Directly modify the ctx used for all future rechecks at this height.
 		fmt.Printf("writing pending ante handler updates to state\n")
+		r.pendingCtx = newCtx
 		r.ctx = newCtx
 	}
 	return err
