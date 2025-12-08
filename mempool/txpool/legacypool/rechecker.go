@@ -79,10 +79,9 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 	// pending, we should run all future queued rechecks on a context that has
 	// been updated by this tx).
 	fmt.Println("creating queued rechecker with branched ctx")
-	localQueueCtx, _ := r.queueCtx.CacheContext()
+	ctx, _ := r.queueCtx.CacheContext()
 	return func(tx *ethtypes.Transaction) error {
-		txCtx, _ := localQueueCtx.CacheContext()
-		newCtx, err := r.recheckFn(txCtx, tx)
+		newCtx, err := r.recheckFn(ctx, tx)
 		if err != nil {
 			fmt.Printf("queued ante handler failed with err for tx %s (nonce %d): %t): %s\n", tx.Hash(), tx.Nonce(), err.Error())
 		} else {
@@ -91,7 +90,7 @@ func (r *rechecker) NewQueuedChecker() func(tx *ethtypes.Transaction) error {
 		if !newCtx.IsZero() {
 			// set the context back to the updated ante handler context
 			fmt.Printf("writing queued ante handler updates to branched ctx\n")
-			localQueueCtx = newCtx
+			ctx = newCtx
 			if err == nil {
 				// successful recheckFn, update the queue context since this tx
 				// will be promoted from queued to pending and we need future
