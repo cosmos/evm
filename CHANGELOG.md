@@ -12,6 +12,7 @@
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
 - [\#845](https://github.com/cosmos/evm/pull/845) Modify tests to inject minimum app
+- [\#879](https://github.com/cosmos/evm/pull/879) Test block-stm app
 
 ### FEATURES
 
