@@ -1,6 +1,7 @@
 package bank
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -23,8 +24,6 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	intsuite "github.com/cosmos/evm/tests/integration/suite"
 
 	"cosmossdk.io/math"
 
@@ -50,9 +49,20 @@ type IntegrationTestSuite struct {
 	precompile *bank2.Precompile
 }
 
-// IntegrationSuiteConfig aliases the shared integration config so downstream
-// tests can keep importing it from the bank package.
-type IntegrationSuiteConfig = intsuite.EvmIntegrationConfig
+// IntegrationSuiteConfig allows registering the same specs against multiple app setups
+// (e.g. default vs BlockSTM) without re-running RunSpecs.
+type IntegrationSuiteConfig struct {
+	Name    string
+	Create  network.CreateEvmApp
+	Options []network.ConfigOption
+}
+
+func integrationSuiteName(base, name string, idx int) string {
+	if name == "" {
+		name = fmt.Sprintf("config-%d", idx+1)
+	}
+	return fmt.Sprintf("%s - %s", base, name)
+}
 
 func NewIntegrationTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *IntegrationTestSuite {
 	return &IntegrationTestSuite{
@@ -108,7 +118,7 @@ func (is *IntegrationTestSuite) SetupTest() {
 	is.precompile = is.setupBankPrecompile()
 }
 
-func TestIntegrationSuite(t *testing.T, configs ...intsuite.EvmIntegrationConfig) {
+func TestIntegrationSuite(t *testing.T, configs ...IntegrationSuiteConfig) {
 	t.Helper()
 	if len(configs) == 0 {
 		t.Fatalf("no integration configs provided")
@@ -117,7 +127,7 @@ func TestIntegrationSuite(t *testing.T, configs ...intsuite.EvmIntegrationConfig
 	for i, config := range configs {
 		cfg := config
 
-		_ = Describe(intsuite.Name("Bank Extension", cfg.Name, i), func() {
+		_ = Describe(integrationSuiteName("Bank Extension", cfg.Name, i), func() {
 			var (
 				is                     *IntegrationTestSuite
 				bankCallerContractAddr common.Address

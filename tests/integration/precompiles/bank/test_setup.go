@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	bank2 "github.com/cosmos/evm/precompiles/bank"
-	intsuite "github.com/cosmos/evm/tests/integration/suite"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -93,12 +92,24 @@ func (s *PrecompileTestSuite) SetupTest() sdk.Context {
 	return ctx
 }
 
-// PrecompileSuiteConfig reuses the shared testify-suite config struct for precompile suites.
-type PrecompileSuiteConfig = intsuite.TestifySuiteConfig
+// PrecompileSuiteConfig defines the inputs for running the testify suite against different app setups.
+type PrecompileSuiteConfig struct {
+	Name   string
+	Create network.CreateEvmApp
+}
 
 // RunPrecompileTestSuites executes the testify suites once per provided configuration.
 func RunPrecompileTestSuites(t *testing.T, configs ...PrecompileSuiteConfig) {
-	intsuite.RunTestifySuites(t, "Bank Precompile Test Suite", func(create network.CreateEvmApp) suite.TestingSuite {
-		return NewPrecompileTestSuite(create)
-	}, configs...)
+	t.Helper()
+	if len(configs) == 0 {
+		t.Fatalf("no precompile suite configs provided")
+	}
+
+	for _, cfg := range configs {
+		config := cfg
+		t.Run(config.Name, func(t *testing.T) {
+			s := NewPrecompileTestSuite(config.Create)
+			suite.Run(t, s)
+		})
+	}
 }
