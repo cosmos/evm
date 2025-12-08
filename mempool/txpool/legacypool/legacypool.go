@@ -271,11 +271,9 @@ type LegacyPool struct {
 
 	BroadcastTxFn func(txs []*types.Transaction) error
 
-	// RecheckTxFnFactory RecheckTxFnFactory
-	// recheckTxFn        RecheckTxFn
-	rechecker    *rechecker
-	recheckCtxFn RecheckCtxFn
-	recheckFn    RecheckFn
+	rechecker    *rechecker   // Invokes recheckFn for a height to check tx validity in pending and queue pools
+	recheckCtxFn RecheckCtxFn // Fetches context for a height
+	recheckFn    RecheckFn    // Rechecks a single tx
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
@@ -325,6 +323,8 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 
 type Option func(pool *LegacyPool)
 
+// WithRecheck enables recheck evicting transactions from the mempool if the
+// RecheckFn fails for them given a context via the RecheckCtxFn.
 func WithRecheck(recheckCtxFn RecheckCtxFn, recheckFn RecheckFn) Option {
 	return func(pool *LegacyPool) {
 		pool.recheckCtxFn = recheckCtxFn
