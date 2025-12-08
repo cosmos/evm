@@ -1300,6 +1300,10 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		// the flatten operation can be avoided.
 		promoteAddrs = dirtyAccounts.flatten()
 	}
+
+	// function to perform tx rechecking on cosmos-sdk side
+	txReChecker := pool.buildRecheckFn()
+
 	pool.mu.Lock()
 	if reset != nil {
 		// Reset from the old head to the new, rescheduling any reorged transactions
@@ -1319,13 +1323,13 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		}
 	}
 	// Check for pending transactions for every account that sent new ones
-	promoted := pool.promoteExecutables(promoteAddrs)
+	promoted := pool.promoteExecutables(promoteAddrs, txReChecker)
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(txReChecker)
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
 				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
@@ -1405,7 +1409,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.Transaction {
+func (pool *LegacyPool) promoteExecutables(accounts []common.Address, txReChecker RecheckTxFn) []*types.Transaction {
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
@@ -1440,20 +1444,19 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// then running the ante handlers on them in one parallel batch.
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
-		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
-			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
-			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
-			})
-			for _, tx := range recheckDrops {
+		recheckStart := time.Now()
+		recheckDrops, _ := list.Filter(func(tx *types.Transaction) bool {
+			drop := txReChecker(tx) != nil
+			if drop {
 				pool.all.Remove(tx.Hash())
+				log.Trace("Removed queued transaction that failed recheck", "hash", tx.Hash())
 			}
-			log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
-			queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
-			queuedRecheckDurationTimer.UpdateSince(recheckStart)
-		}
+
+			return drop
+		})
+
+		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		queuedRecheckDurationTimer.UpdateSince(recheckStart)
 
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))
@@ -1624,7 +1627,7 @@ func (pool *LegacyPool) truncateQueue() {
 // Note: transactions are not marked as removed in the priced list because re-heaping
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
-func (pool *LegacyPool) demoteUnexecutables() {
+func (pool *LegacyPool) demoteUnexecutables(recheckFn RecheckTxFn) {
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
@@ -1656,23 +1659,20 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// then running the ante handlers on them in one parallel batch.
 		// However this requires a small refactor of BlockSTM to remove its
 		// dependency on DeliverTx and allow it to use any fn in parallel.
-		var recheckInvalids []*types.Transaction
-		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
-			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
-			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
-			})
-			for _, tx := range recheckDrops {
-				hash := tx.Hash()
-				pool.all.Remove(hash)
-				log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+		recheckStart := time.Now()
+		recheckDrops, recheckInvalids := list.Filter(func(tx *types.Transaction) bool {
+			drop := recheckFn(tx) != nil
+			if drop {
+				pool.all.Remove(tx.Hash())
+				log.Trace("Removed pending transaction that failed recheck", "hash", tx.Hash())
 			}
-			pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
-			pendingRecheckInvalidateMeter.Mark(int64(len(recheckInvalids)))
-			pendingRecheckDurationTimer.UpdateSince(recheckStart)
-		}
+
+			return drop
+		})
+
+		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		pendingRecheckInvalidateMeter.Mark(int64(len(recheckInvalids)))
+		pendingRecheckDurationTimer.UpdateSince(recheckStart)
 
 		invalids := append(costInvalids, recheckInvalids...)
 		for _, tx := range invalids {
@@ -1993,9 +1993,25 @@ func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
 		select {
 		case <-sub:
 		case <-ctx.Done():
+			pool.cancelReorgIteration()
 			return
 		}
 	}
+}
+
+// cancelReorgIteration cancels the current reorg loop iteration in order to return
+// a subset of "ready" txs as fast as possible
+func (pool *LegacyPool) cancelReorgIteration() {
+	// todo
+}
+
+func (pool *LegacyPool) buildRecheckFn() RecheckTxFn {
+	// noop
+	if pool.RecheckTxFnFactory == nil {
+		return noopRecheckFn
+	}
+
+	return pool.RecheckTxFnFactory(pool.chain)
 }
 
 // SubscribeToNextReorg returns a channel that will close when the next reorg
@@ -2014,3 +2030,6 @@ func (pool *LegacyPool) SubscribeToNextReorg() (chan struct{}, error) {
 func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
 }
+
+
+func noopRecheckFn(_ *types.Transaction) error { return nil }

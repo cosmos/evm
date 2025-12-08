@@ -490,7 +490,7 @@ func TestQueue2(t *testing.T) {
 	pool.enqueueTx(tx2.Hash(), tx2, true)
 	pool.enqueueTx(tx3.Hash(), tx3, true)
 
-	pool.promoteExecutables([]common.Address{from})
+	pool.promoteExecutables([]common.Address{from}, noopRecheckFn)
 	if len(pool.pending) != 1 {
 		t.Error("expected pending length to be 1, got", len(pool.pending))
 	}
@@ -3011,7 +3011,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(noopRecheckFn)
 	}
 }
 
@@ -3036,7 +3036,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.promoteExecutables(nil)
+		pool.promoteExecutables(nil, noopRecheckFn)
 	}
 }
 
