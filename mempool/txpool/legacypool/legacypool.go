@@ -2118,7 +2118,7 @@ func (pool *LegacyPool) markTxRemoved(tx *types.Transaction) {
 // ignored from recheck, i.e. we do not want to drop txs from the mempool if we
 // have received specific errors from recheck.
 func tolerateRecheckErr(err error) error {
-	if err != nil && strings.EqualFold(err.Error(), "tx nonce is higher than account nonce") {
+	if err != nil && strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
 		return nil
 	}
 	return err
