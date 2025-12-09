@@ -35,10 +35,15 @@ func NewRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *Recheck
 	}
 }
 
+// GetContext returns a branched context. The caller can use the returned
+// function in order to write updates applied to the returned context, back to
+// the context stored by the rechecker for future callers to use.
 func (r *Rechecker) GetContext() (sdk.Context, func()) {
 	return r.ctx.CacheContext()
 }
 
+// Recheck revalidates a transaction against a context. It returns an updated
+// context and an error that occurred while processing.
 func (r *Rechecker) Recheck(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
 	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
 	if err != nil {

@@ -99,6 +99,7 @@ func NewExperimentalEVMMempool(
 	txConfig client.TxConfig,
 	clientCtx client.Context,
 	txEncoder *TxEncoder,
+	rechecker legacypool.Rechecker,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -131,7 +132,7 @@ func NewExperimentalEVMMempool(
 	legacyPool := legacypool.New(
 		legacyConfig,
 		blockchain,
-		legacypool.WithRecheck(NewRechecker(config.AnteHandler, txEncoder)),
+		legacypool.WithRecheck(rechecker),
 	)
 
 	// Set up broadcast function using clientCtx
@@ -204,8 +205,8 @@ func NewExperimentalEVMMempool(
 		minTip:             config.MinTip,
 		anteHandler:        config.AnteHandler,
 		operateExclusively: config.OperateExclusively,
+		reapList:           NewReapList(txEncoder),
 	}
-	evmMempool.reapList = NewReapList(txEncoder)
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)

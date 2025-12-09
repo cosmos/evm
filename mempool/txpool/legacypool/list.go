@@ -414,7 +414,7 @@ func (l *list) CostFilter(costLimit *uint256.Int, gasLimit uint64) (removed type
 // FilterSorted iterates over txs in ascending nonce order and filters them by
 // a filter function. If the filter rn returns false for a tx, it is removed.
 func (l *list) FilterSorted(filterFn func(tx *types.Transaction) bool) (removed types.Transactions, invalids types.Transactions) {
-	l.txs.filterSorted(filterFn)
+	removed = l.txs.filterSorted(filterFn)
 	if len(removed) == 0 {
 		return nil, nil
 	}

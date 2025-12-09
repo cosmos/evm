@@ -144,9 +144,19 @@ type BlockChain interface {
 	StateAt(root common.Hash) (vm.StateDB, error)
 }
 
-type rechecker interface {
+// Rechecker defines the minimal set of methods needed to recheck transactions
+// and manage the context that the transactions are rechecked against.
+type Rechecker interface {
+	// GetContext gets the current context that transactions should be rechecked against,
+	// and a way to update that context with changes.
 	GetContext() (sdk.Context, func())
+
+	// Recheck performs validation of a tx against a context, and returns an
+	// updated context.
 	Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+
+	// Update updates the main context returned by GetContext to be the base
+	// chain context at header.
 	Update(chain BlockChain, header *types.Header)
 }
 
@@ -253,7 +263,7 @@ type LegacyPool struct {
 	currentState  vm.StateDB                   // Current state in the blockchain head
 	pendingNonces *noncer                      // Pending state tracking virtual nonces
 	reserver      txpool.Reserver              // Address reserver to ensure exclusivity across subpools
-	rechecker     rechecker                    // Checks a tx for validity against the current state
+	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
@@ -325,7 +335,7 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 type Option func(pool *LegacyPool)
 
 // WithRecheck enables recheck evicting of transactions from the mempool.
-func WithRecheck(rechecker rechecker) Option {
+func WithRecheck(rechecker Rechecker) Option {
 	return func(pool *LegacyPool) {
 		pool.rechecker = rechecker
 	}
