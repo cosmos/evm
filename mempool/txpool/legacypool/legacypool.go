@@ -20,7 +20,6 @@ package legacypool
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -1331,9 +1330,7 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
-	fmt.Printf("reorging, reset %t\n", reset != nil)
 	defer func(t0 time.Time) {
-		fmt.Println("done reorging")
 		reorgDurationTimer.Update(time.Since(t0))
 	}(time.Now())
 	defer close(done)
@@ -1473,8 +1470,6 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txpoolResetRequest) []*types.Transaction {
-	fmt.Println("promoting")
-	defer fmt.Println("done promoting")
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
@@ -1512,19 +1507,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		recheckStart := time.Now()
 		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
 			newCtx, err := pool.rechecker.Recheck(ctx, tx)
-			if err != nil {
-				fmt.Printf("queued pool recheck failed for tx %s, nonce %d, with error %s\n", tx.Hash(), tx.Nonce(), err.Error())
-			} else {
-				fmt.Printf("queued pool recheck succeeded for tx %s, nonce %d\n", tx.Hash(), tx.Nonce())
-			}
 			if !newCtx.IsZero() {
-				fmt.Printf("queued recheck updating context to new context")
 				ctx = newCtx
 			}
 			if err == nil && reset == nil {
-				fmt.Printf("queued recheck writing changes back to main context")
-				// TODO: do we need to set the newctx multistore to the one stored in ctx? what
-				// are we actually writing to
+				// only write changes back to original context if we are not
+				// running in reset mode, i.e. a new block has not been seen
 				write()
 			}
 			return tolerateRecheckErr(err) != nil
@@ -1708,8 +1696,6 @@ func (pool *LegacyPool) truncateQueue() {
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
 func (pool *LegacyPool) demoteUnexecutables() {
-	fmt.Println("demoting")
-	defer fmt.Println("done demoting")
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
@@ -1742,18 +1728,11 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		ctx, write := pool.rechecker.GetContext()
 		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
 			newCtx, err := pool.rechecker.Recheck(ctx, tx)
-			if err != nil {
-				fmt.Printf("pending pool recheck failed for tx %s, nonce %d, with error %s\n", tx.Hash(), tx.Nonce(), err.Error())
-			} else {
-				fmt.Printf("pending pool recheck succeeded for tx %s, nonce %d\n", tx.Hash(), tx.Nonce())
-			}
-
 			if !newCtx.IsZero() {
-				fmt.Printf("pending recheck updating context to new context")
 				ctx = newCtx
 			}
 			if err == nil {
-				fmt.Printf("pending recheck writing changes back to main context")
+				// always write changes back to the original context
 				write()
 			}
 			return tolerateRecheckErr(err) != nil
