@@ -5,6 +5,9 @@ package systemtests
 import (
 	"testing"
 
+	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
+	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 
