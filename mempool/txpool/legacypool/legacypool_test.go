@@ -2847,12 +2847,12 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 
 	// Set up recheckFn to fail tx1
-	rechecker.RecheckFn = func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		if tx.Nonce() == 1 {
 			return sdk.Context{}, errors.New("recheck failed for tx1")
 		}
 		return sdk.Context{}, nil
-	}
+	})
 
 	// Reset will always try and promote executables from queued to go to
 	// pending. This will call pool.RecheckTxFn and block until the Reset is
@@ -2932,12 +2932,12 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 
 	// Set up recheckFn to fail tx10 and tx22
-	rechecker.RecheckFn = func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		if tx == tx10 || tx == tx22 {
 			return sdk.Context{}, errors.New("recheck failed")
 		}
 		return sdk.Context{}, nil
-	}
+	})
 
 	// Trigger demoteUnexecutables via Reset
 	pool.Reset(nil, nil)
@@ -3083,18 +3083,25 @@ func BenchmarkMultiAccountBatchInsert(b *testing.B) {
 }
 
 type MockRechecker struct {
-	GetContextFn func() (sdk.Context, func())
-	RecheckFn    func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	lock      sync.Mutex
+}
+
+func (mr *MockRechecker) SetRecheck(recheck func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	mr.RecheckFn = recheck
 }
 
 func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
-	if mr.GetContextFn != nil {
-		return mr.GetContextFn()
-	}
 	return sdk.Context{}, func() {}
 }
 
 func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
 	if mr.RecheckFn != nil {
 		return mr.RecheckFn(ctx, tx)
 	}

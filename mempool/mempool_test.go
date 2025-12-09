@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -78,12 +79,12 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// setup tx with nonce 1 to fail recheck. it will get kicked out of the
 	// pool and tx with nonce 2 will be demoted to queued (when tx 1 is
 	// resubmitted, it will be returned from reap again).
-	rechecker.RecheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		if tx.Nonce() == 1 {
 			return sdk.Context{}, errors.New("recheck failed on tx with nonce 1")
 		}
 		return sdk.Context{}, nil
-	}
+	})
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -99,9 +100,9 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 
 	// setup recheck to not fail any txs again, tx 2 will not fail this but
 	// it wont be promoted since it is nonce gapped from tx 1
-	rechecker.RecheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		return sdk.Context{}, nil
-	}
+	})
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -151,9 +152,9 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	require.NoError(t, mp.GetTxPool().Sync())
 
 	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	rechecker.RecheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		return sdk.Context{}, nil
-	}
+	})
 
 	// insert a tx that will make it into the pending pool and use up the
 	// accounts entire balance
@@ -214,12 +215,12 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 
 	// setup tx with nonce 0 to fail recheck.
 	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	rechecker.RecheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		if tx.Nonce() == 0 {
 			return sdk.Context{}, errors.New("recheck failed on tx with nonce 0")
 		}
 		return sdk.Context{}, nil
-	}
+	})
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -235,9 +236,9 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 	require.Len(t, txs, 0)
 
 	// recheck will pass for all txns again
-	rechecker.RecheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		return sdk.Context{}, nil
-	}
+	})
 
 	// insert the same tx again and make sure the tx can still be returned
 	// from the next call to reap
@@ -511,18 +512,25 @@ func getTxNonce(t *testing.T, txConfig client.TxConfig, txBytes []byte) uint64 {
 }
 
 type MockRechecker struct {
-	GetContextFn func() (sdk.Context, func())
-	RecheckFn    func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	lock      sync.Mutex
+}
+
+func (mr *MockRechecker) SetRecheck(recheck func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	mr.RecheckFn = recheck
 }
 
 func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
-	if mr.GetContextFn != nil {
-		return mr.GetContextFn()
-	}
 	return sdk.Context{}, func() {}
 }
 
 func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
 	if mr.RecheckFn != nil {
 		return mr.RecheckFn(ctx, tx)
 	}
