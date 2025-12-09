@@ -43,6 +43,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
@@ -491,7 +492,7 @@ func TestQueue2(t *testing.T) {
 	pool.enqueueTx(tx2.Hash(), tx2, true)
 	pool.enqueueTx(tx3.Hash(), tx3, true)
 
-	pool.promoteExecutables([]common.Address{from}, false)
+	pool.promoteExecutables([]common.Address{from})
 	if len(pool.pending) != 1 {
 		t.Error("expected pending length to be 1, got", len(pool.pending))
 	}
@@ -2845,14 +2846,15 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	}
 	pool.mu.RUnlock()
 
-	// Set up RecheckTxFnFactory to fail tx1
-	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
-		return func(tx *types.Transaction, _ bool) error {
-			if tx.Nonce() == 1 {
-				return errors.New("recheck failed for tx1")
-			}
-			return nil
+	// Set up recheckFn to fail tx1
+	pool.recheckCtxFn = func(_ vm.StateDB, _ *types.Header) sdk.Context {
+		return sdk.NewContext()
+	}
+	pool. = func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Nonce() == 1 {
+			return sdk.Context{}, errors.New("recheck failed for tx1")
 		}
+		return sdk.Context{}, nil
 	}
 
 	// Reset will always try and promote executables from queued to go to
@@ -2932,14 +2934,15 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 	pool.mu.RUnlock()
 
-	// Set up RecheckTxFnFactory to fail tx10 and tx22
-	pool.RecheckTxFnFactory = func(chain BlockChain) RecheckTxFn {
-		return func(tx *types.Transaction, _ bool) error {
-			if tx == tx10 || tx == tx22 {
-				return errors.New("recheck failed")
-			}
-			return nil
+	// Set up recheckFn to fail tx10 and tx22
+	pool.recheckCtxFn = func(_ vm.StateDB, _ *types.Header) sdk.Context {
+		return sdk.Context{}
+	}
+	pool.recheckFn = func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx == tx10 || tx == tx22 {
+			return sdk.Context{}, errors.New("recheck failed")
 		}
+		return sdk.Context{}, nil
 	}
 
 	// Trigger demoteUnexecutables via Reset
@@ -2995,28 +2998,28 @@ func TestPromoteExecutablesUsesPendingState(t *testing.T) {
 
 	// setup the recheck tx to only fail for tx2 and tx3 if they are properly
 	// evaluated on top of the state of tx0 and tx1.
-	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
-		erc20Balance := 100
-		return func(tx *types.Transaction, write bool) error {
-			var balance int
-			switch tx.Nonce() {
-			case 0:
-				balance = erc20Balance - 10
-			case 1:
-				balance = erc20Balance - 90
-			case 2:
-				balance = erc20Balance - 50
-			case 3:
-				balance = erc20Balance - 40
-			}
-			if balance < 0 {
-				return fmt.Errorf("not enough funds!")
-			}
-			if write {
-				erc20Balance = balance
-			}
-			return nil
+	pool.recheckCtxFn = func(_ vm.StateDB, header *types.Header) sdk.Context {
+		ctx := context.WithValue(context.Background(), "balance", 100)
+		return sdk.Context{}.WithContext(ctx)
+	}
+	pool.recheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		var updatedBalance int
+
+		balance := ctx.Value("balance").(int)
+		switch tx.Nonce() {
+		case 0:
+			updatedBalance = balance - 10
+		case 1:
+			updatedBalance = balance - 90
+		case 2:
+			updatedBalance = balance - 50
+		case 3:
+			updatedBalance = balance - 40
 		}
+		if updatedBalance < 0 {
+			return sdk.Context{}, fmt.Errorf("not enough funds!")
+		}
+		return ctx.WithValue("balance", updatedBalance), nil
 	}
 
 	// run reset to init the recheck tx fn
@@ -3052,8 +3055,8 @@ func TestPromoteExecutablesUsesPendingState(t *testing.T) {
 
 	// Add transaction 3 - nonce gapped, but it will fail recheck since tx0 and
 	// tx1 made it to pending outside of the context of a block update, they
-	// would have written their erc20 balance changes to state, making this tx
-	// now invalid.
+	// would have written their balance changes to state, making this tx
+	// now invalid and it will be dropped.
 	if errs := pool.Add([]*types.Transaction{tx3}, true); errs[0] != nil {
 		t.Error("error adding tx3 to pool", "err", errs[0])
 	}
@@ -3097,38 +3100,28 @@ func TestPromoteExecutablesUsesPendingStateBlockReset(t *testing.T) {
 	pool, key := setupPool()
 	defer pool.Close()
 
-	// setup the recheck tx to only fail for tx2 and tx3 if they are properly
-	// evaluated on top of the state of tx0 and tx1.
-	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
-		erc20Balance := 100
-		var nonce uint64 = 0
-		return func(tx *types.Transaction, write bool) error {
-			if tx.Nonce() != nonce {
-				return nil
-			}
+	// setup the recheck tx to only fail for tx2 if it is properly evaluated on
+	// top of the state of tx0 and tx1.
+	pool.recheckCtxFn = func(_ vm.StateDB, header *types.Header) sdk.Context {
+		ctx := context.WithValue(context.Background(), "balance", 100)
+		return sdk.Context{}.WithContext(ctx)
+	}
+	pool.recheckFn = func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		var updatedBalance int
 
-			var balance int
-			var newNonce uint64
-			switch tx.Nonce() {
-			case 0:
-				balance = erc20Balance - 10
-				newNonce = nonce + 1
-			case 1:
-				balance = erc20Balance - 90
-				newNonce = nonce + 1
-			case 2:
-				balance = erc20Balance - 50
-				newNonce = nonce + 1
-			}
-			if balance < 0 {
-				return fmt.Errorf("not enough funds!")
-			}
-			if write {
-				erc20Balance = balance
-				nonce = newNonce
-			}
-			return nil
+		balance := ctx.Value("balance").(int)
+		switch tx.Nonce() {
+		case 0:
+			updatedBalance = balance - 10
+		case 1:
+			updatedBalance = balance - 90
+		case 2:
+			updatedBalance = balance - 50
 		}
+		if updatedBalance < 0 {
+			return sdk.Context{}, fmt.Errorf("not enough funds!")
+		}
+		return ctx.WithValue("balance", updatedBalance), nil
 	}
 
 	// run reset to init the recheck tx fn
@@ -3231,7 +3224,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.promoteExecutables(nil, false)
+		pool.promoteExecutables(nil)
 	}
 }
 
