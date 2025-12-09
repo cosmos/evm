@@ -45,7 +45,7 @@ const (
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t)
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -137,7 +137,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 }
 
 func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -166,8 +166,8 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	require.Len(t, pending, 1)
 	require.Len(t, queued, 0)
 
-	// we shoudl write if we are not resetting from promote
-	// promoate shoudl write if it is being called out side of the context of a
+	// we should write if we are not resetting from promote
+	// promoate should write if it is being called out side of the context of a
 	// new block (reset) but if it is in the context of a new blcok and we know
 	// we are about to run demote executables again on it, then we should not
 	// write
@@ -184,13 +184,13 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 
 	pending, queued = legacyPool.ContentFrom(account.address)
 	require.Len(t, pending, 1)
-	var expectedNonce uint64 = 0
+	var expectedNonce uint64
 	require.Equal(t, expectedNonce, pending[0].Nonce())
 	require.Len(t, queued, 0)
 }
 
 func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -258,7 +258,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 }
 
 func TestMempool_ReapNewBlock(t *testing.T) {
-	mp, vmKeeper, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, vmKeeper, txConfig, _, bus, accounts := setupMempoolWithAccounts(t)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -326,12 +326,12 @@ type testAccount struct {
 	initialBalance uint64
 }
 
-func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
+func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
 	t.Helper()
 
 	// Create accounts
-	accounts := make([]testAccount, numAccounts)
-	for i := 0; i < numAccounts; i++ {
+	accounts := make([]testAccount, 3)
+	for i := 0; i < 3; i++ {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		accounts[i] = testAccount{
@@ -454,33 +454,6 @@ func createMsgEthereumTx(
 		nonce,
 		common.Address{0x01}, // Send to a dummy address
 		big.NewInt(txValue),
-		txGasLimit,
-		gasPrice,
-		nil,
-	)
-
-	chainID := vmtypes.GetChainConfig().ChainId
-	signer := types.LatestSignerForChainID(new(big.Int).SetUint64(chainID))
-	signedTx, err := types.SignTx(tx, signer, key)
-	require.NoError(t, err)
-
-	return wrapInCosmosSDKTx(t, txConfig, signedTx)
-}
-
-func createMsgEthereumTxWithValue(
-	t *testing.T,
-	txConfig client.TxConfig,
-	key *ecdsa.PrivateKey,
-	value uint64,
-	nonce uint64,
-	gasPrice *big.Int,
-) sdk.Tx {
-	t.Helper()
-
-	tx := types.NewTransaction(
-		nonce,
-		common.Address{0x01}, // Send to a dummy address
-		new(big.Int).SetUint64(value),
 		txGasLimit,
 		gasPrice,
 		nil,

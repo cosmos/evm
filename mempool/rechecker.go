@@ -2,13 +2,15 @@ package mempool
 
 import (
 	"fmt"
-	"strings"
+
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/utils"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type TxConverter interface {
@@ -77,16 +79,4 @@ func (r *Rechecker) Update(chain legacypool.BlockChain, header *ethtypes.Header)
 		ctx = ctx.WithConsensusParams(cp)
 	}
 	r.ctx = ctx
-}
-
-// tolerateAnteErr returns nil if err is considered an error that should be
-// ignored from the recheckFn. If the error should not be ignored, it is
-// returned unmodified.
-func tolerateAnteErr(err error) error {
-	// TODO: this is awful, we should not be checking the error string here,
-	// but importing this error from the mempool package is an import cycle.
-	if err == nil || strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
-		return nil
-	}
-	return err
 }
