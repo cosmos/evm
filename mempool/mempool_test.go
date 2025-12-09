@@ -538,10 +538,14 @@ func getTxNonce(t *testing.T, txConfig client.TxConfig, txBytes []byte) uint64 {
 }
 
 type MockRechecker struct {
-	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	GetContextFn func() (sdk.Context, func())
+	RecheckFn    func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
 }
 
 func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
+	if mr.GetContextFn != nil {
+		return mr.GetContextFn()
+	}
 	return sdk.Context{}, func() {}
 }
 

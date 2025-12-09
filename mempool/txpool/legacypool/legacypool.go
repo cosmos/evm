@@ -1331,7 +1331,7 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
-	fmt.Println("reorging, reset %t", reset != nil)
+	fmt.Printf("reorging, reset %t\n", reset != nil)
 	defer func(t0 time.Time) {
 		fmt.Println("done reorging")
 		reorgDurationTimer.Update(time.Since(t0))
