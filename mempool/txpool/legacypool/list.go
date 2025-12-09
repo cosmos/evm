@@ -276,6 +276,8 @@ type list struct {
 	costcap   *uint256.Int // Price of the highest costing transaction (reset only if exceeds balance)
 	gascap    uint64       // Gas limit of the highest spending transaction (reset only if exceeds block limit)
 	totalcost *uint256.Int // Total cost of all transactions in the list
+
+	lastCheckedHeight int64 // the height at which the list was last checked
 }
 
 // newList creates a new transaction list for maintaining nonce-indexable fast,
@@ -473,6 +475,18 @@ func (l *list) subTotalCost(txs []*types.Transaction) {
 			panic("totalcost underflow")
 		}
 	}
+}
+
+func (l *list) setLastCheckedHeight(height int64) {
+	if height == 0 {
+		return
+	}
+
+	l.lastCheckedHeight = height
+}
+
+func (l *list) getLastCheckedHeight() int64 {
+	return l.lastCheckedHeight
 }
 
 // priceHeap is a heap.Interface implementation over transactions for retrieving

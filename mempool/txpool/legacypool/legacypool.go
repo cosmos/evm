@@ -540,6 +540,7 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 	if filter.OnlyBlobTxs {
 		return nil
 	}
+
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -554,8 +555,17 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 	if filter.BaseFee != nil {
 		baseFeeBig = filter.BaseFee.ToBig()
 	}
+
+	currentHeight := pool.currentHead.Load().Number.Int64()
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(pool.pending))
+
 	for addr, list := range pool.pending {
+		// skip accounts that were NOT yet re-checked in demoteUnexecutables due to
+		//  reorg cancellation (timeout)
+		if list.getLastCheckedHeight() < currentHeight {
+			continue
+		}
+
 		txs := list.Flatten()
 
 		// If the miner requests tip enforcement, cap the lists now
@@ -567,6 +577,7 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 				}
 			}
 		}
+
 		if len(txs) > 0 {
 			lazies := make([]*txpool.LazyTransaction, len(txs))
 			for i := 0; i < len(txs); i++ {
@@ -584,6 +595,7 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 			pending[addr] = lazies
 		}
 	}
+
 	return pending
 }
 
@@ -1309,9 +1321,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	// reset the cancel requested flag
 	pool.reorgCancelRequested.Store(false)
 
-	defer func(t0 time.Time) {
-		reorgDurationTimer.Update(time.Since(t0))
-	}(time.Now())
+	defer func(start time.Time) { reorgDurationTimer.UpdateSince(start) }(time.Now())
 	defer close(done)
 
 	var promoteAddrs []common.Address
@@ -1356,8 +1366,14 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
+		height := int64(0)
+		if reset.newHead != nil {
+			height = reset.newHead.Number.Int64()
+		}
+
 		demotionRecheck := pool.buildRecheckFn()
-		pool.demoteUnexecutables(demotionRecheck)
+		pool.demoteUnexecutables(height, demotionRecheck)
+
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
 				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
@@ -1671,7 +1687,7 @@ func (pool *LegacyPool) truncateQueue() {
 // Note: transactions are not marked as removed in the priced list because re-heaping
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
-func (pool *LegacyPool) demoteUnexecutables(recheckFn RecheckTxFn) {
+func (pool *LegacyPool) demoteUnexecutables(height int64, recheckFn RecheckTxFn) {
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
@@ -1694,11 +1710,6 @@ func (pool *LegacyPool) demoteUnexecutables(recheckFn RecheckTxFn) {
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
-
-		// if reorg cancellation requested, return early
-		if pool.reorgCancelRequested.Load() {
-			return
-		}
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1755,6 +1766,15 @@ func (pool *LegacyPool) demoteUnexecutables(recheckFn RecheckTxFn) {
 			if _, ok := pool.queue[addr]; !ok {
 				pool.reserver.Release(addr)
 			}
+		} else {
+			// set the last checked height for the list
+			// this is used to return only checked accounts in Pending method
+			list.setLastCheckedHeight(height)
+		}
+
+		// if reorg cancellation requested, return early
+		if pool.reorgCancelRequested.Load() {
+			return
 		}
 	}
 }
