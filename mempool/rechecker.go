@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/utils"
 
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -68,6 +69,7 @@ func (r *Rechecker) Update(chain legacypool.BlockChain, header *ethtypes.Header)
 		panic(fmt.Errorf("could not get latest context on blockchain: %w", err))
 	}
 
+	ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
 	if ctx.ConsensusParams().Block == nil {
 		// set the latest blocks gas limit as the max gas in cp. this is
 		// necessary to validate each tx's gas wanted
