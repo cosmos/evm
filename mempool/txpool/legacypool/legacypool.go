@@ -1325,9 +1325,6 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		promoteAddrs = dirtyAccounts.flatten()
 	}
 
-	// function to perform tx rechecking on cosmos-sdk side
-	txReChecker := pool.buildRecheckFn()
-
 	pool.mu.Lock()
 	if reset != nil {
 		// Reset from the old head to the new, rescheduling any reorged transactions
@@ -1349,7 +1346,8 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 
 	// Check for pending transactions for every account that sent new ones.
 	// If reorg cancelled, submit leftovers (possiblePromotions) for another re-check
-	promoted, possiblePromotions := pool.promoteExecutables(promoteAddrs, txReChecker)
+	promotionRecheck := pool.buildRecheckFn()
+	promoted, possiblePromotions := pool.promoteExecutables(promoteAddrs, promotionRecheck)
 	if possiblePromotions != nil {
 		defer pool.requestPromoteExecutables(possiblePromotions)
 	}
@@ -1358,7 +1356,8 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
-		pool.demoteUnexecutables(txReChecker)
+		demotionRecheck := pool.buildRecheckFn()
+		pool.demoteUnexecutables(demotionRecheck)
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
 				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
