@@ -1365,14 +1365,6 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	}
 
 	// Check for pending transactions for every account that sent new ones
-	//
-	// Only write updates to state if we are running the context of a
-	// block update. If we are running during a reset (block update),
-	// then demoteUnexcutables is going to be called after this and run recheck
-	// on the same txs that we may promote here, so we need to ensure the state
-	// updates are not persisted or else we will, for example, increment an
-	// accounts nonce in state here, and then execute the same tx again during
-	// demoteUnexecutables which will then fail due to NonceTooLow.
 	promoted := pool.promoteExecutables(promoteAddrs, reset)
 
 	// If a new block appeared, validate the pool of pending transactions. This will

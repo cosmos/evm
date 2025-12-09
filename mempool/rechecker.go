@@ -24,9 +24,10 @@ type TxConverter interface {
 //
 // NOTE: Nonce of the recheckers functions are thread safe.
 type Rechecker struct {
-	// ctx is the context that pending pool rechecks should be run
-	// on. updated only by pending pool txs running the recheckFn.
-	ctx         sdk.Context
+	// ctx is the context that rechecks should be run on. Updated by calling
+	// the returned function from GetContext.
+	ctx sdk.Context
+
 	anteHandler sdk.AnteHandler
 	txConverter TxConverter
 }
