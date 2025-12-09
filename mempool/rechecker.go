@@ -11,6 +11,10 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
+type TxConverter interface {
+	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
+}
+
 // Rechecker runs recheckFn on pending and queued txs in the pool, given an
 // sdk context via UpdateCtx.
 //
