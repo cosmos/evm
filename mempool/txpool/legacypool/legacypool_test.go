@@ -568,7 +568,7 @@ func TestChainFork(t *testing.T) {
 	if _, err := pool.add(tx); err != nil {
 		t.Error("didn't expect error", err)
 	}
-	pool.removeTx(tx.Hash(), true, true, RemovalReason(""))
+	pool.removeTx(tx.Hash(), true, true, txpool.RemovalReason(""))
 
 	// reset the pool's internal state
 	resetState()
