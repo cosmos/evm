@@ -80,7 +80,6 @@ type EVMMempoolConfig struct {
 	LegacyPoolConfig *legacypool.Config
 	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
 	AnteHandler      sdk.AnteHandler
-	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
 	MinTip        *uint256.Int
@@ -133,19 +132,6 @@ func NewExperimentalEVMMempool(
 	}
 
 	legacyPool := legacypool.New(legacyConfig, blockchain)
-
-	// Set up broadcast function using clientCtx
-	if config.BroadCastTxFn != nil {
-		legacyPool.BroadcastTxFn = config.BroadCastTxFn
-	} else {
-		// Create default broadcast function using clientCtx.
-		// The EVM mempool will broadcast transactions when it promotes them
-		// from queued into pending, noting their readiness to be executed.
-		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
-			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(clientCtx, txConfig, txs)
-		}
-	}
 
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
@@ -615,35 +601,6 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
 	return orderedEVMPendingTxes, cosmosPendingTxes
-}
-
-// broadcastEVMTransactions converts Ethereum transactions to Cosmos SDK format and broadcasts them.
-// This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
-// using the provided client context. It handles encoding and error reporting for each transaction.
-func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig, ethTxs []*ethtypes.Transaction) error {
-	for _, ethTx := range ethTxs {
-		msg := &evmtypes.MsgEthereumTx{}
-		msg.FromEthereumTx(ethTx)
-
-		txBuilder := txConfig.NewTxBuilder()
-		if err := txBuilder.SetMsgs(msg); err != nil {
-			return fmt.Errorf("failed to set msg in tx builder: %w", err)
-		}
-
-		txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
-		if err != nil {
-			return fmt.Errorf("failed to encode transaction: %w", err)
-		}
-
-		res, err := clientCtx.BroadcastTxSync(txBytes)
-		if err != nil {
-			return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
-		}
-		if res.Code != 0 {
-			return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
-		}
-	}
-	return nil
 }
 
 func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) legacypool.RecheckTxFnFactory {
