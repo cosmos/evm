@@ -126,7 +126,7 @@ var (
 	pendingReplaceMeter         = metrics.NewRegisteredMeter("txpool/pending/replace", nil)
 	pendingRateLimitMeter       = metrics.NewRegisteredMeter("txpool/pending/ratelimit", nil)   // Dropped due to rate limiting
 	pendingNofundsMeter         = metrics.NewRegisteredMeter("txpool/pending/nofunds", nil)     // Dropped due to out-of-funds
-	pendingRecheckDropMeter     = metrics.NewRegisteredMeter("txpool/pending/recheckdrop", nil) // Dropped due to antehandler failing
+	pendingRecheckDropMeter     = metrics.NewRegisteredMeter("txpool/pending/recheckdrop", nil) // Dropped due to recheck failing
 	pendingRecheckDurationTimer = metrics.NewRegisteredTimer("txpool/pending/rechecktime", nil) // How long rechecking txs in the pending pool takes (demoteUnexecutables)
 
 	// Metrics for pending demotions
