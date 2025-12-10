@@ -228,15 +228,20 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			s.SetupTest()
 
 			tx := tc.setupTx()
-			mpool := s.network.App.GetMempool()
+			mp := s.network.App.GetMempool()
 
 			if tc.insertFirst {
-				err := mpool.Insert(s.network.GetContext(), tx)
+				err := mp.Insert(s.network.GetContext(), tx)
 				require.NoError(s.T(), err)
-				require.Equal(s.T(), 1, mpool.CountTx())
+				require.Equal(s.T(), 1, mp.CountTx())
 			}
 
-			err := mpool.Remove(tx)
+			reason := mempool.RemoveReason{
+				Caller: "test_mempool_remove",
+				Error:  nil,
+			}
+
+			err := mempool.RemoveWithReason(s.network.GetContext(), mp, tx, reason)
 
 			if tc.wantError {
 				require.Error(s.T(), err)
