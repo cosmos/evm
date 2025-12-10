@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	legacypool_mocks "github.com/cosmos/evm/mempool/txpool/legacypool/mocks"
@@ -80,7 +81,8 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetNonce", mock.Anything).Return(uint64(1))
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
-	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain)
+	recheckGuard := make(chan struct{})
+	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain, legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
@@ -98,18 +100,6 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 
 	// wait for newHeadCh to be initialized
 	<-waitForSubscription
-
-	// override recheck fn to wait until we advance the chain a few blocks
-	recheckGuard := make(chan struct{})
-	once := sync.Once{} // only want to simulate the slow reorg once
-	legacyPool.RecheckTxFnFactory = func(_ legacypool.BlockChain) legacypool.RecheckTxFn {
-		return func(_ *types.Transaction) error {
-			once.Do(func() {
-				<-recheckGuard
-			})
-			return nil
-		}
-	}
 
 	// add tx1 to the pool so that the blocking recheck fn will be called,
 	// simulating a slow runReorg
@@ -138,3 +128,21 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	// sync the pool to make sure that runReorg has processed the above headers
 	require.NoError(t, pool.Sync())
 }
+
+type BlockingRechecker struct {
+	guard chan struct{}
+	once  sync.Once
+}
+
+func (mr *BlockingRechecker) GetContext() (sdk.Context, func()) {
+	return sdk.Context{}, func() {}
+}
+
+func (mr *BlockingRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	mr.once.Do(func() {
+		<-mr.guard
+	})
+	return sdk.Context{}, nil
+}
+
+func (mr *BlockingRechecker) Update(chain legacypool.BlockChain, header *types.Header) {}
