@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -77,7 +78,6 @@ type EVMMempoolConfig struct {
 	LegacyPoolConfig *legacypool.Config
 	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
 	AnteHandler      sdk.AnteHandler
-	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
 	MinTip        *uint256.Int
@@ -134,19 +134,6 @@ func NewExperimentalEVMMempool(
 		blockchain,
 		legacypool.WithRecheck(rechecker),
 	)
-
-	// Set up broadcast function using clientCtx
-	if config.BroadCastTxFn != nil {
-		legacyPool.BroadcastTxFn = config.BroadCastTxFn
-	} else {
-		// Create default broadcast function using clientCtx.
-		// The EVM mempool will broadcast transactions when it promotes them
-		// from queued into pending, noting their readiness to be executed.
-		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
-			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(clientCtx, txConfig, txs)
-		}
-	}
 
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
@@ -423,10 +410,18 @@ func (m *ExperimentalEVMMempool) CountTx() int {
 	return m.cosmosPool.CountTx() + pending
 }
 
+// Remove fallbacks for RemoveWithReason
+func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
+	return m.RemoveWithReason(context.Background(), tx, sdkmempool.RemoveReason{
+		Caller: "remove",
+		Error:  nil,
+	})
+}
+
 // Remove removes a transaction from the appropriate sdkmempool.
 // For EVM transactions, removal is typically handled automatically by the pool
 // based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
-func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
+func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -434,73 +429,62 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 		return nil
 	}
 
-	m.logger.Debug("removing transaction from mempool")
-
-	msg, err := m.getEVMMessage(tx)
-	if err == nil {
-		// Comet will attempt to remove transactions from the mempool after completing successfully.
-		// We should not do this with EVM transactions because removing them causes the subsequent ones to
-		// be dequeued as temporarily invalid, only to be requeued a block later.
-		// The EVM mempool handles removal based on account nonce automatically.
-		hash := msg.Hash()
-		if m.shouldRemoveFromEVMPool(tx) {
-			m.logger.Debug("manually removing EVM transaction", "tx_hash", hash)
-			m.legacyTxPool.RemoveTx(hash, false, true)
-		} else {
-			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", hash)
-		}
-		return nil
+	msgEthereumTx, err := m.getEVMMessage(tx)
+	switch {
+	case errors.Is(err, ErrNoMessages):
+		return err
+	case err != nil:
+		// unable to parse evm tx -> process as cosmos tx
+		return m.removeCosmosTx(ctx, tx, reason)
 	}
 
-	if errors.Is(err, ErrNoMessages) {
+	hash := msgEthereumTx.Hash()
+
+	if m.shouldRemoveFromEVMPool(hash, reason) {
+		m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
+		m.legacyTxPool.RemoveTx(hash, false, true)
+	}
+
+	return nil
+}
+
+// caller should hold the lock
+func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
+	m.logger.Debug("Removing Cosmos transaction")
+
+	err := sdkmempool.RemoveWithReason(ctx, m.cosmosPool, tx, reason)
+	if err != nil {
+		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
 		return err
 	}
 
-	m.logger.Debug("removing Cosmos transaction")
-	err = m.cosmosPool.Remove(tx)
-	if err != nil {
-		m.logger.Error("failed to remove Cosmos transaction", "error", err)
-	} else {
-		m.reapList.DropCosmosTx(tx)
-		m.logger.Debug("Cosmos transaction removed successfully")
-	}
-	return err
+	m.reapList.DropCosmosTx(tx)
+	m.logger.Debug("Cosmos transaction removed successfully")
+
+	return nil
 }
 
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
-// It uses the AnteHandler to check if the transaction failed for reasons
-// other than nonce gaps or successful execution, in which case manual removal is needed.
-func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
-	if m.anteHandler == nil {
-		m.logger.Debug("no ante handler available, keeping transaction")
+func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reason sdkmempool.RemoveReason) bool {
+	if reason.Error == nil {
 		return false
 	}
 
-	// If it was a successful transaction or a sequence error, we let the mempool handle the cleaning.
-	// If it was any other Cosmos or antehandler related issue, then we remove it.
-	ctx, err := m.blockchain.GetLatestContext()
-	if err != nil {
-		m.logger.Debug("cannot get latest context for validation, keeping transaction", "error", err)
-		return false // Cannot validate, keep transaction
-	}
+	// Comet will attempt to remove transactions from the mempool after completing successfully.
+	// We should not do this with EVM transactions because removing them causes the subsequent ones to
+	// be dequeued as temporarily invalid, only to be requeued a block later.
+	// The EVM mempool handles removal based on account nonce automatically.
+	isKnown := errors.Is(reason.Error, ErrNonceGap) ||
+		errors.Is(reason.Error, sdkerrors.ErrInvalidSequence) ||
+		errors.Is(reason.Error, sdkerrors.ErrOutOfGas)
 
-	// TODO: We may be able to just fully remove this and never remove from the
-	// evm pool when comet tells us to. Relying only on the anteHandler check
-	// in promote/demote executables to remove txs.
-	_, err = m.anteHandler(ctx, tx, true)
-	// Keep nonce gap transactions, remove others that fail validation
-	if errors.Is(err, ErrNonceGap) || errors.Is(err, sdkerrors.ErrInvalidSequence) || errors.Is(err, sdkerrors.ErrOutOfGas) {
-		m.logger.Debug("nonce gap detected, keeping transaction", "error", err)
+	if isKnown {
+		m.logger.Debug("Transaction validation succeeded, should be kept", "tx_hash", hash, "caller", reason.Caller)
 		return false
 	}
 
-	if err != nil {
-		m.logger.Debug("transaction validation failed, should be removed", "error", err)
-	} else {
-		m.logger.Debug("transaction validation succeeded, should be kept")
-	}
-
-	return err != nil
+	m.logger.Debug("Transaction validation failed, should be removed", "tx_hash", hash, "caller", reason.Caller)
+	return true
 }
 
 // SelectBy iterates through transactions until the provided filter function returns false.
@@ -601,33 +585,4 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
 	return orderedEVMPendingTxes, cosmosPendingTxes
-}
-
-// broadcastEVMTransactions converts Ethereum transactions to Cosmos SDK format and broadcasts them.
-// This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
-// using the provided client context. It handles encoding and error reporting for each transaction.
-func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig, ethTxs []*ethtypes.Transaction) error {
-	for _, ethTx := range ethTxs {
-		msg := &evmtypes.MsgEthereumTx{}
-		msg.FromEthereumTx(ethTx)
-
-		txBuilder := txConfig.NewTxBuilder()
-		if err := txBuilder.SetMsgs(msg); err != nil {
-			return fmt.Errorf("failed to set msg in tx builder: %w", err)
-		}
-
-		txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
-		if err != nil {
-			return fmt.Errorf("failed to encode transaction: %w", err)
-		}
-
-		res, err := clientCtx.BroadcastTxSync(txBytes)
-		if err != nil {
-			return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
-		}
-		if res.Code != 0 {
-			return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
-		}
-	}
-	return nil
 }
