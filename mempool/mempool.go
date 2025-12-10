@@ -509,11 +509,11 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reaso
 		errors.Is(reason.Error, sdkerrors.ErrOutOfGas)
 
 	if isKnown {
-		m.logger.Debug("Transaction validation succeeded, should be kept", "tx_hash", hash)
+		m.logger.Debug("Transaction validation succeeded, should be kept", "tx_hash", hash, "caller", reason.Caller)
 		return false
 	}
 
-	m.logger.Debug("Transaction validation failed, should be removed", "tx_hash", hash)
+	m.logger.Debug("Transaction validation failed, should be removed", "tx_hash", hash, "caller", reason.Caller)
 	return true
 }
 
