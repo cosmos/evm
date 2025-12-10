@@ -85,15 +85,54 @@ var (
 	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
 )
 
+type RemovalReason string
+
+const (
+	RemovalReasonLifetime               RemovalReason = "lifetime"           // Tx has been in queued for too long
+	RemovalReasonBelowTip               RemovalReason = "belowtip"           // Min gas tip changed and these txs are too low
+	RemovalReasonTruncatedOverflow      RemovalReason = "truncated_overflow" // We have to truncate a pool and this account has too many txs
+	RemovalReasonTruncatedLast          RemovalReason = "truncated_last"     // We have to truncate a pool and these txs are the last ones in so they are the first out
+	RemovalReasonUnderpricedFull        RemovalReason = "underpriced_full"   // New tx came in that has a better price. The pool is also full so we kicked a tx out to make room.
+	RemovalReasonRunTxRecheck           RemovalReason = "runtx_recheck"
+	RemovalReasonRunTxFinalize          RemovalReason = "runtx_finalize"
+	RemovalReasonPreparePropsoalInvalid RemovalReason = "prepare_proposal_invalid"
+)
+
 var (
+	// Specific removal metrics
+	// Queue pool
+	queuedRemovedLifetime          = metrics.NewRegisteredMeter("txpool/queued/removed/lifetime", nil)
+	queuedRemovedBelowTip          = metrics.NewRegisteredMeter("txpool/queued/removed/belowtip", nil)
+	queuedRemovedTruncatedOverflow = metrics.NewRegisteredMeter("txpool/queued/removed/truncated_overflow", nil)
+	queuedRemovedTruncatedLast     = metrics.NewRegisteredMeter("txpool/queued/removed/truncated_last", nil)
+	queuedRemovedUnderpricedFull   = metrics.NewRegisteredMeter("txpool/queued/removed/underpriced_full", nil)
+	queuedRemovedRunTxRecheck      = metrics.NewRegisteredMeter("txpool/queued/removed/runtx_recheck", nil)
+	queuedRemovedRunTxFinalize     = metrics.NewRegisteredMeter("txpool/queued/removed/runtx_finalize", nil)
+	queuedRemovedPrepareProposal   = metrics.NewRegisteredMeter("txpool/queued/removed/prepare_proposal_invalid", nil)
+	queuedRemovedUnknown           = metrics.NewRegisteredMeter("txpool/queued/removed/unknown", nil)
+	// Pending pool
+	pendingRemovedLifetime          = metrics.NewRegisteredMeter("txpool/pending/removed/lifetime", nil)
+	pendingRemovedBelowTip          = metrics.NewRegisteredMeter("txpool/pending/removed/belowtip", nil)
+	pendingRemovedTruncatedOverflow = metrics.NewRegisteredMeter("txpool/pending/removed/truncated_overflow", nil)
+	pendingRemovedTruncatedLast     = metrics.NewRegisteredMeter("txpool/pending/removed/truncated_last", nil)
+	pendingRemovedUnderpricedFull   = metrics.NewRegisteredMeter("txpool/pending/removed/underpriced_full", nil)
+	pendingRemovedRunTxRecheck      = metrics.NewRegisteredMeter("txpool/pending/removed/runtx_recheck", nil)
+	pendingRemovedRunTxFinalize     = metrics.NewRegisteredMeter("txpool/pending/removed/runtx_finalize", nil)
+	pendingRemovedPrepareProposal   = metrics.NewRegisteredMeter("txpool/pending/removed/prepare_proposal_invalid", nil)
+	pendingRemovedUnknown           = metrics.NewRegisteredMeter("txpool/pending/removed/unknown", nil)
+
 	// Metrics for the pending pool
-	pendingDiscardMeter           = metrics.NewRegisteredMeter("txpool/pending/discard", nil)
-	pendingReplaceMeter           = metrics.NewRegisteredMeter("txpool/pending/replace", nil)
-	pendingRateLimitMeter         = metrics.NewRegisteredMeter("txpool/pending/ratelimit", nil)         // Dropped due to rate limiting
-	pendingNofundsMeter           = metrics.NewRegisteredMeter("txpool/pending/nofunds", nil)           // Dropped due to out-of-funds
-	pendingRecheckDropMeter       = metrics.NewRegisteredMeter("txpool/pending/recheckdrop", nil)       // Dropped due to antehandler failing
-	pendingRecheckInvalidateMeter = metrics.NewRegisteredMeter("txpool/pending/recheckinvalidate", nil) // Invalidated due to antehandler failing on earlier nonce tx
-	pendingRecheckDurationTimer   = metrics.NewRegisteredTimer("txpool/pending/rechecktime", nil)       // How long rechecking txs in the pending pool takes (demoteUnexecutables)
+	pendingDiscardMeter         = metrics.NewRegisteredMeter("txpool/pending/discard", nil)
+	pendingReplaceMeter         = metrics.NewRegisteredMeter("txpool/pending/replace", nil)
+	pendingRateLimitMeter       = metrics.NewRegisteredMeter("txpool/pending/ratelimit", nil)   // Dropped due to rate limiting
+	pendingNofundsMeter         = metrics.NewRegisteredMeter("txpool/pending/nofunds", nil)     // Dropped due to out-of-funds
+	pendingRecheckDropMeter     = metrics.NewRegisteredMeter("txpool/pending/recheckdrop", nil) // Dropped due to antehandler failing
+	pendingRecheckDurationTimer = metrics.NewRegisteredTimer("txpool/pending/rechecktime", nil) // How long rechecking txs in the pending pool takes (demoteUnexecutables)
+
+	// Metrics for pending demotions
+	pendingDemotedCostly  = metrics.NewRegisteredMeter("txpool/pending/demoted/cost", nil)    // Demoted due to parent tx being too costly (low balance or out of gas)
+	pendingDemotedRecheck = metrics.NewRegisteredMeter("txpool/pending/demoted/recheck", nil) // Demoted due to parent tx failing recheck
+	pendingDemotedRemoved = metrics.NewRegisteredMeter("txpool/pending/demoted/removed", nil) // Demoted due to parent tx being explicitly removed
 
 	// Metrics for the queued pool
 	queuedDiscardMeter         = metrics.NewRegisteredMeter("txpool/queued/discard", nil)
@@ -427,7 +466,7 @@ func (pool *LegacyPool) loop() {
 				if time.Since(pool.beats[addr]) > pool.config.Lifetime {
 					list := pool.queue[addr].Flatten()
 					for _, tx := range list {
-						pool.removeTx(tx.Hash(), true, true)
+						pool.removeTx(tx.Hash(), true, true, RemovalReasonLifetime)
 					}
 					queuedEvictionMeter.Mark(int64(len(list)))
 				}
@@ -480,7 +519,7 @@ func (pool *LegacyPool) SetGasTip(tip *big.Int) {
 		// pool.priced is sorted by GasFeeCap, so we have to iterate through pool.all instead
 		drop := pool.all.TxsBelowTip(tip)
 		for _, tx := range drop {
-			pool.removeTx(tx.Hash(), false, true)
+			pool.removeTx(tx.Hash(), false, true, RemovalReasonBelowTip)
 		}
 		pool.priced.Removed(len(drop))
 	}
@@ -820,7 +859,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 			underpricedTxMeter.Mark(1)
 
 			sender, _ := types.Sender(pool.signer, tx)
-			dropped := pool.removeTx(tx.Hash(), false, sender != from) // Don't unreserve the sender of the tx being added if last from the acc
+			dropped := pool.removeTx(tx.Hash(), false, sender != from, RemovalReasonUnderpricedFull) // Don't unreserve the sender of the tx being added if last from the acc
 
 			pool.changesSinceReorg += dropped
 		}
@@ -1144,10 +1183,10 @@ func (pool *LegacyPool) Has(hash common.Hash) bool {
 // which could lead to a premature release of the lock.
 //
 // Returns the number of transactions removed from the pending queue.
-func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool) int {
+func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-	return pool.removeTx(hash, outofbound, unreserve)
+	return pool.removeTx(hash, outofbound, unreserve, reason)
 }
 
 // removeTx removes a single transaction from the queue, moving all subsequent
@@ -1161,7 +1200,7 @@ func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bo
 // Returns the number of transactions removed from the pending queue.
 //
 // The transaction pool lock must be held.
-func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bool) int {
+func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int {
 	// Fetch the transaction we wish to delete
 	tx := pool.all.Get(hash)
 	if tx == nil {
@@ -1192,6 +1231,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	if pending := pool.pending[addr]; pending != nil {
 		if removed, invalids := pending.Remove(tx); removed {
 			pool.markTxRemoved(tx)
+			removalMetric(reason, "pending").Mark(1)
 
 			// If no more pending transactions are left, remove the list
 			if pending.Empty() {
@@ -1206,6 +1246,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
 			// Reduce the pending counter
 			pendingGauge.Dec(int64(1 + len(invalids)))
+			pendingDemotedRemoved.Mark(int64(len(invalids)))
 			return 1 + len(invalids)
 		}
 	}
@@ -1213,6 +1254,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	if future := pool.queue[addr]; future != nil {
 		if removed, _ := future.Remove(tx); removed {
 			pool.markTxRemoved(tx)
+			removalMetric(reason, "queued").Mark(1)
 
 			// Reduce the queued counter
 			queuedGauge.Dec(1)
@@ -1653,7 +1695,7 @@ func (pool *LegacyPool) truncateQueue() {
 		// Drop all transactions if they are less than the overflow
 		if size := uint64(list.Len()); size <= drop {
 			for _, tx := range list.Flatten() {
-				pool.removeTx(tx.Hash(), true, true)
+				pool.removeTx(tx.Hash(), true, true, RemovalReasonTruncatedOverflow)
 			}
 			drop -= size
 			queuedRateLimitMeter.Mark(int64(size))
@@ -1662,7 +1704,7 @@ func (pool *LegacyPool) truncateQueue() {
 		// Otherwise drop only last few transactions
 		txs := list.Flatten()
 		for i := len(txs) - 1; i >= 0 && drop > 0; i-- {
-			pool.removeTx(txs[i].Hash(), true, true)
+			pool.removeTx(txs[i].Hash(), true, true, RemovalReasonTruncatedLast)
 			drop--
 			queuedRateLimitMeter.Mark(1)
 		}
@@ -1699,6 +1741,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
+		pendingDemotedCostly.Mark(int64(len(drops)))
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1726,7 +1769,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
 		}
 		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
-		pendingRecheckInvalidateMeter.Mark(int64(len(recheckInvalids)))
+		pendingDemotedRecheck.Mark(int64(len(recheckInvalids)))
 		pendingRecheckDurationTimer.UpdateSince(recheckStart)
 
 		invalids := append(costInvalids, recheckInvalids...)
@@ -2094,4 +2137,55 @@ func tolerateRecheckErr(err error) error {
 		return nil
 	}
 	return err
+}
+
+func removalMetric(reason RemovalReason, pool string) *metrics.Meter {
+	if pool == "pending" {
+		return pendingRemovalMetrics(reason)
+	}
+	return queueRemovalMetrics(reason)
+}
+
+func pendingRemovalMetrics(reason RemovalReason) *metrics.Meter {
+	switch reason {
+	case RemovalReasonLifetime:
+		return pendingRemovedLifetime
+	case RemovalReasonBelowTip:
+		return pendingRemovedBelowTip
+	case RemovalReasonTruncatedOverflow:
+		return pendingRemovedTruncatedOverflow
+	case RemovalReasonTruncatedLast:
+		return pendingRemovedTruncatedLast
+	case RemovalReasonUnderpricedFull:
+		return pendingRemovedUnderpricedFull
+	case RemovalReasonRunTxRecheck:
+		return pendingRemovedRunTxRecheck
+	case RemovalReasonRunTxFinalize:
+		return pendingRemovedRunTxFinalize
+	case RemovalReasonPreparePropsoalInvalid:
+		return pendingRemovedPrepareProposal
+	}
+	return pendingRemovedUnknown
+}
+
+func queueRemovalMetrics(reason RemovalReason) *metrics.Meter {
+	switch reason {
+	case RemovalReasonLifetime:
+		return queuedRemovedLifetime
+	case RemovalReasonBelowTip:
+		return queuedRemovedBelowTip
+	case RemovalReasonTruncatedOverflow:
+		return queuedRemovedTruncatedOverflow
+	case RemovalReasonTruncatedLast:
+		return queuedRemovedTruncatedLast
+	case RemovalReasonUnderpricedFull:
+		return queuedRemovedUnderpricedFull
+	case RemovalReasonRunTxRecheck:
+		return queuedRemovedRunTxRecheck
+	case RemovalReasonRunTxFinalize:
+		return queuedRemovedRunTxFinalize
+	case RemovalReasonPreparePropsoalInvalid:
+		return queuedRemovedPrepareProposal
+	}
+	return queuedRemovedUnknown
 }
