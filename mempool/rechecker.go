@@ -22,7 +22,7 @@ type TxConverter interface {
 // Rechecker runs recheckFn on pending and queued txs in the pool, given an
 // sdk context via UpdateCtx.
 //
-// NOTE: Nonce of the recheckers functions are thread safe.
+// NOTE: None of the recheckers functions are thread safe.
 type Rechecker struct {
 	// ctx is the context that rechecks should be run on. Updated by calling
 	// the returned function from GetContext.
@@ -43,12 +43,16 @@ func NewRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *Recheck
 // GetContext returns a branched context. The caller can use the returned
 // function in order to write updates applied to the returned context, back to
 // the context stored by the rechecker for future callers to use.
+//
+// NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *Rechecker) GetContext() (sdk.Context, func()) {
 	return r.ctx.CacheContext()
 }
 
 // Recheck revalidates a transaction against a context. It returns an updated
 // context and an error that occurred while processing.
+//
+// NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *Rechecker) Recheck(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
 	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
 	if err != nil {
@@ -60,6 +64,8 @@ func (r *Rechecker) Recheck(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Cont
 
 // Update updates the base context for rechecks based on the latest chain
 // state.
+//
+// NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *Rechecker) Update(chain legacypool.BlockChain, header *ethtypes.Header) {
 	bc, ok := chain.(*Blockchain)
 	if !ok {

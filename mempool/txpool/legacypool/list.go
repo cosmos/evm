@@ -153,6 +153,7 @@ func (m *SortedMap) reheap() {
 func (m *SortedMap) filterSorted(filter func(*types.Transaction) bool) types.Transactions {
 	var removed types.Transactions
 
+	// Flatten sorts txs by nonce in ascending order
 	sorted := m.flatten()
 	for _, tx := range sorted {
 		if filter(tx) {

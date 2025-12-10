@@ -146,9 +146,10 @@ type BlockChain interface {
 // Rechecker defines the minimal set of methods needed to recheck transactions
 // and manage the context that the transactions are rechecked against.
 type Rechecker interface {
-	// GetContext gets the current context that transactions should be rechecked against,
-	// and a way to update that context with changes.
-	GetContext() (sdk.Context, func())
+	// GetContext gets a branch of the current context that transactions should
+	// be rechecked against. Changes to ctx will only be persisted back to the
+	// Reckecker once the write function is invoked.
+	GetContext() (ctx sdk.Context, write func())
 
 	// Recheck performs validation of a tx against a context, and returns an
 	// updated context.
@@ -294,6 +295,16 @@ type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
 }
 
+// Option is a function that sets an optional parameter on the legacypool
+type Option func(pool *LegacyPool)
+
+// WithRecheck enables recheck evicting of transactions from the mempool.
+func WithRecheck(rechecker Rechecker) Option {
+	return func(pool *LegacyPool) {
+		pool.rechecker = rechecker
+	}
+}
+
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
 func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
@@ -327,15 +338,6 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 	}
 
 	return pool
-}
-
-type Option func(pool *LegacyPool)
-
-// WithRecheck enables recheck evicting of transactions from the mempool.
-func WithRecheck(rechecker Rechecker) Option {
-	return func(pool *LegacyPool) {
-		pool.rechecker = rechecker
-	}
 }
 
 // Filter returns whether the given transaction can be consumed by the legacy
