@@ -24,6 +24,7 @@ import (
 	"math/big"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
@@ -141,6 +143,23 @@ type BlockChain interface {
 	StateAt(root common.Hash) (vm.StateDB, error)
 }
 
+// Rechecker defines the minimal set of methods needed to recheck transactions
+// and manage the context that the transactions are rechecked against.
+type Rechecker interface {
+	// GetContext gets a branch of the current context that transactions should
+	// be rechecked against. Changes to ctx will only be persisted back to the
+	// Reckecker once the write function is invoked.
+	GetContext() (ctx sdk.Context, write func())
+
+	// Recheck performs validation of a tx against a context, and returns an
+	// updated context.
+	Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+
+	// Update updates the main context returned by GetContext to be the base
+	// chain context at header.
+	Update(chain BlockChain, header *types.Header)
+}
+
 // Config are the configuration parameters of the transaction pool.
 type Config struct {
 	Locals    []common.Address // Addresses that should be treated by default as local
@@ -210,11 +229,6 @@ func (config *Config) sanitize() Config {
 	return conf
 }
 
-type (
-	RecheckTxFn        func(t *types.Transaction) error
-	RecheckTxFnFactory func(chain BlockChain) RecheckTxFn
-)
-
 // LegacyPool contains all currently known transactions. Transactions
 // enter the pool when they are received from the network or submitted
 // locally. They exit the pool when they are included in the blockchain.
@@ -249,6 +263,7 @@ type LegacyPool struct {
 	currentState  vm.StateDB                   // Current state in the blockchain head
 	pendingNonces *noncer                      // Pending state tracking virtual nonces
 	reserver      txpool.Reserver              // Address reserver to ensure exclusivity across subpools
+	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
@@ -268,8 +283,6 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	RecheckTxFnFactory RecheckTxFnFactory
-
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
 	OnTxPromoted func(tx *types.Transaction)
@@ -282,9 +295,19 @@ type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
 }
 
+// Option is a function that sets an optional parameter on the legacypool
+type Option func(pool *LegacyPool)
+
+// WithRecheck enables recheck evicting of transactions from the mempool.
+func WithRecheck(rechecker Rechecker) Option {
+	return func(pool *LegacyPool) {
+		pool.rechecker = rechecker
+	}
+}
+
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config Config, chain BlockChain) *LegacyPool {
+func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -298,6 +321,7 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		queue:               make(map[common.Address]*list),
 		beats:               make(map[common.Address]time.Time),
 		all:                 newLookup(),
+		rechecker:           newNopRechecker(),
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
 		queueTxEventCh:      make(chan *types.Transaction),
@@ -308,6 +332,10 @@ func New(config Config, chain BlockChain) *LegacyPool {
 	}
 	pool.priced = newPricedList(pool.all)
 	pool.latestReorgHeight.Store(0)
+
+	for _, opt := range opts {
+		opt(pool)
+	}
 
 	return pool
 }
@@ -1335,8 +1363,9 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 			promoteAddrs = append(promoteAddrs, addr)
 		}
 	}
+
 	// Check for pending transactions for every account that sent new ones
-	promoted := pool.promoteExecutables(promoteAddrs)
+	promoted := pool.promoteExecutables(promoteAddrs, reset)
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
@@ -1410,6 +1439,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
+	pool.rechecker.Update(pool.chain, newHead)
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1420,9 +1450,12 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.Transaction {
+func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txpoolResetRequest) []*types.Transaction {
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
+
+	// Get a branch of the latest pending context for recheck
+	ctx, write := pool.rechecker.GetContext()
 
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
@@ -1452,26 +1485,26 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		// Note this is happening after the nonce removal above since this
 		// check is slower, we would like it to happen on the fewest txs as
 		// possible.
-		//
-		// TODO: We can BlockSTM this by collecting all txs into a list and
-		// then running the ante handlers on them in one parallel batch.
-		// However this requires a small refactor of BlockSTM to remove its
-		// dependency on DeliverTx and allow it to use any fn in parallel.
-		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
-			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
-			recheckDrops, _ = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
-			})
-			for _, tx := range recheckDrops {
-				pool.all.Remove(tx.Hash())
-				pool.markTxRemoved(tx)
+		recheckStart := time.Now()
+		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
+			newCtx, err := pool.rechecker.Recheck(ctx, tx)
+			if !newCtx.IsZero() {
+				ctx = newCtx
 			}
-			log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
-			queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
-			queuedRecheckDurationTimer.UpdateSince(recheckStart)
+			if err == nil && reset == nil {
+				// only write changes back to original context if we are not
+				// running in reset mode, i.e. a new block has not been seen
+				write()
+			}
+			return tolerateRecheckErr(err) != nil
+		})
+		for _, tx := range recheckDrops {
+			pool.all.Remove(tx.Hash())
+			pool.markTxRemoved(tx)
 		}
+		log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
+		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		queuedRecheckDurationTimer.UpdateSince(recheckStart)
 
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))
@@ -1672,29 +1705,29 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		// Note this is happening after the nonce removal above since this
 		// check is slower, we would like it to happen on the fewest txs as
 		// possible.
-		//
-		// TODO: We can BlockSTM this by collecting all txs into a list and
-		// then running the ante handlers on them in one parallel batch.
-		// However this requires a small refactor of BlockSTM to remove its
-		// dependency on DeliverTx and allow it to use any fn in parallel.
-		var recheckInvalids []*types.Transaction
-		var recheckDrops []*types.Transaction
-		if pool.RecheckTxFnFactory != nil {
-			recheckStart := time.Now()
-			recheckFn := pool.RecheckTxFnFactory(pool.chain)
-			recheckDrops, recheckInvalids = list.Filter(func(tx *types.Transaction) bool {
-				return recheckFn(tx) != nil
-			})
-			for _, tx := range recheckDrops {
-				hash := tx.Hash()
-				pool.all.Remove(hash)
-				pool.markTxRemoved(tx)
-				log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+		recheckStart := time.Now()
+		ctx, write := pool.rechecker.GetContext()
+		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
+			newCtx, err := pool.rechecker.Recheck(ctx, tx)
+			if !newCtx.IsZero() {
+				ctx = newCtx
 			}
-			pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
-			pendingRecheckInvalidateMeter.Mark(int64(len(recheckInvalids)))
-			pendingRecheckDurationTimer.UpdateSince(recheckStart)
+			if err == nil {
+				// always write changes back to the original context
+				write()
+			}
+			return tolerateRecheckErr(err) != nil
+		})
+
+		for _, tx := range recheckDrops {
+			hash := tx.Hash()
+			pool.all.Remove(hash)
+			pool.markTxRemoved(tx)
+			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
 		}
+		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		pendingRecheckInvalidateMeter.Mark(int64(len(recheckInvalids)))
+		pendingRecheckDurationTimer.UpdateSince(recheckStart)
 
 		invalids := append(costInvalids, recheckInvalids...)
 		for _, tx := range invalids {
@@ -2049,4 +2082,16 @@ func (pool *LegacyPool) markTxRemoved(tx *types.Transaction) {
 	if pool.OnTxRemoved != nil {
 		pool.OnTxRemoved(tx)
 	}
+}
+
+// tolerateRecheckErr returns nil if err is an error string that should be
+// ignored from recheck, i.e. we do not want to drop txs from the mempool if we
+// have received specific errors from recheck.
+func tolerateRecheckErr(err error) error {
+	// TODO: Fix import cycle if we try and properly match on
+	// errors.Is(mempool.ErrNonceLow)
+	if err != nil && strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
+		return nil
+	}
+	return err
 }

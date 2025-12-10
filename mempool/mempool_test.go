@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,7 +46,8 @@ const (
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, _, txConfig, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t)
+
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -60,7 +62,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 
 	// Account 0: Insert 3 sequential transactions (nonce 0, 1, 2) - should all go to pending
 	for nonce := uint64(0); nonce < 3; nonce++ {
-		tx := createMsgEthereumTx(t, txConfig, accounts[0].key, nonce, big.NewInt(1e9))
+		tx := createMsgEthereumTx(t, txConfig, accounts[0].key, nonce, big.NewInt(1e8))
 		err := mp.Insert(sdk.Context{}, tx)
 		require.NoError(t, err, "failed to insert pending tx for account 0, nonce %d", nonce)
 	}
@@ -77,18 +79,16 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// setup tx with nonce 1 to fail recheck. it will get kicked out of the
 	// pool and tx with nonce 2 will be demoted to queued (when tx 1 is
 	// resubmitted, it will be returned from reap again).
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	legacyPool.RecheckTxFnFactory = func(_ legacypool.BlockChain) legacypool.RecheckTxFn {
-		return func(t *types.Transaction) error {
-			if t.Nonce() == 1 {
-				return errors.New("recheck failed on tx with nonce 1")
-			}
-			return nil
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Nonce() == 1 {
+			return sdk.Context{}, errors.New("recheck failed on tx with nonce 1")
 		}
-	}
+		return sdk.Context{}, nil
+	})
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
 	pending, queued := legacyPool.ContentFrom(accounts[0].address)
 	require.Len(t, pending, 1)
 	require.Len(t, queued, 1)
@@ -100,11 +100,10 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 
 	// setup recheck to not fail any txs again, tx 2 will not fail this but
 	// it wont be promoted since it is nonce gapped from tx 1
-	legacyPool.RecheckTxFnFactory = func(chain legacypool.BlockChain) legacypool.RecheckTxFn {
-		return func(t *types.Transaction) error {
-			return nil
-		}
-	}
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		return sdk.Context{}, nil
+	})
+
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
 	pending, queued = legacyPool.ContentFrom(accounts[0].address)
@@ -120,7 +119,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 
 	// re submit tx 1 to the mempool to fill the nonce gap, since this is
 	// now a new valid txn, it should be returned by reap again
-	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e9))
+	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e8))
 	err = mp.Insert(sdk.Context{}, tx)
 	require.NoError(t, err, "failed to insert pending tx for account 0, nonce %d", 1)
 
@@ -138,8 +137,61 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	require.Equal(t, uint64(1), getTxNonce(t, txConfig, txs[0]))
 }
 
+func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t)
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	// for a reset to happen for block 1 and wait for it
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		return sdk.Context{}, nil
+	})
+
+	// insert a tx that will make it into the pending pool and use up the
+	// accounts entire balance
+	account := accounts[0]
+	gasPrice := (account.initialBalance - txValue) / txGasLimit // assuming they divide evenly
+	pendingTx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, new(big.Int).SetUint64(gasPrice))
+	require.NoError(t, mp.Insert(sdk.Context{}, pendingTx))
+
+	pending, queued := legacyPool.ContentFrom(account.address)
+	require.Len(t, pending, 1)
+	require.Len(t, queued, 0)
+
+	// we should write if we are not resetting from promote
+	// promoate should write if it is being called out side of the context of a
+	// new block (reset) but if it is in the context of a new blcok and we know
+	// we are about to run demote executables again on it, then we should not
+	// write
+
+	// insert a tx that will be placed in queued due to a nonce gap. the above
+	// tx is using the entire balance though so this tx is not technically
+	// valid taking into account the contents of the pending pool. we need to
+	// ensure this tx does not make it into the pending pool, because it could
+	// then be selected for a proposal if a new block does not come in an cause
+	// it to be rechecked again and dropped.
+
+	queuedTx := createMsgEthereumTx(t, txConfig, accounts[0].key, 2, new(big.Int).SetUint64(100))
+	require.Error(t, mp.Insert(sdk.Context{}, queuedTx))
+
+	pending, queued = legacyPool.ContentFrom(account.address)
+	require.Len(t, pending, 1)
+	var expectedNonce uint64
+	require.Equal(t, expectedNonce, pending[0].Nonce())
+	require.Len(t, queued, 0)
+}
+
 func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, _, txConfig, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -153,7 +205,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 	require.NoError(t, mp.GetTxPool().Sync())
 
 	// insert a single tx for an account at nonce 0
-	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e9))
+	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
 	require.NoError(t, mp.Insert(sdk.Context{}, tx))
 
 	// wait for another reset to make sure the pool processes the above
@@ -163,14 +215,12 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 
 	// setup tx with nonce 0 to fail recheck.
 	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	legacyPool.RecheckTxFnFactory = func(_ legacypool.BlockChain) legacypool.RecheckTxFn {
-		return func(t *types.Transaction) error {
-			if t.Nonce() == 0 {
-				return errors.New("recheck failed on tx with nonce 0")
-			}
-			return nil
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Nonce() == 0 {
+			return sdk.Context{}, errors.New("recheck failed on tx with nonce 0")
 		}
-	}
+		return sdk.Context{}, nil
+	})
 
 	// sync the pool to make sure the above happens
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -180,21 +230,19 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 
 	// reap should now return no txs, since even though a new tx was
 	// validated since the last reap call, it was then invalidated and
-	// dropped before the next reap call
+	// dropped before this reap call
 	txs, err := mp.ReapNewValidTxs(0, 0)
 	require.NoError(t, err)
 	require.Len(t, txs, 0)
 
 	// recheck will pass for all txns again
-	legacyPool.RecheckTxFnFactory = func(_ legacypool.BlockChain) legacypool.RecheckTxFn {
-		return func(t *types.Transaction) error {
-			return nil
-		}
-	}
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		return sdk.Context{}, nil
+	})
 
 	// insert the same tx again and make sure the tx can still be returned
 	// from the next call to reap
-	tx = createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e9))
+	tx = createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
 	require.NoError(t, mp.Insert(sdk.Context{}, tx))
 
 	// sync the pool to make sure its promoted to pending
@@ -211,7 +259,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 }
 
 func TestMempool_ReapNewBlock(t *testing.T) {
-	mp, vmKeeper, txConfig, bus, accounts := setupMempoolWithAccounts(t, 3)
+	mp, vmKeeper, txConfig, _, bus, accounts := setupMempoolWithAccounts(t)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -224,11 +272,11 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	// for a reset to happen for block 1 and wait for it
 	require.NoError(t, mp.GetTxPool().Sync())
 
-	tx0 := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e9))
+	tx0 := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
 	require.NoError(t, mp.Insert(sdk.Context{}, tx0))
-	tx1 := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e9))
+	tx1 := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e8))
 	require.NoError(t, mp.Insert(sdk.Context{}, tx1))
-	tx2 := createMsgEthereumTx(t, txConfig, accounts[0].key, 2, big.NewInt(1e9))
+	tx2 := createMsgEthereumTx(t, txConfig, accounts[0].key, 2, big.NewInt(1e8))
 	require.NoError(t, mp.Insert(sdk.Context{}, tx2))
 
 	// wait for another reset to make sure the pool processes the above
@@ -273,23 +321,25 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 // Helper types and functions
 
 type testAccount struct {
-	key     *ecdsa.PrivateKey
-	address common.Address
-	nonce   uint64
+	key            *ecdsa.PrivateKey
+	address        common.Address
+	nonce          uint64
+	initialBalance uint64
 }
 
-func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *cmttypes.EventBus, []testAccount) {
+func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
 	t.Helper()
 
 	// Create accounts
-	accounts := make([]testAccount, numAccounts)
-	for i := 0; i < numAccounts; i++ {
+	accounts := make([]testAccount, 3)
+	for i := 0; i < 3; i++ {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		accounts[i] = testAccount{
-			key:     key,
-			address: crypto.PubkeyToAddress(key.PublicKey),
-			nonce:   0,
+			key:            key,
+			address:        crypto.PubkeyToAddress(key.PublicKey),
+			nonce:          0,
+			initialBalance: 100000000000100,
 		}
 	}
 
@@ -306,6 +356,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	// Create mocks
 	mockVMKeeper := mocks.NewVMKeeper(t)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
+	mockRechecker := &MockRechecker{}
 
 	// Setup mock expectations
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
@@ -317,7 +368,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	for _, acc := range accounts {
 		mockVMKeeper.On("GetAccount", mock.Anything, acc.address).Return(&statedb.Account{
 			Nonce:   acc.nonce,
-			Balance: uint256.NewInt(1e18),
+			Balance: uint256.NewInt(acc.initialBalance),
 		}).Maybe()
 		mockVMKeeper.On("GetNonce", acc.address).Return(acc.nonce).Maybe()
 		mockVMKeeper.On("GetBalance", acc.address).Return(uint256.NewInt(1e18)).Maybe() // 1 ETH
@@ -378,6 +429,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 		txConfig,
 		clientCtx,
 		mempool.NewTxEncoder(txConfig),
+		mockRechecker,
 		config,
 		1000, // cosmos pool max tx
 	)
@@ -387,7 +439,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	require.NoError(t, eventBus.Start())
 	mp.SetEventBus(eventBus)
 
-	return mp, mockVMKeeper, txConfig, eventBus, accounts
+	return mp, mockVMKeeper, txConfig, mockRechecker, eventBus, accounts
 }
 
 func createMsgEthereumTx(
@@ -458,3 +510,31 @@ func getTxNonce(t *testing.T, txConfig client.TxConfig, txBytes []byte) uint64 {
 	ethTx := decodeTxBytes(t, txConfig, txBytes)
 	return ethTx.Nonce()
 }
+
+type MockRechecker struct {
+	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	lock      sync.Mutex
+}
+
+func (mr *MockRechecker) SetRecheck(recheck func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	mr.RecheckFn = recheck
+}
+
+func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
+	return sdk.Context{}, func() {}
+}
+
+func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	if mr.RecheckFn != nil {
+		return mr.RecheckFn(ctx, tx)
+	}
+	return sdk.Context{}, nil
+}
+
+func (mr *MockRechecker) Update(chain legacypool.BlockChain, header *types.Header) {}
