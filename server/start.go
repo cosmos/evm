@@ -277,6 +277,13 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 		return err
 	}
 
+	SetEVMLogger(
+		NewSlogFromCosmosLogger(
+			svrCtx.Logger.With("module", "evm"),
+			svrCtx.Config.LogLevel,
+		),
+	)
+
 	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
 	defer func() {
 		if err := app.Close(); err != nil {
@@ -396,7 +403,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		return err
 	}
 
-	// setup cosmos<->evm logger
 	SetEVMLogger(
 		NewSlogFromCosmosLogger(
 			svrCtx.Logger.With("module", "evm"),
