@@ -449,7 +449,7 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 }
 
 // convertRemovalReason converts a removal caller to a removal reason
-func convertRemovalReason(caller sdkmempool.RemovalCaller) legacypool.RemovalReason {
+func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason {
 	switch caller {
 	case sdkmempool.CallerRunTxRecheck:
 		return legacypool.RemovalReasonRunTxRecheck
@@ -458,7 +458,7 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) legacypool.RemovalRea
 	case sdkmempool.CallerPrepareProposalRemoveInvalid:
 		return legacypool.RemovalReasonPreparePropsoalInvalid
 	default:
-		return legacypool.RemovalReason("")
+		return txpool.RemovalReason("")
 	}
 }
 

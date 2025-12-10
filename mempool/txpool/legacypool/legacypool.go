@@ -85,17 +85,15 @@ var (
 	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
 )
 
-type RemovalReason string
-
 const (
-	RemovalReasonLifetime               RemovalReason = "lifetime"           // Tx has been in queued for too long
-	RemovalReasonBelowTip               RemovalReason = "belowtip"           // Min gas tip changed and these txs are too low
-	RemovalReasonTruncatedOverflow      RemovalReason = "truncated_overflow" // We have to truncate a pool and this account has too many txs
-	RemovalReasonTruncatedLast          RemovalReason = "truncated_last"     // We have to truncate a pool and these txs are the last ones in so they are the first out
-	RemovalReasonUnderpricedFull        RemovalReason = "underpriced_full"   // New tx came in that has a better price. The pool is also full so we kicked a tx out to make room.
-	RemovalReasonRunTxRecheck           RemovalReason = "runtx_recheck"
-	RemovalReasonRunTxFinalize          RemovalReason = "runtx_finalize"
-	RemovalReasonPreparePropsoalInvalid RemovalReason = "prepare_proposal_invalid"
+	RemovalReasonLifetime               txpool.RemovalReason = "lifetime"           // Tx has been in queued for too long
+	RemovalReasonBelowTip               txpool.RemovalReason = "belowtip"           // Min gas tip changed and these txs are too low
+	RemovalReasonTruncatedOverflow      txpool.RemovalReason = "truncated_overflow" // We have to truncate a pool and this account has too many txs
+	RemovalReasonTruncatedLast          txpool.RemovalReason = "truncated_last"     // We have to truncate a pool and these txs are the last ones in so they are the first out
+	RemovalReasonUnderpricedFull        txpool.RemovalReason = "underpriced_full"   // New tx came in that has a better price. The pool is also full so we kicked a tx out to make room.
+	RemovalReasonRunTxRecheck           txpool.RemovalReason = "runtx_recheck"
+	RemovalReasonRunTxFinalize          txpool.RemovalReason = "runtx_finalize"
+	RemovalReasonPreparePropsoalInvalid txpool.RemovalReason = "prepare_proposal_invalid"
 )
 
 var (
@@ -1183,7 +1181,7 @@ func (pool *LegacyPool) Has(hash common.Hash) bool {
 // which could lead to a premature release of the lock.
 //
 // Returns the number of transactions removed from the pending queue.
-func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int {
+func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason txpool.RemovalReason) int {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 	return pool.removeTx(hash, outofbound, unreserve, reason)
@@ -1200,7 +1198,7 @@ func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bo
 // Returns the number of transactions removed from the pending queue.
 //
 // The transaction pool lock must be held.
-func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int {
+func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bool, reason txpool.RemovalReason) int {
 	// Fetch the transaction we wish to delete
 	tx := pool.all.Get(hash)
 	if tx == nil {
@@ -2139,7 +2137,7 @@ func tolerateRecheckErr(err error) error {
 	return err
 }
 
-func pendingRemovalMetric(reason RemovalReason) *metrics.Meter {
+func pendingRemovalMetric(reason txpool.RemovalReason) *metrics.Meter {
 	switch reason {
 	case RemovalReasonLifetime:
 		return pendingRemovedLifetime
@@ -2161,7 +2159,7 @@ func pendingRemovalMetric(reason RemovalReason) *metrics.Meter {
 	return pendingRemovedUnknown
 }
 
-func queueRemovalMetric(reason RemovalReason) *metrics.Meter {
+func queueRemovalMetric(reason txpool.RemovalReason) *metrics.Meter {
 	switch reason {
 	case RemovalReasonLifetime:
 		return queuedRemovedLifetime
