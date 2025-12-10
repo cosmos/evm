@@ -88,6 +88,9 @@ type TxMetadata struct {
 	Size uint64 // The length of the 'rlp encoding' of a transaction
 }
 
+// RemovalReason is a string describing why a tx is being removed.
+type RemovalReason string
+
 // SubPool represents a specialized transaction pool that lives on its own (e.g.
 // blob pool). Since independent of how many specialized pools we have, they do
 // need to be updated in lockstep and assemble into one coherent view for block
@@ -185,5 +188,5 @@ type SubPool interface {
 	Clear()
 
 	// RemoveTx removes a tracked transaction from the pool
-	RemoveTx(hash common.Hash, outofbound bool, unreserve bool) int
+	RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int
 }

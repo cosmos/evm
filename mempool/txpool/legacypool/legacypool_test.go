@@ -568,7 +568,7 @@ func TestChainFork(t *testing.T) {
 	if _, err := pool.add(tx); err != nil {
 		t.Error("didn't expect error", err)
 	}
-	pool.removeTx(tx.Hash(), true, true)
+	pool.removeTx(tx.Hash(), true, true, txpool.RemovalReason(""))
 
 	// reset the pool's internal state
 	resetState()
@@ -2664,7 +2664,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for _, hash := range hashes {
-			_ = pool.RemoveTx(hash, false, true)
+			_ = pool.RemoveTx(hash, false, true, "")
 		}
 	}()
 
@@ -2977,7 +2977,7 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	// tx11 and tx12 were invalidated since a tx from the same sender with a
 	// lower nonce was just dropped, they need to be validated again before
 	// being moved to pending, so they are back in queued
-	invaliated := pendingRecheckInvalidateMeter.Snapshot().Count()
+	invaliated := pendingDemotedRecheck.Snapshot().Count()
 	if invaliated != 2 {
 		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
 	}
