@@ -1231,7 +1231,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	if pending := pool.pending[addr]; pending != nil {
 		if removed, invalids := pending.Remove(tx); removed {
 			pool.markTxRemoved(tx)
-			removalMetric(reason, "pending").Mark(1)
+			pendingRemovalMetric(reason).Mark(1)
 
 			// If no more pending transactions are left, remove the list
 			if pending.Empty() {
@@ -1254,7 +1254,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	if future := pool.queue[addr]; future != nil {
 		if removed, _ := future.Remove(tx); removed {
 			pool.markTxRemoved(tx)
-			removalMetric(reason, "queued").Mark(1)
+			queueRemovalMetric(reason).Mark(1)
 
 			// Reduce the queued counter
 			queuedGauge.Dec(1)
@@ -2139,14 +2139,7 @@ func tolerateRecheckErr(err error) error {
 	return err
 }
 
-func removalMetric(reason RemovalReason, pool string) *metrics.Meter {
-	if pool == "pending" {
-		return pendingRemovalMetrics(reason)
-	}
-	return queueRemovalMetrics(reason)
-}
-
-func pendingRemovalMetrics(reason RemovalReason) *metrics.Meter {
+func pendingRemovalMetric(reason RemovalReason) *metrics.Meter {
 	switch reason {
 	case RemovalReasonLifetime:
 		return pendingRemovedLifetime
@@ -2168,7 +2161,7 @@ func pendingRemovalMetrics(reason RemovalReason) *metrics.Meter {
 	return pendingRemovedUnknown
 }
 
-func queueRemovalMetrics(reason RemovalReason) *metrics.Meter {
+func queueRemovalMetric(reason RemovalReason) *metrics.Meter {
 	switch reason {
 	case RemovalReasonLifetime:
 		return queuedRemovedLifetime
