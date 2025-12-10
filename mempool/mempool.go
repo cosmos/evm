@@ -66,6 +66,9 @@ type (
 		mtx sync.Mutex
 
 		eventBus *cmttypes.EventBus
+
+		/** Transaction Reaping **/
+		reapList *ReapList
 	}
 )
 
@@ -96,6 +99,7 @@ func NewExperimentalEVMMempool(
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
 	clientCtx client.Context,
+	txEncoder *TxEncoder,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -186,8 +190,33 @@ func NewExperimentalEVMMempool(
 		anteHandler:        config.AnteHandler,
 		operateExclusively: config.OperateExclusively,
 	}
+	evmMempool.reapList = NewReapList(txEncoder)
 
+	// TODO: setting public callback functions here on the legacypool feels
+	// like a small, we should refactor this into something thats easier to
+	// reason about for callers and the legacypool itself.
 	legacyPool.RecheckTxFnFactory = recheckTxFactory(txConfig, config.AnteHandler)
+
+	// Once we have validated that the tx is valid (and can be promoted, set it
+	// to be reaped)
+	legacyPool.OnTxPromoted = func(tx *ethtypes.Transaction) {
+		if err := evmMempool.reapList.PushEVMTx(tx); err != nil {
+			logger.Error("could not push evm tx to ReapList", "err", err)
+		}
+	}
+
+	// Once we are removing the tx, we no longer need to block it from being
+	// sent to the reaplist again and can remove from the guard
+	legacyPool.OnTxRemoved = func(tx *ethtypes.Transaction) {
+		// tx was invalidated for some reason or was included in a block
+		// (either way it is no longer in the mempool), if this tx is in the
+		// reap list we need remove it from there (no longer need to gossip to
+		// others about the tx) + the reap guard (since we may see this tx at a
+		// later time, in which case we should gossip it again) by readding to
+		// the reap guard.
+		evmMempool.reapList.DropEVMTx(tx)
+	}
+
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
@@ -212,40 +241,120 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
 // EVM transactions are routed to the EVM transaction pool, while all other
-// transactions are inserted into the Cosmos sdkmempool. The method assumes
-// transactions have already passed CheckTx validation.
-func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
+// transactions are inserted into the Cosmos sdkmempool.
+func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+	m.logger.Debug("inserting transaction into mempool")
+
+	ethMsg, err := m.getEVMMessage(tx)
+	if err == nil {
+		return m.insertEVMTx(ctx, ethMsg.AsTransaction(), true)
+	}
+	return m.insertCosmosTx(ctx, tx)
+}
+
+// Insert adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
+// transactions are routed to the EVM transaction pool, while all other
+// transactions are inserted into the Cosmos sdkmempool. EVM transactions are
+// inserted async, i.e. they are scheduled for promotion only, we do not wait
+// for it to complete.
+func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
+	m.logger.Debug("inserting transaction into mempool async")
+
+	ethMsg, err := m.getEVMMessage(tx)
+	if err == nil {
+		return m.insertEVMTx(ctx, ethMsg.AsTransaction(), false)
+	}
+	return m.insertCosmosTx(ctx, tx)
+}
+
+// insertEVMTx inserts a EVM tx into the legacypool (EVM) mempool This does not
+// perform a CheckTx (anteHandler) on the tx, so this tx may be invalid.
+// Checking the tx is the responsibility of the legacypool and it will drop the
+// tx if it is found to be invalid (now or at a later point).
+func (m *ExperimentalEVMMempool) insertEVMTx(_ context.Context, tx *ethtypes.Transaction, sync bool) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	hash := tx.Hash()
+	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
+
+	errs := m.txPool.Add([]*ethtypes.Transaction{tx}, sync)
+	if len(errs) != 1 {
+		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+	}
+	if errs[0] != nil {
+		m.logger.Error("failed to insert EVM transaction", "tx_hash", hash, "err", errs[0])
+	}
+
+	return errs[0]
+}
+
+// insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
+// performs a CheckTx (anteHandler) call in the hot path.
+func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	blockHeight := ctx.BlockHeight()
-
-	m.logger.Debug("inserting transaction into mempool", "block_height", blockHeight)
-	ethMsg, err := m.getEVMMessage(tx)
-	if err == nil {
-		// Insert into EVM pool
-		hash := ethMsg.Hash()
-		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
-		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
-		errs := m.txPool.Add(ethTxs, true)
-		if len(errs) > 0 && errs[0] != nil {
-			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
-			return errs[0]
-		}
-		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
-		return nil
-	}
 
 	// Insert into cosmos pool for non-EVM transactions
-	m.logger.Debug("inserting Cosmos transaction", "error", err)
-	err = m.cosmosPool.Insert(goCtx, tx)
-	if err != nil {
-		m.logger.Error("failed to insert Cosmos transaction", "error", err)
-	} else {
-		m.logger.Debug("Cosmos transaction inserted successfully")
+	m.logger.Debug("inserting Cosmos transaction")
+
+	// TODO: What context do we use for this checktx? Do we want to share a
+	// context with the one that is running inside of the legacypool and being
+	// used to verify eth txs? Currently this context is the Check context and
+	// is completely separate from the context used to verify EVM txs. If we
+	// share a context here, then we would to block this on the verifications
+	// running inside of the legacypool, which may take awhile... but sharing a
+	// context between the two seems more correct. Note that the legacypool
+	// also uses two separate contexts right now (one for queued verification
+	// and one for pending. which one would we share with? should we combine
+	// the two? we cant directly a context between the two, since we may verify
+	// the same tx twice at the same height which would error for a valid tx,
+	// maybe we need some cache to ensure this doesnt happen, then they could
+	// be shared and we skip double verifications.)
+
+	// NOTE: this is a check tx back in the hot path of comet and will slow
+	// down the insert, however for our initial purposes we do not plan to have
+	// many (if any) cosmos txs, so we are accepting this limitation for now
+	// for simplicity.
+
+	// copying context/ms branching done in runTx
+
+	// get the current multistore in the context
+	ms := ctx.MultiStore()
+
+	// branch the multistore into so we have a place to make anteHandler writes
+	// without messing up the original state in case the anteHandler sequence
+	// fails
+	msCache := ms.CacheMultiStore()
+
+	// set the branched multistore as the multistore that the context will use.
+	// so writes happening via this context will use the branched multistore.
+	ctx = ctx.WithMultiStore(msCache)
+
+	// execute the anteHandlers on our new context, and get a context that has
+	// the anteHandler updates written to it.
+	if _, err := m.anteHandler(ctx, tx, false); err != nil {
+		return fmt.Errorf("running anteHandler sequence for tx: %w", err)
 	}
-	return err
+
+	// anteHandler has successfully completed, write its updates that are
+	// sitting in the branched multistore, back to their parent multistore.
+	// After this we will have updated the parent state and the next
+	// anteHandler invocation using this state will build off its updates.
+	msCache.Write()
+
+	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
+		m.logger.Error("failed to insert Cosmos transaction", "error", err)
+		return err
+	}
+
+	m.logger.Debug("Cosmos transaction inserted successfully")
+	if err := m.reapList.PushCosmosTx(tx); err != nil {
+		panic(fmt.Errorf("successfully inserted cosmos tx, but failed to insert into reap list: %w", err))
+	}
+	return nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -278,6 +387,16 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 		return errs[0]
 	}
 	return nil
+}
+
+// ReapNewValidTxs removes and returns the oldest transactions from the reap
+// list until maxBytes or maxGas limits are reached.
+func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {
+	m.logger.Debug("reaping transactions", "maxBytes", maxBytes, "maxGas", maxGas, "available_txs")
+	txs := m.reapList.Reap(maxBytes, maxGas)
+	m.logger.Debug("reap complete", "txs_reaped", len(txs))
+
+	return txs, nil
 }
 
 // Select returns a unified iterator over both EVM and Cosmos transactions.
@@ -344,6 +463,7 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	if err != nil {
 		m.logger.Error("failed to remove Cosmos transaction", "error", err)
 	} else {
+		m.reapList.DropCosmosTx(tx)
 		m.logger.Debug("Cosmos transaction removed successfully")
 	}
 	return err
@@ -512,8 +632,11 @@ func recheckTxFactory(txConfig client.TxConfig, anteHandler sdk.AnteHandler) leg
 		cacheCtx = cacheCtx.WithConsensusParams(cp)
 
 		return func(t *ethtypes.Transaction) error {
-			var msg evmtypes.MsgEthereumTx
+			if anteHandler == nil {
+				return nil
+			}
 
+			var msg evmtypes.MsgEthereumTx
 			signer := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
 			if err := msg.FromSignedEthereumTx(t, signer); err != nil {
 				return fmt.Errorf("populating MsgEthereumTx from signed eth tx: %w", err)

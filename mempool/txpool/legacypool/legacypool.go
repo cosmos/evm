@@ -269,6 +269,13 @@ type LegacyPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
 	RecheckTxFnFactory RecheckTxFnFactory
+
+	// OnTxPromoted is called when a tx is promoted from queued to pending (may
+	// be called multiple times per tx)
+	OnTxPromoted func(tx *types.Transaction)
+	// OnTxRemoved is called when a tx is removed from the mempool (either
+	// explicitly via RemoveTx or implicitly during Reset)
+	OnTxRemoved func(tx *types.Transaction)
 }
 
 type txpoolResetRequest struct {
@@ -803,11 +810,16 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		if old != nil {
 			pool.all.Remove(old.Hash())
 			pool.priced.Removed(1)
+			pool.markTxRemoved(old)
 			pendingReplaceMeter.Mark(1)
 		}
 		pool.all.Add(tx)
 		pool.priced.Put(tx)
 		pool.queueTxEvent(tx)
+
+		// tx went straight to the pending queue and bypassed the queue, mark
+		// it as promoted
+		pool.markTxPromoted(tx)
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
 		// Successful promotion, bump the heartbeat
@@ -904,6 +916,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 		// An older transaction was better, discard this
 		pool.all.Remove(hash)
 		pool.priced.Removed(1)
+		pool.markTxRemoved(tx)
 		pendingDiscardMeter.Mark(1)
 		return false
 	}
@@ -911,6 +924,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 	if old != nil {
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
+		pool.markTxRemoved(old)
 		pendingReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the pending counter
@@ -921,6 +935,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 
 	// Successful promotion, bump the heartbeat
 	pool.beats[addr] = time.Now()
+	pool.markTxPromoted(tx)
 	return true
 }
 
@@ -1148,6 +1163,8 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// Remove the transaction from the pending lists and reset the account nonce
 	if pending := pool.pending[addr]; pending != nil {
 		if removed, invalids := pending.Remove(tx); removed {
+			pool.markTxRemoved(tx)
+
 			// If no more pending transactions are left, remove the list
 			if pending.Empty() {
 				delete(pool.pending, addr)
@@ -1167,6 +1184,8 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// Transaction is in the future queue
 	if future := pool.queue[addr]; future != nil {
 		if removed, _ := future.Remove(tx); removed {
+			pool.markTxRemoved(tx)
+
 			// Reduce the queued counter
 			queuedGauge.Dec(1)
 		}
@@ -1364,6 +1383,15 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		for _, set := range events {
 			txs = append(txs, set.Flatten()...)
 		}
+
+		// NOTE: We are not calling PromoteTx here on txs with events queued
+		// for them (even though this does mean they were promoted), however it
+		// is possible that this tx was promoted a long time ago, but the
+		// runReorg was not scheduled until later, so the event has not been
+		// handled. Since this is a possible scenario we opt to call PromoteTx
+		// on site where the tx is inserted into the pending queue, not just
+		// when handling events.
+
 		pool.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	}
 }
@@ -1407,12 +1435,14 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		forwards := list.Forward(pool.currentState.GetNonce(addr))
 		for _, tx := range forwards {
 			pool.all.Remove(tx.Hash())
+			pool.markTxRemoved(tx)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
 		// Drop all transactions that are too costly (low balance or out of gas)
 		costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range costDrops {
 			pool.all.Remove(tx.Hash())
+			pool.markTxRemoved(tx)
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
 		queuedNofundsMeter.Mark(int64(len(costDrops)))
@@ -1436,6 +1466,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			})
 			for _, tx := range recheckDrops {
 				pool.all.Remove(tx.Hash())
+				pool.markTxRemoved(tx)
 			}
 			log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
 			queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
@@ -1448,6 +1479,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
 				promoted = append(promoted, tx)
+				pool.markTxPromoted(tx)
 			}
 		}
 		log.Trace("Promoted queued transactions", "count", len(promoted))
@@ -1622,6 +1654,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range olds {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
+			pool.markTxRemoved(tx)
 			log.Trace("Removed old pending transaction", "hash", hash)
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
@@ -1629,6 +1662,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range drops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
+			pool.markTxRemoved(tx)
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
@@ -1654,6 +1688,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			for _, tx := range recheckDrops {
 				hash := tx.Hash()
 				pool.all.Remove(hash)
+				pool.markTxRemoved(tx)
 				log.Trace("Removed pending transaction that failed recheck", "hash", hash)
 			}
 			pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
@@ -2000,4 +2035,18 @@ func (pool *LegacyPool) SubscribeToNextReorg() (chan struct{}, error) {
 // authorizations from the specific address cached in the pool.
 func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
+}
+
+// markTxPromoted calls the OnTxPromoted callback if it has been supplied.
+func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
+	if pool.OnTxPromoted != nil {
+		pool.OnTxPromoted(tx)
+	}
+}
+
+// markTxRemoved calls the OnTxRemoved callback if it has been supplied.
+func (pool *LegacyPool) markTxRemoved(tx *types.Transaction) {
+	if pool.OnTxRemoved != nil {
+		pool.OnTxRemoved(tx)
+	}
 }
