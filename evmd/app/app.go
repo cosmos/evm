@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	goruntime "runtime"
 	"sort"
 
 	"github.com/spf13/cast"
@@ -50,7 +49,6 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -225,10 +223,6 @@ func New(
 		keys:              keys,
 		oKeys:             oKeys,
 	}
-
-	// Setup Parallel Execution via blockstm txn runner
-	// initialize block-stm runner with a fallback denom; overridden after InitGenesis when the real EVM denom is available
-	// app.configureBlockSTM("")
 
 	// Disable block gas meter--block gas is tracked elsewhere
 	app.SetDisableBlockGasMeter(true)
@@ -548,21 +542,6 @@ func New(
 	return app
 }
 
-func (app *App) configureBlockSTM(denom string) {
-	enableEstimate := true
-	if denom == "" {
-		denom = evmtypes.DefaultEVMExtendedDenom
-	}
-
-	app.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
-		app.txConfig.TxDecoder(),
-		app.getNonTransientKeys(),
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		enableEstimate,
-		denom,
-	))
-}
-
 func (app *App) getNonTransientKeys() []storetypes.StoreKey {
 	total := len(app.keys) + len(app.oKeys)
 	nonTransientKeys := make([]storetypes.StoreKey, 0, total)
@@ -698,15 +677,6 @@ func (app *App) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {
 		panic(err)
 	}
-
-	// TODO: Enable BlockSTM Optionally
-	// resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
-	// if err != nil {
-	// 	return resp, err
-	// }
-	// // After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
-	// app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
-	// return resp, nil
 
 	return app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 }

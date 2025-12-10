@@ -1,6 +1,3 @@
-//go:build !blockstm_test
-// +build !blockstm_test
-
 package precisebank
 
 import (

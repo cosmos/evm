@@ -588,6 +588,15 @@ func (app *App) getNonTransientKeys() []storetypes.StoreKey {
 	return nonTransientKeys
 }
 
+// RegisterKVStoreKey registers a new KVStoreKey to the app.
+// NOTE: This is only to be used for testing purposes.
+func (app *App) RegisterKVStoreKey(name string, key *storetypes.KVStoreKey) {
+	if app.IsSealed() {
+		panic("cannot register testing store key on sealed app")
+	}
+	app.keys[name] = key
+}
+
 func (app *App) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 	options := baseevmante.HandlerOptions{
 		Cdc:                    app.appCodec,

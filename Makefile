@@ -145,6 +145,7 @@ COMMON_COVER_ARGS := -timeout=15m -covermode=atomic
 
 TEST_PACKAGES := ./...
 TEST_TARGETS := test-unit test-evmd test-unit-cover test-race
+TEST_TAGS ?= test
 
 test-unit: ARGS=-timeout=15m
 test-unit: TEST_PACKAGES=$(PACKAGES_UNIT)
@@ -161,6 +162,8 @@ test-evmd:
 test-unit-cover: ARGS=-timeout=15m -coverprofile=coverage.txt -covermode=atomic
 test-unit-cover: TEST_PACKAGES=$(PACKAGES_UNIT)
 test-unit-cover: run-tests
+	@echo "🔁 Running unit tests with blockstm tag..."
+	@$(MAKE) ARGS="-timeout=15m" run-tests-blockstm
 	@echo "🔍 Running evm (root) coverage..."
 	@go test -tags=test $(COMMON_COVER_ARGS) -coverpkg=$(COVERPKG_ALL) -coverprofile=coverage.txt ./...
 	@echo "🔍 Running evmd coverage..."
@@ -178,14 +181,17 @@ test-all:
 	@echo "🔍 Running evmd module tests..."
 	@cd evmd && go test -count=1 -tags=test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
 	@echo "🔍 Running evmd module tests..."
-	@cd evmd && go test -count=1 -tags=test,blockstm-test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
+	@cd evmd && go test -count=1 -tags=test,blockstm_test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
 
 run-tests:
 ifneq (,$(shell which tparse 2>/dev/null))
-	go test -count=1 -tags=test -mod=readonly -json $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES) | tparse
+	go test -count=1 -tags=$(TEST_TAGS) -mod=readonly -json $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES) | tparse
 else
-	go test -count=1 -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES)
+	go test -count=1 -tags=$(TEST_TAGS) -mod=readonly $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES)
 endif
+
+run-tests-blockstm:
+	@$(MAKE) TEST_TAGS="test,blockstm_test" TEST_PACKAGES="$(TEST_PACKAGES)" ARGS="$(ARGS)" EXTRA_ARGS="$(EXTRA_ARGS)" run-tests
 
 # Use the old Apple linker to workaround broken xcode - https://github.com/golang/go/issues/65169
 ifeq ($(OS_FAMILY),Darwin)

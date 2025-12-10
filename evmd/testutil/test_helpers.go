@@ -152,15 +152,30 @@ func SetupTestingApp(chainID string) func() (ibctesting.TestingApp, map[string]j
 	}
 }
 
-// ExtendEvmStoreKey records the target store key inside the EVM keeper so its
-// snapshot store (used during precompile execution) can see the target KV store.
-func ExtendEvmStoreKey(app evm.TestApp, keyName string, key storetypes.StoreKey) {
+// ExtendEvmStoreKey set the given store key into the EVM keeper's store keys map
+// and adds it to the app's keys.
+//
+// NOTE: This is only to be used for testing purposes.
+func ExtendEvmStoreKey(app evm.TestApp, keyName string, key *storetypes.KVStoreKey) {
 	evmStoreKeys := app.GetEVMKeeper().KVStoreKeys()
 	evmStoreKeys[keyName] = key
+
+	type testingStoreRegistrar interface {
+		RegisterKVStoreKey(string, *storetypes.KVStoreKey)
+	}
+
+	registrar, ok := app.(testingStoreRegistrar)
+	if !ok {
+		return
+	}
+
+	registrar.RegisterKVStoreKey(keyName, key)
 }
 
 // AddModulePermissions mirrors the production app's keeper wiring by
 // registering the module account permissions after the fact.
+//
+// NOTE: This is only to be used for testing purposes.
 func AddModulePermissions(app evm.TestApp, moduleName string, isMinter, isBurner bool) {
 	permissions := []string{}
 	if isMinter {
