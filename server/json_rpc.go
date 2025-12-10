@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -54,10 +53,6 @@ func StartJSONRPC(
 
 	stream := stream.NewRPCStreams(evtClient, logger, clientCtx.TxConfig.TxDecoder())
 	app.RegisterPendingTxListener(stream.ListenPendingTx)
-
-	// Set Geth's global logger to use this handler
-	handler := &CustomSlogHandler{logger: logger}
-	slog.SetDefault(slog.New(handler))
 
 	evmBackend := backend.NewBackend(
 		srvCtx,
