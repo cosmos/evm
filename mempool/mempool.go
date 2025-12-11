@@ -28,6 +28,11 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
+// AllowUnsafeSyncInsert indicates whether to perform synchronous inserts into the mempool
+// for testing purposes. When true, Insert will block until the transaction is fully processed.
+// This should be used only in tests to ensure deterministic behavior
+var AllowUnsafeSyncInsert = false
+
 // ClientCtxProvider defines a function type that provides a fresh client context from the app
 type ClientCtxProvider func() client.Context
 
@@ -230,7 +235,7 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 		hash := ethMsg.Hash()
 		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
-		errs := m.txPool.Add(ethTxs, false)
+		errs := m.txPool.Add(ethTxs, AllowUnsafeSyncInsert)
 		if len(errs) > 0 && errs[0] != nil {
 			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
