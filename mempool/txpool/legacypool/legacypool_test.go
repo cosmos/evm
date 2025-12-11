@@ -2888,7 +2888,7 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 func TestPromoteExecutablesCancelReorg(t *testing.T) {
 	// ARRANGE
 	// Given a pool with txs
-	pool, _, _ := setupPool()
+	pool, rechecker, _ := setupPool()
 	defer pool.Close()
 
 	const txsCount = 10
@@ -2915,6 +2915,17 @@ func TestPromoteExecutablesCancelReorg(t *testing.T) {
 		recheckDuration = 120 * time.Millisecond
 		maxReorgWait    = 2 * recheckDuration
 	)
+
+	recheck := func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		txHash := tx.Hash().Hex()
+
+		t.Logf("start: recheck: tx %s", txHash)
+		time.Sleep(recheckDuration)
+		t.Logf("end: recheck: tx %s", txHash)
+		return ctx, nil
+	}
+
+	rechecker.SetRecheck(recheck)
 
 	// ACT
 	go func() {
