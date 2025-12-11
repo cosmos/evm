@@ -4,16 +4,43 @@ import (
 	"context"
 	"log/slog"
 
-	"cosmossdk.io/log"
+	evm "github.com/ethereum/go-ethereum/log"
+
+	sdk "cosmossdk.io/log"
 )
 
-// CustomSlogHandler bridges Geth's slog logs to the existing Cosmos SDK logger.
-type CustomSlogHandler struct {
-	logger log.Logger
+// slogAdapter bridges Geth's slog logs to the existing Cosmos SDK logger.
+type slogAdapter struct {
+	logger sdk.Logger
+	level  slog.Level
+}
+
+// SetEVMLogger sets the default evm logger and the default slog logger
+func SetEVMLogger(logger *slog.Logger, level slog.Level) {
+	// slog defaults
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(level)
+
+	// evm logger defaults
+	evmLogger := evm.NewLogger(slog.Default().Handler())
+	evm.SetDefault(evmLogger)
+}
+
+// NewSlogFromCosmosLogger wraps cosmos sdk logger to slog
+func NewSlogFromCosmosLogger(logger sdk.Logger, levelStr string) (*slog.Logger, slog.Level) {
+	a := &slogAdapter{
+		logger: logger,
+		level:  slog.LevelInfo,
+	}
+
+	// try to parse or leave as info
+	_ = a.level.UnmarshalText([]byte(levelStr))
+
+	return slog.New(a), a.level
 }
 
 // Handle processes slog records and forwards them to your Cosmos SDK logger.
-func (h *CustomSlogHandler) Handle(_ context.Context, r slog.Record) error {
+func (a *slogAdapter) Handle(_ context.Context, r slog.Record) error {
 	attrs := []any{}
 	r.Attrs(func(attr slog.Attr) bool {
 		attrs = append(attrs, attr.Key, attr.Value.Any())
@@ -23,31 +50,42 @@ func (h *CustomSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	// Map slog levels to Cosmos SDK logger
 	switch r.Level {
 	case slog.LevelDebug:
-		h.logger.Debug(r.Message, attrs...)
+		a.logger.Debug(r.Message, attrs...)
 	case slog.LevelInfo:
-		h.logger.Info(r.Message, attrs...)
+		a.logger.Info(r.Message, attrs...)
 	case slog.LevelWarn:
-		h.logger.Warn(r.Message, attrs...)
+		a.logger.Warn(r.Message, attrs...)
 	case slog.LevelError:
-		h.logger.Error(r.Message, attrs...)
+		a.logger.Error(r.Message, attrs...)
 	default:
-		h.logger.Info(r.Message, attrs...)
+		a.logger.Info(r.Message, attrs...)
 	}
 
 	return nil
 }
 
 // Enabled determines if the handler should log a given level.
-func (h *CustomSlogHandler) Enabled(_ context.Context, _ slog.Level) bool {
-	return true
+func (a *slogAdapter) Enabled(_ context.Context, lvl slog.Level) bool {
+	return lvl >= a.level
 }
 
 // WithAttrs allows adding additional attributes.
-func (h *CustomSlogHandler) WithAttrs(_ []slog.Attr) slog.Handler {
-	return h
+func (a *slogAdapter) WithAttrs(attrs []slog.Attr) slog.Handler {
+	flatten := make([]any, 0, len(attrs)*2)
+	for _, attr := range attrs {
+		flatten = append(flatten, attr.Key, attr.Value.Any())
+	}
+
+	return &slogAdapter{
+		logger: a.logger.With(flatten...),
+		level:  a.level,
+	}
 }
 
-// WithGroup is required to implement slog.Handler (not used).
-func (h *CustomSlogHandler) WithGroup(_ string) slog.Handler {
-	return h
+// WithGroup is required to implement slog.Handler
+func (a *slogAdapter) WithGroup(group string) slog.Handler {
+	return &slogAdapter{
+		logger: a.logger.With("group", group),
+		level:  a.level,
+	}
 }

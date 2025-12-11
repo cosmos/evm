@@ -277,6 +277,13 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 		return err
 	}
 
+	SetEVMLogger(
+		NewSlogFromCosmosLogger(
+			svrCtx.Logger.With("module", "evm"),
+			svrCtx.Config.LogLevel,
+		),
+	)
+
 	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
 	defer func() {
 		if err := app.Close(); err != nil {
@@ -396,6 +403,13 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		return err
 	}
 
+	SetEVMLogger(
+		NewSlogFromCosmosLogger(
+			svrCtx.Logger.With("module", "evm"),
+			svrCtx.Config.LogLevel,
+		),
+	)
+
 	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
 	defer func() {
 		if err := app.Close(); err != nil {
@@ -406,6 +420,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	if !ok {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
 	}
+
 	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())

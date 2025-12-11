@@ -456,7 +456,7 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 
 	if m.shouldRemoveFromEVMPool(hash, reason) {
 		m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
-		m.legacyTxPool.RemoveTx(hash, false, true)
+		m.legacyTxPool.RemoveTx(hash, false, true, convertRemovalReason(reason.Caller))
 	}
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
@@ -464,6 +464,20 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 	}
 
 	return nil
+}
+
+// convertRemovalReason converts a removal caller to a removal reason
+func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason {
+	switch caller {
+	case sdkmempool.CallerRunTxRecheck:
+		return legacypool.RemovalReasonRunTxRecheck
+	case sdkmempool.CallerRunTxFinalize:
+		return legacypool.RemovalReasonRunTxFinalize
+	case sdkmempool.CallerPrepareProposalRemoveInvalid:
+		return legacypool.RemovalReasonPreparePropsoalInvalid
+	default:
+		return txpool.RemovalReason("")
+	}
 }
 
 // caller should hold the lock
