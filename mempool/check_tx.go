@@ -5,9 +5,10 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
+	"github.com/cosmos/evm/mempool/txpool"
+
 	"github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/evm/mempool/txpool"
 )
 
 // NewCheckTxHandler creates a CheckTx handler that integrates with the EVM mempool for transaction validation.

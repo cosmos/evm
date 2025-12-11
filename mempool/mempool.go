@@ -133,7 +133,7 @@ func NewExperimentalEVMMempool(
 		// from queued into pending, noting their readiness to be executed.
 		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
 			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(getClientCtx(), txConfig, txs)
+			return broadcastEVMTransactions(getClientCtx(), txs)
 		}
 	}
 
@@ -483,7 +483,7 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 // broadcastEVMTransactions converts Ethereum transactions to Cosmos SDK format and broadcasts them.
 // This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
 // using the provided client context. It handles encoding and error reporting for each transaction.
-func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig, ethTxs []*ethtypes.Transaction) error {
+func broadcastEVMTransactions(clientCtx client.Context, ethTxs []*ethtypes.Transaction) error {
 	for _, ethTx := range ethTxs {
 		msg := &evmtypes.MsgEthereumTx{}
 		ethSigner := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
