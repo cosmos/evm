@@ -14,6 +14,7 @@ import (
 
 // StartGethMetricServer starts the geth metrics server on the specified address.
 func StartGethMetricServer(ctx context.Context, log log.Logger, addr string) error {
+	gethmetrics.Enable()
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", gethprom.Handler(gethmetrics.DefaultRegistry))
 
