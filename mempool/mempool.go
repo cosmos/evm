@@ -68,6 +68,9 @@ type (
 
 		/** Transaction Reaping **/
 		reapList *ReapList
+
+		/** Transaction Tracking **/
+		txTracker *txTracker
 	}
 )
 
@@ -193,6 +196,7 @@ func NewExperimentalEVMMempool(
 		anteHandler:        config.AnteHandler,
 		operateExclusively: config.OperateExclusively,
 		reapList:           NewReapList(txEncoder),
+		txTracker:          newTxTracker(),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -201,11 +205,19 @@ func NewExperimentalEVMMempool(
 		if err := evmMempool.reapList.PushEVMTx(tx); err != nil {
 			logger.Error("could not push evm tx to ReapList", "err", err)
 		}
+
+		hash := tx.Hash()
+		evmMempool.txTracker.ExitedQueued(hash)
+		evmMempool.txTracker.EnteredPending(hash)
+	}
+
+	legacyPool.OnTxEnqueued = func(tx *ethtypes.Transaction) {
+		evmMempool.txTracker.EnteredQueued(tx.Hash())
 	}
 
 	// Once we are removing the tx, we no longer need to block it from being
 	// sent to the reaplist again and can remove from the guard
-	legacyPool.OnTxRemoved = func(tx *ethtypes.Transaction) {
+	legacyPool.OnTxRemoved = func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
 		// tx was invalidated for some reason or was included in a block
 		// (either way it is no longer in the mempool), if this tx is in the
 		// reap list we need remove it from there (no longer need to gossip to
@@ -213,6 +225,8 @@ func NewExperimentalEVMMempool(
 		// later time, in which case we should gossip it again) by readding to
 		// the reap guard.
 		evmMempool.reapList.DropEVMTx(tx)
+
+		evmMempool.txTracker.RemoveTx(tx.Hash(), pool)
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -445,6 +459,10 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 		m.legacyTxPool.RemoveTx(hash, false, true)
 	}
 
+	if reason.Caller == sdkmempool.CallerRunTxFinalize {
+		m.txTracker.IncludedInBlock(hash)
+	}
+
 	return nil
 }
 
@@ -585,4 +603,8 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
 	return orderedEVMPendingTxes, cosmosPendingTxes
+}
+
+func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
+	return m.txTracker.Track(hash)
 }

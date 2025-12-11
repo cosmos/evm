@@ -206,6 +206,9 @@ func (b *Backend) mempoolInsertTx(hash common.Hash, cometTxBytes []byte) error {
 	case code > 0:
 		return fmt.Errorf("unable to insert tx: code %d", code)
 	default:
+		if err := b.Mempool.TrackTx(hash); err != nil {
+			b.Logger.Error("error tracking inserted inserted into mempool", "hash", hash, "err", err)
+		}
 		return nil
 	}
 }
