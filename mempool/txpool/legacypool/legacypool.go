@@ -150,6 +150,7 @@ var (
 	queuedEvictionMeter        = metrics.NewRegisteredMeter("txpool/queued/eviction", nil)    // Dropped due to lifetime
 	queuedRecheckDropMeter     = metrics.NewRegisteredMeter("txpool/queued/recheckdrop", nil) // Dropped due to antehandler failing
 	queuedRecheckDurationTimer = metrics.NewRegisteredTimer("txpool/queued/rechecktime", nil) // How long rechecking txs in the queued pool takes (promoteExecutables)
+	queuedNonReadies           = metrics.NewRegisteredMeter("txpool/queued/notready", nil)    // Number of txs that were not ready to be promoted due to a nonce gap during promote loop
 
 	// General tx metrics
 	knownTxMeter       = metrics.NewRegisteredMeter("txpool/known", nil)
@@ -1560,6 +1561,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))
+		queuedNonReadies.Mark(int64(list.Len() - len(readies)))
 		for _, tx := range readies {
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
