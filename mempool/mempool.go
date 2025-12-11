@@ -491,7 +491,7 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 			return fmt.Errorf("failed to convert ethereum transaction: %w", err)
 		}
 
-		cosmosTx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), "akii")
+		cosmosTx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), evmtypes.GetEVMCoinDenom())
 		if err != nil {
 			return fmt.Errorf("failed to build cosmos tx: %w", err)
 		}
