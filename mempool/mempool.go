@@ -28,6 +28,9 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
+// ClientCtxProvider defines a function type that provides a fresh client context from the app
+type ClientCtxProvider func() client.Context
+
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
 	SubscriberName = "evm"
@@ -88,7 +91,7 @@ func NewExperimentalEVMMempool(
 	vmKeeper VMKeeperI,
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
-	clientCtx client.Context,
+	getClientCtx ClientCtxProvider,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -130,7 +133,7 @@ func NewExperimentalEVMMempool(
 		// from queued into pending, noting their readiness to be executed.
 		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
 			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(clientCtx, txConfig, txs)
+			return broadcastEVMTransactions(getClientCtx(), txConfig, txs)
 		}
 	}
 
