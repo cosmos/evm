@@ -7,6 +7,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/evm/mempool/txpool"
 )
 
 // NewCheckTxHandler creates a CheckTx handler that integrates with the EVM mempool for transaction validation.
@@ -25,6 +26,13 @@ func NewCheckTxHandler(mempool *ExperimentalEVMMempool) types.CheckTxHandler {
 					return sdkerrors.ResponseCheckTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, anteEvents, false), nil
 				}
 			}
+			// If its already known, this can mean the the tx was promoted from nonce gap to valid
+			// and by allowing ErrAlreadyKnown to be silent, we allow re-gossiping of such txs
+			// this also covers the case of re-submission of the same tx enforcing overpricing for replacement
+			if errors.Is(err, txpool.ErrAlreadyKnown) {
+				return sdkerrors.ResponseCheckTxWithEvents(nil, gInfo.GasWanted, gInfo.GasUsed, anteEvents, false), nil
+			}
+
 			// anything else, return regular error
 			return sdkerrors.ResponseCheckTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, anteEvents, false), nil
 		}
