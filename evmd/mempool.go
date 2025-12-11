@@ -42,6 +42,9 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return fmt.Errorf("failed to get mempool config: %w", err)
 	}
 
+	txEncoder := evmmempool.NewTxEncoder(app.txConfig)
+	rechecker := evmmempool.NewRechecker(mempoolConfig.AnteHandler, txEncoder)
+
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
 		logger,
@@ -49,7 +52,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.FeeMarketKeeper,
 		app.txConfig,
 		app.clientCtx,
-		evmmempool.NewTxEncoder(app.txConfig),
+		txEncoder,
+		rechecker,
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)

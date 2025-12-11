@@ -43,6 +43,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
@@ -193,7 +194,7 @@ func pricedSetCodeTxWithAuth(nonce uint64, gaslimit uint64, gasFee, tip *uint256
 	})
 }
 
-func setupPool() (*LegacyPool, *ecdsa.PrivateKey) {
+func setupPool() (*LegacyPool, *MockRechecker, *ecdsa.PrivateKey) {
 	return setupPoolWithConfig(params.TestChainConfig)
 }
 
@@ -232,18 +233,19 @@ func (r *reserver) Has(address common.Address) bool {
 	return false // reserver only supports a single pool
 }
 
-func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *ecdsa.PrivateKey) {
+func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecker, *ecdsa.PrivateKey) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(config, 10000000, statedb, new(event.Feed))
 
 	key, _ := crypto.GenerateKey()
-	pool := New(testTxPoolConfig, blockchain)
+	rechecker := &MockRechecker{}
+	pool := New(testTxPoolConfig, blockchain, WithRecheck(rechecker))
 	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
 		panic(err)
 	}
 	// wait for the pool to initialize
 	<-pool.initDoneCh
-	return pool, key
+	return pool, rechecker, key
 }
 
 // validatePoolInternals checks various consistency invariants within the pool.
@@ -411,7 +413,7 @@ func testSetNonce(pool *LegacyPool, addr common.Address, nonce uint64) {
 func TestInvalidTransactions(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	tx := transaction(0, 100, key)
@@ -446,7 +448,7 @@ func TestInvalidTransactions(t *testing.T) {
 func TestQueue(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	tx := transaction(0, 100, key)
@@ -477,7 +479,7 @@ func TestQueue(t *testing.T) {
 func TestQueue2(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	tx1 := transaction(0, 100, key)
@@ -491,7 +493,7 @@ func TestQueue2(t *testing.T) {
 	pool.enqueueTx(tx2.Hash(), tx2, true)
 	pool.enqueueTx(tx3.Hash(), tx3, true)
 
-	pool.promoteExecutables([]common.Address{from}, noopRecheckFn)
+	pool.promoteExecutables([]common.Address{from}, nil)
 	if len(pool.pending) != 1 {
 		t.Error("expected pending length to be 1, got", len(pool.pending))
 	}
@@ -503,7 +505,7 @@ func TestQueue2(t *testing.T) {
 func TestNegativeValue(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	tx, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(-1), 100, big.NewInt(1), nil), types.HomesteadSigner{}, key)
@@ -517,7 +519,7 @@ func TestNegativeValue(t *testing.T) {
 func TestTipAboveFeeCap(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPoolWithConfig(eip1559Config)
+	pool, _, key := setupPoolWithConfig(eip1559Config)
 	defer pool.Close()
 
 	tx := dynamicFeeTx(0, 100, big.NewInt(1), big.NewInt(2), key)
@@ -530,7 +532,7 @@ func TestTipAboveFeeCap(t *testing.T) {
 func TestVeryHighValues(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPoolWithConfig(eip1559Config)
+	pool, _, key := setupPoolWithConfig(eip1559Config)
 	defer pool.Close()
 
 	veryBigNumber := big.NewInt(1)
@@ -550,7 +552,7 @@ func TestVeryHighValues(t *testing.T) {
 func TestChainFork(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -567,7 +569,7 @@ func TestChainFork(t *testing.T) {
 	if _, err := pool.add(tx); err != nil {
 		t.Error("didn't expect error", err)
 	}
-	pool.removeTx(tx.Hash(), true, true)
+	pool.removeTx(tx.Hash(), true, true, txpool.RemovalReason(""))
 
 	// reset the pool's internal state
 	resetState()
@@ -579,7 +581,7 @@ func TestChainFork(t *testing.T) {
 func TestDoubleNonce(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -630,7 +632,7 @@ func TestDoubleNonce(t *testing.T) {
 func TestMissingNonce(t *testing.T) {
 	t.Parallel()
 
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -654,7 +656,7 @@ func TestNonceRecovery(t *testing.T) {
 	t.Parallel()
 
 	const n = 10
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -680,7 +682,7 @@ func TestDropping(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -898,7 +900,7 @@ func TestGapFilling(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -952,7 +954,7 @@ func TestQueueAccountLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -1163,7 +1165,7 @@ func TestPendingLimiting(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -1253,7 +1255,7 @@ func TestAllowedTxSize(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -1522,7 +1524,7 @@ func TestRepricingDynamicFee(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	pool, _ := setupPoolWithConfig(eip1559Config)
+	pool, _, _ := setupPoolWithConfig(eip1559Config)
 	defer pool.Close()
 
 	// Keep track of transaction events to ensure all executables get announced
@@ -1790,7 +1792,7 @@ func TestStableUnderpricing(t *testing.T) {
 func TestUnderpricingDynamicFee(t *testing.T) {
 	t.Parallel()
 
-	pool, _ := setupPoolWithConfig(eip1559Config)
+	pool, _, _ := setupPoolWithConfig(eip1559Config)
 	defer pool.Close()
 
 	pool.config.GlobalSlots = 2
@@ -1873,7 +1875,7 @@ func TestUnderpricingDynamicFee(t *testing.T) {
 func TestDualHeapEviction(t *testing.T) {
 	t.Parallel()
 
-	pool, _ := setupPoolWithConfig(eip1559Config)
+	pool, _, _ := setupPoolWithConfig(eip1559Config)
 	defer pool.Close()
 
 	pool.config.GlobalSlots = 10
@@ -2078,7 +2080,7 @@ func TestReplacementDynamicFee(t *testing.T) {
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
-	pool, key := setupPoolWithConfig(eip1559Config)
+	pool, _, key := setupPoolWithConfig(eip1559Config)
 	defer pool.Close()
 	testAddBalance(pool, crypto.PubkeyToAddress(key.PublicKey), big.NewInt(1000000000))
 
@@ -2663,7 +2665,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for _, hash := range hashes {
-			_ = pool.RemoveTx(hash, false, true)
+			_ = pool.RemoveTx(hash, false, true, "")
 		}
 	}()
 
@@ -2674,7 +2676,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 // the reorg loop has completed for the specified height.
 func TestWaitForReorgHeight(t *testing.T) {
 	t.Run("waits for reorg to complete", func(t *testing.T) {
-		pool, _ := setupPool()
+		pool, _, _ := setupPool()
 		defer pool.Close()
 
 		if pool.latestReorgHeight.Load() != 0 {
@@ -2728,7 +2730,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 	})
 
 	t.Run("multiple height wait", func(t *testing.T) {
-		pool, _ := setupPool()
+		pool, _, _ := setupPool()
 		defer pool.Close()
 
 		if pool.latestReorgHeight.Load() != 0 {
@@ -2776,7 +2778,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 	})
 
 	t.Run("concurrent waiters", func(t *testing.T) {
-		pool, _ := setupPool()
+		pool, _, _ := setupPool()
 		defer pool.Close()
 
 		var wg sync.WaitGroup
@@ -2813,9 +2815,7 @@ func TestWaitForReorgHeight(t *testing.T) {
 // TestPromoteExecutablesRecheckTx tests that promoteExecutables properly removes
 // a transaction from all pools if it fails the RecheckTxFn.
 func TestPromoteExecutablesRecheckTx(t *testing.T) {
-	t.Parallel()
-
-	pool, key := setupPool()
+	pool, rechecker, key := setupPool()
 	defer pool.Close()
 
 	// Create transactions with sequential nonces
@@ -2847,15 +2847,13 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	}
 	pool.mu.RUnlock()
 
-	// Set up RecheckTxFnFactory to fail tx1
-	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn {
-		return func(tx *types.Transaction) error {
-			if tx.Nonce() == 1 {
-				return errors.New("recheck failed for tx1")
-			}
-			return nil
+	// Set up recheckFn to fail tx1
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Nonce() == 1 {
+			return sdk.Context{}, errors.New("recheck failed for tx1")
 		}
-	}
+		return sdk.Context{}, nil
+	})
 
 	// Reset will always try and promote executables from queued to go to
 	// pending. This will call pool.RecheckTxFn and block until the Reset is
@@ -2890,7 +2888,7 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 func TestPromoteExecutablesCancelReorg(t *testing.T) {
 	// ARRANGE
 	// Given a pool with txs
-	pool, _ := setupPool()
+	pool, _, _ := setupPool()
 	defer pool.Close()
 
 	const txsCount = 10
@@ -2918,17 +2916,6 @@ func TestPromoteExecutablesCancelReorg(t *testing.T) {
 		maxReorgWait    = 2 * recheckDuration
 	)
 
-	recheckFn := func(tx *types.Transaction) error {
-		txHash := tx.Hash().Hex()
-
-		t.Logf("start: recheck: tx %s", txHash)
-		time.Sleep(recheckDuration)
-		t.Logf("end: recheck: tx %s", txHash)
-		return nil
-	}
-
-	pool.RecheckTxFnFactory = func(_ BlockChain) RecheckTxFn { return recheckFn }
-
 	// ACT
 	go func() {
 		// Add all txs, should trigger requestPromoteExecutables
@@ -2953,9 +2940,7 @@ func TestPromoteExecutablesCancelReorg(t *testing.T) {
 // removes a transaction from all pools if it fails the RecheckTxFn and that
 // subsequent nonces are moved back into the queued pool.
 func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
-	t.Parallel()
-
-	pool, _ := setupPool()
+	pool, rechecker, _ := setupPool()
 	defer pool.Close()
 
 	// Create transactions with sequential nonces
@@ -2998,15 +2983,13 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 	pool.mu.RUnlock()
 
-	// Set up RecheckTxFnFactory to fail tx10 and tx22
-	pool.RecheckTxFnFactory = func(chain BlockChain) RecheckTxFn {
-		return func(tx *types.Transaction) error {
-			if tx == tx10 || tx == tx22 {
-				return errors.New("recheck failed")
-			}
-			return nil
+	// Set up recheckFn to fail tx10 and tx22
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx == tx10 || tx == tx22 {
+			return sdk.Context{}, errors.New("recheck failed")
 		}
-	}
+		return sdk.Context{}, nil
+	})
 
 	// Trigger demoteUnexecutables via Reset
 	pool.Reset(nil, nil)
@@ -3046,7 +3029,7 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	// tx11 and tx12 were invalidated since a tx from the same sender with a
 	// lower nonce was just dropped, they need to be validated again before
 	// being moved to pending, so they are back in queued
-	invaliated := pendingRecheckInvalidateMeter.Snapshot().Count()
+	invaliated := pendingDemotedRecheck.Snapshot().Count()
 	if invaliated != 2 {
 		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
 	}
@@ -3061,7 +3044,7 @@ func BenchmarkPendingDemotion10000(b *testing.B) { benchmarkPendingDemotion(b, 1
 
 func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Add a batch of transactions to a pool one by one
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -3074,7 +3057,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.demoteUnexecutables(1, noopRecheckFn)
+		pool.demoteUnexecutables(1)
 	}
 }
 
@@ -3086,7 +3069,7 @@ func BenchmarkFuturePromotion10000(b *testing.B) { benchmarkFuturePromotion(b, 1
 
 func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Add a batch of transactions to a pool one by one
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -3099,7 +3082,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.promoteExecutables(nil, noopRecheckFn)
+		pool.promoteExecutables(nil, nil)
 	}
 }
 
@@ -3110,7 +3093,7 @@ func BenchmarkBatchInsert10000(b *testing.B) { benchmarkBatchInsert(b, 10000) }
 
 func benchmarkBatchInsert(b *testing.B, size int) {
 	// Generate a batch of transactions to enqueue into the pool
-	pool, key := setupPool()
+	pool, _, key := setupPool()
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -3133,7 +3116,7 @@ func benchmarkBatchInsert(b *testing.B, size int) {
 // Benchmarks the speed of batch transaction insertion in case of multiple accounts.
 func BenchmarkMultiAccountBatchInsert(b *testing.B) {
 	// Generate a batch of transactions to enqueue into the pool
-	pool, _ := setupPool()
+	pool, _, _ := setupPool()
 	defer pool.Close()
 	b.ReportAllocs()
 	batches := make(types.Transactions, b.N)
@@ -3150,3 +3133,31 @@ func BenchmarkMultiAccountBatchInsert(b *testing.B) {
 		pool.addRemotesSync([]*types.Transaction{tx})
 	}
 }
+
+type MockRechecker struct {
+	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	lock      sync.Mutex
+}
+
+func (mr *MockRechecker) SetRecheck(recheck func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	mr.RecheckFn = recheck
+}
+
+func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
+	return sdk.Context{}, func() {}
+}
+
+func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	if mr.RecheckFn != nil {
+		return mr.RecheckFn(ctx, tx)
+	}
+	return sdk.Context{}, nil
+}
+
+func (mr *MockRechecker) Update(chain BlockChain, header *types.Header) {}
