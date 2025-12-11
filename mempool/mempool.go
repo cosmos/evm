@@ -230,7 +230,7 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 		hash := ethMsg.Hash()
 		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
-		errs := m.txPool.Add(ethTxs, true)
+		errs := m.txPool.Add(ethTxs, false)
 		if len(errs) > 0 && errs[0] != nil {
 			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
