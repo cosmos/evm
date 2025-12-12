@@ -102,7 +102,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Expected: tx is added to node1's QUEUED pool (not pending due to gap)
 					signer := s.Acc(0)
 
-					// Send tx with nonce 2 to node1 (creating a gap since current nonce is 1)
+					// Send tx with nonce +2 to node1 (creating a gap since current nonce is 1)
 					tx3, err := s.SendTx(t, s.Node(1), signer.ID, 2, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx with nonce 2")
 
@@ -154,7 +154,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							"queued transaction should not be broadcast to %s", nodeID)
 					}
 
-					// Step 6: Send tx with nonce 1 to node2 (filling the gap)
+					// Step 6: Send tx with nonce +1 to node2 (filling the gap)
 					// Expected: tx is added to node2's pending pool and gossiped
 					tx2, err := s.SendTx(t, s.Node(2), signer.ID, 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx with nonce 1")
@@ -380,13 +380,36 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
+				// Await a block before starting the test case (ensures clean state)
+				s.AwaitNBlocks(t, 1)
+
 				ctx := NewTestContext()
 				s.BeforeEachCase(t, ctx)
+
+				// Capture the initial block height - no blocks should be produced during the test case
+				initialHeight := s.GetCurrentBlockHeight(t, "node0")
+				t.Logf("Test case starting at block height %d", initialHeight)
+
+				// Execute all test actions (broadcasting, mempool checks, etc.)
 				for _, action := range tc.actions {
 					action(s, ctx)
 					// NOTE: We don't call AfterEachAction here because we're manually
 					// checking the mempool state in the action functions
 				}
+
+				// Verify no blocks were produced during the test case
+				// All broadcasting and mempool checks should happen within a single block period
+				currentHeight := s.GetCurrentBlockHeight(t, "node0")
+				require.Equal(t, initialHeight, currentHeight,
+					"No blocks should be produced during test case execution - expected height %d but got %d",
+					initialHeight, currentHeight)
+				t.Logf("✓ Test case completed at same block height %d (no blocks produced)", currentHeight)
+
+				// Now await a block to allow transactions to commit
+				s.AwaitNBlocks(t, 1)
+				t.Logf("Awaited block for transaction commits")
+
+				// Verify transactions committed successfully
 				s.AfterEachCase(t, ctx)
 			})
 		}

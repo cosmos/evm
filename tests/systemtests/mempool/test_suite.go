@@ -31,6 +31,16 @@ func (s *TestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 	s.BaseTestSuite.SetupTest(t, nodeStartArgs...)
 }
 
+// GetCurrentBlockHeight returns the current block height from the specified node
+func (s *TestSuite) GetCurrentBlockHeight(t *testing.T, nodeID string) uint64 {
+	t.Helper()
+	account := s.EthAccount("acc0")
+	ctx, cli, _ := s.EthClient.Setup(nodeID, account)
+	blockNumber, err := cli.BlockNumber(ctx)
+	require.NoError(t, err, "failed to get block number from %s", nodeID)
+	return blockNumber
+}
+
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
 func (s *TestSuite) BeforeEachCase(t *testing.T, ctx *TestContext) {
 	ctx.Reset()
