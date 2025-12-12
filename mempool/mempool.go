@@ -455,8 +455,14 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 	hash := msgEthereumTx.Hash()
 
 	if m.shouldRemoveFromEVMPool(hash, reason) {
-		m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
-		m.legacyTxPool.RemoveTx(hash, false, true, convertRemovalReason(reason.Caller))
+		includedInBlock := reason.Caller == sdkmempool.CallerRunTxFinalize && reason.Error == nil
+		m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash, "included_in_block", includedInBlock)
+		m.legacyTxPool.RemoveTx(
+			hash,
+			txpool.WithUnreserve(),
+			txpool.WithStrictOverride(!includedInBlock), // if this tx has been included in a block, do not dequeue future txs
+			txpool.WithRemovalReason(convertRemovalReason(reason.Caller)),
+		)
 	}
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
@@ -498,8 +504,8 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
 func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reason sdkmempool.RemoveReason) bool {
-	if reason.Error == nil {
-		return false
+	if reason.Caller == sdkmempool.CallerRunTxFinalize && reason.Error == nil {
+		return true
 	}
 
 	// Comet will attempt to remove transactions from the mempool after completing successfully.
