@@ -237,9 +237,34 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					require.NoError(t, err, "failed to send tx to node0")
 
 					// Step 2: Verify tx is in node0's pending pool
-					pendingTxs, _, err := s.TxPoolContent(s.Node(0), suite.TxTypeEVM, 5*time.Second)
-					require.NoError(t, err)
-					require.Contains(t, pendingTxs, tx1.TxHash, "transaction should be in pending pool")
+					// Poll for the transaction to appear (it should be fast, but we need to wait for async processing)
+					maxWaitTime := 2 * time.Second
+					checkInterval := 100 * time.Millisecond
+
+					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
+					defer cancel()
+
+					ticker := time.NewTicker(checkInterval)
+					defer ticker.Stop()
+
+					found := false
+					for !found {
+						select {
+						case <-timeoutCtx.Done():
+							require.FailNow(t, fmt.Sprintf(
+								"transaction %s was not found in node0's pending pool within %s",
+								tx1.TxHash, maxWaitTime,
+							))
+						case <-ticker.C:
+							pendingTxs, _, err := s.TxPoolContent(s.Node(0), suite.TxTypeEVM, 5*time.Second)
+							if err != nil {
+								continue
+							}
+							if slices.Contains(pendingTxs, tx1.TxHash) {
+								found = true
+							}
+						}
+					}
 
 					// Step 3: Send the SAME transaction again to node0 via JSON-RPC
 					// Expected: Error returned (txpool.ErrAlreadyKnown)
