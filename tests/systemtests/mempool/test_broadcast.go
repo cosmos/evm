@@ -14,33 +14,48 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/suite"
 )
 
-// RunTxBroadcasting tests transaction broadcasting and duplicate handling:
+// RunTxBroadcasting tests transaction broadcasting and duplicate handling in a multi-node network.
 //
-// 1. Broadcasting: Verifies transactions are broadcast to other nodes via mempool gossip
-//    before blocks are committed, proving the mempool rebroadcast functionality works correctly.
+// This test verifies two critical aspects of transaction propagation:
 //
-// 2. Duplicate Handling: Verifies that duplicate transactions submitted via JSON-RPC are
-//    properly rejected with "already known" error, while internal gossip/rebroadcast remains silent.
+//  1. Mempool Broadcasting: Transactions submitted to one node are gossiped to all other nodes
+//     via the mempool gossip protocol BEFORE blocks are produced.
 //
-// The test uses a slower block time (5 seconds) to ensure we have enough time to verify
-// that transactions appear in other nodes' mempools before a block is produced.
+//  2. Duplicate Detection: The RPC layer properly rejects duplicate transactions submitted
+//     by users via JSON-RPC (returning txpool.ErrAlreadyKnown), while internal gossip remains silent.
+//
+// The test uses a 5-second consensus timeout to create a larger window for verifying that
+// transactions appear in other nodes' mempools before blocks are committed.
 func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
 	}{
 		{
+			// Scenario 1: Basic Broadcasting and Transaction Promotion
+			//
+			// This scenario verifies that:
+			// 1. Transactions are gossiped to all nodes BEFORE blocks are committed
+			// 2. Queued transactions (with nonce gaps) are NOT gossiped
+			// 3. When gaps are filled, queued txs are promoted and then gossiped
+			//
+			// Broadcasting Flow:
+			//   User -> JSON-RPC -> Mempool (pending) -> Gossip to peers
+			//   When nonce gap filled: Queued -> Promoted to pending -> Gossiped
 			name: "tx broadcast to other nodes %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
+					// Step 1: Send tx with nonce 0 to node0
+					// Expected: tx is added to node0's pending pool (nonce is correct)
 					signer := s.Acc(0)
 
 					// Send transaction to node0
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
-					// Verify the transaction appears in other nodes' mempools BEFORE any block is committed
-					// This proves transactions are broadcast via mempool gossip, not just block propagation
+					// Step 2: Verify tx appears in nodes 1, 2, 3 mempools within 3 seconds
+					// Expected: tx is gossiped to all nodes BEFORE any block is committed (5s timeout)
+					// This proves mempool gossip works, not just block propagation
 					maxWaitTime := 3 * time.Second
 					checkInterval := 100 * time.Millisecond
 
@@ -82,14 +97,17 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					ctx.SetExpPendingTxs(tx1)
 				},
 				func(s *TestSuite, ctx *TestContext) {
-					// Test with nonce-gapped transactions to verify rebroadcast/promotion
+					// Step 3: Send tx with nonce 2 to node1 (creating a nonce gap)
+					// Current nonce is 1 (after previous tx), so nonce 2 creates a gap
+					// Expected: tx is added to node1's QUEUED pool (not pending due to gap)
 					signer := s.Acc(0)
 
 					// Send tx with nonce 2 to node1 (creating a gap since current nonce is 1)
 					tx3, err := s.SendTx(t, s.Node(1), signer.ID, 2, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx with nonce 2")
 
-					// This transaction should be queued on node1, not pending
+					// Step 4: Verify tx is in node1's QUEUED pool (not pending)
+					// Queued txs cannot execute until the nonce gap is filled
 					maxWaitTime := 2 * time.Second
 					checkInterval := 100 * time.Millisecond
 
@@ -120,8 +138,9 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 						}
 					}
 
-					// Verify the queued transaction is NOT broadcast to other nodes
-					// (queued txs should not be gossiped)
+					// Step 5: Verify queued tx is NOT gossiped to other nodes
+					// Queued txs should stay local until they become pending (executable)
+					// This prevents network spam from non-executable transactions
 					time.Sleep(1 * time.Second) // Give some time for any potential gossip
 
 					for _, nodeIdx := range []int{0, 2, 3} {
@@ -135,12 +154,16 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							"queued transaction should not be broadcast to %s", nodeID)
 					}
 
-					// Now send the missing transaction (nonce 1)
+					// Step 6: Send tx with nonce 1 to node2 (filling the gap)
+					// Expected: tx is added to node2's pending pool and gossiped
 					tx2, err := s.SendTx(t, s.Node(2), signer.ID, 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx with nonce 1")
 
-					// tx2 should be broadcast to all nodes
-					// tx3 should be promoted to pending on node1 and then broadcast to all nodes
+					// Step 7: Verify BOTH txs appear in all nodes' pending pools
+					// - tx2 (nonce=1) should be gossiped immediately (it's pending)
+					// - tx3 (nonce=2) should be promoted from queued to pending on node1
+					// - Promoted tx3 should then be gossiped to all other nodes
+					// This proves queued txs get rebroadcast when promoted
 					maxWaitTime = 3 * time.Second
 					ticker2 := time.NewTicker(checkInterval)
 					defer ticker2.Stop()
@@ -194,22 +217,33 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			},
 		},
 		{
+			// Scenario 2: Duplicate Detection on Same Node
+			//
+			// This scenario verifies that when a user submits the same transaction twice
+			// to the same node via JSON-RPC, the second submission returns an error.
+			//
+			// Error Handling:
+			//   RPC Layer: Checks mempool.Has(txHash) -> returns txpool.ErrAlreadyKnown
+			//   Users get immediate error feedback (not silent failure)
 			name: "duplicate tx rejected on same node %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
+					// Step 1: Send tx with nonce 3 to node0
+					// Expected: tx is accepted and added to pending pool
 					signer := s.Acc(0)
 
 					// Send transaction to node0
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 3, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
-					// Verify the transaction is in the pool
+					// Step 2: Verify tx is in node0's pending pool
 					pendingTxs, _, err := s.TxPoolContent(s.Node(0), suite.TxTypeEVM, 5*time.Second)
 					require.NoError(t, err)
 					require.Contains(t, pendingTxs, tx1.TxHash, "transaction should be in pending pool")
 
-					// Send the SAME transaction again to the same node via JSON-RPC
-					// This should return an error - users need to know when they're sending duplicates
+					// Step 3: Send the SAME transaction again to node0 via JSON-RPC
+					// Expected: Error returned (txpool.ErrAlreadyKnown)
+					// Users must receive error feedback for duplicate submissions
 					_, err = s.SendTx(t, s.Node(0), signer.ID, 3, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC must return error")
 					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
@@ -221,16 +255,32 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			},
 		},
 		{
+			// Scenario 3: Duplicate Detection After Gossip
+			//
+			// This scenario verifies that even when a node receives a transaction via
+			// internal gossip (not user submission), attempting to submit that same
+			// transaction again via JSON-RPC returns an error.
+			//
+			// Flow:
+			//   1. User submits tx to node0 -> added to mempool -> gossiped to node1
+			//   2. User tries to submit same tx to node1 via JSON-RPC
+			//   3. RPC layer detects duplicate (mempool.Has) and returns error
+			//
+			// This ensures duplicate detection works regardless of how the node
+			// originally received the transaction (user submission vs gossip).
 			name: "duplicate tx rejected after gossip %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
+					// Step 1: Send tx with nonce 4 to node0
+					// Expected: tx is accepted, added to pending, and gossiped
 					signer := s.Acc(0)
 
 					// Send transaction to node0
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 4, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
-					// Wait for it to be broadcast to node1 via gossip
+					// Step 2: Wait for tx to be gossiped to node1
+					// Expected: tx appears in node1's pending pool within 3 seconds
 					maxWaitTime := 3 * time.Second
 					checkInterval := 100 * time.Millisecond
 
@@ -260,8 +310,10 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 						}
 					}
 
-					// Now try to send the same transaction to node1 via JSON-RPC
-					// Even though node1 already has it from gossip, JSON-RPC submission should error
+					// Step 3: Try to send the SAME transaction to node1 via JSON-RPC
+					// Expected: Error returned (txpool.ErrAlreadyKnown)
+					// Even though node1 received it via gossip (not user submission),
+					// the RPC layer should still detect and reject the duplicate
 					_, err = s.SendTx(t, s.Node(1), signer.ID, 4, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC should return error even after gossip")
 					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
