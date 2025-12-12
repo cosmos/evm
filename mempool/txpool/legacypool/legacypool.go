@@ -1205,8 +1205,7 @@ func (pool *LegacyPool) Has(hash common.Hash) bool {
 	return pool.all.Get(hash) != nil
 }
 
-// RemoveTx removes a single transaction from the queue, moving all subsequent
-// transactions back to the future queue.
+// RemoveTx removes a single transaction from the queue.
 //
 // Returns the number of transactions removed from the pending queue.
 func (pool *LegacyPool) RemoveTx(hash common.Hash, opts ...txpool.RemoveTxOption) int {
@@ -1215,16 +1214,7 @@ func (pool *LegacyPool) RemoveTx(hash common.Hash, opts ...txpool.RemoveTxOption
 	return pool.removeTx(hash, opts...)
 }
 
-// removeTx removes a single transaction from the queue, moving all subsequent
-// transactions back to the future queue.
-//
-// If unreserve is false, the account will not be relinquished to the main txpool
-// even if there are no more references to it. This is used to handle a race when
-// a tx being added, and it evicts a previously scheduled tx from the same account,
-// which could lead to a premature release of the lock.
-//
-// If strict is true, is true, removing a tx from the pending pool will also
-// demote all subsequent pending txs for this account to the queued pool.
+// removeTx removes a single transaction from the queue.
 //
 // Returns the number of transactions removed from the pending queue.
 //
