@@ -152,20 +152,20 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 	}
 
 	defer func() {
-		telemetry.IncrCounterWithLabels( //nolint:staticcheck
+		telemetry.IncrCounterWithLabels(
 			[]string{"tx", "msg", "convert", "erc20", "total"},
 			1,
 			[]metrics.Label{
-				telemetry.NewLabel("coin", pair.Denom), //nolint:staticcheck
+				telemetry.NewLabel("coin", pair.Denom),
 			},
 		)
 
 		if msg.Amount.IsInt64() {
-			telemetry.IncrCounterWithLabels( //nolint:staticcheck
+			telemetry.IncrCounterWithLabels(
 				[]string{"tx", "msg", "convert", "erc20", "amount", "total"},
 				float32(msg.Amount.Int64()),
 				[]metrics.Label{
-					telemetry.NewLabel("denom", pair.Denom), //nolint:staticcheck
+					telemetry.NewLabel("denom", pair.Denom),
 				},
 			)
 		}

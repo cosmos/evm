@@ -75,11 +75,11 @@ func (k Keeper) Transfer(goCtx context.Context, msg *types.MsgTransfer) (*types.
 	if balance.Amount.GTE(msg.Token.Amount) {
 
 		defer func() {
-			telemetry.IncrCounterWithLabels( //nolint:staticcheck
+			telemetry.IncrCounterWithLabels(
 				[]string{"erc20", "ibc", "transfer", "total"},
 				1,
 				[]metrics.Label{
-					telemetry.NewLabel("denom", pair.Denom), //nolint:staticcheck
+					telemetry.NewLabel("denom", pair.Denom),
 				},
 			)
 		}()
@@ -104,11 +104,11 @@ func (k Keeper) Transfer(goCtx context.Context, msg *types.MsgTransfer) (*types.
 	}
 
 	defer func() {
-		telemetry.IncrCounterWithLabels( //nolint:staticcheck
+		telemetry.IncrCounterWithLabels(
 			[]string{"erc20", "ibc", "transfer", "total"},
 			1,
 			[]metrics.Label{
-				telemetry.NewLabel("denom", pair.Denom), //nolint:staticcheck
+				telemetry.NewLabel("denom", pair.Denom),
 			},
 		)
 	}()

@@ -139,13 +139,13 @@ func (k Keeper) OnRecvPacket(
 		}
 
 		// For now the only case we are interested in adding telemetry is a successful conversion.
-		telemetry.IncrCounterWithLabels( //nolint:staticcheck
+		telemetry.IncrCounterWithLabels(
 			[]string{types.ModuleName, "ibc", "on_recv", "total"},
 			1,
 			[]metrics.Label{
-				telemetry.NewLabel("denom", coin.Denom),                    //nolint:staticcheck
-				telemetry.NewLabel("source_channel", packet.SourceChannel), //nolint:staticcheck
-				telemetry.NewLabel("source_port", packet.SourcePort),       //nolint:staticcheck
+				telemetry.NewLabel("denom", coin.Denom),
+				telemetry.NewLabel("source_channel", packet.SourceChannel),
+				telemetry.NewLabel("source_port", packet.SourcePort),
 			},
 		)
 	}
@@ -237,7 +237,7 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(sender), sender); err != nil {
 			// We want to record only the failed attempt to reconvert the coins during IBC.
 			defer func() {
-				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total") //nolint:staticcheck
+				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total")
 			}()
 			ctx.EventManager().EmitEvents(
 				sdk.Events{
