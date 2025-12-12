@@ -491,11 +491,16 @@ func (l *list) Remove(tx *types.Transaction, strict *bool) (bool, types.Transact
 	}
 	l.subTotalCost([]*types.Transaction{tx})
 
-	// If strict param is non nil, the user wants to override default behavior
-	override := (strict != nil && *strict)
+	// If strict param is non nil, the user wants to override the lists default
+	// strict behavior
+	var filterNonExecutables bool
+	if strict != nil {
+		filterNonExecutables = *strict
+	} else {
+		filterNonExecutables = l.strict
+	}
 
-	// In strict mode, filter out non-executable transactions
-	if override || l.strict {
+	if filterNonExecutables {
 		fmt.Println("STRICT!!! DEQUEUING SUBSEQUENT")
 		txs := l.txs.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > nonce })
 		l.subTotalCost(txs)
