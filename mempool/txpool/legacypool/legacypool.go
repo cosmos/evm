@@ -1589,6 +1589,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		for _, tx := range caps {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
+			pool.markTxRemoved(tx, Queue)
 			queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 		}
@@ -1654,6 +1655,7 @@ func (pool *LegacyPool) truncatePending() {
 						// Drop the transaction from the global pools too
 						hash := tx.Hash()
 						pool.all.Remove(hash)
+						pool.markTxRemoved(tx, Pending)
 						pendingRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 
 						// Update the account nonce to the dropped transaction
@@ -1680,6 +1682,7 @@ func (pool *LegacyPool) truncatePending() {
 					// Drop the transaction from the global pools too
 					hash := tx.Hash()
 					pool.all.Remove(hash)
+					pool.markTxRemoved(tx, Queue)
 					pendingRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 
 					// Update the account nonce to the dropped transaction
