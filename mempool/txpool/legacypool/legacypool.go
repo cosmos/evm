@@ -175,6 +175,13 @@ var (
 	reheapTimer = metrics.NewRegisteredTimer("txpool/reheap", nil)
 )
 
+type PoolType string
+
+const (
+	Pending PoolType = "pending"
+	Queue   PoolType = "queue"
+)
+
 // BlockChain defines the minimal set of methods needed to back a tx pool with
 // a chain. Exists to allow mocking the live chain out of tests.
 type BlockChain interface {
@@ -336,7 +343,9 @@ type LegacyPool struct {
 	OnTxPromoted func(tx *types.Transaction)
 	// OnTxRemoved is called when a tx is removed from the mempool (either
 	// explicitly via RemoveTx or implicitly during Reset)
-	OnTxRemoved func(tx *types.Transaction)
+	OnTxRemoved func(tx *types.Transaction, pool PoolType)
+	// OnTxRemoved is called when a tx is added to the queued pool
+	OnTxEnqueued func(tx *types.Transaction)
 }
 
 type txpoolResetRequest struct {
@@ -886,7 +895,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		if old != nil {
 			pool.all.Remove(old.Hash())
 			pool.priced.Removed(1)
-			pool.markTxRemoved(old)
+			pool.markTxRemoved(old, Pending)
 			pendingReplaceMeter.Mark(1)
 		}
 		pool.all.Add(tx)
@@ -956,6 +965,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
 		queuedReplaceMeter.Mark(1)
+		pool.markTxRemoved(old, Queue)
 	} else {
 		// Nothing was replaced, bump the queued counter
 		queuedGauge.Inc(1)
@@ -973,6 +983,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 	if _, exist := pool.beats[from]; !exist {
 		pool.beats[from] = time.Now()
 	}
+	pool.markTxEnqueued(tx)
 	return old != nil, nil
 }
 
@@ -992,7 +1003,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 		// An older transaction was better, discard this
 		pool.all.Remove(hash)
 		pool.priced.Removed(1)
-		pool.markTxRemoved(tx)
+		pool.markTxRemoved(tx, Queue)
 		pendingDiscardMeter.Mark(1)
 		return false
 	}
@@ -1000,7 +1011,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 	if old != nil {
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
-		pool.markTxRemoved(old)
+		pool.markTxRemoved(old, Pending)
 		pendingReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the pending counter
@@ -1239,7 +1250,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// Remove the transaction from the pending lists and reset the account nonce
 	if pending := pool.pending[addr]; pending != nil {
 		if removed, invalids := pending.Remove(tx); removed {
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Pending)
 			pendingRemovalMetric(reason).Mark(1)
 
 			// If no more pending transactions are left, remove the list
@@ -1262,7 +1273,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// Transaction is in the future queue
 	if future := pool.queue[addr]; future != nil {
 		if removed, _ := future.Remove(tx); removed {
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Queue)
 			queueRemovalMetric(reason).Mark(1)
 
 			// Reduce the queued counter
@@ -1519,7 +1530,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		forwards := list.Forward(pool.currentState.GetNonce(addr))
 		for _, tx := range forwards {
 			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Queue)
 			queueRemovalMetric(RemovalReasonOld).Mark(1)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
@@ -1527,7 +1538,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range costDrops {
 			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Queue)
 			queueRemovalMetric(RemovalReasonCostly).Mark(1)
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
@@ -1553,7 +1564,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		})
 		for _, tx := range recheckDrops {
 			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Queue)
 		}
 		log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
 		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
@@ -1578,6 +1589,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		for _, tx := range caps {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
+			pool.markTxRemoved(tx, Queue)
 			queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 		}
@@ -1643,6 +1655,7 @@ func (pool *LegacyPool) truncatePending() {
 						// Drop the transaction from the global pools too
 						hash := tx.Hash()
 						pool.all.Remove(hash)
+						pool.markTxRemoved(tx, Pending)
 						pendingRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 
 						// Update the account nonce to the dropped transaction
@@ -1669,6 +1682,7 @@ func (pool *LegacyPool) truncatePending() {
 					// Drop the transaction from the global pools too
 					hash := tx.Hash()
 					pool.all.Remove(hash)
+					pool.markTxRemoved(tx, Queue)
 					pendingRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 
 					// Update the account nonce to the dropped transaction
@@ -1745,7 +1759,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range olds {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Pending)
 			log.Trace("Removed old pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonOld).Mark(1)
 		}
@@ -1754,7 +1768,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range drops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Pending)
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonCostly).Mark(1)
 		}
@@ -1783,7 +1797,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range recheckDrops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx)
+			pool.markTxRemoved(tx, Pending)
 			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
 		}
 		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
@@ -2140,9 +2154,16 @@ func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
 }
 
 // markTxRemoved calls the OnTxRemoved callback if it has been supplied.
-func (pool *LegacyPool) markTxRemoved(tx *types.Transaction) {
+func (pool *LegacyPool) markTxRemoved(tx *types.Transaction, p PoolType) {
 	if pool.OnTxRemoved != nil {
-		pool.OnTxRemoved(tx)
+		pool.OnTxRemoved(tx, p)
+	}
+}
+
+// markTxEnqueued calls the OnTxEnqueued callback if it has been supplied.
+func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
+	if pool.OnTxEnqueued != nil {
+		pool.OnTxEnqueued(tx)
 	}
 }
 

@@ -91,6 +91,10 @@ linters:
       - linters:
           - stylecheck
         text: 'ST1001:'
+      # todo: krakatoa specific (using deprecated metrics)
+      - linters:
+          - staticcheck
+        text: 'SA1019:.*(telemetry\.New|NewLabel|SetGaugeWithLabels|IncrCounterWithLabels|SetGauge|OpenTelemetry|IncrCounter)'
     paths:
       - x/vm/core
       - mempool/txpool
