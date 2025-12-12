@@ -93,18 +93,33 @@ type RemovalReason string
 
 // RemoveTxConfig configures how txs should be removed from the Subpool.
 type RemoveTxConfig struct {
-	OutOfBound     bool
-	Unreserve      bool
+	// OutOfBound configures if the tx should be removed from the priced list
+	// as well.
+	OutOfBound bool
+
+	// Unreserve configures if teh account will be relinquished to the main
+	// txpool even if there are no references to it.
+	Unreserve bool
+
+	// StrictOverride determines if txs after the removed tx will also be
+	// removed.
 	StrictOverride *bool
-	Reason         RemovalReason
+
+	// Reason is the reason why this tx is being removed. Used for metrics.
+	Reason RemovalReason
 }
 
+// NewRemoveTxConfig creates a new set of configuration options for removing
+// txs.
 func NewRemoveTxConfig() *RemoveTxConfig {
 	return &RemoveTxConfig{}
 }
 
+// RemoveTxOption sets values on a RemoveTxConfig
 type RemoveTxOption func(opts *RemoveTxConfig)
 
+// WithOutOfBound configures if the tx should be removed from the priced list
+// as well.
 func WithOutOfBound() RemoveTxOption {
 	return func(opts *RemoveTxConfig) {
 		opts.OutOfBound = true
