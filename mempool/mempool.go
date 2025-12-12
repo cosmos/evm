@@ -426,7 +426,7 @@ func (m *ExperimentalEVMMempool) HasEventBus() bool {
 }
 
 // Has returns true if the transaction with the given hash is already in the mempool.
-// This checks both the legacy pool and the main tx pool for EVM transactions.
+// This checks tx pool for EVM transactions, which iterates through all pools (currently only legacypool)
 func (m *ExperimentalEVMMempool) Has(hash common.Hash) bool {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
