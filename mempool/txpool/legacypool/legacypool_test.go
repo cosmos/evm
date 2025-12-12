@@ -568,7 +568,7 @@ func TestChainFork(t *testing.T) {
 	if _, err := pool.add(tx); err != nil {
 		t.Error("didn't expect error", err)
 	}
-	pool.removeTx(tx.Hash(), true, true, txpool.RemovalReason(""))
+	pool.removeTx(tx.Hash(), txpool.WithOutOfBound(), txpool.WithUnreserve())
 
 	// reset the pool's internal state
 	resetState()
@@ -2664,7 +2664,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for _, hash := range hashes {
-			_ = pool.RemoveTx(hash, false, true, "")
+			_ = pool.RemoveTx(hash, txpool.WithUnreserve())
 		}
 	}()
 

@@ -59,6 +59,9 @@ const (
 	// more expensive to propagate; larger transactions also take more resources
 	// to validate whether they fit into the pool or not.
 	txMaxSize = 4 * txSlotSize // 128KB
+
+	queueStrict   = false
+	pendingStrict = true
 )
 
 var (
@@ -484,7 +487,12 @@ func (pool *LegacyPool) loop() {
 				if time.Since(pool.beats[addr]) > pool.config.Lifetime {
 					list := pool.queue[addr].Flatten()
 					for _, tx := range list {
-						pool.removeTx(tx.Hash(), true, true, RemovalReasonLifetime)
+						pool.removeTx(
+							tx.Hash(),
+							txpool.WithUnreserve(),
+							txpool.WithOutOfBound(),
+							txpool.WithRemovalReason(RemovalReasonLifetime),
+						)
 					}
 					queuedEvictionMeter.Mark(int64(len(list)))
 				}
@@ -537,7 +545,7 @@ func (pool *LegacyPool) SetGasTip(tip *big.Int) {
 		// pool.priced is sorted by GasFeeCap, so we have to iterate through pool.all instead
 		drop := pool.all.TxsBelowTip(tip)
 		for _, tx := range drop {
-			pool.removeTx(tx.Hash(), false, true, RemovalReasonBelowTip)
+			pool.removeTx(tx.Hash(), txpool.WithUnreserve(), txpool.WithRemovalReason(RemovalReasonBelowTip))
 		}
 		pool.priced.Removed(len(drop))
 	}
@@ -877,7 +885,13 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 			underpricedTxMeter.Mark(1)
 
 			sender, _ := types.Sender(pool.signer, tx)
-			dropped := pool.removeTx(tx.Hash(), false, sender != from, RemovalReasonUnderpricedFull) // Don't unreserve the sender of the tx being added if last from the acc
+			opts := []txpool.RemoveTxOption{txpool.WithRemovalReason(RemovalReasonUnderpricedFull)}
+			if sender != from {
+				// Don't unreserve the sender of the tx being added if last
+				// from the acc
+				opts = append(opts, txpool.WithUnreserve())
+			}
+			dropped := pool.removeTx(tx.Hash(), opts...)
 
 			pool.changesSinceReorg += dropped
 		}
@@ -952,7 +966,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
-		pool.queue[from] = newList(false)
+		pool.queue[from] = newList(queueStrict)
 	}
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
 	if !inserted {
@@ -994,7 +1008,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) bool {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newList(true)
+		pool.pending[addr] = newList(pendingStrict)
 	}
 	list := pool.pending[addr]
 
@@ -1197,16 +1211,11 @@ func (pool *LegacyPool) Has(hash common.Hash) bool {
 // RemoveTx removes a single transaction from the queue, moving all subsequent
 // transactions back to the future queue.
 //
-// In unreserve is false, the account will not be relinquished to the main txpool
-// even if there are no more references to it. This is used to handle a race when
-// a tx being added, and it evicts a previously scheduled tx from the same account,
-// which could lead to a premature release of the lock.
-//
 // Returns the number of transactions removed from the pending queue.
-func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason txpool.RemovalReason) int {
+func (pool *LegacyPool) RemoveTx(hash common.Hash, opts ...txpool.RemoveTxOption) int {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-	return pool.removeTx(hash, outofbound, unreserve, reason)
+	return pool.removeTx(hash, opts...)
 }
 
 // removeTx removes a single transaction from the queue, moving all subsequent
@@ -1217,10 +1226,18 @@ func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bo
 // a tx being added, and it evicts a previously scheduled tx from the same account,
 // which could lead to a premature release of the lock.
 //
+// If strict is true, is true, removing a tx from the pending pool will also
+// demote all subsequent pending txs for this account to the queued pool.
+//
 // Returns the number of transactions removed from the pending queue.
 //
 // The transaction pool lock must be held.
-func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bool, reason txpool.RemovalReason) int {
+func (pool *LegacyPool) removeTx(hash common.Hash, opts ...txpool.RemoveTxOption) int {
+	config := txpool.NewRemoveTxConfig()
+	for _, opt := range opts {
+		opt(config)
+	}
+
 	// Fetch the transaction we wish to delete
 	tx := pool.all.Get(hash)
 	if tx == nil {
@@ -1231,7 +1248,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// If after deletion there are no more transactions belonging to this account,
 	// relinquish the address reservation. It's a bit convoluted do this, via a
 	// defer, but it's safer vs. the many return pathways.
-	if unreserve {
+	if config.Unreserve {
 		defer func() {
 			var (
 				_, hasPending = pool.pending[addr]
@@ -1244,14 +1261,14 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	}
 	// Remove it from the list of known transactions
 	pool.all.Remove(hash)
-	if outofbound {
+	if config.OutOfBound {
 		pool.priced.Removed(1)
 	}
 	// Remove the transaction from the pending lists and reset the account nonce
 	if pending := pool.pending[addr]; pending != nil {
-		if removed, invalids := pending.Remove(tx); removed {
+		if removed, invalids := pending.Remove(tx, config.StrictOverride); removed {
 			pool.markTxRemoved(tx, Pending)
-			pendingRemovalMetric(reason).Mark(1)
+			pendingRemovalMetric(config.Reason).Mark(1)
 
 			// If no more pending transactions are left, remove the list
 			if pending.Empty() {
@@ -1272,9 +1289,9 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	}
 	// Transaction is in the future queue
 	if future := pool.queue[addr]; future != nil {
-		if removed, _ := future.Remove(tx); removed {
+		if removed, _ := future.Remove(tx, config.StrictOverride); removed {
 			pool.markTxRemoved(tx, Queue)
-			queueRemovalMetric(reason).Mark(1)
+			queueRemovalMetric(config.Reason).Mark(1)
 
 			// Reduce the queued counter
 			queuedGauge.Dec(1)
@@ -1725,7 +1742,7 @@ func (pool *LegacyPool) truncateQueue() {
 		// Drop all transactions if they are less than the overflow
 		if size := uint64(list.Len()); size <= drop {
 			for _, tx := range list.Flatten() {
-				pool.removeTx(tx.Hash(), true, true, RemovalReasonTruncatedOverflow)
+				pool.removeTx(tx.Hash(), txpool.WithOutOfBound(), txpool.WithUnreserve(), txpool.WithRemovalReason(RemovalReasonTruncatedOverflow))
 			}
 			drop -= size
 			queuedRateLimitMeter.Mark(int64(size))
@@ -1734,7 +1751,7 @@ func (pool *LegacyPool) truncateQueue() {
 		// Otherwise drop only last few transactions
 		txs := list.Flatten()
 		for i := len(txs) - 1; i >= 0 && drop > 0; i-- {
-			pool.removeTx(txs[i].Hash(), true, true, RemovalReasonTruncatedLast)
+			pool.removeTx(txs[i].Hash(), txpool.WithOutOfBound(), txpool.WithUnreserve(), txpool.WithRemovalReason(RemovalReasonTruncatedLast))
 			drop--
 			queuedRateLimitMeter.Mark(1)
 		}

@@ -18,6 +18,7 @@ package legacypool
 
 import (
 	"container/heap"
+	"fmt"
 	"math"
 	"math/big"
 	"slices"
@@ -479,15 +480,23 @@ func (l *list) Cap(threshold int) types.Transactions {
 // Remove deletes a transaction from the maintained list, returning whether the
 // transaction was found, and also returning any transaction invalidated due to
 // the deletion (strict mode only).
-func (l *list) Remove(tx *types.Transaction) (bool, types.Transactions) {
+//
+// If the strict parameter is non nil, it will override the lists default strict
+// behavior that was set when it was constructed.
+func (l *list) Remove(tx *types.Transaction, strict *bool) (bool, types.Transactions) {
 	// Remove the transaction from the set
 	nonce := tx.Nonce()
 	if removed := l.txs.Remove(nonce); !removed {
 		return false, nil
 	}
 	l.subTotalCost([]*types.Transaction{tx})
+
+	// If strict param is non nil, the user wants to override default behavior
+	override := (strict != nil && *strict)
+
 	// In strict mode, filter out non-executable transactions
-	if l.strict {
+	if override || l.strict {
+		fmt.Println("STRICT!!! DEQUEUING SUBSEQUENT")
 		txs := l.txs.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > nonce })
 		l.subTotalCost(txs)
 		return true, txs
