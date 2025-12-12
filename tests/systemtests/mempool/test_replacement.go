@@ -153,52 +153,52 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, base *suite.BaseTestSuite) {
 		name    string
 		actions []func(*TestSuite, *TestContext)
 	}{
-		//{
-		//	name: "single pending tx submitted to same nodes %s",
-		//	actions: []func(*TestSuite, *TestContext){
-		//		func(s *TestSuite, ctx *TestContext) {
-		//			// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
-		//			// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
-		//			// After modifying CheckTxHandler, we can also modify this test case
-		//			// : high prio cosmos tx should replace low prio evm tx.
-		//			signer := s.Acc(0)
-		//			tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
-		//			require.NoError(t, err, "failed to send tx")
-		//			_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
-		//			require.NoError(t, err, "failed to send tx")
-		//
-		//			ctx.SetExpPendingTxs(tx1)
-		//		},
-		//	},
-		//},
-		//{
-		//	name: "multiple pending txs submitted to same nodes %s",
-		//	actions: []func(*TestSuite, *TestContext){
-		//		func(s *TestSuite, ctx *TestContext) {
-		//			// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
-		//			// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
-		//			// After modifying CheckTxHandler, we can also modify this test case
-		//			// : high prio cosmos tx should replace low prio evm tx.
-		//			signer := s.Acc(0)
-		//			tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
-		//			require.NoError(t, err, "failed to send tx")
-		//			_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
-		//			require.NoError(t, err, "failed to send tx")
-		//
-		//			tx3, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10), nil)
-		//			require.NoError(t, err, "failed to send tx")
-		//			_, err = s.SendTx(t, s.Node(1), signer.ID, 1, s.GasPriceMultiplier(20), big.NewInt(1))
-		//			require.NoError(t, err, "failed to send tx")
-		//
-		//			tx5, err := s.SendTx(t, s.Node(0), signer.ID, 2, s.GasPriceMultiplier(10), nil)
-		//			require.NoError(t, err, "failed to send tx")
-		//			_, err = s.SendTx(t, s.Node(1), signer.ID, 2, s.GasPriceMultiplier(20), big.NewInt(1))
-		//			require.NoError(t, err, "failed to send tx")
-		//
-		//			ctx.SetExpPendingTxs(tx1, tx3, tx5)
-		//		},
-		//	},
-		//},
+		{
+			name: "single pending tx submitted to same nodes %s",
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
+					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
+					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
+					// After modifying CheckTxHandler, we can also modify this test case
+					// : high prio cosmos tx should replace low prio evm tx.
+					signer := s.Acc(0)
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
+					require.NoError(t, err, "failed to send tx")
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
+					require.NoError(t, err, "failed to send tx")
+
+					ctx.SetExpPendingTxs(tx1)
+				},
+			},
+		},
+		{
+			name: "multiple pending txs submitted to same nodes %s",
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
+					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
+					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
+					// After modifying CheckTxHandler, we can also modify this test case
+					// : high prio cosmos tx should replace low prio evm tx.
+					signer := s.Acc(0)
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
+					require.NoError(t, err, "failed to send tx")
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
+					require.NoError(t, err, "failed to send tx")
+
+					tx3, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10), nil)
+					require.NoError(t, err, "failed to send tx")
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 1, s.GasPriceMultiplier(20), big.NewInt(1))
+					require.NoError(t, err, "failed to send tx")
+
+					tx5, err := s.SendTx(t, s.Node(0), signer.ID, 2, s.GasPriceMultiplier(10), nil)
+					require.NoError(t, err, "failed to send tx")
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 2, s.GasPriceMultiplier(20), big.NewInt(1))
+					require.NoError(t, err, "failed to send tx")
+
+					ctx.SetExpPendingTxs(tx1, tx3, tx5)
+				},
+			},
+		},
 	}
 
 	testOptions := []*suite.TestOptions{
