@@ -205,7 +205,19 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	suite.chainA.NextBlock()
 
 	// Verify minted balance
-	bal := evmAppA.GetErc20Keeper().BalanceOf(ctxA, contractData.ABI, contractAddr, common.BytesToAddress(senderAddr))
+	ethRes, err := evmAppA.GetEVMKeeper().CallEVM(
+		ctxA,
+		contractData.ABI,
+		common.BytesToAddress(senderAddr),
+		contractAddr,
+		false,
+		nil,
+		"balanceOf",
+		common.BytesToAddress(senderAddr),
+	)
+	var bal *big.Int
+	err = contractData.ABI.UnpackIntoInterface(&bal, "balanceOf", ethRes.Ret)
+	suite.Require().NoError(err)
 	suite.Require().Equal(big.NewInt(InitialTokenAmount), bal, "unexpected ERC20 balance")
 }
 
@@ -225,7 +237,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 
 	evmAppA.Erc20Keeper.GetTokenPair(suite.chainA.GetContext(), evmAppA.Erc20Keeper.GetTokenPairID(suite.chainA.GetContext(), bondDenom))
-	//evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
+	// evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
 
 	avail := evmAppA.Erc20Keeper.IsNativePrecompileAvailable(suite.chainA.GetContext(), common.HexToAddress("0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"))
 	suite.Require().True(avail)
@@ -452,7 +464,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			relayerBalance := GetBalance(relayerAddr)
 
 			// relay send
-			pathAToB.EndpointA.Chain.SenderAccount = evmAppA.AccountKeeper.GetAccount(suite.chainA.GetContext(), relayerAddr) //update account in the path as the sequence recorded in that object is out of date
+			pathAToB.EndpointA.Chain.SenderAccount = evmAppA.AccountKeeper.GetAccount(suite.chainA.GetContext(), relayerAddr) // update account in the path as the sequence recorded in that object is out of date
 			err = pathAToB.RelayPacket(packet)
 			suite.Require().NoError(err) // relay committed
 

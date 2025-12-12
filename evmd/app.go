@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -157,14 +156,12 @@ type EVMD struct {
 	appCodec          codec.Codec
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
-	clientCtx         client.Context
 
 	pendingTxListeners []evmante.PendingTxListener
 
 	// keys to access the substores
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	oKeys map[string]*storetypes.ObjectStoreKey
 
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
@@ -243,10 +240,13 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
+	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	tkeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey, feemarkettypes.TransientKey)
 	var nonTransientKeys []storetypes.StoreKey
 	for _, k := range keys {
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 
@@ -268,7 +268,7 @@ func NewExampleApp(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
-		tkeys:             tkeys,
+		oKeys:             oKeys,
 	}
 
 	// removed x/params: no ParamsKeeper initialization
@@ -302,6 +302,7 @@ func NewExampleApp(
 		authAddr,
 		logger,
 	)
+	app.BankKeeper = app.BankKeeper.WithObjStoreKey(oKeys[banktypes.ObjectStoreKey])
 
 	// optional: enable sign mode textual by overwriting the default tx config (after setting the bank keeper)
 	enabledSignModes := append(authtx.DefaultSignModes, signingtypes.SignMode_SIGN_MODE_TEXTUAL) //nolint:gocritic
@@ -427,7 +428,6 @@ func NewExampleApp(
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
-		tkeys[feemarkettypes.TransientKey],
 	)
 
 	// Set up PreciseBank keeper
@@ -446,7 +446,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], nonTransientKeys,
+		appCodec, keys[evmtypes.StoreKey], oKeys[evmtypes.ObjectKey], nonTransientKeys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
@@ -464,6 +464,7 @@ func NewExampleApp(
 			&app.Erc20Keeper,
 			&app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
+			app.IBCKeeper.ClientKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
 			appCodec,
@@ -631,8 +632,10 @@ func NewExampleApp(
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
 	// to get the full block gas used.
 	app.ModuleManager.SetOrderEndBlockers(
-		govtypes.ModuleName, stakingtypes.ModuleName,
-		authtypes.ModuleName, banktypes.ModuleName,
+		banktypes.ModuleName,
+		govtypes.ModuleName,
+		stakingtypes.ModuleName,
+		authtypes.ModuleName,
 
 		// Cosmos EVM EndBlockers
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
@@ -708,7 +711,7 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
-	app.MountTransientStores(tkeys)
+	app.MountObjectStores(oKeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
@@ -909,20 +912,6 @@ func (app *EVMD) GetKey(storeKey string) *storetypes.KVStoreKey {
 	return app.keys[storeKey]
 }
 
-// GetTKey returns the TransientStoreKey for the provided store key.
-//
-// NOTE: This is solely to be used for testing purposes.
-func (app *EVMD) GetTKey(storeKey string) *storetypes.TransientStoreKey {
-	return app.tkeys[storeKey]
-}
-
-// GetMemKey returns the MemStoreKey for the provided mem key.
-//
-// NOTE: This is solely used for testing purposes.
-func (app *EVMD) GetMemKey(storeKey string) *storetypes.MemoryStoreKey {
-	return app.memKeys[storeKey]
-}
-
 // SimulationManager implements the SimulationApp interface
 func (app *EVMD) SimulationManager() *module.SimulationManager {
 	return app.sm
@@ -1032,10 +1021,6 @@ func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
 	return app.AccountKeeper
 }
 
-func (app *EVMD) GetAuthzKeeper() authzkeeper.Keeper {
-	return app.AuthzKeeper
-}
-
 func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
 	return app.DistrKeeper
 }
@@ -1075,10 +1060,6 @@ func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
-}
-
-func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove this if possible
-	app.clientCtx = clientCtx
 }
 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.

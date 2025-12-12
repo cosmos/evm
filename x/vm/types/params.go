@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
@@ -14,6 +13,8 @@ import (
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
 	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
@@ -67,23 +68,18 @@ func NewParams(
 // DefaultParams returns default evm parameters
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMExtendedDenom,
+		EvmDenom:                sdk.DefaultBondDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
 		HistoryServeWindow:      DefaultHistoryServeWindow,
-		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: DefaultEVMExtendedDenom},
+		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: sdk.DefaultBondDenom},
 	}
 }
 
 // validateChannels checks if channels ids are valid
-func validateChannels(i interface{}) error {
-	channels, ok := i.([]string)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
+func validateChannels(channels []string) error {
 	for _, channel := range channels {
 		if err := host.ChannelIdentifierValidator(channel); err != nil {
 			return errorsmod.Wrap(
@@ -121,16 +117,6 @@ func (p Params) EIPs() []int {
 	return eips
 }
 
-// GetActiveStaticPrecompilesAddrs is a util function that the Active Precompiles
-// as a slice of addresses.
-func (p Params) GetActiveStaticPrecompilesAddrs() []common.Address {
-	precompiles := make([]common.Address, len(p.ActiveStaticPrecompiles))
-	for i, precompile := range p.ActiveStaticPrecompiles {
-		precompiles[i] = common.HexToAddress(precompile)
-	}
-	return precompiles
-}
-
 // IsEVMChannel returns true if the channel provided is in the list of
 // EVM channels
 func (p Params) IsEVMChannel(channel string) bool {
@@ -151,12 +137,7 @@ func (act AccessControlType) Validate() error {
 	return validateAllowlistAddresses(act.AccessControlList)
 }
 
-func validateAccessType(i interface{}) error {
-	accessType, ok := i.(AccessType)
-	if !ok {
-		return fmt.Errorf("invalid access type type: %T", i)
-	}
-
+func validateAccessType(accessType AccessType) error {
 	switch accessType {
 	case AccessTypePermissionless, AccessTypeRestricted, AccessTypePermissioned:
 		return nil
@@ -165,12 +146,7 @@ func validateAccessType(i interface{}) error {
 	}
 }
 
-func validateAllowlistAddresses(i interface{}) error {
-	addresses, ok := i.([]string)
-	if !ok {
-		return fmt.Errorf("invalid whitelist addresses type: %T", i)
-	}
-
+func validateAllowlistAddresses(addresses []string) error {
 	for _, address := range addresses {
 		if err := utils.ValidateAddress(address); err != nil {
 			return fmt.Errorf("invalid whitelist address: %s", address)
@@ -179,12 +155,7 @@ func validateAllowlistAddresses(i interface{}) error {
 	return nil
 }
 
-func validateEIPs(i interface{}) error {
-	eips, ok := i.([]int64)
-	if !ok {
-		return fmt.Errorf("invalid EIP slice type: %T", i)
-	}
-
+func validateEIPs(eips []int64) error {
 	uniqueEIPs := make(map[int64]struct{})
 
 	for _, eip := range eips {
@@ -203,12 +174,7 @@ func validateEIPs(i interface{}) error {
 }
 
 // ValidatePrecompiles checks if the precompile addresses are valid and unique.
-func ValidatePrecompiles(i interface{}) error {
-	precompiles, ok := i.([]string)
-	if !ok {
-		return fmt.Errorf("invalid precompile slice type: %T", i)
-	}
-
+func ValidatePrecompiles(precompiles []string) error {
 	seenPrecompiles := make(map[string]struct{})
 	for _, precompile := range precompiles {
 		if _, ok := seenPrecompiles[precompile]; ok {

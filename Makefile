@@ -156,7 +156,7 @@ test-race: run-tests
 
 test-evmd: ARGS=-timeout=15m
 test-evmd:
-	@cd evmd && go test -race -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
+	@cd evmd && go test -count=1 -race -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
 
 test-unit-cover: ARGS=-timeout=15m -coverprofile=coverage.txt -covermode=atomic
 test-unit-cover: TEST_PACKAGES=$(PACKAGES_UNIT)
@@ -169,8 +169,6 @@ test-unit-cover: run-tests
 	@tail -n +2 evmd/coverage_evmd.txt >> coverage.txt && rm evmd/coverage_evmd.txt
 	@echo "🧹 Filtering ignored files from coverage.txt..."
 	@grep -v -E '/cmd/|/client/|/proto/|/testutil/|/mocks/|/test_.*\.go:|\.pb\.go:|\.pb\.gw\.go:|/x/[^/]+/module\.go:|/scripts/|/ibc/testing/|/version/|\.md:|\.pulsar\.go:' coverage.txt > tmp_coverage.txt && mv tmp_coverage.txt coverage.txt
-	@echo "📊 Coverage summary:"
-	@go tool cover -func=coverage.txt
 
 test: test-unit
 
@@ -182,9 +180,9 @@ test-all:
 
 run-tests:
 ifneq (,$(shell which tparse 2>/dev/null))
-	go test -race -tags=test -mod=readonly -json $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES) | tparse
+	go test -count=1 -race -tags=test -mod=readonly -json $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES) | tparse
 else
-	go test -race -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES)
+	go test -count=1 -race -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES)
 endif
 
 # Use the old Apple linker to workaround broken xcode - https://github.com/golang/go/issues/65169
@@ -387,17 +385,17 @@ test-rpc-compat-stop:
 
 .PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
 
-test-system: build-v04 build
+test-system: build-v05 build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
 	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
-build-v04:
-	mkdir -p ./tests/systemtests/binaries/v0.4
-	git checkout v0.4.1
+build-v05:
+	mkdir -p ./tests/systemtests/binaries/v0.5
+	git checkout v0.5.0
 	make build
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.4
+	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.5
 	git checkout -
 
 mocks:

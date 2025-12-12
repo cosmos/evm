@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"fmt"
+
 	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log"
@@ -38,7 +39,6 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.txConfig,
-		app.clientCtx,
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)

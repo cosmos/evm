@@ -753,7 +753,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 			s.SetupTest()
 			vmdb := statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewTxConfig(
 				tc.hash,
-				0, 0,
+				0,
 			))
 			tc.malleate(vmdb)
 
@@ -984,7 +984,7 @@ func (s *KeeperTestSuite) TestSetBalance() {
 			},
 			false,
 			func() *uint256.Int {
-				return common.U2560.Add(totalBalance, amount)
+				return uint256.NewInt(0).Add(totalBalance, amount)
 			},
 		},
 		{

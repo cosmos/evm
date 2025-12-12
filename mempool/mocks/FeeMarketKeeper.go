@@ -35,7 +35,8 @@ func (_m *FeeMarketKeeper) GetBlockGasWanted(ctx types.Context) uint64 {
 func NewFeeMarketKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *FeeMarketKeeper {
+},
+) *FeeMarketKeeper {
 	mock := &FeeMarketKeeper{}
 	mock.Mock.Test(t)
 

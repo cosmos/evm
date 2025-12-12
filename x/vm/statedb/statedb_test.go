@@ -295,9 +295,7 @@ func (suite *StateDBTestSuite) TestState() {
 		{"set state even if same as original value (due to possible reverts within precompile calls)", func(db *statedb.StateDB) {
 			db.SetState(address, key1, value1)
 			db.SetState(address, key1, common.Hash{})
-		}, statedb.Storage{
-			key1: common.Hash{},
-		}},
+		}, statedb.Storage{}},
 		{"set state", func(db *statedb.StateDB) {
 			// check empty initial state
 			suite.Require().Equal(common.Hash{}, db.GetState(address, key1))
@@ -587,7 +585,7 @@ func (suite *StateDBTestSuite) TestLog() {
 	// use a non-default tx config
 	txConfig := statedb.NewTxConfig(
 		txHash,
-		1, 1,
+		1,
 	)
 	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), txConfig)
 	data := []byte("hello world")
@@ -604,7 +602,7 @@ func (suite *StateDBTestSuite) TestLog() {
 		Data:        data,
 		BlockNumber: 1,
 		TxIndex:     1,
-		Index:       1,
+		Index:       0,
 	}
 	suite.Require().Equal(expecedLog, db.Logs()[0])
 

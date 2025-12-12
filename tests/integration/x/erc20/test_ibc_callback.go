@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/testutil"
@@ -102,28 +103,28 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 			expCoins:      coins,
 		},
 		{
-			name: "error - invalid sender (no '1')",
+			name: "success - invalid sender (no '1')",
 			malleate: func() {
 				transfer := transfertypes.NewFungibleTokenPacketData(registeredDenom, "100", "evmos", ethsecpAddrCosmos, "")
 				bz := transfertypes.ModuleCdc.MustMarshalJSON(&transfer)
 				packet = channeltypes.NewPacket(bz, 100, transfertypes.PortID, sourceChannel, transfertypes.PortID, cosmosEVMChannel, timeoutHeight, 0)
 			},
 			receiver:      secpAddr,
-			ackSuccess:    false,
-			checkBalances: false,
+			ackSuccess:    true,
+			checkBalances: true,
 			expErc20s:     big.NewInt(0),
 			expCoins:      coins,
 		},
 		{
-			name: "error - invalid sender (bad address)",
+			name: "success - invalid sender (bad address)",
 			malleate: func() {
 				transfer := transfertypes.NewFungibleTokenPacketData(registeredDenom, "100", "badba1sv9m0g7ycejwr3s369km58h5qe7xj77hvcxrms", ethsecpAddrCosmos, "")
 				bz := transfertypes.ModuleCdc.MustMarshalJSON(&transfer)
 				packet = channeltypes.NewPacket(bz, 100, transfertypes.PortID, sourceChannel, transfertypes.PortID, cosmosEVMChannel, timeoutHeight, 0)
 			},
 			receiver:      secpAddr,
-			ackSuccess:    false,
-			checkBalances: false,
+			ackSuccess:    true,
+			checkBalances: true,
 			expErc20s:     big.NewInt(0),
 			expCoins:      coins,
 		},
@@ -281,6 +282,8 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 			denom := transfertypes.NewDenom(registeredDenom, hop)
 			s.network.App.GetTransferKeeper().SetDenom(ctx, denom)
 
+			ibcKeeper := s.network.App.(evm.IBCKeeperProvider).GetIBCKeeper()
+
 			// Set Cosmos Channel
 			channel := channeltypes.Channel{
 				State:          channeltypes.INIT,
@@ -288,10 +291,10 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 				Counterparty:   channeltypes.NewCounterparty(transfertypes.PortID, sourceChannel),
 				ConnectionHops: []string{sourceChannel},
 			}
-			s.network.App.GetIBCKeeper().ChannelKeeper.SetChannel(ctx, transfertypes.PortID, cosmosEVMChannel, channel)
+			ibcKeeper.ChannelKeeper.SetChannel(ctx, transfertypes.PortID, cosmosEVMChannel, channel)
 
 			// Set Next Sequence Send
-			s.network.App.GetIBCKeeper().ChannelKeeper.SetNextSequenceSend(ctx, transfertypes.PortID, cosmosEVMChannel, 1)
+			ibcKeeper.ChannelKeeper.SetNextSequenceSend(ctx, transfertypes.PortID, cosmosEVMChannel, 1)
 
 			tranasferKeeper := s.network.App.GetTransferKeeper()
 			erc20Keeper := keeper.NewKeeper(

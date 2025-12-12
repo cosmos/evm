@@ -61,7 +61,6 @@ type Application interface {
 	types.Application
 	AppWithPendingTxStream
 	GetMempool() sdkmempool.ExtMempool
-	SetClientCtx(clientCtx client.Context)
 }
 
 // AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
@@ -137,7 +136,7 @@ which accepts a path for the resulting pprof file.
 			if !withbft {
 				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
-					return startStandAlone(serverCtx, clientCtx, opts)
+					return startStandAlone(serverCtx, opts)
 				})
 			}
 
@@ -184,7 +183,12 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint(server.FlagInvCheckPeriod, 0, "Assert registered invariants every N blocks")
 	cmd.Flags().Uint64(server.FlagMinRetainBlocks, 0, "Minimum block height offset during ABCI commit to prune CometBFT blocks")
 	cmd.Flags().String(srvflags.AppDBBackend, "", "The type of database for application and snapshots databases")
-	cmd.Flags().Int32(server.FlagMempoolMaxTxs, 0, "The maximum number of transactions in the mempool")
+
+	cmd.Flags().Int(server.FlagMempoolMaxTxs, 0, "The maximum number of transactions in the mempool")
+	// explicitly override the app.toml default value, as normally config file takes precedence over flag defaults
+	if err := cmd.Flags().Set(server.FlagMempoolMaxTxs, "0"); err != nil {
+		panic(err)
+	}
 
 	cmd.Flags().Bool(srvflags.GRPCOnly, false, "Start the node in gRPC query only mode without CometBFT process")
 	cmd.Flags().Bool(srvflags.GRPCEnable, cosmosevmserverconfig.DefaultGRPCEnable, "Define if the gRPC server should be enabled")
@@ -247,7 +251,7 @@ which accepts a path for the resulting pprof file.
 // Parameters:
 // - svrCtx: The context object that holds server configurations, logger, and other stateful information.
 // - opts: Options for starting the server, including functions for creating the application and opening the database.
-func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts StartOptions) error {
+func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 	addr := svrCtx.Viper.GetString(srvflags.Address)
 	transport := svrCtx.Viper.GetString(srvflags.Transport)
 	home := svrCtx.Viper.GetString(flags.FlagHome)
@@ -278,11 +282,6 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
-	evmApp, ok := app.(Application)
-	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
-	}
-	evmApp.SetClientCtx(clientCtx)
 
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
@@ -401,7 +400,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	if !ok {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
 	}
-	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {
@@ -463,6 +461,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		app.RegisterTxService(clientCtx)
 		app.RegisterTendermintService(clientCtx)
 		app.RegisterNodeService(clientCtx, config.Config)
+
+		// Set the clientCtx into the mempool
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+			m.SetClientCtx(clientCtx)
+		}
 	}
 
 	metrics, err := startTelemetry(config)
@@ -569,7 +572,7 @@ func OpenIndexerDB(rootDir string, backendType dbm.BackendType) (dbm.DB, error) 
 // - traceWriterFile: The path to the trace store file. If this is an empty string, no file will be opened.
 func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	if traceWriterFile == "" {
-		return
+		return w, err
 	}
 
 	filePath := filepath.Clean(traceWriterFile)
