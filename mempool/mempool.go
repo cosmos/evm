@@ -33,9 +33,6 @@ var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 // This should be used only in tests to ensure deterministic behavior
 var AllowUnsafeSyncInsert = false
 
-// ClientCtxProvider defines a function type that provides a fresh client context from the app
-type ClientCtxProvider func() client.Context
-
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
 	SubscriberName = "evm"
@@ -60,6 +57,7 @@ type (
 		/** Utils **/
 		logger        log.Logger
 		txConfig      client.TxConfig
+		clientCtx     client.Context
 		blockchain    *Blockchain
 		blockGasLimit uint64 // Block gas limit from consensus parameters
 		minTip        *uint256.Int
@@ -96,7 +94,6 @@ func NewExperimentalEVMMempool(
 	vmKeeper VMKeeperI,
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
-	getClientCtx ClientCtxProvider,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -128,19 +125,6 @@ func NewExperimentalEVMMempool(
 	}
 
 	legacyPool := legacypool.New(legacyConfig, blockchain)
-
-	// Set up broadcast function using clientCtx
-	if config.BroadCastTxFn != nil {
-		legacyPool.BroadcastTxFn = config.BroadCastTxFn
-	} else {
-		// Create default broadcast function using clientCtx.
-		// The EVM mempool will broadcast transactions when it promotes them
-		// from queued into pending, noting their readiness to be executed.
-		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
-			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(getClientCtx(), txs)
-		}
-	}
 
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
@@ -187,6 +171,7 @@ func NewExperimentalEVMMempool(
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
+	// Create the evmMempool
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:      vmKeeper,
 		txPool:        txPool,
@@ -198,6 +183,16 @@ func NewExperimentalEVMMempool(
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
+	}
+
+	// Set up broadcast function
+	if config.BroadCastTxFn != nil {
+		legacyPool.BroadcastTxFn = config.BroadCastTxFn
+	} else {
+		// Create default broadcast function using clientCtx.
+		// The EVM mempool will broadcast transactions when it promotes them
+		// from queued into pending, noting their readiness to be executed.
+		legacyPool.BroadcastTxFn = evmMempool.defaultBroadcastTxFn
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -215,6 +210,11 @@ func (m *ExperimentalEVMMempool) GetBlockchain() *Blockchain {
 // This provides direct access to the EVM-specific transaction management functionality.
 func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 	return m.txPool
+}
+
+// SetClientCtx sets the client context provider for broadcasting transactions
+func (m *ExperimentalEVMMempool) SetClientCtx(clientCtx client.Context) {
+	m.clientCtx = clientCtx
 }
 
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
@@ -483,6 +483,15 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
 	return orderedEVMPendingTxes, cosmosPendingTxes
+}
+
+// defaultBroadcastTxFn is the default function for broadcasting EVM transactions
+// using the configured client context
+func (m *ExperimentalEVMMempool) defaultBroadcastTxFn(txs []*ethtypes.Transaction) error {
+	m.logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
+
+	// Apply the broadcast EVM transactions using the client context
+	return broadcastEVMTransactions(m.clientCtx, txs)
 }
 
 // broadcastEVMTransactions converts Ethereum transactions to Cosmos SDK format and broadcasts them.

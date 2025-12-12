@@ -156,7 +156,6 @@ type EVMD struct {
 	appCodec          codec.Codec
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
-	clientCtx         client.Context
 
 	pendingTxListeners []evmante.PendingTxListener
 
@@ -1061,10 +1060,6 @@ func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
-}
-
-func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove this if possible
-	app.clientCtx = clientCtx
 }
 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.

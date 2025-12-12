@@ -8,7 +8,6 @@ import (
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/client"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
@@ -40,7 +39,6 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.txConfig,
-		func() client.Context { return app.clientCtx }, // Enforces a fresh client context
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)

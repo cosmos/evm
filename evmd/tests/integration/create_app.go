@@ -11,8 +11,8 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd"
+	evmmempool "github.com/cosmos/evm/mempool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -53,13 +53,14 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	)
 
 	// Prepare the client context
-	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
 	clientCtx := client.Context{}.WithChainID(constants.ExampleChainID.ChainID).
 		WithHeight(1).
-		WithTxConfig(encodingConfig.TxConfig)
+		WithTxConfig(app.GetTxConfig())
 
-	// Set the client context in the app
-	app.SetClientCtx(clientCtx)
+	// Get the mempool and set the client context
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+		m.SetClientCtx(clientCtx)
+	}
 
 	return app
 }
