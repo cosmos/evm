@@ -1560,8 +1560,9 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		queuedRecheckDurationTimer.UpdateSince(recheckStart)
 
 		// Gather all executable transactions and promote them
+		listLen := list.Len()
 		readies := list.Ready(pool.pendingNonces.get(addr))
-		queuedNonReadies.Mark(int64(list.Len() - len(readies)))
+		queuedNonReadies.Mark(int64(listLen - len(readies)))
 		for _, tx := range readies {
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
