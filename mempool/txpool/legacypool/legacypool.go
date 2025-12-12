@@ -162,10 +162,13 @@ var (
 	// throttleTxMeter counts how many transactions are rejected due to too-many-changes between
 	// txpool reorgs.
 	throttleTxMeter = metrics.NewRegisteredMeter("txpool/throttle", nil)
+
 	// reorgDurationTimer measures how long time a txpool reorg takes.
-	reorgDurationTimer  = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
-	resetDurationTimer  = metrics.NewRegisteredTimer("txpool/resettime", nil)
-	demoteDurationTimer = metrics.NewRegisteredTimer("txpool/demote", nil)
+	reorgDurationTimer     = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
+	resetDurationTimer     = metrics.NewRegisteredTimer("txpool/resettime", nil)
+	demoteDurationTimer    = metrics.NewRegisteredTimer("txpool/demote", nil)
+	reorgWaitDurationTimer = metrics.NewRegisteredTimer("txpool/reorgwaittime", nil)
+
 	// dropBetweenReorgHistogram counts how many drops we experience between two reorg runs. It is expected
 	// that this number is pretty low, since txpool reorgs happen very frequently.
 	dropBetweenReorgHistogram = metrics.NewRegisteredHistogram("txpool/dropbetweenreorg", nil, metrics.NewExpDecaySample(1028, 0.015))
@@ -2131,6 +2134,8 @@ func (pool *LegacyPool) Clear() {
 // height >= height. If the context is cancelled or the pool is shutting down,
 // this will also return.
 func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
+	defer func(start time.Time) { reorgWaitDurationTimer.UpdateSince(start) }(time.Now())
+
 	for pool.latestReorgHeight.Load() < height {
 		// reorg loop has not run at the target height, subscribe to the
 		// outcome of the next reorg loop iteration to know when to check again
