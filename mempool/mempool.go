@@ -431,8 +431,8 @@ func (m *ExperimentalEVMMempool) Has(hash common.Hash) bool {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	// Check both the legacy pool and the tx pool
-	return m.legacyTxPool.Has(hash) || m.txPool.Has(hash)
+	// Check the tx pool
+	return m.txPool.Has(hash)
 }
 
 // Close unsubscribes from the CometBFT event bus and shuts down the mempool.
