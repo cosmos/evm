@@ -228,14 +228,14 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			name: "duplicate tx rejected on same node %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					// Step 1: Send tx with nonce 3 to node0
+					// Step 1: Send tx with the current nonce to node0
 					// Expected: tx is accepted and added to pending pool
 					signer := s.Acc(0)
 
 					s.AwaitNBlocks(t, 1)
 
 					// Send transaction to node0
-					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 3, s.GasPriceMultiplier(10), nil)
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
 					// Step 2: Verify tx is in node0's pending pool
@@ -271,7 +271,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Step 3: Send the SAME transaction again to node0 via JSON-RPC
 					// Expected: Error returned (txpool.ErrAlreadyKnown)
 					// Users must receive error feedback for duplicate submissions
-					_, err = s.SendTx(t, s.Node(0), signer.ID, 3, s.GasPriceMultiplier(10), nil)
+					_, err = s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC must return error")
 					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
 
@@ -298,12 +298,12 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			name: "duplicate tx rejected after gossip %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					// Step 1: Send tx with nonce 4 to node0
+					// Step 1: Send tx with the current nonce to node0
 					// Expected: tx is accepted, added to pending, and gossiped
 					signer := s.Acc(0)
 
 					// Send transaction to node0
-					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 4, s.GasPriceMultiplier(10), nil)
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
 					// Step 2: Wait for tx to be gossiped to node1
@@ -341,7 +341,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Expected: Error returned (txpool.ErrAlreadyKnown)
 					// Even though node1 received it via gossip (not user submission),
 					// the RPC layer should still detect and reject the duplicate
-					_, err = s.SendTx(t, s.Node(1), signer.ID, 4, s.GasPriceMultiplier(10), nil)
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC should return error even after gossip")
 					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
 
