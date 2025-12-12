@@ -883,7 +883,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 
 			sender, _ := types.Sender(pool.signer, tx)
 			opts := []txpool.RemoveTxOption{txpool.WithRemovalReason(RemovalReasonUnderpricedFull)}
-			if sender != from {
+			if sender == from {
 				// Don't unreserve the sender of the tx being added if last
 				// from the acc
 				opts = append(opts, txpool.WithUnreserve())
