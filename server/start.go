@@ -605,10 +605,12 @@ func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	)
 }
 
-func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) {
+func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) { //nolint:staticcheck
+	//nolint:staticcheck
 	if !cfg.Telemetry.Enabled {
 		return nil, nil
 	}
+	//nolint:staticcheck
 	return telemetry.New(cfg.Telemetry)
 }
 
@@ -727,7 +729,7 @@ func startAPIServer(
 	svrCfg serverconfig.Config,
 	app types.Application,
 	grpcSrv *grpc.Server,
-	metrics *telemetry.Metrics,
+	metrics *telemetry.Metrics, //nolint:staticcheck
 	gethMetricsAddress string,
 ) {
 	if !svrCfg.API.Enable {
@@ -737,7 +739,9 @@ func startAPIServer(
 	apiSrv := api.New(clientCtx, svrCtx.Logger.With("server", "api"), grpcSrv)
 	app.RegisterAPIRoutes(apiSrv, svrCfg.API)
 
+	//nolint:staticcheck
 	if svrCfg.Telemetry.Enabled {
+		//nolint:staticcheck
 		apiSrv.SetTelemetry(metrics)
 		g.Go(func() error {
 			return evmmetrics.StartGethMetricServer(ctx, svrCtx.Logger.With("server", "geth_metrics"), gethMetricsAddress)

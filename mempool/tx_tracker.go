@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
+
+	// import for init side effects
+	_ "github.com/cosmos/cosmos-sdk/telemetry"
+
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 )
 
 var (
@@ -46,9 +50,21 @@ var (
 func init() {
 	var err error
 	chainInclusionLatency, err = meter.Int64Histogram("mempool.chain_inclusion_latency", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
+	if err != nil {
+		panic(err)
+	}
 	queuedInclusionLatency, err = meter.Int64Histogram("mempool.queued_inclusion_latency", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
+	if err != nil {
+		panic(err)
+	}
 	pendingInclusionLatency, err = meter.Int64Histogram("mempool.pending_inclusion_latency", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
+	if err != nil {
+		panic(err)
+	}
 	queuedDuration, err = meter.Int64Histogram("mempool.queued_duration", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
+	if err != nil {
+		panic(err)
+	}
 	pendingDuration, err = meter.Int64Histogram("mempool.pending_duration", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
 	if err != nil {
 		panic(err)
@@ -86,7 +102,7 @@ func (txt *txTracker) EnteredQueued(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredQueuedPoolAt = time.Now()
-	queuedInclusionLatency.Record(context.Background(), int64(checkpoints.QueuedInclusionLatency().Milliseconds()))
+	queuedInclusionLatency.Record(context.Background(), checkpoints.QueuedInclusionLatency().Milliseconds())
 	return nil
 }
 
@@ -97,7 +113,7 @@ func (txt *txTracker) ExitedQueued(hash common.Hash) error {
 	}
 
 	checkpoints.LastExitedQueuedPoolAt = time.Now()
-	queuedDuration.Record(context.Background(), int64(checkpoints.TimeInQueuedPool().Milliseconds()))
+	queuedDuration.Record(context.Background(), checkpoints.TimeInQueuedPool().Milliseconds())
 	return nil
 }
 
@@ -108,7 +124,7 @@ func (txt *txTracker) EnteredPending(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredPendingPoolAt = time.Now()
-	pendingInclusionLatency.Record(context.Background(), int64(checkpoints.PendingInclusionLatency().Milliseconds()))
+	pendingInclusionLatency.Record(context.Background(), checkpoints.PendingInclusionLatency().Milliseconds())
 	return nil
 }
 
@@ -119,7 +135,7 @@ func (txt *txTracker) ExitedPending(hash common.Hash) error {
 	}
 
 	checkpoints.LastExitedPendingPoolAt = time.Now()
-	pendingDuration.Record(context.Background(), int64(checkpoints.TimeInPendingPool().Milliseconds()))
+	pendingDuration.Record(context.Background(), checkpoints.TimeInPendingPool().Milliseconds())
 	return nil
 }
 
@@ -130,21 +146,23 @@ func (txt *txTracker) IncludedInBlock(hash common.Hash) error {
 	}
 
 	checkpoints.IncludedInBlockAt = time.Now()
-	chainInclusionLatency.Record(context.Background(), int64(checkpoints.InclusionLatency().Milliseconds()))
+	chainInclusionLatency.Record(context.Background(), checkpoints.InclusionLatency().Milliseconds())
 	return nil
 }
 
 // RemoveTx tracks final values for a tx as it exists the mempool and removes
 // it from the txTracker.
-func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) {
+func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) error {
+	defer delete(txt.txCheckpoints, hash)
+
 	switch pool {
 	case legacypool.Pending:
-		txt.ExitedPending(hash)
+		return txt.ExitedPending(hash)
 	case legacypool.Queue:
-		txt.ExitedQueued(hash)
+		return txt.ExitedQueued(hash)
 	}
 
-	delete(txt.txCheckpoints, hash)
+	return nil
 }
 
 // checkpoints is a set of important timestamps across a transactions lifecycle

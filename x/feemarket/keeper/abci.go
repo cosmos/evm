@@ -31,7 +31,7 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 			return
 		}
 		// there'll be no panic if fails to convert to float32. Will only loose precision
-		telemetry.SetGauge(float32(floatBaseFee), "feemarket", "base_fee")
+		telemetry.SetGauge(float32(floatBaseFee), "feemarket", "base_fee") //nolint:staticcheck
 	}()
 
 	// Store current base fee in event
@@ -80,7 +80,7 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	k.SetBlockGasWanted(ctx, updatedGasWanted)
 
 	defer func() {
-		telemetry.SetGauge(float32(updatedGasWanted), "feemarket", "block_gas")
+		telemetry.SetGauge(float32(updatedGasWanted), "feemarket", "block_gas") //nolint:staticcheck
 	}()
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(

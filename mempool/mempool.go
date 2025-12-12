@@ -207,12 +207,12 @@ func NewExperimentalEVMMempool(
 		}
 
 		hash := tx.Hash()
-		evmMempool.txTracker.ExitedQueued(hash)
-		evmMempool.txTracker.EnteredPending(hash)
+		_ = evmMempool.txTracker.ExitedQueued(hash)
+		_ = evmMempool.txTracker.EnteredPending(hash)
 	}
 
 	legacyPool.OnTxEnqueued = func(tx *ethtypes.Transaction) {
-		evmMempool.txTracker.EnteredQueued(tx.Hash())
+		_ = evmMempool.txTracker.EnteredQueued(tx.Hash())
 	}
 
 	// Once we are removing the tx, we no longer need to block it from being
@@ -226,7 +226,7 @@ func NewExperimentalEVMMempool(
 		// the reap guard.
 		evmMempool.reapList.DropEVMTx(tx)
 
-		evmMempool.txTracker.RemoveTx(tx.Hash(), pool)
+		_ = evmMempool.txTracker.RemoveTx(tx.Hash(), pool)
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -460,7 +460,7 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 	}
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
-		m.txTracker.IncludedInBlock(hash)
+		_ = m.txTracker.IncludedInBlock(hash)
 	}
 
 	return nil
