@@ -232,8 +232,6 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Expected: tx is accepted and added to pending pool
 					signer := s.Acc(0)
 
-					s.AwaitNBlocks(t, 1)
-
 					// Send transaction to node0
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
