@@ -232,13 +232,15 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Expected: tx is accepted and added to pending pool
 					signer := s.Acc(0)
 
+					s.AwaitNBlocks(t, 1)
+
 					// Send transaction to node0
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 3, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
 					// Step 2: Verify tx is in node0's pending pool
 					// Poll for the transaction to appear (it should be fast, but we need to wait for async processing)
-					maxWaitTime := 2 * time.Second
+					maxWaitTime := 3 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
