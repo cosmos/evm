@@ -148,6 +148,12 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 
 	txHash := ethereumTx.AsTransaction().Hash()
 
+	// Check if transaction is already in the mempool before broadcasting
+	// This is important for user-submitted transactions via JSON-RPC to provide proper error feedback
+	if b.Mempool != nil && b.Mempool.Has(txHash) {
+		return txHash, fmt.Errorf("transaction %s already known", txHash.Hex())
+	}
+
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {

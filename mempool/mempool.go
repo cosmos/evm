@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -422,6 +423,16 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 // HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
 func (m *ExperimentalEVMMempool) HasEventBus() bool {
 	return m.eventBus != nil
+}
+
+// Has returns true if the transaction with the given hash is already in the mempool.
+// This checks both the legacy pool and the main tx pool for EVM transactions.
+func (m *ExperimentalEVMMempool) Has(hash common.Hash) bool {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	// Check both the legacy pool and the tx pool
+	return m.legacyTxPool.Has(hash) || m.txPool.Has(hash)
 }
 
 // Close unsubscribes from the CometBFT event bus and shuts down the mempool.
