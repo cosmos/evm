@@ -3,7 +3,6 @@
 // Its primary purpose is to be used during application initialization.
 
 //go:build test
-// +build test
 
 package types
 
