@@ -20,7 +20,6 @@ package legacypool
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -2155,7 +2154,6 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // markTxPromoted calls the OnTxPromoted callback if it has been supplied.
 func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
 	if pool.OnTxPromoted != nil {
-		fmt.Println("TX PROMOTED")
 		pool.OnTxPromoted(tx)
 	}
 }
@@ -2163,7 +2161,6 @@ func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
 // markTxRemoved calls the OnTxRemoved callback if it has been supplied.
 func (pool *LegacyPool) markTxRemoved(tx *types.Transaction, p PoolType) {
 	if pool.OnTxRemoved != nil {
-		fmt.Println("TX REMOVED")
 		pool.OnTxRemoved(tx, p)
 	}
 }
@@ -2171,7 +2168,6 @@ func (pool *LegacyPool) markTxRemoved(tx *types.Transaction, p PoolType) {
 // markTxEnqueued calls the OnTxEnqueued callback if it has been supplied.
 func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
 	if pool.OnTxEnqueued != nil {
-		fmt.Println("TX ENQUEUED")
 		pool.OnTxEnqueued(tx)
 	}
 }
