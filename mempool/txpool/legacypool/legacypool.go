@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -828,71 +829,71 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		}()
 	}
 	// If the transaction pool is full, discard underpriced transactions
-	if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
-		// If the new transaction is underpriced, don't accept it
-		if pool.priced.Underpriced(tx) {
-			log.Trace("Discarding underpriced transaction", "hash", hash, "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-			underpricedTxMeter.Mark(1)
-			return false, txpool.ErrUnderpriced
-		}
-
-		// We're about to replace a transaction. The reorg does a more thorough
-		// analysis of what to remove and how, but it runs async. We don't want to
-		// do too many replacements between reorg-runs, so we cap the number of
-		// replacements to 25% of the slots
-		if pool.changesSinceReorg > int(pool.config.GlobalSlots/4) {
-			throttleTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
-		}
-
-		// New transaction is better than our worse ones, make room for it.
-		// If we can't make enough room for new one, abort the operation.
-		drop, success := pool.priced.Discard(pool.all.Slots() - int(pool.config.GlobalSlots+pool.config.GlobalQueue) + numSlots(tx))
-
-		// Special case, we still can't make the room for the new remote one.
-		if !success {
-			log.Trace("Discarding overflown transaction", "hash", hash)
-			overflowedTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
-		}
-
-		// If the new transaction is a future transaction it should never churn pending transactions
-		if pool.isGapped(from, tx) {
-			var replacesPending bool
-			for _, dropTx := range drop {
-				dropSender, _ := types.Sender(pool.signer, dropTx)
-				if list := pool.pending[dropSender]; list != nil && list.Contains(dropTx.Nonce()) {
-					replacesPending = true
-					break
-				}
-			}
-			// Add all transactions back to the priced queue
-			if replacesPending {
-				for _, dropTx := range drop {
-					pool.priced.Put(dropTx)
-				}
-				log.Trace("Discarding future transaction replacing pending tx", "hash", hash)
-				return false, ErrFutureReplacePending
-			}
-		}
-
-		// Kick out the underpriced remote transactions.
-		for _, tx := range drop {
-			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-			underpricedTxMeter.Mark(1)
-
-			sender, _ := types.Sender(pool.signer, tx)
-			opts := []txpool.RemoveTxOption{txpool.WithRemovalReason(RemovalReasonUnderpricedFull)}
-			if sender == from {
-				// Don't unreserve the sender of the tx being added if last
-				// from the acc
-				opts = append(opts, txpool.WithUnreserve())
-			}
-			dropped := pool.removeTx(tx.Hash(), opts...)
-
-			pool.changesSinceReorg += dropped
-		}
-	}
+	// if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
+	// 	// If the new transaction is underpriced, don't accept it
+	// 	if pool.priced.Underpriced(tx) {
+	// 		log.Trace("Discarding underpriced transaction", "hash", hash, "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+	// 		underpricedTxMeter.Mark(1)
+	// 		return false, txpool.ErrUnderpriced
+	// 	}
+	//
+	// 	// We're about to replace a transaction. The reorg does a more thorough
+	// 	// analysis of what to remove and how, but it runs async. We don't want to
+	// 	// do too many replacements between reorg-runs, so we cap the number of
+	// 	// replacements to 25% of the slots
+	// 	if pool.changesSinceReorg > int(pool.config.GlobalSlots/4) {
+	// 		throttleTxMeter.Mark(1)
+	// 		return false, ErrTxPoolOverflow
+	// 	}
+	//
+	// 	// New transaction is better than our worse ones, make room for it.
+	// 	// If we can't make enough room for new one, abort the operation.
+	// 	drop, success := pool.priced.Discard(pool.all.Slots() - int(pool.config.GlobalSlots+pool.config.GlobalQueue) + numSlots(tx))
+	//
+	// 	// Special case, we still can't make the room for the new remote one.
+	// 	if !success {
+	// 		log.Trace("Discarding overflown transaction", "hash", hash)
+	// 		overflowedTxMeter.Mark(1)
+	// 		return false, ErrTxPoolOverflow
+	// 	}
+	//
+	// 	// If the new transaction is a future transaction it should never churn pending transactions
+	// 	if pool.isGapped(from, tx) {
+	// 		var replacesPending bool
+	// 		for _, dropTx := range drop {
+	// 			dropSender, _ := types.Sender(pool.signer, dropTx)
+	// 			if list := pool.pending[dropSender]; list != nil && list.Contains(dropTx.Nonce()) {
+	// 				replacesPending = true
+	// 				break
+	// 			}
+	// 		}
+	// 		// Add all transactions back to the priced queue
+	// 		if replacesPending {
+	// 			for _, dropTx := range drop {
+	// 				pool.priced.Put(dropTx)
+	// 			}
+	// 			log.Trace("Discarding future transaction replacing pending tx", "hash", hash)
+	// 			return false, ErrFutureReplacePending
+	// 		}
+	// 	}
+	//
+	// 	// Kick out the underpriced remote transactions.
+	// 	for _, tx := range drop {
+	// 		log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+	// 		underpricedTxMeter.Mark(1)
+	//
+	// 		sender, _ := types.Sender(pool.signer, tx)
+	// 		opts := []txpool.RemoveTxOption{txpool.WithRemovalReason(RemovalReasonUnderpricedFull)}
+	// 		if sender == from {
+	// 			// Don't unreserve the sender of the tx being added if last
+	// 			// from the acc
+	// 			opts = append(opts, txpool.WithUnreserve())
+	// 		}
+	// 		dropped := pool.removeTx(tx.Hash(), opts...)
+	//
+	// 		pool.changesSinceReorg += dropped
+	// 	}
+	// }
 
 	// Try to replace an existing transaction in the pending pool
 	if list := pool.pending[from]; list != nil && list.Contains(tx.Nonce()) {
@@ -1455,8 +1456,8 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		pool.pendingNonces.setAll(nonces)
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
-	pool.truncatePending()
-	pool.truncateQueue()
+	// pool.truncatePending()
+	// pool.truncateQueue()
 
 	dropBetweenReorgHistogram.Update(int64(pool.changesSinceReorg))
 	pool.changesSinceReorg = 0 // Reset change counter
@@ -1589,18 +1590,19 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		queuedGauge.Dec(int64(len(readies)))
 
 		// Drop all transactions over the allowed limit
-		caps := list.Cap(int(pool.config.AccountQueue))
-		for _, tx := range caps {
-			hash := tx.Hash()
-			pool.all.Remove(hash)
-			pool.markTxRemoved(tx, Queue)
-			queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
-			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
-		}
-		queuedRateLimitMeter.Mark(int64(len(caps)))
+		// caps := list.Cap(int(pool.config.AccountQueue))
+		// for _, tx := range caps {
+		// 	hash := tx.Hash()
+		// 	pool.all.Remove(hash)
+		// 	pool.markTxRemoved(tx, Queue)
+		// 	queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
+		// 	log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
+		// }
+		// queuedRateLimitMeter.Mark(int64(len(caps)))
 
 		// Mark all the items dropped as removed
-		totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		// totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		totalDropped := len(forwards) + len(costDrops) + len(recheckDrops)
 		pool.priced.Removed(totalDropped)
 		queuedGauge.Dec(int64(totalDropped))
 
@@ -2153,6 +2155,7 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // markTxPromoted calls the OnTxPromoted callback if it has been supplied.
 func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
 	if pool.OnTxPromoted != nil {
+		fmt.Println("TX PROMOTED")
 		pool.OnTxPromoted(tx)
 	}
 }
@@ -2160,6 +2163,7 @@ func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
 // markTxRemoved calls the OnTxRemoved callback if it has been supplied.
 func (pool *LegacyPool) markTxRemoved(tx *types.Transaction, p PoolType) {
 	if pool.OnTxRemoved != nil {
+		fmt.Println("TX REMOVED")
 		pool.OnTxRemoved(tx, p)
 	}
 }
@@ -2167,6 +2171,7 @@ func (pool *LegacyPool) markTxRemoved(tx *types.Transaction, p PoolType) {
 // markTxEnqueued calls the OnTxEnqueued callback if it has been supplied.
 func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
 	if pool.OnTxEnqueued != nil {
+		fmt.Println("TX ENQUEUED")
 		pool.OnTxEnqueued(tx)
 	}
 }
