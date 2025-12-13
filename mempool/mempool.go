@@ -404,45 +404,17 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	return m.buildIterator(goCtx, i)
-}
+	// Wait for the legacypool to Reset at >= blockHeight (this may have
+	// already happened), to ensure all txs in pending pool are valid.
+	m.legacyTxPool.WaitForReorgHeight(ctx, ctx.BlockHeight())
 
-// SelectBy iterates through transactions until the provided filter function returns false.
-// It uses the same unified iterator as Select but allows early termination based on
-// custom criteria defined by the filter function.
-func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
+	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	iter := m.buildIterator(goCtx, txs)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
 
-	for iter != nil && filter(iter.Tx()) {
-		iter = iter.Next()
-	}
-}
-
-// buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
-// block height and then returns a combined iterator over EVM & Cosmos txs.
-func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
-	// context has a block height of the next PROPOSED block,
-	// but we need to wait for the reorg to complete on the previous COMMITTED block.
-	committedHeight := sdkCtx.BlockHeight() - 1
-
-	m.legacyTxPool.WaitForReorgHeight(ctx, committedHeight)
-
-	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
-
-	return NewEVMMempoolIterator(
-		evmIterator,
-		cosmosIterator,
-		m.logger,
-		m.txConfig,
-		m.vmKeeper.GetEvmCoinInfo(sdkCtx).Denom,
-		m.blockchain,
-	)
+	return combinedIterator
 }
 
 // CountTx returns the total number of transactions in both EVM and Cosmos pools.
@@ -547,6 +519,23 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reaso
 	return true
 }
 
+// SelectBy iterates through transactions until the provided filter function returns false.
+// It uses the same unified iterator as Select but allows early termination based on
+// custom criteria defined by the filter function.
+func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) bool) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
+
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
+
+	for combinedIterator != nil && f(combinedIterator.Tx()) {
+		combinedIterator = combinedIterator.Next()
+	}
+}
+
 // SetEventBus sets CometBFT event bus to listen for new block header event.
 func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	if m.HasEventBus() {
@@ -605,7 +594,7 @@ func (m *ExperimentalEVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereum
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	baseFee := m.vmKeeper.GetBaseFee(ctx)
 	var baseFeeUint *uint256.Int
@@ -613,18 +602,21 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, txs [][]byt
 		baseFeeUint = uint256.MustFromBig(baseFee)
 	}
 
-	evmPendingTxs := m.txPool.Pending(txpool.PendingFilter{
+	m.logger.Debug("getting iterators")
+
+	pendingFilter := txpool.PendingFilter{
 		MinTip:       m.minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
-	})
+	}
+	evmPendingTxes := m.txPool.Pending(pendingFilter)
+	orderedEVMPendingTxes := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxes, baseFee)
 
-	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
-	cosmosIterator := m.cosmosPool.Select(ctx, txs)
+	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
-	return evmIterator, cosmosIterator
+	return orderedEVMPendingTxes, cosmosPendingTxes
 }
 
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
