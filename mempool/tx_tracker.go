@@ -3,6 +3,7 @@ package mempool
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -75,6 +76,7 @@ func init() {
 // lifecycle and exposes metrics about these via prometheus.
 type txTracker struct {
 	txCheckpoints map[common.Hash]*checkpoints
+	lock          sync.RWMutex
 }
 
 // newTxTracker creates a new txTracker instance
@@ -87,6 +89,9 @@ func newTxTracker() *txTracker {
 // Track initializes tracking for a tx. This should only be called from
 // SendRawTransaction when a tx enters this node via a RPC.
 func (txt *txTracker) Track(hash common.Hash) error {
+	txt.lock.Lock()
+	defer txt.lock.Unlock()
+
 	if _, alreadyTrakced := txt.txCheckpoints[hash]; alreadyTrakced {
 		return fmt.Errorf("tx %s already being tracked", hash)
 	}
@@ -96,9 +101,9 @@ func (txt *txTracker) Track(hash common.Hash) error {
 }
 
 func (txt *txTracker) EnteredQueued(hash common.Hash) error {
-	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
-	if !alreadyTrakced {
-		return fmt.Errorf("tx %s not already being tracked", hash)
+	checkpoints, err := txt.getCheckpointsIfTracked(hash)
+	if err != nil {
+		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
 	checkpoints.LastEnteredQueuedPoolAt = time.Now()
@@ -107,9 +112,9 @@ func (txt *txTracker) EnteredQueued(hash common.Hash) error {
 }
 
 func (txt *txTracker) ExitedQueued(hash common.Hash) error {
-	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
-	if !alreadyTrakced {
-		return fmt.Errorf("tx %s not already being tracked", hash)
+	checkpoints, err := txt.getCheckpointsIfTracked(hash)
+	if err != nil {
+		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
 	checkpoints.LastExitedQueuedPoolAt = time.Now()
@@ -118,9 +123,9 @@ func (txt *txTracker) ExitedQueued(hash common.Hash) error {
 }
 
 func (txt *txTracker) EnteredPending(hash common.Hash) error {
-	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
-	if !alreadyTrakced {
-		return fmt.Errorf("tx %s not already being tracked", hash)
+	checkpoints, err := txt.getCheckpointsIfTracked(hash)
+	if err != nil {
+		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
 	checkpoints.LastEnteredPendingPoolAt = time.Now()
@@ -129,9 +134,9 @@ func (txt *txTracker) EnteredPending(hash common.Hash) error {
 }
 
 func (txt *txTracker) ExitedPending(hash common.Hash) error {
-	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
-	if !alreadyTrakced {
-		return fmt.Errorf("tx %s not already being tracked", hash)
+	checkpoints, err := txt.getCheckpointsIfTracked(hash)
+	if err != nil {
+		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
 	checkpoints.LastExitedPendingPoolAt = time.Now()
@@ -140,9 +145,9 @@ func (txt *txTracker) ExitedPending(hash common.Hash) error {
 }
 
 func (txt *txTracker) IncludedInBlock(hash common.Hash) error {
-	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
-	if !alreadyTrakced {
-		return fmt.Errorf("tx %s not already being tracked", hash)
+	checkpoints, err := txt.getCheckpointsIfTracked(hash)
+	if err != nil {
+		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
 	checkpoints.IncludedInBlockAt = time.Now()
@@ -150,10 +155,25 @@ func (txt *txTracker) IncludedInBlock(hash common.Hash) error {
 	return nil
 }
 
+func (txt *txTracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, error) {
+	txt.lock.RLock()
+	defer txt.lock.RUnlock()
+
+	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
+	if !alreadyTrakced {
+		return nil, fmt.Errorf("tx %s not already being tracked", hash)
+	}
+	return checkpoints, nil
+}
+
 // RemoveTx tracks final values for a tx as it exists the mempool and removes
 // it from the txTracker.
 func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) error {
-	defer delete(txt.txCheckpoints, hash)
+	defer func() {
+		txt.lock.Lock()
+		delete(txt.txCheckpoints, hash)
+		txt.lock.Unlock()
+	}()
 
 	switch pool {
 	case legacypool.Pending:
