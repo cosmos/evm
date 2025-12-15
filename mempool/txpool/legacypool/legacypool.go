@@ -1765,7 +1765,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 	gasLimit := pool.currentHead.Load().GasLimit
 	recheckCount := 0
 	for addr, list := range pool.pending {
-		if recheckCount >= 2000 {
+		if recheckCount >= 2500 {
 			break
 		}
 		nonce := pool.currentState.GetNonce(addr)

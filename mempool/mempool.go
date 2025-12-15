@@ -610,7 +610,7 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
-		MaxTxs:       1500,
+		MaxTxs:       2500,
 	}
 	evmPendingTxes := m.txPool.Pending(pendingFilter)
 	orderedEVMPendingTxes := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxes, baseFee)
