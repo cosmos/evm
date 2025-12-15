@@ -209,7 +209,7 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 					OnlyBlobTxs:  false,
 				}
 				// TODO convert this into a function so we can do checks same as eth miner
-				NewTransactionsByPriceAndNonce(nil, p.Pending(pendingFilter), p.baseFee)
+				p.Payload = NewTransactionsByPriceAndNonce(p.signer, p.Pending(pendingFilter), p.baseFee)
 				timer.Reset(p.Recommit)
 			case <-p.stop:
 				log.Info("Stopping work on payload", "reason", "stopped")
