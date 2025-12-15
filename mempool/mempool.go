@@ -12,7 +12,6 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
@@ -138,7 +137,7 @@ func NewExperimentalEVMMempool(
 		legacypool.WithRecheck(rechecker),
 	)
 
-	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool}, vmKeeper, config.MinTip)
 	if err != nil {
 		panic(err)
 	}
@@ -600,25 +599,13 @@ func (m *ExperimentalEVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereum
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte) (*txpool.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	baseFee := m.vmKeeper.GetBaseFee(ctx)
-	var baseFeeUint *uint256.Int
-	if baseFee != nil {
-		baseFeeUint = uint256.MustFromBig(baseFee)
-	}
 
 	m.logger.Debug("getting iterators")
 
-	pendingFilter := txpool.PendingFilter{
-		MinTip:       m.minTip,
-		BaseFee:      baseFeeUint,
-		BlobFee:      nil,
-		OnlyPlainTxs: true,
-		OnlyBlobTxs:  false,
-	}
-	evmPendingTxes := m.txPool.Pending(pendingFilter)
-	orderedEVMPendingTxes := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxes, baseFee)
+	// evmPendingTxes := m.txPool.Pending(pendingFilter)
+	orderedEVMPendingTxes := m.txPool.GetPayload()
 
 	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
