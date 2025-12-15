@@ -1451,7 +1451,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		pool.pendingNonces.setAll(nonces)
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
-	pool.truncatePending()
+	// pool.truncatePending()
 	pool.truncateQueue()
 
 	dropBetweenReorgHistogram.Update(int64(pool.changesSinceReorg))
