@@ -1763,7 +1763,11 @@ func (pool *LegacyPool) truncateQueue() {
 func (pool *LegacyPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
+	recheckCount := 0
 	for addr, list := range pool.pending {
+		if recheckCount >= 2000 {
+			break
+		}
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)
@@ -1815,6 +1819,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
 		pendingDemotedRecheck.Mark(int64(len(recheckInvalids)))
 		pendingRecheckDurationTimer.UpdateSince(recheckStart)
+		recheckCount += list.Len()
 
 		invalids := append(costInvalids, recheckInvalids...)
 		for _, tx := range invalids {
