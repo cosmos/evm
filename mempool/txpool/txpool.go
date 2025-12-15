@@ -170,11 +170,12 @@ func (p *TxPool) Close() error {
 // BuildPayload begins rebuilding the Payload until the payload is retrieved.
 func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 	ctx, err := p.chain.GetLatestContext()
+	var baseFeeUint *uint256.Int
 	if err != nil {
 		log.Error("could not start payload builder, failed to get ctx", "error", err)
+	} else {
+		p.baseFee = vmKeeper.GetBaseFee(ctx)
 	}
-	var baseFeeUint *uint256.Int
-	p.baseFee = vmKeeper.GetBaseFee(ctx)
 	if p.baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(p.baseFee)
 	}
@@ -195,9 +196,10 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 				if p.baseFee != nil {
 					baseFeeUint = uint256.MustFromBig(p.baseFee)
 				}
+				log.Info("reset ctx in payload builder")
 			case <-timer.C:
 				if ctx.IsZero() {
-					log.Error("No context set in txpool payload builder, skipping")
+					continue
 				}
 				pendingFilter := PendingFilter{
 					MinTip:       minTip,
