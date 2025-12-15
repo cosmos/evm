@@ -1519,7 +1519,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 	pendingFull := pool.isPendingFull()
 
 	// Get a branch of the latest pending context for recheck
-	ctx, write := pool.rechecker.GetContext()
+	// ctx, write := pool.rechecker.GetContext()
 
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
@@ -1551,26 +1551,26 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		// Note this is happening after the nonce removal above since this
 		// check is slower, we would like it to happen on the fewest txs as
 		// possible.
-		recheckStart := time.Now()
-		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.Recheck(ctx, tx)
-			if !newCtx.IsZero() {
-				ctx = newCtx
-			}
-			if err == nil && reset == nil {
-				// only write changes back to original context if we are not
-				// running in reset mode, i.e. a new block has not been seen
-				write()
-			}
-			return tolerateRecheckErr(err) != nil
-		})
-		for _, tx := range recheckDrops {
-			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx, Queue)
-		}
-		log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
-		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
-		queuedRecheckDurationTimer.UpdateSince(recheckStart)
+		// recheckStart := time.Now()
+		// recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
+		// 	newCtx, err := pool.rechecker.Recheck(ctx, tx)
+		// 	if !newCtx.IsZero() {
+		// 		ctx = newCtx
+		// 	}
+		// 	if err == nil && reset == nil {
+		// 		// only write changes back to original context if we are not
+		// 		// running in reset mode, i.e. a new block has not been seen
+		// 		write()
+		// 	}
+		// 	return tolerateRecheckErr(err) != nil
+		// })
+		// for _, tx := range recheckDrops {
+		// 	pool.all.Remove(tx.Hash())
+		// 	pool.markTxRemoved(tx, Queue)
+		// }
+		// log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
+		// queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		// queuedRecheckDurationTimer.UpdateSince(recheckStart)
 
 		// Do not try and promote txs if pending is full globally or this
 		// account has reached its maximum number of txs
@@ -1602,7 +1602,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		queuedRateLimitMeter.Mark(int64(len(caps)))
 
 		// Mark all the items dropped as removed
-		totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		// totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		totalDropped := len(forwards) + len(costDrops) + len(caps)
 		pool.priced.Removed(totalDropped)
 		queuedGauge.Dec(int64(totalDropped))
 
