@@ -62,7 +62,6 @@ type Application interface {
 	types.Application
 	AppWithPendingTxStream
 	GetMempool() sdkmempool.ExtMempool
-	SetClientCtx(clientCtx client.Context)
 }
 
 // AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
@@ -138,7 +137,7 @@ which accepts a path for the resulting pprof file.
 			if !withbft {
 				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
-					return startStandAlone(serverCtx, clientCtx, opts)
+					return startStandAlone(serverCtx, opts)
 				})
 			}
 
@@ -253,7 +252,7 @@ which accepts a path for the resulting pprof file.
 // Parameters:
 // - svrCtx: The context object that holds server configurations, logger, and other stateful information.
 // - opts: Options for starting the server, including functions for creating the application and opening the database.
-func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts StartOptions) error {
+func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 	addr := svrCtx.Viper.GetString(srvflags.Address)
 	transport := svrCtx.Viper.GetString(srvflags.Transport)
 	home := svrCtx.Viper.GetString(flags.FlagHome)
@@ -284,11 +283,6 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
-	evmApp, ok := app.(Application)
-	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
-	}
-	evmApp.SetClientCtx(clientCtx)
 
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
@@ -407,7 +401,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	if !ok {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
 	}
-	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {
@@ -469,6 +462,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		app.RegisterTxService(clientCtx)
 		app.RegisterTendermintService(clientCtx)
 		app.RegisterNodeService(clientCtx, config.Config)
+
+		// Set the clientCtx into the mempool
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+			m.SetClientCtx(clientCtx)
+		}
 	}
 
 	metrics, err := startTelemetry(config)
