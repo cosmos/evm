@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
@@ -148,7 +146,7 @@ func NewExperimentalEVMMempool(
 		legacypool.WithRecheck(rechecker),
 	)
 
-	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool}, vmKeeper, config.MinTip)
 	if err != nil {
 		panic(err)
 	}
@@ -601,30 +599,12 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*txpool.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
 	sdkctx := sdk.UnwrapSDKContext(ctx)
-	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
-	var baseFeeUint *uint256.Int
-	if baseFee != nil {
-		baseFeeUint = uint256.MustFromBig(baseFee)
-	}
 
-	if m.pendingTxProposalTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
-		defer cancel()
-	}
-
-	filter := txpool.PendingFilter{
-		MinTip:       m.minTip,
-		BaseFee:      baseFeeUint,
-		BlobFee:      nil,
-		OnlyPlainTxs: true,
-		OnlyBlobTxs:  false,
-	}
-	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()-1), filter)
-	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
-	cosmosIterator := m.cosmosPool.Select(ctx, txs)
+	evmIterator := m.txPool.GetPayload()
+	m.logger.Info("got evm iterator with txs", "length", evmIterator)
+	cosmosIterator := m.cosmosPool.Select(sdkctx, txs)
 
 	return evmIterator, cosmosIterator
 }

@@ -6,7 +6,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -26,7 +25,7 @@ var _ mempool.Iterator = &EVMMempoolIterator{}
 // proper sequencing during block building.
 type EVMMempoolIterator struct {
 	/** Mempool Iterators **/
-	evmIterator    *miner.TransactionsByPriceAndNonce
+	evmIterator    *txpool.TransactionsByPriceAndNonce
 	cosmosIterator mempool.Iterator
 
 	/** Utils **/
@@ -46,7 +45,7 @@ type EVMMempoolIterator struct {
 // Returns nil if both iterators are empty or nil. The bondDenom parameter specifies the native
 // token denomination for fee comparisons, and chainId is used for EVM transaction conversion.
 func NewEVMMempoolIterator(
-	evmIterator *miner.TransactionsByPriceAndNonce,
+	evmIterator *txpool.TransactionsByPriceAndNonce,
 	cosmosIterator mempool.Iterator,
 	logger log.Logger,
 	txConfig client.TxConfig,
