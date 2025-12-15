@@ -1516,6 +1516,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
+	pendingFull := pool.isPendingFull()
+
 	// Get a branch of the latest pending context for recheck
 	ctx, write := pool.rechecker.GetContext()
 
@@ -1570,19 +1572,23 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
 		queuedRecheckDurationTimer.UpdateSince(recheckStart)
 
-		// Gather all executable transactions and promote them
-		listLen := list.Len()
-		readies := list.Ready(pool.pendingNonces.get(addr))
-		queuedNonReadies.Mark(int64(listLen - len(readies)))
-		for _, tx := range readies {
-			hash := tx.Hash()
-			if pool.promoteTx(addr, hash, tx) {
-				promoted = append(promoted, tx)
-				pool.markTxPromoted(tx)
+		// Do not try and promote txs if pending is full globally or this
+		// account has reached its maximum number of txs
+		if !pendingFull && !pool.isPendingFullForAddress(addr) {
+			// Gather all executable transactions and promote them
+			listLen := list.Len()
+			readies := list.Ready(pool.pendingNonces.get(addr))
+			queuedNonReadies.Mark(int64(listLen - len(readies)))
+			for _, tx := range readies {
+				hash := tx.Hash()
+				if pool.promoteTx(addr, hash, tx) {
+					promoted = append(promoted, tx)
+					pool.markTxPromoted(tx)
+				}
 			}
+			log.Trace("Promoted queued transactions", "count", len(promoted))
+			queuedGauge.Dec(int64(len(readies)))
 		}
-		log.Trace("Promoted queued transactions", "count", len(promoted))
-		queuedGauge.Dec(int64(len(readies)))
 
 		// Drop all transactions over the allowed limit
 		caps := list.Cap(int(pool.config.AccountQueue))
@@ -1608,6 +1614,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 				pool.reserver.Release(addr)
 			}
 		}
+
 	}
 	return promoted
 }
@@ -1835,6 +1842,22 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			}
 		}
 	}
+}
+
+func (pool *LegacyPool) isPendingFull() bool {
+	var pending uint64
+	for _, list := range pool.pending {
+		pending += uint64(list.Len())
+	}
+	return pending >= pool.config.GlobalSlots
+}
+
+func (pool *LegacyPool) isPendingFullForAddress(addr common.Address) bool {
+	list, ok := pool.pending[addr]
+	if !ok || list == nil {
+		return false
+	}
+	return uint64(list.Len()) >= pool.config.AccountSlots
 }
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
