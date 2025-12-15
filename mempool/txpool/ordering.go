@@ -125,6 +125,10 @@ func NewTransactionsByPriceAndNonce(signer types.Signer, txs map[common.Address]
 	}
 }
 
+func (t *TransactionsByPriceAndNonce) Length() int {
+	return len(t.txs)
+}
+
 // Peek returns the next transaction by price.
 func (t *TransactionsByPriceAndNonce) Peek() (*LazyTransaction, *uint256.Int) {
 	if len(t.heads) == 0 {

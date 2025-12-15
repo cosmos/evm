@@ -94,6 +94,8 @@ type TxPool struct {
 	stop chan struct{}
 	// reset signals the payload builder to reset state
 	reset chan struct{}
+	// rebuild signals the payload builder to immediately rebuild the payload
+	rebuild chan struct{}
 	// baseFee is calculated during payload building
 	baseFee *big.Int
 }
@@ -127,6 +129,7 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool, vmKeeper VMKeeper,
 		Recommit: DefaultRecommit,
 		stop:     make(chan struct{}),
 		reset:    make(chan struct{}),
+		rebuild:  make(chan struct{}),
 	}
 	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
@@ -177,8 +180,29 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 		p.baseFee = vmKeeper.GetBaseFee(ctx)
 	}
 	if p.baseFee != nil {
+		log.Info("set base fee success")
 		baseFeeUint = uint256.MustFromBig(p.baseFee)
 	}
+
+	// buildPayload constructs a new payload from pending transactions
+	buildPayload := func() {
+		if ctx.IsZero() {
+			return
+		}
+		pendingFilter := PendingFilter{
+			MinTip:       minTip,
+			BaseFee:      baseFeeUint,
+			BlobFee:      nil,
+			OnlyPlainTxs: true,
+			OnlyBlobTxs:  false,
+		}
+		// TODO convert this into a function so we can do checks same as eth miner
+		pendingTxs := p.Pending(pendingFilter)
+		log.Info("got pending txs", "size", len(pendingTxs))
+		p.Payload = NewTransactionsByPriceAndNonce(p.signer, pendingTxs, p.baseFee)
+		log.Debug("Rebuilt payload")
+	}
+
 	go func() {
 		timer := time.NewTimer(0)
 		defer timer.Stop()
@@ -194,23 +218,19 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 				}
 				p.baseFee = vmKeeper.GetBaseFee(ctx)
 				if p.baseFee != nil {
+					log.Info("set basefee success")
 					baseFeeUint = uint256.MustFromBig(p.baseFee)
 				}
 				log.Info("reset ctx in payload builder")
-			case <-timer.C:
-				if ctx.IsZero() {
-					continue
-				}
-				pendingFilter := PendingFilter{
-					MinTip:       minTip,
-					BaseFee:      baseFeeUint,
-					BlobFee:      nil,
-					OnlyPlainTxs: true,
-					OnlyBlobTxs:  false,
-				}
-				// TODO convert this into a function so we can do checks same as eth miner
-				p.Payload = NewTransactionsByPriceAndNonce(p.signer, p.Pending(pendingFilter), p.baseFee)
+
+			case <-p.rebuild:
+				buildPayload()
 				timer.Reset(p.Recommit)
+
+			case <-timer.C:
+				buildPayload()
+				timer.Reset(p.Recommit)
+
 			case <-p.stop:
 				log.Info("Stopping work on payload", "reason", "stopped")
 				return
@@ -233,6 +253,8 @@ func (p *TxPool) loop(head *types.Header) {
 	defer close(p.term)
 	// Close the payload builder
 	defer close(p.stop)
+	// Close the payload rebuild trigger
+	defer close(p.rebuild)
 
 	// Subscribe to chain head events to trigger subpool resets
 	var (
@@ -288,6 +310,16 @@ func (p *TxPool) loop(head *types.Header) {
 					for _, subpool := range p.Subpools {
 						subpool.Reset(oldHead, newHead)
 					}
+
+					// Trigger payload rebuild after subpools are updated
+					select {
+					case p.rebuild <- struct{}{}:
+						log.Debug("Triggered payload rebuild after header update")
+					case <-time.After(100 * time.Millisecond):
+						log.Warn("Payload rebuild trigger timeout")
+					case <-p.term:
+					}
+
 					select {
 					case resetDone <- newHead:
 					case <-p.term:

@@ -600,13 +600,13 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
 func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*txpool.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+	orderedEVMPendingTxes := m.txPool.GetPayload()
+	m.logger.Info("got evm iterator with txs", "length", orderedEVMPendingTxes.Length())
+
 	sdkctx := sdk.UnwrapSDKContext(ctx)
+	cosmosPendingTxes := m.cosmosPool.Select(sdkctx, txs)
 
-	evmIterator := m.txPool.GetPayload()
-	m.logger.Info("got evm iterator with txs", "length", evmIterator)
-	cosmosIterator := m.cosmosPool.Select(sdkctx, txs)
-
-	return evmIterator, cosmosIterator
+	return orderedEVMPendingTxes, cosmosPendingTxes
 }
 
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
