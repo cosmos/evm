@@ -92,7 +92,7 @@ func (txt *txTracker) Track(hash common.Hash) error {
 	txt.lock.Lock()
 	defer txt.lock.Unlock()
 
-	if _, alreadyTrakced := txt.txCheckpoints[hash]; alreadyTrakced {
+	if _, alreadyTracked := txt.txCheckpoints[hash]; alreadyTracked {
 		return fmt.Errorf("tx %s already being tracked", hash)
 	}
 
@@ -159,9 +159,9 @@ func (txt *txTracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, e
 	txt.lock.RLock()
 	defer txt.lock.RUnlock()
 
-	checkpoints, alreadyTrakced := txt.txCheckpoints[hash]
-	if !alreadyTrakced {
-		return nil, fmt.Errorf("tx %s not already being tracked", hash)
+	checkpoints, alreadyTracked := txt.txCheckpoints[hash]
+	if !alreadyTracked {
+		return nil, fmt.Errorf("tx not already being tracked")
 	}
 	return checkpoints, nil
 }
@@ -169,11 +169,7 @@ func (txt *txTracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, e
 // RemoveTx tracks final values for a tx as it exists the mempool and removes
 // it from the txTracker.
 func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) error {
-	defer func() {
-		txt.lock.Lock()
-		delete(txt.txCheckpoints, hash)
-		txt.lock.Unlock()
-	}()
+	defer txt.removeTx(hash)
 
 	switch pool {
 	case legacypool.Pending:
@@ -183,6 +179,13 @@ func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) error
 	}
 
 	return nil
+}
+
+// removeTx removes a tx by hash.
+func (txt *txTracker) removeTx(hash common.Hash) {
+	txt.lock.Lock()
+	defer txt.lock.Unlock()
+	delete(txt.txCheckpoints, hash)
 }
 
 // checkpoints is a set of important timestamps across a transactions lifecycle
