@@ -628,6 +628,7 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 	var (
 		minTipBig  *big.Int
 		baseFeeBig *big.Int
+		numTxs     int
 	)
 	if filter.MinTip != nil {
 		minTipBig = filter.MinTip.ToBig()
@@ -661,8 +662,19 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 					Gas:       txs[i].Gas(),
 					BlobGas:   txs[i].BlobGas(),
 				}
+				if filter.MaxTxs != 0 && (numTxs+len(lazies) >= filter.MaxTxs) {
+					// If adding this batch of lazies to the set of txs
+					// returned is going to exceed the max txs filter (if set),
+					// stop adding txs
+					break
+				}
 			}
 			pending[addr] = lazies
+			numTxs += len(lazies)
+			if numTxs >= filter.MaxTxs {
+				// We have maxed out the amount of txs to include
+				break
+			}
 		}
 	}
 	return pending

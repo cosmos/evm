@@ -80,6 +80,7 @@ type PendingFilter struct {
 
 	OnlyPlainTxs bool // Return only plain EVM transactions (peer-join announces, block space filling)
 	OnlyBlobTxs  bool // Return only blob transactions (block blob-space filling)
+	MaxTxs       int
 }
 
 // TxMetadata denotes the metadata of a transaction.
