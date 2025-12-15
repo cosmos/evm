@@ -650,9 +650,9 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 			}
 		}
 		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
+			lazies := make([]*txpool.LazyTransaction, 0, len(txs))
 			for i := 0; i < len(txs); i++ {
-				lazies[i] = &txpool.LazyTransaction{
+				lazies = append(lazies, &txpool.LazyTransaction{
 					Pool:      pool,
 					Hash:      txs[i].Hash(),
 					Tx:        txs[i],
@@ -661,7 +661,7 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
 					Gas:       txs[i].Gas(),
 					BlobGas:   txs[i].BlobGas(),
-				}
+				})
 				if filter.MaxTxs != 0 && (numTxs+len(lazies) >= filter.MaxTxs) {
 					// If adding this batch of lazies to the set of txs
 					// returned is going to exceed the max txs filter (if set),
