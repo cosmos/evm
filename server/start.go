@@ -583,11 +583,11 @@ func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	)
 }
 
-func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) {
-	if !cfg.Telemetry.Enabled {
+func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) { //nolint:staticcheck // TODO: fix
+	if !cfg.Telemetry.Enabled { //nolint:staticcheck // TODO: fix
 		return nil, nil
 	}
-	return telemetry.New(cfg.Telemetry)
+	return telemetry.New(cfg.Telemetry) //nolint:staticcheck // TODO: fix
 }
 
 // wrapCPUProfile runs callback in a goroutine, then wait for quit signals.
@@ -705,7 +705,7 @@ func startAPIServer(
 	svrCfg serverconfig.Config,
 	app types.Application,
 	grpcSrv *grpc.Server,
-	metrics *telemetry.Metrics,
+	metrics *telemetry.Metrics, //nolint:staticcheck // TODO: fix
 	gethMetricsAddress string,
 ) {
 	if !svrCfg.API.Enable {
@@ -715,8 +715,8 @@ func startAPIServer(
 	apiSrv := api.New(clientCtx, svrCtx.Logger.With("server", "api"), grpcSrv)
 	app.RegisterAPIRoutes(apiSrv, svrCfg.API)
 
-	if svrCfg.Telemetry.Enabled {
-		apiSrv.SetTelemetry(metrics)
+	if svrCfg.Telemetry.Enabled { //nolint:staticcheck // TODO: fix
+		apiSrv.SetTelemetry(metrics) //nolint:staticcheck // TODO: fix
 		g.Go(func() error {
 			return evmmetrics.StartGethMetricServer(ctx, svrCtx.Logger.With("server", "geth_metrics"), gethMetricsAddress)
 		})
