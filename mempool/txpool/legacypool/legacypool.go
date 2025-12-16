@@ -163,8 +163,9 @@ var (
 	// txpool reorgs.
 	throttleTxMeter = metrics.NewRegisteredMeter("txpool/throttle", nil)
 	// reorgDurationTimer measures how long time a txpool reorg takes.
-	reorgDurationTimer = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
-	resetDurationTimer = metrics.NewRegisteredTimer("txpool/resettime", nil)
+	reorgDurationTimer  = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
+	resetDurationTimer  = metrics.NewRegisteredTimer("txpool/resettime", nil)
+	demoteDurationTimer = metrics.NewRegisteredTimer("txpool/demote", nil)
 	// dropBetweenReorgHistogram counts how many drops we experience between two reorg runs. It is expected
 	// that this number is pretty low, since txpool reorgs happen very frequently.
 	dropBetweenReorgHistogram = metrics.NewRegisteredHistogram("txpool/dropbetweenreorg", nil, metrics.NewExpDecaySample(1028, 0.015))
@@ -1449,7 +1450,9 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
+		demoteStart := time.Now()
 		pool.demoteUnexecutables()
+		demoteDurationTimer.UpdateSince(demoteStart)
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
 				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
