@@ -17,7 +17,6 @@
 package legacypool
 
 import (
-	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"errors"
@@ -238,7 +237,7 @@ func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecke
 
 	key, _ := crypto.GenerateKey()
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, blockchain, WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, blockchain, nil, WithRecheck(rechecker))
 	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
 		panic(err)
 	}
@@ -371,7 +370,7 @@ func TestStateChangeDuringReset(t *testing.T) {
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -788,7 +787,7 @@ func TestPostponing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -998,7 +997,7 @@ func TestQueueGlobalLimiting(t *testing.T) {
 	config.NoLocals = true
 	config.GlobalQueue = config.AccountQueue*3 - 1 // reduce the queue limits to shorten test time (-1 to make it non divisible)
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1050,7 +1049,7 @@ func TestQueueTimeLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.Lifetime = time.Second
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1211,7 +1210,7 @@ func TestPendingGlobalLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = config.AccountSlots * 10
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1310,7 +1309,7 @@ func TestCapClearsFromAll(t *testing.T) {
 	config.AccountQueue = 2
 	config.GlobalSlots = 8
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1343,7 +1342,7 @@ func TestPendingMinimumAllowance(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = 1
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1387,7 +1386,7 @@ func TestRepricing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1492,7 +1491,7 @@ func TestMinGasPriceEnforced(t *testing.T) {
 
 	txPoolConfig := DefaultConfig
 	txPoolConfig.NoLocals = true
-	pool := New(txPoolConfig, blockchain)
+	pool := New(txPoolConfig, blockchain, nil)
 	pool.Init(txPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1641,7 +1640,7 @@ func TestUnderpricing(t *testing.T) {
 	config.GlobalSlots = 2
 	config.GlobalQueue = 2
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1731,7 +1730,7 @@ func TestStableUnderpricing(t *testing.T) {
 	config.GlobalSlots = 128
 	config.GlobalQueue = 0
 
-	pool := New(config, blockchain)
+	pool := New(config, blockchain, nil)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1934,7 +1933,7 @@ func TestDeduplication(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2001,7 +2000,7 @@ func TestReplacement(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2193,7 +2192,7 @@ func TestStatusCheck(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2266,7 +2265,7 @@ func TestSetCodeTransactions(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2564,7 +2563,7 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2623,7 +2622,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain, nil)
 	err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	if err != nil {
 		t.Fatalf("failed to init pool: %v", err)
@@ -2669,146 +2668,6 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	}()
 
 	wg.Wait()
-}
-
-// TestWaitForReorgHeight tests that WaitForReorgHeight properly blocks until
-// the reorg loop has completed for the specified height.
-func TestWaitForReorgHeight(t *testing.T) {
-	t.Run("waits for reorg to complete", func(t *testing.T) {
-		pool, _, _ := setupPool()
-		defer pool.Close()
-
-		if pool.latestReorgHeight.Load() != 0 {
-			t.Fatalf("expected initial height 0, got %d", pool.latestReorgHeight.Load())
-		}
-
-		// Create headers for the reset
-		oldHead := &types.Header{Number: big.NewInt(0), BaseFee: big.NewInt(10)}
-		newHead := &types.Header{Number: big.NewInt(5), BaseFee: big.NewInt(10)}
-
-		var reorgCompleted atomic.Bool
-		var waitCompleted atomic.Bool
-		var wg sync.WaitGroup
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx := context.Background()
-			pool.WaitForReorgHeight(ctx, 5)
-			waitCompleted.Store(true)
-		}()
-
-		// Give the waiter a chance to subscribe
-		time.Sleep(50 * time.Millisecond)
-
-		wg.Add(1)
-		go func() {
-			pool.Reset(oldHead, newHead)
-			reorgCompleted.Store(true)
-			wg.Done()
-		}()
-
-		// Wait for waiters
-		waitChan := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitChan)
-		}()
-		select {
-		case <-waitChan:
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for waiters")
-		}
-
-		if pool.latestReorgHeight.Load() != newHead.Number.Int64() {
-			t.Errorf("expected height 5 after reorg, got %d", pool.latestReorgHeight.Load())
-		}
-		if !reorgCompleted.Load() {
-			t.Errorf("WaitForReorgHeight returned before reorg completed")
-		}
-	})
-
-	t.Run("multiple height wait", func(t *testing.T) {
-		pool, _, _ := setupPool()
-		defer pool.Close()
-
-		if pool.latestReorgHeight.Load() != 0 {
-			t.Fatalf("expected initial height 0, got %d", pool.latestReorgHeight.Load())
-		}
-
-		var waitCompleted atomic.Bool
-		var wg sync.WaitGroup
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx := context.Background()
-			pool.WaitForReorgHeight(ctx, 10)
-			waitCompleted.Store(true)
-		}()
-
-		// Give the waiter a chance to subscribe
-		time.Sleep(50 * time.Millisecond)
-
-		go func() {
-			for i := 0; i < 20; i++ {
-				oldHead := &types.Header{Number: big.NewInt(int64(i)), BaseFee: big.NewInt(10)}
-				newHead := &types.Header{Number: big.NewInt(int64(i + 1)), BaseFee: big.NewInt(10)}
-				pool.Reset(oldHead, newHead)
-			}
-		}()
-
-		// Wait for waiters
-		waitChan := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitChan)
-		}()
-
-		select {
-		case <-waitChan:
-		case <-time.After(2 * time.Second):
-			t.Fatal("timeout waiting for waiters")
-		}
-
-		if pool.latestReorgHeight.Load() < 10 {
-			t.Errorf("expected height >= 10 after reorg, got %d", pool.latestReorgHeight.Load())
-		}
-	})
-
-	t.Run("concurrent waiters", func(t *testing.T) {
-		pool, _, _ := setupPool()
-		defer pool.Close()
-
-		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
-			wg.Add(1)
-			go func(id int) {
-				defer wg.Done()
-				pool.WaitForReorgHeight(context.Background(), 7)
-			}(i)
-		}
-
-		// Give all waiters time to subscribe
-		time.Sleep(100 * time.Millisecond)
-
-		// Trigger a single reorg
-		oldHead := &types.Header{Number: big.NewInt(0), BaseFee: big.NewInt(10)}
-		newHead := &types.Header{Number: big.NewInt(7), BaseFee: big.NewInt(10)}
-		pool.Reset(oldHead, newHead)
-
-		// Wait for all waiters to complete
-		waitChan := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitChan)
-		}()
-		select {
-		case <-waitChan:
-		case <-time.After(2 * time.Second):
-			t.Errorf("not all waiters completed in 2 seconds")
-		}
-	})
 }
 
 // TestPromoteExecutablesRecheckTx tests that promoteExecutables properly removes
