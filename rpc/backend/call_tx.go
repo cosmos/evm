@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -158,6 +159,12 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 	}
 
 	txHash := ethereumTx.AsTransaction().Hash()
+
+	// Check if transaction is already in the mempool before broadcasting
+	// This is important for user-submitted transactions via JSON-RPC to provide proper error feedback
+	if b.Mempool != nil && b.Mempool.Has(txHash) {
+		return txHash, txpool.ErrAlreadyKnown
+	}
 
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
