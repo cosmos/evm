@@ -57,11 +57,15 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 	case <-pb.done:
 		return nil
 	case <-ctx.Done():
+		fmt.Println("context timeout when selecting valid pending txs")
 	case <-pb.heightValidated:
+		fmt.Println("all txs at height validated, proceeding with pending selection")
 	}
 
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
+
+	numSelected := 0
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(pb.currentValidPendingTxs))
 	for addr, txs := range pb.currentValidPendingTxs {
 		sort.Sort(types.TxByNonce(txs)) // == list.Flatten()
@@ -88,9 +92,11 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 					BlobGas:   txs[i].BlobGas(),
 				}
 			}
+			numSelected += len(lazies)
 			pending[addr] = lazies
 		}
 	}
+	fmt.Println("selected", numSelected, "txs")
 	return pending
 }
 
