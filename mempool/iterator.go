@@ -44,7 +44,14 @@ type EVMMempoolIterator struct {
 // It combines iterators from both transaction pools and selects transactions based on fee priority.
 // Returns nil if both iterators are empty or nil. The bondDenom parameter specifies the native
 // token denomination for fee comparisons, and chainId is used for EVM transaction conversion.
-func NewEVMMempoolIterator(evmIterator *txpool.TransactionsByPriceAndNonce, cosmosIterator mempool.Iterator, logger log.Logger, txConfig client.TxConfig, bondDenom string, chainID *big.Int, blockchain *Blockchain) mempool.Iterator {
+func NewEVMMempoolIterator(
+	evmIterator *txpool.TransactionsByPriceAndNonce,
+	cosmosIterator mempool.Iterator,
+	logger log.Logger,
+	txConfig client.TxConfig,
+	bondDenom string,
+	blockchain *Blockchain,
+) mempool.Iterator {
 	// Check if we have any transactions at all
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
 	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
@@ -63,7 +70,7 @@ func NewEVMMempoolIterator(evmIterator *txpool.TransactionsByPriceAndNonce, cosm
 		logger:         logger,
 		txConfig:       txConfig,
 		bondDenom:      bondDenom,
-		chainID:        chainID,
+		chainID:        blockchain.Config().ChainID,
 		blockchain:     blockchain,
 	}
 }
