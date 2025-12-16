@@ -137,10 +137,14 @@ var (
 	pendingRecheckDurationTimer = metrics.NewRegisteredTimer("txpool/pending/rechecktime", nil) // How long rechecking txs in the pending pool takes (demoteUnexecutables)
 
 	// Metrics for pending demotions
-	pendingDemotedCostly   = metrics.NewRegisteredMeter("txpool/pending/demoted/cost", nil)     // Demoted due to parent tx being too costly (low balance or out of gas)
-	pendingDemotedRecheck  = metrics.NewRegisteredMeter("txpool/pending/demoted/recheck", nil)  // Demoted due to parent tx failing recheck
-	pendingDemotedRemoved  = metrics.NewRegisteredMeter("txpool/pending/demoted/removed", nil)  // Demoted due to parent tx being explicitly removed
-	pendingDemotedNonceGap = metrics.NewRegisteredMeter("txpool/pending/demoted/noncegap", nil) // Demoted due to there being a nonce gap in pending (shouldnt happen)
+	pendingDemotedCostly    = metrics.NewRegisteredMeter("txpool/pending/demoted/cost", nil)      // Demoted due to parent tx being too costly (low balance or out of gas)
+	pendingDemotedRecheck   = metrics.NewRegisteredMeter("txpool/pending/demoted/recheck", nil)   // Demoted due to parent tx failing recheck
+	pendingDemotedRemoved   = metrics.NewRegisteredMeter("txpool/pending/demoted/removed", nil)   // Demoted due to parent tx being explicitly removed
+	pendingDemotedNonceGap  = metrics.NewRegisteredMeter("txpool/pending/demoted/noncegap", nil)  // Demoted due to there being a nonce gap in pending (shouldnt happen)
+	pendingDemotedCancelled = metrics.NewRegisteredMeter("txpool/pending/demoted/cancelled", nil) // Demote loop cancelled due to a new block arriving
+
+	// Metrics for queued promotions
+	queuedPromotedCancelled = metrics.NewRegisteredMeter("txpool/queued/promoted/cancelled", nil) // Promote loop cancelled due to a new block arriving
 
 	// Metrics for the queued pool
 	queuedDiscardMeter         = metrics.NewRegisteredMeter("txpool/queued/discard", nil)
@@ -347,6 +351,9 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
+	resetCtx    context.Context
+	cancelReset func()
+
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
 	OnTxPromoted func(tx *types.Transaction)
@@ -519,6 +526,8 @@ func (pool *LegacyPool) Close() error {
 // Reset implements txpool.SubPool, allowing the legacy pool's internal state to be
 // kept in sync with the main transaction pool's internal state.
 func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
+	// cancel previous heights reset loop if still running
+	pool.cancelReset()
 	wait := pool.requestReset(oldHead, newHead)
 	<-wait
 }
@@ -1403,7 +1412,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(reset)
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
 				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
@@ -1481,11 +1490,27 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.pendingNonces = newNoncer(statedb)
 	pool.rechecker.Update(pool.chain, newHead)
 	pool.pendingBuilder.Reset(newHead.Number)
+	pool.resetCtx, pool.cancelReset = context.WithCancel(context.Background())
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
 	core.SenderCacher().Recover(pool.signer, reinject)
 	pool.addTxsLocked(reinject)
+}
+
+// isResetCancelled returns true if the pool is resetting and it has been
+// signaled to cancel the reset.
+func (pool *LegacyPool) isResetCancelled(reset *txpoolResetRequest) bool {
+	if reset == nil {
+		// we are not resetting, so it is not cancelled
+		return false
+	}
+	select {
+	case <-pool.resetCtx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 // promoteExecutables moves transactions that have become processable from the
@@ -1501,6 +1526,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for _, addr := range accounts {
+		if pool.isResetCancelled(reset) {
+			queuedPromotedCancelled.Mark(1)
+			return promoted
+		}
 		list := pool.queue[addr]
 		if list == nil {
 			continue // Just in case someone calls with a non existing account
@@ -1726,12 +1755,17 @@ func (pool *LegacyPool) truncateQueue() {
 // Note: transactions are not marked as removed in the priced list because re-heaping
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
-func (pool *LegacyPool) demoteUnexecutables() {
+func (pool *LegacyPool) demoteUnexecutables(reset *txpoolResetRequest) {
 	defer func(t0 time.Time) { demoteTimer.UpdateSince(t0) }(time.Now())
 
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
+		if pool.isResetCancelled(reset) {
+			pendingDemotedCancelled.Mark(1)
+			return
+		}
+
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)
