@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -30,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
@@ -41,6 +44,9 @@ const (
 	TxStatusPending
 	TxStatusIncluded
 )
+
+// DefaultRecommit is the interval at which we will try to reconstruct the Payload
+const DefaultRecommit = time.Millisecond * 200
 
 // BlockChain defines the minimal set of methods needed to back a tx pool with
 // a chain. Exists to allow mocking the live chain out of tests.
@@ -56,6 +62,8 @@ type BlockChain interface {
 
 	// StateAt returns a state database for a given root hash (generally the head).
 	StateAt(root common.Hash) (vm.StateDB, error)
+
+	GetLatestContext() (sdk.Context, error)
 }
 
 // TxPool is an aggregator for various transaction specific pools, collectively
@@ -76,11 +84,24 @@ type TxPool struct {
 	term chan struct{}           // Termination channel to detect a closed pool
 
 	sync chan chan error // Testing / simulator channel to block until internal reset is done
+
+	// Payload is the the returned Payload from GetPayload
+	Payload *TransactionsByPriceAndNonce
+	// Recommit is the duration between recomputing the Payload
+	Recommit time.Duration
+	// stop signals to the payload builder to stop the current loop
+	stop chan struct{}
+	// reset signals the payload builder to reset state
+	reset chan struct{}
+	// rebuild signals the payload builder to immediately rebuild the payload
+	rebuild chan struct{}
+	// baseFee is calculated during payload building
+	baseFee *big.Int
 }
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
+func New(gasTip uint64, chain BlockChain, subpools []SubPool, vmKeeper VMKeeper, minTip *uint256.Int) (*TxPool, error) {
 	// Retrieve the current head so that all Subpools and this main coordinator
 	// pool will have the same starting state, even if the chain moves forward
 	// during initialization.
@@ -104,6 +125,10 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 		quit:     make(chan chan error),
 		term:     make(chan struct{}),
 		sync:     make(chan chan error),
+		Recommit: DefaultRecommit,
+		stop:     make(chan struct{}),
+		reset:    make(chan struct{}),
+		rebuild:  make(chan struct{}),
 	}
 	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
@@ -114,6 +139,7 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 			return nil, err
 		}
 	}
+	pool.BuildPayload(minTip, vmKeeper)
 	go pool.loop(head)
 	return pool, nil
 }
@@ -143,12 +169,91 @@ func (p *TxPool) Close() error {
 	return nil
 }
 
+// BuildPayload begins rebuilding the Payload until the payload is retrieved.
+func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
+	ctx, err := p.chain.GetLatestContext()
+	var baseFeeUint *uint256.Int
+	if err != nil {
+		log.Error("could not start payload builder, failed to get ctx", "error", err)
+	} else {
+		p.baseFee = vmKeeper.GetBaseFee(ctx)
+	}
+	if p.baseFee != nil {
+		log.Info("set base fee success")
+		baseFeeUint = uint256.MustFromBig(p.baseFee)
+	}
+
+	// buildPayload constructs a new payload from pending transactions
+	buildPayload := func() {
+		if ctx.IsZero() {
+			return
+		}
+		pendingFilter := PendingFilter{
+			MinTip:       minTip,
+			BaseFee:      baseFeeUint,
+			BlobFee:      nil,
+			OnlyPlainTxs: true,
+			OnlyBlobTxs:  false,
+		}
+		// TODO convert this into a function so we can do checks same as eth miner
+		pendingTxs := p.Pending(pendingFilter)
+		log.Info("got pending txs", "size", len(pendingTxs))
+		p.Payload = NewTransactionsByPriceAndNonce(p.signer, pendingTxs, p.baseFee)
+		log.Debug("Rebuilt payload")
+	}
+
+	go func() {
+		timer := time.NewTimer(0)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-p.reset:
+				p.Payload = nil
+				ctx, err = p.chain.GetLatestContext()
+				if err != nil {
+					log.Error("could not reset payload builder, failed to get ctx", "error", err)
+					continue
+				}
+				p.baseFee = vmKeeper.GetBaseFee(ctx)
+				if p.baseFee != nil {
+					log.Info("set basefee success")
+					baseFeeUint = uint256.MustFromBig(p.baseFee)
+				}
+				log.Info("reset ctx in payload builder")
+
+			case <-p.rebuild:
+				buildPayload()
+				timer.Reset(p.Recommit)
+
+			case <-timer.C:
+				buildPayload()
+				timer.Reset(p.Recommit)
+
+			case <-p.stop:
+				log.Info("Stopping work on payload", "reason", "stopped")
+				return
+			}
+		}
+	}()
+}
+
+// GetPayload returns the most recently constructed Payload.
+// It also terminates the Recommit loop.
+func (p *TxPool) GetPayload() *TransactionsByPriceAndNonce {
+	return p.Payload
+}
+
 // loop is the transaction pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and transaction
 // eviction events.
 func (p *TxPool) loop(head *types.Header) {
 	// Close the termination marker when the pool stops
 	defer close(p.term)
+	// Close the payload builder
+	defer close(p.stop)
+	// Close the payload rebuild trigger
+	defer close(p.rebuild)
 
 	// Subscribe to chain head events to trigger subpool resets
 	var (
@@ -196,11 +301,24 @@ func (p *TxPool) loop(head *types.Header) {
 					p.stateLock.Unlock()
 				}
 
+				// Reset the payload builder
+				p.reset <- struct{}{}
+
 				// Busy marker injected, start a new subpool reset
 				go func(oldHead, newHead *types.Header) {
 					for _, subpool := range p.Subpools {
 						subpool.Reset(oldHead, newHead)
 					}
+
+					// Trigger payload rebuild after subpools are updated
+					select {
+					case p.rebuild <- struct{}{}:
+						log.Debug("Triggered payload rebuild after header update")
+					case <-time.After(100 * time.Millisecond):
+						log.Warn("Payload rebuild trigger timeout")
+					case <-p.term:
+					}
+
 					select {
 					case resetDone <- newHead:
 					case <-p.term:
