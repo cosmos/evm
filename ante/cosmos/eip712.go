@@ -25,7 +25,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-var evmCodec codec.ProtoCodecMarshaler
+var evmCodec codec.Codec
 
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
