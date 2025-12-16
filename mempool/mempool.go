@@ -405,9 +405,6 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 // The iterator prioritizes transactions based on their fees and manages proper
 // sequencing. The i parameter contains transaction hashes to exclude from selection.
 func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	return m.buildIterator(goCtx, i)
 }
 
@@ -415,9 +412,6 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
 func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	iter := m.buildIterator(goCtx, txs)
 
 	for iter != nil && filter(iter.Tx()) {
