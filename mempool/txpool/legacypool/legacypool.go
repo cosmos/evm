@@ -527,7 +527,9 @@ func (pool *LegacyPool) Close() error {
 // kept in sync with the main transaction pool's internal state.
 func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
 	// cancel previous heights reset loop if still running
-	pool.cancelReset()
+	if pool.cancelReset != nil {
+		pool.cancelReset()
+	}
 	wait := pool.requestReset(oldHead, newHead)
 	<-wait
 }
