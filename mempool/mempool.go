@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -135,6 +136,7 @@ func NewExperimentalEVMMempool(
 	legacyPool := legacypool.New(
 		legacyConfig,
 		blockchain,
+		config.MinTip.ToBig(),
 		legacypool.WithRecheck(rechecker),
 	)
 
@@ -427,12 +429,6 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, f
 func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// context has a block height of the next PROPOSED block,
-	// but we need to wait for the reorg to complete on the previous COMMITTED block.
-	committedHeight := sdkCtx.BlockHeight() - 1
-
-	m.legacyTxPool.WaitForReorgHeight(ctx, committedHeight)
-
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
 	return NewEVMMempoolIterator(
@@ -605,21 +601,22 @@ func (m *ExperimentalEVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereum
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-	baseFee := m.vmKeeper.GetBaseFee(ctx)
+func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+	committedHeight := sdkctx.BlockHeight() - 1
+	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)
 	}
 
-	evmPendingTxs := m.txPool.Pending(txpool.PendingFilter{
-		MinTip:       m.minTip,
+	filter := txpool.PendingFilter{
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
-	})
+	}
+	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(committedHeight), filter)
 
 	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
 	cosmosIterator := m.cosmosPool.Select(ctx, txs)

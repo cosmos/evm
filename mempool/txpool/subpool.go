@@ -17,6 +17,7 @@
 package txpool
 
 import (
+	"context"
 	"math/big"
 	"time"
 
@@ -74,7 +75,6 @@ type LazyResolver interface {
 // a very specific call site in mind and each one can be evaluated very cheaply
 // by the pool implementations. Only add new ones that satisfy those constraints.
 type PendingFilter struct {
-	MinTip  *uint256.Int // Minimum miner tip required to include a transaction
 	BaseFee *uint256.Int // Minimum 1559 basefee needed to include a transaction
 	BlobFee *uint256.Int // Minimum 4844 blobfee needed to include a blob transaction
 
@@ -157,7 +157,7 @@ type SubPool interface {
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(filter PendingFilter) map[common.Address][]*LazyTransaction
+	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions

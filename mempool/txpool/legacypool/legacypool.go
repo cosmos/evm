@@ -327,6 +327,8 @@ type LegacyPool struct {
 	reserver      txpool.Reserver              // Address reserver to ensure exclusivity across subpools
 	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
+	pendingBuilder *pendingBuilder // Builds a set of valid pending transactions for fast retrieval
+
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
 	beats   map[common.Address]time.Time // Last heartbeat from each known account
@@ -371,7 +373,7 @@ func WithRecheck(rechecker Rechecker) Option {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
+func New(config Config, chain BlockChain, minTip *big.Int, opts ...Option) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -386,6 +388,7 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 		beats:               make(map[common.Address]time.Time),
 		all:                 newLookup(),
 		rechecker:           newNopRechecker(),
+		pendingBuilder:      newPendingBuilder(minTip, config.PriceBump),
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
 		queueTxEventCh:      make(chan *types.Transaction),
@@ -504,10 +507,12 @@ func (pool *LegacyPool) loop() {
 // Close terminates the transaction pool.
 func (pool *LegacyPool) Close() error {
 	// Terminate the pool reorger and return
+	pool.pendingBuilder.Close()
 	close(pool.reorgShutdownCh)
 	pool.wg.Wait()
 
 	log.Info("Transaction pool stopped")
+
 	return nil
 }
 
@@ -622,57 +627,8 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	// If only blob transactions are requested, this pool is unsuitable as it
-	// contains none, don't even bother.
-	if filter.OnlyBlobTxs {
-		return nil
-	}
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
-	var (
-		minTipBig  *big.Int
-		baseFeeBig *big.Int
-	)
-	if filter.MinTip != nil {
-		minTipBig = filter.MinTip.ToBig()
-	}
-	if filter.BaseFee != nil {
-		baseFeeBig = filter.BaseFee.ToBig()
-	}
-	pending := make(map[common.Address][]*txpool.LazyTransaction, len(pool.pending))
-	for addr, list := range pool.pending {
-		txs := list.Flatten()
-
-		// If the miner requests tip enforcement, cap the lists now
-		if minTipBig != nil {
-			for i, tx := range txs {
-				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
-					txs = txs[:i]
-					break
-				}
-			}
-		}
-		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i := 0; i < len(txs); i++ {
-				lazies[i] = &txpool.LazyTransaction{
-					Pool:      pool,
-					Hash:      txs[i].Hash(),
-					Tx:        txs[i],
-					Time:      txs[i].Time(),
-					GasFeeCap: uint256.MustFromBig(txs[i].GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
-					Gas:       txs[i].Gas(),
-					BlobGas:   txs[i].BlobGas(),
-				}
-			}
-			pending[addr] = lazies
-		}
-	}
-	return pending
+func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+	return pool.pendingBuilder.ValidPendingTxs(ctx, height, filter.BaseFee.ToBig())
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
@@ -902,7 +858,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		if old != nil {
 			pool.all.Remove(old.Hash())
 			pool.priced.Removed(1)
-			pool.markTxRemoved(old, Pending)
+			pool.markTxRemoved(from, old, Pending)
 			pendingReplaceMeter.Mark(1)
 		}
 		pool.all.Add(tx)
@@ -911,7 +867,8 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 
 		// tx went straight to the pending queue and bypassed the queue, mark
 		// it as promoted
-		pool.markTxPromoted(tx)
+		// TODO: we need to run recheck here! this is a way to bypass recheck
+		pool.markTxPromoted(from, tx)
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
 		// Successful promotion, bump the heartbeat
@@ -972,7 +929,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
 		queuedReplaceMeter.Mark(1)
-		pool.markTxRemoved(old, Queue)
+		pool.markTxRemoved(from, old, Queue)
 	} else {
 		// Nothing was replaced, bump the queued counter
 		queuedGauge.Inc(1)
@@ -1010,15 +967,18 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 		// An older transaction was better, discard this
 		pool.all.Remove(hash)
 		pool.priced.Removed(1)
-		pool.markTxRemoved(tx, Queue)
+		pool.markTxRemoved(addr, tx, Queue)
 		pendingDiscardMeter.Mark(1)
+		pool.pendingBuilder.AddTx(addr, tx)
 		return false
 	}
 	// Otherwise discard any previous transaction and mark this
 	if old != nil {
+		// TODO: this tx that we are removing may be in the pending builder, we
+		// should remove it from there
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
-		pool.markTxRemoved(old, Pending)
+		pool.markTxRemoved(addr, old, Pending)
 		pendingReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the pending counter
@@ -1029,7 +989,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 
 	// Successful promotion, bump the heartbeat
 	pool.beats[addr] = time.Now()
-	pool.markTxPromoted(tx)
+	pool.markTxPromoted(addr, tx)
 	return true
 }
 
@@ -1257,7 +1217,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// Remove the transaction from the pending lists and reset the account nonce
 	if pending := pool.pending[addr]; pending != nil {
 		if removed, invalids := pending.Remove(tx); removed {
-			pool.markTxRemoved(tx, Pending)
+			pool.markTxRemoved(addr, tx, Pending)
 			pendingRemovalMetric(reason).Mark(1)
 
 			// If no more pending transactions are left, remove the list
@@ -1280,7 +1240,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 	// Transaction is in the future queue
 	if future := pool.queue[addr]; future != nil {
 		if removed, _ := future.Remove(tx); removed {
-			pool.markTxRemoved(tx, Queue)
+			pool.markTxRemoved(addr, tx, Queue)
 			queueRemovalMetric(reason).Mark(1)
 
 			// Reduce the queued counter
@@ -1459,8 +1419,16 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 			nonces[addr] = highestPending.Nonce() + 1
 		}
 		pool.pendingNonces.setAll(nonces)
+		pool.pendingBuilder.MarkHeightValidated()
 	}
+
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
+	//
+	// TODO: We are adding to the pending builder before this, then we may
+	// immediately drop some of the txs we put in pending via truncate. we will
+	// likely have to change this algorithm to truncate as we call demote
+	// unexecutables per account (currently it needs info on all accounts since
+	// it tries to truncate fairly across accounts).
 	pool.truncatePending()
 	pool.truncateQueue()
 
@@ -1512,6 +1480,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
 	pool.rechecker.Update(pool.chain, newHead)
+	pool.pendingBuilder.Reset(newHead.Number)
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1540,7 +1509,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		forwards := list.Forward(pool.currentState.GetNonce(addr))
 		for _, tx := range forwards {
 			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx, Queue)
+			pool.markTxRemoved(addr, tx, Queue)
 			queueRemovalMetric(RemovalReasonOld).Mark(1)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
@@ -1548,7 +1517,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range costDrops {
 			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx, Queue)
+			pool.markTxRemoved(addr, tx, Queue)
 			queueRemovalMetric(RemovalReasonCostly).Mark(1)
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
@@ -1574,7 +1543,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		})
 		for _, tx := range recheckDrops {
 			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(tx, Queue)
+			pool.markTxRemoved(addr, tx, Queue)
 		}
 		log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
 		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
@@ -1588,7 +1557,6 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
 				promoted = append(promoted, tx)
-				pool.markTxPromoted(tx)
 			}
 		}
 		log.Trace("Promoted queued transactions", "count", len(promoted))
@@ -1599,7 +1567,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 		for _, tx := range caps {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx, Queue)
+			pool.markTxRemoved(addr, tx, Queue)
 			queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 		}
@@ -1665,7 +1633,7 @@ func (pool *LegacyPool) truncatePending() {
 						// Drop the transaction from the global pools too
 						hash := tx.Hash()
 						pool.all.Remove(hash)
-						pool.markTxRemoved(tx, Pending)
+						pool.markTxRemoved(offenders[i], tx, Pending)
 						pendingRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 
 						// Update the account nonce to the dropped transaction
@@ -1692,7 +1660,7 @@ func (pool *LegacyPool) truncatePending() {
 					// Drop the transaction from the global pools too
 					hash := tx.Hash()
 					pool.all.Remove(hash)
-					pool.markTxRemoved(tx, Queue)
+					pool.markTxRemoved(addr, tx, Pending)
 					pendingRemovalMetric(RemovalReasonCapExceeded).Mark(1)
 
 					// Update the account nonce to the dropped transaction
@@ -1771,7 +1739,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range olds {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx, Pending)
+			pool.markTxRemoved(addr, tx, Pending)
 			log.Trace("Removed old pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonOld).Mark(1)
 		}
@@ -1780,7 +1748,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range drops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx, Pending)
+			pool.markTxRemoved(addr, tx, Pending)
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonCostly).Mark(1)
 		}
@@ -1809,7 +1777,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		for _, tx := range recheckDrops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
-			pool.markTxRemoved(tx, Pending)
+			pool.markTxRemoved(addr, tx, Pending)
 			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
 		}
 		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
@@ -1845,6 +1813,8 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			if _, ok := pool.queue[addr]; !ok {
 				pool.reserver.Release(addr)
 			}
+		} else {
+			pool.pendingBuilder.AddList(addr, list)
 		}
 	}
 }
@@ -2115,45 +2085,6 @@ func (pool *LegacyPool) Clear() {
 	pool.pendingNonces = newNoncer(pool.currentState)
 }
 
-// WaitForReorgHeight blocks until the reorg loop has reset at a head with
-// height >= height. If the context is cancelled or the pool is shutting down,
-// this will also return.
-func (pool *LegacyPool) WaitForReorgHeight(ctx context.Context, height int64) {
-	defer func(start time.Time) { reorgWaitDurationTimer.UpdateSince(start) }(time.Now())
-
-	for pool.latestReorgHeight.Load() < height {
-		// reorg loop has not run at the target height, subscribe to the
-		// outcome of the next reorg loop iteration to know when to check again
-		sub, err := pool.SubscribeToNextReorg()
-		if err != nil {
-			return
-		}
-
-		// need to check again in case reorg has finished in between initial
-		// check and subscribing to next reorg
-		if pool.latestReorgHeight.Load() >= height {
-			return
-		}
-
-		select {
-		case <-sub:
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// SubscribeToNextReorg returns a channel that will close when the next reorg
-// loop completes. An error is returned if the loop is shutting down.
-func (pool *LegacyPool) SubscribeToNextReorg() (chan struct{}, error) {
-	select {
-	case pool.reorgSubscriptionCh <- struct{}{}:
-		return <-pool.reorgDoneCh, nil
-	case <-pool.reorgShutdownCh:
-		return nil, errors.New("shutdown")
-	}
-}
-
 // HasPendingAuth returns a flag indicating whether there are pending
 // authorizations from the specific address cached in the pool.
 func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
@@ -2161,14 +2092,18 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 }
 
 // markTxPromoted calls the OnTxPromoted callback if it has been supplied.
-func (pool *LegacyPool) markTxPromoted(tx *types.Transaction) {
+func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
+	pool.pendingBuilder.AddTx(addr, tx)
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}
 }
 
 // markTxRemoved calls the OnTxRemoved callback if it has been supplied.
-func (pool *LegacyPool) markTxRemoved(tx *types.Transaction, p PoolType) {
+func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction, p PoolType) {
+	if p == Pending {
+		pool.pendingBuilder.RemoveTx(addr, tx)
+	}
 	if pool.OnTxRemoved != nil {
 		pool.OnTxRemoved(tx, p)
 	}
