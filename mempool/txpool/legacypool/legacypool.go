@@ -1409,7 +1409,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	defer func(t0 time.Time) {
 		reorgDurationTimer.Update(time.Since(t0))
 		if reset != nil {
-			reorgDurationTimer.Update(time.Since(t0))
+			resetDurationTimer.Update(time.Since(t0))
 		}
 	}(time.Now())
 	defer close(done)
