@@ -164,6 +164,7 @@ var (
 	throttleTxMeter = metrics.NewRegisteredMeter("txpool/throttle", nil)
 	// reorgDurationTimer measures how long time a txpool reorg takes.
 	reorgDurationTimer = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
+	resetDurationTimer = metrics.NewRegisteredTimer("txpool/resettime", nil)
 	// dropBetweenReorgHistogram counts how many drops we experience between two reorg runs. It is expected
 	// that this number is pretty low, since txpool reorgs happen very frequently.
 	dropBetweenReorgHistogram = metrics.NewRegisteredHistogram("txpool/dropbetweenreorg", nil, metrics.NewExpDecaySample(1028, 0.015))
@@ -1406,6 +1407,9 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
 	defer func(t0 time.Time) {
 		reorgDurationTimer.Update(time.Since(t0))
+		if reset != nil {
+			reorgDurationTimer.Update(time.Since(t0))
+		}
 	}(time.Now())
 	defer close(done)
 
