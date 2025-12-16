@@ -6,11 +6,21 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/holiman/uint256"
+)
+
+var (
+	pendingTimeout        = metrics.NewRegisteredMeter("pendingbuilder/timeout", nil)
+	pendingComplete       = metrics.NewRegisteredMeter("pendingbuilder/complete", nil)
+	pendingTxsAccumulated = metrics.NewRegisteredMeter("pendingbuilder/txsaccumulated", nil)
+
+	pendingResetToSelect = metrics.NewRegisteredTimer("pendingbuilder/resettoselect", nil)
 )
 
 // pendingBuilder builds a set of pending txs as they are validated.
@@ -24,6 +34,8 @@ type pendingBuilder struct {
 	height                 *big.Int
 	heightValidated        chan struct{}
 	mu                     sync.RWMutex
+
+	resetAt time.Time
 
 	done chan struct{}
 }
@@ -57,10 +69,11 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 	case <-pb.done:
 		return nil
 	case <-ctx.Done():
-		fmt.Println("context timeout when selecting valid pending txs")
+		pendingTimeout.Mark(1)
 	case <-pb.heightValidated:
-		fmt.Println("all txs at height validated, proceeding with pending selection")
+		pendingComplete.Mark(1)
 	}
+	pendingResetToSelect.UpdateSince(pb.resetAt)
 
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -96,7 +109,7 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 			pending[addr] = lazies
 		}
 	}
-	fmt.Println("selected", numSelected, "txs")
+	pendingTxsAccumulated.Mark(int64(numSelected))
 	return pending
 }
 
@@ -177,6 +190,7 @@ func (pb *pendingBuilder) Reset(height *big.Int) {
 	pb.height = height
 	pb.currentValidPendingTxs = make(map[common.Address]types.Transactions)
 	pb.heightValidated = make(chan struct{})
+	pb.resetAt = time.Now()
 }
 
 // MarkHeightValidated informs the pendingBuilder that the height is is
