@@ -132,10 +132,11 @@ func (s StaticPrecompiles) WithICS20Precompile(
 }
 
 func (s StaticPrecompiles) WithBankPrecompile(
+	bankMsgServer bankprecompile.MsgServer,
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper *erc20Keeper.Keeper,
 ) StaticPrecompiles {
-	bankPrecompile := bankprecompile.NewPrecompile(bankKeeper, erc20Keeper)
+	bankPrecompile := bankprecompile.NewPrecompile(bankMsgServer, bankprecompile.Keeper(bankKeeper), erc20Keeper)
 	s[bankPrecompile.Address()] = bankPrecompile
 	return s
 }

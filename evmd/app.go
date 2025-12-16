@@ -461,6 +461,7 @@ func NewExampleApp(
 			*app.StakingKeeper,
 			app.DistrKeeper,
 			app.PreciseBankKeeper,
+			app.BankKeeper,
 			&app.Erc20Keeper,
 			&app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
