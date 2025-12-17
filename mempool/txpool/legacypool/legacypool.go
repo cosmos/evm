@@ -394,7 +394,7 @@ func New(config Config, chain BlockChain, minTip *big.Int, opts ...Option) *Lega
 		beats:               make(map[common.Address]time.Time),
 		all:                 newLookup(),
 		rechecker:           newNopRechecker(),
-		pendingBuilder:      newPendingBuilder(minTip, config.PriceBump),
+		pendingBuilder:      newPendingBuilder(minTip, chain.CurrentBlock().Number, config.PriceBump),
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
 		queueTxEventCh:      make(chan *types.Transaction),

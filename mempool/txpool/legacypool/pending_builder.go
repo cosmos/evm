@@ -41,12 +41,13 @@ type pendingBuilder struct {
 }
 
 // newPendingBuilder creates a new instance of a pendingBuilder.
-func newPendingBuilder(minTip *big.Int, priceBump uint64) *pendingBuilder {
+func newPendingBuilder(minTip *big.Int, height *big.Int, priceBump uint64) *pendingBuilder {
 	pb := &pendingBuilder{
 		in:                     make(chan validatedTxs),
 		minTip:                 minTip,
 		priceBump:              priceBump,
 		currentValidPendingTxs: make(map[common.Address]types.Transactions),
+		height:                 height,
 		done:                   make(chan struct{}),
 	}
 	go pb.loop()
@@ -190,7 +191,7 @@ func (pb *pendingBuilder) Reset(height *big.Int) {
 	pb.height = height
 	pb.currentValidPendingTxs = make(map[common.Address]types.Transactions)
 	pb.heightValidated = make(chan struct{})
-	pb.resetAt = time.Now()
+	pb.resetAt = time.Now() // for metrics
 }
 
 // MarkHeightValidated informs the pendingBuilder that the height is is
