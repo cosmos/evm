@@ -433,7 +433,7 @@ func DefaultConfig() *Config {
 	defaultSDKConfig.API.Enable = DefaultAPIEnable
 	defaultSDKConfig.GRPC.Enable = DefaultGRPCEnable
 	defaultSDKConfig.GRPCWeb.Enable = DefaultGRPCWebEnable
-	defaultSDKConfig.Telemetry.Enabled = DefaultTelemetryEnable
+	defaultSDKConfig.Telemetry.Enabled = DefaultTelemetryEnable //nolint:staticcheck // TODO: fix
 
 	return &Config{
 		Config:  *defaultSDKConfig,

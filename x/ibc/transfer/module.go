@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	_ module.AppModule      = AppModule{} //nolint: staticcheck
+	_ module.AppModule      = AppModule{} //nolint:staticcheck // keep for legacy purposes
 	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
