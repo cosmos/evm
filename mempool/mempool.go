@@ -605,7 +605,7 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 		baseFeeUint = uint256.MustFromBig(baseFee)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*500)
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
 	defer cancel()
 
 	filter := txpool.PendingFilter{
