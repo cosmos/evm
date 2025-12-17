@@ -39,7 +39,7 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	cfg *statedb.EVMConfig,
 	tracer *tracing.Hooks,
 	stateDB vm.StateDB,
-	overridePrecompiles bool,
+	noOverridePrecompiles bool,
 ) *vm.EVM {
 	ctx = k.SetConsensusParamsInCtx(ctx)
 	blockCtx := vm.BlockContext{
@@ -73,13 +73,13 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	evmHooks.AddCallHooks(
 		accessControl.GetCallHook(signer),
 	)
-	if overridePrecompiles {
+	if noOverridePrecompiles {
 		evmHooks.AddCallHooks(
 			k.GetPrecompilesCallHook(ctx),
 		)
 	} else {
 		evmHooks.AddCallHooks(
-			k.GetPrecompileRecipientCallHook(ctx),
+			k.GetPrecompilesCallHookWithOverrides(ctx),
 		)
 	}
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
