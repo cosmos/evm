@@ -20,6 +20,7 @@ var (
 	pendingComplete       = metrics.NewRegisteredMeter("pendingbuilder/complete", nil)
 	pendingTxsAccumulated = metrics.NewRegisteredMeter("pendingbuilder/txsaccumulated", nil)
 
+	pendingSelectWait    = metrics.NewRegisteredTimer("pendingbuilder/selectwait", nil)
 	pendingResetToSelect = metrics.NewRegisteredTimer("pendingbuilder/resettoselect", nil)
 )
 
@@ -66,6 +67,8 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 	// respect. so if we time out on context then we will return all of the
 	// things that have been validated up to this point.
 	// 2. we have gotten the signal that all txs have been validated at this height and we can now return.
+
+	waitStart := time.Now()
 	select {
 	case <-pb.done:
 		return nil
@@ -75,6 +78,7 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 		pendingComplete.Mark(1)
 	}
 	pendingResetToSelect.UpdateSince(pb.resetAt)
+	pendingSelectWait.UpdateSince(waitStart)
 
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
