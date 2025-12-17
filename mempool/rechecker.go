@@ -54,12 +54,7 @@ func (r *Rechecker) GetContext() (sdk.Context, func()) {
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *Rechecker) Recheck(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
-	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
-	if err != nil {
-		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
-	}
-
-	return r.anteHandler(ctx, cosmosTx, false)
+	return ctx, nil
 }
 
 // Update updates the base context for rechecks based on the latest chain
