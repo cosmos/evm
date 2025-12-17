@@ -441,7 +441,7 @@ func (s *TestSuite) TestTraceBlock() {
 					Data: []byte(`[{"result": "trace1"}, {"result": "trace2"}]`),
 				}
 				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				queryClient.On("TraceBlock", mock.Anything, mock.AnythingOfType("*types.QueryTraceBlockRequest")).
+				queryClient.EXPECT().TraceBlock(mock.Anything, mock.AnythingOfType("*types.QueryTraceBlockRequest")).
 					Return(traceResult, nil).
 					Once()
 			},
