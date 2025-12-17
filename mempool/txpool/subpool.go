@@ -91,6 +91,68 @@ type TxMetadata struct {
 // RemovalReason is a string describing why a tx is being removed.
 type RemovalReason string
 
+// RemoveTxConfig configures how txs should be removed from the Subpool.
+type RemoveTxConfig struct {
+	// OutOfBound configures if the tx should be removed from the priced list
+	// as well.
+	OutOfBound bool
+
+	// Unreserve configures if teh account will be relinquished to the main
+	// txpool even if there are no references to it.
+	Unreserve bool
+
+	// StrictOverride determines if txs after the removed tx will also be
+	// removed.
+	StrictOverride *bool
+
+	// Reason is the reason why this tx is being removed. Used for metrics.
+	Reason RemovalReason
+}
+
+// NewRemoveTxConfig creates a new set of configuration options for removing
+// txs.
+func NewRemoveTxConfig() *RemoveTxConfig {
+	return &RemoveTxConfig{}
+}
+
+// RemoveTxOption sets values on a RemoveTxConfig
+type RemoveTxOption func(opts *RemoveTxConfig)
+
+// WithOutOfBound configures if the tx should be removed from the priced list
+// as well.
+func WithOutOfBound() RemoveTxOption {
+	return func(opts *RemoveTxConfig) {
+		opts.OutOfBound = true
+	}
+}
+
+// WithUnreserve is false, the account will not be relinquished to the main
+// txpool even if there are no more references to it. This is used to handle a
+// race when a tx being added, and it evicts a previously scheduled tx from the
+// same account, which could lead to a premature release of the lock.
+func WithUnreserve() RemoveTxOption {
+	return func(opts *RemoveTxConfig) {
+		opts.Unreserve = true
+	}
+}
+
+// WithStrictOverride if not set will default to the lists default removing
+// strictness. If set to true, this will force the list to remove all
+// subsequent nonces tx after the tx being removed. If the tx is in pending and
+// strict is true, it will enqueue all removed txs.
+func WithStrictOverride(strict bool) RemoveTxOption {
+	return func(opts *RemoveTxConfig) {
+		opts.StrictOverride = &strict
+	}
+}
+
+// WithRemovalReason specifies why a tx is being removed. This is for metrics.
+func WithRemovalReason(reason RemovalReason) RemoveTxOption {
+	return func(opts *RemoveTxConfig) {
+		opts.Reason = reason
+	}
+}
+
 // SubPool represents a specialized transaction pool that lives on its own (e.g.
 // blob pool). Since independent of how many specialized pools we have, they do
 // need to be updated in lockstep and assemble into one coherent view for block
@@ -188,5 +250,5 @@ type SubPool interface {
 	Clear()
 
 	// RemoveTx removes a tracked transaction from the pool
-	RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int
+	RemoveTx(hash common.Hash, opts ...RemoveTxOption) int
 }
