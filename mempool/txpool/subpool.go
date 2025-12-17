@@ -118,6 +118,11 @@ type SubPool interface {
 	// of the transaction pool is valid with regard to the chain state.
 	Reset(oldHead, newHead *types.Header)
 
+	// CancelReset signals the subpool to stop processing its current reset
+	// request since a new block arrived and the work it is doing to reset at
+	// the current height will be invalidated.
+	CancelReset()
+
 	// SetGasTip updates the minimum price required by the subpool for a new
 	// transaction, and drops all transactions below this threshold.
 	SetGasTip(tip *big.Int)

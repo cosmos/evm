@@ -168,8 +168,7 @@ var (
 	throttleTxMeter = metrics.NewRegisteredMeter("txpool/throttle", nil)
 
 	// reorgDurationTimer measures how long time a txpool reorg takes.
-	reorgDurationTimer     = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
-	reorgWaitDurationTimer = metrics.NewRegisteredTimer("txpool/reorgwaittime", nil)
+	reorgDurationTimer = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
 	// reorgResetTimer measures how long a txpool reorg takes when it is resetting.
 	reorgResetTimer = metrics.NewRegisteredTimer("txpool/resettime", nil)
 	// demoteTimer measures how long demoting transactions in the pending pool takes
@@ -526,12 +525,17 @@ func (pool *LegacyPool) Close() error {
 // Reset implements txpool.SubPool, allowing the legacy pool's internal state to be
 // kept in sync with the main transaction pool's internal state.
 func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
-	// cancel previous heights reset loop if still running
+	wait := pool.requestReset(oldHead, newHead)
+	<-wait
+}
+
+// CancelReset implements txpool.SubPool, signals the legacypool to stop
+// processing its current reset request since a new block arrived and the work
+// it is doing to reset at the current height will be invalidated.
+func (pool *LegacyPool) CancelReset() {
 	if pool.cancelReset != nil {
 		pool.cancelReset()
 	}
-	wait := pool.requestReset(oldHead, newHead)
-	<-wait
 }
 
 // SubscribeTransactions registers a subscription for new transaction events,

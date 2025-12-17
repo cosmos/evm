@@ -214,7 +214,16 @@ func (p *TxPool) loop(head *types.Header) {
 				resetForced = false
 
 			default:
-				// Reset already running, wait until it finishes.
+				// Only if we have seen a new block, then tell the subpools
+				// that are still processing the previous block, to cancel
+				// their work, since it will go to waste.
+				if newHead != oldHead {
+					for _, subpool := range p.Subpools {
+						subpool.CancelReset()
+					}
+				}
+				// Reset already running and we have not seen a new block, wait
+				// until it finishes.
 				//
 				// Note, this will not drop any forced reset request. If a forced
 				// reset was requested, but we were busy, then when the currently
