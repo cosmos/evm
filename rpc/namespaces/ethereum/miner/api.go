@@ -14,9 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 )
 
-var (
-	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/miner")
-)
+var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/miner")
 
 // API is the private miner prefixed set of APIs in the Miner JSON-RPC spec.
 type API struct {

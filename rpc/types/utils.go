@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strings"
 
-	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -20,6 +19,7 @@ import (
 	cmtrpccore "github.com/cometbft/cometbft/rpc/core/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 

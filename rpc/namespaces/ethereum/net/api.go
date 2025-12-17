@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	"go.opentelemetry.io/otel"
+
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
 	"github.com/cosmos/evm/server/config"
 
@@ -13,9 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 )
 
-var (
-	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/net")
-)
+var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/net")
 
 // PublicAPI is the eth_ prefixed set of APIs in the Web3 JSON-RPC spec.
 type PublicAPI struct {

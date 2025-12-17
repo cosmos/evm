@@ -4,10 +4,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/cosmos/evm/rpc/backend"
-	rpctypes "github.com/cosmos/evm/rpc/types"
-	evmtrace "github.com/cosmos/evm/trace"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -15,6 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"go.opentelemetry.io/otel"
+
+	"github.com/cosmos/evm/rpc/backend"
+	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
 )

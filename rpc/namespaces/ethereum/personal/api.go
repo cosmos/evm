@@ -23,9 +23,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-var (
-	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/personal")
-)
+var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/personal")
 
 // PrivateAccountAPI is the personal_ prefixed set of APIs in the Web3 JSON-RPC spec.
 type PrivateAccountAPI struct {

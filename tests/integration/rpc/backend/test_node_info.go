@@ -122,7 +122,7 @@ func (s *TestSuite) TestListAccounts() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			output, err := s.backend.ListAccounts(s.Ctx())
+			output, err := s.backend.ListAccounts()
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -352,7 +352,7 @@ func (s *TestSuite) TestImportRawKey() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			output, err := s.backend.ImportRawKey(s.Ctx(), tc.privKey, tc.password)
+			output, err := s.backend.ImportRawKey(tc.privKey, tc.password)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expAddr, output)

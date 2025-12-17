@@ -182,6 +182,7 @@ func (b *Backend) FeeHistory(
 	lastBlock rpc.BlockNumber, // the block to start search , to oldest
 	rewardPercentiles []float64, // percentiles to fetch reward
 ) (_ *rpctypes.FeeHistoryResult, err error) {
+	//nolint:gosec // unlikely
 	ctx, span := tracer.Start(ctx, "FeeHistory", trace.WithAttributes(attribute.Int64("blockCount", int64(userBlockCount)), attribute.Int64("lastBlock", int64(lastBlock))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	for i, p := range rewardPercentiles {

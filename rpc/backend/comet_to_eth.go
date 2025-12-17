@@ -107,7 +107,7 @@ func (b *Backend) EthMsgsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) []*evmtypes.MsgEthereumTx {
-	ctx, span := tracer.Start(ctx, "EthMsgsFromCometBlock")
+	_, span := tracer.Start(ctx, "EthMsgsFromCometBlock")
 	defer span.End()
 	var result []*evmtypes.MsgEthereumTx
 	block := resBlock.Block
@@ -340,7 +340,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 
 // BlockBloom query block bloom filter from block results
 func (b *Backend) BlockBloomFromCometBlock(ctx context.Context, blockRes *cmtrpctypes.ResultBlockResults) (result ethtypes.Bloom, err error) {
-	ctx, span := tracer.Start(ctx, "BlockBloomFromCometBlock")
+	_, span := tracer.Start(ctx, "BlockBloomFromCometBlock")
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	for _, event := range blockRes.FinalizeBlockEvents {

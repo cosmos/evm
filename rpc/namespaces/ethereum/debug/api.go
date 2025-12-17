@@ -159,7 +159,7 @@ func (a *API) TraceBlock(ctx context.Context, tblockRlp hexutil.Bytes, config *r
 // top of the provided block and returns them as a JSON object.
 func (a *API) TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error) {
 	a.logger.Debug("debug_traceCall", "args", args, "block number or hash", blockNrOrHash)
-	ctx, span := tracer.Start(context.Background(), "eth_traceCall")
+	ctx, span := tracer.Start(ctx, "eth_traceCall")
 	defer span.End()
 	return a.backend.TraceCall(ctx, args, blockNrOrHash, config)
 }
