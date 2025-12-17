@@ -3,6 +3,7 @@ package mempool
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -39,6 +40,8 @@ type EVMMempoolIterator struct {
 
 	/** Blockchain Access **/
 	blockchain *Blockchain
+
+	numTxsPerAccount map[common.Address]int
 }
 
 // NewEVMMempoolIterator creates a new unified iterator over EVM and Cosmos transactions.
@@ -52,7 +55,7 @@ func NewEVMMempoolIterator(
 	txConfig client.TxConfig,
 	bondDenom string,
 	blockchain *Blockchain,
-) mempool.Iterator {
+) *EVMMempoolIterator {
 	// Check if we have any transactions at all
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
 	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
@@ -66,13 +69,14 @@ func NewEVMMempoolIterator(
 	}
 
 	return &EVMMempoolIterator{
-		evmIterator:    evmIterator,
-		cosmosIterator: cosmosIterator,
-		logger:         logger,
-		txConfig:       txConfig,
-		bondDenom:      bondDenom,
-		chainID:        blockchain.Config().ChainID,
-		blockchain:     blockchain,
+		evmIterator:      evmIterator,
+		cosmosIterator:   cosmosIterator,
+		logger:           logger,
+		txConfig:         txConfig,
+		bondDenom:        bondDenom,
+		chainID:          blockchain.Config().ChainID,
+		blockchain:       blockchain,
+		numTxsPerAccount: make(map[common.Address]int),
 	}
 }
 
@@ -215,6 +219,11 @@ func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTrans
 		// Prefer EVM transaction if available and convertible
 		if nextEVMTx != nil {
 			if evmTx := i.convertEVMToSDKTx(nextEVMTx); evmTx != nil {
+				from, err := ethtypes.Sender(ethtypes.LatestSignerForChainID(i.chainID), nextEVMTx.Tx)
+				if err != nil {
+					panic("getting sender from tx")
+				}
+				i.numTxsPerAccount[from]++
 				return evmTx
 			}
 		}
@@ -226,6 +235,20 @@ func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTrans
 	// Prefer Cosmos transaction
 	i.logger.Debug("preferring Cosmos transaction based on fee comparison")
 	return nextCosmosTx
+}
+
+func (i *EVMMempoolIterator) NumDuplicateAccountsInProposal() int {
+	count := 0
+	for _, amount := range i.numTxsPerAccount {
+		if amount > 1 {
+			count++
+		}
+	}
+	return count
+}
+
+func (i *EVMMempoolIterator) NumAccountsInProposal() int {
+	return len(i.numTxsPerAccount)
 }
 
 // advanceCurrentIterator advances the appropriate iterator based on which transaction was used

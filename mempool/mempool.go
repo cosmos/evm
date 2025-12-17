@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/holiman/uint256"
 
 	cmttypes "github.com/cometbft/cometbft/types"
@@ -30,6 +31,11 @@ import (
 )
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+
+var (
+	proposalDuplicateAccounts = metrics.NewRegisteredMeter("mempool/proposal/duplicateaccounts", nil)
+	proposalTotalAccounts     = metrics.NewRegisteredMeter("mempool/proposal/accounts", nil)
+)
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
@@ -416,13 +422,15 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, f
 	iter := m.buildIterator(goCtx, txs)
 
 	for iter != nil && filter(iter.Tx()) {
-		iter = iter.Next()
+		iter = iter.Next().(*EVMMempoolIterator)
 	}
+	proposalDuplicateAccounts.Mark(int64(iter.NumDuplicateAccountsInProposal()))
+	proposalTotalAccounts.Mark(int64(iter.NumAccountsInProposal()))
 }
 
 // buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
 // block height and then returns a combined iterator over EVM & Cosmos txs.
-func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
+func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) *EVMMempoolIterator {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
