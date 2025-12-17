@@ -278,8 +278,7 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		ethTx := ethMsg.AsTransaction()
-		go m.insertEVMTx(ctx, ethTx, false)
-		return nil
+		return m.insertEVMTx(ctx, ethTx, false)
 	}
 	return m.insertCosmosTx(ctx, tx)
 }
