@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	cmtcfg "github.com/cometbft/cometbft/config"
 	tmos "github.com/cometbft/cometbft/libs/os"
@@ -110,7 +111,9 @@ func startInProcess(cfg Config, val *Validator) error {
 	}
 
 	if val.AppConfig.GRPC.Enable {
-		grpcSrv, err := servergrpc.NewGRPCServer(val.ClientCtx, app, val.AppConfig.GRPC)
+		grpcLogger := logger.With(log.ModuleKey, "grpc-server")
+		var grpcSrv *grpc.Server
+		grpcSrv, val.ClientCtx, err = servergrpc.NewGRPCServerAndContext(val.ClientCtx, app, val.AppConfig.GRPC, grpcLogger)
 		if err != nil {
 			return err
 		}
@@ -118,7 +121,7 @@ func startInProcess(cfg Config, val *Validator) error {
 		// Start the gRPC server in a goroutine. Note, the provided ctx will ensure
 		// that the server is gracefully shut down.
 		val.errGroup.Go(func() error {
-			return servergrpc.StartGRPCServer(ctx, logger.With(log.ModuleKey, "grpc-server"), val.AppConfig.GRPC, grpcSrv)
+			return servergrpc.StartGRPCServer(ctx, grpcLogger, val.AppConfig.GRPC, grpcSrv)
 		})
 
 		val.grpc = grpcSrv
@@ -128,7 +131,6 @@ func startInProcess(cfg Config, val *Validator) error {
 		if val.Ctx == nil || val.Ctx.Viper == nil {
 			return fmt.Errorf("validator %s context is nil", val.Moniker)
 		}
-
 		val.jsonrpc, err = server.StartJSONRPC(
 			ctx,
 			val.Ctx,
