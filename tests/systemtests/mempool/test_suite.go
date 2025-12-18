@@ -3,9 +3,14 @@
 package mempool
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/creachadair/tomledit"
+	"github.com/creachadair/tomledit/parser"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/tests/systemtests/suite"
@@ -24,6 +29,16 @@ func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
 
 func (s *TestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 	s.BaseTestSuite.SetupTest(t, nodeStartArgs...)
+}
+
+// GetCurrentBlockHeight returns the current block height from the specified node
+func (s *TestSuite) GetCurrentBlockHeight(t *testing.T, nodeID string) uint64 {
+	t.Helper()
+	account := s.EthAccount("acc0")
+	ctx, cli, _ := s.EthClient.Setup(nodeID, account)
+	blockNumber, err := cli.BlockNumber(ctx)
+	require.NoError(t, err, "failed to get block number from %s", nodeID)
+	return blockNumber
 }
 
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
@@ -90,4 +105,67 @@ func (c *TestContext) PromoteExpTxs(count int) {
 	promoted := c.ExpQueued[:count]
 	c.ExpPending = append(c.ExpPending, promoted...)
 	c.ExpQueued = c.ExpQueued[count:]
+}
+
+// ModifyConsensusTimeout modifies the consensus timeout_commit in the config.toml
+// for all nodes and restarts the chain with the new configuration.
+func (s *TestSuite) ModifyConsensusTimeout(t *testing.T, timeout string) {
+	t.Helper()
+
+	// Stop the chain if running
+	if s.ChainStarted {
+		s.ResetChain(t)
+	}
+
+	// Modify config.toml for each node
+	for i := 0; i < s.NodesCount(); i++ {
+		nodeDir := s.NodeDir(i)
+		configPath := filepath.Join(nodeDir, "config", "config.toml")
+
+		err := editToml(configPath, func(doc *tomledit.Document) {
+			setValue(doc, timeout, "consensus", "timeout_commit")
+		})
+		require.NoError(t, err, "failed to modify config.toml for node %d", i)
+	}
+
+	// Restart the chain with modified config
+	s.StartChain(t, suite.DefaultNodeArgs()...)
+	s.AwaitNBlocks(t, 2)
+}
+
+// editToml is a helper to edit TOML files
+func editToml(filename string, f func(doc *tomledit.Document)) error {
+	tomlFile, err := os.OpenFile(filename, os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer tomlFile.Close()
+
+	doc, err := tomledit.Parse(tomlFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse toml: %w", err)
+	}
+
+	f(doc)
+
+	if _, err := tomlFile.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to seek: %w", err)
+	}
+	if err := tomlFile.Truncate(0); err != nil {
+		return fmt.Errorf("failed to truncate: %w", err)
+	}
+	if err := tomledit.Format(tomlFile, doc); err != nil {
+		return fmt.Errorf("failed to format: %w", err)
+	}
+
+	return nil
+}
+
+// setValue sets a value in a TOML document
+func setValue(doc *tomledit.Document, newVal string, xpath ...string) {
+	e := doc.First(xpath...)
+	if e == nil {
+		panic(fmt.Sprintf("not found: %v", xpath))
+	}
+	e.Value = parser.MustValue(fmt.Sprintf("%q", newVal))
 }
