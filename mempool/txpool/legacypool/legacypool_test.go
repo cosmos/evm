@@ -237,7 +237,7 @@ func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecke
 
 	key, _ := crypto.GenerateKey()
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, blockchain, nil, WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, blockchain, WithRecheck(rechecker))
 	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
 		panic(err)
 	}
@@ -2843,95 +2843,82 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 }
 
-func TestResetCancelledByNewReset(t *testing.T) {
+// TestResetCancellation tests that when a reset is in progress and CancelReset
+// is called, resetting the pool is stopped.
+func TestResetCancellation(t *testing.T) {
 	pool, rechecker, _ := setupPool()
 	defer pool.Close()
 
-	// Create transactions with sequential nonces
-	key1, _ := crypto.GenerateKey()
-	key2, _ := crypto.GenerateKey()
-	tx10, tx20 := transaction(0, 100000, key1), transaction(0, 100000, key2)
-	tx11, tx21 := transaction(1, 100000, key1), transaction(1, 100000, key2)
-	tx12, tx22 := transaction(2, 100000, key1), transaction(2, 100000, key2)
+	// Create many accounts with multiple transactions each
+	numAccounts := 20
+	txsPerAccount := 10
+	accounts := make([]*ecdsa.PrivateKey, numAccounts)
 
-	from1, _ := deriveSender(tx10)
-	from2, _ := deriveSender(tx20)
-	testAddBalance(pool, from1, big.NewInt(100000000000000))
-	testAddBalance(pool, from2, big.NewInt(100000000000000))
+	for i := 0; i < numAccounts; i++ {
+		key, _ := crypto.GenerateKey()
+		accounts[i] = key
+		addr := crypto.PubkeyToAddress(key.PublicKey)
+		testAddBalance(pool, addr, big.NewInt(100000000000000))
 
-	// Add all transactions to the pool, they should all go to queued, then
-	// this will internally call requestPromoteExecutables
-	pool.addRemoteSync(tx10)
-	pool.addRemoteSync(tx11)
-	pool.addRemoteSync(tx12)
-	pool.addRemoteSync(tx20)
-	pool.addRemoteSync(tx21)
-	pool.addRemoteSync(tx22)
+		// Add transactions to pending
+		for j := 0; j < txsPerAccount; j++ {
+			tx := transaction(uint64(j), 100000, key)
+			pool.addRemoteSync(tx)
+		}
+	}
 
 	// Verify all transactions are in pending
 	pool.mu.RLock()
-	if pool.pending[from1].Len() != 3 {
-		t.Errorf("pending transaction count mismatch for from1: have %d, want %d", pool.pending[from1].Len(), 3)
+	totalPending := 0
+	for _, key := range accounts {
+		addr := crypto.PubkeyToAddress(key.PublicKey)
+		if list := pool.pending[addr]; list != nil {
+			totalPending += list.Len()
+		}
 	}
-	if pool.queue[from1] != nil {
-		t.Errorf("queued transaction count mismatch for from1: have %d, want %d", pool.queue[from1].Len(), 0)
-	}
-	if pool.pending[from2].Len() != 3 {
-		t.Errorf("pending transaction count mismatch for from2: have %d, want %d", pool.pending[from1].Len(), 3)
-	}
-	if pool.queue[from2] != nil {
-		t.Errorf("queue transaction count mismatch for from2: have %d, want %d", pool.queue[from1].Len(), 0)
-	}
-	if pool.all.Count() != 6 {
-		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 6)
+	expectedTotal := numAccounts * txsPerAccount
+	if totalPending != expectedTotal {
+		t.Fatalf("Expected %d pending transactions, got %d", expectedTotal, totalPending)
 	}
 	pool.mu.RUnlock()
 
-	// Set up recheckFn to be long running
-	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
-		time.Sleep(time.Second)
+	// Track how many transactions were processed
+	var processedCount atomic.Int64
+
+	// Set up rechecker to be slow so we can cancel mid-iteration
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		processedCount.Add(1)
+		time.Sleep(50 * time.Millisecond) // Make each recheck take time
 		return sdk.Context{}, nil
 	})
 
-	// Trigger demoteUnexecutables via Reset
-	pool.Reset(&types.Header{Number: big.NewInt(9)}, &types.Header{Number: big.NewInt(10)})
+	// Start reset in a goroutine
+	resetDone := make(chan struct{})
+	go func() {
+		header := pool.currentHead.Load()
+		header.BaseFee = big.NewInt(100)
+		pool.Reset(header, header)
+		close(resetDone)
+	}()
 
-	pool.mu.RLock()
-	if pool.all.Get(tx10.Hash()) != nil {
-		t.Errorf("tx10 should be removed from all pools after failing recheck")
-	}
-	if pool.all.Get(tx22.Hash()) != nil {
-		t.Errorf("tx22 should be removed from all pools after failing recheck")
-	}
+	// Give reset time to start processing some transactions
+	time.Sleep(200 * time.Millisecond)
 
-	if pool.pending[from1] != nil {
-		t.Errorf("pending should have 0 txs from from1")
-	}
-	if pool.queue[from1].Len() != 2 {
-		t.Errorf("from1 should have 2 queued transactions")
-	}
+	// Cancel the reset while it's still processing
+	pool.CancelReset()
 
-	if pool.pending[from2].Len() != 2 {
-		t.Errorf("pending should have 2 txs from from2")
-	}
-	if pool.queue[from2] != nil {
-		t.Errorf("from2 should have no queued transactions")
-	}
+	// Wait for reset to complete
+	<-resetDone
 
-	// tx10 and tx22 got dropped
-	dropped := pendingRecheckDropMeter.Snapshot().Count()
-	if dropped != 2 {
-		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
+	// Verify that not all transactions were processed (because we cancelled early)
+	processed := processedCount.Load()
+	if processed >= int64(expectedTotal) {
+		t.Errorf("Expected fewer than %d transactions to be processed due to cancellation, but %d were processed", expectedTotal, processed)
 	}
-
-	// tx11 and tx12 were invalidated since a tx from the same sender with a
-	// lower nonce was just dropped, they need to be validated again before
-	// being moved to pending, so they are back in queued
-	invaliated := pendingDemotedRecheck.Snapshot().Count()
-	if invaliated != 2 {
-		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
+	// Verify that at least some transactions were processed before cancellation
+	if processed == 0 {
+		t.Error("Expected some transactions to be processed before cancellation")
 	}
-	pool.mu.RUnlock()
 }
 
 // Benchmarks the speed of validating the contents of the pending queue of the
