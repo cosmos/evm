@@ -20,6 +20,7 @@ import (
 
 	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -47,7 +48,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 	}
 
 	// the `res.MsgIndex` is inferred from tx index, should be within the bound.
-	msg, ok := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
+	msg, ok := tx.GetMsgs()[res.MsgIndex].(interfaces.IMsgEthereumTx)
 	if !ok {
 		return nil, errors.New("invalid ethereum tx")
 	}
@@ -62,7 +63,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		// Fallback to find tx index by iterating all valid eth transactions
 		msgs := b.EthMsgsFromCometBlock(block, blockRes)
 		for i := range msgs {
-			if msgs[i].Hash() == txHash {
+			if msgs[i].AsTransaction().Hash() == txHash {
 				if i > math.MaxInt32 {
 					return nil, errors.New("tx index overflow")
 				}
@@ -113,7 +114,7 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 			continue
 		}
 
-		if msg.Hash() == txHash {
+		if msg.AsTransaction().Hash() == txHash {
 			// use zero block values since it's not included in a block yet
 			return rpctypes.NewTransactionFromMsg(
 				msg,
@@ -192,8 +193,8 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
-	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
+	ethMsg := tx.GetMsgs()[res.MsgIndex].(interfaces.IMsgEthereumTx)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []interfaces.IMsgEthereumTx{ethMsg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
@@ -364,7 +365,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 		return nil, nil
 	}
 
-	var msg *evmtypes.MsgEthereumTx
+	var msg interfaces.IMsgEthereumTx
 	// find in tx indexer
 	res, err := b.GetTxByTxIndex(block.Block.Height, uint(idx))
 	if err == nil {
@@ -376,7 +377,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 
 		var ok bool
 		// msgIndex is inferred from tx events, should be within bound.
-		msg, ok = tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
+		msg, ok = tx.GetMsgs()[res.MsgIndex].(interfaces.IMsgEthereumTx)
 		if !ok {
 			b.Logger.Debug("invalid ethereum tx", "height", block.Block.Header, "index", idx)
 			return nil, nil
