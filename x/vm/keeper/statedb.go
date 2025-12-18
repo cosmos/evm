@@ -135,12 +135,11 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 
 // SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
 func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) (err error) {
-	ctx, span := ctx.StartSpan(tracer, "SetBalance", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
-	defer func() { evmtrace.EndSpanErr(span, err) }()
-
 	if amount == nil {
 		return nil
 	}
+	ctx, span := ctx.StartSpan(tracer, "SetBalance", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
