@@ -21,62 +21,6 @@ import (
 	"cosmossdk.io/log"
 )
 
-type MockBackend struct {
-	mock.Mock
-}
-
-func (m *MockBackend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error) {
-	panic("implement me")
-}
-
-func (m *MockBackend) HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error) {
-	panic("implement me")
-}
-
-func (m *MockBackend) GetLogs(blockHash common.Hash) ([][]*ethtypes.Log, error) {
-	panic("implement me")
-}
-
-func (m *MockBackend) GetLogsByHeight(i *int64) ([][]*ethtypes.Log, error) {
-	panic("implement me")
-}
-
-func (m *MockBackend) BloomStatus() (uint64, uint64) {
-	panic("implement me")
-}
-
-func (m *MockBackend) RPCFilterCap() int32 {
-	panic("implement me")
-}
-
-func (m *MockBackend) RPCLogsCap() int32 {
-	panic("implement me")
-}
-
-func (m *MockBackend) RPCBlockRangeCap() int32 {
-	panic("implement me")
-}
-
-func (m *MockBackend) CometBlockByHash(hash common.Hash) (*cmtrpctypes.ResultBlock, error) {
-	args := m.Called(hash)
-	return args.Get(0).(*cmtrpctypes.ResultBlock), args.Error(1)
-}
-
-func (m *MockBackend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.ResultBlockResults, error) {
-	args := m.Called(height)
-	return args.Get(0).(*cmtrpctypes.ResultBlockResults), args.Error(1)
-}
-
-func (m *MockBackend) BlockBloomFromCometBlock(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
-	args := m.Called(blockRes)
-	return args.Get(0).(ethtypes.Bloom), args.Error(1)
-}
-
-func (m *MockBackend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Header, error) {
-	args := m.Called(blockNum)
-	return args.Get(0).(*ethtypes.Header), args.Error(1)
-}
-
 func TestLogs(t *testing.T) {
 	blockHeight := int64(100)
 	fakeHeader := &ethtypes.Header{Number: big.NewInt(blockHeight)}
@@ -88,7 +32,7 @@ func TestLogs(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorStep string
-		prepare   func() *MockBackend
+		prepare   func() *filtermocks.Backend
 		criteria  filters.FilterCriteria
 		expectErr bool
 		expectMsg string
@@ -96,9 +40,9 @@ func TestLogs(t *testing.T) {
 		{
 			name:      "HeaderByNumber returns error",
 			errorStep: "HeaderByNumber",
-			prepare: func() *MockBackend {
-				backend := &MockBackend{}
-				backend.On("HeaderByNumber", mock.Anything).Return((*ethtypes.Header)(nil), errors.New("header error"))
+			prepare: func() *filtermocks.Backend {
+				backend := &filtermocks.Backend{}
+				backend.EXPECT().HeaderByNumber(mock.Anything, mock.Anything).Return((*ethtypes.Header)(nil), errors.New("header error"))
 				return backend
 			},
 			criteria: filters.FilterCriteria{
@@ -111,10 +55,10 @@ func TestLogs(t *testing.T) {
 		{
 			name:      "CometBlockResultByNumber returns error",
 			errorStep: "CometBlockResultByNumber",
-			prepare: func() *MockBackend {
-				backend := &MockBackend{}
-				backend.On("HeaderByNumber", mock.Anything).Return(fakeHeader, nil)
-				backend.On("CometBlockResultByNumber", &blockHeight).Return((*cmtrpctypes.ResultBlockResults)(nil), errors.New("block result error"))
+			prepare: func() *filtermocks.Backend {
+				backend := &filtermocks.Backend{}
+				backend.EXPECT().HeaderByNumber(mock.Anything, mock.Anything).Return(fakeHeader, nil)
+				backend.EXPECT().CometBlockResultByNumber(mock.Anything, &blockHeight).Return((*cmtrpctypes.ResultBlockResults)(nil), errors.New("block result error"))
 				return backend
 			},
 			criteria: filters.FilterCriteria{
@@ -127,11 +71,11 @@ func TestLogs(t *testing.T) {
 		{
 			name:      "BlockBloom returns error",
 			errorStep: "BlockBloom",
-			prepare: func() *MockBackend {
-				backend := &MockBackend{}
-				backend.On("HeaderByNumber", mock.Anything).Return(fakeHeader, nil)
-				backend.On("CometBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
-				backend.On("BlockBloomFromCometBlock", fakeBlockRes).Return(ethtypes.Bloom{}, errors.New("bloom error"))
+			prepare: func() *filtermocks.Backend {
+				backend := &filtermocks.Backend{}
+				backend.EXPECT().HeaderByNumber(mock.Anything, mock.Anything).Return(fakeHeader, nil)
+				backend.EXPECT().CometBlockResultByNumber(mock.Anything, &blockHeight).Return(fakeBlockRes, nil)
+				backend.EXPECT().BlockBloomFromCometBlock(mock.Anything, fakeBlockRes).Return(ethtypes.Bloom{}, errors.New("bloom error"))
 				return backend
 			},
 			criteria: filters.FilterCriteria{
@@ -144,11 +88,11 @@ func TestLogs(t *testing.T) {
 		{
 			name:      "Single block by BlockHash",
 			errorStep: "none",
-			prepare: func() *MockBackend {
-				backend := &MockBackend{}
-				backend.On("CometBlockByHash", blockHash).Return(fakeBlock, nil)
-				backend.On("CometBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
-				backend.On("BlockBloomFromCometBlock", fakeBlockRes).Return(fakeBloom, nil)
+			prepare: func() *filtermocks.Backend {
+				backend := &filtermocks.Backend{}
+				backend.EXPECT().CometBlockByHash(mock.Anything, blockHash).Return(fakeBlock, nil)
+				backend.EXPECT().CometBlockResultByNumber(mock.Anything, &blockHeight).Return(fakeBlockRes, nil)
+				backend.EXPECT().BlockBloomFromCometBlock(mock.Anything, fakeBlockRes).Return(fakeBloom, nil)
 				return backend
 			},
 			criteria: filters.FilterCriteria{
@@ -198,7 +142,7 @@ func TestFilter(t *testing.T) {
 			name:   "invalid block range returns error",
 			filter: filters.FilterCriteria{FromBlock: big.NewInt(100), ToBlock: big.NewInt(110)},
 			expectations: func(b *filtermocks.Backend) {
-				b.EXPECT().HeaderByNumber(rpctypes.EthLatestBlockNumber).Return(&ethtypes.Header{Number: big.NewInt(5)}, nil)
+				b.EXPECT().HeaderByNumber(mock.Anything, rpctypes.EthLatestBlockNumber).Return(&ethtypes.Header{Number: big.NewInt(5)}, nil)
 			},
 			expErr: "invalid block range params",
 		},
