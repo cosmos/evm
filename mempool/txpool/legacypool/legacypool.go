@@ -330,8 +330,8 @@ type LegacyPool struct {
 	reserver      txpool.Reserver              // Address reserver to ensure exclusivity across subpools
 	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
-	pendingBuilder  *pendingBuilder // Builds a set of valid pending transactions for fast retrieval
-	onHeightChecked func()
+	validPendingTxs   *txCollector // Per height collection of pending txs that have been validated
+	onHeightValidated func()       // Callback to signal that all txs have been validated for this height
 
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
@@ -379,7 +379,7 @@ func WithRecheck(rechecker Rechecker) Option {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config Config, chain BlockChain, minTip *big.Int, opts ...Option) *LegacyPool {
+func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -394,8 +394,8 @@ func New(config Config, chain BlockChain, minTip *big.Int, opts ...Option) *Lega
 		beats:               make(map[common.Address]time.Time),
 		all:                 newLookup(),
 		rechecker:           newNopRechecker(),
-		pendingBuilder:      newPendingBuilder(minTip, chain.CurrentBlock().Number, config.PriceBump),
-		onHeightChecked:     func() {},
+		validPendingTxs:     newTxCollector(chain.CurrentBlock().Number),
+		onHeightValidated:   func() {},
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
 		queueTxEventCh:      make(chan *types.Transaction),
@@ -513,7 +513,6 @@ func (pool *LegacyPool) loop() {
 // Close terminates the transaction pool.
 func (pool *LegacyPool) Close() error {
 	// Terminate the pool reorger and return
-	pool.pendingBuilder.Close()
 	close(pool.reorgShutdownCh)
 	pool.wg.Wait()
 
@@ -642,8 +641,8 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	return pool.pendingBuilder.ValidPendingTxs(ctx, height, filter.BaseFee.ToBig())
+func (pool *LegacyPool) Pending(ctx context.Context, height, minTip, baseFee *big.Int) map[common.Address][]*txpool.LazyTransaction {
+	return pool.validPendingTxs.Collect(ctx, height, minTip, baseFee)
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
@@ -1433,7 +1432,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 			nonces[addr] = highestPending.Nonce() + 1
 		}
 		pool.pendingNonces.setAll(nonces)
-		pool.onHeightChecked()
+		pool.onHeightValidated()
 	}
 
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
@@ -1491,7 +1490,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
 	pool.rechecker.Update(pool.chain, newHead)
-	pool.onHeightChecked = pool.pendingBuilder.Reset(newHead.Number)
+	pool.onHeightValidated = pool.validPendingTxs.StartNewHeight(newHead.Number)
 	pool.resetCtx, pool.cancelReset = context.WithCancel(context.Background())
 
 	// Inject any transactions discarded due to reorgs
@@ -1850,7 +1849,7 @@ func (pool *LegacyPool) demoteUnexecutables(reset *txpoolResetRequest) {
 				pool.reserver.Release(addr)
 			}
 		} else {
-			pool.pendingBuilder.AddList(addr, list)
+			pool.validPendingTxs.AddList(addr, list)
 		}
 	}
 }
@@ -2129,7 +2128,7 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 
 // markTxPromoted calls the OnTxPromoted callback if it has been supplied.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
-	pool.pendingBuilder.AddTx(addr, tx)
+	pool.validPendingTxs.AddTx(addr, tx)
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}
@@ -2138,7 +2137,7 @@ func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transactio
 // markTxRemoved calls the OnTxRemoved callback if it has been supplied.
 func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction, p PoolType) {
 	if p == Pending {
-		pool.pendingBuilder.RemoveTx(addr, tx)
+		pool.validPendingTxs.RemoveTx(addr, tx)
 	}
 	if pool.OnTxRemoved != nil {
 		pool.OnTxRemoved(tx, p)

@@ -137,7 +137,6 @@ func NewExperimentalEVMMempool(
 	legacyPool := legacypool.New(
 		legacyConfig,
 		blockchain,
-		config.MinTip.ToBig(),
 		legacypool.WithRecheck(rechecker),
 	)
 
@@ -614,7 +613,7 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
 	}
-	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(committedHeight), filter)
+	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(committedHeight), m.minTip.ToBig(), filter)
 	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
 	cosmosIterator := m.cosmosPool.Select(ctx, txs)
 

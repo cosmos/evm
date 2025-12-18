@@ -370,7 +370,7 @@ func TestStateChangeDuringReset(t *testing.T) {
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
 
-	pool := New(testTxPoolConfig, blockchain, nil)
+	pool := New(testTxPoolConfig, blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -787,7 +787,7 @@ func TestPostponing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain, nil)
+	pool := New(testTxPoolConfig, blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -997,7 +997,7 @@ func TestQueueGlobalLimiting(t *testing.T) {
 	config.NoLocals = true
 	config.GlobalQueue = config.AccountQueue*3 - 1 // reduce the queue limits to shorten test time (-1 to make it non divisible)
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1049,7 +1049,7 @@ func TestQueueTimeLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.Lifetime = time.Second
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1210,7 +1210,7 @@ func TestPendingGlobalLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = config.AccountSlots * 10
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1309,7 +1309,7 @@ func TestCapClearsFromAll(t *testing.T) {
 	config.AccountQueue = 2
 	config.GlobalSlots = 8
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1342,7 +1342,7 @@ func TestPendingMinimumAllowance(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = 1
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1640,7 +1640,7 @@ func TestUnderpricing(t *testing.T) {
 	config.GlobalSlots = 2
 	config.GlobalQueue = 2
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1730,7 +1730,7 @@ func TestStableUnderpricing(t *testing.T) {
 	config.GlobalSlots = 128
 	config.GlobalQueue = 0
 
-	pool := New(config, blockchain, nil)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2843,6 +2843,97 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 }
 
+func TestResetCancelledByNewReset(t *testing.T) {
+	pool, rechecker, _ := setupPool()
+	defer pool.Close()
+
+	// Create transactions with sequential nonces
+	key1, _ := crypto.GenerateKey()
+	key2, _ := crypto.GenerateKey()
+	tx10, tx20 := transaction(0, 100000, key1), transaction(0, 100000, key2)
+	tx11, tx21 := transaction(1, 100000, key1), transaction(1, 100000, key2)
+	tx12, tx22 := transaction(2, 100000, key1), transaction(2, 100000, key2)
+
+	from1, _ := deriveSender(tx10)
+	from2, _ := deriveSender(tx20)
+	testAddBalance(pool, from1, big.NewInt(100000000000000))
+	testAddBalance(pool, from2, big.NewInt(100000000000000))
+
+	// Add all transactions to the pool, they should all go to queued, then
+	// this will internally call requestPromoteExecutables
+	pool.addRemoteSync(tx10)
+	pool.addRemoteSync(tx11)
+	pool.addRemoteSync(tx12)
+	pool.addRemoteSync(tx20)
+	pool.addRemoteSync(tx21)
+	pool.addRemoteSync(tx22)
+
+	// Verify all transactions are in pending
+	pool.mu.RLock()
+	if pool.pending[from1].Len() != 3 {
+		t.Errorf("pending transaction count mismatch for from1: have %d, want %d", pool.pending[from1].Len(), 3)
+	}
+	if pool.queue[from1] != nil {
+		t.Errorf("queued transaction count mismatch for from1: have %d, want %d", pool.queue[from1].Len(), 0)
+	}
+	if pool.pending[from2].Len() != 3 {
+		t.Errorf("pending transaction count mismatch for from2: have %d, want %d", pool.pending[from1].Len(), 3)
+	}
+	if pool.queue[from2] != nil {
+		t.Errorf("queue transaction count mismatch for from2: have %d, want %d", pool.queue[from1].Len(), 0)
+	}
+	if pool.all.Count() != 6 {
+		t.Errorf("total transaction count mismatch: have %d, want %d", pool.all.Count(), 6)
+	}
+	pool.mu.RUnlock()
+
+	// Set up recheckFn to be long running
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		time.Sleep(time.Second)
+		return sdk.Context{}, nil
+	})
+
+	// Trigger demoteUnexecutables via Reset
+	pool.Reset(&types.Header{Number: big.NewInt(9)}, &types.Header{Number: big.NewInt(10)})
+
+	pool.mu.RLock()
+	if pool.all.Get(tx10.Hash()) != nil {
+		t.Errorf("tx10 should be removed from all pools after failing recheck")
+	}
+	if pool.all.Get(tx22.Hash()) != nil {
+		t.Errorf("tx22 should be removed from all pools after failing recheck")
+	}
+
+	if pool.pending[from1] != nil {
+		t.Errorf("pending should have 0 txs from from1")
+	}
+	if pool.queue[from1].Len() != 2 {
+		t.Errorf("from1 should have 2 queued transactions")
+	}
+
+	if pool.pending[from2].Len() != 2 {
+		t.Errorf("pending should have 2 txs from from2")
+	}
+	if pool.queue[from2] != nil {
+		t.Errorf("from2 should have no queued transactions")
+	}
+
+	// tx10 and tx22 got dropped
+	dropped := pendingRecheckDropMeter.Snapshot().Count()
+	if dropped != 2 {
+		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
+	}
+
+	// tx11 and tx12 were invalidated since a tx from the same sender with a
+	// lower nonce was just dropped, they need to be validated again before
+	// being moved to pending, so they are back in queued
+	invaliated := pendingDemotedRecheck.Snapshot().Count()
+	if invaliated != 2 {
+		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
+	}
+	pool.mu.RUnlock()
+}
+
 // Benchmarks the speed of validating the contents of the pending queue of the
 // transaction pool.
 func BenchmarkPendingDemotion100(b *testing.B)   { benchmarkPendingDemotion(b, 100) }
@@ -2864,7 +2955,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(nil)
 	}
 }
 
