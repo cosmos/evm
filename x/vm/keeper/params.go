@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -35,8 +36,7 @@ func (k Keeper) SetParams(ctx sdk.Context, params types.Params) (err error) {
 		attribute.Int("active_precompiles_count", len(params.ActiveStaticPrecompiles)),
 		attribute.Int("extra_eips_count", len(params.ExtraEIPs)),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// NOTE: We need to sort the precompiles in order to enable searching with binary search
 	// in params.IsActivePrecompile.
 	slices.Sort(params.ActiveStaticPrecompiles)
@@ -61,8 +61,7 @@ func (k Keeper) EnableStaticPrecompiles(ctx sdk.Context, addresses ...common.Add
 	ctx, span := ctx.StartSpan(tracer, "EnableStaticPrecompiles", trace.WithAttributes(
 		attribute.Int("addresses_count", len(addresses)),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	params := k.GetParams(ctx)
 	activePrecompiles := params.ActiveStaticPrecompiles
 
@@ -101,8 +100,7 @@ func (k Keeper) EnableEIPs(ctx sdk.Context, eips ...int64) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "EnableEIPs", trace.WithAttributes(
 		attribute.Int("eips_count", len(eips)),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	evmParams := k.GetParams(ctx)
 	evmParams.ExtraEIPs = append(evmParams.ExtraEIPs, eips...)
 

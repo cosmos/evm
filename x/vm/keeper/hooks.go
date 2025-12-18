@@ -7,6 +7,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -34,8 +35,7 @@ func (mh MultiEvmHooks) PostTxProcessing(ctx sdk.Context, sender common.Address,
 		attribute.String("tx_hash", receipt.TxHash.Hex()),
 		attribute.Int("hooks_count", len(mh)),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	for i := range mh {
 		if err := mh[i].PostTxProcessing(ctx, sender, msg, receipt); err != nil {
 			return errorsmod.Wrapf(err, "EVM hook %T failed", mh[i])

@@ -6,6 +6,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -25,8 +26,7 @@ func (k *Keeper) GetPrecompileInstance(
 	ctx, span := ctx.StartSpan(tracer, "GetPrecompileInstance", trace.WithAttributes(
 		attribute.String("address", address.Hex()),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	params := k.GetParams(ctx)
 	// Get the precompile from the static precompiles
 	if precompile, found, err := k.GetStaticPrecompileInstance(&params, address); err != nil {
@@ -65,8 +65,7 @@ func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
 		ctx, span := ctx.StartSpan(tracer, "PrecompileCallHook", trace.WithAttributes(
 			attribute.String("recipient", recipient.Hex()),
 		))
-		defer func() { span.RecordError(err) }()
-		defer span.End()
+		defer func() { evmtrace.EndSpanErr(span, err) }()
 		// Check if the recipient is a precompile contract and if so, load the precompile instance
 		precompiles, found, err := k.GetPrecompileInstance(ctx, recipient)
 		if err != nil {
@@ -91,8 +90,7 @@ func (k *Keeper) GetPrecompileRecipientCallHook(ctx sdktypes.Context) types.Call
 		ctx, span := ctx.StartSpan(tracer, "PrecompileRecipientCallHook", trace.WithAttributes(
 			attribute.String("recipient", recipient.Hex()),
 		))
-		defer func() { span.RecordError(err) }()
-		defer span.End()
+		defer func() { evmtrace.EndSpanErr(span, err) }()
 		// Check if the recipient is a precompile contract and if so, load the precompile instance
 		_, found, err := k.GetPrecompileInstance(ctx, recipient)
 		if err != nil {

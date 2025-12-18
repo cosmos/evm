@@ -18,6 +18,7 @@ import (
 
 	antetypes "github.com/cosmos/evm/ante/types"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -211,8 +212,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 	ctx, span := ctx.StartSpan(tracer, "ApplyTransaction", trace.WithAttributes(
 		attribute.String("hash", tx.Hash().String()),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
@@ -407,12 +407,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	ctx, span := ctx.StartSpan(tracer, "ApplyMessageWithConfig", trace.WithAttributes(
 		attribute.String("hash", txConfig.TxHash.String()),
-		attribute.Int("tx_index", int(txConfig.TxIndex)),
+		attribute.Int("tx_index", int(txConfig.TxIndex)), //nolint:gosec // G115
 		attribute.Bool("commit", commit),
 		attribute.Bool("internal", internal),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	stateDB := statedb.New(ctx, k, txConfig)
 	ethCfg := types.GetEthChainConfig()
@@ -620,10 +619,9 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "applyAuthorization", trace.WithAttributes(
 		attribute.String("delegate_address", auth.Address.Hex()),
-		attribute.Int64("nonce", int64(auth.Nonce)),
+		attribute.Int64("nonce", int64(auth.Nonce)), //nolint:gosec // G115
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	authority, err := k.validateAuthorization(ctx, auth, state, chainID)
 	if err != nil {
 		return err
@@ -651,12 +649,11 @@ func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAutho
 
 // validateAuthorization validates an EIP-7702 authorization against the state.
 func (k *Keeper) validateAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
-	ctx, span := ctx.StartSpan(tracer, "validateAuthorization", trace.WithAttributes(
+	_, span := ctx.StartSpan(tracer, "validateAuthorization", trace.WithAttributes(
 		attribute.String("delegate_address", auth.Address.Hex()),
-		attribute.Int64("nonce", int64(auth.Nonce)),
+		attribute.Int64("nonce", int64(auth.Nonce)), //nolint:gosec // G115
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// Verify chain ID is null or equal to current chain ID.
 	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(chainID) != 0 {
 		return authority, core.ErrAuthorizationWrongChainID

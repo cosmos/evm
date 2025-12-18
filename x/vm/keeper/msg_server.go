@@ -12,6 +12,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -32,8 +33,7 @@ func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (_ 
 	goCtx, span := tracer.Start(goCtx, "EthereumTx", trace.WithAttributes(
 		attribute.String("tx_hash", msg.Hash().Hex()),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	tx := msg.AsTransaction()
@@ -129,8 +129,7 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 		attribute.String("authority", req.Authority),
 		attribute.String("params", req.Params.String()),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if k.authority.String() != req.Authority {
 		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
@@ -154,8 +153,7 @@ func (k *Keeper) RegisterPreinstalls(goCtx context.Context, req *types.MsgRegist
 	ctx, span := ctx.StartSpan(tracer, "RegisterPreinstalls", trace.WithAttributes(
 		attribute.String("authority", req.Authority),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if k.authority.String() != req.Authority {
 		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
 	}

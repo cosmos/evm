@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	evmmempool "github.com/cosmos/evm/mempool"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -248,8 +249,7 @@ func (k *Keeper) PostTxProcessing(
 		attribute.String("sender", sender.Hex()),
 		attribute.String("tx_hash", receipt.TxHash.Hex()),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if k.hooks == nil {
 		return nil
 	}
@@ -475,7 +475,7 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 // GetHeaderHash sets block hash into EIP-2935 compatible storage contract.
 func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
 	ctx, span := ctx.StartSpan(tracer, "GetHeaderHash", trace.WithAttributes(
-		attribute.Int64("height", int64(height)),
+		attribute.Int64("height", int64(height)), //nolint:gosec // G115
 	))
 	defer span.End()
 	window := uint64(types.DefaultHistoryServeWindow)

@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -19,8 +20,7 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 	ctx, span := ctx.StartSpan(tracer, "AddPreinstalls", trace.WithAttributes(
 		attribute.Int("count", len(preinstalls)),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	for _, preinstall := range preinstalls {
 		address := common.HexToAddress(preinstall.Address)
 		accAddress := sdk.AccAddress(address.Bytes())

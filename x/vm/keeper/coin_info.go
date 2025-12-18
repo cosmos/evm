@@ -6,6 +6,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -17,8 +18,7 @@ func (k Keeper) LoadEvmCoinInfo(ctx sdk.Context) (_ types.EvmCoinInfo, err error
 	ctx, span := ctx.StartSpan(tracer, "LoadEvmCoinInfo", trace.WithAttributes(
 		attribute.String("evm_denom", params.EvmDenom),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	var decimals types.Decimals
 	evmDenomMetadata, found := k.bankWrapper.GetDenomMetaData(ctx, params.EvmDenom)
 	if !found {
@@ -52,8 +52,7 @@ func (k Keeper) LoadEvmCoinInfo(ctx sdk.Context) (_ types.EvmCoinInfo, err error
 // InitEvmCoinInfo load EvmCoinInfo from bank denom metadata and store it in the module
 func (k Keeper) InitEvmCoinInfo(ctx sdk.Context) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "InitEvmCoinInfo")
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	coinInfo, err := k.LoadEvmCoinInfo(ctx)
 	if err != nil {
 		return err
@@ -80,8 +79,7 @@ func (k Keeper) SetEvmCoinInfo(ctx sdk.Context, coinInfo types.EvmCoinInfo) (err
 		attribute.String("denom", coinInfo.Denom),
 		attribute.Int64("decimals", int64(coinInfo.Decimals)),
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	store := ctx.KVStore(k.storeKey)
 	bz, err := k.cdc.Marshal(&coinInfo)
 	if err != nil {

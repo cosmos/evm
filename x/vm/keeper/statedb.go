@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -135,8 +136,7 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 // SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
 func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "SetBalance", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if amount == nil {
 		return nil
@@ -167,10 +167,9 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "SetAccount", trace.WithAttributes(
 		attribute.String("address", addr.Hex()),
-		attribute.Int64("nonce", int64(account.Nonce)),
+		attribute.Int64("nonce", int64(account.Nonce)), //nolint:gosec // G115
 	))
-	defer func() { span.RecordError(err) }()
-	defer span.End()
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// update account
 	acct := k.accountKeeper.GetAccount(ctx, addr.Bytes())
 	if acct == nil {
