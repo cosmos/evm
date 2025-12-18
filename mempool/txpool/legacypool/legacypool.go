@@ -166,6 +166,10 @@ var (
 	// reorgDurationTimer measures how long time a txpool reorg takes.
 	reorgDurationTimer     = metrics.NewRegisteredTimer("txpool/reorgtime", nil)
 	reorgWaitDurationTimer = metrics.NewRegisteredTimer("txpool/reorgwaittime", nil)
+	// reorgResetTimer measures how long a txpool reorg takes when it is resetting.
+	reorgResetTimer = metrics.NewRegisteredTimer("txpool/resettime", nil)
+	// demoteTimer measures how long demoting transactions in the pending pool takes
+	demoteTimer = metrics.NewRegisteredTimer("txpool/demotetime", nil)
 
 	// dropBetweenReorgHistogram counts how many drops we experience between two reorg runs. It is expected
 	// that this number is pretty low, since txpool reorgs happen very frequently.
@@ -1395,7 +1399,12 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
-	defer func(t0 time.Time) { reorgDurationTimer.UpdateSince(t0) }(time.Now())
+	defer func(t0 time.Time) {
+		reorgDurationTimer.UpdateSince(t0)
+		if reset != nil {
+			reorgResetTimer.UpdateSince(t0)
+		}
+	}(time.Now())
 	defer close(done)
 
 	var promoteAddrs []common.Address
@@ -1750,6 +1759,8 @@ func (pool *LegacyPool) truncateQueue() {
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
 func (pool *LegacyPool) demoteUnexecutables() {
+	defer func(t0 time.Time) { demoteTimer.UpdateSince(t0) }(time.Now())
+
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {

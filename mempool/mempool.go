@@ -427,12 +427,6 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, f
 func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// context has a block height of the next PROPOSED block,
-	// but we need to wait for the reorg to complete on the previous COMMITTED block.
-	committedHeight := sdkCtx.BlockHeight() - 1
-
-	m.legacyTxPool.WaitForReorgHeight(ctx, committedHeight)
-
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
 	return NewEVMMempoolIterator(
