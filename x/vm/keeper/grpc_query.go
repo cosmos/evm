@@ -301,8 +301,6 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 
 // EstimateGas implements eth_estimateGas rpc api.
 func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (_ *types.EstimateGasResponse, err error) {
-	c, span := tracer.Start(c, "EstimateGas", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
-	defer func() { evmtrace.EndSpanErr(span, err) }()
 	return k.EstimateGasInternal(c, req, types.RPC)
 }
 
