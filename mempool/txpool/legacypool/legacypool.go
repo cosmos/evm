@@ -330,7 +330,8 @@ type LegacyPool struct {
 	reserver      txpool.Reserver              // Address reserver to ensure exclusivity across subpools
 	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
-	pendingBuilder *pendingBuilder // Builds a set of valid pending transactions for fast retrieval
+	pendingBuilder  *pendingBuilder // Builds a set of valid pending transactions for fast retrieval
+	onHeightChecked func()
 
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
@@ -346,7 +347,6 @@ type LegacyPool struct {
 	reorgSubscriptionCh chan struct{}  // notifies the reorg loop that a subscriber wants to wait on nextDone
 	wg                  sync.WaitGroup // tracks loop, scheduleReorgLoop
 	initDoneCh          chan struct{}  // is closed once the pool is initialized (for tests)
-	latestReorgHeight   atomic.Int64   // Latest height that the reorg loop has completed
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
@@ -395,6 +395,7 @@ func New(config Config, chain BlockChain, minTip *big.Int, opts ...Option) *Lega
 		all:                 newLookup(),
 		rechecker:           newNopRechecker(),
 		pendingBuilder:      newPendingBuilder(minTip, chain.CurrentBlock().Number, config.PriceBump),
+		onHeightChecked:     func() {},
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
 		queueTxEventCh:      make(chan *types.Transaction),
@@ -404,7 +405,6 @@ func New(config Config, chain BlockChain, minTip *big.Int, opts ...Option) *Lega
 		initDoneCh:          make(chan struct{}),
 	}
 	pool.priced = newPricedList(pool.all)
-	pool.latestReorgHeight.Store(0)
 
 	for _, opt := range opts {
 		opt(pool)
@@ -984,7 +984,6 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 		pool.priced.Removed(1)
 		pool.markTxRemoved(addr, tx, Queue)
 		pendingDiscardMeter.Mark(1)
-		pool.pendingBuilder.AddTx(addr, tx)
 		return false
 	}
 	// Otherwise discard any previous transaction and mark this
@@ -1434,7 +1433,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 			nonces[addr] = highestPending.Nonce() + 1
 		}
 		pool.pendingNonces.setAll(nonces)
-		pool.pendingBuilder.MarkHeightValidated()
+		pool.onHeightChecked()
 	}
 
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
@@ -1449,9 +1448,6 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 
 	dropBetweenReorgHistogram.Update(int64(pool.changesSinceReorg))
 	pool.changesSinceReorg = 0 // Reset change counter
-	if reset != nil && reset.newHead != nil {
-		pool.latestReorgHeight.Store(reset.newHead.Number.Int64())
-	}
 	pool.mu.Unlock()
 
 	// Notify subsystems for newly added transactions
@@ -1495,7 +1491,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
 	pool.rechecker.Update(pool.chain, newHead)
-	pool.pendingBuilder.Reset(newHead.Number)
+	pool.onHeightChecked = pool.pendingBuilder.Reset(newHead.Number)
 	pool.resetCtx, pool.cancelReset = context.WithCancel(context.Background())
 
 	// Inject any transactions discarded due to reorgs

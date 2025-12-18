@@ -24,34 +24,38 @@ var (
 	pendingResetToSelect = metrics.NewRegisteredTimer("pendingbuilder/resettoselect", nil)
 )
 
+type processedHeight struct {
+	height *big.Int
+	done   chan struct{}
+}
+
 // pendingBuilder builds a set of pending txs as they are validated.
 type pendingBuilder struct {
-	in chan validatedTxs
-
 	minTip    *big.Int
 	priceBump uint64
 
 	currentValidPendingTxs map[common.Address]types.Transactions
-	height                 *big.Int
-	heightValidated        chan struct{}
 	mu                     sync.RWMutex
 
-	resetAt time.Time
+	height *big.Int
 
-	done chan struct{}
+	processingHeights chan processedHeight
+
+	resetAt time.Time
+	done    chan struct{}
 }
 
 // newPendingBuilder creates a new instance of a pendingBuilder.
 func newPendingBuilder(minTip *big.Int, height *big.Int, priceBump uint64) *pendingBuilder {
 	pb := &pendingBuilder{
-		in:                     make(chan validatedTxs),
 		minTip:                 minTip,
 		priceBump:              priceBump,
 		currentValidPendingTxs: make(map[common.Address]types.Transactions),
 		height:                 height,
 		done:                   make(chan struct{}),
+		processingHeights:      make(chan processedHeight, 100),
 	}
-	go pb.loop()
+
 	return pb
 }
 
@@ -59,26 +63,9 @@ func newPendingBuilder(minTip *big.Int, height *big.Int, priceBump uint64) *pend
 // This will block until either the supplied context times out, or the height
 // is marked as having been fully validated.
 func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, baseFee *big.Int) map[common.Address][]*txpool.LazyTransaction {
-	// ensure we are working on the height requested
-	pb.mustHaveHeight(height)
-
-	// wait for two cases:
-	// 1. the user has set some defined timeout in the context that we must
-	// respect. so if we time out on context then we will return all of the
-	// things that have been validated up to this point.
-	// 2. we have gotten the signal that all txs have been validated at this height and we can now return.
-
-	waitStart := time.Now()
-	select {
-	case <-pb.done:
+	if !pb.AdvanceToTarget(ctx, height) {
 		return nil
-	case <-ctx.Done():
-		pendingTimeout.Mark(1)
-	case <-pb.heightValidated:
-		pendingComplete.Mark(1)
 	}
-	pendingResetToSelect.UpdateSince(pb.resetAt)
-	pendingSelectWait.UpdateSince(waitStart)
 
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -118,50 +105,29 @@ func (pb *pendingBuilder) ValidPendingTxs(ctx context.Context, height *big.Int, 
 	return pending
 }
 
-// validatedTxs is a wrapper around a set of txs and their from address.
-type validatedTxs struct {
-	txs     types.Transactions
-	address common.Address
-}
-
 // AddList adds a list of txs for an address that have been validated to the
 // current pending set.
 func (pb *pendingBuilder) AddList(addr common.Address, list *list) {
-	pb.in <- validatedTxs{address: addr, txs: list.Flatten()}
+	pb.add(addr, list.Flatten())
 }
 
 // AddTx adds a single tx for an address that has been validated to the
 // current pending set.
 func (pb *pendingBuilder) AddTx(addr common.Address, tx *types.Transaction) {
-	pb.in <- validatedTxs{address: addr, txs: []*types.Transaction{tx}}
-}
-
-// loop is the main event loop of the pendingBuilder, adding validated txs to
-// its internal pending set as they are pushed the input chan.
-func (pb *pendingBuilder) loop() {
-	for {
-		select {
-		case <-pb.done:
-			return
-		case validatedTxs := <-pb.in:
-			pb.add(validatedTxs)
-		}
-	}
+	pb.add(addr, []*types.Transaction{tx})
 }
 
 // add adds validated txs to the current pending set.
-func (pb *pendingBuilder) add(validatedTxs validatedTxs) error {
-	pb.mustHaveHeight(pb.height)
-
+func (pb *pendingBuilder) add(addr common.Address, txs types.Transactions) error {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
 
-	if _, ok := pb.currentValidPendingTxs[validatedTxs.address]; !ok {
-		pb.currentValidPendingTxs[validatedTxs.address] = validatedTxs.txs
+	if _, ok := pb.currentValidPendingTxs[addr]; !ok {
+		pb.currentValidPendingTxs[addr] = txs
 		return nil
 	}
 
-	pb.currentValidPendingTxs[validatedTxs.address] = append(pb.currentValidPendingTxs[validatedTxs.address], validatedTxs.txs...)
+	pb.currentValidPendingTxs[addr] = append(pb.currentValidPendingTxs[addr], txs...)
 	return nil
 }
 
@@ -185,24 +151,79 @@ func (pb *pendingBuilder) RemoveTx(addr common.Address, remove *types.Transactio
 	}
 }
 
+func (pb *pendingBuilder) AdvanceToTarget(ctx context.Context, target *big.Int) bool {
+	for {
+		pb.mustBeBelowHeight(target)
+		fmt.Printf("pending builder at %d while target is %d\n", pb.height, target)
+
+		// as new heights are processed, info about them (height and a signal
+		// for completion) will be pushed onto pendingHeights.
+		select {
+		case <-pb.done:
+			return false
+		case <-ctx.Done():
+			// timeout but we never even saw a new height trying to be
+			// processed, this is an issue, panic
+			panic("context timeout without ever seeing height being processed")
+		case latest := <-pb.processingHeights:
+			pb.height = latest.height
+			fmt.Printf("popped off height %d, this is either in progress or done\n", pb.height)
+			if !pb.isHeightProcessed(ctx, latest) {
+				// we have advanced to height latest.height, but it did not
+				// process, we cannot call the pending builder advanced to
+				// target yet
+				fmt.Printf("have not reached target height, waiting for next height to start processing\n", pb.height)
+				return false
+			}
+			if pb.isAtHeight(target) {
+				// we have advanced to height latest.height and processed it,
+				// if this is the target height, we have officially advanced to
+				// this height
+				fmt.Printf("have reached target height of %d, returning what has been checked so far\n", target)
+				return true
+			}
+		}
+	}
+}
+
+func (pb *pendingBuilder) isHeightProcessed(ctx context.Context, processedHeight processedHeight) bool {
+	select {
+	case <-pb.done:
+		return false
+	case <-ctx.Done():
+		// if we are working on checking this height, but have timed
+		// out, we should return any pending txs that have been added
+		// to the builder at this point. if we are not working on this
+		// height, then we should not return txs
+		fmt.Printf("timeout waiting for height %d to be done\n", processedHeight.height)
+		defer pendingTimeout.Mark(1)
+		return true
+	case <-processedHeight.done:
+		fmt.Printf("height %d done\n", processedHeight.height)
+		return true
+	}
+}
+
+func (pb *pendingBuilder) isAtHeight(target *big.Int) bool {
+	return pb.height.Cmp(target) == 0
+}
+
+func (pb *pendingBuilder) mustBeBelowHeight(target *big.Int) {
+	if pb.height.Cmp(target) > 0 {
+		panic(fmt.Errorf("pending builder height %d while target is at %d", pb.height, target))
+	}
+}
+
 // Reset resets the internal state of the pendingBuilder to a new height. This
 // must be called when a new block is seen, before any txs have been validated
 // on top of that blocks state.
-func (pb *pendingBuilder) Reset(height *big.Int) {
+func (pb *pendingBuilder) Reset(height *big.Int) func() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
 
-	pb.height = height
 	pb.currentValidPendingTxs = make(map[common.Address]types.Transactions)
-	pb.heightValidated = make(chan struct{})
 	pb.resetAt = time.Now() // for metrics
-}
-
-// MarkHeightValidated informs the pendingBuilder that the height is is
-// building the pending set has been fully validated and it can release any
-// waiters waiting on the full set to be built.
-func (pb *pendingBuilder) MarkHeightValidated() {
-	close(pb.heightValidated)
+	return pb.ProcessHeight(height)
 }
 
 // Close terminates the pending builder
@@ -210,12 +231,28 @@ func (pb *pendingBuilder) Close() {
 	close(pb.done)
 }
 
-// mustHaveHeight ensures that the pendingBuilder is working on top of height,
-// panics otherwise.
-func (pb *pendingBuilder) mustHaveHeight(height *big.Int) {
+func (pb *pendingBuilder) mustBeBelowOrAt(targetHeight *big.Int) {
 	pb.mu.RLock()
 	defer pb.mu.RUnlock()
-	if pb.height.Cmp(height) != 0 {
-		panic(fmt.Errorf("request for valid pending txs at height %d, but pending builder is at height %d", height, pb.height))
+	if pb.height.Cmp(targetHeight) > 0 {
+		panic(fmt.Errorf("pending builder at height %d, but target height is %d", pb.height, targetHeight))
+	}
+}
+
+func (pb *pendingBuilder) ProcessHeight(height *big.Int) func() {
+	receipt := processedHeight{
+		height: height,
+		done:   make(chan struct{}),
+	}
+
+	select {
+	// if pushing onto this channel blocks, then there has been no consumer on
+	// the other end, this node is likely not proposing blocks in this case,
+	// and we dont care about properly marking the receipt as done, so we
+	// return a mock fn instead.
+	case pb.processingHeights <- receipt:
+		return func() { close(receipt.done) }
+	default:
+		return func() {}
 	}
 }
