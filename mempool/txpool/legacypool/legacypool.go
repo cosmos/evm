@@ -1344,7 +1344,10 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 			pool.reorgDoneCh <- nextDone
 
 		case <-pool.reqCancelResetCh:
-			if resetCancelled != nil {
+			// Only process the request if the reorg loop is running (curDone
+			// != nil) and a cancel request for this reorg loop has not been
+			// processed already (resetCancelled != nil)
+			if resetCancelled != nil && curDone != nil {
 				close(resetCancelled)
 				// Set to nil to dedupe any future requests to cancel reset for
 				// this same reorg iteration. Once this run finishes,
