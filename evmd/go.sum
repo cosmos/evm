@@ -268,14 +268,6 @@ github.com/cockroachdb/redact v1.1.6/go.mod h1:BVNblN9mBWFyMyqK1k3AAiSxhvhfK2oOZ
 github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb h1:3bCgBvB8PbJVMX1ouCcSIxvsqKPYM7gs72o0zC76n9g=
 github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb/go.mod h1:7nc4anLGjupUW/PeY5qiNYsdNXj7zopG+eqsS7To5IQ=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd/go.mod h1:sE/e/2PUdi/liOCUjSTXgM1o87ZssimdTWN964YiIeI=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219064246-dcb992d42ca1 h1:6RB87TFdaoAugl+OS30j+iIqUuzIzxdFkSjmKvHbRD0=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219064246-dcb992d42ca1/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219184621-cad469c871e0 h1:m94DmUGrZELKaXNk53PIXjezaYdH/+EmET/eUyGjPjI=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219184621-cad469c871e0/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219191658-def49c6ecb47 h1:olQb1QNfuNbprFXhU3KgSdHpZZBBU74gwlSUG1/Bzi8=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219191658-def49c6ecb47/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219200618-fd1a49e3c2ce h1:lTM0+T74gelOzHEhDL0Y5lWaivscj430HzgYwOev8p0=
-github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219200618-fd1a49e3c2ce/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
 github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219215830-ccf14e39f690 h1:pwG5/bimuYdgdXRZb5L1eeljlQ8ha3VMEhGST5i8aLg=
 github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219215830-ccf14e39f690/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
 github.com/cometbft/cometbft-db v0.14.1 h1:SxoamPghqICBAIcGpleHbmoPqy+crij/++eZz3DlerQ=
@@ -297,8 +289,8 @@ github.com/cosmos/cosmos-db v1.1.3 h1:7QNT77+vkefostcKkhrzDK9uoIEryzFrU9eoMeaQOP
 github.com/cosmos/cosmos-db v1.1.3/go.mod h1:kN+wGsnwUJZYn8Sy5Q2O0vCYA99MJllkKASbs6Unb9U=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5 h1:eNcayDLpip+zVLRLYafhzLvQlSmyab+RC5W7ZfmxJLA=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5/go.mod h1:hQGLpiIUloJBMdQMMWb/4wRApmI9hjHH05nefC0Ojec=
-github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251212034845-02e84c8b3abf h1:JbussPlbYwg/Qgwne1D4oVJvh5U7cWll0HoDMIuEvP4=
-github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251212034845-02e84c8b3abf/go.mod h1:sEJ77N7MF5Kf3ugJW9WbljOcI69y6ldMgTVRmEkmkmA=
+github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251219232206-59999592a314 h1:ASeNwQRc9/tKJSglPhguDfxFx9z14G0S7RGBikGR5Hs=
+github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251219232206-59999592a314/go.mod h1:sEJ77N7MF5Kf3ugJW9WbljOcI69y6ldMgTVRmEkmkmA=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
 github.com/cosmos/go-ethereum v1.16.2-cosmos-1 h1:QIaIS6HIdPSBdTvpFhxswhMLUJgcr4irbd2o9ZKldAI=
