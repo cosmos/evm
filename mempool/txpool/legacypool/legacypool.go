@@ -339,19 +339,16 @@ type LegacyPool struct {
 	all     *lookup                      // All transactions to allow lookups
 	priced  *pricedList                  // All transactions sorted by price
 
-	reqResetCh          chan *txpoolResetRequest
-	reqPromoteCh        chan *accountSet
-	queueTxEventCh      chan *types.Transaction
-	reorgDoneCh         chan chan struct{}
-	reorgShutdownCh     chan struct{}  // requests shutdown of scheduleReorgLoop
-	reorgSubscriptionCh chan struct{}  // notifies the reorg loop that a subscriber wants to wait on nextDone
-	wg                  sync.WaitGroup // tracks loop, scheduleReorgLoop
-	initDoneCh          chan struct{}  // is closed once the pool is initialized (for tests)
+	reqResetCh       chan *txpoolResetRequest
+	reqPromoteCh     chan *accountSet
+	reqCancelResetCh chan struct{}
+	queueTxEventCh   chan *types.Transaction
+	reorgDoneCh      chan chan struct{}
+	reorgShutdownCh  chan struct{}  // requests shutdown of scheduleReorgLoop
+	wg               sync.WaitGroup // tracks loop, scheduleReorgLoop
+	initDoneCh       chan struct{}  // is closed once the pool is initialized (for tests)
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
-
-	resetCtx    context.Context
-	cancelReset func()
 
 	// OnTxPromoted is called when a tx is promoted from queued to pending (may
 	// be called multiple times per tx)
@@ -385,24 +382,24 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
-		config:              config,
-		chain:               chain,
-		chainconfig:         chain.Config(),
-		signer:              types.LatestSigner(chain.Config()),
-		pending:             make(map[common.Address]*list),
-		queue:               make(map[common.Address]*list),
-		beats:               make(map[common.Address]time.Time),
-		all:                 newLookup(),
-		rechecker:           newNopRechecker(),
-		validPendingTxs:     newTxCollector(chain.CurrentBlock().Number),
-		onHeightValidated:   func() {},
-		reqResetCh:          make(chan *txpoolResetRequest),
-		reqPromoteCh:        make(chan *accountSet),
-		queueTxEventCh:      make(chan *types.Transaction),
-		reorgDoneCh:         make(chan chan struct{}),
-		reorgShutdownCh:     make(chan struct{}),
-		reorgSubscriptionCh: make(chan struct{}),
-		initDoneCh:          make(chan struct{}),
+		config:            config,
+		chain:             chain,
+		chainconfig:       chain.Config(),
+		signer:            types.LatestSigner(chain.Config()),
+		pending:           make(map[common.Address]*list),
+		queue:             make(map[common.Address]*list),
+		beats:             make(map[common.Address]time.Time),
+		all:               newLookup(),
+		rechecker:         newNopRechecker(),
+		validPendingTxs:   newTxCollector(chain.CurrentBlock().Number),
+		onHeightValidated: func() {},
+		reqResetCh:        make(chan *txpoolResetRequest),
+		reqPromoteCh:      make(chan *accountSet),
+		reqCancelResetCh:  make(chan struct{}),
+		queueTxEventCh:    make(chan *types.Transaction),
+		reorgDoneCh:       make(chan chan struct{}),
+		reorgShutdownCh:   make(chan struct{}),
+		initDoneCh:        make(chan struct{}),
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -532,8 +529,17 @@ func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
 // processing its current reset request since a new block arrived and the work
 // it is doing to reset at the current height will be invalidated.
 func (pool *LegacyPool) CancelReset() {
-	if pool.cancelReset != nil {
-		pool.cancelReset()
+	pool.requestCancelReset()
+}
+
+// requestCancelReset sends a request for a current running pool reset (if any)
+// to be cancelled.
+func (pool *LegacyPool) requestCancelReset() {
+	select {
+	case pool.reqCancelResetCh <- struct{}{}:
+		return
+	case <-pool.reorgShutdownCh:
+		return
 	}
 }
 
@@ -1304,18 +1310,19 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 	defer pool.wg.Done()
 
 	var (
-		curDone       chan struct{} // non-nil while runReorg is active
-		nextDone      = make(chan struct{})
-		launchNextRun bool
-		reset         *txpoolResetRequest
-		dirtyAccounts *accountSet
-		queuedEvents  = make(map[common.Address]*SortedMap)
+		curDone        chan struct{} // non-nil while runReorg is active
+		nextDone       = make(chan struct{})
+		resetCancelled = make(chan struct{})
+		launchNextRun  bool
+		reset          *txpoolResetRequest
+		dirtyAccounts  *accountSet
+		queuedEvents   = make(map[common.Address]*SortedMap)
 	)
 	for {
 		// Launch next background reorg if needed
 		if curDone == nil && launchNextRun {
 			// Run the background reorg and announcements
-			go pool.runReorg(nextDone, reset, dirtyAccounts, queuedEvents)
+			go pool.runReorg(nextDone, resetCancelled, reset, dirtyAccounts, queuedEvents)
 
 			// Prepare everything for the next round of reorg
 			curDone, nextDone = nextDone, make(chan struct{})
@@ -1336,6 +1343,15 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 			launchNextRun = true
 			pool.reorgDoneCh <- nextDone
 
+		case <-pool.reqCancelResetCh:
+			if resetCancelled != nil {
+				close(resetCancelled)
+				// Set to nil to dedupe any future requests to cancel reset for
+				// this same reorg iteration. Once this run finishes,
+				// resetCancelled will be recreated as non nil chan and the
+				// next iteration will support being cancelled again.
+				resetCancelled = nil
+			}
 		case req := <-pool.reqPromoteCh:
 			// Promote request: update address set if request is already pending.
 			if dirtyAccounts == nil {
@@ -1354,10 +1370,9 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 				queuedEvents[addr] = NewSortedMap()
 			}
 			queuedEvents[addr].Put(tx)
-		case <-pool.reorgSubscriptionCh:
-			pool.reorgDoneCh <- nextDone
 		case <-curDone:
 			curDone = nil
+			resetCancelled = make(chan struct{})
 
 		case <-pool.reorgShutdownCh:
 			// Wait for current run to finish.
@@ -1371,7 +1386,7 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 }
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
-func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
+func (pool *LegacyPool) runReorg(done chan struct{}, cancelReset chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
 	defer func(t0 time.Time) {
 		reorgDurationTimer.UpdateSince(t0)
 		if reset != nil {
@@ -1410,13 +1425,13 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	}
 
 	// Check for pending transactions for every account that sent new ones
-	promoted := pool.promoteExecutables(promoteAddrs, reset)
+	promoted := pool.promoteExecutables(promoteAddrs, cancelReset, reset)
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
-		pool.demoteUnexecutables(reset)
+		pool.demoteUnexecutables(cancelReset, reset)
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
 				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
@@ -1491,7 +1506,6 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.pendingNonces = newNoncer(statedb)
 	pool.rechecker.Update(pool.chain, newHead)
 	pool.onHeightValidated = pool.validPendingTxs.StartNewHeight(newHead.Number)
-	pool.resetCtx, pool.cancelReset = context.WithCancel(context.Background())
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1501,23 +1515,22 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 
 // isResetCancelled returns true if the pool is resetting and it has been
 // signaled to cancel the reset.
-func (pool *LegacyPool) isResetCancelled(reset *txpoolResetRequest) bool {
-	if reset == nil {
-		// we are not resetting, so it is not cancelled
-		return false
+func (pool *LegacyPool) isReorgCancelled(reset *txpoolResetRequest, cancelled chan struct{}) bool {
+	if reset != nil {
+		select {
+		case <-cancelled:
+			return true
+		default:
+			return false
+		}
 	}
-	select {
-	case <-pool.resetCtx.Done():
-		return true
-	default:
-		return false
-	}
+	return false
 }
 
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txpoolResetRequest) []*types.Transaction {
+func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled chan struct{}, reset *txpoolResetRequest) []*types.Transaction {
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
@@ -1527,7 +1540,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, reset *txp
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for _, addr := range accounts {
-		if pool.isResetCancelled(reset) {
+		if pool.isReorgCancelled(reset, cancelled) {
 			queuedPromotedCancelled.Mark(1)
 			return promoted
 		}
@@ -1756,13 +1769,13 @@ func (pool *LegacyPool) truncateQueue() {
 // Note: transactions are not marked as removed in the priced list because re-heaping
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
-func (pool *LegacyPool) demoteUnexecutables(reset *txpoolResetRequest) {
+func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpoolResetRequest) {
 	defer func(t0 time.Time) { demoteTimer.UpdateSince(t0) }(time.Now())
 
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
-		if pool.isResetCancelled(reset) {
+		if pool.isReorgCancelled(reset, cancelled) {
 			pendingDemotedCancelled.Mark(1)
 			return
 		}
