@@ -7,7 +7,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	testKeyring "github.com/cosmos/evm/testutil/keyring"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
@@ -127,46 +126,4 @@ func (s *KeeperTestSuite) setupDelegationSameAccount(user testKeyring.Key, targe
 
 	_, err = s.Factory.ExecuteEthTx(user.Priv, txArgs)
 	s.Require().NoError(err)
-}
-
-// setupDelegationWithSender sets up EIP-7702 delegation for an EOA to a target contract
-// using a different account to send the SetCode transaction
-func (s *KeeperTestSuite) setupDelegationWithSender(authority, sender testKeyring.Key, targetAddr common.Address, chainID *uint256.Int) {
-	accResp, err := s.Handler.GetEvmAccount(authority.Addr)
-	s.Require().NoError(err)
-
-	// When sender is different from authority, the authorization nonce
-	// should be the authority's current nonce (no +1 needed)
-	auth := ethtypes.SetCodeAuthorization{
-		ChainID: *chainID,
-		Address: targetAddr,
-		Nonce:   accResp.GetNonce(),
-	}
-
-	signedAuth := s.SignSetCodeAuthorization(authority, auth)
-
-	// Use the factory to execute the SetCode transaction - it handles gas estimation properly
-	zeroAddr := common.Address{}
-	txArgs := evmtypes.EvmTxArgs{
-		To:                &zeroAddr,
-		GasLimit:          100_000,
-		AuthorizationList: []ethtypes.SetCodeAuthorization{signedAuth},
-	}
-
-	_, err = s.Factory.ExecuteEthTx(sender.Priv, txArgs)
-	s.Require().NoError(err)
-}
-
-// signSetCodeAuth signs a SetCodeAuthorization
-func (s *KeeperTestSuite) signSetCodeAuth(authority testKeyring.Key, auth ethtypes.SetCodeAuthorization) ethtypes.SetCodeAuthorization {
-	privKey, ok := authority.Priv.(*ethsecp256k1.PrivKey)
-	s.Require().True(ok)
-
-	ecdsaPriv, err := privKey.ToECDSA()
-	s.Require().NoError(err)
-
-	signedAuth, err := ethtypes.SignSetCode(ecdsaPriv, auth)
-	s.Require().NoError(err)
-
-	return signedAuth
 }
