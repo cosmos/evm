@@ -276,6 +276,8 @@ github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219191658-def49c6ecb47 h1:olQ
 github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219191658-def49c6ecb47/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
 github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219200618-fd1a49e3c2ce h1:lTM0+T74gelOzHEhDL0Y5lWaivscj430HzgYwOev8p0=
 github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219200618-fd1a49e3c2ce/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
+github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219215830-ccf14e39f690 h1:pwG5/bimuYdgdXRZb5L1eeljlQ8ha3VMEhGST5i8aLg=
+github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219215830-ccf14e39f690/go.mod h1:3jVF1T0qqyAcxtbElgOGGrpfi3Q8EFGsGbu57NRYAWU=
 github.com/cometbft/cometbft-db v0.14.1 h1:SxoamPghqICBAIcGpleHbmoPqy+crij/++eZz3DlerQ=
 github.com/cometbft/cometbft-db v0.14.1/go.mod h1:KHP1YghilyGV/xjD5DP3+2hyigWx0WTp9X+0Gnx0RxQ=
 github.com/consensys/gnark-crypto v0.18.1 h1:RyLV6UhPRoYYzaFnPQA4qK3DyuDgkTgskDdoGqFt3fI=
