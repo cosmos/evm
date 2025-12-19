@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 )
 
 // Helper to create a test transaction
@@ -58,7 +59,7 @@ func TestBasicCollect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	result := collector.Collect(ctx, big.NewInt(1), nil, big.NewInt(1e9))
+	result := collector.Collect(ctx, big.NewInt(1), txpool.PendingFilter{})
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
@@ -81,7 +82,7 @@ func TestCollectTimeoutBeforeHeight(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	result := collector.Collect(ctx, big.NewInt(3), nil, big.NewInt(1e9))
+	result := collector.Collect(ctx, big.NewInt(3), txpool.PendingFilter{})
 
 	if result != nil {
 		t.Error("Expected nil result when timing out before reaching target height")
@@ -103,7 +104,7 @@ func TestCollectPartialResults(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	result := collector.Collect(ctx, big.NewInt(1), nil, big.NewInt(1e9))
+	result := collector.Collect(ctx, big.NewInt(1), txpool.PendingFilter{})
 
 	if result == nil {
 		t.Fatal("Expected partial results, got nil")
@@ -134,9 +135,11 @@ func TestCollectWithMinTip(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	minTip := big.NewInt(1e9) // 1 gwei
-	baseFee := big.NewInt(1e9)
-	result := collector.Collect(ctx, big.NewInt(1), minTip, baseFee)
+	filter := txpool.PendingFilter{
+		MinTip:  uint256.MustFromBig(big.NewInt(1e9)),
+		BaseFee: uint256.MustFromBig(big.NewInt(1e9)),
+	}
+	result := collector.Collect(ctx, big.NewInt(1), filter)
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
@@ -169,7 +172,7 @@ func TestCollectorBehindByOneHeight(t *testing.T) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		result := collector.Collect(ctx, big.NewInt(2), nil, big.NewInt(1e9))
+		result := collector.Collect(ctx, big.NewInt(2), txpool.PendingFilter{})
 		resultChan <- result
 	}()
 
@@ -216,7 +219,7 @@ func TestCollectorBehindByTwoHeights(t *testing.T) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		result := collector.Collect(ctx, big.NewInt(3), nil, big.NewInt(1e9))
+		result := collector.Collect(ctx, big.NewInt(3), txpool.PendingFilter{})
 		resultChan <- result
 	}()
 
@@ -273,7 +276,7 @@ func TestRemoveTx(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	result := collector.Collect(ctx, big.NewInt(1), nil, big.NewInt(1e9))
+	result := collector.Collect(ctx, big.NewInt(1), txpool.PendingFilter{})
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
@@ -308,7 +311,7 @@ func TestPanicOnOldHeight(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	collector.Collect(ctx, big.NewInt(1), nil, big.NewInt(1e9))
+	collector.Collect(ctx, big.NewInt(1), txpool.PendingFilter{})
 }
 
 // TestTxsAreSortedByNonce tests that collected transactions are sorted by nonce
@@ -331,7 +334,7 @@ func TestTxsAreSortedByNonce(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	result := collector.Collect(ctx, big.NewInt(1), nil, big.NewInt(1e9))
+	result := collector.Collect(ctx, big.NewInt(1), txpool.PendingFilter{})
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
@@ -381,7 +384,7 @@ func TestConcurrentRemove(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	result := collector.Collect(ctx, big.NewInt(1), nil, big.NewInt(1e9))
+	result := collector.Collect(ctx, big.NewInt(1), txpool.PendingFilter{})
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")

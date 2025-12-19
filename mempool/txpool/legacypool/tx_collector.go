@@ -2,6 +2,7 @@ package legacypool
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -106,6 +107,7 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 		// than the callers
 		if cmp > 0 {
 			defer c.mu.RUnlock() // Defer unlock since the panic will read
+			panic(fmt.Errorf("collector received collect request at height %d, but collector is at height %d, cannot serve requests in the past", height, c.currentHeight))
 		}
 
 		// If we're at the target height, wait for completion or timeout
