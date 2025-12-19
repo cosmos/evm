@@ -1330,6 +1330,23 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 
 			reset, dirtyAccounts = nil, nil
 			queuedEvents = make(map[common.Address]*SortedMap)
+
+			// Limit a reset reorg to run for a maximum of 500ms before
+			// cancelling it. If the pools grow too large, this can create
+			// contention on the pools main mutex and block inserts, causing
+			// down stream issues.
+			if reset != nil {
+				go func() {
+					select {
+					case <-curDone:
+						// If this run finishes before the timer fires, do not
+						// cancel it.
+						return
+					case <-time.After(time.Millisecond * 500):
+						pool.requestCancelReset()
+					}
+				}()
+			}
 		}
 
 		select {
