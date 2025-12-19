@@ -36,6 +36,10 @@ var (
 	// collectorWaitDuration is the amount of time callers of Collect spend
 	// waiting to get a response (via timeout or completion).
 	collectorWaitDuration = metrics.NewRegisteredTimer("collector/waittime", nil)
+
+	// collectorWaitDuration is the amount of time callers of Collect spend
+	// waiting to get a response (via timeout or completion).
+	collectorRemoveDuraiton = metrics.NewRegisteredTimer("collector/removetime", nil)
 )
 
 // txCollector collects txs at a height given height.
@@ -170,6 +174,8 @@ func (c *txCollector) AddTx(addr common.Address, tx *types.Transaction) {
 
 // RemoveTx removes a tx from the collector.
 func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
+	defer func(t0 time.Time) { collectorRemoveDuraiton.UpdateSince(t0) }(time.Now())
+
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
