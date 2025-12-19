@@ -3,16 +3,23 @@ package keeper
 import (
 	"fmt"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // LoadEvmCoinInfo load EvmCoinInfo from bank denom metadata
-func (k Keeper) LoadEvmCoinInfo(ctx sdk.Context) (types.EvmCoinInfo, error) {
-	var decimals types.Decimals
-
+func (k Keeper) LoadEvmCoinInfo(ctx sdk.Context) (_ types.EvmCoinInfo, err error) {
 	params := k.GetParams(ctx)
+	ctx, span := ctx.StartSpan(tracer, "LoadEvmCoinInfo", trace.WithAttributes(
+		attribute.String("evm_denom", params.EvmDenom),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+	var decimals types.Decimals
 	evmDenomMetadata, found := k.bankWrapper.GetDenomMetaData(ctx, params.EvmDenom)
 	if !found {
 		return types.EvmCoinInfo{}, fmt.Errorf("denom metadata %s could not be found", params.EvmDenom)
@@ -43,7 +50,9 @@ func (k Keeper) LoadEvmCoinInfo(ctx sdk.Context) (types.EvmCoinInfo, error) {
 }
 
 // InitEvmCoinInfo load EvmCoinInfo from bank denom metadata and store it in the module
-func (k Keeper) InitEvmCoinInfo(ctx sdk.Context) error {
+func (k Keeper) InitEvmCoinInfo(ctx sdk.Context) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "InitEvmCoinInfo")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	coinInfo, err := k.LoadEvmCoinInfo(ctx)
 	if err != nil {
 		return err
@@ -53,6 +62,8 @@ func (k Keeper) InitEvmCoinInfo(ctx sdk.Context) error {
 
 // GetEvmCoinInfo returns the EVM Coin Info stored in the module
 func (k Keeper) GetEvmCoinInfo(ctx sdk.Context) (coinInfo types.EvmCoinInfo) {
+	ctx, span := ctx.StartSpan(tracer, "GetEvmCoinInfo")
+	defer span.End()
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.KeyPrefixEvmCoinInfo)
 	if bz == nil {
@@ -63,7 +74,12 @@ func (k Keeper) GetEvmCoinInfo(ctx sdk.Context) (coinInfo types.EvmCoinInfo) {
 }
 
 // SetEvmCoinInfo sets the EVM Coin Info stored in the module
-func (k Keeper) SetEvmCoinInfo(ctx sdk.Context, coinInfo types.EvmCoinInfo) error {
+func (k Keeper) SetEvmCoinInfo(ctx sdk.Context, coinInfo types.EvmCoinInfo) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "SetEvmCoinInfo", trace.WithAttributes(
+		attribute.String("denom", coinInfo.Denom),
+		attribute.Int64("decimals", int64(coinInfo.Decimals)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	store := ctx.KVStore(k.storeKey)
 	bz, err := k.cdc.Marshal(&coinInfo)
 	if err != nil {

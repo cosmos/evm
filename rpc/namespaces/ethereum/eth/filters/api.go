@@ -11,11 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 
 	"cosmossdk.io/log"
 
@@ -25,6 +27,8 @@ import (
 var (
 	errInvalidBlockRange      = errors.New("invalid block range params")
 	errPendingLogsUnsupported = errors.New("pending logs are not supported")
+
+	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/eth/filters")
 )
 
 // FilterAPI gathers
@@ -40,14 +44,14 @@ type FilterAPI interface {
 
 // Backend defines the methods requided by the PublicFilterAPI backend
 type Backend interface {
-	GetBlockByNumber(blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error)
-	HeaderByNumber(blockNum types.BlockNumber) (*ethtypes.Header, error)
-	HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error)
-	CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error)
-	CometBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error)
-	GetLogs(blockHash common.Hash) ([][]*ethtypes.Log, error)
-	GetLogsByHeight(*int64) ([][]*ethtypes.Log, error)
-	BlockBloomFromCometBlock(blockRes *coretypes.ResultBlockResults) (ethtypes.Bloom, error)
+	GetBlockByNumber(ctx context.Context, blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error)
+	HeaderByNumber(ctx context.Context, blockNum types.BlockNumber) (*ethtypes.Header, error)
+	HeaderByHash(ctx context.Context, blockHash common.Hash) (*ethtypes.Header, error)
+	CometBlockByHash(ctx context.Context, hash common.Hash) (*coretypes.ResultBlock, error)
+	CometBlockResultByNumber(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error)
+	GetLogs(ctx context.Context, blockHash common.Hash) ([][]*ethtypes.Log, error)
+	GetLogsByHeight(ctx context.Context, height *int64) ([][]*ethtypes.Log, error)
+	BlockBloomFromCometBlock(ctx context.Context, blockRes *coretypes.ResultBlockResults) (ethtypes.Bloom, error)
 
 	BloomStatus() (uint64, uint64)
 
@@ -221,7 +225,9 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 // GetLogs returns logs matching the given argument that are stored within the state.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getlogs
-func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) ([]*ethtypes.Log, error) {
+func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) (_ []*ethtypes.Log, err error) {
+	ctx, span := tracer.Start(ctx, "GetLogs")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	var filter *Filter
 	if crit.BlockHash != nil {
 		// Block filter requested, construct a single-shot filter
@@ -272,7 +278,9 @@ func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 // If the filter could not be found an empty array of logs is returned.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getfilterlogs
-func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ethtypes.Log, error) {
+func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) (_ []*ethtypes.Log, err error) {
+	ctx, span := tracer.Start(ctx, "GetFilterLogs")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	api.filtersMu.Lock()
 	f, found := api.filters[id]
 	api.filtersMu.Unlock()

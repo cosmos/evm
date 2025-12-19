@@ -7,7 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -48,7 +51,12 @@ func (k *Keeper) DeductTxCostsFromUserBalance(
 	ctx sdk.Context,
 	fees sdk.Coins,
 	from common.Address,
-) error {
+) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "DeductTxCostsFromUserBalance", trace.WithAttributes(
+		attribute.String("from", from.Hex()),
+		attribute.String("fees", fees.String()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// fetch sender account
 	signerAcc, err := authante.GetSignerAcc(ctx, k.accountKeeper, from.Bytes())
 	if err != nil {
@@ -127,7 +135,12 @@ func VerifyFee(
 }
 
 // DeductFees deducts fees from the given account.
-func DeductFees(bankKeeper types.BankKeeper, vmKeeper types.VMKeeper, ctx sdk.Context, acc sdk.AccountI, fees sdk.Coins) error {
+func DeductFees(bankKeeper types.BankKeeper, vmKeeper types.VMKeeper, ctx sdk.Context, acc sdk.AccountI, fees sdk.Coins) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "DeductFees", trace.WithAttributes(
+		attribute.String("account", acc.GetAddress().String()),
+		attribute.String("fees", fees.String()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if !fees.IsValid() {
 		return errorsmod.Wrapf(errortypes.ErrInsufficientFee, "invalid fee amount: %s", fees)
 	}
@@ -148,7 +161,7 @@ func DeductFees(bankKeeper types.BankKeeper, vmKeeper types.VMKeeper, ctx sdk.Co
 		}
 	}
 
-	err := bankKeeper.SendCoinsFromAccountToModuleVirtual(ctx, acc.GetAddress(), authtypes.FeeCollectorName, fees)
+	err = bankKeeper.SendCoinsFromAccountToModuleVirtual(ctx, acc.GetAddress(), authtypes.FeeCollectorName, fees)
 	if err != nil {
 		return errorsmod.Wrap(errortypes.ErrInsufficientFunds, err.Error())
 	}
