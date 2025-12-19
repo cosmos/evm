@@ -2,7 +2,6 @@ package legacypool
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -96,7 +95,7 @@ func (c *txCollector) StartNewHeight(height *big.Int) func() {
 // Collect collects txs in the collector at a height. If this height has not
 // been reached by the collector, it will wait until the context times out or
 // the height is reached.
-func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.Int, baseFee *big.Int) map[common.Address][]*txpool.LazyTransaction {
+func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
 	start := time.Now()
 	for {
 		c.mu.RLock()
@@ -107,7 +106,6 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.
 		// than the callers
 		if cmp > 0 {
 			defer c.mu.RUnlock() // Defer unlock since the panic will read
-			panic(fmt.Errorf("requested height %d but current height is %d (cannot serve old heights)", height, c.currentHeight))
 		}
 
 		// If we're at the target height, wait for completion or timeout
@@ -123,7 +121,8 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.
 				collectorTimeout.Mark(1)
 			}
 			collectorWaitDuration.UpdateSince(start)
-			return txs.Get(minTip, baseFee)
+			ts := txs.Get(filter)
+			return ts
 		}
 
 		// Current height is behind target - capture the channel before unlocking
@@ -193,9 +192,26 @@ func newTxs() *txs {
 }
 
 // Get returns the current set of txs.
-func (t *txs) Get(minTip *big.Int, baseFee *big.Int) map[common.Address][]*txpool.LazyTransaction {
+func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+	// Do not support blob txs
+	if filter.OnlyBlobTxs {
+		return nil
+	}
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
+	var (
+		minTipBig  *big.Int
+		baseFeeBig *big.Int
+	)
+	if filter.MinTip != nil {
+		minTipBig = filter.MinTip.ToBig()
+	}
+	if filter.BaseFee != nil {
+		baseFeeBig = filter.BaseFee.ToBig()
+	}
 
 	numSelected := 0
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(t.txs))
@@ -204,9 +220,9 @@ func (t *txs) Get(minTip *big.Int, baseFee *big.Int) map[common.Address][]*txpoo
 		sort.Sort(types.TxByNonce(txs))
 
 		// Filter by minimum tip if configured
-		if minTip != nil {
+		if minTipBig != nil {
 			for i, tx := range txs {
-				if tx.EffectiveGasTipIntCmp(minTip, baseFee) < 0 {
+				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
 					txs = txs[:i]
 					break
 				}

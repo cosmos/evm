@@ -606,12 +606,13 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 	defer cancel()
 
 	filter := txpool.PendingFilter{
+		MinTip:       m.minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
 	}
-	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(committedHeight), m.minTip.ToBig(), filter)
+	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(committedHeight), filter)
 	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
 	cosmosIterator := m.cosmosPool.Select(ctx, txs)
 
