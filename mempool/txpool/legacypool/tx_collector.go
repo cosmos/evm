@@ -106,7 +106,7 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.
 		// Should never see a situation where the collector has a higher hight
 		// than the callers
 		if cmp > 0 {
-			c.mu.RUnlock()
+			defer c.mu.RUnlock() // Defer unlock since the panic will read
 			panic(fmt.Errorf("requested height %d but current height is %d (cannot serve old heights)", height, c.currentHeight))
 		}
 
