@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"go.opentelemetry.io/otel/metric"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -27,7 +29,11 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+var (
+	_ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+	// ethInFlightTxs measures the number of currently in flight evm mempool insertions
+	ethInFlightTxs metric.Float64UpDownCounter
+)
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
@@ -35,6 +41,14 @@ const (
 	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
 	fallbackBlockGasLimit = 100_000_000
 )
+
+func init() {
+	var err error
+	ethInFlightTxs, err = meter.Float64UpDownCounter("mempool.eth_inflight_txs")
+	if err != nil {
+		panic(err)
+	}
+}
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -71,6 +85,9 @@ type (
 
 		/** Transaction Tracking **/
 		txTracker *txTracker
+
+		maxEthInFlightTxs int64
+		ethInFlightTxs    atomic.Int64
 	}
 )
 
@@ -88,6 +105,8 @@ type EVMMempoolConfig struct {
 	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
 	OperateExclusively bool
+	// MaxEthInFlightTxs max number of eth txs which can be pending insert at any given time.
+	MaxEthInFlightTxs int64
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -197,6 +216,7 @@ func NewExperimentalEVMMempool(
 		operateExclusively: config.OperateExclusively,
 		reapList:           NewReapList(txEncoder),
 		txTracker:          newTxTracker(),
+		maxEthInFlightTxs:  config.MaxEthInFlightTxs,
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -275,9 +295,24 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		ethTx := ethMsg.AsTransaction()
-		return m.insertEVMTx(ctx, ethTx, false)
+		return m.queueInsertEVMTx(ctx, ethTx)
 	}
 	return m.insertCosmosTx(ctx, tx)
+}
+
+func (m *ExperimentalEVMMempool) queueInsertEVMTx(ctx context.Context, tx *ethtypes.Transaction) error {
+	inFlightTxs := m.ethInFlightTxs.Load()
+	if inFlightTxs >= m.maxEthInFlightTxs {
+		return ErrMempoolFull
+	}
+	ethInFlightTxs.Add(ctx, 1)
+	m.ethInFlightTxs.Add(1)
+	go func() {
+		m.insertEVMTx(ctx, tx, true)
+		m.ethInFlightTxs.Add(-1)
+		ethInFlightTxs.Add(ctx, -1)
+	}()
+	return nil
 }
 
 // insertEVMTx inserts a EVM tx into the legacypool (EVM) mempool This does not

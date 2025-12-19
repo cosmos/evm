@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/server"
@@ -85,6 +86,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		BlockGasLimit:      server.GetBlockGasLimit(appOpts, logger),
 		MinTip:             server.GetMinTip(appOpts, logger),
 		OperateExclusively: mempoolOperateExclusively,
+		MaxEthInFlightTxs:  7000,
 	}, nil
 }
 
@@ -124,6 +126,11 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 				// only happen if the pool is full, so we simply return that the
 				// pool is full so the user can wait until the pool is not full and
 				// retry this tx.
+				code = abci.CodeTypeRetry
+			case errors.Is(err, mempool.ErrMempoolFull):
+				// ErrMempoolFull is returned when the mempool has too many inflight txs.
+				// The transaction insert should be retried if it is received again,
+				// but cannot be processed now.
 				code = abci.CodeTypeRetry
 			case errors.Is(err, txpool.ErrReplaceUnderpriced):
 				// Submitting this tx again will result in the same error unless
