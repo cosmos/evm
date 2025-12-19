@@ -32,7 +32,7 @@ const (
 	prefixTokenPairByDenom
 	prefixSTRv2Addresses
 	prefixAllowance
-	prefixNativePrecompiles
+	prefixNativePrecompiles // reserved
 	prefixDynamicPrecompiles
 )
 
@@ -43,7 +43,6 @@ var (
 	KeyPrefixTokenPairByDenom   = []byte{prefixTokenPairByDenom}
 	KeyPrefixSTRv2Addresses     = []byte{prefixSTRv2Addresses}
 	KeyPrefixAllowance          = []byte{prefixAllowance}
-	KeyPrefixNativePrecompiles  = []byte{prefixNativePrecompiles}
 	KeyPrefixDynamicPrecompiles = []byte{prefixDynamicPrecompiles}
 )
 
