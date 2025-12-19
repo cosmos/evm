@@ -421,8 +421,6 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, f
 // buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
 // block height and then returns a combined iterator over EVM & Cosmos txs.
 func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
 	return NewEVMMempoolIterator(
@@ -430,7 +428,7 @@ func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte
 		cosmosIterator,
 		m.logger,
 		m.txConfig,
-		m.vmKeeper.GetEvmCoinInfo(sdkCtx).Denom,
+		m.vmKeeper.GetEvmCoinInfo(sdk.UnwrapSDKContext(ctx)).Denom,
 		m.blockchain,
 	)
 }
