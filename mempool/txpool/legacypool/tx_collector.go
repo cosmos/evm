@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,9 +16,26 @@ import (
 )
 
 var (
-	pendingTimeout        = metrics.NewRegisteredMeter("collector/timeout", nil)
-	pendingComplete       = metrics.NewRegisteredMeter("collector/complete", nil)
-	pendingTxsAccumulated = metrics.NewRegisteredMeter("collector/txsaccumulated", nil)
+	// collectorTimeout measures the amount of times the collector timed out
+	// before being able to serve all collected txs at a height (this may mean
+	// partial txs returned, or none at all).
+	collectorTimeout = metrics.NewRegisteredMeter("collector/timeout", nil)
+
+	// collectorComplete measures the amount of times the collector was able to
+	// serve all txs that would be collected for a height in a Collect request.
+	collectorComplete = metrics.NewRegisteredMeter("collector/complete", nil)
+
+	// collectorHeightBehind measures the amount of times the collector
+	// received a request to collect txs for a height and the collector was >=
+	// 1 height behind the target height.
+	collectorHeightBehind = metrics.NewRegisteredMeter("collector/heightbehind", nil)
+
+	// txsCollected is the total amount of txs returned by Collect.
+	txsCollected = metrics.NewRegisteredMeter("collector/txscollected", nil)
+
+	// collectorWaitDuration is the amount of time callers of Collect spend
+	// waiting to get a response (via timeout or completion).
+	collectorWaitDuration = metrics.NewRegisteredTimer("collector/waittime", nil)
 )
 
 // txCollector collects txs at a height given height.
@@ -79,12 +97,14 @@ func (c *txCollector) StartNewHeight(height *big.Int) func() {
 // been reached by the collector, it will wait until the context times out or
 // the height is reached.
 func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.Int, baseFee *big.Int) map[common.Address][]*txpool.LazyTransaction {
+	start := time.Now()
 	for {
 		c.mu.RLock()
 
 		cmp := c.currentHeight.Cmp(height)
 
-		// Panic if requesting old height (programming error)
+		// Should never see a situation where the collector has a higher hight
+		// than the callers
 		if cmp > 0 {
 			c.mu.RUnlock()
 			panic(fmt.Errorf("requested height %d but current height is %d (cannot serve old heights)", height, c.currentHeight))
@@ -96,21 +116,20 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.
 			done := c.noMoreTxs
 			c.mu.RUnlock()
 
-			// Wait for builder to complete, context to timeout, or manager to close
-
 			select {
 			case <-done:
-				pendingComplete.Mark(1)
+				collectorComplete.Mark(1)
 			case <-ctx.Done():
-				// Timeout while processing target height - return partial results
-				pendingTimeout.Mark(1)
+				collectorTimeout.Mark(1)
 			}
+			collectorWaitDuration.UpdateSince(start)
 			return txs.Get(minTip, baseFee)
 		}
 
 		// Current height is behind target - capture the channel before unlocking
 		heightChangedChan := c.heightChanged
 		c.mu.RUnlock()
+		collectorHeightBehind.Mark(1)
 
 		// Wait for height to advance, context to timeout, or manager to close
 		select {
@@ -119,12 +138,14 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, minTip *big.
 			continue
 		case <-ctx.Done():
 			// Timeout before reaching target height - return nil
+			collectorTimeout.Mark(1)
+			collectorWaitDuration.UpdateSince(start)
 			return nil
 		}
 	}
 }
 
-// AddList adds a list of validated txs to the current builder.
+// AddList adds a list of txs to the collector.
 func (c *txCollector) AddList(addr common.Address, list *list) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -135,7 +156,7 @@ func (c *txCollector) AddList(addr common.Address, list *list) {
 	c.txs.Add(addr, list.Flatten())
 }
 
-// AddTx adds a single validated tx to the current builder.
+// AddTx adds a single tx to the collector.
 func (c *txCollector) AddTx(addr common.Address, tx *types.Transaction) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -146,7 +167,7 @@ func (c *txCollector) AddTx(addr common.Address, tx *types.Transaction) {
 	c.txs.Add(addr, []*types.Transaction{tx})
 }
 
-// RemoveTx removes a tx from the current builder.
+// RemoveTx removes a tx from the collector.
 func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -171,8 +192,7 @@ func newTxs() *txs {
 	}
 }
 
-// GetValidPendingTxs returns the current set of validated pending txs.
-// This can be called at any time and returns whatever has been validated so far.
+// Get returns the current set of txs.
 func (t *txs) Get(minTip *big.Int, baseFee *big.Int) map[common.Address][]*txpool.LazyTransaction {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -212,7 +232,7 @@ func (t *txs) Get(minTip *big.Int, baseFee *big.Int) map[common.Address][]*txpoo
 		}
 	}
 
-	pendingTxsAccumulated.Mark(int64(numSelected))
+	txsCollected.Mark(int64(numSelected))
 	return pending
 }
 
