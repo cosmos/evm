@@ -38,7 +38,6 @@ func (app *App) configureEVMMempool(appOpts servertypes.AppOptions, logger log.L
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.txConfig,
-		app.clientCtx,
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)

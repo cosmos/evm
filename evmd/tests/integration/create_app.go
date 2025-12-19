@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/cosmos/evm"
-	eapp "github.com/cosmos/evm/evmd/app"
-
-	"github.com/cosmos/cosmos-sdk/client/flags"
-
 	dbm "github.com/cosmos/cosmos-db"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
+	"github.com/cosmos/evm"
+	eapp "github.com/cosmos/evm/evmd/app"
+	evmmempool "github.com/cosmos/evm/mempool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -19,6 +17,8 @@ import (
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -41,7 +41,8 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	return eapp.New(
+	// Start the app
+	app := eapp.New(
 		logger,
 		db,
 		nil,
@@ -49,6 +50,18 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		appOptions,
 		baseAppOptions...,
 	)
+
+	// Prepare the client context
+	clientCtx := client.Context{}.WithChainID(constants.ExampleChainID.ChainID).
+		WithHeight(1).
+		WithTxConfig(app.GetTxConfig())
+
+	// Get the mempool and set the client context
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+		m.SetClientCtx(clientCtx)
+	}
+
+	return app
 }
 
 // SetupEvmd initializes a new evmd app with default genesis state.
