@@ -226,10 +226,6 @@ func New(
 		oKeys:             oKeys,
 	}
 
-	// Setup Parallel Execution via blockstm txn runner
-	// initialize block-stm runner with a fallback denom; overridden after InitGenesis when the real EVM denom is available
-	app.configureBlockSTM("")
-
 	// Disable block gas meter--block gas is tracked elsewhere
 	app.SetDisableBlockGasMeter(true)
 
@@ -301,8 +297,15 @@ func New(
 		govConfig.MaxMetadataLen = 10000
 	*/
 	govKeeper := govkeeper.NewKeeper(
-		appCodec, runtime.NewKVStoreService(keys[govtypes.StoreKey]), app.AccountKeeper, app.BankKeeper,
-		app.StakingKeeper, app.DistributionKeeper, app.MsgServiceRouter(), govConfig, authAddr,
+		appCodec,
+		runtime.NewKVStoreService(keys[govtypes.StoreKey]),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.DistributionKeeper,
+		app.MsgServiceRouter(),
+		govConfig,
+		authAddr,
+		govkeeper.NewDefaultCalculateVoteResultsAndVotingPower(app.StakingKeeper),
 	)
 
 	app.GovKeeper = *govKeeper.SetHooks(
@@ -548,10 +551,39 @@ func New(
 	return app
 }
 
-func (app *App) configureBlockSTM(denom string) {
+func (app *App) configureBlockSTM() {
 	enableEstimate := true
-	if denom == "" {
-		denom = evmtypes.DefaultEVMExtendedDenom
+
+	evmStoreKey := app.keys[evmtypes.StoreKey]
+	coinDenom := func(ms storetypes.MultiStore) string {
+		denom := evmtypes.DefaultEVMExtendedDenom
+
+		if ms == nil || evmStoreKey == nil {
+			return denom
+		}
+
+		store := ms.GetKVStore(evmStoreKey)
+		if store == nil {
+			return denom
+		}
+
+		bz := store.Get(evmtypes.KeyPrefixEvmCoinInfo)
+		if len(bz) == 0 {
+			return denom
+		}
+
+		var coinInfo evmtypes.EvmCoinInfo
+		if err := app.appCodec.Unmarshal(bz, &coinInfo); err != nil {
+			return denom
+		}
+		if coinInfo.Denom != "" {
+			return coinInfo.Denom
+		}
+		if coinInfo.ExtendedDenom != "" {
+			return coinInfo.ExtendedDenom
+		}
+
+		return denom
 	}
 
 	app.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
@@ -559,7 +591,7 @@ func (app *App) configureBlockSTM(denom string) {
 		app.getNonTransientKeys(),
 		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
 		enableEstimate,
-		denom,
+		coinDenom,
 	))
 }
 
@@ -713,7 +745,7 @@ func (app *App) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.
 		return resp, err
 	}
 	// After genesis, configure block-stm runner with the actual EVM denom now stored in params/state.
-	app.configureBlockSTM(evmtypes.GetEVMCoinDenom())
+	app.configureBlockSTM()
 	return resp, nil
 }
 

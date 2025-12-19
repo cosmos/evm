@@ -295,8 +295,15 @@ func New(
 		govConfig.MaxMetadataLen = 10000
 	*/
 	govKeeper := govkeeper.NewKeeper(
-		appCodec, runtime.NewKVStoreService(keys[govtypes.StoreKey]), app.AccountKeeper, app.BankKeeper,
-		app.StakingKeeper, app.DistributionKeeper, app.MsgServiceRouter(), govConfig, authAddr,
+		appCodec,
+		runtime.NewKVStoreService(keys[govtypes.StoreKey]),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.DistributionKeeper,
+		app.MsgServiceRouter(),
+		govConfig,
+		authAddr,
+		govkeeper.NewDefaultCalculateVoteResultsAndVotingPower(app.StakingKeeper),
 	)
 
 	app.GovKeeper = *govKeeper.SetHooks(
