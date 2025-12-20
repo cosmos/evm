@@ -17,6 +17,7 @@
 package txpool
 
 import (
+	"context"
 	"math/big"
 	"time"
 
@@ -74,7 +75,7 @@ type LazyResolver interface {
 // a very specific call site in mind and each one can be evaluated very cheaply
 // by the pool implementations. Only add new ones that satisfy those constraints.
 type PendingFilter struct {
-	MinTip  *uint256.Int // Minimum miner tip required to include a transaction
+	MinTip  *uint256.Int // Minimum allowed miner tip for transactions
 	BaseFee *uint256.Int // Minimum 1559 basefee needed to include a transaction
 	BlobFee *uint256.Int // Minimum 4844 blobfee needed to include a blob transaction
 
@@ -118,6 +119,11 @@ type SubPool interface {
 	// of the transaction pool is valid with regard to the chain state.
 	Reset(oldHead, newHead *types.Header)
 
+	// CancelReset signals the subpool to stop processing its current reset
+	// request since a new block arrived and the work it is doing to reset at
+	// the current height will be invalidated.
+	CancelReset()
+
 	// SetGasTip updates the minimum price required by the subpool for a new
 	// transaction, and drops all transactions below this threshold.
 	SetGasTip(tip *big.Int)
@@ -157,7 +163,7 @@ type SubPool interface {
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(filter PendingFilter) map[common.Address][]*LazyTransaction
+	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions

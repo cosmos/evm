@@ -63,6 +63,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	// called during legacypool initialization
 	cfg := &params.ChainConfig{ChainID: nil}
 	legacyChain.On("Config").Return(cfg)
+	legacyChain.On("CurrentBlock").Return(&types.Header{Number: big.NewInt(0)})
 	chain.On("Config").Return(cfg)
 	legacyChain.On("StateAt", genesisHeader.Root).Return(genesisState, nil)
 	chain.On("StateAt", genesisHeader.Root).Return(nil, nil)

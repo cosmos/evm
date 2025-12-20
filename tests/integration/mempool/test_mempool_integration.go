@@ -321,7 +321,8 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			tc.setupTxs()
 
 			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -438,7 +439,8 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			tc.setupTxs()
 
 			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -826,7 +828,8 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			tc.setupTxs()
 
 			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -950,7 +953,8 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			}
 
 			// Test SelectBy directly
-			mpool.SelectBy(s.network.GetContext(), nil, wrappedFilter)
+			ctx := s.network.GetContext()
+			mpool.SelectBy(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil, wrappedFilter)
 
 			// Assert that SelectBy completed without hanging
 			if tc.expectedCalls > 0 {
