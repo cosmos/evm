@@ -302,13 +302,6 @@ func (m *ExperimentalEVMMempool) insertEVMTx(_ context.Context, tx *ethtypes.Tra
 	return errs[0]
 }
 
-type insertTxContextKey struct{}
-
-// WithInsertTxContext marks a context as coming from ABCI InsertTx.
-func WithInsertTxContext(ctx sdk.Context) sdk.Context {
-	return ctx.WithValue(insertTxContextKey{}, true)
-}
-
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
 // performs a CheckTx (anteHandler) call in the hot path.
 func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
@@ -325,33 +318,31 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 	// many (if any) cosmos txs, so we are accepting this limitation for now
 	// for simplicity.
 
-	if ctx.Value(insertTxContextKey{}) != nil {
-		// copying context/ms branching done in runTx
+	// copying context/ms branching done in runTx
 
-		// get the current multistore in the context
-		ms := ctx.MultiStore()
+	// get the current multistore in the context
+	ms := ctx.MultiStore()
 
-		// branch the multistore into so we have a place to make anteHandler writes
-		// without messing up the original state in case the anteHandler sequence
-		// fails
-		msCache := ms.CacheMultiStore()
+	// branch the multistore into so we have a place to make anteHandler writes
+	// without messing up the original state in case the anteHandler sequence
+	// fails
+	msCache := ms.CacheMultiStore()
 
-		// set the branched multistore as the multistore that the context will use.
-		// so writes happening via this context will use the branched multistore.
-		ctx = ctx.WithMultiStore(msCache)
+	// set the branched multistore as the multistore that the context will use.
+	// so writes happening via this context will use the branched multistore.
+	ctx = ctx.WithMultiStore(msCache)
 
-		// execute the anteHandlers on our new context, and get a context that has
-		// the anteHandler updates written to it.
-		if _, err := m.anteHandler(ctx, tx, false); err != nil {
-			return fmt.Errorf("running anteHandler sequence for tx: %w", err)
-		}
-
-		// anteHandler has successfully completed, write its updates that are
-		// sitting in the branched multistore, back to their parent multistore.
-		// After this we will have updated the parent state and the next
-		// anteHandler invocation using this state will build off its updates.
-		msCache.Write()
+	// execute the anteHandlers on our new context, and get a context that has
+	// the anteHandler updates written to it.
+	if _, err := m.anteHandler(ctx, tx, false); err != nil {
+		return fmt.Errorf("running anteHandler sequence for tx: %w", err)
 	}
+
+	// anteHandler has successfully completed, write its updates that are
+	// sitting in the branched multistore, back to their parent multistore.
+	// After this we will have updated the parent state and the next
+	// anteHandler invocation using this state will build off its updates.
+	msCache.Write()
 
 	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)

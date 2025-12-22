@@ -101,7 +101,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 			return nil, fmt.Errorf("decoding tx: %w", err)
 		}
 
-		ctx := evmmempool.WithInsertTxContext(app.GetContextForCheckTx(txBytes))
+		ctx := app.GetContextForCheckTx(txBytes)
 
 		code := abci.CodeTypeOK
 		if err := evmMempool.InsertAsync(ctx, tx); err != nil {
