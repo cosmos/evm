@@ -145,7 +145,7 @@ func (s *BaseTestSuite) CheckTxPendingOrCommitted(
 	}
 }
 
-const defaultTxPoolContentTimeout = 60 * time.Second
+const defaultTxPoolContentTimeout = 30 * time.Second
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (s *BaseTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
