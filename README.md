@@ -4,6 +4,7 @@
 
 EpixChain is a specialized blockchain that combines the power of the Cosmos SDK with full Ethereum Virtual Machine (EVM) compatibility, featuring a unique dynamic minting system and comprehensive DeFi infrastructure.
 
+> Built on [Cosmos EVM](https://github.com/cosmos/evm) - a plug-and-play solution that adds EVM compatibility and customizability to Cosmos SDK chains. Cosmos EVM is used by Ondo, Mezo, Mantra, XRP sidechain, Telegram Application Chain (TAC), Stable, and others.
 ## 🌟 Key Features
 
 - **🔥 Dynamic Token Emission**: Custom EpixMint module with 25% annual reduction reaching 42B EPIX max supply over 20 years
@@ -160,7 +161,6 @@ This ensures consistent tokenomics regardless of consensus parameter changes.
 EpixChain uses on-chain governance to allow stakeholders to propose and vote on parameter changes. This includes modifying EpixMint parameters like block time, emission rates, and distribution ratios.
 
 **📖 [Complete Governance Guide](docs/governance-guide.md)** - Learn how to create and submit governance proposals
-
 
 ## 🔧 Contract Verification
 

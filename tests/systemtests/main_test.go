@@ -3,8 +3,6 @@
 package systemtests
 
 import (
-	"testing"
-
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 
@@ -12,6 +10,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
+	"testing"
+
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 
@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 }
 
 /*
- * Mempool Tests
+* Mempool Tests
  */
 func TestMempoolTxsOrdering(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunTxsOrdering)
@@ -51,8 +51,8 @@ func TestMempoolMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementLegacyAndDynamicFee)
 }
 
-func TestMempoolTxRebroadcasting(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunTxRebroadcasting)
+func TestMempoolTxBroadcasting(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxBroadcasting)
 }
 
 func TestMinimumGasPricesZero(t *testing.T) {
@@ -63,9 +63,9 @@ func TestMempoolCosmosTxsCompatibility(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility)
 }
 
-/*
- * EIP-712 Tests
- */
+// /*
+// * EIP-712 Tests
+// */
 func TestEIP712BankSend(t *testing.T) {
 	suite.RunWithSharedSuite(t, eip712.RunEIP712BankSend)
 }
@@ -79,14 +79,14 @@ func TestEIP712MultipleBankSends(t *testing.T) {
 }
 
 /*
- * Account Abstraction Tests
+* Account Abstraction Tests
  */
 func TestAccountAbstractionEIP7702(t *testing.T) {
 	suite.RunWithSharedSuite(t, accountabstraction.RunEIP7702)
 }
 
 /*
- * Chain Upgrade Tests
+* Chain Upgrade Tests
  */
 func TestChainUpgrade(t *testing.T) {
 	suite.RunWithSharedSuite(t, chainupgrade.RunChainUpgrade)

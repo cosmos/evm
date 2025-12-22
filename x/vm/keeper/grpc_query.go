@@ -16,12 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -46,10 +49,14 @@ const (
 
 // Account implements the Query/Account gRPC method. The method returns the
 // *spendable* balance of the account in 18 decimals representation.
-func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (*types.QueryAccountResponse, error) {
+func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (_ *types.QueryAccountResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "Account", trace.WithAttributes(attribute.String("address", req.Address)))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if err := utils.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
@@ -59,7 +66,6 @@ func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (*typ
 
 	addr := common.HexToAddress(req.Address)
 
-	ctx := sdk.UnwrapSDKContext(c)
 	acct := k.GetAccountOrEmpty(ctx, addr)
 
 	return &types.QueryAccountResponse{
@@ -69,18 +75,20 @@ func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (*typ
 	}, nil
 }
 
-func (k Keeper) CosmosAccount(c context.Context, req *types.QueryCosmosAccountRequest) (*types.QueryCosmosAccountResponse, error) {
+func (k Keeper) CosmosAccount(c context.Context, req *types.QueryCosmosAccountRequest) (_ *types.QueryCosmosAccountResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "CosmosAccount", trace.WithAttributes(attribute.String("address", req.Address)))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if err := utils.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
 			codes.InvalidArgument, err.Error(),
 		)
 	}
-
-	ctx := sdk.UnwrapSDKContext(c)
 
 	ethAddr := common.HexToAddress(req.Address)
 	cosmosAddr := sdk.AccAddress(ethAddr.Bytes())
@@ -99,10 +107,14 @@ func (k Keeper) CosmosAccount(c context.Context, req *types.QueryCosmosAccountRe
 }
 
 // ValidatorAccount implements the Query/Balance gRPC method
-func (k Keeper) ValidatorAccount(c context.Context, req *types.QueryValidatorAccountRequest) (*types.QueryValidatorAccountResponse, error) {
+func (k Keeper) ValidatorAccount(c context.Context, req *types.QueryValidatorAccountRequest) (_ *types.QueryValidatorAccountResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "ValidatorAccount", trace.WithAttributes(attribute.String("address", req.ConsAddress)))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	consAddr, err := sdk.ConsAddressFromBech32(req.ConsAddress)
 	if err != nil {
@@ -110,8 +122,6 @@ func (k Keeper) ValidatorAccount(c context.Context, req *types.QueryValidatorAcc
 			codes.InvalidArgument, err.Error(),
 		)
 	}
-
-	ctx := sdk.UnwrapSDKContext(c)
 
 	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, consAddr)
 	if err != nil {
@@ -139,10 +149,14 @@ func (k Keeper) ValidatorAccount(c context.Context, req *types.QueryValidatorAcc
 
 // Balance implements the Query/Balance gRPC method. The method returns the 18
 // decimal representation of the account's *spendable* balance.
-func (k Keeper) Balance(c context.Context, req *types.QueryBalanceRequest) (*types.QueryBalanceResponse, error) {
+func (k Keeper) Balance(c context.Context, req *types.QueryBalanceRequest) (_ *types.QueryBalanceResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "Balance", trace.WithAttributes(attribute.String("address", req.Address)))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if err := utils.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
@@ -151,9 +165,9 @@ func (k Keeper) Balance(c context.Context, req *types.QueryBalanceRequest) (*typ
 		)
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
-
 	balanceInt := k.SpendableCoin(ctx, common.HexToAddress(req.Address))
+
+	span.AddEvent("balance", trace.WithAttributes(attribute.String("balance", balanceInt.String())))
 
 	return &types.QueryBalanceResponse{
 		Balance: balanceInt.String(),
@@ -161,10 +175,17 @@ func (k Keeper) Balance(c context.Context, req *types.QueryBalanceRequest) (*typ
 }
 
 // Storage implements the Query/Storage gRPC method
-func (k Keeper) Storage(c context.Context, req *types.QueryStorageRequest) (*types.QueryStorageResponse, error) {
+func (k Keeper) Storage(c context.Context, req *types.QueryStorageRequest) (_ *types.QueryStorageResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "Storage", trace.WithAttributes(
+		attribute.String("address", req.Address),
+		attribute.String("key", req.Key),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if err := utils.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
@@ -172,8 +193,6 @@ func (k Keeper) Storage(c context.Context, req *types.QueryStorageRequest) (*typ
 			types.ErrZeroAddress.Error(),
 		)
 	}
-
-	ctx := sdk.UnwrapSDKContext(c)
 
 	address := common.HexToAddress(req.Address)
 	key := common.HexToHash(req.Key)
@@ -187,10 +206,16 @@ func (k Keeper) Storage(c context.Context, req *types.QueryStorageRequest) (*typ
 }
 
 // Code implements the Query/Code gRPC method
-func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (*types.QueryCodeResponse, error) {
+func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (_ *types.QueryCodeResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "Code", trace.WithAttributes(
+		attribute.String("address", req.Address),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if err := utils.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
@@ -198,8 +223,6 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (*types.Que
 			types.ErrZeroAddress.Error(),
 		)
 	}
-
-	ctx := sdk.UnwrapSDKContext(c)
 
 	address := common.HexToAddress(req.Address)
 	acct := k.GetAccountWithoutBalance(ctx, address)
@@ -215,8 +238,11 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (*types.Que
 }
 
 // Params implements the Query/Params gRPC method
-func (k Keeper) Params(c context.Context, _ *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
+func (k Keeper) Params(c context.Context, _ *types.QueryParamsRequest) (_ *types.QueryParamsResponse, err error) {
 	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "Params", trace.WithAttributes())
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
 	params := k.GetParams(ctx)
 
 	return &types.QueryParamsResponse{
@@ -225,10 +251,14 @@ func (k Keeper) Params(c context.Context, _ *types.QueryParamsRequest) (*types.Q
 }
 
 // EthCall implements eth_call rpc api.
-func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.MsgEthereumTxResponse, error) {
+func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.MsgEthereumTxResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "EthCall", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	var overrides *rpctypes.StateOverride
 	if len(req.Overrides) > 0 {
@@ -238,10 +268,8 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 		}
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
-
 	var args types.TransactionArgs
-	err := json.Unmarshal(req.Args, &args)
+	err = json.Unmarshal(req.Args, &args)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -272,7 +300,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 }
 
 // EstimateGas implements eth_estimateGas rpc api.
-func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*types.EstimateGasResponse, error) {
+func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (_ *types.EstimateGasResponse, err error) {
 	return k.EstimateGasInternal(c, req, types.RPC)
 }
 
@@ -281,10 +309,14 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 // When called from the RPC client, we need to reset the gas meter before
 // simulating the transaction to have
 // an accurate gas estimation for EVM extensions transactions.
-func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest, fromType types.CallType) (*types.EstimateGasResponse, error) {
+func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest, fromType types.CallType) (_ *types.EstimateGasResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "EstimateGasInternal", trace.WithAttributes(attribute.String("proposer", req.ProposerAddress.String())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	var overrides *rpctypes.StateOverride
 	if len(req.Overrides) > 0 {
@@ -294,14 +326,12 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		}
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
-
 	if req.GasCap < ethparams.TxGas {
 		return nil, status.Errorf(codes.InvalidArgument, "gas cap cannot be lower than %d", ethparams.TxGas)
 	}
 
 	var args types.TransactionArgs
-	err := json.Unmarshal(req.Args, &args)
+	err = json.Unmarshal(req.Args, &args)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -497,10 +527,18 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 // TraceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer-dependent.
-func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*types.QueryTraceTxResponse, error) {
+func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *types.QueryTraceTxResponse, err error) {
 	if req == nil || req.Msg == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "TraceTx", trace.WithAttributes(
+		attribute.Int64("block_number", req.BlockNumber),
+		attribute.String("block_hash", req.BlockHash),
+		attribute.Int("predecessor_count", len(req.Predecessors)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if req.TraceConfig != nil && req.TraceConfig.Limit < 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "output limit cannot be negative, got %d", req.TraceConfig.Limit)
@@ -518,7 +556,6 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		requestedHeight = 1
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
 	// the caller sets the `ctx.BlockHeight()` to be `requestedHeight - 1`, so we can get the context of block beginning
 	if requestedHeight > ctx.BlockHeight()+1 {
 		return nil, status.Errorf(codes.FailedPrecondition, "requested height [%d] must be less than or equal to current height [%d]", requestedHeight, ctx.BlockHeight())
@@ -601,10 +638,18 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 // TraceBlock configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment for all the transactions in the queried block.
 // The return value will be tracer dependent.
-func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest) (*types.QueryTraceBlockResponse, error) {
+func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest) (_ *types.QueryTraceBlockResponse, err error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "TraceBlock", trace.WithAttributes(
+		attribute.Int64("block_number", req.BlockNumber),
+		attribute.String("block_hash", req.BlockHash),
+		attribute.Int("tx_count", len(req.Txs)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if req.TraceConfig != nil && req.TraceConfig.Limit < 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "output limit cannot be negative, got %d", req.TraceConfig.Limit)
@@ -618,7 +663,6 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		contextHeight = 1
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
 	ctx = ctx.WithBlockHeight(contextHeight)
 	ctx = ctx.WithBlockTime(req.BlockTime)
 	ctx = ctx.WithHeaderHash(common.Hex2Bytes(req.BlockHash))
@@ -672,10 +716,17 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 // TraceCall configures a new tracer according to the provided configuration, and
 // executes the given call in the provided environment. The return value will
 // be tracer dependent.
-func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (*types.QueryTraceCallResponse, error) {
+func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (_ *types.QueryTraceCallResponse, err error) {
 	if req == nil || req.Args == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "TraceCall", trace.WithAttributes(
+		attribute.Int64("block_number", req.BlockNumber),
+		attribute.String("block_hash", req.BlockHash),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if req.TraceConfig != nil && req.TraceConfig.Limit < 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "output limit cannot be negative, got %d", req.TraceConfig.Limit)
@@ -689,7 +740,6 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 		requestedHeight = 1
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
 	// the caller sets the `ctx.BlockHeight()` to be `requestedHeight - 1`, so we can get the context of block beginning
 	if requestedHeight > ctx.BlockHeight()+1 {
 		return nil, status.Errorf(codes.FailedPrecondition, "requested height [%d] must be less than or equal to current height [%d]", requestedHeight, ctx.BlockHeight())
@@ -753,7 +803,11 @@ func (k *Keeper) traceTx(
 	tx *ethtypes.Transaction,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
-) (*any, error) {
+) (_ *any, err error) {
+	ctx, span := ctx.StartSpan(tracer, "traceTx", trace.WithAttributes(
+		attribute.String("tx_hash", tx.Hash().Hex()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -770,13 +824,18 @@ func (k *Keeper) traceTxWithMsg(
 	msg *core.Message,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
-) (*any, error) {
+) (_ *any, err error) {
+	ctx, span := ctx.StartSpan(tracer, "traceTxWithMsg", trace.WithAttributes(
+		attribute.String("tx_hash", txConfig.TxHash.Hex()),
+		attribute.Int("tx_index", int(txConfig.TxIndex)), //nolint:gosec // G115
+		attribute.String("from", msg.From.Hex()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer           *tracers.Tracer
 		overrides        *ethparams.ChainConfig
 		jsonTracerConfig json.RawMessage
-		err              error
 		timeout          = defaultTraceTimeout
 	)
 
@@ -863,6 +922,8 @@ func (k *Keeper) traceTxWithMsg(
 // BaseFee implements the Query/BaseFee gRPC method
 func (k Keeper) BaseFee(c context.Context, _ *types.QueryBaseFeeRequest) (*types.QueryBaseFeeResponse, error) {
 	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "BaseFee")
+	defer span.End()
 
 	baseFee := k.GetBaseFee(ctx)
 
@@ -878,12 +939,16 @@ func (k Keeper) BaseFee(c context.Context, _ *types.QueryBaseFeeRequest) (*types
 // GlobalMinGasPrice implements the Query/GlobalMinGasPrice gRPC method
 func (k Keeper) GlobalMinGasPrice(c context.Context, _ *types.QueryGlobalMinGasPriceRequest) (*types.QueryGlobalMinGasPriceResponse, error) {
 	ctx := sdk.UnwrapSDKContext(c)
+	ctx, span := ctx.StartSpan(tracer, "GlobalMinGasPrice")
+	defer span.End()
 	minGasPrice := k.GetMinGasPrice(ctx).TruncateInt()
 	return &types.QueryGlobalMinGasPriceResponse{MinGasPrice: minGasPrice}, nil
 }
 
 // Config implements the Query/Config gRPC method
-func (k Keeper) Config(_ context.Context, _ *types.QueryConfigRequest) (*types.QueryConfigResponse, error) {
+func (k Keeper) Config(ctx context.Context, _ *types.QueryConfigRequest) (*types.QueryConfigResponse, error) {
+	_, span := tracer.Start(ctx, "Config")
+	defer span.End()
 	config := types.GetChainConfig()
 	config.Denom = types.GetEVMCoinDenom()
 	config.Decimals = uint64(types.GetEVMCoinDecimals())

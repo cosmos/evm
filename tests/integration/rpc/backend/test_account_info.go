@@ -67,7 +67,7 @@ func (s *TestSuite) TestGetCode() {
 			s.SetupTest() // reset
 			tc.registerMock(tc.addr)
 
-			code, err := s.backend.GetCode(tc.addr, tc.blockNrOrHash)
+			code, err := s.backend.GetCode(s.Ctx(), tc.addr, tc.blockNrOrHash)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expCode, code)
@@ -128,7 +128,7 @@ func (s *TestSuite) TestGetProof() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				height := bn.Int64()
-				s.backend.Ctx = rpctypes.ContextWithHeight(height)
+				// Context is now passed to methods directly, not stored in backend
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -175,7 +175,7 @@ func (s *TestSuite) TestGetProof() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrZero},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				height := int64(4)
-				s.backend.Ctx = rpctypes.ContextWithHeight(height)
+				// Context is now passed to methods directly, not stored in backend
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterHeader(client, &height, nil)
 				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -223,7 +223,7 @@ func (s *TestSuite) TestGetProof() {
 			s.SetupTest()
 			tc.registerMock(*tc.blockNrOrHash.BlockNumber, tc.addr)
 
-			accRes, err := s.backend.GetProof(tc.addr, tc.storageKeys, tc.blockNrOrHash)
+			accRes, err := s.backend.GetProof(s.Ctx(), tc.addr, tc.storageKeys, tc.blockNrOrHash)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -286,7 +286,7 @@ func (s *TestSuite) TestGetStorageAt() {
 			s.SetupTest()
 			tc.registerMock(tc.addr, tc.key, tc.expStorage.String())
 
-			storage, err := s.backend.GetStorageAt(tc.addr, tc.key, tc.blockNrOrHash)
+			storage, err := s.backend.GetStorageAt(s.Ctx(), tc.addr, tc.key, tc.blockNrOrHash)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expStorage, storage)
@@ -395,7 +395,7 @@ func (s *TestSuite) TestGetBalance() {
 				tc.registerMock(*tc.blockNrOrHash.BlockNumber, tc.addr)
 			}
 
-			balance, err := s.backend.GetBalance(tc.addr, tc.blockNrOrHash)
+			balance, err := s.backend.GetBalance(s.Ctx(), tc.addr, tc.blockNrOrHash)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expBalance, balance)
@@ -472,7 +472,7 @@ func (s *TestSuite) TestGetTransactionCount() {
 
 			tc.registerMock(addr, tc.blockNum)
 
-			txCount, err := s.backend.GetTransactionCount(addr, tc.blockNum)
+			txCount, err := s.backend.GetTransactionCount(s.Ctx(), addr, tc.blockNum)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expTxCount, *txCount)
