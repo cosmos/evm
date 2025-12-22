@@ -36,12 +36,36 @@ TEST_DIR="$ROOT/tests/evm-tools-compatibility/viem"
 
 echo "Setting up viem compatibility tests..."
 
+# Source the environment file early to set CHAIN_ID before starting node
+if [ -f "$TEST_DIR/.env" ]; then
+	echo "Sourcing .env file..."
+	# shellcheck source=/dev/null
+	source "$TEST_DIR/.env"
+	# Save the numeric EVM chain ID for viem
+	EVM_CHAIN_ID="$CHAIN_ID"
+	# Convert numeric CHAIN_ID to proper cosmos chain-id format (e.g., 262144 -> test_262144-1)
+	# This ensures the EVM chain ID is correctly extracted by the node
+	if [[ "$CHAIN_ID" =~ ^[0-9]+$ ]]; then
+		export CHAIN_ID="test_${CHAIN_ID}-1"
+		echo "Using cosmos chain-id: $CHAIN_ID (EVM chain ID: $EVM_CHAIN_ID)"
+	else
+		export CHAIN_ID
+	fi
+else
+	echo "Error: No .env file found in $TEST_DIR"
+	exit 1
+fi
+
 # Setup dependencies
 setup_compatibility_tests "$NODE_LOG_PRINT"
 
 start_node "$NODE_LOG_PRINT"
 trap cleanup_node EXIT
 sleep 3
+
+# Restore the numeric EVM chain ID for viem to use
+export CHAIN_ID="$EVM_CHAIN_ID"
+echo "Restored CHAIN_ID to numeric value for viem: $CHAIN_ID"
 
 # Wait for the node to be ready
 echo "Waiting for evmd node to be ready..."
@@ -50,16 +74,6 @@ wait_for_node 10
 
 # Change to the test directory
 cd "$TEST_DIR"
-
-# Source the environment file
-if [ -f ".env" ]; then
-	echo "Sourcing .env file..."
-	# shellcheck source=/dev/null
-	source .env
-else
-	echo "Error: No .env file found in $TEST_DIR"
-	exit 1
-fi
 
 # Install npm dependencies if not already installed
 if [ ! -d "node_modules" ]; then

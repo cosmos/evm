@@ -3,7 +3,6 @@ package evmd
 import (
 	"encoding/json"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	epixminttypes "github.com/cosmos/evm/x/epixmint/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -30,6 +29,10 @@ type GenesisState map[string]json.RawMessage
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.EvmDenom = BaseDenom
+	evmGenState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{
+		ExtendedDenom: BaseDenom,
+	}
 	evmGenState.Preinstalls = evmtypes.DefaultPreinstalls
 
 	return evmGenState
@@ -38,11 +41,11 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 // NewErc20GenesisState returns the default genesis state for the ERC20 module.
 //
 // NOTE: for the example chain implementation we are also adding a default token pair,
-// which is the base denomination of the chain (i.e. the WEVMOS contract).
+// which is the base denomination of the chain (i.e. the WEPIX contract).
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenState.TokenPairs = TokenPairs
+	erc20GenState.NativePrecompiles = []string{WEPIXContract}
 
 	return erc20GenState
 }
@@ -56,7 +59,7 @@ func NewMintGenesisState() *minttypes.GenesisState {
 
 	// Set Epix-specific minting parameters
 	// Initial inflation: 10.527 billion EPIX per year / 42 billion max supply = ~25.06%
-	mintGenState.Params.MintDenom = testconstants.ExampleAttoDenom
+	mintGenState.Params.MintDenom = BaseDenom
 	mintGenState.Params.InflationRateChange = math.LegacyMustNewDecFromStr("0.130000000000000000") // 13% max annual change
 	mintGenState.Params.InflationMax = math.LegacyMustNewDecFromStr("1.000000000000000000")        // 100% max (42B max supply)
 	mintGenState.Params.InflationMin = math.LegacyMustNewDecFromStr("0.070000000000000000")        // 7% minimum
@@ -101,23 +104,23 @@ func NewBankGenesisState() *banktypes.GenesisState {
 	// Add metadata for aepix/epix denominations
 	epixMetadata := banktypes.Metadata{
 		Description: "The native staking and governance token of the EpixChain",
-		Base:        testconstants.ExampleAttoDenom, // "aepix"
+		Base:        BaseDenom,
 		// NOTE: Denom units MUST be increasing by exponent
 		DenomUnits: []*banktypes.DenomUnit{
 			{
-				Denom:    testconstants.ExampleAttoDenom, // "aepix"
+				Denom:    BaseDenom,
 				Exponent: 0,
-				Aliases:  []string{"aepix"},
+				Aliases:  []string{BaseDenom},
 			},
 			{
-				Denom:    testconstants.ExampleDisplayDenom, // "epix"
-				Exponent: 18,
-				Aliases:  []string{"epix"},
+				Denom:    DisplayDenom,
+				Exponent: Decimals,
+				Aliases:  []string{DisplayDenom},
 			},
 		},
 		Name:    "EpixChain",
 		Symbol:  "EPIX",
-		Display: testconstants.ExampleDisplayDenom, // "epix"
+		Display: DisplayDenom,
 	}
 
 	bankGenState.DenomMetadata = []banktypes.Metadata{epixMetadata}

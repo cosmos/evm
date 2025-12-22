@@ -171,8 +171,10 @@ add_genesis_funds() {
 if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   rm -rf "$CHAINDIR"
 
-  epixd config set client chain-id "$CHAINID" --home "$CHAINDIR"
-  epixd config set client keyring-backend "$KEYRING" --home "$CHAINDIR"
+  # NOTE: Do NOT run `epixd config set client chain-id` before `epixd init`
+  # because it creates app.toml with default EVM chain ID (1916) which prevents
+  # the init command from extracting the correct EVM chain ID from the cosmos chain-id.
+  # We'll set the client config AFTER init.
 
   # ---------------- Validator key ----------------
   VAL_KEY="mykey"
@@ -229,6 +231,10 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 
   # init chain w/ validator mnemonic
   echo "$VAL_MNEMONIC" | epixd init $MONIKER -o --chain-id "$CHAINID" --home "$CHAINDIR" --recover
+
+  # Set client config AFTER init to avoid overwriting app.toml with default values
+  epixd config set client chain-id "$CHAINID" --home "$CHAINDIR"
+  epixd config set client keyring-backend "$KEYRING" --home "$CHAINDIR"
 
   # ---------- Genesis customizations ----------
   jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
@@ -338,12 +344,26 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 fi
 
+# Extract EVM chain ID from cosmos chain ID (e.g., "test_262144-1" -> "262144")
+EVM_CHAIN_ID=$(echo "$CHAINID" | sed -E 's/^[^_]*_([0-9]+)-[0-9]+$/\1/')
+if [[ ! "$EVM_CHAIN_ID" =~ ^[0-9]+$ ]]; then
+	# If extraction failed, try to extract from chain ID without underscore (e.g., "9001" -> "9001")
+	if [[ "$CHAINID" =~ ^[0-9]+$ ]]; then
+		EVM_CHAIN_ID="$CHAINID"
+	else
+		# Fallback to default
+		EVM_CHAIN_ID="1916"
+	fi
+fi
+echo "Starting node with cosmos chain-id: $CHAINID, EVM chain ID: $EVM_CHAIN_ID"
+
 # Start the node
 epixd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0atest \
 	--evm.min-tip=0 \
+	--evm.evm-chain-id="$EVM_CHAIN_ID" \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
 	--chain-id "$CHAINID"
