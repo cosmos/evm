@@ -1,0 +1,18 @@
+{
+  "messages": [
+    {
+      "@type": "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
+      "authority": "epix10d07y265gmmuvt4z0w9aw880jnsr700jdv0r7e",
+      "plan": {
+        "name": "v0.5.2",
+        "height": "1580200",
+        "info": "https://github.com/EpixZone/EpixChain/releases/tag/v0.5.2"
+      }
+    }
+  ],
+  "metadata": "EpixChain v0.5.2 Upgrade Proposal",
+  "deposit": "5000000000000000000000aepix",
+  "title": "EpixChain v0.5.2 IBC initialize upgrade",
+  "summary": "This upgrade fixes the IBC channel state that was not properly migrated during the v0.5.1 upgrade. It will initialize missing IBC channel sequence counters (NextSequenceSend, NextSequenceRecv, NextSequenceAck) to restore IBC transfer functionality.",
+  "expedited": true
+}

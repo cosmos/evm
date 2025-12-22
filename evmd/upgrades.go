@@ -17,101 +17,43 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
-// UpgradeName defines the on-chain upgrade name for the EpixChain upgrade
-// from v0.5.1 to v0.5.2.
-//
-// This upgrade fixes the IBC channel state that was not properly migrated in v0.5.1:
-// - Initializes missing IBC channel sequence counters
-// - Ensures EVM params and coin info are properly set
-const UpgradeName = "v0.5.2"
+// Upgrade names
+const UpgradeName_v0_5_1 = "v0.5.1"
+const UpgradeName_v0_5_2 = "v0.5.2"
 
-// Previous upgrade name for reference
-const previousUpgradeName = "v0.5.1"
+// UpgradeName is the current upgrade (for store upgrades)
+const UpgradeName = UpgradeName_v0_5_1
 
+// RegisterUpgradeHandlers registers upgrade handlers for v0.5.1 and v0.5.2
 func (app EVMD) RegisterUpgradeHandlers() {
+	// Register v0.5.1 upgrade handler (the one that's currently stuck)
 	app.UpgradeKeeper.SetUpgradeHandler(
-		UpgradeName,
+		UpgradeName_v0_5_1,
 		func(ctx context.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			sdkCtx := sdk.UnwrapSDKContext(ctx)
-			sdkCtx.Logger().Info("Starting EpixChain v0.5.1 to v0.5.2 recovery upgrade...")
+			sdkCtx.Logger().Info("Starting EpixChain v0.5.1 upgrade with recovery fix...")
 
-			// Set denom metadata for EpixChain's native token (aepix/epix)
-			// This ensures the metadata is correct even if v0.5.1 upgrade had issues
-			app.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{
-				Description: "The native staking and governance token of the EpixChain",
-				DenomUnits: []*banktypes.DenomUnit{
-					{
-						Denom:    config.EpixChainDenom,
-						Exponent: 0,
-						Aliases:  nil,
-					},
-					{
-						Denom:    config.EpixDisplayDenom,
-						Exponent: 18,
-						Aliases:  nil,
-					},
-				},
-				Base:    config.EpixChainDenom,
-				Display: config.EpixDisplayDenom,
-				Name:    "EpixChain",
-				Symbol:  "EPIX",
-				URI:     "https://epix.zone/",
-			})
-			sdkCtx.Logger().Info("EpixChain denom metadata set successfully")
-
-			// Update EVM params to set the EvmDenom and ExtendedDenomOptions
-			evmParams := app.EVMKeeper.GetParams(sdkCtx)
-			evmParams.EvmDenom = config.EpixChainDenom
-			evmParams.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{
-				ExtendedDenom: config.EpixChainDenom,
-			}
-			if err := app.EVMKeeper.SetParams(sdkCtx, evmParams); err != nil {
-				return nil, fmt.Errorf("failed to set EVM params: %w", err)
-			}
-			sdkCtx.Logger().Info("EVM params updated successfully")
-
-			// Initialize EVM coin info from the bank metadata
-			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
-				return nil, fmt.Errorf("failed to initialize EVM coin info: %w", err)
-			}
-			sdkCtx.Logger().Info("EVM coin info initialized successfully")
-
-			// Fix IBC channel sequence counters
-			// Query all channels and ensure their sequence counters are initialized
-			channels := app.IBCKeeper.ChannelKeeper.GetAllChannels(sdkCtx)
-			sdkCtx.Logger().Info(fmt.Sprintf("Found %d IBC channels to check", len(channels)))
-
-			for _, channel := range channels {
-				portID := channel.PortId
-				channelID := channel.ChannelId
-
-				// Check if NextSequenceSend exists
-				_, found := app.IBCKeeper.ChannelKeeper.GetNextSequenceSend(sdkCtx, portID, channelID)
-				if !found {
-					// Initialize to 1 if not found
-					app.IBCKeeper.ChannelKeeper.SetNextSequenceSend(sdkCtx, portID, channelID, 1)
-					sdkCtx.Logger().Info(fmt.Sprintf("Initialized NextSequenceSend for port %s, channel %s to 1", portID, channelID))
-				}
-
-				// Check if NextSequenceRecv exists
-				_, found = app.IBCKeeper.ChannelKeeper.GetNextSequenceRecv(sdkCtx, portID, channelID)
-				if !found {
-					// Initialize to 1 if not found
-					app.IBCKeeper.ChannelKeeper.SetNextSequenceRecv(sdkCtx, portID, channelID, 1)
-					sdkCtx.Logger().Info(fmt.Sprintf("Initialized NextSequenceRecv for port %s, channel %s to 1", portID, channelID))
-				}
-
-				// For unordered channels, check NextSequenceAck
-				if channel.Ordering == channeltypes.UNORDERED {
-					_, found = app.IBCKeeper.ChannelKeeper.GetNextSequenceAck(sdkCtx, portID, channelID)
-					if !found {
-						app.IBCKeeper.ChannelKeeper.SetNextSequenceAck(sdkCtx, portID, channelID, 1)
-						sdkCtx.Logger().Info(fmt.Sprintf("Initialized NextSequenceAck for port %s, channel %s to 1", portID, channelID))
-					}
-				}
+			// Apply the recovery fix
+			if err := app.applyRecoveryFix(ctx); err != nil {
+				return nil, err
 			}
 
-			sdkCtx.Logger().Info("IBC channel sequence counters recovery complete")
+			// Run module migrations
+			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+		},
+	)
+
+	// Register v0.5.2 upgrade handler (for future use)
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeName_v0_5_2,
+		func(ctx context.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			sdkCtx := sdk.UnwrapSDKContext(ctx)
+			sdkCtx.Logger().Info("Starting EpixChain v0.5.2 upgrade...")
+
+			// Apply the recovery fix (in case v0.5.1 didn't run it)
+			if err := app.applyRecoveryFix(ctx); err != nil {
+				return nil, err
+			}
 
 			// Run module migrations
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
@@ -123,11 +65,97 @@ func (app EVMD) RegisterUpgradeHandlers() {
 		panic(err)
 	}
 
-	if upgradeInfo.Name == UpgradeName && !app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+	// Handle both v0.5.1 and v0.5.2 upgrades
+	if (upgradeInfo.Name == UpgradeName_v0_5_1 || upgradeInfo.Name == UpgradeName_v0_5_2) &&
+		!app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		storeUpgrades := storetypes.StoreUpgrades{
 			Added: []string{},
 		}
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}
+}
+
+// applyRecoveryFix contains the actual recovery logic for v0.5.1/v0.5.2 upgrades
+// This fixes the IBC channel state that was not properly migrated:
+// - Sets denom metadata for aepix/epix
+// - Updates EVM params and coin info
+// - Initializes missing IBC channel sequence counters
+func (app EVMD) applyRecoveryFix(ctx context.Context) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// Set denom metadata for EpixChain's native token (aepix/epix)
+	app.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{
+		Description: "The native staking and governance token of the EpixChain",
+		DenomUnits: []*banktypes.DenomUnit{
+			{
+				Denom:    config.EpixChainDenom,
+				Exponent: 0,
+				Aliases:  nil,
+			},
+			{
+				Denom:    config.EpixDisplayDenom,
+				Exponent: 18,
+				Aliases:  nil,
+			},
+		},
+		Base:    config.EpixChainDenom,
+		Display: config.EpixDisplayDenom,
+		Name:    "EpixChain",
+		Symbol:  "EPIX",
+		URI:     "https://epix.zone/",
+	})
+	sdkCtx.Logger().Info("EpixChain denom metadata set successfully")
+
+	// Update EVM params to set the EvmDenom and ExtendedDenomOptions
+	evmParams := app.EVMKeeper.GetParams(sdkCtx)
+	evmParams.EvmDenom = config.EpixChainDenom
+	evmParams.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{
+		ExtendedDenom: config.EpixChainDenom,
+	}
+	if err := app.EVMKeeper.SetParams(sdkCtx, evmParams); err != nil {
+		return fmt.Errorf("failed to set EVM params: %w", err)
+	}
+	sdkCtx.Logger().Info("EVM params updated successfully")
+
+	// Initialize EVM coin info from the bank metadata
+	if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
+		return fmt.Errorf("failed to initialize EVM coin info: %w", err)
+	}
+	sdkCtx.Logger().Info("EVM coin info initialized successfully")
+
+	// Fix IBC channel sequence counters
+	channels := app.IBCKeeper.ChannelKeeper.GetAllChannels(sdkCtx)
+	sdkCtx.Logger().Info(fmt.Sprintf("Found %d IBC channels to check", len(channels)))
+
+	for _, channel := range channels {
+		portID := channel.PortId
+		channelID := channel.ChannelId
+
+		// Check if NextSequenceSend exists
+		_, found := app.IBCKeeper.ChannelKeeper.GetNextSequenceSend(sdkCtx, portID, channelID)
+		if !found {
+			app.IBCKeeper.ChannelKeeper.SetNextSequenceSend(sdkCtx, portID, channelID, 1)
+			sdkCtx.Logger().Info(fmt.Sprintf("Initialized NextSequenceSend for port %s, channel %s to 1", portID, channelID))
+		}
+
+		// Check if NextSequenceRecv exists
+		_, found = app.IBCKeeper.ChannelKeeper.GetNextSequenceRecv(sdkCtx, portID, channelID)
+		if !found {
+			app.IBCKeeper.ChannelKeeper.SetNextSequenceRecv(sdkCtx, portID, channelID, 1)
+			sdkCtx.Logger().Info(fmt.Sprintf("Initialized NextSequenceRecv for port %s, channel %s to 1", portID, channelID))
+		}
+
+		// For unordered channels, check NextSequenceAck
+		if channel.Ordering == channeltypes.UNORDERED {
+			_, found = app.IBCKeeper.ChannelKeeper.GetNextSequenceAck(sdkCtx, portID, channelID)
+			if !found {
+				app.IBCKeeper.ChannelKeeper.SetNextSequenceAck(sdkCtx, portID, channelID, 1)
+				sdkCtx.Logger().Info(fmt.Sprintf("Initialized NextSequenceAck for port %s, channel %s to 1", portID, channelID))
+			}
+		}
+	}
+
+	sdkCtx.Logger().Info("IBC channel sequence counters recovery complete")
+	return nil
 }
