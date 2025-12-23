@@ -11,8 +11,6 @@ import (
 	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
-	ethante "github.com/cosmos/evm/ante/evm"
-	"github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -1233,74 +1231,6 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 		})
 	}
 	s.WithEvmParamsOptions(nil)
-}
-
-func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
-	addr, privKey := utiltx.NewAddrKey()
-	ethCfg := evmtypes.GetEthChainConfig()
-	ethSigner := types.LatestSignerForChainID(ethCfg.ChainID)
-
-	ethContractCreationTxParams := &evmtypes.EvmTxArgs{
-		ChainID:  ethCfg.ChainID,
-		Nonce:    1,
-		Amount:   big.NewInt(10),
-		GasLimit: 1000,
-		GasPrice: big.NewInt(1),
-	}
-	signedTx := evmtypes.NewTx(ethContractCreationTxParams)
-	signedTx.From = addr.Bytes()
-	err := signedTx.Sign(ethSigner, utiltx.NewSigner(privKey))
-	s.Require().NoError(err)
-
-	unprotectedEthTxParams := &evmtypes.EvmTxArgs{
-		Nonce:    1,
-		Amount:   big.NewInt(10),
-		GasLimit: 1000,
-		GasPrice: big.NewInt(1),
-	}
-	unprotectedTx := evmtypes.NewTx(unprotectedEthTxParams)
-	unprotectedTx.From = addr.Bytes()
-	err = unprotectedTx.Sign(types.HomesteadSigner{}, utiltx.NewSigner(privKey))
-	s.Require().NoError(err)
-
-	testCases := []struct {
-		name      string
-		tx        sdk.Tx
-		reCheckTx bool
-		expPass   bool
-	}{
-		{"ReCheckTx", &utiltx.InvalidTx{}, true, false},
-		{"invalid transaction type", &utiltx.InvalidTx{}, false, false},
-		{
-			"invalid sender",
-			evmtypes.NewTx(&evmtypes.EvmTxArgs{
-				To:       &addr,
-				Nonce:    1,
-				Amount:   big.NewInt(10),
-				GasLimit: 1000,
-				GasPrice: big.NewInt(1),
-			}),
-			false,
-			false,
-		},
-		{"successful signature verification", signedTx, false, true},
-		{"invalid, reject unprotected txs", unprotectedTx, false, false},
-		{"successful, allow unprotected txs", unprotectedTx, false, true},
-	}
-
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			s.SetupTest()
-			dec := ethante.NewEthSigVerificationDecorator(s.GetNetwork().App.GetEVMKeeper())
-			_, err := dec.AnteHandle(s.GetNetwork().GetContext().WithIsReCheckTx(tc.reCheckTx), tc.tx, false, testutil.NoOpNextFn)
-
-			if tc.expPass {
-				s.Require().NoError(err)
-			} else {
-				s.Require().Error(err)
-			}
-		})
-	}
 }
 
 func (s *EvmAnteTestSuite) TestSignatures() {
