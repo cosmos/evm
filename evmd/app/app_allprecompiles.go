@@ -409,7 +409,7 @@ func New(
 		runtime.NewKVStoreService(keys[govtypes.StoreKey]),
 		app.AccountKeeper,
 		app.BankKeeper,
-		app.DistrKeeper,
+		app.DistributionKeeper,
 		app.MsgServiceRouter(),
 		govConfig,
 		authAddr,
