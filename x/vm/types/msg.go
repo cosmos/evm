@@ -68,26 +68,29 @@ func (msg *MsgEthereumTx) FromEthereumTx(tx *ethtypes.Transaction) {
 
 // FromSignedEthereumTx populates the message fields from the given signed ethereum transaction, and set From field.
 func (msg *MsgEthereumTx) FromSignedEthereumTx(tx *ethtypes.Transaction, signer ethtypes.Signer) error {
-	msg.Raw.Transaction = tx
-
 	from, err := ethtypes.Sender(signer, tx)
 	if err != nil {
 		return err
 	}
 
+	// trigger cache tx size
+	_ = tx.Size()
+
+	msg.Raw.Transaction = tx
 	msg.From = from.Bytes()
+
 	return nil
 }
 
 // Route returns the route value of an MsgEthereumTx.
-func (msg MsgEthereumTx) Route() string { return RouterKey }
+func (msg *MsgEthereumTx) Route() string { return RouterKey }
 
 // Type returns the type value of an MsgEthereumTx.
-func (msg MsgEthereumTx) Type() string { return TypeMsgEthereumTx }
+func (msg *MsgEthereumTx) Type() string { return TypeMsgEthereumTx }
 
 // ValidateBasic implements the sdk.Msg interface. It performs basic validation
 // checks of a Transaction. If returns an error if validation fails.
-func (msg MsgEthereumTx) ValidateBasic() error {
+func (msg *MsgEthereumTx) ValidateBasic() error {
 	if msg.Raw.Transaction == nil {
 		return errorsmod.Wrapf(errortypes.ErrInvalidRequest, "raw transaction is required")
 	}
@@ -182,7 +185,7 @@ func (msg *MsgEthereumTx) recoverSender(signer ethtypes.Signer) (common.Address,
 //
 // NOTE: This method cannot be used as a chain ID is needed to create valid bytes
 // to sign over. Use 'RLPSignBytes' instead.
-func (msg MsgEthereumTx) GetSignBytes() []byte {
+func (msg *MsgEthereumTx) GetSignBytes() []byte {
 	panic("must use 'RLPSignBytes' with a chain ID to get the valid bytes to sign")
 }
 
@@ -216,18 +219,18 @@ func (msg *MsgEthereumTx) Sign(ethSigner ethtypes.Signer, keyringSigner keyring.
 }
 
 // GetGas implements the GasTx interface. It returns the GasLimit of the transaction.
-func (msg MsgEthereumTx) GetGas() uint64 {
+func (msg *MsgEthereumTx) GetGas() uint64 {
 	return msg.Raw.Gas()
 }
 
 // GetFee returns the fee for non dynamic fee tx
-func (msg MsgEthereumTx) GetFee() *big.Int {
+func (msg *MsgEthereumTx) GetFee() *big.Int {
 	i := new(big.Int).SetUint64(msg.Raw.Gas())
 	return i.Mul(i, msg.Raw.GasPrice())
 }
 
 // GetEffectiveFee returns the fee for dynamic fee tx
-func (msg MsgEthereumTx) GetEffectiveFee(baseFee *big.Int) *big.Int {
+func (msg *MsgEthereumTx) GetEffectiveFee(baseFee *big.Int) *big.Int {
 	i := new(big.Int).SetUint64(msg.Raw.Gas())
 	gasTip, _ := msg.Raw.EffectiveGasTip(baseFee)
 	effectiveGasPrice := new(big.Int).Add(gasTip, baseFee)
@@ -241,13 +244,13 @@ func (msg *MsgEthereumTx) GetFrom() sdk.AccAddress {
 }
 
 // AsTransaction creates an Ethereum Transaction type from the msg fields
-func (msg MsgEthereumTx) AsTransaction() *ethtypes.Transaction {
+func (msg *MsgEthereumTx) AsTransaction() *ethtypes.Transaction {
 	return msg.Raw.Transaction
 }
 
 // AsMessage vendors the core.TransactionToMessage function to avoid sender recovery,
 // assume the From field is set correctly in the MsgEthereumTx.
-func (msg MsgEthereumTx) AsMessage(baseFee *big.Int) *core.Message {
+func (msg *MsgEthereumTx) AsMessage(baseFee *big.Int) *core.Message {
 	tx := msg.AsTransaction()
 	ethMsg := &core.Message{
 		Nonce:                 tx.Nonce(),
