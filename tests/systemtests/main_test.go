@@ -33,6 +33,10 @@ func TestMempoolTxsReplacementWithCosmosTx(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunTxsReplacementWithCosmosTx)
 }
 
+func TestMempoolMixedTxsReplacementEVMAndCosmos(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementEVMAndCosmos)
+}
+
 func TestMempoolMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementLegacyAndDynamicFee)
 }
