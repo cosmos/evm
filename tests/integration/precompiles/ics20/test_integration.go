@@ -311,7 +311,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			// send some tokens to the contract address
 			fundAmt := math.NewInt(100)
-			fundAmtConverted := fundAmt.Mul(math.NewInt(1e12))
+			fundAmtConverted := fundAmt.Mul(evmtypes.ConversionFactor[evmtypes.GetEVMCoinDecimals()])
 			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),
@@ -327,7 +327,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			Expect(contractBalance.ToBig()).To(Equal(fundAmtConverted.BigInt()), "Contract balance should be equal to the fund amount")
 
 			sendAmt := math.NewInt(1)
-			sendAmtConverted := sendAmt.Mul(math.NewInt(1e12))
+			sendAmtConverted := sendAmt.Mul(evmtypes.ConversionFactor[evmtypes.GetEVMCoinDecimals()])
 			callArgs := testutiltypes.CallArgs{
 				ContractABI: ics20CallerContract.ABI,
 				MethodName:  "testIbcTransferWithTransfer",
@@ -407,7 +407,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			// send some tokens to the contract address
 			fundAmt := math.NewInt(100)
-			fundAmtConverted := fundAmt.Mul(math.NewInt(1e12))
+			fundAmtConverted := fundAmt.Mul(evmtypes.ConversionFactor[evmtypes.GetEVMCoinDecimals()])
 			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),

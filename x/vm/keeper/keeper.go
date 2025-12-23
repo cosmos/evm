@@ -440,9 +440,21 @@ func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
 }
 
+// SetErc20Keeper allows wiring the optional ERC20 keeper after the EVM keeper
+// has been initialized.
+func (k *Keeper) SetErc20Keeper(erc20Keeper types.Erc20Keeper) {
+	k.erc20Keeper = erc20Keeper
+}
+
 // SetEvmMempool sets the evm mempool
 func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.ExperimentalEVMMempool) {
 	k.evmMempool = evmMempool
+}
+
+// SetBankKeeper allows swapping the bank keeper (and wrapper) after initialization.
+// Useful for tests that wrap the bank keeper with additional functionality.
+func (k *Keeper) SetBankKeeper(bk types.BankKeeper) {
+	k.bankWrapper = wrappers.NewBankWrapper(bk)
 }
 
 // GetEvmMempool returns the evm mempool
