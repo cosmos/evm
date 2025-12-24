@@ -10,9 +10,13 @@ import (
 	"github.com/tidwall/gjson"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"google.golang.org/protobuf/types/known/anypb"
 
+	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	errorsmod "cosmossdk.io/errors"
 
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
@@ -386,4 +390,26 @@ func doRecover(err *error) {
 
 		*err = fmt.Errorf("%v", r)
 	}
+}
+
+// ToAnyMsgs helps to convert sdk.Msg slice to []*anypb.Any
+func ToAnyMsgs(msgs []sdk.Msg) ([]*anypb.Any, error) {
+	anyMsgs := make([]*anypb.Any, len(msgs))
+	for i, msg := range msgs {
+		anyMsg, err := types.NewAnyWithValue(msg)
+		if err != nil {
+			return nil, errorsmod.Wrap(err, "failed to convert sdk.Msg to Any")
+		}
+		anyMsgs[i] = &anypb.Any{TypeUrl: anyMsg.TypeUrl, Value: anyMsg.Value}
+	}
+	return anyMsgs, nil
+}
+
+// ToFeeAmount helps to convert sdk.Coins to []*basev1beta1.Coin
+func ToFeeAmount(coins sdk.Coins) []*basev1beta1.Coin {
+	feeAmount := make([]*basev1beta1.Coin, len(coins))
+	for i, coin := range coins {
+		feeAmount[i] = &basev1beta1.Coin{Denom: coin.Denom, Amount: coin.Amount.String()}
+	}
+	return feeAmount
 }
