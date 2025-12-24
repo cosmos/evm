@@ -3,18 +3,18 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
+	errorsmod "cosmossdk.io/errors"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
-	errorsmod "cosmossdk.io/errors"
 	txsigning "cosmossdk.io/x/tx/signing"
 	"cosmossdk.io/x/tx/signing/aminojson"
 
@@ -211,10 +211,11 @@ func VerifySignature(
 			return errorsmod.Wrap(err, "failed to get sign bytes using aminojson")
 		}
 
-		signerChainID, err := strconv.ParseUint(signerData.ChainID, 10, 64)
-		if err != nil {
-			return errorsmod.Wrapf(err, "failed to parse chain-id: %s", signerData.ChainID)
+		ethChainID := evmtypes.GetEthChainConfig().ChainID
+		if ethChainID == nil {
+			return errorsmod.Wrap(errortypes.ErrInvalidChainID, "eth chain ID not configured")
 		}
+		signerChainID := ethChainID.Uint64()
 
 		txWithExtensions, ok := tx.(authante.HasExtensionOptionsTx)
 		if !ok {
