@@ -42,3 +42,36 @@ func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
 	)
 }
+
+// newLegacyCosmosAnteHandlerEip712 creates an AnteHandler to process legacy EIP-712
+// transactions, as defined by the presence of an ExtensionOptionsWeb3Tx extension.
+func newLegacyCosmosAnteHandlerEip712(ctx sdk.Context, options HandlerOptions) sdk.AnteHandler {
+	feemarketParams := options.FeeMarketKeeper.GetParams(ctx)
+	var txFeeChecker ante.TxFeeChecker
+	if options.DynamicFeeChecker {
+		txFeeChecker = evmante.NewDynamicFeeChecker(&feemarketParams)
+	}
+
+	return sdk.ChainAnteDecorators(
+		cosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
+		cosmosante.NewAuthzLimiterDecorator( // disable the Msg types that cannot be included on an authz.MsgExec msgs field
+			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
+			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
+		),
+		ante.NewSetUpContextDecorator(),
+		ante.NewValidateBasicDecorator(),
+		ante.NewTxTimeoutHeightDecorator(),
+		ante.NewValidateMemoDecorator(options.AccountKeeper),
+		cosmosante.NewMinGasPriceDecorator(&feemarketParams),
+		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
+		ante.NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, txFeeChecker),
+		// SetPubKeyDecorator must be called before all signature verification decorators
+		ante.NewSetPubKeyDecorator(options.AccountKeeper),
+		ante.NewValidateSigCountDecorator(options.AccountKeeper),
+		ante.NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer),
+		// Note: signature verification uses EIP instead of the cosmos signature validator
+		cosmosante.NewLegacyEip712SigVerificationDecorator(options.AccountKeeper),
+		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
+		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
+	)
+}
