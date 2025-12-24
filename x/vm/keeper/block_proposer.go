@@ -2,6 +2,10 @@ package keeper
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	evmtrace "github.com/cosmos/evm/trace"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -10,7 +14,11 @@ import (
 )
 
 // GetCoinbaseAddress returns the block proposer's validator operator address.
-func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddress) (common.Address, error) {
+func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddress) (_ common.Address, err error) {
+	ctx, span := ctx.StartSpan(tracer, "GetCoinbaseAddress", trace.WithAttributes(
+		attribute.String("proposer_address", proposerAddress.String()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	proposerAddress = GetProposerAddress(ctx, proposerAddress)
 	if len(proposerAddress) == 0 {
 		// it's ok that proposer address don't exsits in some contexts like CheckTx.

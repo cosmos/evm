@@ -70,7 +70,7 @@ func newLegacyCosmosAnteHandlerEip712(ctx sdk.Context, options HandlerOptions) s
 		ante.NewValidateSigCountDecorator(options.AccountKeeper),
 		ante.NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer),
 		// Note: signature verification uses EIP instead of the cosmos signature validator
-		cosmosante.NewLegacyEip712SigVerificationDecorator(options.AccountKeeper),
+		cosmosante.NewLegacyEip712SigVerificationDecorator(options.AccountKeeper), //nolint:staticcheck
 		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
 		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
 	)

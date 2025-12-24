@@ -10,9 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"go.opentelemetry.io/otel"
 
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/rpc/backend"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -20,6 +22,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/personal")
 
 // PrivateAccountAPI is the personal_ prefixed set of APIs in the Web3 JSON-RPC spec.
 type PrivateAccountAPI struct {
@@ -110,9 +114,11 @@ func (api *PrivateAccountAPI) UnlockAccount(_ context.Context, addr common.Addre
 // SendTransaction will create a transaction from the given arguments and
 // tries to sign it with the key associated with args.To. If the given password isn't
 // able to decrypt the key it fails.
-func (api *PrivateAccountAPI) SendTransaction(_ context.Context, args evmtypes.TransactionArgs, _ string) (common.Hash, error) {
+func (api *PrivateAccountAPI) SendTransaction(ctx context.Context, args evmtypes.TransactionArgs, _ string) (_ common.Hash, err error) {
 	api.logger.Debug("personal_sendTransaction", "address", args.To.String())
-	return api.backend.SendTransaction(args)
+	ctx, span := tracer.Start(ctx, "SendTransaction")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+	return api.backend.SendTransaction(ctx, args)
 }
 
 // Sign calculates an Ethereum ECDSA signature for:
@@ -124,7 +130,7 @@ func (api *PrivateAccountAPI) SendTransaction(_ context.Context, args evmtypes.T
 // The key used to calculate the signature is decrypted with the given password.
 //
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
-func (api *PrivateAccountAPI) Sign(_ context.Context, data hexutil.Bytes, addr common.Address, _ string) (hexutil.Bytes, error) {
+func (api *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, _ string) (hexutil.Bytes, error) {
 	api.logger.Debug("personal_sign", "data", data, "address", addr.String())
 	return api.backend.Sign(addr, data)
 }
@@ -139,8 +145,10 @@ func (api *PrivateAccountAPI) Sign(_ context.Context, data hexutil.Bytes, addr c
 // the V value must be 27 or 28 for legacy reasons.
 //
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecove
-func (api *PrivateAccountAPI) EcRecover(_ context.Context, data, sig hexutil.Bytes) (common.Address, error) {
+func (api *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (_ common.Address, err error) {
 	api.logger.Debug("personal_ecRecover", "data", data, "sig", sig)
+	_, span := tracer.Start(ctx, "EcRecover")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	if len(sig) != crypto.SignatureLength {
 		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)
