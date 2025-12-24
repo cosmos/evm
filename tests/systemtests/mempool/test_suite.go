@@ -3,15 +3,12 @@
 package mempool
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/suite"
-	"github.com/creachadair/tomledit"
 )
 
 const txPoolContentTimeout = 120 * time.Second
@@ -26,7 +23,7 @@ func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
 }
 
 func (s *TestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
-	ensureAppMempoolConfig(t, s.SystemUnderTest)
+	suite.EnsureAppMempoolConfig(t, s.SystemUnderTest)
 	s.BaseTestSuite.SetupTest(t, nodeStartArgs...)
 }
 
@@ -58,21 +55,6 @@ func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
 	for _, txInfo := range ctx.ExpPending {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, txPoolContentTimeout)
 		require.NoError(t, err)
-	}
-}
-
-func ensureAppMempoolConfig(t *testing.T, sut *systemtests.SystemUnderTest) {
-	t.Helper()
-
-	if sut == nil || sut.ChainStarted {
-		return
-	}
-
-	for i := 0; i < sut.NodesCount(); i++ {
-		configPath := filepath.Join(sut.NodeDir(i), "config", "config.toml")
-		systemtests.EditToml(configPath, func(doc *tomledit.Document) {
-			systemtests.SetValue(doc, "app", "mempool", "type")
-		})
 	}
 }
 

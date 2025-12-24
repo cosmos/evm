@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	upgradeHeight int64 = 12
+	upgradeHeight int64 = 15
 	upgradeName         = "v0.5.0-to-v0.6.0" // must match UpgradeName in evmd/upgrades.go
 )
 
@@ -91,6 +91,8 @@ func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	t.Log("waiting for upgrade info")
 	sut.AwaitUpgradeInfo(t)
 	sut.StopChain()
+
+	suite.EnsureAppMempoolConfig(t, sut)
 
 	t.Log("Upgrade height was reached. Upgrading chain")
 	sut.SetExecBinary(currentBranchBinary)
