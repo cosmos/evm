@@ -23,6 +23,7 @@ func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
 }
 
 func (s *TestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+	suite.EnsureAppMempoolConfig(t, s.SystemUnderTest)
 	s.BaseTestSuite.SetupTest(t, nodeStartArgs...)
 }
 
@@ -50,6 +51,7 @@ func (s *TestSuite) AfterEachAction(t *testing.T, ctx *TestContext) {
 }
 
 func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
+	s.AwaitNextBlock(t, 10*time.Second)
 	for _, txInfo := range ctx.ExpPending {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, txPoolContentTimeout)
 		require.NoError(t, err)
