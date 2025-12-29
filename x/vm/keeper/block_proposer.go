@@ -26,6 +26,19 @@ func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddr
 	}
 	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, proposerAddress)
 	if err != nil {
+		// Consumer chains have no bonded tokens.
+		if bondedPoolBalance, err := k.stakingKeeper.TotalBondedTokens(ctx); err != nil {
+			return common.Address{}, errorsmod.Wrapf(
+				err,
+				"failed to retrieve bonded pool balance when checking proposer address %s. Error: %s",
+				proposerAddress.String(),
+				err.Error(),
+			)
+		} else if bondedPoolBalance.IsZero() {
+			// Use proposer address directly as coinbase.
+			coinbase := common.BytesToAddress(proposerAddress.Bytes())
+			return coinbase, nil
+		}
 		return common.Address{}, errorsmod.Wrapf(
 			stakingtypes.ErrNoValidatorFound,
 			"failed to retrieve validator from block proposer address %s. Error: %s",
