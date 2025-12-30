@@ -3,6 +3,7 @@ package eip712
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
 
@@ -101,8 +102,17 @@ func decodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		return apitypes.TypedData{}, err
 	}
 
+	// Extract the chain ID from the sign doc itself for EIP-712 domain
+	// This ensures we use the same chain ID that was used during signing
+	chainID := eip155ChainID
+	if aminoDoc.ChainID != "" {
+		if parsedChainID, err := parseChainID(aminoDoc.ChainID); err == nil {
+			chainID = parsedChainID
+		}
+	}
+
 	typedData, err := WrapTxToTypedData(
-		eip155ChainID,
+		chainID,
 		signDocBytes,
 	)
 	if err != nil {
@@ -176,8 +186,17 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		body.Memo,
 	)
 
+	// Extract the chain ID from the sign doc itself for EIP-712 domain
+	// This ensures we use the same chain ID that was used during signing
+	chainID := eip155ChainID
+	if signDoc.ChainId != "" {
+		if parsedChainID, err := parseChainID(signDoc.ChainId); err == nil {
+			chainID = parsedChainID
+		}
+	}
+
 	typedData, err := WrapTxToTypedData(
-		eip155ChainID,
+		chainID,
 		signBytes,
 	)
 	if err != nil {
@@ -195,6 +214,12 @@ func validateCodecInit() error {
 	}
 
 	return nil
+}
+
+// parseChainID attempts to parse the chain ID string as a uint64.
+// The chain ID in the sign doc should be the EIP-155 chain ID.
+func parseChainID(chainIDStr string) (uint64, error) {
+	return strconv.ParseUint(chainIDStr, 10, 64)
 }
 
 // validatePayloadMessages ensures that the transaction messages can be represented in an EIP-712

@@ -3,6 +3,7 @@ package ethsecp256k1
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
 
@@ -211,38 +212,68 @@ func (pubKey *PubKey) UnmarshalAminoJSON(bz []byte) error {
 //
 // CONTRACT: The signature should be in [R || S] format.
 func (pubKey PubKey) VerifySignature(msg, sig []byte) bool {
-	return pubKey.verifySignatureECDSA(msg, sig) || pubKey.verifySignatureAsEIP712(msg, sig)
+	// Try standard ECDSA verification first (supports both Keccak256 and SHA256)
+	if pubKey.verifySignatureECDSA(msg, sig) {
+		return true
+	}
+
+	// Try EIP-712 verification for Ledger Ethereum app signatures
+	if verified, _ := pubKey.verifySignatureAsEIP712(msg, sig); verified {
+		return true
+	}
+
+	return false
 }
 
 // Verifies the signature as an EIP-712 signature by first converting the message payload
 // to EIP-712 object bytes, then performing ECDSA verification on the hash. This is to support
 // signing a Cosmos payload using EIP-712.
-func (pubKey PubKey) verifySignatureAsEIP712(msg, sig []byte) bool {
+func (pubKey PubKey) verifySignatureAsEIP712(msg, sig []byte) (bool, error) {
 	eip712Bytes, err := eip712.GetEIP712BytesForMsg(msg)
 	if err != nil {
-		return false
+		// Try legacy encoding before giving up
+		legacyEIP712Bytes, legacyErr := eip712.LegacyGetEIP712BytesForMsg(msg)
+		if legacyErr != nil {
+			return false, fmt.Errorf("EIP-712 encoding failed: %w; legacy also failed: %v", err, legacyErr)
+		}
+		if pubKey.verifySignatureECDSA(legacyEIP712Bytes, sig) {
+			return true, nil
+		}
+		return false, fmt.Errorf("EIP-712 encoding failed: %w", err)
 	}
 
 	if pubKey.verifySignatureECDSA(eip712Bytes, sig) {
-		return true
+		return true, nil
 	}
 
 	// Try verifying the signature using the legacy EIP-712 encoding
 	legacyEIP712Bytes, err := eip712.LegacyGetEIP712BytesForMsg(msg)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("legacy EIP-712 encoding failed: %w", err)
 	}
 
-	return pubKey.verifySignatureECDSA(legacyEIP712Bytes, sig)
+	if pubKey.verifySignatureECDSA(legacyEIP712Bytes, sig) {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("signature did not match EIP-712 hash")
 }
 
 // Perform standard ECDSA signature verification for the given raw bytes and signature.
+// Tries Keccak256 first (Ethereum style), then falls back to SHA256 (Cosmos style)
+// to support both Ethereum and Cosmos Ledger app signatures.
 func (pubKey PubKey) verifySignatureECDSA(msg, sig []byte) bool {
 	if len(sig) == crypto.SignatureLength {
 		// remove recovery ID (V) if contained in the signature
 		sig = sig[:len(sig)-1]
 	}
 
-	// the signature needs to be in [R || S] format when provided to VerifySignature
-	return crypto.VerifySignature(pubKey.Key, crypto.Keccak256Hash(msg).Bytes(), sig)
+	// Try Keccak256 first (Ethereum Ledger app / EVM style)
+	if crypto.VerifySignature(pubKey.Key, crypto.Keccak256Hash(msg).Bytes(), sig) {
+		return true
+	}
+
+	// Fallback to SHA256 (Cosmos Ledger app style) for multisig compatibility
+	sha256Hash := sha256.Sum256(msg)
+	return crypto.VerifySignature(pubKey.Key, sha256Hash[:], sig)
 }
