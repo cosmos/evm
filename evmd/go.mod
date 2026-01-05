@@ -16,7 +16,7 @@ require (
 	cosmossdk.io/x/upgrade v0.2.0
 	github.com/cometbft/cometbft v0.39.0-beta.2.0.20251219215830-ccf14e39f690
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251220035047-301ed2e2e445
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260105193929-959fdb8d5468
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251027215440-22f0033d0aee
