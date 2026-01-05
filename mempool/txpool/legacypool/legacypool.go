@@ -1535,7 +1535,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 
 // isResetCancelled returns true if the pool is resetting and it has been
 // signaled to cancel the reset.
-func (pool *LegacyPool) isReorgCancelled(reset *txpoolResetRequest, cancelled chan struct{}) bool {
+func isReorgCancelled(reset *txpoolResetRequest, cancelled chan struct{}) bool {
 	if reset != nil {
 		select {
 		case <-cancelled:
@@ -1560,7 +1560,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for _, addr := range accounts {
-		if pool.isReorgCancelled(reset, cancelled) {
+		if isReorgCancelled(reset, cancelled) {
 			queuedPromotedCancelled.Mark(1)
 			return promoted
 		}
@@ -1796,7 +1796,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
-		if pool.isReorgCancelled(reset, cancelled) {
+		if isReorgCancelled(reset, cancelled) {
 			pendingDemotedCancelled.Mark(1)
 			return
 		}
