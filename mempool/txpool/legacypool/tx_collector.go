@@ -189,13 +189,18 @@ func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
 // from.
 type txs struct {
 	txs map[common.Address]types.Transactions
-	mu  sync.RWMutex
+
+	// lookup provides a fast lookup to determine if a tx is in the set or not.
+	lookup map[common.Hash]struct{}
+
+	mu sync.RWMutex
 }
 
 // newTxs creates a new txs set.
 func newTxs() *txs {
 	return &txs{
-		txs: make(map[common.Address]types.Transactions),
+		txs:    make(map[common.Address]types.Transactions),
+		lookup: make(map[common.Hash]struct{}),
 	}
 }
 
@@ -265,10 +270,18 @@ func (t *txs) Add(addr common.Address, txs types.Transactions) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	toAdd := make([]*types.Transaction, 0, len(txs))
+	for _, tx := range txs {
+		if _, exists := t.lookup[tx.Hash()]; exists {
+			continue
+		}
+		toAdd = append(toAdd, tx)
+	}
+
 	if existing, ok := t.txs[addr]; ok {
-		t.txs[addr] = append(existing, txs...)
+		t.txs[addr] = append(existing, toAdd...)
 	} else {
-		t.txs[addr] = txs
+		t.txs[addr] = toAdd
 	}
 }
 
@@ -276,6 +289,8 @@ func (t *txs) Add(addr common.Address, txs types.Transactions) {
 func (t *txs) Remove(addr common.Address, tx *types.Transaction) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	defer delete(t.lookup, tx.Hash())
 
 	txs, ok := t.txs[addr]
 	if !ok {
