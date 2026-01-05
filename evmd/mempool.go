@@ -80,11 +80,12 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 // and overrides it with values from appOpts if they exist and are non-zero.
 func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
 	return &evmmempool.EVMMempoolConfig{
-		AnteHandler:        app.GetAnteHandler(),
-		LegacyPoolConfig:   server.GetLegacyPoolConfig(appOpts, logger),
-		BlockGasLimit:      server.GetBlockGasLimit(appOpts, logger),
-		MinTip:             server.GetMinTip(appOpts, logger),
-		OperateExclusively: mempoolOperateExclusively,
+		AnteHandler:              app.GetAnteHandler(),
+		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
+		MinTip:                   server.GetMinTip(appOpts, logger),
+		OperateExclusively:       mempoolOperateExclusively,
+		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
 	}, nil
 }
 

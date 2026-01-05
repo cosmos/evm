@@ -48,10 +48,11 @@ type (
 		vmKeeper VMKeeperI
 
 		/** Mempools **/
-		txPool             *txpool.TxPool
-		legacyTxPool       *legacypool.LegacyPool
-		cosmosPool         sdkmempool.ExtMempool
-		operateExclusively bool
+		txPool                   *txpool.TxPool
+		legacyTxPool             *legacypool.LegacyPool
+		cosmosPool               sdkmempool.ExtMempool
+		operateExclusively       bool
+		pendingTxProposalTimeout time.Duration
 
 		/** Utils **/
 		logger        log.Logger
@@ -90,6 +91,9 @@ type EVMMempoolConfig struct {
 	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
 	OperateExclusively bool
+	// PendingTxProposalTimeout is the max amount of time to allocate to
+	// fetching (or watiing to fetch) pending txs from the evm mempool.
+	PendingTxProposalTimeout time.Duration
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -186,19 +190,20 @@ func NewExperimentalEVMMempool(
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:           vmKeeper,
-		txPool:             txPool,
-		legacyTxPool:       txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:         cosmosPool,
-		logger:             logger,
-		txConfig:           txConfig,
-		blockchain:         blockchain,
-		blockGasLimit:      config.BlockGasLimit,
-		minTip:             config.MinTip,
-		anteHandler:        config.AnteHandler,
-		operateExclusively: config.OperateExclusively,
-		reapList:           NewReapList(txEncoder),
-		txTracker:          newTxTracker(),
+		vmKeeper:                 vmKeeper,
+		txPool:                   txPool,
+		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
+		cosmosPool:               cosmosPool,
+		logger:                   logger,
+		txConfig:                 txConfig,
+		blockchain:               blockchain,
+		blockGasLimit:            config.BlockGasLimit,
+		minTip:                   config.MinTip,
+		anteHandler:              config.AnteHandler,
+		operateExclusively:       config.OperateExclusively,
+		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
+		reapList:                 NewReapList(txEncoder),
+		txTracker:                newTxTracker(),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -602,8 +607,11 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 		baseFeeUint = uint256.MustFromBig(baseFee)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
-	defer cancel()
+	if m.pendingTxProposalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
+		defer cancel()
+	}
 
 	filter := txpool.PendingFilter{
 		MinTip:       m.minTip,
