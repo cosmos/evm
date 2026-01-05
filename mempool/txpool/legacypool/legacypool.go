@@ -1324,7 +1324,14 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 		// Launch next background reorg if needed
 		if curDone == nil && launchNextRun {
 			// Run the background reorg and announcements
-			go pool.runReorg(nextDone, resetCancelled, reset, dirtyAccounts, queuedEvents)
+			input := reorgInput{
+				done:          nextDone,
+				cancelReset:   resetCancelled,
+				reset:         reset,
+				dirtyAccounts: dirtyAccounts,
+				events:        queuedEvents,
+			}
+			go pool.runReorg(input)
 
 			// Prepare everything for the next round of reorg
 			curDone, nextDone = nextDone, make(chan struct{})
@@ -1390,36 +1397,44 @@ func (pool *LegacyPool) scheduleReorgLoop() {
 	}
 }
 
+type reorgInput struct {
+	done          chan struct{}
+	cancelReset   chan struct{}
+	reset         *txpoolResetRequest
+	dirtyAccounts *accountSet
+	events        map[common.Address]*SortedMap
+}
+
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
-func (pool *LegacyPool) runReorg(done chan struct{}, cancelReset chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*SortedMap) {
+func (pool *LegacyPool) runReorg(input reorgInput) {
 	defer func(t0 time.Time) {
 		reorgDurationTimer.UpdateSince(t0)
-		if reset != nil {
+		if input.reset != nil {
 			reorgResetTimer.UpdateSince(t0)
 		}
 	}(time.Now())
-	defer close(done)
+	defer close(input.done)
 
 	var promoteAddrs []common.Address
 	// Optionally acquire a shared read lock to coordinate with Commit in tests.
 	unlock := beginCommitRead(any(pool.chain))
 	defer unlock()
-	if dirtyAccounts != nil && reset == nil {
+	if input.dirtyAccounts != nil && input.reset == nil {
 		// Only dirty accounts need to be promoted, unless we're resetting.
 		// For resets, all addresses in the tx queue will be promoted and
 		// the flatten operation can be avoided.
-		promoteAddrs = dirtyAccounts.flatten()
+		promoteAddrs = input.dirtyAccounts.flatten()
 	}
 	pool.mu.Lock()
-	if reset != nil {
+	if input.reset != nil {
 		// Reset from the old head to the new, rescheduling any reorged transactions
-		pool.reset(reset.oldHead, reset.newHead)
+		pool.reset(input.reset.oldHead, input.reset.newHead)
 
 		// Nonces were reset, discard any events that became stale
-		for addr := range events {
-			events[addr].Forward(pool.pendingNonces.get(addr))
-			if events[addr].Len() == 0 {
-				delete(events, addr)
+		for addr := range input.events {
+			input.events[addr].Forward(pool.pendingNonces.get(addr))
+			if input.events[addr].Len() == 0 {
+				delete(input.events, addr)
 			}
 		}
 		// Reset needs promote for all addresses
@@ -1430,16 +1445,16 @@ func (pool *LegacyPool) runReorg(done chan struct{}, cancelReset chan struct{}, 
 	}
 
 	// Check for pending transactions for every account that sent new ones
-	promoted := pool.promoteExecutables(promoteAddrs, cancelReset, reset)
+	promoted := pool.promoteExecutables(promoteAddrs, input.cancelReset, input.reset)
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
-	if reset != nil {
-		pool.demoteUnexecutables(cancelReset, reset)
-		if reset.newHead != nil {
-			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
+	if input.reset != nil {
+		pool.demoteUnexecutables(input.cancelReset, input.reset)
+		if input.reset.newHead != nil {
+			if pool.chainconfig.IsLondon(new(big.Int).Add(input.reset.newHead.Number, big.NewInt(1))) {
+				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, input.reset.newHead)
 				pool.priced.SetBaseFee(pendingBaseFee)
 			} else {
 				pool.priced.Reheap()
@@ -1472,14 +1487,14 @@ func (pool *LegacyPool) runReorg(done chan struct{}, cancelReset chan struct{}, 
 	// Notify subsystems for newly added transactions
 	for _, tx := range promoted {
 		addr, _ := types.Sender(pool.signer, tx)
-		if _, ok := events[addr]; !ok {
-			events[addr] = NewSortedMap()
+		if _, ok := input.events[addr]; !ok {
+			input.events[addr] = NewSortedMap()
 		}
-		events[addr].Put(tx)
+		input.events[addr].Put(tx)
 	}
-	if len(events) > 0 {
+	if len(input.events) > 0 {
 		var txs []*types.Transaction
-		for _, set := range events {
+		for _, set := range input.events {
 			txs = append(txs, set.Flatten()...)
 		}
 
