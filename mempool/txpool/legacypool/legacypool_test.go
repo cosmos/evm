@@ -2654,7 +2654,8 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for range 5 {
-			pool.runReorg(make(chan struct{}), nil, nil, nil, nil)
+			input := reorgInput{done: make(chan struct{})}
+			pool.runReorg(input)
 		}
 	}()
 
