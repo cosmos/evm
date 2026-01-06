@@ -723,6 +723,58 @@ func (suite *StateDBTestSuite) TestSetStorage() {
 	}
 }
 
+func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
+	testCases := []struct {
+		name     string
+		malleate func(sdk.Context, *mocks.EVMKeeper) *statedb.StateDB
+	}{
+		{
+			"new account",
+			func(ctx sdk.Context, keeper *mocks.EVMKeeper) *statedb.StateDB {
+				db := statedb.New(ctx, keeper, emptyTxConfig)
+				db.CreateAccount(address)
+				db.SetCode(address, []byte("code"))
+				db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
+				db.CreateContract(address)
+				return db
+			},
+		},
+		{
+			"pre-funded account",
+			func(ctx sdk.Context, keeper *mocks.EVMKeeper) *statedb.StateDB {
+				db := statedb.New(ctx, keeper, emptyTxConfig)
+				db.AddBalance(address, uint256.NewInt(50), tracing.BalanceChangeUnspecified)
+				suite.Require().NoError(db.Commit())
+				db = statedb.New(ctx, keeper, emptyTxConfig)
+				db.CreateAccount(address)
+				db.SetCode(address, []byte("contract code"))
+				db.CreateContract(address)
+				return db
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
+			keeper := mocks.NewEVMKeeper()
+			db := tc.malleate(ctx, keeper)
+
+			_, _ = db.SelfDestruct6780(address)
+			suite.Require().True(db.HasSelfDestructed(address))
+			suite.Require().Nil(keeper.GetCode(ctx, db.GetCodeHash(address)),
+				"code should NOT be in keeper yet before Commit")
+
+			err := db.Commit()
+			suite.Require().NoError(err, "Commit should succeed - code persisted before DeleteAccount")
+
+			db = statedb.New(ctx, keeper, emptyTxConfig)
+			suite.Require().False(db.Exist(address))
+			suite.Require().Nil(keeper.GetCode(ctx, db.GetCodeHash(address)))
+		})
+	}
+}
+
 func CollectContractStorage(db vm.StateDB) statedb.Storage {
 	storage := make(statedb.Storage)
 	stDB, ok := db.(*statedb.StateDB)
