@@ -7,8 +7,6 @@ import (
 	"io"
 	"os"
 
-	goruntime "runtime"
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -257,7 +255,7 @@ func NewExampleApp(
 	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
 		encodingConfig.TxConfig.TxDecoder(),
 		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		1,
 		true,
 		sdk.DefaultBondDenom,
 	))
