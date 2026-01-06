@@ -10,8 +10,7 @@ import (
 
 func (suite *KeeperTestSuite) TestGetCoinbaseAddress() {
 	proposerConsAddr := sdk.ConsAddress([]byte("proposer"))
-	valAddr := sdk.ValAddress([]byte("test_validator_addr"))
-	validatorOperator := valAddr.String()
+	validatorOperator := "cosmosvaloper1abcdefghijklmnopqrstuvwxyz"
 
 	testCases := []struct {
 		name         string
@@ -30,7 +29,7 @@ func (suite *KeeperTestSuite) TestGetCoinbaseAddress() {
 				suite.stakingKeeper.On("GetValidatorByConsAddr", mock.Anything, proposerConsAddr).
 					Return(validator, nil).Once()
 			},
-			expectedAddr: common.BytesToAddress(valAddr.Bytes()),
+			expectedAddr: common.BytesToAddress([]byte(validatorOperator)),
 			expectedErr:  false,
 		},
 		{

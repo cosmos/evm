@@ -7,9 +7,6 @@ import (
 )
 
 func ValidatorConsAddressToHex(valAddress string) common.Address {
-	valAddr, err := sdk.ValAddressFromBech32(valAddress)
-	if err != nil {
-		return common.Address{}
-	}
-	return common.BytesToAddress(valAddr)
+	coinbaseAddressBytes := sdk.ConsAddress(valAddress).Bytes()
+	return common.BytesToAddress(coinbaseAddressBytes)
 }

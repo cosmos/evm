@@ -11,6 +11,7 @@
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
+- [\#917](https://github.com/cosmos/evm/pull/917) Change GetCoinbaseAddress to return nil error instead of failing when validator cannot be retrieved from block proposer address, enabling ICS consumer chain support.
 
 ### FEATURES
 
@@ -34,7 +35,6 @@
 - [\#814](https://github.com/cosmos/evm/pull/814) Fix duplicated events in post tx processor.
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
 - [\#828](https://github.com/cosmos/evm/pull/828) Validate decimals before conversion to prevent panic when coininfo is missing in historical queries.
-- [\#917](https://github.com/cosmos/evm/pull/917) Fix GetCoinbaseAddress to correctly convert validator operator address from Bech32 format to Ethereum address for block.coinbase opcode.
 
 ## v0.5.0
 
