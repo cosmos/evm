@@ -34,8 +34,12 @@ var (
 	txsCollected = metrics.NewRegisteredMeter("collector/txscollected", nil)
 
 	// collectorWaitDuration is the amount of time callers of Collect spend
-	// waiting to get a response (via timeout or completion).
+	// waiting before txs are able to be collected (via timeout or completion).
 	collectorWaitDuration = metrics.NewRegisteredTimer("collector/waittime", nil)
+
+	// collectorDuration is the amount of time callers of Collect spend in
+	// total waiting for txs to be collected.
+	collectorDuration = metrics.NewRegisteredTimer("collector/duration", nil)
 
 	// collectorWaitDuration is the amount of time callers of Collect spend
 	// waiting to get a response (via timeout or completion).
@@ -104,6 +108,8 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 	genesis := big.NewInt(0)
 
 	start := time.Now()
+	defer func(t0 time.Time) { collectorWaitDuration.UpdateSince(t0) }(start)
+
 	for {
 		c.mu.RLock()
 
