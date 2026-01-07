@@ -42,10 +42,10 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	cfg *statedb.EVMConfig,
 	tracingHooks *tracing.Hooks,
 	stateDB vm.StateDB,
-	overridePrecompiles bool,
+	noOverridePrecompiles bool,
 ) *vm.EVM {
 	ctx, span := ctx.StartSpan(tracer, "NewEVMWithOverridePrecompiles", trace.WithAttributes(
-		attribute.Bool("override_precompiles", overridePrecompiles),
+		attribute.Bool("no_override_precompiles", noOverridePrecompiles),
 		attribute.String("from", msg.From.Hex()),
 	))
 	defer span.End()
@@ -81,13 +81,13 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	evmHooks.AddCallHooks(
 		accessControl.GetCallHook(signer),
 	)
-	if overridePrecompiles {
+	if noOverridePrecompiles {
 		evmHooks.AddCallHooks(
 			k.GetPrecompilesCallHook(ctx),
 		)
 	} else {
 		evmHooks.AddCallHooks(
-			k.GetPrecompileRecipientCallHook(ctx),
+			k.GetPrecompilesCallHookWithOverrides(ctx),
 		)
 	}
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
