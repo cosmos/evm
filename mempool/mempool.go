@@ -571,6 +571,8 @@ func (m *ExperimentalEVMMempool) Close() error {
 		}
 	}
 
+	m.iq.Close()
+
 	if err := m.txPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
 	}

@@ -12,13 +12,10 @@ import (
 	"github.com/gammazero/deque"
 )
 
-const (
-	noTxsAvailableSleepDuration = 250 * time.Millisecond
-)
-
 type insertQueue struct {
-	queue deque.Deque[*ethtypes.Transaction]
-	pool  txpool.SubPool
+	queue  deque.Deque[*ethtypes.Transaction]
+	signal chan struct{}
+	pool   txpool.SubPool
 
 	logger log.Logger
 	done   chan struct{}
@@ -28,6 +25,7 @@ func newInsertQueue(pool txpool.SubPool, logger log.Logger) *insertQueue {
 	iq := &insertQueue{
 		pool:   pool,
 		logger: logger,
+		signal: make(chan struct{}, 1),
 		done:   make(chan struct{}),
 	}
 
@@ -40,41 +38,43 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction) {
 		return
 	}
 	iq.queue.PushBack(tx)
+
+	// signal that there are txs available
+	select {
+	case iq.signal <- struct{}{}:
+	default:
+	}
 }
 
 func (iq *insertQueue) loop() {
 	for {
+		numTxsAvailable := iq.queue.Len()
+		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size") //nolint:staticcheck // TODO: switch to OpenTelemetry
+
+		if numTxsAvailable > 0 {
+			if tx := iq.queue.PopFront(); tx != nil {
+				start := time.Now()
+				errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
+				telemetry.MeasureSince(start, "expmempool_inserter_add") //nolint:staticcheck // TODO: switch to OpenTelemetry
+				if len(errs) != 1 {
+					panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+				}
+				if errs[0] != nil {
+					iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
+				}
+			}
+			if numTxsAvailable-1 > 0 {
+				// there are still txs available, try and insert immediately again
+				continue
+			}
+		}
+
+		// no txs available, block until signaled or done
 		select {
 		case <-iq.done:
 			return
-		default:
-			numTxsAvailable := iq.queue.Len()
-			telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size") //nolint:staticcheck // TODO: switch to OpenTelemetry
-
-			if numTxsAvailable > 0 {
-				if tx := iq.queue.PopFront(); tx != nil {
-					start := time.Now()
-					errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
-					telemetry.MeasureSince(start, "expmempool_inserter_add") //nolint:staticcheck // TODO: switch to OpenTelemetry
-					if len(errs) != 1 {
-						panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-					}
-					if errs[0] != nil {
-						iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
-					}
-				}
-				if numTxsAvailable-1 > 0 {
-					// there are still txs available, try and insert immediately again
-					continue
-				}
-			}
-
-			// no txs available, sleep then check again
-			select {
-			case <-iq.done:
-				return
-			case <-time.After(noTxsAvailableSleepDuration):
-			}
+		case <-iq.signal:
+			// new txs available
 		}
 	}
 }
