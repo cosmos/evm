@@ -231,11 +231,20 @@ func (suite *StateDBTestSuite) TestDBError() {
 			db.SelfDestruct(mocks.ErrAddress)
 			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
 		}},
+		{"set account before delete (EIP-6780 same-tx)", func(db vm.StateDB) {
+			db.CreateAccount(mocks.ErrAddress)
+			db.SetCode(mocks.ErrAddress, []byte("code"))
+			db.CreateContract(mocks.ErrAddress)
+			db.SelfDestruct6780(mocks.ErrAddress)
+			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
+		}},
 	}
 	for _, tc := range testCases {
-		db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
-		tc.malleate(db)
-		suite.Require().Error(db.Commit())
+		suite.Run(tc.name, func() {
+			db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
+			tc.malleate(db)
+			suite.Require().Error(db.Commit())
+		})
 	}
 }
 
