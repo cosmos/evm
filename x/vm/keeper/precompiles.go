@@ -3,7 +3,10 @@ package keeper
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -19,7 +22,11 @@ type Precompiles struct {
 func (k *Keeper) GetPrecompileInstance(
 	ctx sdktypes.Context,
 	address common.Address,
-) (*Precompiles, bool, error) {
+) (_ *Precompiles, _ bool, err error) {
+	ctx, span := ctx.StartSpan(tracer, "GetPrecompileInstance", trace.WithAttributes(
+		attribute.String("address", address.Hex()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	params := k.GetParams(ctx)
 	// Get the precompile from the static precompiles
 	if precompile, found, err := k.GetStaticPrecompileInstance(&params, address); err != nil {
@@ -54,7 +61,11 @@ func (k *Keeper) GetPrecompileInstance(
 // GetPrecompilesCallHook returns a closure that can be used to instantiate the EVM with a specific
 // precompile instance.
 func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
+	return func(evm *vm.EVM, _ common.Address, recipient common.Address) (err error) {
+		ctx, span := ctx.StartSpan(tracer, "PrecompileCallHook", trace.WithAttributes(
+			attribute.String("recipient", recipient.Hex()),
+		))
+		defer func() { evmtrace.EndSpanErr(span, err) }()
 		// Check if the recipient is a precompile contract and if so, load the precompile instance
 		precompiles, found, err := k.GetPrecompileInstance(ctx, recipient)
 		if err != nil {
@@ -77,6 +88,10 @@ func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
 func (k *Keeper) GetPrecompilesCallHookWithOverrides(ctx sdktypes.Context) types.CallHook {
 	baseHook := k.GetPrecompilesCallHook(ctx)
 	return func(evm *vm.EVM, caller common.Address, recipient common.Address) error {
+		_, span := ctx.StartSpan(tracer, "GetPrecompilesCallHookWithOverrides", trace.WithAttributes(
+			attribute.String("recipient", recipient.Hex()),
+		))
+		defer func() { evmtrace.EndSpanErr(span, nil) }()
 		// Check if the EVM already has precompiles set (including moved precompiles from overrides)
 		activePrecompiles := evm.ActivePrecompiles()
 		if len(activePrecompiles) > 0 {

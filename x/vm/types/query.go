@@ -15,7 +15,7 @@ func (egr EstimateGasResponse) Failed() bool {
 
 // Apply applies the state overrides to the given context's KVStore.
 // This allows overriding specific keys in the Cosmos SDK state during EVM calls.
-func (s *StoreStateDiff) Apply(ctx sdk.Context, storeKeys map[string]*storetypes.KVStoreKey) error {
+func (s *StoreStateDiff) Apply(ctx sdk.Context, storeKeys map[string]storetypes.StoreKey) error {
 	if s == nil {
 		return nil
 	}

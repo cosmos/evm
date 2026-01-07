@@ -55,21 +55,8 @@ func (k Keeper) OnRecvPacket(
 		WithKVGasConfig(storetypes.GasConfig{}).
 		WithTransientKVGasConfig(storetypes.GasConfig{})
 
-	// recipient (local chain address): accept hex or local bech32
-	recipientBz, err := k.addrCodec.StringToBytes(data.Receiver)
-	if err != nil {
-		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid recipient"))
-	}
-	recipient := sdk.AccAddress(recipientBz)
-
-	receiverAcc := k.accountKeeper.GetAccount(ctx, recipient)
-
-	// return acknowledgement without conversion if receiver is a module account
-	if types.IsModuleAccount(receiverAcc) {
-		return ack
-	}
-
-	// parse the transferred denom
+	// Parse the transferred denom early to check for early exit conditions
+	// before attempting to parse potentially foreign sender addresses (e.g. Penumbra)
 	token := transfertypes.Token{
 		Denom:  transfertypes.ExtractDenomFromPath(data.Denom),
 		Amount: data.Amount,
@@ -89,6 +76,20 @@ func (k Keeper) OnRecvPacket(
 	}
 	if coin.Denom == bondDenom {
 		// no-op, received coin is the staking denomination
+		return ack
+	}
+
+	// recipient (local chain address): accept hex or local bech32
+	recipientBz, err := k.addrCodec.StringToBytes(data.Receiver)
+	if err != nil {
+		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid recipient"))
+	}
+	recipient := sdk.AccAddress(recipientBz)
+
+	receiverAcc := k.accountKeeper.GetAccount(ctx, recipient)
+
+	// return acknowledgement without conversion if receiver is a module account
+	if types.IsModuleAccount(receiverAcc) {
 		return ack
 	}
 
@@ -139,13 +140,13 @@ func (k Keeper) OnRecvPacket(
 		}
 
 		// For now the only case we are interested in adding telemetry is a successful conversion.
-		telemetry.IncrCounterWithLabels(
+		telemetry.IncrCounterWithLabels( //nolint:staticcheck // TODO: fix
 			[]string{types.ModuleName, "ibc", "on_recv", "total"},
 			1,
 			[]metrics.Label{
-				telemetry.NewLabel("denom", coin.Denom),
-				telemetry.NewLabel("source_channel", packet.SourceChannel),
-				telemetry.NewLabel("source_port", packet.SourcePort),
+				telemetry.NewLabel("denom", coin.Denom),                    //nolint:staticcheck // TODO: fix
+				telemetry.NewLabel("source_channel", packet.SourceChannel), //nolint:staticcheck // TODO: fix
+				telemetry.NewLabel("source_port", packet.SourcePort),       //nolint:staticcheck // TODO: fix
 			},
 		)
 	}
@@ -237,7 +238,7 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(sender), sender); err != nil {
 			// We want to record only the failed attempt to reconvert the coins during IBC.
 			defer func() {
-				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total")
+				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total") //nolint:staticcheck // TODO: fix
 			}()
 			ctx.EventManager().EmitEvents(
 				sdk.Events{

@@ -78,7 +78,7 @@ func (s *TestSuite) TestGetLogs() {
 			s.SetupTest()
 
 			tc.registerMock(tc.blockHash)
-			logs, err := s.backend.GetLogs(tc.blockHash)
+			logs, err := s.backend.GetLogs(s.Ctx(), tc.blockHash)
 
 			if tc.expPass {
 				s.Require().NoError(err)
