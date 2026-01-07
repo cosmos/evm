@@ -108,7 +108,7 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 	genesis := big.NewInt(0)
 
 	start := time.Now()
-	defer func(t0 time.Time) { collectorWaitDuration.UpdateSince(t0) }(start)
+	defer func(t0 time.Time) { collectorDuration.UpdateSince(t0) }(start)
 
 	for {
 		c.mu.RLock()
