@@ -35,6 +35,9 @@ func newInsertQueue(pool txpool.SubPool, logger log.Logger) *insertQueue {
 }
 
 func (iq *insertQueue) Push(tx *ethtypes.Transaction) {
+	if tx == nil {
+		return
+	}
 	iq.queue.PushBack(tx)
 }
 
@@ -46,15 +49,15 @@ func (iq *insertQueue) loop() {
 		default:
 			numTxsAvailable := iq.queue.Len()
 			if numTxsAvailable > 0 {
-				tx := iq.queue.PopFront()
-				errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
-				if len(errs) != 1 {
-					panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+				if tx := iq.queue.PopFront(); tx != nil {
+					errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
+					if len(errs) != 1 {
+						panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+					}
+					if errs[0] != nil {
+						iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
+					}
 				}
-				if errs[0] != nil {
-					iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
-				}
-
 				if numTxsAvailable-1 > 0 {
 					// there are still txs available, try and insert immediately again
 					continue
