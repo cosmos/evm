@@ -7,10 +7,13 @@ import (
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
-	"github.com/cosmos/evm/mempool/txpool"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gammazero/deque"
 )
+
+type TxPool interface {
+	Add(txs []*ethtypes.Transaction, sync bool) []error
+}
 
 // insertQueue allows for txs to be pushed into a pool asynchronously.
 type insertQueue struct {
@@ -23,15 +26,15 @@ type insertQueue struct {
 	// the queue, to know when there are new txs available.
 	signal chan struct{}
 
-	// pool is the pool that txs will be inserted into.
-	pool txpool.SubPool
+	// pool is the txPool that txs will be added to.
+	pool TxPool
 
 	logger log.Logger
 	done   chan struct{}
 }
 
 // newInsertQueue creates a new insertQueue
-func newInsertQueue(pool txpool.SubPool, logger log.Logger) *insertQueue {
+func newInsertQueue(pool TxPool, logger log.Logger) *insertQueue {
 	iq := &insertQueue{
 		pool:   pool,
 		logger: logger,
