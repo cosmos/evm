@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/log"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/log"
 )
 
 // mockTxPool is a mock implementation of TxPool for testing
@@ -44,12 +45,6 @@ func (m *mockTxPool) getTxs() []*ethtypes.Transaction {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.txs
-}
-
-func (m *mockTxPool) setAddError(err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.addErr = err
 }
 
 func (m *mockTxPool) setAddFn(fn func([]*ethtypes.Transaction, bool) []error) {
@@ -153,8 +148,9 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	// Push a bunch of transactions and verify that we did not have to wait for
 	// the 200 ms to add the first tx.
 	start := time.Now()
-	for i := 0; i < 100; i++ {
-		tx := ethtypes.NewTransaction(uint64(i+2), [20]byte{byte(i + 2)}, nil, 21000, nil, nil)
+	var nonce uint64
+	for nonce = 0; nonce < 100; nonce++ {
+		tx := ethtypes.NewTransaction(nonce+2, [20]byte{byte(nonce + 2)}, nil, 21000, nil, nil)
 		iq.Push(tx)
 	}
 	require.Less(t, time.Since(start), 100*time.Millisecond, "pushes should not block")

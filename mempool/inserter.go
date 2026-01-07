@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/gammazero/deque"
+
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/gammazero/deque"
 )
 
 type TxPool interface {
@@ -65,8 +66,7 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction) {
 func (iq *insertQueue) loop() {
 	for {
 		numTxsAvailable := iq.queue.Len()
-		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size") //nolint:staticcheck // TODO: switch to OpenTelemetry
-
+		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size")
 		if numTxsAvailable > 0 {
 			if tx := iq.queue.PopFront(); tx != nil {
 				iq.addTx(tx)
@@ -97,7 +97,7 @@ func (iq *insertQueue) loop() {
 // addTx adds a tx to the pool, logging an error if any occurred.
 func (iq *insertQueue) addTx(tx *ethtypes.Transaction) {
 	defer func(t0 time.Time) {
-		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck // TODO: switch to OpenTelemetry
+		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck
 	}(time.Now())
 
 	errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)

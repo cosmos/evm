@@ -284,8 +284,21 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 
 	switch {
 	case err == nil:
-		m.iq.Push(ethMsg.AsTransaction())
-		return nil
+		ethTx := ethMsg.AsTransaction()
+
+		if !sync {
+			m.iq.Push(ethTx)
+			return nil
+		}
+
+		errs := m.txPool.Add([]*ethtypes.Transaction{ethTx}, sync)
+		if len(errs) != 1 {
+			panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+		}
+		if errs[0] != nil {
+			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
+		}
+		return errs[0]
 	case errors.Is(err, ErrNotEVMTransaction):
 		return m.insertCosmosTx(ctx, tx)
 	default:
@@ -401,7 +414,7 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
 func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
-	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_selectby_duration") }(time.Now()) //nolint:staticcheck // TODO: switch to OpenTelemetry
+	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_selectby_duration") }(time.Now()) //nolint:staticcheck
 
 	iter := m.buildIterator(goCtx, txs)
 
@@ -413,7 +426,7 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, f
 // buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
 // block height and then returns a combined iterator over EVM & Cosmos txs.
 func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
-	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_builditerator_duration") }(time.Now()) //nolint:staticcheck // TODO: switch to OpenTelemetry
+	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_builditerator_duration") }(time.Now()) //nolint:staticcheck
 
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
