@@ -6,6 +6,7 @@ import (
 
 	"cosmossdk.io/log"
 
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	"github.com/cosmos/evm/mempool/txpool"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gammazero/deque"
@@ -48,9 +49,13 @@ func (iq *insertQueue) loop() {
 			return
 		default:
 			numTxsAvailable := iq.queue.Len()
+			telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size") //nolint:staticcheck // TODO: switch to OpenTelemetry
+
 			if numTxsAvailable > 0 {
 				if tx := iq.queue.PopFront(); tx != nil {
+					start := time.Now()
 					errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
+					telemetry.MeasureSince(start, "expmempool_inserter_add") //nolint:staticcheck // TODO: switch to OpenTelemetry
 					if len(errs) != 1 {
 						panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
 					}
