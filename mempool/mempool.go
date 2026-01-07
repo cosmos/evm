@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/holiman/uint256"
 
 	cmttypes "github.com/cometbft/cometbft/types"
@@ -32,10 +31,6 @@ import (
 )
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
-
-var (
-	selectByDurationTimer = metrics.NewRegisteredTimer("mempool/selectbytime", nil)
-)
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
@@ -80,6 +75,9 @@ type (
 
 		/** Transaction Tracking **/
 		txTracker *txTracker
+
+		/** Transaction Inserting **/
+		iq *insertQueue
 	}
 )
 
@@ -210,6 +208,7 @@ func NewExperimentalEVMMempool(
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(txEncoder),
 		txTracker:                newTxTracker(),
+		iq:                       newInsertQueue(legacyPool, logger),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -301,18 +300,9 @@ func (m *ExperimentalEVMMempool) insertEVMTx(_ context.Context, tx *ethtypes.Tra
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	hash := tx.Hash()
-	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
+	m.iq.Push(tx)
 
-	errs := m.txPool.Add([]*ethtypes.Transaction{tx}, sync)
-	if len(errs) != 1 {
-		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-	}
-	if errs[0] != nil {
-		m.logger.Error("failed to insert EVM transaction", "tx_hash", hash, "err", errs[0])
-	}
-
-	return errs[0]
+	return nil
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
