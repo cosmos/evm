@@ -6,6 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/evm/evmd/app"
+	evmconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	"github.com/cosmos/evm/testutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,10 +34,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/crypto/hd"
-	"github.com/cosmos/evm/evmd"
-	evmconfig "github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/server/config"
-	evmtestutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 
 	"cosmossdk.io/log"
@@ -42,8 +44,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/codec"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -75,18 +75,18 @@ type Config struct {
 	KeyringOptions           []keyring.Option // keyring configuration options
 	Codec                    codec.Codec
 	LegacyAmino              *codec.LegacyAmino // TODO: Remove!
-	InterfaceRegistry        codectypes.InterfaceRegistry
+	InterfaceRegistry        types.InterfaceRegistry
 	TxConfig                 client.TxConfig
 	AccountRetriever         client.AccountRetriever
-	AppConstructor           AppConstructor           // the ABCI application constructor
-	GenesisState             evmtestutil.GenesisState // custom gensis state to provide
-	TimeoutCommit            time.Duration            // the consensus commitment timeout
-	AccountTokens            math.Int                 // the amount of unique validator tokens (e.g. 1000node0)
-	StakingTokens            math.Int                 // the amount of tokens each validator has available to stake
-	BondedTokens             math.Int                 // the amount of tokens each validator stakes (used if BondedTokensPerValidator is nil)
-	BondedTokensPerValidator []math.Int               // optional per-validator bonded tokens (overrides BondedTokens if set)
-	NumValidators            int                      // the total number of validators to create and bond
-	ChainID                  string                   // the network chain-id
+	AppConstructor           AppConstructor        // the ABCI application constructor
+	GenesisState             testutil.GenesisState // custom gensis state to provide
+	TimeoutCommit            time.Duration         // the consensus commitment timeout
+	AccountTokens            math.Int              // the amount of unique validator tokens (e.g. 1000node0)
+	StakingTokens            math.Int              // the amount of tokens each validator has available to stake
+	BondedTokens             math.Int              // the amount of tokens each validator stakes (used if BondedTokensPerValidator is nil)
+	BondedTokensPerValidator []math.Int            // optional per-validator bonded tokens (overrides BondedTokens if set)
+	NumValidators            int                   // the total number of validators to create and bond
+	ChainID                  string                // the network chain-id
 	EVMChainID               uint64
 	BondDenom                string // the staking bond denomination
 	MinGasPrices             string // the minimum gas prices each validator will accept
@@ -110,11 +110,11 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
+	tempApp := app.New(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
-		TxConfig:          tempApp.TxConfig(),
+		TxConfig:          tempApp.GetTxConfig(),
 		LegacyAmino:       tempApp.LegacyAmino(),
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
 		AccountRetriever:  authtypes.AccountRetriever{},
@@ -140,7 +140,7 @@ func DefaultConfig() Config {
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
 func NewAppConstructor(chainID string) AppConstructor {
 	return func(val Validator) servertypes.Application {
-		return evmd.NewExampleApp(
+		return app.New(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
@@ -202,8 +202,8 @@ type (
 // Logger is a network logger interface that exposes testnet-level Log() methods for an in-process testing network
 // This is not to be confused with logging that may happen at an individual node or validator level
 type Logger interface {
-	Log(args ...interface{})
-	Logf(format string, args ...interface{})
+	Log(args ...any)
+	Logf(format string, args ...any)
 }
 
 var (
@@ -215,11 +215,11 @@ type CLILogger struct {
 	cmd *cobra.Command
 }
 
-func (s CLILogger) Log(args ...interface{}) {
+func (s CLILogger) Log(args ...any) {
 	s.cmd.Println(args...)
 }
 
-func (s CLILogger) Logf(format string, args ...interface{}) {
+func (s CLILogger) Logf(format string, args ...any) {
 	s.cmd.Printf(format, args...)
 }
 
@@ -249,13 +249,13 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 	var (
 		genAccounts []authtypes.GenesisAccount
 		genBalances []banktypes.Balance
-		genFiles    []string
+		genFiles    []string //nolint: prealloc
 	)
 
 	buf := bufio.NewReader(os.Stdin)
 
 	// generate private keys, node IDs, and initial transactions
-	for i := 0; i < cfg.NumValidators; i++ {
+	for i := range cfg.NumValidators {
 		appCfg := config.DefaultConfig()
 		appCfg.Pruning = cfg.PruningStrategy
 		appCfg.MinGasPrices = cfg.MinGasPrices
@@ -275,13 +275,13 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		appCfg.GRPC.Enable = false
 		appCfg.GRPCWeb.Enable = false
 		appCfg.JSONRPC.Enable = false
-		apiListenAddr := ""
+		var apiListenAddr string
 		if i == 0 {
 			if cfg.APIAddress != "" {
 				apiListenAddr = cfg.APIAddress
 			} else {
 				if len(portPool) == 0 {
-					return nil, fmt.Errorf("failed to get port for API server")
+					return nil, errors.New("failed to get port for API server")
 				}
 				port := <-portPool
 				apiListenAddr = fmt.Sprintf("tcp://0.0.0.0:%s", port)
@@ -292,13 +292,13 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			if err != nil {
 				return nil, err
 			}
-			apiAddr = fmt.Sprintf("http://%s:%s", apiURL.Hostname(), apiURL.Port())
+			apiAddr = fmt.Sprintf("http://%s:%s", apiURL.Hostname(), apiURL.Port()) //nolint: revive
 
 			if cfg.RPCAddress != "" {
 				cmtCfg.RPC.ListenAddress = cfg.RPCAddress
 			} else {
 				if len(portPool) == 0 {
-					return nil, fmt.Errorf("failed to get port for RPC server")
+					return nil, errors.New("failed to get port for RPC server")
 				}
 				port := <-portPool
 				cmtCfg.RPC.ListenAddress = fmt.Sprintf("tcp://0.0.0.0:%s", port)
@@ -308,7 +308,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 				appCfg.GRPC.Address = cfg.GRPCAddress
 			} else {
 				if len(portPool) == 0 {
-					return nil, fmt.Errorf("failed to get port for GRPC server")
+					return nil, errors.New("failed to get port for GRPC server")
 				}
 				port := <-portPool
 				appCfg.GRPC.Address = fmt.Sprintf("0.0.0.0:%s", port)
@@ -320,7 +320,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 				appCfg.JSONRPC.Address = cfg.JSONRPCAddress
 			} else {
 				if len(portPool) == 0 {
-					return nil, fmt.Errorf("failed to get port for JSON-RPC server")
+					return nil, errors.New("failed to get port for JSON-RPC server")
 				}
 				port := <-portPool
 				appCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%s", port)
@@ -356,14 +356,14 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		monikers[i] = nodeDirName
 
 		if len(portPool) == 0 {
-			return nil, fmt.Errorf("failed to get port for Proxy server")
+			return nil, errors.New("failed to get port for Proxy server")
 		}
 		port := <-portPool
 		proxyAddr := fmt.Sprintf("tcp://0.0.0.0:%s", port)
 		cmtCfg.ProxyApp = proxyAddr
 
 		if len(portPool) == 0 {
-			return nil, fmt.Errorf("failed to get port for Proxy server")
+			return nil, errors.New("failed to get port for Proxy server")
 		}
 		port = <-portPool
 		p2pAddr := fmt.Sprintf("tcp://0.0.0.0:%s", port)
@@ -717,6 +717,8 @@ func trapSignal(cleanupFunc func()) {
 			exitCode += int(syscall.SIGINT)
 		case syscall.SIGTERM:
 			exitCode += int(syscall.SIGTERM)
+		default:
+			exitCode += int(syscall.SIGKILL)
 		}
 
 		os.Exit(exitCode)
