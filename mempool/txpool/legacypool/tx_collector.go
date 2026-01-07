@@ -101,6 +101,8 @@ func (c *txCollector) StartNewHeight(height *big.Int) func() {
 // been reached by the collector, it will wait until the context times out or
 // the height is reached.
 func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+	genesis := big.NewInt(0)
+
 	start := time.Now()
 	for {
 		c.mu.RLock()
@@ -120,12 +122,26 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 			done := c.noMoreTxs
 			c.mu.RUnlock()
 
+			// If we're at genesis, we will not get the signal from the mempool
+			// that no more txs will arrive, since the mempool is not going to
+			// be reset at this height, therefore we simply return any txs that
+			// have been added to the collector at this point
+			if c.currentHeight.Cmp(genesis) == 0 {
+				collectorWaitDuration.UpdateSince(start)
+				ts := txs.Get(filter)
+				return ts
+			}
+
+			// Not at genesis, we must wait for the mempool to signal that it
+			// has been reset fully at this height, or we have timed out
+			// waiting for that to occur and we return incomplete results.
 			select {
 			case <-done:
 				collectorComplete.Mark(1)
 			case <-ctx.Done():
 				collectorTimeout.Mark(1)
 			}
+
 			collectorWaitDuration.UpdateSince(start)
 			ts := txs.Get(filter)
 			return ts
