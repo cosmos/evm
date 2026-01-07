@@ -10,6 +10,7 @@ import (
 
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -522,7 +523,9 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			WithChainID(genDoc.ChainID)
 	}
 
-	grpcSrv, clientCtx, err := server.StartGrpcServer(ctx, g, config.GRPC, clientCtx, svrCtx, app)
+	grpcSrv, clientCtx, err := server.StartGrpcServer(ctx, g, config.GRPC, clientCtx, svrCtx, app,
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
 	if err != nil {
 		return err
 	}
