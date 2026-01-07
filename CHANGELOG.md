@@ -11,6 +11,7 @@
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
+- [\#917](https://github.com/cosmos/evm/pull/917) Change GetCoinbaseAddress to return nil error instead of failing when validator cannot be retrieved from block proposer address, enabling ICS consumer chain support.
 
 ### FEATURES
 

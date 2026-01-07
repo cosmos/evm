@@ -171,14 +171,14 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 			true,
 		},
 		{
-			"validator not found",
+			"validator not found - returns zero address without error",
 			func() sdk.Context {
 				header := s.Network.GetContext().BlockHeader()
 				header.ProposerAddress = []byte{1, 2, 3}
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
-			false,
-			false,
+			true,
+			true,
 		},
 		{
 			"success",
