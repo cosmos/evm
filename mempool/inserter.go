@@ -12,15 +12,25 @@ import (
 	"github.com/gammazero/deque"
 )
 
+// insertQueue allows for txs to be pushed into a pool asynchronously.
 type insertQueue struct {
-	queue  deque.Deque[*ethtypes.Transaction]
+	// queue is a queue of txs to be inserted into the pool. txs are pushed
+	// onto the back, and popped from the from, FIFO.
+	queue deque.Deque[*ethtypes.Transaction]
+
+	// signal signals that there are txs available in the queue. Consumers of
+	// the queue should wait on this channel after they have popped all txs off
+	// the queue, to know when there are new txs available.
 	signal chan struct{}
-	pool   txpool.SubPool
+
+	// pool is the pool that txs will be inserted into.
+	pool txpool.SubPool
 
 	logger log.Logger
 	done   chan struct{}
 }
 
+// newInsertQueue creates a new insertQueue
 func newInsertQueue(pool txpool.SubPool, logger log.Logger) *insertQueue {
 	iq := &insertQueue{
 		pool:   pool,
@@ -33,6 +43,7 @@ func newInsertQueue(pool txpool.SubPool, logger log.Logger) *insertQueue {
 	return iq
 }
 
+// Push enqueues a tx to eventually be added to the pool.
 func (iq *insertQueue) Push(tx *ethtypes.Transaction) {
 	if tx == nil {
 		return
@@ -46,6 +57,8 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction) {
 	}
 }
 
+// loop is the main loop of the insertQueue. This will pop txs off the front of
+// the queue and try to add them to the pool.
 func (iq *insertQueue) loop() {
 	for {
 		numTxsAvailable := iq.queue.Len()
@@ -53,19 +66,18 @@ func (iq *insertQueue) loop() {
 
 		if numTxsAvailable > 0 {
 			if tx := iq.queue.PopFront(); tx != nil {
-				start := time.Now()
-				errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
-				telemetry.MeasureSince(start, "expmempool_inserter_add") //nolint:staticcheck // TODO: switch to OpenTelemetry
-				if len(errs) != 1 {
-					panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-				}
-				if errs[0] != nil {
-					iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
-				}
+				iq.addTx(tx)
 			}
+
 			if numTxsAvailable-1 > 0 {
-				// there are still txs available, try and insert immediately again
-				continue
+				// there are still txs available, try and insert immediately
+				// again, unless cancelled
+				select {
+				case <-iq.done:
+					return
+				default:
+					continue
+				}
 			}
 		}
 
@@ -79,6 +91,22 @@ func (iq *insertQueue) loop() {
 	}
 }
 
+// addTx adds a tx to the pool, logging an error if any occurred.
+func (iq *insertQueue) addTx(tx *ethtypes.Transaction) {
+	defer func(t0 time.Time) {
+		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck // TODO: switch to OpenTelemetry
+	}(time.Now())
+
+	errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
+	if len(errs) != 1 {
+		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+	}
+	if errs[0] != nil {
+		iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
+	}
+}
+
+// Close stops the main loop of the insert queue.
 func (iq *insertQueue) Close() {
 	close(iq.done)
 }
