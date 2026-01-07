@@ -72,6 +72,8 @@ func SetChainConfig(cc *ChainConfig) error {
 	}
 
 	chainConfig = config
+
+	gethChainConfig = nil
 	gethChainConfig = config.EthereumConfig(nil)
 
 	return nil
