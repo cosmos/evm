@@ -65,10 +65,13 @@ func NewMonoDecoratorUtils(
 	// If it is already a 18 decimal token, this is a no-op.
 	mempoolMinGasPrice := evmtypes.ConvertAmountTo18DecimalsLegacy(ctx.MinGasPrices().AmountOf(evmDenom))
 
+	//#nosec G115 -- int overflow is not a concern here
+	signer := ethtypes.MakeSigner(ethCfg, blockHeight, uint64(ctx.BlockTime().Unix()))
+
 	return &DecoratorUtils{
 		EvmParams:          *evmParams,
 		Rules:              rules,
-		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight, uint64(ctx.BlockTime().Unix())), //#nosec G115 -- int overflow is not a concern here
+		Signer:             signer,
 		BaseFee:            baseFee,
 		MempoolMinGasPrice: mempoolMinGasPrice,
 		GlobalMinGasPrice:  globalMinGasPrice,
