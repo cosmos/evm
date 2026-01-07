@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -236,7 +237,7 @@ func (s *TestSuite) TestFindEthTxIndexByHash() {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			block, blockRes := tc.setupMock()
 
-			idx, err := backend2.FindEthTxIndexByHash(tc.txHash, block, blockRes, s.backend)
+			idx, err := backend2.FindEthTxIndexByHash(context.Background(), tc.txHash, block, blockRes, s.backend)
 
 			if tc.expectError {
 				s.Require().Error(err)
