@@ -35,6 +35,7 @@
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
 - [\#828](https://github.com/cosmos/evm/pull/828) Validate decimals before conversion to prevent panic when coininfo is missing in historical queries.
 - [\#905](https://github.com/cosmos/evm/pull/905) Fix EIP-6780 selfdestruct to properly delete contracts at pre-funded addresses by persisting code and account before DeleteAccount's IsContract check.
+- [\#920](https://github.com/cosmos/evm/pull/920) Fix GetCoinbaseAddress to correctly convert validator operator address from Bech32 format to Ethereum address for block.coinbase opcode.
 
 ## v0.5.0
 
