@@ -7,10 +7,13 @@ import (
 
 	evmtrace "github.com/cosmos/evm/trace"
 
+	errorsmod "cosmossdk.io/errors"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// GetCoinbaseAddress returns the block proposer's validator operator address.
+// GetCoinbaseAddress converts the block proposer's validator operator address to an Ethereum address
+// for use as block.coinbase in the EVM.
 // Returns zero address if any error occurs.
 func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddress) (_ common.Address, err error) {
 	ctx, span := ctx.StartSpan(tracer, "GetCoinbaseAddress", trace.WithAttributes(
@@ -27,8 +30,15 @@ func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddr
 		return common.Address{}, nil
 	}
 
-	coinbase := common.BytesToAddress([]byte(validator.GetOperator()))
-	return coinbase, nil
+	bz, err := sdk.ValAddressFromBech32(validator.GetOperator())
+	if err != nil {
+		return common.Address{}, errorsmod.Wrapf(
+			err,
+			"failed to convert validator operator address %s to bytes",
+			validator.GetOperator(),
+		)
+	}
+	return common.BytesToAddress(bz), nil
 }
 
 // GetProposerAddress returns current block proposer's address when provided proposer address is empty.
