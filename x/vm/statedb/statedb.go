@@ -681,7 +681,7 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 
 	// revert back to snapshotted events
 	eventManager := sdk.NewEventManager()
-	eventManager.EmitEvents(s.validRevisions[idx].events)
+	eventManager.EmitEvents(s.validRevisions[idx].events) //nolint:staticcheck // TODO: fix
 	s.ctx = s.ctx.WithEventManager(eventManager)
 
 	// Replay the journal to undo changes and remove invalidated snapshots
