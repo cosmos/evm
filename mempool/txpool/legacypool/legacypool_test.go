@@ -17,7 +17,6 @@
 package legacypool
 
 import (
-	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"errors"
@@ -492,7 +491,7 @@ func TestQueue2(t *testing.T) {
 	pool.enqueueTx(tx2.Hash(), tx2, true)
 	pool.enqueueTx(tx3.Hash(), tx3, true)
 
-	pool.promoteExecutables([]common.Address{from}, nil)
+	pool.promoteExecutables([]common.Address{from}, nil, nil)
 	if len(pool.pending) != 1 {
 		t.Error("expected pending length to be 1, got", len(pool.pending))
 	}
@@ -2655,7 +2654,8 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for range 5 {
-			pool.runReorg(make(chan struct{}), nil, nil, nil)
+			input := reorgInput{done: make(chan struct{})}
+			pool.runReorg(input)
 		}
 	}()
 
@@ -2669,146 +2669,6 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	}()
 
 	wg.Wait()
-}
-
-// TestWaitForReorgHeight tests that WaitForReorgHeight properly blocks until
-// the reorg loop has completed for the specified height.
-func TestWaitForReorgHeight(t *testing.T) {
-	t.Run("waits for reorg to complete", func(t *testing.T) {
-		pool, _, _ := setupPool()
-		defer pool.Close()
-
-		if pool.latestReorgHeight.Load() != 0 {
-			t.Fatalf("expected initial height 0, got %d", pool.latestReorgHeight.Load())
-		}
-
-		// Create headers for the reset
-		oldHead := &types.Header{Number: big.NewInt(0), BaseFee: big.NewInt(10)}
-		newHead := &types.Header{Number: big.NewInt(5), BaseFee: big.NewInt(10)}
-
-		var reorgCompleted atomic.Bool
-		var waitCompleted atomic.Bool
-		var wg sync.WaitGroup
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx := context.Background()
-			pool.WaitForReorgHeight(ctx, 5)
-			waitCompleted.Store(true)
-		}()
-
-		// Give the waiter a chance to subscribe
-		time.Sleep(50 * time.Millisecond)
-
-		wg.Add(1)
-		go func() {
-			pool.Reset(oldHead, newHead)
-			reorgCompleted.Store(true)
-			wg.Done()
-		}()
-
-		// Wait for waiters
-		waitChan := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitChan)
-		}()
-		select {
-		case <-waitChan:
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for waiters")
-		}
-
-		if pool.latestReorgHeight.Load() != newHead.Number.Int64() {
-			t.Errorf("expected height 5 after reorg, got %d", pool.latestReorgHeight.Load())
-		}
-		if !reorgCompleted.Load() {
-			t.Errorf("WaitForReorgHeight returned before reorg completed")
-		}
-	})
-
-	t.Run("multiple height wait", func(t *testing.T) {
-		pool, _, _ := setupPool()
-		defer pool.Close()
-
-		if pool.latestReorgHeight.Load() != 0 {
-			t.Fatalf("expected initial height 0, got %d", pool.latestReorgHeight.Load())
-		}
-
-		var waitCompleted atomic.Bool
-		var wg sync.WaitGroup
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx := context.Background()
-			pool.WaitForReorgHeight(ctx, 10)
-			waitCompleted.Store(true)
-		}()
-
-		// Give the waiter a chance to subscribe
-		time.Sleep(50 * time.Millisecond)
-
-		go func() {
-			for i := 0; i < 20; i++ {
-				oldHead := &types.Header{Number: big.NewInt(int64(i)), BaseFee: big.NewInt(10)}
-				newHead := &types.Header{Number: big.NewInt(int64(i + 1)), BaseFee: big.NewInt(10)}
-				pool.Reset(oldHead, newHead)
-			}
-		}()
-
-		// Wait for waiters
-		waitChan := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitChan)
-		}()
-
-		select {
-		case <-waitChan:
-		case <-time.After(2 * time.Second):
-			t.Fatal("timeout waiting for waiters")
-		}
-
-		if pool.latestReorgHeight.Load() < 10 {
-			t.Errorf("expected height >= 10 after reorg, got %d", pool.latestReorgHeight.Load())
-		}
-	})
-
-	t.Run("concurrent waiters", func(t *testing.T) {
-		pool, _, _ := setupPool()
-		defer pool.Close()
-
-		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
-			wg.Add(1)
-			go func(id int) {
-				defer wg.Done()
-				pool.WaitForReorgHeight(context.Background(), 7)
-			}(i)
-		}
-
-		// Give all waiters time to subscribe
-		time.Sleep(100 * time.Millisecond)
-
-		// Trigger a single reorg
-		oldHead := &types.Header{Number: big.NewInt(0), BaseFee: big.NewInt(10)}
-		newHead := &types.Header{Number: big.NewInt(7), BaseFee: big.NewInt(10)}
-		pool.Reset(oldHead, newHead)
-
-		// Wait for all waiters to complete
-		waitChan := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitChan)
-		}()
-		select {
-		case <-waitChan:
-		case <-time.After(2 * time.Second):
-			t.Errorf("not all waiters completed in 2 seconds")
-		}
-	})
 }
 
 // TestPromoteExecutablesRecheckTx tests that promoteExecutables properly removes
@@ -2984,6 +2844,84 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool.mu.RUnlock()
 }
 
+// TestResetCancellation tests that when a reset is in progress and CancelReset
+// is called, resetting the pool is stopped.
+func TestResetCancellation(t *testing.T) {
+	pool, rechecker, _ := setupPool()
+	defer pool.Close()
+
+	// Create many accounts with multiple transactions each
+	numAccounts := 20
+	txsPerAccount := 10
+	accounts := make([]*ecdsa.PrivateKey, numAccounts)
+
+	for i := 0; i < numAccounts; i++ {
+		key, _ := crypto.GenerateKey()
+		accounts[i] = key
+		addr := crypto.PubkeyToAddress(key.PublicKey)
+		testAddBalance(pool, addr, big.NewInt(100000000000000))
+
+		// Add transactions to pending
+		for j := 0; j < txsPerAccount; j++ {
+			tx := transaction(uint64(j), 100000, key)
+			pool.addRemoteSync(tx)
+		}
+	}
+
+	// Verify all transactions are in pending
+	pool.mu.RLock()
+	totalPending := 0
+	for _, key := range accounts {
+		addr := crypto.PubkeyToAddress(key.PublicKey)
+		if list := pool.pending[addr]; list != nil {
+			totalPending += list.Len()
+		}
+	}
+	expectedTotal := numAccounts * txsPerAccount
+	if totalPending != expectedTotal {
+		t.Fatalf("Expected %d pending transactions, got %d", expectedTotal, totalPending)
+	}
+	pool.mu.RUnlock()
+
+	// Track how many transactions were processed
+	var processedCount atomic.Int64
+
+	// Set up rechecker to be slow so we can cancel mid-iteration
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		processedCount.Add(1)
+		time.Sleep(50 * time.Millisecond) // Make each recheck take time
+		return sdk.Context{}, nil
+	})
+
+	// Start reset in a goroutine
+	resetDone := make(chan struct{})
+	go func() {
+		header := pool.currentHead.Load()
+		header.BaseFee = big.NewInt(100)
+		pool.Reset(header, header)
+		close(resetDone)
+	}()
+
+	// Give reset time to start processing some transactions
+	time.Sleep(200 * time.Millisecond)
+
+	// Cancel the reset while it's still processing
+	pool.CancelReset()
+
+	// Wait for reset to complete
+	<-resetDone
+
+	// Verify that not all transactions were processed (because we cancelled early)
+	processed := processedCount.Load()
+	if processed >= int64(expectedTotal) {
+		t.Errorf("Expected fewer than %d transactions to be processed due to cancellation, but %d were processed", expectedTotal, processed)
+	}
+	// Verify that at least some transactions were processed before cancellation
+	if processed == 0 {
+		t.Error("Expected some transactions to be processed before cancellation")
+	}
+}
+
 // Benchmarks the speed of validating the contents of the pending queue of the
 // transaction pool.
 func BenchmarkPendingDemotion100(b *testing.B)   { benchmarkPendingDemotion(b, 100) }
@@ -3005,7 +2943,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(nil, nil)
 	}
 }
 
@@ -3030,7 +2968,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.promoteExecutables(nil, nil)
+		pool.promoteExecutables(nil, nil, nil)
 	}
 }
 

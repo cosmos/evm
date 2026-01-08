@@ -26,6 +26,7 @@ require (
 	github.com/creachadair/tomledit v0.0.28
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/ethereum/go-ethereum v1.16.5
+	github.com/gammazero/deque v1.2.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/mux v1.8.1
