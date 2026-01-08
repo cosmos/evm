@@ -531,12 +531,6 @@ func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
 // processing its current reset request since a new block arrived and the work
 // it is doing to reset at the current height will be invalidated.
 func (pool *LegacyPool) CancelReset() {
-	pool.requestCancelReset()
-}
-
-// requestCancelReset sends a request for a current running pool reset (if any)
-// to be cancelled.
-func (pool *LegacyPool) requestCancelReset() {
 	select {
 	case pool.reqCancelResetCh <- struct{}{}:
 		return
