@@ -139,6 +139,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// Perform some check before adding the precompile to the suite.
 
+			// Check if precisebank is required for this chain ID
+			// 6 and 12 decimals chains require precisebank, but 18 decimals chains don't
+			if integrationNetwork.App.GetPreciseBankKeeper() == nil {
+				if chainId != testconstants.ExampleChainID {
+					Skip("PreciseBankKeeper is required for 6 and 12 decimals chains but is not available")
+				}
+			}
+
 			// Check that WEVMOS is part of the native precompiles.
 			available := is.network.App.GetErc20Keeper().IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(is.precompileAddrHex))
 			Expect(available).To(
