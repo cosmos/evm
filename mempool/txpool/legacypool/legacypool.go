@@ -1548,10 +1548,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 	var promoted []*types.Transaction
 
 	// Get a branch of the latest pending context for recheck
-	ctx, write := pool.rechecker.GetContext()
+	// ctx, write := pool.rechecker.GetContext()
 
 	// Iterate over all accounts and promote any executable transactions
-	gasLimit := pool.currentHead.Load().GasLimit
+	// gasLimit := pool.currentHead.Load().GasLimit
 	for _, addr := range accounts {
 		if isReorgCancelled(reset, cancelled) {
 			queuedPromotedCancelled.Mark(1)
@@ -1561,6 +1561,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		if list == nil {
 			continue // Just in case someone calls with a non existing account
 		}
+
 		// Drop all transactions that are deemed too old (low nonce)
 		forwards := list.Forward(pool.currentState.GetNonce(addr))
 		for _, tx := range forwards {
@@ -1569,41 +1570,42 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 			queueRemovalMetric(RemovalReasonOld).Mark(1)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
-		// Drop all transactions that are too costly (low balance or out of gas)
-		costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
-		for _, tx := range costDrops {
-			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(addr, tx, Queue)
-			queueRemovalMetric(RemovalReasonCostly).Mark(1)
-		}
-		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
-		queuedNofundsMeter.Mark(int64(len(costDrops)))
 
-		// Drop all transactions that now fail the pools RecheckTxFn
+		// // Drop all transactions that are too costly (low balance or out of gas)
+		// costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
+		// for _, tx := range costDrops {
+		// 	pool.all.Remove(tx.Hash())
+		// 	pool.markTxRemoved(addr, tx, Queue)
+		// 	queueRemovalMetric(RemovalReasonCostly).Mark(1)
+		// }
+		// log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
+		// queuedNofundsMeter.Mark(int64(len(costDrops)))
 		//
-		// Note this is happening after the nonce removal above since this
-		// check is slower, we would like it to happen on the fewest txs as
-		// possible.
-		recheckStart := time.Now()
-		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.Recheck(ctx, tx)
-			if !newCtx.IsZero() {
-				ctx = newCtx
-			}
-			if err == nil && reset == nil {
-				// only write changes back to original context if we are not
-				// running in reset mode, i.e. a new block has not been seen
-				write()
-			}
-			return tolerateRecheckErr(err) != nil
-		})
-		for _, tx := range recheckDrops {
-			pool.all.Remove(tx.Hash())
-			pool.markTxRemoved(addr, tx, Queue)
-		}
-		log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
-		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
-		queuedRecheckDurationTimer.UpdateSince(recheckStart)
+		// // Drop all transactions that now fail the pools RecheckTxFn
+		// //
+		// // Note this is happening after the nonce removal above since this
+		// // check is slower, we would like it to happen on the fewest txs as
+		// // possible.
+		// recheckStart := time.Now()
+		// recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
+		// 	newCtx, err := pool.rechecker.Recheck(ctx, tx)
+		// 	if !newCtx.IsZero() {
+		// 		ctx = newCtx
+		// 	}
+		// 	if err == nil && reset == nil {
+		// 		// only write changes back to original context if we are not
+		// 		// running in reset mode, i.e. a new block has not been seen
+		// 		write()
+		// 	}
+		// 	return tolerateRecheckErr(err) != nil
+		// })
+		// for _, tx := range recheckDrops {
+		// 	pool.all.Remove(tx.Hash())
+		// 	pool.markTxRemoved(addr, tx, Queue)
+		// }
+		// log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
+		// queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		// queuedRecheckDurationTimer.UpdateSince(recheckStart)
 
 		// Gather all executable transactions and promote them
 		listLen := list.Len()
@@ -1618,19 +1620,20 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		log.Trace("Promoted queued transactions", "count", len(promoted))
 		queuedGauge.Dec(int64(len(readies)))
 
-		// Drop all transactions over the allowed limit
-		caps := list.Cap(int(pool.config.AccountQueue))
-		for _, tx := range caps {
-			hash := tx.Hash()
-			pool.all.Remove(hash)
-			pool.markTxRemoved(addr, tx, Queue)
-			queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
-			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
-		}
-		queuedRateLimitMeter.Mark(int64(len(caps)))
+		// // Drop all transactions over the allowed limit
+		// caps := list.Cap(int(pool.config.AccountQueue))
+		// for _, tx := range caps {
+		// 	hash := tx.Hash()
+		// 	pool.all.Remove(hash)
+		// 	pool.markTxRemoved(addr, tx, Queue)
+		// 	queueRemovalMetric(RemovalReasonCapExceeded).Mark(1)
+		// 	log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
+		// }
+		// queuedRateLimitMeter.Mark(int64(len(caps)))
 
 		// Mark all the items dropped as removed
-		totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		// totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
+		totalDropped := len(forwards)
 		pool.priced.Removed(totalDropped)
 		queuedGauge.Dec(int64(totalDropped))
 
@@ -1787,7 +1790,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	defer func(t0 time.Time) { demoteTimer.UpdateSince(t0) }(time.Now())
 
 	// Iterate over all accounts and demote any non-executable transactions
-	gasLimit := pool.currentHead.Load().GasLimit
+	// gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
 		if isReorgCancelled(reset, cancelled) {
 			pendingDemotedCancelled.Mark(1)
@@ -1805,56 +1808,56 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			log.Trace("Removed old pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonOld).Mark(1)
 		}
-		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, costInvalids := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
-		for _, tx := range drops {
-			hash := tx.Hash()
-			pool.all.Remove(hash)
-			pool.markTxRemoved(addr, tx, Pending)
-			log.Trace("Removed unpayable pending transaction", "hash", hash)
-			pendingRemovalMetric(RemovalReasonCostly).Mark(1)
-		}
-		pendingNofundsMeter.Mark(int64(len(drops)))
-		pendingDemotedCostly.Mark(int64(len(costInvalids)))
-
-		// Drop all transactions that now fail the pools RecheckTxFn
+		// // Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
+		// drops, costInvalids := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
+		// for _, tx := range drops {
+		// 	hash := tx.Hash()
+		// 	pool.all.Remove(hash)
+		// 	pool.markTxRemoved(addr, tx, Pending)
+		// 	log.Trace("Removed unpayable pending transaction", "hash", hash)
+		// 	pendingRemovalMetric(RemovalReasonCostly).Mark(1)
+		// }
+		// pendingNofundsMeter.Mark(int64(len(drops)))
+		// pendingDemotedCostly.Mark(int64(len(costInvalids)))
 		//
-		// Note this is happening after the nonce removal above since this
-		// check is slower, we would like it to happen on the fewest txs as
-		// possible.
-		recheckStart := time.Now()
-		ctx, write := pool.rechecker.GetContext()
-		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.Recheck(ctx, tx)
-			if !newCtx.IsZero() {
-				ctx = newCtx
-			}
-			if err == nil {
-				// always write changes back to the original context
-				write()
-			}
-			return tolerateRecheckErr(err) != nil
-		})
-
-		for _, tx := range recheckDrops {
-			hash := tx.Hash()
-			pool.all.Remove(hash)
-			pool.markTxRemoved(addr, tx, Pending)
-			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
-		}
-		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
-		pendingDemotedRecheck.Mark(int64(len(recheckInvalids)))
-		pendingRecheckDurationTimer.UpdateSince(recheckStart)
-
-		invalids := append(costInvalids, recheckInvalids...)
-		for _, tx := range invalids {
-			hash := tx.Hash()
-			log.Trace("Demoting pending transaction", "hash", hash)
-
-			// Internal shuffle shouldn't touch the lookup set.
-			pool.enqueueTx(hash, tx, false)
-		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(recheckDrops) + len(invalids)))
+		// // Drop all transactions that now fail the pools RecheckTxFn
+		// //
+		// // Note this is happening after the nonce removal above since this
+		// // check is slower, we would like it to happen on the fewest txs as
+		// // possible.
+		// recheckStart := time.Now()
+		// ctx, write := pool.rechecker.GetContext()
+		// recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
+		// 	newCtx, err := pool.rechecker.Recheck(ctx, tx)
+		// 	if !newCtx.IsZero() {
+		// 		ctx = newCtx
+		// 	}
+		// 	if err == nil {
+		// 		// always write changes back to the original context
+		// 		write()
+		// 	}
+		// 	return tolerateRecheckErr(err) != nil
+		// })
+		//
+		// for _, tx := range recheckDrops {
+		// 	hash := tx.Hash()
+		// 	pool.all.Remove(hash)
+		// 	pool.markTxRemoved(addr, tx, Pending)
+		// 	log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+		// }
+		// pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
+		// pendingDemotedRecheck.Mark(int64(len(recheckInvalids)))
+		// pendingRecheckDurationTimer.UpdateSince(recheckStart)
+		//
+		// invalids := append(costInvalids, recheckInvalids...)
+		// for _, tx := range invalids {
+		// 	hash := tx.Hash()
+		// 	log.Trace("Demoting pending transaction", "hash", hash)
+		//
+		// 	// Internal shuffle shouldn't touch the lookup set.
+		// 	pool.enqueueTx(hash, tx, false)
+		// }
+		// pendingGauge.Dec(int64(len(olds) + len(drops) + len(recheckDrops) + len(invalids)))
 
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
