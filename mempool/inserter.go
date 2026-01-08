@@ -76,7 +76,7 @@ func (iq *insertQueue) loop() {
 
 		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size")
 		if numTxsAvailable > 0 {
-			iq.lock.Unlock()
+			iq.lock.Lock()
 			tx := iq.queue.PopFront()
 			iq.lock.Unlock()
 
