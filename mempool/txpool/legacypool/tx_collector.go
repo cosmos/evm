@@ -226,6 +226,10 @@ func newTxs() *txs {
 	}
 }
 
+const (
+	maxCollection = 5_000
+)
+
 // Get returns the current set of txs.
 func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
 	// Do not support blob txs
@@ -280,6 +284,9 @@ func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.Lazy
 			}
 			numSelected += len(lazies)
 			pending[addr] = lazies
+			if numSelected > maxCollection {
+				break
+			}
 		}
 	}
 
