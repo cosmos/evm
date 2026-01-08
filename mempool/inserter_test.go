@@ -126,11 +126,8 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	pool := newMockTxPool()
 
 	// Make Add slow to allow queue to back up
-	var addCalled sync.WaitGroup
-	addCalled.Add(1)
 	pool.setAddFn(func(txs []*ethtypes.Transaction, sync bool) []error {
-		addCalled.Done()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(10 * time.Second)
 		return []error{nil}
 	})
 
@@ -142,8 +139,7 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	tx1 := ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil)
 	iq.Push(tx1)
 
-	// Wait for Add to be called
-	addCalled.Wait()
+	time.Sleep(100 * time.Millisecond)
 
 	// Push a bunch of transactions and verify that we did not have to wait for
 	// the 200 ms to add the first tx.
