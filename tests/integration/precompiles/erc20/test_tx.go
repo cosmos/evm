@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -352,6 +353,9 @@ func (s *PrecompileTestSuite) TestSend() {
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
 			bankKeeper := tc.malleate()
+			if pk, ok := bankKeeper.(*precisebankkeeper.Keeper); ok && pk == nil {
+				s.T().Skip("PreciseBankKeeper can be nil if the module is not necessary")
+			}
 			msgServ := erc20.NewMsgServerImpl(bankKeeper)
 			s.Require().NotNil(msgServ)
 			err := msgServ.Send(s.network.GetContext(), &types.MsgSend{

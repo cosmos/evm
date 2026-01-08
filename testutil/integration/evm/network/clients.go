@@ -87,7 +87,11 @@ func (n *IntegrationNetwork) GetMintClient() minttypes.QueryClient {
 }
 
 func (n *IntegrationNetwork) GetPreciseBankClient() precisebanktypes.QueryClient {
+	preciseBankKeeper := n.app.GetPreciseBankKeeper()
+	if preciseBankKeeper == nil {
+		return nil
+	}
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	precisebanktypes.RegisterQueryServer(queryHelper, precisebankkeeper.NewQueryServerImpl(*n.app.GetPreciseBankKeeper()))
+	precisebanktypes.RegisterQueryServer(queryHelper, precisebankkeeper.NewQueryServerImpl(*preciseBankKeeper))
 	return precisebanktypes.NewQueryClient(queryHelper)
 }
