@@ -8,6 +8,8 @@
 
 ### FEATURES
 
+- [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
+
 ### BUG FIXES
 
 - [\#690](https://github.com/cosmos/evm/pull/690) Fix Ledger hardware wallet support for coin type 60.
