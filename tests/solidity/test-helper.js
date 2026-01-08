@@ -316,7 +316,10 @@ function setupNetwork ({ runConfig, timeout }) {
     const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
     const scriptPath = path.join(rootDir, 'local_node.sh');  // → ".../evm/local_node.sh"
 
-    const osdProc = spawn(scriptPath, ['-y'], {
+    const localNodeArgs = ['-y', '--no-install']
+    localNodeArgs.push('--build-tags', 'all_precompiles')
+
+    const osdProc = spawn(scriptPath, localNodeArgs, {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
     })
