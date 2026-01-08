@@ -888,9 +888,8 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		pool.queueTxEvent(tx)
 
 		// tx went straight to the pending queue and bypassed the queue, mark
-		// it as promoted
-		// TODO: we need to run recheck here! this is a way to bypass recheck
-		pool.markTxPromoted(from, tx)
+		// it as replaced
+		pool.markTxReplaced(from, tx)
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
 		// Successful promotion, bump the heartbeat
@@ -2160,9 +2159,22 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
 }
 
-// markTxPromoted calls the OnTxPromoted callback if it has been supplied.
+// markTxPromoted calls the OnTxPromoted callback if it has been supplied and
+// includes the tx in the next valid pending txs set, i.e. to be included in
+// the next block, if selected by the application.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
 	pool.validPendingTxs.AddTx(addr, tx)
+	if pool.OnTxPromoted != nil {
+		pool.OnTxPromoted(tx)
+	}
+}
+
+// markTxReplaced calls the OnTxPromoted callback if it has been supplied and
+// does **not** include the tx in the next valid pending txs set. This is
+// because tx that are replacing other txs in the pending pool have not been
+// checked for validity yet via the Rechecker, thus we should wait until that
+// happens before adding them to the valid pending txs set.
+func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transaction) {
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}
