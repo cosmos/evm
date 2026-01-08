@@ -227,7 +227,7 @@ func newTxs() *txs {
 }
 
 const (
-	maxCollection = 5_000
+	maxCollection = 12_500
 )
 
 // Get returns the current set of txs.
