@@ -17,6 +17,7 @@
 - [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
+- [\#926](https://github.com/cosmos/evm/pull/926) Support non-18-decimal evm_denom with x/precisebank.
 
 ### BUG FIXES
 
