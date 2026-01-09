@@ -156,6 +156,17 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
 }
 
+func GetRecommit(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	if appOpts == nil {
+		// we don't want to return 0 here, as then appOpts.Get() will return nil and that will be
+		// "accidentally" cast to the correct evm max tx default of 0, thereby hiding the error
+		logger.Error("app options is nil, using default recommit (200ms)")
+		return 0
+	}
+
+	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolRecommit))
+}
+
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
 		// we don't want to return 0 here, as then appOpts.Get() will return nil and that will be
