@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
-	"go.opentelemetry.io/otel/metric"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -24,16 +24,13 @@ import (
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var (
-	_ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
-	// ethInFlightTxs measures the number of currently in flight evm mempool insertions
-	ethInFlightTxs metric.Float64UpDownCounter
-)
+var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
@@ -41,14 +38,6 @@ const (
 	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
 	fallbackBlockGasLimit = 100_000_000
 )
-
-func init() {
-	var err error
-	ethInFlightTxs, err = meter.Float64UpDownCounter("mempool.eth_inflight_txs")
-	if err != nil {
-		panic(err)
-	}
-}
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -60,10 +49,11 @@ type (
 		vmKeeper VMKeeperI
 
 		/** Mempools **/
-		txPool             *txpool.TxPool
-		legacyTxPool       *legacypool.LegacyPool
-		cosmosPool         sdkmempool.ExtMempool
-		operateExclusively bool
+		txPool                   *txpool.TxPool
+		legacyTxPool             *legacypool.LegacyPool
+		cosmosPool               sdkmempool.ExtMempool
+		operateExclusively       bool
+		pendingTxProposalTimeout time.Duration
 
 		/** Utils **/
 		logger        log.Logger
@@ -76,7 +66,7 @@ type (
 		anteHandler sdk.AnteHandler
 
 		/** Concurrency **/
-		mtx sync.Mutex
+		mu sync.Mutex
 
 		eventBus *cmttypes.EventBus
 
@@ -86,8 +76,8 @@ type (
 		/** Transaction Tracking **/
 		txTracker *txTracker
 
-		maxEthInFlightTxs int64
-		ethInFlightTxs    atomic.Int64
+		/** Transaction Inserting **/
+		iq *insertQueue
 	}
 )
 
@@ -105,8 +95,9 @@ type EVMMempoolConfig struct {
 	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
 	OperateExclusively bool
-	// MaxEthInFlightTxs max number of eth txs which can be pending insert at any given time.
-	MaxEthInFlightTxs int64
+	// PendingTxProposalTimeout is the max amount of time to allocate to
+	// fetching (or watiing to fetch) pending txs from the evm mempool.
+	PendingTxProposalTimeout time.Duration
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -203,20 +194,21 @@ func NewExperimentalEVMMempool(
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:           vmKeeper,
-		txPool:             txPool,
-		legacyTxPool:       txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:         cosmosPool,
-		logger:             logger,
-		txConfig:           txConfig,
-		blockchain:         blockchain,
-		blockGasLimit:      config.BlockGasLimit,
-		minTip:             config.MinTip,
-		anteHandler:        config.AnteHandler,
-		operateExclusively: config.OperateExclusively,
-		reapList:           NewReapList(txEncoder),
-		txTracker:          newTxTracker(),
-		maxEthInFlightTxs:  config.MaxEthInFlightTxs,
+		vmKeeper:                 vmKeeper,
+		txPool:                   txPool,
+		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
+		cosmosPool:               cosmosPool,
+		logger:                   logger,
+		txConfig:                 txConfig,
+		blockchain:               blockchain,
+		blockGasLimit:            config.BlockGasLimit,
+		minTip:                   config.MinTip,
+		anteHandler:              config.AnteHandler,
+		operateExclusively:       config.OperateExclusively,
+		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
+		reapList:                 NewReapList(txEncoder),
+		txTracker:                newTxTracker(),
+		iq:                       newInsertQueue(legacyPool, logger),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -275,73 +267,51 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	m.logger.Debug("inserting transaction into mempool")
-
-	ethMsg, err := m.getEVMMessage(tx)
-	if err == nil {
-		return m.insertEVMTx(ctx, ethMsg.AsTransaction(), true)
-	}
-	return m.insertCosmosTx(ctx, tx)
+	return m.insert(ctx, tx, true)
 }
 
-// Insert adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
+// InsertAsync adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
 // transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool. EVM transactions are
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
 func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
-	m.logger.Debug("inserting transaction into mempool async")
+	return m.insert(ctx, tx, false)
+}
 
-	ethMsg, err := m.getEVMMessage(tx)
-	if err == nil {
+func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
+	ethMsg, err := evmTxFromCosmosTx(tx)
+
+	switch {
+	case err == nil:
 		ethTx := ethMsg.AsTransaction()
-		return m.queueInsertEVMTx(ctx, ethTx)
+
+		if !sync {
+			m.iq.Push(ethTx)
+			return nil
+		}
+
+		errs := m.txPool.Add([]*ethtypes.Transaction{ethTx}, sync)
+		if len(errs) != 1 {
+			panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
+		}
+		if errs[0] != nil {
+			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
+		}
+		return errs[0]
+	case errors.Is(err, ErrNotEVMTransaction):
+		return m.insertCosmosTx(ctx, tx)
+	default:
+		return err
 	}
-	return m.insertCosmosTx(ctx, tx)
-}
-
-func (m *ExperimentalEVMMempool) queueInsertEVMTx(ctx context.Context, tx *ethtypes.Transaction) error {
-	inFlightTxs := m.ethInFlightTxs.Load()
-	if inFlightTxs >= m.maxEthInFlightTxs {
-		return ErrMempoolFull
-	}
-	ethInFlightTxs.Add(ctx, 1)
-	m.ethInFlightTxs.Add(1)
-	go func() {
-		m.insertEVMTx(ctx, tx, true)
-		m.ethInFlightTxs.Add(-1)
-		ethInFlightTxs.Add(ctx, -1)
-	}()
-	return nil
-}
-
-// insertEVMTx inserts a EVM tx into the legacypool (EVM) mempool This does not
-// perform a CheckTx (anteHandler) on the tx, so this tx may be invalid.
-// Checking the tx is the responsibility of the legacypool and it will drop the
-// tx if it is found to be invalid (now or at a later point).
-func (m *ExperimentalEVMMempool) insertEVMTx(_ context.Context, tx *ethtypes.Transaction, sync bool) error {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	hash := tx.Hash()
-	m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
-
-	errs := m.txPool.Add([]*ethtypes.Transaction{tx}, sync)
-	if len(errs) != 1 {
-		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-	}
-	if errs[0] != nil {
-		m.logger.Error("failed to insert EVM transaction", "tx_hash", hash, "err", errs[0])
-	}
-
-	return errs[0]
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
 // performs a CheckTx (anteHandler) call in the hot path.
 func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
+	// we have to process cosmos txs serially.
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
@@ -437,9 +407,6 @@ func (m *ExperimentalEVMMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64)
 // The iterator prioritizes transactions based on their fees and manages proper
 // sequencing. The i parameter contains transaction hashes to exclude from selection.
 func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	return m.buildIterator(goCtx, i)
 }
 
@@ -447,8 +414,7 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
 func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
+	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_selectby_duration") }(time.Now()) //nolint:staticcheck
 
 	iter := m.buildIterator(goCtx, txs)
 
@@ -460,7 +426,7 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, f
 // buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
 // block height and then returns a combined iterator over EVM & Cosmos txs.
 func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_builditerator_duration") }(time.Now()) //nolint:staticcheck
 
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
@@ -469,7 +435,7 @@ func (m *ExperimentalEVMMempool) buildIterator(ctx context.Context, txs [][]byte
 		cosmosIterator,
 		m.logger,
 		m.txConfig,
-		m.vmKeeper.GetEvmCoinInfo(sdkCtx).Denom,
+		m.vmKeeper.GetEvmCoinInfo(sdk.UnwrapSDKContext(ctx)).Denom,
 		m.blockchain,
 	)
 }
@@ -489,18 +455,17 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	})
 }
 
-// Remove removes a transaction from the appropriate sdkmempool.
+// RemoveWithReason removes a transaction from the appropriate sdkmempool.
 // For EVM transactions, removal is typically handled automatically by the pool
 // based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
 func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	if m.blockchain.latestCtx.BlockHeight() == 0 {
+	chainCtx, err := m.blockchain.GetLatestContext()
+	if err != nil || chainCtx.BlockHeight() == 0 {
+		m.logger.Warn("Failed to get latest context, skipping removal")
 		return nil
 	}
 
-	msgEthereumTx, err := m.getEVMMessage(tx)
+	msgEthereumTx, err := evmTxFromCosmosTx(tx)
 	switch {
 	case errors.Is(err, ErrNoMessages):
 		return err
@@ -607,6 +572,8 @@ func (m *ExperimentalEVMMempool) Close() error {
 		}
 	}
 
+	m.iq.Close()
+
 	if err := m.txPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
 	}
@@ -616,7 +583,7 @@ func (m *ExperimentalEVMMempool) Close() error {
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
 // Returns an error if the transaction has no messages, multiple messages, or the single message is not an EVM transaction.
-func (m *ExperimentalEVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
+func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 	msgs := tx.GetMsgs()
 	if len(msgs) == 0 {
 		return nil, ErrNoMessages
@@ -634,22 +601,28 @@ func (m *ExperimentalEVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereum
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-	baseFee := m.vmKeeper.GetBaseFee(ctx)
+func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)
 	}
 
-	evmPendingTxs := m.txPool.Pending(txpool.PendingFilter{
+	if m.pendingTxProposalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
+		defer cancel()
+	}
+
+	filter := txpool.PendingFilter{
 		MinTip:       m.minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
-	})
-
+	}
+	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()-1), filter)
 	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
 	cosmosIterator := m.cosmosPool.Select(ctx, txs)
 
