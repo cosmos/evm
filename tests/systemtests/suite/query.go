@@ -128,7 +128,24 @@ func (s *BaseTestSuite) CheckTxPending(
 	}
 }
 
-const defaultTxPoolContentTimeout = 60 * time.Second
+// CheckTxPendingOrCommitted checks if the given tx is pending or committed within the timeout duration
+func (s *BaseTestSuite) CheckTxPendingOrCommitted(
+	nodeID string,
+	txHash string,
+	txType string,
+	timeout time.Duration,
+) error {
+	switch txType {
+	case TxTypeEVM:
+		return s.EthClient.CheckTxsPendingOrCommitted(nodeID, txHash, timeout)
+	case TxTypeCosmos:
+		return s.CosmosClient.CheckTxsPendingOrCommitted(nodeID, txHash, timeout)
+	default:
+		return fmt.Errorf("invalid tx type")
+	}
+}
+
+const defaultTxPoolContentTimeout = 30 * time.Second
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (s *BaseTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
