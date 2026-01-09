@@ -86,23 +86,32 @@ type TxPool struct {
 
 	sync chan chan error // Testing / simulator channel to block until internal reset is done
 
-	// Payload is the the returned Payload from GetPayload
-	Payload *TransactionsByPriceAndNonce
-	// Recommit is the duration between recomputing the Payload
-	Recommit time.Duration
+	// payload is the the returned payload from GetPayload
+	payload     *TransactionsByPriceAndNonce
+	payloadLock sync.Mutex
+
+	// recommit is the duration between recomputing the Payload
+	recommit time.Duration
 	// stop signals to the payload builder to stop the current loop
 	stop chan struct{}
 	// reset signals the payload builder to reset state
 	reset chan struct{}
 	// rebuild signals the payload builder to immediately rebuild the payload
 	rebuild chan struct{}
-	// baseFee is calculated during payload building
-	baseFee *big.Int
+
+	pendingTxProposalTimeout time.Duration
 }
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(gasTip uint64, chain BlockChain, subpools []SubPool, vmKeeper VMKeeper, minTip *uint256.Int) (*TxPool, error) {
+func New(
+	gasTip uint64,
+	chain BlockChain,
+	subpools []SubPool,
+	vmKeeper VMKeeper,
+	minTip *uint256.Int,
+	pendingTxProposalTimeout time.Duration,
+) (*TxPool, error) {
 	// Retrieve the current head so that all Subpools and this main coordinator
 	// pool will have the same starting state, even if the chain moves forward
 	// during initialization.
@@ -119,17 +128,18 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool, vmKeeper VMKeeper,
 		return nil, err
 	}
 	pool := &TxPool{
-		Subpools: subpools,
-		chain:    chain,
-		signer:   types.LatestSigner(chain.Config()),
-		state:    statedb,
-		quit:     make(chan chan error),
-		term:     make(chan struct{}),
-		sync:     make(chan chan error),
-		Recommit: DefaultRecommit,
-		stop:     make(chan struct{}),
-		reset:    make(chan struct{}),
-		rebuild:  make(chan struct{}),
+		Subpools:                 subpools,
+		chain:                    chain,
+		signer:                   types.LatestSigner(chain.Config()),
+		state:                    statedb,
+		quit:                     make(chan chan error),
+		term:                     make(chan struct{}),
+		sync:                     make(chan chan error),
+		recommit:                 DefaultRecommit,
+		stop:                     make(chan struct{}),
+		reset:                    make(chan struct{}),
+		rebuild:                  make(chan struct{}),
+		pendingTxProposalTimeout: pendingTxProposalTimeout,
 	}
 	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
@@ -173,34 +183,13 @@ func (p *TxPool) Close() error {
 // BuildPayload begins rebuilding the Payload until the payload is retrieved.
 func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 	ctx, err := p.chain.GetLatestContext()
-	var baseFeeUint *uint256.Int
 	if err != nil {
-		log.Error("could not start payload builder, failed to get ctx", "error", err)
-	} else {
-		p.baseFee = vmKeeper.GetBaseFee(ctx)
-	}
-	if p.baseFee != nil {
-		log.Info("set base fee success")
-		baseFeeUint = uint256.MustFromBig(p.baseFee)
+		panic(fmt.Errorf("could not get initial context for payload builder: %w", err))
 	}
 
-	// buildPayload constructs a new payload from pending transactions
-	buildPayload := func() {
-		if ctx.IsZero() {
-			return
-		}
-		pendingFilter := PendingFilter{
-			MinTip:       minTip,
-			BaseFee:      baseFeeUint,
-			BlobFee:      nil,
-			OnlyPlainTxs: true,
-			OnlyBlobTxs:  false,
-		}
-		// TODO convert this into a function so we can do checks same as eth miner
-		pendingTxs := p.Pending(pendingFilter)
-		log.Info("got pending txs", "size", len(pendingTxs))
-		p.Payload = NewTransactionsByPriceAndNonce(p.signer, pendingTxs, p.baseFee)
-		log.Debug("Rebuilt payload")
+	var baseFee *uint256.Int
+	if fee := vmKeeper.GetBaseFee(ctx); fee != nil {
+		baseFee = uint256.MustFromBig(fee)
 	}
 
 	go func() {
@@ -210,26 +199,23 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 		for {
 			select {
 			case <-p.reset:
-				p.Payload = nil
+				p.payload = nil
 				ctx, err = p.chain.GetLatestContext()
 				if err != nil {
 					log.Error("could not reset payload builder, failed to get ctx", "error", err)
 					continue
 				}
-				p.baseFee = vmKeeper.GetBaseFee(ctx)
-				if p.baseFee != nil {
-					log.Info("set basefee success")
-					baseFeeUint = uint256.MustFromBig(p.baseFee)
+				if fee := vmKeeper.GetBaseFee(ctx); fee != nil {
+					baseFee = uint256.MustFromBig(fee)
 				}
-				log.Info("reset ctx in payload builder")
 
 			case <-p.rebuild:
-				buildPayload()
-				timer.Reset(p.Recommit)
+				p.buildPayload(ctx, baseFee, minTip, vmKeeper)
+				timer.Reset(p.recommit)
 
 			case <-timer.C:
-				buildPayload()
-				timer.Reset(p.Recommit)
+				p.buildPayload(ctx, baseFee, minTip, vmKeeper)
+				timer.Reset(p.recommit)
 
 			case <-p.stop:
 				log.Info("Stopping work on payload", "reason", "stopped")
@@ -239,10 +225,39 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 	}()
 }
 
+func (p *TxPool) buildPayload(ctx context.Context, baseFee *uint256.Int, minTip *uint256.Int, vmkeeper VMKeeper) {
+	if p.pendingTxProposalTimeout > time.Duration(0) {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.pendingTxProposalTimeout)
+		defer cancel()
+	}
+
+	pendingFilter := PendingFilter{
+		MinTip:       minTip,
+		BaseFee:      baseFee,
+		BlobFee:      nil,
+		OnlyPlainTxs: true,
+		OnlyBlobTxs:  false,
+	}
+
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+	uncommittedHeight := sdkctx.BlockHeight()
+	latestHeight := new(big.Int).SetInt64(uncommittedHeight - 1)
+
+	pendingTxs := p.Pending(ctx, latestHeight, pendingFilter)
+	log.Info("got pending txs", "size", len(pendingTxs))
+
+	p.payloadLock.Lock()
+	defer p.payloadLock.Unlock()
+	p.payload = NewTransactionsByPriceAndNonce(p.signer, pendingTxs, baseFee.ToBig())
+}
+
 // GetPayload returns the most recently constructed Payload.
 // It also terminates the Recommit loop.
 func (p *TxPool) GetPayload() *TransactionsByPriceAndNonce {
-	return p.Payload
+	p.payloadLock.Lock()
+	defer p.payloadLock.Unlock()
+	return p.payload
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to

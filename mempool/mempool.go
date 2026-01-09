@@ -47,11 +47,10 @@ type (
 		vmKeeper VMKeeperI
 
 		/** Mempools **/
-		txPool                   *txpool.TxPool
-		legacyTxPool             *legacypool.LegacyPool
-		cosmosPool               sdkmempool.ExtMempool
-		operateExclusively       bool
-		pendingTxProposalTimeout time.Duration
+		txPool             *txpool.TxPool
+		legacyTxPool       *legacypool.LegacyPool
+		cosmosPool         sdkmempool.ExtMempool
+		operateExclusively bool
 
 		/** Utils **/
 		logger        log.Logger
@@ -146,7 +145,14 @@ func NewExperimentalEVMMempool(
 		legacypool.WithRecheck(rechecker),
 	)
 
-	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool}, vmKeeper, config.MinTip)
+	txPool, err := txpool.New(
+		uint64(0),
+		blockchain,
+		[]txpool.SubPool{legacyPool},
+		vmKeeper,
+		config.MinTip,
+		config.PendingTxProposalTimeout,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -192,21 +198,20 @@ func NewExperimentalEVMMempool(
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:                 vmKeeper,
-		txPool:                   txPool,
-		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:               cosmosPool,
-		logger:                   logger,
-		txConfig:                 txConfig,
-		blockchain:               blockchain,
-		blockGasLimit:            config.BlockGasLimit,
-		minTip:                   config.MinTip,
-		anteHandler:              config.AnteHandler,
-		operateExclusively:       config.OperateExclusively,
-		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 NewReapList(txEncoder),
-		txTracker:                newTxTracker(),
-		iq:                       newInsertQueue(legacyPool, logger),
+		vmKeeper:           vmKeeper,
+		txPool:             txPool,
+		legacyTxPool:       txPool.Subpools[0].(*legacypool.LegacyPool),
+		cosmosPool:         cosmosPool,
+		logger:             logger,
+		txConfig:           txConfig,
+		blockchain:         blockchain,
+		blockGasLimit:      config.BlockGasLimit,
+		minTip:             config.MinTip,
+		anteHandler:        config.AnteHandler,
+		operateExclusively: config.OperateExclusively,
+		reapList:           NewReapList(txEncoder),
+		txTracker:          newTxTracker(),
+		iq:                 newInsertQueue(legacyPool, logger),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
