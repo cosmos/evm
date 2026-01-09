@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.opentelemetry.io/otel"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 
@@ -14,8 +13,6 @@ import (
 )
 
 var (
-	meter = otel.Meter("cosmos-evm/mempool")
-
 	// chainInclusionLatencyKey measures how long it takes for a transaction to go
 	// from initially being tracked to being included on chain
 	chainInclusionLatencyKey = "chain_inclusion_latency"
