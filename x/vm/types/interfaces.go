@@ -53,6 +53,7 @@ type BankKeeper interface {
 	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
 	SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
+	SetBalance(ctx context.Context, addr sdk.AccAddress, amt sdk.Coin) error
 }
 
 // StakingKeeper returns the historical headers kept in store.
@@ -87,8 +88,7 @@ type EvmHooks interface {
 type BankWrapper interface {
 	BankKeeper
 
-	MintAmountToAccount(ctx context.Context, recipientAddr sdk.AccAddress, amt *big.Int) error
-	BurnAmountFromAccount(ctx context.Context, account sdk.AccAddress, amt *big.Int) error
+	SetBalanceForAccount(ctx context.Context, account sdk.AccAddress, amt *big.Int) error
 }
 
 // ConsensusParamsKeeper defines the expected consensus params keeper.

@@ -20,9 +20,9 @@ import (
 	types "github.com/cosmos/cosmos-sdk/types"
 	types0 "github.com/cosmos/cosmos-sdk/x/auth/types"
 	types1 "github.com/cosmos/cosmos-sdk/x/bank/types"
-	types2 "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	types3 "github.com/cosmos/cosmos-sdk/x/staking/types"
-	types4 "github.com/cosmos/evm/x/feemarket/types"
+	types2 "github.com/cosmos/cosmos-sdk/x/staking/types"
+	types3 "github.com/cosmos/evm/x/feemarket/types"
+	types4 "github.com/cosmos/evm/x/vm/types"
 	common "github.com/ethereum/go-ethereum/common"
 	core "github.com/ethereum/go-ethereum/core"
 	types5 "github.com/ethereum/go-ethereum/core/types"
@@ -427,6 +427,20 @@ func (mr *MockBankKeeperMockRecorder) SendCoinsFromModuleToAccountVirtual(ctx, s
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccountVirtual", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromModuleToAccountVirtual), ctx, senderModule, recipientAddr, amt)
 }
 
+// SetBalance mocks base method.
+func (m *MockBankKeeper) SetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetBalance", ctx, addr, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetBalance indicates an expected call of SetBalance.
+func (mr *MockBankKeeperMockRecorder) SetBalance(ctx, addr, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalance", reflect.TypeOf((*MockBankKeeper)(nil).SetBalance), ctx, addr, amt)
+}
+
 // SetDenomMetaData mocks base method.
 func (m *MockBankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData types1.Metadata) {
 	m.ctrl.T.Helper()
@@ -477,11 +491,26 @@ func (m *MockStakingKeeper) EXPECT() *MockStakingKeeperMockRecorder {
 	return m.recorder
 }
 
+// BondDenom mocks base method.
+func (m *MockStakingKeeper) BondDenom(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BondDenom", ctx)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BondDenom indicates an expected call of BondDenom.
+func (mr *MockStakingKeeperMockRecorder) BondDenom(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BondDenom", reflect.TypeOf((*MockStakingKeeper)(nil).BondDenom), ctx)
+}
+
 // GetHistoricalInfo mocks base method.
-func (m *MockStakingKeeper) GetHistoricalInfo(ctx context.Context, height int64) (types3.HistoricalInfo, error) {
+func (m *MockStakingKeeper) GetHistoricalInfo(ctx context.Context, height int64) (types2.HistoricalInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHistoricalInfo", ctx, height)
-	ret0, _ := ret[0].(types3.HistoricalInfo)
+	ret0, _ := ret[0].(types2.HistoricalInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -493,10 +522,10 @@ func (mr *MockStakingKeeperMockRecorder) GetHistoricalInfo(ctx, height any) *gom
 }
 
 // GetValidatorByConsAddr mocks base method.
-func (m *MockStakingKeeper) GetValidatorByConsAddr(ctx context.Context, consAddr types.ConsAddress) (types3.Validator, error) {
+func (m *MockStakingKeeper) GetValidatorByConsAddr(ctx context.Context, consAddr types.ConsAddress) (types2.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetValidatorByConsAddr", ctx, consAddr)
-	ret0, _ := ret[0].(types3.Validator)
+	ret0, _ := ret[0].(types2.Validator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -574,10 +603,10 @@ func (mr *MockFeeMarketKeeperMockRecorder) GetBaseFee(ctx any) *gomock.Call {
 }
 
 // GetParams mocks base method.
-func (m *MockFeeMarketKeeper) GetParams(ctx types.Context) types4.Params {
+func (m *MockFeeMarketKeeper) GetParams(ctx types.Context) types3.Params {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetParams", ctx)
-	ret0, _ := ret[0].(types4.Params)
+	ret0, _ := ret[0].(types3.Params)
 	return ret0
 }
 
@@ -689,20 +718,6 @@ func (m *MockBankWrapper) EXPECT() *MockBankWrapperMockRecorder {
 	return m.recorder
 }
 
-// BurnAmountFromAccount mocks base method.
-func (m *MockBankWrapper) BurnAmountFromAccount(ctx context.Context, account types.AccAddress, amt *big.Int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BurnAmountFromAccount", ctx, account, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// BurnAmountFromAccount indicates an expected call of BurnAmountFromAccount.
-func (mr *MockBankWrapperMockRecorder) BurnAmountFromAccount(ctx, account, amt any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BurnAmountFromAccount", reflect.TypeOf((*MockBankWrapper)(nil).BurnAmountFromAccount), ctx, account, amt)
-}
-
 // BurnCoins mocks base method.
 func (m *MockBankWrapper) BurnCoins(ctx context.Context, moduleName string, amt types.Coins) error {
 	m.ctrl.T.Helper()
@@ -803,20 +818,6 @@ func (mr *MockBankWrapperMockRecorder) IterateTotalSupply(ctx, cb any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IterateTotalSupply", reflect.TypeOf((*MockBankWrapper)(nil).IterateTotalSupply), ctx, cb)
 }
 
-// MintAmountToAccount mocks base method.
-func (m *MockBankWrapper) MintAmountToAccount(ctx context.Context, recipientAddr types.AccAddress, amt *big.Int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MintAmountToAccount", ctx, recipientAddr, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MintAmountToAccount indicates an expected call of MintAmountToAccount.
-func (mr *MockBankWrapperMockRecorder) MintAmountToAccount(ctx, recipientAddr, amt any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintAmountToAccount", reflect.TypeOf((*MockBankWrapper)(nil).MintAmountToAccount), ctx, recipientAddr, amt)
-}
-
 // MintCoins mocks base method.
 func (m *MockBankWrapper) MintCoins(ctx context.Context, moduleName string, amt types.Coins) error {
 	m.ctrl.T.Helper()
@@ -901,6 +902,34 @@ func (mr *MockBankWrapperMockRecorder) SendCoinsFromModuleToAccountVirtual(ctx, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccountVirtual", reflect.TypeOf((*MockBankWrapper)(nil).SendCoinsFromModuleToAccountVirtual), ctx, senderModule, recipientAddr, amt)
 }
 
+// SetBalance mocks base method.
+func (m *MockBankWrapper) SetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetBalance", ctx, addr, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetBalance indicates an expected call of SetBalance.
+func (mr *MockBankWrapperMockRecorder) SetBalance(ctx, addr, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalance", reflect.TypeOf((*MockBankWrapper)(nil).SetBalance), ctx, addr, amt)
+}
+
+// SetBalanceForAccount mocks base method.
+func (m *MockBankWrapper) SetBalanceForAccount(ctx context.Context, account types.AccAddress, amt *big.Int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetBalanceForAccount", ctx, account, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetBalanceForAccount indicates an expected call of SetBalanceForAccount.
+func (mr *MockBankWrapperMockRecorder) SetBalanceForAccount(ctx, account, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalanceForAccount", reflect.TypeOf((*MockBankWrapper)(nil).SetBalanceForAccount), ctx, account, amt)
+}
+
 // SetDenomMetaData mocks base method.
 func (m *MockBankWrapper) SetDenomMetaData(ctx context.Context, denomMetaData types1.Metadata) {
 	m.ctrl.T.Helper()
@@ -927,41 +956,40 @@ func (mr *MockBankWrapperMockRecorder) SpendableCoin(ctx, addr, denom any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpendableCoin", reflect.TypeOf((*MockBankWrapper)(nil).SpendableCoin), ctx, addr, denom)
 }
 
-// MockConsensusParamsKeeper is a mock of ConsensusParamsKeeper interface.
-type MockConsensusParamsKeeper struct {
+// MockVMKeeper is a mock of VMKeeper interface.
+type MockVMKeeper struct {
 	ctrl     *gomock.Controller
-	recorder *MockConsensusParamsKeeperMockRecorder
+	recorder *MockVMKeeperMockRecorder
 	isgomock struct{}
 }
 
-// MockConsensusParamsKeeperMockRecorder is the mock recorder for MockConsensusParamsKeeper.
-type MockConsensusParamsKeeperMockRecorder struct {
-	mock *MockConsensusParamsKeeper
+// MockVMKeeperMockRecorder is the mock recorder for MockVMKeeper.
+type MockVMKeeperMockRecorder struct {
+	mock *MockVMKeeper
 }
 
-// NewMockConsensusParamsKeeper creates a new mock instance.
-func NewMockConsensusParamsKeeper(ctrl *gomock.Controller) *MockConsensusParamsKeeper {
-	mock := &MockConsensusParamsKeeper{ctrl: ctrl}
-	mock.recorder = &MockConsensusParamsKeeperMockRecorder{mock}
+// NewMockVMKeeper creates a new mock instance.
+func NewMockVMKeeper(ctrl *gomock.Controller) *MockVMKeeper {
+	mock := &MockVMKeeper{ctrl: ctrl}
+	mock.recorder = &MockVMKeeperMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockConsensusParamsKeeper) EXPECT() *MockConsensusParamsKeeperMockRecorder {
+func (m *MockVMKeeper) EXPECT() *MockVMKeeperMockRecorder {
 	return m.recorder
 }
 
-// Params mocks base method.
-func (m *MockConsensusParamsKeeper) Params(arg0 context.Context, arg1 *types2.QueryParamsRequest) (*types2.QueryParamsResponse, error) {
+// GetEvmCoinInfo mocks base method.
+func (m *MockVMKeeper) GetEvmCoinInfo(ctx types.Context) types4.EvmCoinInfo {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Params", arg0, arg1)
-	ret0, _ := ret[0].(*types2.QueryParamsResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "GetEvmCoinInfo", ctx)
+	ret0, _ := ret[0].(types4.EvmCoinInfo)
+	return ret0
 }
 
-// Params indicates an expected call of Params.
-func (mr *MockConsensusParamsKeeperMockRecorder) Params(arg0, arg1 any) *gomock.Call {
+// GetEvmCoinInfo indicates an expected call of GetEvmCoinInfo.
+func (mr *MockVMKeeperMockRecorder) GetEvmCoinInfo(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Params", reflect.TypeOf((*MockConsensusParamsKeeper)(nil).Params), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmCoinInfo", reflect.TypeOf((*MockVMKeeper)(nil).GetEvmCoinInfo), ctx)
 }
