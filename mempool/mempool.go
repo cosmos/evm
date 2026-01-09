@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
@@ -49,11 +47,10 @@ type (
 		vmKeeper VMKeeperI
 
 		/** Mempools **/
-		txPool                   *txpool.TxPool
-		legacyTxPool             *legacypool.LegacyPool
-		cosmosPool               sdkmempool.ExtMempool
-		operateExclusively       bool
-		pendingTxProposalTimeout time.Duration
+		txPool             *txpool.TxPool
+		legacyTxPool       *legacypool.LegacyPool
+		cosmosPool         sdkmempool.ExtMempool
+		operateExclusively bool
 
 		/** Utils **/
 		logger        log.Logger
@@ -98,6 +95,9 @@ type EVMMempoolConfig struct {
 	// PendingTxProposalTimeout is the max amount of time to allocate to
 	// fetching (or watiing to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
+	// Recommit is the amount of time to wait in between building new proposals
+	// in the background.
+	Recommit time.Duration
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -148,7 +148,15 @@ func NewExperimentalEVMMempool(
 		legacypool.WithRecheck(rechecker),
 	)
 
-	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	txPool, err := txpool.New(
+		uint64(0),
+		blockchain,
+		[]txpool.SubPool{legacyPool},
+		vmKeeper,
+		config.MinTip,
+		config.PendingTxProposalTimeout,
+		config.Recommit,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -194,21 +202,20 @@ func NewExperimentalEVMMempool(
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:                 vmKeeper,
-		txPool:                   txPool,
-		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:               cosmosPool,
-		logger:                   logger,
-		txConfig:                 txConfig,
-		blockchain:               blockchain,
-		blockGasLimit:            config.BlockGasLimit,
-		minTip:                   config.MinTip,
-		anteHandler:              config.AnteHandler,
-		operateExclusively:       config.OperateExclusively,
-		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 NewReapList(txEncoder),
-		txTracker:                newTxTracker(),
-		iq:                       newInsertQueue(legacyPool, logger),
+		vmKeeper:           vmKeeper,
+		txPool:             txPool,
+		legacyTxPool:       txPool.Subpools[0].(*legacypool.LegacyPool),
+		cosmosPool:         cosmosPool,
+		logger:             logger,
+		txConfig:           txConfig,
+		blockchain:         blockchain,
+		blockGasLimit:      config.BlockGasLimit,
+		minTip:             config.MinTip,
+		anteHandler:        config.AnteHandler,
+		operateExclusively: config.OperateExclusively,
+		reapList:           NewReapList(txEncoder),
+		txTracker:          newTxTracker(),
+		iq:                 newInsertQueue(legacyPool, logger),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -601,32 +608,14 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*txpool.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+	orderedEVMPendingTxes := m.txPool.GetPayload()
+	m.logger.Info("got evm iterator with txs", "length", orderedEVMPendingTxes.Length())
+
 	sdkctx := sdk.UnwrapSDKContext(ctx)
-	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
-	var baseFeeUint *uint256.Int
-	if baseFee != nil {
-		baseFeeUint = uint256.MustFromBig(baseFee)
-	}
+	cosmosPendingTxes := m.cosmosPool.Select(sdkctx, txs)
 
-	if m.pendingTxProposalTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
-		defer cancel()
-	}
-
-	filter := txpool.PendingFilter{
-		MinTip:       m.minTip,
-		BaseFee:      baseFeeUint,
-		BlobFee:      nil,
-		OnlyPlainTxs: true,
-		OnlyBlobTxs:  false,
-	}
-	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()-1), filter)
-	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
-	cosmosIterator := m.cosmosPool.Select(ctx, txs)
-
-	return evmIterator, cosmosIterator
+	return orderedEVMPendingTxes, cosmosPendingTxes
 }
 
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {

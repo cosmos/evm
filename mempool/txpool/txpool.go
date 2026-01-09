@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -31,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
@@ -42,6 +45,9 @@ const (
 	TxStatusPending
 	TxStatusIncluded
 )
+
+// DefaultRecommit is the interval at which we will try to reconstruct the Payload
+const DefaultRecommit = time.Millisecond * 200
 
 // BlockChain defines the minimal set of methods needed to back a tx pool with
 // a chain. Exists to allow mocking the live chain out of tests.
@@ -57,6 +63,8 @@ type BlockChain interface {
 
 	// StateAt returns a state database for a given root hash (generally the head).
 	StateAt(root common.Hash) (vm.StateDB, error)
+
+	GetLatestContext() (sdk.Context, error)
 }
 
 // TxPool is an aggregator for various transaction specific pools, collectively
@@ -77,11 +85,34 @@ type TxPool struct {
 	term chan struct{}           // Termination channel to detect a closed pool
 
 	sync chan chan error // Testing / simulator channel to block until internal reset is done
+
+	// payload is the the returned payload from GetPayload
+	payload     *TransactionsByPriceAndNonce
+	payloadLock sync.Mutex
+
+	// recommit is the duration between recomputing the Payload
+	recommit time.Duration
+	// stop signals to the payload builder to stop the current loop
+	stop chan struct{}
+	// reset signals the payload builder to reset state
+	reset chan struct{}
+	// rebuild signals the payload builder to immediately rebuild the payload
+	rebuild chan struct{}
+
+	pendingTxProposalTimeout time.Duration
 }
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
+func New(
+	gasTip uint64,
+	chain BlockChain,
+	subpools []SubPool,
+	vmKeeper VMKeeper,
+	minTip *uint256.Int,
+	pendingTxProposalTimeout time.Duration,
+	recommit time.Duration,
+) (*TxPool, error) {
 	// Retrieve the current head so that all Subpools and this main coordinator
 	// pool will have the same starting state, even if the chain moves forward
 	// during initialization.
@@ -97,14 +128,23 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if recommit == time.Duration(0) {
+		recommit = DefaultRecommit
+	}
 	pool := &TxPool{
-		Subpools: subpools,
-		chain:    chain,
-		signer:   types.LatestSigner(chain.Config()),
-		state:    statedb,
-		quit:     make(chan chan error),
-		term:     make(chan struct{}),
-		sync:     make(chan chan error),
+		Subpools:                 subpools,
+		chain:                    chain,
+		signer:                   types.LatestSigner(chain.Config()),
+		state:                    statedb,
+		quit:                     make(chan chan error),
+		term:                     make(chan struct{}),
+		sync:                     make(chan chan error),
+		recommit:                 recommit,
+		stop:                     make(chan struct{}),
+		reset:                    make(chan struct{}),
+		rebuild:                  make(chan struct{}),
+		pendingTxProposalTimeout: pendingTxProposalTimeout,
 	}
 	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
@@ -115,6 +155,7 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 			return nil, err
 		}
 	}
+	pool.BuildPayload(minTip, vmKeeper)
 	go pool.loop(head)
 	return pool, nil
 }
@@ -144,12 +185,100 @@ func (p *TxPool) Close() error {
 	return nil
 }
 
+// BuildPayload begins rebuilding the Payload until the payload is retrieved.
+func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
+	ctx, baseFee := p.resetPendingBuilder(vmKeeper)
+
+	go func() {
+		timer := time.NewTimer(0)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-p.reset:
+				fmt.Println("resetting pending builder")
+				ctx, baseFee = p.resetPendingBuilder(vmKeeper)
+			case <-p.rebuild:
+				fmt.Println("pending builder rebuilding")
+				p.buildPayload(ctx, baseFee, minTip, vmKeeper)
+				timer.Reset(p.recommit)
+			case <-timer.C:
+				fmt.Println("pending builder tick")
+				p.buildPayload(ctx, baseFee, minTip, vmKeeper)
+				timer.Reset(p.recommit)
+			case <-p.stop:
+				log.Info("Stopping work on payload", "reason", "stopped")
+				return
+			}
+		}
+	}()
+}
+
+func (p *TxPool) buildPayload(ctx context.Context, baseFee *uint256.Int, minTip *uint256.Int, vmkeeper VMKeeper) {
+	if ctx == nil {
+		// possible on first block
+		return
+	}
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+
+	if p.pendingTxProposalTimeout > time.Duration(0) {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.pendingTxProposalTimeout)
+		defer cancel()
+	}
+
+	pendingFilter := PendingFilter{
+		MinTip:       minTip,
+		BaseFee:      baseFee,
+		BlobFee:      nil,
+		OnlyPlainTxs: true,
+		OnlyBlobTxs:  false,
+	}
+
+	pendingTxs := p.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()), pendingFilter)
+	log.Info("got pending txs", "size", len(pendingTxs))
+
+	p.payloadLock.Lock()
+	defer p.payloadLock.Unlock()
+	p.payload = NewTransactionsByPriceAndNonce(p.signer, pendingTxs, baseFee.ToBig())
+}
+
+func (p *TxPool) resetPendingBuilder(vmKeeper VMKeeper) (context.Context, *uint256.Int) {
+	p.payloadLock.Lock()
+	p.payload = nil
+	p.payloadLock.Unlock()
+
+	ctx, err := p.chain.GetLatestContext()
+	if err != nil {
+		log.Error("could not reset payload builder, failed to get ctx", "error", err)
+		return nil, nil
+	}
+
+	if fee := vmKeeper.GetBaseFee(ctx); fee != nil {
+		fmt.Println("reset runing latest context at height", ctx.BlockHeight())
+		return ctx, uint256.MustFromBig(fee)
+	}
+	return ctx, nil
+}
+
+// GetPayload returns the most recently constructed Payload.
+// It also terminates the Recommit loop.
+func (p *TxPool) GetPayload() *TransactionsByPriceAndNonce {
+	p.payloadLock.Lock()
+	defer p.payloadLock.Unlock()
+	return p.payload
+}
+
 // loop is the transaction pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and transaction
 // eviction events.
 func (p *TxPool) loop(head *types.Header) {
 	// Close the termination marker when the pool stops
 	defer close(p.term)
+	// Close the payload builder
+	defer close(p.stop)
+	// Close the payload rebuild trigger
+	defer close(p.rebuild)
 
 	// Subscribe to chain head events to trigger subpool resets
 	var (
@@ -197,11 +326,24 @@ func (p *TxPool) loop(head *types.Header) {
 					p.stateLock.Unlock()
 				}
 
+				// Reset the payload builder
+				p.reset <- struct{}{}
+
 				// Busy marker injected, start a new subpool reset
 				go func(oldHead, newHead *types.Header) {
 					for _, subpool := range p.Subpools {
 						subpool.Reset(oldHead, newHead)
 					}
+
+					// Trigger payload rebuild after subpools are updated
+					select {
+					case p.rebuild <- struct{}{}:
+						log.Debug("Triggered payload rebuild after header update")
+					case <-time.After(100 * time.Millisecond):
+						log.Warn("Payload rebuild trigger timeout")
+					case <-p.term:
+					}
+
 					select {
 					case resetDone <- newHead:
 					case <-p.term:
