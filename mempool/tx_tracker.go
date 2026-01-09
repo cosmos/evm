@@ -1,17 +1,14 @@
 package mempool
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
 
-	// import for init side effects
-	_ "github.com/cosmos/cosmos-sdk/telemetry"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 )
@@ -19,58 +16,28 @@ import (
 var (
 	meter = otel.Meter("cosmos-evm/mempool")
 
-	// chainInclusionLatency measures how long it takes for a transaction to go
+	// chainInclusionLatencyKey measures how long it takes for a transaction to go
 	// from initially being tracked to being included on chain
-	chainInclusionLatency metric.Int64Histogram
+	chainInclusionLatencyKey = "chain_inclusion_latency"
 
-	// queuedInclusionLatency measures how long it takes for a transaction to go
+	// queuedInclusionLatencyKey measures how long it takes for a transaction to go
 	// from initially being tracked to being included in queued
-	queuedInclusionLatency metric.Int64Histogram
+	queuedInclusionLatencyKey = "queued_inclusion_latency"
 
-	// pendingInclusionLatency measures how long it takes for a transaction to
+	// pendingInclusionLatencyKey measures how long it takes for a transaction to
 	// go from initially being tracked to being included in pending
-	pendingInclusionLatency metric.Int64Histogram
+	pendingInclusionLatencyKey = "pending_inclusion_latency"
 
 	// queuedDuration is how long a transaction is in the queued pool for
 	// before exiting. Only recorded on exit (if a tx stays in the pool
 	// forever, this will not be recorded).
-	queuedDuration metric.Int64Histogram
+	queuedDurationKey = "queued_duration"
 
 	// pendingDuration is how long a transaction is in the pending pool for
 	// before exiting. Only recorded on exit (if a tx stays in the pool
 	// forever, this will not be recorded).
-	pendingDuration metric.Int64Histogram
-
-	// bounds is the bucket intervals to break histograms into.
-	bounds = []float64{50, 100, 250, 500, 1000, 1500, 2000, 5000, 10000, 15000, 20000, 30000, 60000, 90000, 120000, 300000}
-
-	// unit is the unit identifier histograms are recorded in.
-	unit = "ms"
+	pendingDurationKey = "pending_duration"
 )
-
-func init() {
-	var err error
-	chainInclusionLatency, err = meter.Int64Histogram("mempool.chain_inclusion_latency", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
-	if err != nil {
-		panic(err)
-	}
-	queuedInclusionLatency, err = meter.Int64Histogram("mempool.queued_inclusion_latency", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
-	if err != nil {
-		panic(err)
-	}
-	pendingInclusionLatency, err = meter.Int64Histogram("mempool.pending_inclusion_latency", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
-	if err != nil {
-		panic(err)
-	}
-	queuedDuration, err = meter.Int64Histogram("mempool.queued_duration", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
-	if err != nil {
-		panic(err)
-	}
-	pendingDuration, err = meter.Int64Histogram("mempool.pending_duration", metric.WithUnit(unit), metric.WithExplicitBucketBoundaries(bounds...))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // txTracker tracks timestamps about important events in a transactions
 // lifecycle and exposes metrics about these via prometheus.
@@ -107,7 +74,7 @@ func (txt *txTracker) EnteredQueued(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredQueuedPoolAt = time.Now()
-	queuedInclusionLatency.Record(context.Background(), checkpoints.QueuedInclusionLatency().Milliseconds())
+	telemetry.MeasureSince(checkpoints.TrackedAt, queuedInclusionLatencyKey) //nolint:staticcheck
 	return nil
 }
 
@@ -117,8 +84,13 @@ func (txt *txTracker) ExitedQueued(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	checkpoints.LastExitedQueuedPoolAt = time.Now()
-	queuedDuration.Record(context.Background(), checkpoints.TimeInQueuedPool().Milliseconds())
+	if checkpoints.LastEnteredQueuedPoolAt.IsZero() {
+		// It is possible that a tx never entered the queued pool when we call
+		// this (directly replaced a tx in the pending pool). In this case we
+		// dont record the duration
+		return nil
+	}
+	telemetry.MeasureSince(checkpoints.LastEnteredQueuedPoolAt, queuedDurationKey) //nolint:staticcheck
 	return nil
 }
 
@@ -129,7 +101,7 @@ func (txt *txTracker) EnteredPending(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredPendingPoolAt = time.Now()
-	pendingInclusionLatency.Record(context.Background(), checkpoints.PendingInclusionLatency().Milliseconds())
+	telemetry.MeasureSince(checkpoints.TrackedAt, pendingInclusionLatencyKey) //nolint:staticcheck
 	return nil
 }
 
@@ -139,8 +111,7 @@ func (txt *txTracker) ExitedPending(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	checkpoints.LastExitedPendingPoolAt = time.Now()
-	pendingDuration.Record(context.Background(), checkpoints.TimeInPendingPool().Milliseconds())
+	telemetry.MeasureSince(checkpoints.LastEnteredPendingPoolAt, pendingDurationKey) //nolint:staticcheck
 	return nil
 }
 
@@ -150,8 +121,7 @@ func (txt *txTracker) IncludedInBlock(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	checkpoints.IncludedInBlockAt = time.Now()
-	chainInclusionLatency.Record(context.Background(), checkpoints.InclusionLatency().Milliseconds())
+	telemetry.MeasureSince(checkpoints.TrackedAt, chainInclusionLatencyKey) //nolint:staticcheck
 	return nil
 }
 
@@ -194,36 +164,6 @@ type checkpoints struct {
 	TrackedAt time.Time
 
 	LastEnteredQueuedPoolAt time.Time
-	LastExitedQueuedPoolAt  time.Time
 
 	LastEnteredPendingPoolAt time.Time
-	LastExitedPendingPoolAt  time.Time
-
-	IncludedInBlockAt time.Time
-}
-
-func (c *checkpoints) TimeInQueuedPool() time.Duration {
-	if c.LastEnteredQueuedPoolAt.IsZero() {
-		// It is possible that a tx never entered the queued pool when we call
-		// this (directly replaced a tx in the pending pool), thus we simply
-		// return 0 if the tx never entered the queued pool.
-		return time.Duration(0)
-	}
-	return c.LastExitedQueuedPoolAt.Sub(c.LastEnteredQueuedPoolAt)
-}
-
-func (c *checkpoints) TimeInPendingPool() time.Duration {
-	return c.LastExitedPendingPoolAt.Sub(c.LastEnteredPendingPoolAt)
-}
-
-func (c *checkpoints) InclusionLatency() time.Duration {
-	return c.IncludedInBlockAt.Sub(c.TrackedAt)
-}
-
-func (c *checkpoints) QueuedInclusionLatency() time.Duration {
-	return c.LastEnteredQueuedPoolAt.Sub(c.TrackedAt)
-}
-
-func (c *checkpoints) PendingInclusionLatency() time.Duration {
-	return c.LastEnteredPendingPoolAt.Sub(c.TrackedAt)
 }
