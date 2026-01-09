@@ -86,6 +86,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
+		Recommit:                 server.GetRecommit(appOpts, logger),
 	}, nil
 }
 

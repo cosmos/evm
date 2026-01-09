@@ -95,6 +95,9 @@ type EVMMempoolConfig struct {
 	// PendingTxProposalTimeout is the max amount of time to allocate to
 	// fetching (or watiing to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
+	// Recommit is the amount of time to wait in between building new proposals
+	// in the background.
+	Recommit time.Duration
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -152,6 +155,7 @@ func NewExperimentalEVMMempool(
 		vmKeeper,
 		config.MinTip,
 		config.PendingTxProposalTimeout,
+		config.Recommit,
 	)
 	if err != nil {
 		panic(err)

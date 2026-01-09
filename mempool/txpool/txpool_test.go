@@ -95,7 +95,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 		waitForSubscription <- struct{}{}
 	}).Return(event.NewSubscription(func(c <-chan struct{}) error { return nil }))
 
-	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool}, nil, nil)
+	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool}, nil, nil, time.Duration(0), time.Duration(0))
 	require.NoError(t, err)
 	defer pool.Close()
 

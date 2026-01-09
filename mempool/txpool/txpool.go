@@ -111,6 +111,7 @@ func New(
 	vmKeeper VMKeeper,
 	minTip *uint256.Int,
 	pendingTxProposalTimeout time.Duration,
+	recommit time.Duration,
 ) (*TxPool, error) {
 	// Retrieve the current head so that all Subpools and this main coordinator
 	// pool will have the same starting state, even if the chain moves forward
@@ -127,6 +128,10 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+
+	if recommit == time.Duration(0) {
+		recommit = DefaultRecommit
+	}
 	pool := &TxPool{
 		Subpools:                 subpools,
 		chain:                    chain,
@@ -135,7 +140,7 @@ func New(
 		quit:                     make(chan chan error),
 		term:                     make(chan struct{}),
 		sync:                     make(chan chan error),
-		recommit:                 DefaultRecommit,
+		recommit:                 recommit,
 		stop:                     make(chan struct{}),
 		reset:                    make(chan struct{}),
 		rebuild:                  make(chan struct{}),
@@ -182,15 +187,7 @@ func (p *TxPool) Close() error {
 
 // BuildPayload begins rebuilding the Payload until the payload is retrieved.
 func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
-	ctx, err := p.chain.GetLatestContext()
-	if err != nil {
-		panic(fmt.Errorf("could not get initial context for payload builder: %w", err))
-	}
-
-	var baseFee *uint256.Int
-	if fee := vmKeeper.GetBaseFee(ctx); fee != nil {
-		baseFee = uint256.MustFromBig(fee)
-	}
+	ctx, baseFee := p.resetPendingBuilder(vmKeeper)
 
 	go func() {
 		timer := time.NewTimer(0)
@@ -199,24 +196,16 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 		for {
 			select {
 			case <-p.reset:
-				p.payload = nil
-				ctx, err = p.chain.GetLatestContext()
-				if err != nil {
-					log.Error("could not reset payload builder, failed to get ctx", "error", err)
-					continue
-				}
-				if fee := vmKeeper.GetBaseFee(ctx); fee != nil {
-					baseFee = uint256.MustFromBig(fee)
-				}
-
+				fmt.Println("resetting pending builder")
+				ctx, baseFee = p.resetPendingBuilder(vmKeeper)
 			case <-p.rebuild:
+				fmt.Println("pending builder rebuilding")
 				p.buildPayload(ctx, baseFee, minTip, vmKeeper)
 				timer.Reset(p.recommit)
-
 			case <-timer.C:
+				fmt.Println("pending builder tick")
 				p.buildPayload(ctx, baseFee, minTip, vmKeeper)
 				timer.Reset(p.recommit)
-
 			case <-p.stop:
 				log.Info("Stopping work on payload", "reason", "stopped")
 				return
@@ -226,6 +215,12 @@ func (p *TxPool) BuildPayload(minTip *uint256.Int, vmKeeper VMKeeper) {
 }
 
 func (p *TxPool) buildPayload(ctx context.Context, baseFee *uint256.Int, minTip *uint256.Int, vmkeeper VMKeeper) {
+	if ctx == nil {
+		// possible on first block
+		return
+	}
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+
 	if p.pendingTxProposalTimeout > time.Duration(0) {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, p.pendingTxProposalTimeout)
@@ -240,16 +235,30 @@ func (p *TxPool) buildPayload(ctx context.Context, baseFee *uint256.Int, minTip 
 		OnlyBlobTxs:  false,
 	}
 
-	sdkctx := sdk.UnwrapSDKContext(ctx)
-	uncommittedHeight := sdkctx.BlockHeight()
-	latestHeight := new(big.Int).SetInt64(uncommittedHeight - 1)
-
-	pendingTxs := p.Pending(ctx, latestHeight, pendingFilter)
+	pendingTxs := p.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()), pendingFilter)
 	log.Info("got pending txs", "size", len(pendingTxs))
 
 	p.payloadLock.Lock()
 	defer p.payloadLock.Unlock()
 	p.payload = NewTransactionsByPriceAndNonce(p.signer, pendingTxs, baseFee.ToBig())
+}
+
+func (p *TxPool) resetPendingBuilder(vmKeeper VMKeeper) (context.Context, *uint256.Int) {
+	p.payloadLock.Lock()
+	p.payload = nil
+	p.payloadLock.Unlock()
+
+	ctx, err := p.chain.GetLatestContext()
+	if err != nil {
+		log.Error("could not reset payload builder, failed to get ctx", "error", err)
+		return nil, nil
+	}
+
+	if fee := vmKeeper.GetBaseFee(ctx); fee != nil {
+		fmt.Println("reset runing latest context at height", ctx.BlockHeight())
+		return ctx, uint256.MustFromBig(fee)
+	}
+	return ctx, nil
 }
 
 // GetPayload returns the most recently constructed Payload.
