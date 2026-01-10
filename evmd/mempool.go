@@ -75,7 +75,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	if mempoolConfig.ProposalBuilderConfig != nil {
 		proposalBuilder := evmmempool.NewProposalBuilder(
-			abciProposalHandler.PrepareProposalHandler(),
+			evmMempool,
+			txVerifier,
 			blockchain,
 			app.BaseApp,
 			logger,

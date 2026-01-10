@@ -10,6 +10,7 @@ import (
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -32,8 +33,8 @@ const (
 // The amount of time in between creating new proposals can be
 // configured via the RebuildTimeout.
 type ProposalBuilder struct {
-	// prepareProposal creates a new proposal.
-	prepareProposal sdk.PrepareProposalHandler
+	evmMempool *ExperimentalEVMMempool
+	txVerifier baseapp.ProposalTxVerifier
 
 	// chain is a reference to the blockchain.
 	chain *Blockchain
@@ -60,7 +61,8 @@ type ProposalBuilder struct {
 
 // NewProposalBuilder creates and starts a new ProposalBuilder instance.
 func NewProposalBuilder(
-	prepareProposal sdk.PrepareProposalHandler,
+	evmMempool *ExperimentalEVMMempool,
+	txVerifier baseapp.ProposalTxVerifier,
 	chain *Blockchain,
 	app *baseapp.BaseApp,
 	logger log.Logger,
@@ -71,13 +73,14 @@ func NewProposalBuilder(
 	}
 
 	pb := &ProposalBuilder{
-		prepareProposal: prepareProposal,
-		app:             app,
-		chain:           chain,
-		logger:          logger.With(log.ModuleKey, "ProposalBuilder"),
-		latestProposal:  &abci.ResponsePrepareProposal{},
-		done:            make(chan struct{}),
-		config:          config,
+		evmMempool:     evmMempool,
+		txVerifier:     txVerifier,
+		app:            app,
+		chain:          chain,
+		logger:         logger.With(log.ModuleKey, "ProposalBuilder"),
+		latestProposal: &abci.ResponsePrepareProposal{},
+		done:           make(chan struct{}),
+		config:         config,
 	}
 	go pb.loop()
 	return pb
@@ -165,6 +168,15 @@ func (pb *ProposalBuilder) loop() {
 			proposalContext := pb.newProposalContext(latestContext)
 			pb.logger.Debug("building a new proposal", "for_height", proposalContext.BlockHeight())
 			go func() {
+				// We create a per goroutine instance of the ProposalHandler
+				// since it the internal txSelector is not thread safe.
+				abciProposalHandler := baseapp.NewDefaultProposalHandler(pb.evmMempool, pb.txVerifier)
+				abciProposalHandler.SetSignerExtractionAdapter(
+					NewEthSignerExtractionAdapter(
+						sdkmempool.NewDefaultSignerExtractionAdapter(),
+					),
+				)
+
 				// TODO: there is an issue that must be solved here.
 				// CometBFT typically supplies this value in the
 				// PrepareProposalRequest, it uses the MaxBlockBytes as
@@ -189,7 +201,7 @@ func (pb *ProposalBuilder) loop() {
 				// TODO: there is a lot of state setup done in baseapp that happens
 				// before the PrepareProposalHandler is called. I don't think this
 				// is actually required here, but this should be investigated more.
-				resp, err := pb.prepareProposal(proposalContext, req)
+				resp, err := abciProposalHandler.PrepareProposalHandler()(proposalContext, req)
 				if err != nil {
 					pb.logger.Error("failed to prepare proposal", "height", req.Height, "err", err)
 					resp = &abci.ResponsePrepareProposal{}
