@@ -25,6 +25,12 @@ const (
 	DefaultRebuildTimeout = 100 * time.Millisecond
 )
 
+// ProposalBuilder maintains the current 'best' proposal that is available, by
+// continuously calling the PrepareProposalHandler as soon as possible for a
+// new height.
+//
+// The amount of time in between creating new proposals can be
+// configured via the RebuildTimeout.
 type ProposalBuilder struct {
 	// prepareProposal creates a new proposal.
 	prepareProposal sdk.PrepareProposalHandler
@@ -45,12 +51,14 @@ type ProposalBuilder struct {
 	// lock protects proposalHeight and latestProposal.
 	lock sync.Mutex
 
-	logger log.Logger
-	done   chan struct{}
+	// done will be closed when we should stop processing.
+	done chan struct{}
 
 	config *ProposalBuilderConfig
+	logger log.Logger
 }
 
+// NewProposalBuilder creates and starts a new ProposalBuilder instance.
 func NewProposalBuilder(
 	prepareProposal sdk.PrepareProposalHandler,
 	chain *Blockchain,
@@ -102,6 +110,7 @@ func (pb *ProposalBuilder) Stop() {
 	close(pb.done)
 }
 
+// loop is the main loop that will create new proposals.
 func (pb *ProposalBuilder) loop() {
 	// subscribe to new chain head events on the chain
 	newHeadCh := make(chan core.ChainHeadEvent)
@@ -195,6 +204,8 @@ func (pb *ProposalBuilder) loop() {
 	}
 }
 
+// newProposalContext creates a branched context from ctx that contains all the
+// relevant info to create a proposal (gas meter, height, consensus params).
 func (pb *ProposalBuilder) newProposalContext(ctx sdk.Context) sdk.Context {
 	// cache context so that we do not directly modify chains context and have
 	// a unique context per prepare proposal request
@@ -214,6 +225,9 @@ func (pb *ProposalBuilder) newProposalContext(ctx sdk.Context) sdk.Context {
 		WithBlockGasMeter(meter)
 }
 
+// setLatestProposal updates the PendingBuilders LatestProposal, if the
+// response is valid for the PendingBuilders current height and it is 'better'
+// than the current LatestProposal.
 func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePrepareProposal) {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
