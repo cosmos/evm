@@ -80,6 +80,9 @@ const (
 	EVMMempoolGlobalQueue              = "evm.mempool.global-queue"
 	EVMMempoolLifetime                 = "evm.mempool.lifetime"
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
+
+	EVMMempoolProposalBuilderEnabled        = "evm.mempool.proposal-builder.enabled"
+	EVMMempoolProposalBuilderRebuildTimeout = "evm.mempool.proposal-builder.rebuild-timeout"
 )
 
 // TLS flags

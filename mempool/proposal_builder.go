@@ -15,8 +15,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+type ProposalBuilderConfig struct {
+	// RebuildTimeout is the duration to wait in between trying to build a new
+	// proposal.
+	RebuildTimeout time.Duration
+}
+
 const (
-	DefaultRebuildDuration = 100 * time.Millisecond
+	DefaultRebuildTimeout = 100 * time.Millisecond
 )
 
 type ProposalBuilder struct {
@@ -28,10 +34,6 @@ type ProposalBuilder struct {
 
 	// app is a reference to the running application.
 	app *baseapp.BaseApp
-
-	// rebuildDuration is the duration to wait in between trying to build a new
-	// proposal.
-	rebuildDuration time.Duration
 
 	// proposalHeight is the height that the proposals are currently being
 	// created for.
@@ -45,27 +47,29 @@ type ProposalBuilder struct {
 
 	logger log.Logger
 	done   chan struct{}
+
+	config *ProposalBuilderConfig
 }
 
 func NewProposalBuilder(
 	prepareProposal sdk.PrepareProposalHandler,
 	chain *Blockchain,
 	app *baseapp.BaseApp,
-	rebuildDuration time.Duration,
 	logger log.Logger,
+	config *ProposalBuilderConfig,
 ) *ProposalBuilder {
-	if rebuildDuration == time.Duration(0) {
-		rebuildDuration = DefaultRebuildDuration
+	if config.RebuildTimeout == time.Duration(0) {
+		config.RebuildTimeout = DefaultRebuildTimeout
 	}
 
 	pb := &ProposalBuilder{
 		prepareProposal: prepareProposal,
 		app:             app,
 		chain:           chain,
-		rebuildDuration: rebuildDuration,
 		logger:          logger.With(log.ModuleKey, "ProposalBuilder"),
 		latestProposal:  &abci.ResponsePrepareProposal{},
 		done:            make(chan struct{}),
+		config:          config,
 	}
 	go pb.loop()
 	return pb
@@ -105,7 +109,7 @@ func (pb *ProposalBuilder) loop() {
 	defer sub.Unsubscribe()
 
 	// ticker will tick every time we should start building  new proposal
-	ticker := time.NewTicker(pb.rebuildDuration)
+	ticker := time.NewTicker(pb.config.RebuildTimeout)
 	defer ticker.Stop()
 
 	var latestContext sdk.Context
@@ -134,7 +138,7 @@ func (pb *ProposalBuilder) loop() {
 			// reset ticker by creating a new one, since it may have been
 			// stopped
 			pb.logger.Debug("done resetting proposal")
-			ticker.Reset(pb.rebuildDuration)
+			ticker.Reset(pb.config.RebuildTimeout)
 		case <-ticker.C:
 			// rebuild proposal
 			if latestContext.IsZero() {
@@ -184,7 +188,7 @@ func (pb *ProposalBuilder) loop() {
 				pb.setLatestProposal(proposalContext.BlockHeight(), resp)
 				pb.logger.Debug("created a new proposal", "for_height", proposalContext.BlockHeight())
 			}()
-			ticker.Reset(pb.rebuildDuration)
+			ticker.Reset(pb.config.RebuildTimeout)
 		case <-pb.done:
 			return
 		}

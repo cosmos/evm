@@ -3,7 +3,6 @@ package evmd
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
@@ -72,14 +71,18 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 			sdkmempool.NewDefaultSignerExtractionAdapter(),
 		),
 	)
-	proposalBuilder := evmmempool.NewProposalBuilder(
-		abciProposalHandler.PrepareProposalHandler(),
-		blockchain,
-		app.BaseApp,
-		time.Duration(0),
-		logger,
-	)
-	app.SetPrepareProposal(proposalBuilder.PrepareProposalHandler)
+	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+
+	if mempoolConfig.ProposalBuilderConfig != nil {
+		proposalBuilder := evmmempool.NewProposalBuilder(
+			abciProposalHandler.PrepareProposalHandler(),
+			blockchain,
+			app.BaseApp,
+			logger,
+			mempoolConfig.ProposalBuilderConfig,
+		)
+		app.SetPrepareProposal(proposalBuilder.PrepareProposalHandler)
+	}
 
 	return nil
 }
@@ -94,6 +97,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
+		ProposalBuilderConfig:    server.GetProposalBuilderConfig(appOpts, logger),
 	}, nil
 }
 
