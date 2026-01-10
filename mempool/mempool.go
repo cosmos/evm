@@ -537,17 +537,16 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reaso
 
 // SetEventBus sets CometBFT event bus to listen for new block header event.
 func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
-	ctx := context.Background()
 	if m.HasEventBus() {
-		m.eventBus.Unsubscribe(ctx, SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
+		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
 	}
 	m.eventBus = eventBus
-	blockchainSub, err := eventBus.Subscribe(ctx, SubscriberName, stream.NewBlockHeaderEvents)
+	sub, err := eventBus.Subscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
 	if err != nil {
 		panic(err)
 	}
 	go func() {
-		for range blockchainSub.Out() {
+		for range sub.Out() {
 			m.GetBlockchain().NotifyNewBlock()
 		}
 	}()
