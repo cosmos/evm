@@ -14,6 +14,8 @@ import (
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	evmmempool "github.com/cosmos/evm/mempool"
+
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -154,6 +156,19 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	}
 
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
+}
+
+func GetProposalBuilderConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.ProposalBuilderConfig {
+	if appOpts == nil {
+		logger.Error("app options is nil, pending builder disabled")
+		return nil
+	}
+	if !cast.ToBool(appOpts.Get(srvflags.EVMMempoolProposalBuilderEnabled)) {
+		return nil
+	}
+	return &evmmempool.ProposalBuilderConfig{
+		RebuildTimeout: cast.ToDuration(appOpts.Get(srvflags.EVMMempoolProposalBuilderRebuildTimeout)),
+	}
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

@@ -44,13 +44,13 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	txEncoder := evmmempool.NewTxEncoder(app.txConfig)
 	rechecker := evmmempool.NewRechecker(mempoolConfig.AnteHandler, txEncoder)
+	blockchain := evmmempool.NewBlockchain(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, mempoolConfig.BlockGasLimit)
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
-		app.CreateQueryContext,
 		logger,
 		app.EVMKeeper,
-		app.FeeMarketKeeper,
 		app.txConfig,
+		blockchain,
 		app.clientCtx,
 		txEncoder,
 		rechecker,
@@ -73,6 +73,18 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	)
 	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
 
+	if mempoolConfig.ProposalBuilderConfig != nil {
+		proposalBuilder := evmmempool.NewProposalBuilder(
+			evmMempool,
+			txVerifier,
+			blockchain,
+			app.BaseApp,
+			logger,
+			mempoolConfig.ProposalBuilderConfig,
+		)
+		app.SetPrepareProposal(proposalBuilder.PrepareProposalHandler)
+	}
+
 	return nil
 }
 
@@ -86,6 +98,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
+		ProposalBuilderConfig:    server.GetProposalBuilderConfig(appOpts, logger),
 	}, nil
 }
 

@@ -2,7 +2,6 @@ package legacypool
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -118,8 +117,14 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 		// Should never see a situation where the collector has a higher hight
 		// than the callers
 		if cmp > 0 {
-			defer c.mu.RUnlock() // Defer unlock since the panic will read
-			panic(fmt.Errorf("collector received collect request at height %d, but collector is at height %d, cannot serve requests in the past", height, c.currentHeight))
+			c.mu.RUnlock()
+			// NOTE: we should panic here with a synchronous prepare proposal
+			// flow, however if the application is using a async proposal
+			// builder, it may try to collect txs for heights in the past after
+			// the TxCollector has already moved on, thus we are not panicing
+			// here and instead returning nil, i.e. empty blocks will be
+			// produced if the caller decides to use this result.
+			return nil
 		}
 
 		// If we're at the target height, wait for completion or timeout

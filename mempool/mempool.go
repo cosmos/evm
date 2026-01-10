@@ -85,9 +85,10 @@ type (
 // It allows customization of the underlying mempools, verification functions,
 // and broadcasting functions used by the sdkmempool.
 type EVMMempoolConfig struct {
-	LegacyPoolConfig *legacypool.Config
-	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
-	AnteHandler      sdk.AnteHandler
+	LegacyPoolConfig      *legacypool.Config
+	CosmosPoolConfig      *sdkmempool.PriorityNonceMempoolConfig[math.Int]
+	ProposalBuilderConfig *ProposalBuilderConfig
+	AnteHandler           sdk.AnteHandler
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
 	MinTip        *uint256.Int
@@ -105,21 +106,17 @@ type EVMMempoolConfig struct {
 // and configures fee-based prioritization. The config parameter allows customization
 // of pools and verification functions, with sensible defaults created if not provided.
 func NewExperimentalEVMMempool(
-	getCtxCallback func(height int64, prove bool) (sdk.Context, error),
 	logger log.Logger,
 	vmKeeper VMKeeperI,
-	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
+	blockchain *Blockchain,
 	clientCtx client.Context,
 	txEncoder *TxEncoder,
 	rechecker legacypool.Rechecker,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
-	var (
-		cosmosPool sdkmempool.ExtMempool
-		blockchain *Blockchain
-	)
+	var cosmosPool sdkmempool.ExtMempool
 
 	// add the mempool name to the logger
 	logger = logger.With(log.ModuleKey, "ExperimentalEVMMempool")
@@ -134,8 +131,6 @@ func NewExperimentalEVMMempool(
 		logger.Warn("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
 		config.BlockGasLimit = fallbackBlockGasLimit
 	}
-
-	blockchain = NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	// Create txPool from configuration
 	legacyConfig := legacypool.DefaultConfig

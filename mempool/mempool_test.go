@@ -420,13 +420,14 @@ func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *m
 		AnteHandler:      nil, // No ante handler for this test
 	}
 
+	blockchain := mempool.NewBlockchain(getCtxCallback, log.NewNopLogger(), mockVMKeeper, mockFeeMarketKeeper, config.BlockGasLimit)
+
 	// Create mempool
 	mp := mempool.NewExperimentalEVMMempool(
-		getCtxCallback,
 		log.NewNopLogger(),
 		mockVMKeeper,
-		mockFeeMarketKeeper,
 		txConfig,
+		blockchain,
 		clientCtx,
 		mempool.NewTxEncoder(txConfig),
 		mockRechecker,
