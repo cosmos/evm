@@ -4,12 +4,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
-	abci "github.com/cometbft/cometbft/abci/types"
+
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/ethereum/go-ethereum/core"
 )
 
 const (
