@@ -10,6 +10,7 @@ import (
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -24,6 +25,9 @@ type ProposalBuilderConfig struct {
 
 const (
 	DefaultRebuildTimeout = 100 * time.Millisecond
+
+	inflightProposalsKey        = "proposalbuilder_inflight_proposals"
+	proposalCreationDurationKey = "proposalbuilder_proposal_creation_duration"
 )
 
 // ProposalBuilder maintains the current 'best' proposal that is available, by
@@ -125,6 +129,7 @@ func (pb *ProposalBuilder) loop() {
 	defer ticker.Stop()
 
 	var latestContext sdk.Context
+	var inflightProposals int
 	for {
 		select {
 		case event := <-newHeadCh:
@@ -167,7 +172,12 @@ func (pb *ProposalBuilder) loop() {
 			// a height in the past, which will panic.
 			proposalContext := pb.newProposalContext(latestContext)
 			pb.logger.Debug("building a new proposal", "for_height", proposalContext.BlockHeight())
+
+			inflightProposals++
+			telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
 			go func() {
+				defer func(t0 time.Time) { telemetry.MeasureSince(t0, proposalCreationDurationKey) }(time.Now())
+
 				// We create a per goroutine instance of the ProposalHandler
 				// since it the internal txSelector is not thread safe.
 				abciProposalHandler := baseapp.NewDefaultProposalHandler(pb.evmMempool, pb.txVerifier)
@@ -209,6 +219,9 @@ func (pb *ProposalBuilder) loop() {
 				}
 				pb.setLatestProposal(proposalContext.BlockHeight(), resp)
 				pb.logger.Debug("created a new proposal", "for_height", proposalContext.BlockHeight())
+
+				inflightProposals--
+				telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
 			}()
 			ticker.Reset(pb.config.RebuildTimeout)
 		case <-pb.done:
