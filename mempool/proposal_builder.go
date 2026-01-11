@@ -176,6 +176,7 @@ func (pb *ProposalBuilder) loop() {
 						sdkmempool.NewDefaultSignerExtractionAdapter(),
 					),
 				)
+				abciProposalHandler.SetTxSelector(NewNoCopyProposalTxSelector())
 
 				// TODO: there is an issue that must be solved here.
 				// CometBFT typically supplies this value in the
