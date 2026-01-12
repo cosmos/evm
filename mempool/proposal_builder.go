@@ -31,6 +31,7 @@ const (
 	proposalCreationDurationKey = "proposalbuilder_proposal_creation_duration"
 	lateProposalsKey            = "proposalbuilder_late_proposals"
 	worseProposalsKey           = "proposalbuilder_worse_proposals"
+	speedyPrepareProposalKey    = "proposalbuilder_speedy_prepare_proposal"
 )
 
 // ProposalBuilder maintains the current 'best' proposal that is available, by
@@ -51,7 +52,8 @@ type ProposalBuilder struct {
 
 	// proposalHeight is the height that the proposals are currently being
 	// created for.
-	proposalHeight int64
+	proposalHeight      int64
+	anyProposalsCreated bool
 
 	// latestProposal is the current best proposal for proposalHeight.
 	latestProposal *abci.ResponsePrepareProposal
@@ -95,7 +97,7 @@ func NewProposalBuilder(
 
 // PrepareProposalHandler returns the latest proposal in the ProposalBuilder,
 // conforming to the sdk.PrepareProposalHandler signature.
-func (pb *ProposalBuilder) PrepareProposalHandler(_ sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
 	return pb.LatestProposal(), nil
 }
 
@@ -103,6 +105,10 @@ func (pb *ProposalBuilder) PrepareProposalHandler(_ sdk.Context, _ *abci.Request
 func (pb *ProposalBuilder) LatestProposal() *abci.ResponsePrepareProposal {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
+
+	if !pb.anyProposalsCreated {
+		telemetry.IncrCounter(1, speedyPrepareProposalKey)
+	}
 
 	// TODO: Here we should inform the main loop that it does not need to
 	// continue building new proposals at this height (since likely this
@@ -301,6 +307,7 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, re
 	}
 
 	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", height, "dur")
+	pb.anyProposalsCreated = true
 	pb.latestProposal = resp
 }
 
@@ -308,6 +315,7 @@ func (pb *ProposalBuilder) resetLatestProposal() {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
 	pb.latestProposal = &abci.ResponsePrepareProposal{}
+	pb.anyProposalsCreated = false
 }
 
 func (pb *ProposalBuilder) getHeight() int64 {
