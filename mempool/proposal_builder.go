@@ -10,6 +10,7 @@ import (
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -23,7 +24,15 @@ type ProposalBuilderConfig struct {
 }
 
 const (
-	DefaultRebuildTimeout = 100 * time.Millisecond
+	DefaultRebuildTimeout  = 100 * time.Millisecond
+	NewBlockRebuildTimeout = time.Nanosecond
+
+	inflightProposalsKey        = "proposalbuilder_inflight_proposals"
+	proposalPerHeightKey        = "proposalbuilder_proposals_per_height"
+	proposalCreationDurationKey = "proposalbuilder_proposal_creation_duration"
+	lateProposalsKey            = "proposalbuilder_late_proposals"
+	worseProposalsKey           = "proposalbuilder_worse_proposals"
+	prepareProposalWaitDuration = "proposalbuilder_prepare_proposal_wait_duration"
 )
 
 // ProposalBuilder maintains the current 'best' proposal that is available, by
@@ -44,7 +53,8 @@ type ProposalBuilder struct {
 
 	// proposalHeight is the height that the proposals are currently being
 	// created for.
-	proposalHeight int64
+	proposalHeight   int64
+	proposalsCreated chan struct{}
 
 	// latestProposal is the current best proposal for proposalHeight.
 	latestProposal *abci.ResponsePrepareProposal
@@ -77,7 +87,7 @@ func NewProposalBuilder(
 		txVerifier:     txVerifier,
 		app:            app,
 		chain:          chain,
-		logger:         logger.With(log.ModuleKey, "ProposalBuilder"),
+		logger:         logger.With(log.ModuleKey, "proposalbuilder"),
 		latestProposal: &abci.ResponsePrepareProposal{},
 		done:           make(chan struct{}),
 		config:         config,
@@ -88,7 +98,10 @@ func NewProposalBuilder(
 
 // PrepareProposalHandler returns the latest proposal in the ProposalBuilder,
 // conforming to the sdk.PrepareProposalHandler signature.
-func (pb *ProposalBuilder) PrepareProposalHandler(_ sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+	if pb.proposalsCreated != nil {
+		pb.waitForProposalCreation()
+	}
 	return pb.LatestProposal(), nil
 }
 
@@ -124,7 +137,14 @@ func (pb *ProposalBuilder) loop() {
 	ticker := time.NewTicker(pb.config.RebuildTimeout)
 	defer ticker.Stop()
 
-	var latestContext sdk.Context
+	var (
+		latestContext      sdk.Context
+		inflightProposals  int
+		proposalsPerHeight int
+	)
+
+	blocker := make(chan struct{}, 1)
+
 	for {
 		select {
 		case event := <-newHeadCh:
@@ -147,13 +167,22 @@ func (pb *ProposalBuilder) loop() {
 				pb.lock.Unlock()
 			}
 
-			// reset ticker by creating a new one, since it may have been
-			// stopped
+			proposalsPerHeight = 0
+
 			pb.logger.Debug("done resetting proposal")
-			ticker.Reset(pb.config.RebuildTimeout)
+
+			// immediately try to build a new proposal when we see a new height
+			ticker.Reset(NewBlockRebuildTimeout)
 		case <-ticker.C:
 			// rebuild proposal
 			if latestContext.IsZero() {
+				continue
+			}
+
+			// ensure only a single goroutine can be running at once
+			select {
+			case blocker <- struct{}{}:
+			default:
 				continue
 			}
 
@@ -167,7 +196,18 @@ func (pb *ProposalBuilder) loop() {
 			// a height in the past, which will panic.
 			proposalContext := pb.newProposalContext(latestContext)
 			pb.logger.Debug("building a new proposal", "for_height", proposalContext.BlockHeight())
+
+			// metrics
+			proposalsPerHeight++
+			telemetry.SetGauge(float32(proposalsPerHeight), proposalPerHeightKey) // TODO: change to historgram when we get otel
+			inflightProposals++
+			telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
+
 			go func() {
+				start := time.Now()
+				defer func() { telemetry.MeasureSince(start, proposalCreationDurationKey) }()
+				defer func() { <-blocker }()
+
 				// We create a per goroutine instance of the ProposalHandler
 				// since it the internal txSelector is not thread safe.
 				abciProposalHandler := baseapp.NewDefaultProposalHandler(pb.evmMempool, pb.txVerifier)
@@ -176,6 +216,7 @@ func (pb *ProposalBuilder) loop() {
 						sdkmempool.NewDefaultSignerExtractionAdapter(),
 					),
 				)
+				abciProposalHandler.SetTxSelector(NewNoCopyProposalTxSelector())
 
 				// TODO: there is an issue that must be solved here.
 				// CometBFT typically supplies this value in the
@@ -206,8 +247,11 @@ func (pb *ProposalBuilder) loop() {
 					pb.logger.Error("failed to prepare proposal", "height", req.Height, "err", err)
 					resp = &abci.ResponsePrepareProposal{}
 				}
-				pb.setLatestProposal(proposalContext.BlockHeight(), resp)
+				pb.setLatestProposal(proposalContext.BlockHeight(), time.Since(start), resp)
 				pb.logger.Debug("created a new proposal", "for_height", proposalContext.BlockHeight())
+
+				inflightProposals--
+				telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
 			}()
 			ticker.Reset(pb.config.RebuildTimeout)
 		case <-pb.done:
@@ -240,7 +284,7 @@ func (pb *ProposalBuilder) newProposalContext(ctx sdk.Context) sdk.Context {
 // setLatestProposal updates the PendingBuilders LatestProposal, if the
 // response is valid for the PendingBuilders current height and it is 'better'
 // than the current LatestProposal.
-func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePrepareProposal) {
+func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, resp *abci.ResponsePrepareProposal) {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
 
@@ -248,6 +292,7 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePr
 	// proposal finished processing. if so disregard this proposal since its
 	// for an old height.
 	if height < pb.proposalHeight {
+		telemetry.IncrCounter(1, lateProposalsKey)
 		return
 	}
 
@@ -256,18 +301,50 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePr
 	// a very early goroutine that is spawned could get unlucky scheduling and
 	// finish after a later goroutine and replace a better proposal with a tiny
 	// one, this check avoids that)
-	if len(resp.Txs) <= len(pb.latestProposal.Txs) {
+	if len(resp.Txs) < len(pb.latestProposal.Txs) {
+		telemetry.IncrCounter(1, worseProposalsKey)
 		return
 	}
 
-	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs))
+	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", height, "dur")
 	pb.latestProposal = resp
+	pb.signalPropsoalDone()
 }
 
+func (pb *ProposalBuilder) signalPropsoalDone() {
+	// if the proposals created channel is empty, push a value onto it to
+	// signal that a proposal has been created for pb.proposalHeight. If there
+	// is already a value in there, do nothing since this means a proposal has
+	// already been created for this height, and signaling again does not
+	// matter (this is only used to signal that atleast one proposal has been
+	// created at pb.proposalHeight).
+	select {
+	case pb.proposalsCreated <- struct{}{}:
+	default:
+	}
+}
+
+func (pb *ProposalBuilder) waitForProposalCreation() {
+	defer func(t0 time.Time) { telemetry.MeasureSince(t0, prepareProposalWaitDuration) }(time.Now())
+
+	// try and pull a value off of the chan that signals if a proposal has been
+	// created. a value will be pushed to a channel once atleast one proposals
+	// have been created.
+
+	// TODO: timeout?
+	select {
+	case <-pb.proposalsCreated:
+	}
+}
+
+// TODO: can reset be called while we are blocking in prepare proposal? if so
+// we will need to save a reference to the channel or signal that the proposal
+// should timeout, not sure what scenarios that would happen in though.
 func (pb *ProposalBuilder) resetLatestProposal() {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
-	pb.latestProposal = &abci.ResponsePrepareProposal{}
+	pb.latestProposal = new(abci.ResponsePrepareProposal)
+	pb.proposalsCreated = make(chan struct{})
 }
 
 func (pb *ProposalBuilder) getHeight() int64 {
