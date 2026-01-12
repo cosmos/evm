@@ -449,6 +449,11 @@ func GetConfig(v *viper.Viper) (Config, error) {
 	if err := v.Unmarshal(conf); err != nil {
 		return Config{}, fmt.Errorf("error extracting app config: %w", err)
 	}
+	sdkConf, err := config.GetConfig(v)
+	if err != nil {
+		return Config{}, err
+	}
+	conf.GRPC.HistoricalGRPCAddressBlockRange = sdkConf.GRPC.HistoricalGRPCAddressBlockRange
 	return *conf, nil
 }
 
