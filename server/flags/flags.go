@@ -82,8 +82,12 @@ const (
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
 )
 
-// IAVLXEnable (experimental) enables the IAVLX storage engine.
-const IAVLXEnable = "iavlx-enable"
+const (
+	// IAVLXEnable (experimental) enables the IAVLX storage engine.
+	IAVLXEnable = "iavlx-enable"
+	// BSTMWorkers (experimental) controls the number of concurrent executors for the bstm txrunner.
+	BSTMWorkers = "bstm-workers"
+)
 
 // TLS flags
 const (

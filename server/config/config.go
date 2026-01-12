@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
+	goruntime "runtime"
 	"time"
 
 	"github.com/spf13/viper"
@@ -124,6 +125,8 @@ const (
 	DefaultEnableProfiling = false
 )
 
+var DefaultBSTMWorkers = min(goruntime.GOMAXPROCS(0), goruntime.NumCPU())
+
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 
 // Config defines the server's top level configuration. It includes the default app config
@@ -134,6 +137,9 @@ type Config struct {
 	// UseIAVLX enables the IAVLX storage engine.
 	// todo: move to appropriate place?
 	UseIAVLX bool `mapstructure:"use-iavlx"`
+	// BSTMWorkers specifies how many concurrent workers to use in the blockstm executor.
+	// todo: move to appropriate place?
+	BSTMWorkers int `mapstructure:"bstm-workers"`
 
 	EVM     EVMConfig     `mapstructure:"evm"`
 	JSONRPC JSONRPCConfig `mapstructure:"json-rpc"`

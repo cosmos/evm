@@ -7,8 +7,6 @@ import (
 	"io"
 	"os"
 
-	goruntime "runtime"
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -27,6 +25,7 @@ import (
 	evmconfig "github.com/cosmos/evm/evmd/config"
 	evmmempool "github.com/cosmos/evm/mempool"
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
+	srvconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
@@ -261,11 +260,16 @@ func NewExampleApp(
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 
+	numWorkers := cast.ToInt(appOpts.Get(srvflags.BSTMWorkers))
+	if numWorkers == 0 {
+		numWorkers = srvconfig.DefaultBSTMWorkers
+	}
+	logger.Info(fmt.Sprintf("App configured with %d bstm workers", numWorkers))
 	// enable block stm for parallel execution
 	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
 		encodingConfig.TxConfig.TxDecoder(),
 		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		numWorkers,
 		true,
 		sdk.DefaultBondDenom,
 	))
