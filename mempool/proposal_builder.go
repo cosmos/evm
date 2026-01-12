@@ -52,8 +52,8 @@ type ProposalBuilder struct {
 
 	// proposalHeight is the height that the proposals are currently being
 	// created for.
-	proposalHeight      int64
-	anyProposalsCreated bool
+	proposalHeight   int64
+	proposalsCreated *sync.WaitGroup
 
 	// latestProposal is the current best proposal for proposalHeight.
 	latestProposal *abci.ResponsePrepareProposal
@@ -98,6 +98,7 @@ func NewProposalBuilder(
 // PrepareProposalHandler returns the latest proposal in the ProposalBuilder,
 // conforming to the sdk.PrepareProposalHandler signature.
 func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+	pb.proposalsCreated.Wait()
 	return pb.LatestProposal(), nil
 }
 
@@ -105,10 +106,6 @@ func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.Reque
 func (pb *ProposalBuilder) LatestProposal() *abci.ResponsePrepareProposal {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
-
-	if !pb.anyProposalsCreated {
-		telemetry.IncrCounter(1, speedyPrepareProposalKey)
-	}
 
 	// TODO: Here we should inform the main loop that it does not need to
 	// continue building new proposals at this height (since likely this
@@ -203,7 +200,7 @@ func (pb *ProposalBuilder) loop() {
 			inflightProposals++
 			telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
 
-			go func() {
+			go func(isFirst bool) {
 				start := time.Now()
 				defer func() { telemetry.MeasureSince(start, proposalCreationDurationKey) }()
 				defer func() { <-blocker }()
@@ -247,12 +244,12 @@ func (pb *ProposalBuilder) loop() {
 					pb.logger.Error("failed to prepare proposal", "height", req.Height, "err", err)
 					resp = &abci.ResponsePrepareProposal{}
 				}
-				pb.setLatestProposal(proposalContext.BlockHeight(), time.Since(start), resp)
+				pb.setLatestProposal(proposalContext.BlockHeight(), time.Since(start), isFirst, resp)
 				pb.logger.Debug("created a new proposal", "for_height", proposalContext.BlockHeight())
 
 				inflightProposals--
 				telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
-			}()
+			}(proposalsPerHeight == 1)
 			ticker.Reset(pb.config.RebuildTimeout)
 		case <-pb.done:
 			return
@@ -284,7 +281,7 @@ func (pb *ProposalBuilder) newProposalContext(ctx sdk.Context) sdk.Context {
 // setLatestProposal updates the PendingBuilders LatestProposal, if the
 // response is valid for the PendingBuilders current height and it is 'better'
 // than the current LatestProposal.
-func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, resp *abci.ResponsePrepareProposal) {
+func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, isFirst bool, resp *abci.ResponsePrepareProposal) {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
 
@@ -307,15 +304,19 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, re
 	}
 
 	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", height, "dur")
-	pb.anyProposalsCreated = true
 	pb.latestProposal = resp
+
+	if isFirst {
+		pb.proposalsCreated.Done()
+	}
 }
 
 func (pb *ProposalBuilder) resetLatestProposal() {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
-	pb.latestProposal = &abci.ResponsePrepareProposal{}
-	pb.anyProposalsCreated = false
+	pb.latestProposal = new(abci.ResponsePrepareProposal)
+	pb.proposalsCreated = new(sync.WaitGroup)
+	pb.proposalsCreated.Add(1)
 }
 
 func (pb *ProposalBuilder) getHeight() int64 {
