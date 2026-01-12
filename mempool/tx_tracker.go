@@ -7,9 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/cosmos/cosmos-sdk/telemetry"
-
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
+
+	"github.com/cosmos/cosmos-sdk/telemetry"
 )
 
 var (
