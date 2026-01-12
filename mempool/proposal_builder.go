@@ -136,6 +136,9 @@ func (pb *ProposalBuilder) loop() {
 		inflightProposals  int
 		proposalsPerHeight int
 	)
+
+	blocker := make(chan struct{}, 1)
+
 	for {
 		select {
 		case event := <-newHeadCh:
@@ -170,6 +173,13 @@ func (pb *ProposalBuilder) loop() {
 				continue
 			}
 
+			// ensure only a single goroutine can be running at once
+			select {
+			case blocker <- struct{}{}:
+			default:
+				continue
+			}
+
 			// running a goroutine here to avoid a situation where we get stuck
 			// in a long proposal and that blocks us from receiving newHead
 			// events.
@@ -190,6 +200,7 @@ func (pb *ProposalBuilder) loop() {
 			go func() {
 				start := time.Now()
 				defer func() { telemetry.MeasureSince(start, proposalCreationDurationKey) }()
+				defer func() { <-blocker }()
 
 				// We create a per goroutine instance of the ProposalHandler
 				// since it the internal txSelector is not thread safe.
