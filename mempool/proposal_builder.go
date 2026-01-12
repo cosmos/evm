@@ -24,7 +24,8 @@ type ProposalBuilderConfig struct {
 }
 
 const (
-	DefaultRebuildTimeout = 100 * time.Millisecond
+	DefaultRebuildTimeout  = 100 * time.Millisecond
+	NewBlockRebuildTimeout = time.Nanosecond
 
 	inflightProposalsKey        = "proposalbuilder_inflight_proposals"
 	proposalPerHeightKey        = "proposalbuilder_proposals_per_height"
@@ -168,10 +169,10 @@ func (pb *ProposalBuilder) loop() {
 
 			proposalsPerHeight = 0
 
-			// reset ticker by creating a new one, since it may have been
-			// stopped
 			pb.logger.Debug("done resetting proposal")
-			ticker.Reset(pb.config.RebuildTimeout)
+
+			// immediately try to build a new proposal when we see a new height
+			ticker.Reset(NewBlockRebuildTimeout)
 		case <-ticker.C:
 			// rebuild proposal
 			if latestContext.IsZero() {
@@ -202,7 +203,7 @@ func (pb *ProposalBuilder) loop() {
 			inflightProposals++
 			telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
 
-			go func(isFirst bool) {
+			go func() {
 				start := time.Now()
 				defer func() { telemetry.MeasureSince(start, proposalCreationDurationKey) }()
 				defer func() { <-blocker }()
@@ -246,12 +247,12 @@ func (pb *ProposalBuilder) loop() {
 					pb.logger.Error("failed to prepare proposal", "height", req.Height, "err", err)
 					resp = &abci.ResponsePrepareProposal{}
 				}
-				pb.setLatestProposal(proposalContext.BlockHeight(), time.Since(start), isFirst, resp)
+				pb.setLatestProposal(proposalContext.BlockHeight(), time.Since(start), resp)
 				pb.logger.Debug("created a new proposal", "for_height", proposalContext.BlockHeight())
 
 				inflightProposals--
 				telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
-			}(proposalsPerHeight == 1)
+			}()
 			ticker.Reset(pb.config.RebuildTimeout)
 		case <-pb.done:
 			return
@@ -283,7 +284,7 @@ func (pb *ProposalBuilder) newProposalContext(ctx sdk.Context) sdk.Context {
 // setLatestProposal updates the PendingBuilders LatestProposal, if the
 // response is valid for the PendingBuilders current height and it is 'better'
 // than the current LatestProposal.
-func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, isFirst bool, resp *abci.ResponsePrepareProposal) {
+func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, resp *abci.ResponsePrepareProposal) {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
 
