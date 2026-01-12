@@ -29,6 +29,8 @@ const (
 	inflightProposalsKey        = "proposalbuilder_inflight_proposals"
 	proposalPerHeightKey        = "proposalbuilder_proposals_per_height"
 	proposalCreationDurationKey = "proposalbuilder_proposal_creation_duration"
+	lateProposalsKey            = "proposalbuilder_late_proposals"
+	worseProposalsKey           = "proposalbuilder_worse_proposals"
 )
 
 // ProposalBuilder maintains the current 'best' proposal that is available, by
@@ -186,7 +188,8 @@ func (pb *ProposalBuilder) loop() {
 			telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
 
 			go func() {
-				defer func(t0 time.Time) { telemetry.MeasureSince(t0, proposalCreationDurationKey) }(time.Now())
+				start := time.Now()
+				defer func() { telemetry.MeasureSince(start, proposalCreationDurationKey) }()
 
 				// We create a per goroutine instance of the ProposalHandler
 				// since it the internal txSelector is not thread safe.
@@ -227,7 +230,7 @@ func (pb *ProposalBuilder) loop() {
 					pb.logger.Error("failed to prepare proposal", "height", req.Height, "err", err)
 					resp = &abci.ResponsePrepareProposal{}
 				}
-				pb.setLatestProposal(proposalContext.BlockHeight(), resp)
+				pb.setLatestProposal(proposalContext.BlockHeight(), time.Since(start), resp)
 				pb.logger.Debug("created a new proposal", "for_height", proposalContext.BlockHeight())
 
 				inflightProposals--
@@ -264,7 +267,7 @@ func (pb *ProposalBuilder) newProposalContext(ctx sdk.Context) sdk.Context {
 // setLatestProposal updates the PendingBuilders LatestProposal, if the
 // response is valid for the PendingBuilders current height and it is 'better'
 // than the current LatestProposal.
-func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePrepareProposal) {
+func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, resp *abci.ResponsePrepareProposal) {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
 
@@ -272,6 +275,7 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePr
 	// proposal finished processing. if so disregard this proposal since its
 	// for an old height.
 	if height < pb.proposalHeight {
+		telemetry.IncrCounter(1, lateProposalsKey)
 		return
 	}
 
@@ -281,10 +285,11 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, resp *abci.ResponsePr
 	// finish after a later goroutine and replace a better proposal with a tiny
 	// one, this check avoids that)
 	if len(resp.Txs) <= len(pb.latestProposal.Txs) {
+		telemetry.IncrCounter(1, worseProposalsKey)
 		return
 	}
 
-	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs))
+	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", height, "dur")
 	pb.latestProposal = resp
 }
 
