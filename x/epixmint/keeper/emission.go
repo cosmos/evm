@@ -2,8 +2,6 @@ package keeper
 
 import (
 	"context"
-	"math"
-	"math/big"
 	"time"
 
 	sdkmath "cosmossdk.io/math"
@@ -50,6 +48,7 @@ func calculateActualBlockTime(ctx context.Context, fallbackSeconds uint64) uint6
 
 // calculateCurrentEmissionRate calculates the current emission rate per block
 // using smooth exponential decay: rate = initial * (1 - reduction_rate)^(blocks_elapsed / blocks_per_year)
+// Uses deterministic sdkmath.LegacyDec arithmetic to ensure consensus across all architectures.
 func calculateCurrentEmissionRate(ctx context.Context, params types.Params) sdkmath.Int {
 	// Get current block height
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -59,34 +58,32 @@ func calculateCurrentEmissionRate(ctx context.Context, params types.Params) sdkm
 	actualBlockTime := calculateActualBlockTime(ctx, params.BlockTimeSeconds)
 	blocksPerYear := calculateBlocksPerYear(actualBlockTime)
 
-	// Calculate the reduction factor per block for smooth exponential decay
-	// If we want 25% annual reduction, each block should reduce by (1-0.25)^(1/blocks_per_year)
-	annualRetentionRate := sdkmath.LegacyOneDec().Sub(params.AnnualReductionRate) // 1 - 0.25 = 0.75
+	// Use deterministic sdkmath.LegacyDec for all calculations
+	blocksPerYearDec := sdkmath.LegacyNewDec(int64(blocksPerYear))
+	currentHeightDec := sdkmath.LegacyNewDec(currentHeight)
 
-	// Convert to float64 for math.Pow calculation
-	retentionRateFloat, _ := annualRetentionRate.Float64()
-	blocksPerYearFloat := float64(blocksPerYear)
-	currentHeightFloat := float64(currentHeight)
+	// Calculate years elapsed (can be fractional)
+	yearsElapsed := currentHeightDec.Quo(blocksPerYearDec)
 
-	// Calculate the current emission rate using exponential decay
-	// rate = initial * retention_rate^(current_height / blocks_per_year)
-	decayFactor := math.Pow(retentionRateFloat, currentHeightFloat/blocksPerYearFloat)
+	// Calculate the annual retention rate: 1 - reduction_rate (e.g., 1 - 0.25 = 0.75)
+	annualRetentionRate := sdkmath.LegacyOneDec().Sub(params.AnnualReductionRate)
 
-	// Convert back to sdkmath.Int
-	initialAmountFloat := new(big.Float).SetInt(params.InitialAnnualMintAmount.BigInt())
-	currentAnnualRateFloat := new(big.Float).Mul(initialAmountFloat, big.NewFloat(decayFactor))
+	// Calculate decay factor using deterministic power approximation
+	decayFactor := approximateDecayWithDec(annualRetentionRate, yearsElapsed)
+
+	// Calculate current annual rate: initial * decayFactor
+	initialAmount := sdkmath.LegacyNewDecFromInt(params.InitialAnnualMintAmount)
+	currentAnnualRate := initialAmount.Mul(decayFactor)
 
 	// Convert annual rate to per-block rate
-	blocksPerYearBig := big.NewFloat(blocksPerYearFloat)
-	currentBlockRateFloat := new(big.Float).Quo(currentAnnualRateFloat, blocksPerYearBig)
+	currentBlockRate := currentAnnualRate.Quo(blocksPerYearDec)
 
-	// Convert to sdkmath.Int (truncate to integer)
-	currentBlockRateInt, _ := currentBlockRateFloat.Int(nil)
-	return sdkmath.NewIntFromBigInt(currentBlockRateInt)
+	return currentBlockRate.TruncateInt()
 }
 
 // calculateCurrentAnnualEmissionRate calculates the current annual emission rate
-// This is useful for queries and display purposes
+// This is useful for queries and display purposes.
+// Uses deterministic sdkmath.LegacyDec arithmetic to ensure consensus across all architectures.
 func calculateCurrentAnnualEmissionRate(ctx context.Context, params types.Params) sdkmath.Int {
 	// Get current block height
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -95,26 +92,59 @@ func calculateCurrentAnnualEmissionRate(ctx context.Context, params types.Params
 	// Calculate blocks per year based on block time
 	blocksPerYear := calculateBlocksPerYear(params.BlockTimeSeconds)
 
-	// Calculate the annual retention rate
-	annualRetentionRate := sdkmath.LegacyOneDec().Sub(params.AnnualReductionRate) // 1 - 0.25 = 0.75
+	// Use deterministic sdkmath.LegacyDec for all calculations
+	blocksPerYearDec := sdkmath.LegacyNewDec(int64(blocksPerYear))
+	currentHeightDec := sdkmath.LegacyNewDec(currentHeight)
 
-	// Convert to float64 for math.Pow calculation
-	retentionRateFloat, _ := annualRetentionRate.Float64()
-	blocksPerYearFloat := float64(blocksPerYear)
-	currentHeightFloat := float64(currentHeight)
+	// Calculate years elapsed (can be fractional)
+	yearsElapsed := currentHeightDec.Quo(blocksPerYearDec)
 
-	// Calculate years elapsed
-	yearsElapsed := currentHeightFloat / blocksPerYearFloat
+	// Calculate the annual retention rate: 1 - reduction_rate (e.g., 1 - 0.25 = 0.75)
+	annualRetentionRate := sdkmath.LegacyOneDec().Sub(params.AnnualReductionRate)
 
-	// Calculate the current annual emission rate
-	// rate = initial * retention_rate^years_elapsed
-	decayFactor := math.Pow(retentionRateFloat, yearsElapsed)
+	// Calculate decay factor using deterministic power approximation
+	decayFactor := approximateDecayWithDec(annualRetentionRate, yearsElapsed)
 
-	// Convert back to sdkmath.Int
-	initialAmountFloat := new(big.Float).SetInt(params.InitialAnnualMintAmount.BigInt())
-	currentAnnualRateFloat := new(big.Float).Mul(initialAmountFloat, big.NewFloat(decayFactor))
+	// Calculate current annual rate: initial * decayFactor
+	initialAmount := sdkmath.LegacyNewDecFromInt(params.InitialAnnualMintAmount)
+	currentAnnualRate := initialAmount.Mul(decayFactor)
 
-	// Convert to sdkmath.Int (truncate to integer)
-	currentAnnualRateInt, _ := currentAnnualRateFloat.Int(nil)
-	return sdkmath.NewIntFromBigInt(currentAnnualRateInt)
+	return currentAnnualRate.TruncateInt()
+}
+
+// approximateDecayWithDec calculates base^exp using deterministic integer arithmetic.
+// This function handles both the integer part of the exponent (using iterative multiplication)
+// and the fractional part (using linear interpolation for smoothness).
+// This ensures consensus across all CPU architectures (x86, ARM, etc.)
+func approximateDecayWithDec(base sdkmath.LegacyDec, exp sdkmath.LegacyDec) sdkmath.LegacyDec {
+	// Handle edge cases
+	if exp.IsZero() {
+		return sdkmath.LegacyOneDec()
+	}
+	if exp.IsNegative() {
+		// For negative exponents, invert the result
+		return sdkmath.LegacyOneDec().Quo(approximateDecayWithDec(base, exp.Neg()))
+	}
+
+	// Split exponent into integer and fractional parts
+	wholeYears := exp.TruncateInt().Int64()
+	fractionalPart := exp.Sub(sdkmath.LegacyNewDec(wholeYears))
+
+	// Calculate base^wholeYears using iterative multiplication (deterministic)
+	result := sdkmath.LegacyOneDec()
+	for i := int64(0); i < wholeYears; i++ {
+		result = result.Mul(base)
+	}
+
+	// For the fractional part, use linear interpolation between year boundaries
+	// This provides a smooth decay curve while remaining deterministic
+	// Linear interpolation: result * (1 - fractionalPart + fractionalPart * base)
+	// This is equivalent to: result * ((1 - fractionalPart) + fractionalPart * base)
+	if !fractionalPart.IsZero() {
+		// Calculate: (1 - frac) + frac * base = 1 - frac + frac * base = 1 + frac * (base - 1)
+		interpolation := sdkmath.LegacyOneDec().Add(fractionalPart.Mul(base.Sub(sdkmath.LegacyOneDec())))
+		result = result.Mul(interpolation)
+	}
+
+	return result
 }
