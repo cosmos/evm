@@ -31,7 +31,7 @@ const (
 	proposalCreationDurationKey = "proposalbuilder_proposal_creation_duration"
 	lateProposalsKey            = "proposalbuilder_late_proposals"
 	worseProposalsKey           = "proposalbuilder_worse_proposals"
-	speedyPrepareProposalKey    = "proposalbuilder_speedy_prepare_proposal"
+	prepareProposalWaitDuration = "proposalbuilder_prepare_proposal_wait_duration"
 )
 
 // ProposalBuilder maintains the current 'best' proposal that is available, by
@@ -98,7 +98,11 @@ func NewProposalBuilder(
 // PrepareProposalHandler returns the latest proposal in the ProposalBuilder,
 // conforming to the sdk.PrepareProposalHandler signature.
 func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
-	pb.proposalsCreated.Wait()
+	if pb.proposalsCreated != nil {
+		start := time.Now()
+		pb.proposalsCreated.Wait()
+		telemetry.MeasureSince(start, prepareProposalWaitDuration)
+	}
 	return pb.LatestProposal(), nil
 }
 
@@ -298,7 +302,7 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, is
 	// a very early goroutine that is spawned could get unlucky scheduling and
 	// finish after a later goroutine and replace a better proposal with a tiny
 	// one, this check avoids that)
-	if len(resp.Txs) <= len(pb.latestProposal.Txs) {
+	if len(resp.Txs) < len(pb.latestProposal.Txs) {
 		telemetry.IncrCounter(1, worseProposalsKey)
 		return
 	}
