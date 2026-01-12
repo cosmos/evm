@@ -53,7 +53,7 @@ type ProposalBuilder struct {
 	// proposalHeight is the height that the proposals are currently being
 	// created for.
 	proposalHeight   int64
-	proposalsCreated *sync.WaitGroup
+	proposalsCreated chan struct{}
 
 	// latestProposal is the current best proposal for proposalHeight.
 	latestProposal *abci.ResponsePrepareProposal
@@ -99,9 +99,7 @@ func NewProposalBuilder(
 // conforming to the sdk.PrepareProposalHandler signature.
 func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
 	if pb.proposalsCreated != nil {
-		start := time.Now()
-		pb.proposalsCreated.Wait()
-		telemetry.MeasureSince(start, prepareProposalWaitDuration)
+		pb.waitForProposalCreation()
 	}
 	return pb.LatestProposal(), nil
 }
@@ -309,18 +307,43 @@ func (pb *ProposalBuilder) setLatestProposal(height int64, dur time.Duration, is
 
 	pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", height, "dur")
 	pb.latestProposal = resp
+	pb.signalPropsoalDone()
+}
 
-	if isFirst {
-		pb.proposalsCreated.Done()
+func (pb *ProposalBuilder) signalPropsoalDone() {
+	// if the proposals created channel is empty, push a value onto it to
+	// signal that a proposal has been created for pb.proposalHeight. If there
+	// is already a value in there, do nothing since this means a proposal has
+	// already been created for this height, and signaling again does not
+	// matter (this is only used to signal that atleast one proposal has been
+	// created at pb.proposalHeight).
+	select {
+	case pb.proposalsCreated <- struct{}{}:
+	default:
 	}
 }
 
+func (pb *ProposalBuilder) waitForProposalCreation() {
+	defer func(t0 time.Time) { telemetry.MeasureSince(t0, prepareProposalWaitDuration) }(time.Now())
+
+	// try and pull a value off of the chan that signals if a proposal has been
+	// created. a value will be pushed to a channel once atleast one proposals
+	// have been created.
+
+	// TODO: timeout?
+	select {
+	case <-pb.proposalsCreated:
+	}
+}
+
+// TODO: can reset be called while we are blocking in prepare proposal? if so
+// we will need to save a reference to the channel or signal that the proposal
+// should timeout, not sure what scenarios that would happen in though.
 func (pb *ProposalBuilder) resetLatestProposal() {
 	pb.lock.Lock()
 	defer pb.lock.Unlock()
 	pb.latestProposal = new(abci.ResponsePrepareProposal)
-	pb.proposalsCreated = new(sync.WaitGroup)
-	pb.proposalsCreated.Add(1)
+	pb.proposalsCreated = make(chan struct{})
 }
 
 func (pb *ProposalBuilder) getHeight() int64 {
