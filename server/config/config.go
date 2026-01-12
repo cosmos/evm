@@ -131,6 +131,10 @@ var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 type Config struct {
 	config.Config `mapstructure:",squash"`
 
+	// UseIAVLX enables the IAVLX storage engine.
+	// todo: move to appropriate place?
+	UseIAVLX bool `mapstructure:"use-iavlx"`
+
 	EVM     EVMConfig     `mapstructure:"evm"`
 	JSONRPC JSONRPCConfig `mapstructure:"json-rpc"`
 	TLS     TLSConfig     `mapstructure:"tls"`
