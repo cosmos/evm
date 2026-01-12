@@ -27,6 +27,7 @@ const (
 	DefaultRebuildTimeout = 100 * time.Millisecond
 
 	inflightProposalsKey        = "proposalbuilder_inflight_proposals"
+	proposalPerHeightKey        = "proposalbuilder_proposals_per_height"
 	proposalCreationDurationKey = "proposalbuilder_proposal_creation_duration"
 )
 
@@ -81,7 +82,7 @@ func NewProposalBuilder(
 		txVerifier:     txVerifier,
 		app:            app,
 		chain:          chain,
-		logger:         logger.With(log.ModuleKey, "ProposalBuilder"),
+		logger:         logger.With(log.ModuleKey, "proposalbuilder"),
 		latestProposal: &abci.ResponsePrepareProposal{},
 		done:           make(chan struct{}),
 		config:         config,
@@ -128,8 +129,11 @@ func (pb *ProposalBuilder) loop() {
 	ticker := time.NewTicker(pb.config.RebuildTimeout)
 	defer ticker.Stop()
 
-	var latestContext sdk.Context
-	var inflightProposals int
+	var (
+		latestContext      sdk.Context
+		inflightProposals  int
+		proposalsPerHeight int
+	)
 	for {
 		select {
 		case event := <-newHeadCh:
@@ -152,6 +156,8 @@ func (pb *ProposalBuilder) loop() {
 				pb.lock.Unlock()
 			}
 
+			proposalsPerHeight = 0
+
 			// reset ticker by creating a new one, since it may have been
 			// stopped
 			pb.logger.Debug("done resetting proposal")
@@ -173,8 +179,12 @@ func (pb *ProposalBuilder) loop() {
 			proposalContext := pb.newProposalContext(latestContext)
 			pb.logger.Debug("building a new proposal", "for_height", proposalContext.BlockHeight())
 
+			// metrics
+			proposalsPerHeight++
+			telemetry.SetGauge(float32(proposalsPerHeight), proposalPerHeightKey) // TODO: change to historgram when we get otel
 			inflightProposals++
 			telemetry.SetGauge(float32(inflightProposals), inflightProposalsKey)
+
 			go func() {
 				defer func(t0 time.Time) { telemetry.MeasureSince(t0, proposalCreationDurationKey) }(time.Now())
 
