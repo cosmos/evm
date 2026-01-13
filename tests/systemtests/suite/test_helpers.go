@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"slices"
 	"sync"
+	"testing"
 	"time"
 
+	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/clients"
+	"github.com/creachadair/tomledit"
 )
 
 // BaseFee returns the most recently retrieved and stored baseFee.
@@ -132,7 +136,7 @@ func (s *BaseTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 		wg.Add(1)
 		go func(tx *TxInfo) { //nolint:gosec // Concurrency is intentional for parallel tx checking
 			defer wg.Done()
-			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, defaultTxPoolContentTimeout)
+			err := s.CheckTxPendingOrCommitted(tx.DstNodeID, tx.TxHash, tx.TxType, defaultTxPoolContentTimeout)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Errorf("tx %s is not pending: %v", tx.TxHash, err))
@@ -244,4 +248,21 @@ func (s *BaseTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
 	}
 
 	return nil
+}
+
+// EnsureAppMempoolConfig ensures that the application mempool configuration in config.toml
+// is set to `mempool.type = "app"`.
+func EnsureAppMempoolConfig(t *testing.T, sut *systemtests.SystemUnderTest) {
+	t.Helper()
+
+	if sut == nil || sut.ChainStarted {
+		return
+	}
+
+	for i := 0; i < sut.NodesCount(); i++ {
+		configPath := filepath.Join(sut.NodeDir(i), "config", "config.toml")
+		systemtests.EditToml(configPath, func(doc *tomledit.Document) {
+			systemtests.SetValue(doc, "app", "mempool", "type")
+		})
+	}
 }
