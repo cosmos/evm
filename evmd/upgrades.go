@@ -20,9 +20,10 @@ import (
 // Upgrade names
 const UpgradeName_v0_5_1 = "v0.5.1"
 const UpgradeName_v0_5_2 = "v0.5.2"
+const UpgradeName_v0_5_3 = "v0.5.3"
 
 // UpgradeName is the current upgrade (for store upgrades)
-const UpgradeName = UpgradeName_v0_5_1
+const UpgradeName = UpgradeName_v0_5_3
 
 // RegisterUpgradeHandlers registers upgrade handlers for v0.5.1 and v0.5.2
 func (app EVMD) RegisterUpgradeHandlers() {
@@ -60,13 +61,33 @@ func (app EVMD) RegisterUpgradeHandlers() {
 		},
 	)
 
+	// Register v0.5.3 upgrade handler - Deterministic Emission Fix
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeName_v0_5_3,
+		func(ctx context.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			sdkCtx := sdk.UnwrapSDKContext(ctx)
+			sdkCtx.Logger().Info("Starting EpixChain v0.5.3 upgrade - Deterministic Emission Fix...")
+
+			// Log the upgrade details for transparency
+			sdkCtx.Logger().Info("This upgrade fixes a consensus bug in token emission calculations")
+
+			// No state migration needed - the fix is purely in the calculation logic
+			// which will take effect from this block forward
+
+			// Run module migrations
+			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+		},
+	)
+
 	upgradeInfo, err := app.UpgradeKeeper.ReadUpgradeInfoFromDisk()
 	if err != nil {
 		panic(err)
 	}
 
-	// Handle both v0.5.1 and v0.5.2 upgrades
-	if (upgradeInfo.Name == UpgradeName_v0_5_1 || upgradeInfo.Name == UpgradeName_v0_5_2) &&
+	// Handle v0.5.1, v0.5.2, and v0.5.3 upgrades
+	if (upgradeInfo.Name == UpgradeName_v0_5_1 ||
+		upgradeInfo.Name == UpgradeName_v0_5_2 ||
+		upgradeInfo.Name == UpgradeName_v0_5_3) &&
 		!app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		storeUpgrades := storetypes.StoreUpgrades{
 			Added: []string{},
