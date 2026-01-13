@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/cosmos/evm/x/epixmint/keeper"
 	"github.com/stretchr/testify/require"
 
 	sdkmath "cosmossdk.io/math"
@@ -181,4 +182,123 @@ func TestBlockTimeAdjustment(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApproximateDecayWithDec(t *testing.T) {
+	// Test the deterministic decay function directly
+	base := sdkmath.LegacyMustNewDecFromStr("0.75") // 75% retention rate
+
+	testCases := []struct {
+		name           string
+		exp            string
+		expectedResult string
+		tolerance      string
+	}{
+		{
+			name:           "Zero exponent",
+			exp:            "0",
+			expectedResult: "1.0",
+			tolerance:      "0.0001",
+		},
+		{
+			name:           "One year",
+			exp:            "1",
+			expectedResult: "0.75",
+			tolerance:      "0.0001",
+		},
+		{
+			name:           "Two years",
+			exp:            "2",
+			expectedResult: "0.5625", // 0.75^2
+			tolerance:      "0.0001",
+		},
+		{
+			name:           "Half year (linear interpolation)",
+			exp:            "0.5",
+			expectedResult: "0.875", // 1 + 0.5 * (0.75 - 1) = 0.875
+			tolerance:      "0.0001",
+		},
+		{
+			name:           "Ten years",
+			exp:            "10",
+			expectedResult: "0.0563", // 0.75^10
+			tolerance:      "0.001",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			exp := sdkmath.LegacyMustNewDecFromStr(tc.exp)
+			result := keeper.ApproximateDecayWithDec(base, exp)
+
+			expected := sdkmath.LegacyMustNewDecFromStr(tc.expectedResult)
+			tolerance := sdkmath.LegacyMustNewDecFromStr(tc.tolerance)
+
+			diff := result.Sub(expected).Abs()
+			require.True(t, diff.LTE(tolerance),
+				"Result %s should be within %s of expected %s (diff: %s)",
+				result.String(), tc.tolerance, tc.expectedResult, diff.String())
+		})
+	}
+}
+
+func TestApproximateDecayWithDecEdgeCases(t *testing.T) {
+	t.Run("Negative base returns zero", func(t *testing.T) {
+		base := sdkmath.LegacyMustNewDecFromStr("-0.5")
+		exp := sdkmath.LegacyOneDec()
+		result := keeper.ApproximateDecayWithDec(base, exp)
+		require.True(t, result.IsZero(), "Negative base should return zero")
+	})
+
+	t.Run("Zero base returns zero", func(t *testing.T) {
+		base := sdkmath.LegacyZeroDec()
+		exp := sdkmath.LegacyOneDec()
+		result := keeper.ApproximateDecayWithDec(base, exp)
+		require.True(t, result.IsZero(), "Zero base should return zero")
+	})
+
+	t.Run("Negative exponent inverts result", func(t *testing.T) {
+		base := sdkmath.LegacyMustNewDecFromStr("0.75")
+		exp := sdkmath.LegacyMustNewDecFromStr("-1")
+		result := keeper.ApproximateDecayWithDec(base, exp)
+
+		// 0.75^-1 = 1/0.75 = 1.333...
+		expected := sdkmath.LegacyOneDec().Quo(sdkmath.LegacyMustNewDecFromStr("0.75"))
+		tolerance := sdkmath.LegacyMustNewDecFromStr("0.0001")
+		diff := result.Sub(expected).Abs()
+		require.True(t, diff.LTE(tolerance),
+			"Negative exponent should invert: got %s, expected %s", result.String(), expected.String())
+	})
+
+	t.Run("Large exponent is capped at MaxDecayYears", func(t *testing.T) {
+		base := sdkmath.LegacyMustNewDecFromStr("0.75")
+		exp := sdkmath.LegacyNewDec(200) // Larger than MaxDecayYears (100)
+
+		// Should return 0.75^100, not 0.75^200
+		result := keeper.ApproximateDecayWithDec(base, exp)
+
+		// 0.75^100 is a very small number but not zero
+		require.True(t, result.IsPositive(), "Result should still be positive")
+
+		// Calculate expected: 0.75^100
+		expected := sdkmath.LegacyOneDec()
+		for i := 0; i < 100; i++ {
+			expected = expected.Mul(base)
+		}
+		require.Equal(t, expected.String(), result.String(),
+			"Result should be capped at 100 years")
+	})
+
+	t.Run("Determinism - same inputs always give same output", func(t *testing.T) {
+		base := sdkmath.LegacyMustNewDecFromStr("0.75")
+		exp := sdkmath.LegacyMustNewDecFromStr("5.5")
+
+		// Run 100 times and ensure same result
+		firstResult := keeper.ApproximateDecayWithDec(base, exp)
+		for i := 0; i < 100; i++ {
+			result := keeper.ApproximateDecayWithDec(base, exp)
+			require.Equal(t, firstResult.String(), result.String(),
+				"Result should be deterministic on iteration %d", i)
+		}
+	})
 }
