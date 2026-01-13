@@ -222,7 +222,11 @@ func NewExampleApp(
 	txConfig := encodingConfig.TxConfig
 
 	// enable optimistic execution
-	baseAppOptions = append(baseAppOptions, baseapp.SetOptimisticExecution())
+	baseAppOptions = append(
+		baseAppOptions,
+		baseapp.SetOptimisticExecution(),
+		iavlxStorage(appOpts),
+	)
 
 	bApp := baseapp.NewBaseApp(
 		appName,
