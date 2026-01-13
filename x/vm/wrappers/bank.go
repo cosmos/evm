@@ -42,7 +42,7 @@ func (w BankWrapper) SetBalanceForAccount(ctx context.Context, account sdk.AccAd
 		return errors.Wrap(err, "failed to set coins in bank wrapper")
 	}
 
-	return w.BankKeeper.SetBalance(ctx, account, convertedCoin)
+	return w.SetBalance(ctx, account, convertedCoin)
 }
 
 // ------------------------------------------------------------------------------------------
