@@ -32,8 +32,8 @@ import (
 )
 
 // NewEVMWithOverridePrecompiles creates a new EVM instance with opcode hooks and optionally overrides
-// the precompiles call hook. If overridePrecompiles is true, the EVM will use the keeper's static precompiles
-// for call hooks; otherwise, it will use the recipient-specific precompile hook.
+// the precompiles call hook. If noOverridePrecompiles is true, the EVM will use the keeper's standard
+// precompiles call hook; otherwise, it will use GetPrecompilesCallHookWithOverrides that handles moved precompiles.
 // This is useful for scenarios such as eth_call, state overrides, or testing where custom precompile logic is needed.
 // The function sets up the block context, transaction context, and VM configuration before returning the EVM instance.
 func (k *Keeper) NewEVMWithOverridePrecompiles(
