@@ -272,21 +272,21 @@ func TestApproximateDecayWithDecEdgeCases(t *testing.T) {
 
 	t.Run("Large exponent is capped at MaxDecayYears", func(t *testing.T) {
 		base := sdkmath.LegacyMustNewDecFromStr("0.75")
-		exp := sdkmath.LegacyNewDec(200) // Larger than MaxDecayYears (100)
+		exp := sdkmath.LegacyNewDec(200) // Larger than MaxDecayYears (20)
 
-		// Should return 0.75^100, not 0.75^200
+		// Should return 0.75^20, not 0.75^200
 		result := keeper.ApproximateDecayWithDec(base, exp)
 
-		// 0.75^100 is a very small number but not zero
+		// 0.75^20 is a small number but not zero
 		require.True(t, result.IsPositive(), "Result should still be positive")
 
-		// Calculate expected: 0.75^100
+		// Calculate expected: 0.75^20 (MaxDecayYears)
 		expected := sdkmath.LegacyOneDec()
-		for i := 0; i < 100; i++ {
+		for i := 0; i < keeper.MaxDecayYears; i++ {
 			expected = expected.Mul(base)
 		}
 		require.Equal(t, expected.String(), result.String(),
-			"Result should be capped at 100 years")
+			"Result should be capped at MaxDecayYears")
 	})
 
 	t.Run("Determinism - same inputs always give same output", func(t *testing.T) {

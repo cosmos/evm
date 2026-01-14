@@ -10,8 +10,10 @@ import (
 )
 
 // MaxDecayYears is the maximum number of years to calculate decay for.
-// This prevents slow loops and overflow. After 100 years, emission is negligible.
-const MaxDecayYears = 100
+// After this point, emission continues at a constant "tail emission" rate
+// (the rate at MaxDecayYears) until max supply is reached.
+// This ensures the chain eventually reaches the 42B max supply cap.
+const MaxDecayYears = 20
 
 // calculateBlocksPerYear calculates the number of blocks per year based on block time
 func calculateBlocksPerYear(blockTimeSeconds uint64) uint64 {
