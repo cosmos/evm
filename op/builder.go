@@ -72,20 +72,19 @@ func NewProposalBuilder(
 	logger log.Logger,
 ) *ProposalBuilder {
 	return &ProposalBuilder{
-		proposalHeight: height,
-		latestProposal: &abci.ResponsePrepareProposal{},
-		logger:         logger.With(log.ModuleKey, "proposalbuilder"),
-		done:           make(chan struct{}),
-		config:         config,
+		proposalHeight:   height,
+		latestProposal:   &abci.ResponsePrepareProposal{},
+		logger:           logger.With(log.ModuleKey, "proposalbuilder"),
+		done:             make(chan struct{}),
+		proposalsCreated: make(chan struct{}),
+		config:           config,
 	}
 }
 
 // PrepareProposalHandler returns the latest proposal in the ProposalBuilder,
 // conforming to the sdk.PrepareProposalHandler signature.
 func (pb *ProposalBuilder) PrepareProposalHandler(ctx sdk.Context, _ *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
-	if pb.proposalsCreated != nil {
-		pb.waitForProposalCreation()
-	}
+	pb.waitForProposalCreation()
 	return pb.LatestProposal(), nil
 }
 
@@ -229,7 +228,7 @@ func (pb *ProposalBuilder) setLatestProposal(ctx sdk.Context, dur time.Duration,
 	}
 
 	if newTxsCount != oldTxsCount {
-		pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", ctx.BlockHeight(), "dur", dur)
+		pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", ctx.BlockHeight(), "dur", dur.String())
 	}
 	pb.latestProposal = resp
 	pb.signalPropsoalDone()
