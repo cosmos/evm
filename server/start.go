@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"time"
 
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
 	evmmetrics "github.com/cosmos/evm/metrics"
+	"github.com/cosmos/evm/op"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -236,6 +238,10 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
 	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
 	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
+	cmd.Flags().Duration(srvflags.EVMMempoolPendingTxProposalTimeout, time.Duration(0), "the amount of time to wait for txs to be rechecked before selecting an incomplete set of txs for a proposal")
+
+	cmd.Flags().Bool(srvflags.OptimisticProposalEnabled, false, "if optimistic proposals are enabled")
+	cmd.Flags().Duration(srvflags.OptimsticProposalRebuildTimeout, op.DefaultConfig.RebuildTimeout, "the amount of time to wait between starting a build a new proposal")
 
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")

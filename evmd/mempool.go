@@ -71,18 +71,23 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 			sdkmempool.NewDefaultSignerExtractionAdapter(),
 		),
 	)
-	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	prepareProposalHandler := abciProposalHandler.PrepareProposalHandler()
+	app.SetPrepareProposal(prepareProposalHandler)
 
-	if mempoolConfig.ProposalBuilderConfig != nil {
-		proposalBuilder := evmmempool.NewProposalBuilder(
-			evmMempool,
-			txVerifier,
-			blockchain,
-			app.BaseApp,
-			logger,
-			mempoolConfig.ProposalBuilderConfig,
-		)
-		app.SetPrepareProposal(proposalBuilder.PrepareProposalHandler)
+	// setup optimistic proposals if configured
+	proposalBuilderConfig := server.GetOptimisticProposalConfig(appOpts, logger)
+	if proposalBuilderConfig != nil {
+		app.Logger().Info("optimistic proposal enabled, configuring abci handlers")
+
+		// listen to commits and kick off a new optimistic proposal
+		app.RegisterABCIListener(NewOptimisticProposalCommitListener(app, proposalBuilderConfig))
+
+		// modify prepare proposal to propose an optimistic proposal if available
+		app.SetPrepareProposal(app.NewOptimisticPrepareProposalHandler(prepareProposalHandler))
+
+		// modify process proposal to stop optimistic proposals since we likely
+		// do not need to try and propose again for this height
+		app.SetProcessProposal(app.NewOptimisticProcessProposalHandler(abciProposalHandler.ProcessProposalHandler()))
 	}
 
 	return nil
@@ -98,7 +103,6 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
-		ProposalBuilderConfig:    server.GetProposalBuilderConfig(appOpts, logger),
 	}, nil
 }
 

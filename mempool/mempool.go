@@ -85,10 +85,9 @@ type (
 // It allows customization of the underlying mempools, verification functions,
 // and broadcasting functions used by the sdkmempool.
 type EVMMempoolConfig struct {
-	LegacyPoolConfig      *legacypool.Config
-	CosmosPoolConfig      *sdkmempool.PriorityNonceMempoolConfig[math.Int]
-	ProposalBuilderConfig *ProposalBuilderConfig
-	AnteHandler           sdk.AnteHandler
+	LegacyPoolConfig *legacypool.Config
+	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
+	AnteHandler      sdk.AnteHandler
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
 	MinTip        *uint256.Int
