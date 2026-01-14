@@ -26,6 +26,7 @@ import (
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmconfig "github.com/cosmos/evm/evmd/config"
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/op"
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/utils"
@@ -199,6 +200,8 @@ type EVMD struct {
 
 	// simulation manager
 	sm *module.SimulationManager
+
+	optimisticProp *op.ProposalBuilder
 
 	// module configurator
 	configurator module.Configurator
@@ -826,6 +829,15 @@ func (app *EVMD) onPendingTx(hash common.Hash) {
 // RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
 func (app *EVMD) RegisterPendingTxListener(listener func(common.Hash)) {
 	app.pendingTxListeners = append(app.pendingTxListeners, listener)
+}
+
+// RegisterABCIListener registers a new abci listener.
+func (app *EVMD) RegisterABCIListener(listener storetypes.ABCIListener) {
+	manager := app.StreamingManager()
+	app.SetStreamingManager(storetypes.StreamingManager{
+		ABCIListeners: append(manager.ABCIListeners, listener),
+		StopNodeOnErr: manager.StopNodeOnErr,
+	})
 }
 
 func (app *EVMD) setPostHandler() {

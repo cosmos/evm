@@ -9,13 +9,12 @@ import (
 	"github.com/spf13/cast"
 
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/cosmos/evm/op"
 	srvflags "github.com/cosmos/evm/server/flags"
 
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	evmmempool "github.com/cosmos/evm/mempool"
-
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -158,17 +157,20 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
 }
 
-func GetProposalBuilderConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.ProposalBuilderConfig {
+func GetOptimisticProposalConfig(appOpts servertypes.AppOptions, logger log.Logger) *op.ProposalBuilderConfig {
 	if appOpts == nil {
-		logger.Error("app options is nil, pending builder disabled")
+		logger.Error("app options is nil, optimistic proposals disabled")
 		return nil
 	}
-	if !cast.ToBool(appOpts.Get(srvflags.EVMMempoolProposalBuilderEnabled)) {
+	if !cast.ToBool(appOpts.Get(srvflags.OptimisticProposalEnabled)) {
 		return nil
 	}
-	return &evmmempool.ProposalBuilderConfig{
-		RebuildTimeout: cast.ToDuration(appOpts.Get(srvflags.EVMMempoolProposalBuilderRebuildTimeout)),
+
+	config := op.DefaultConfig
+	if rebuildTimeout := cast.ToDuration(appOpts.Get(srvflags.OptimsticProposalRebuildTimeout)); rebuildTimeout != time.Duration(0) {
+		config.RebuildTimeout = rebuildTimeout
 	}
+	return &config
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

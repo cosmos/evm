@@ -4,11 +4,12 @@ import (
 	"context"
 
 	cmttypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-var _ baseapp.TxSelector = &NoCopyProposalTxSelector{}
+var _ baseapp.TxSelector = (*NoCopyProposalTxSelector)(nil)
 
 // NoCopyProposalTxSelector is the same as the baseapps defaultTxSelector,
 // however this does not return a copy of the tx bytes via SelectedTxs, and
@@ -34,7 +35,7 @@ func (ts *NoCopyProposalTxSelector) Clear() {
 }
 
 func (ts *NoCopyProposalTxSelector) SelectTxForProposal(_ context.Context, maxTxBytes, maxBlockGas uint64, memTx sdk.Tx, txBz []byte) bool {
-	txSize := uint64(cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{txBz}))
+	txSize := uint64(cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{txBz})) //nolint:gosec
 
 	var txGasLimit uint64
 	if memTx != nil {
