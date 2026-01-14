@@ -15,9 +15,10 @@ The EpixMint module replaces the standard Cosmos SDK mint module with a custom i
 
 ### Emission Schedule
 
-- **Initial Annual Emission**: 10.527 billion EPIX in year 1
-- **Annual Reduction Rate**: 25% per year
-- **Total Duration**: Approximately 20 years to reach max supply
+- **Initial Annual Emission**: 10.527 billion EPIX (rate at genesis)
+- **Annual Reduction Rate**: 25% per year (smooth per-block decay)
+- **Decay Period**: 20 years of exponential decay
+- **Tail Emission**: After year 20, emission continues at ~33.4M EPIX/year
 - **Maximum Supply**: 42 billion EPIX (hard cap with protection)
 
 #### Emission Curve Visualization
@@ -38,9 +39,11 @@ xychart-beta
 xychart-beta
     title "EpixChain Cumulative Supply Growth - Years 1-20"
     x-axis [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    y-axis "Cumulative Supply (Billion EPIX)" 0 --> 45
-    line [10.5, 18.4, 24.3, 28.8, 32.1, 34.6, 36.5, 37.9, 39.0, 39.8, 40.4, 40.8, 41.2, 41.4, 41.6, 41.7, 41.8, 41.9, 41.95, 42.0]
+    y-axis "Cumulative Supply (Billion EPIX)" 0 --> 40
+    line [9.2, 16.1, 21.3, 25.2, 28.1, 30.3, 31.9, 33.2, 34.1, 34.8, 35.3, 35.7, 36.0, 36.2, 36.4, 36.5, 36.6, 36.6, 36.7, 36.7]
 ```
+
+> **Note**: With smooth per-block decay, approximately 36.7B EPIX is minted in the first 20 years. After year 20, a constant "tail emission" of ~33.4M EPIX/year continues until the 42B max supply is reached (approximately year 178).
 
 ### Emission Formula
 
@@ -196,13 +199,14 @@ The EpixMint module is designed to replace the standard Cosmos SDK mint module:
 
 ## Mathematical Verification
 
-The emission schedule has been mathematically verified to reach approximately 42B EPIX over 20 years:
+The emission schedule uses smooth per-block exponential decay:
 
-- **Year 1**: 10.527B EPIX
-- **Year 2**: 7.895B EPIX  
-- **Year 5**: 3.331B EPIX
-- **Year 10**: 563M EPIX
-- **Year 20**: 16M EPIX
-- **Total**: ~42B EPIX
+- **Year 1**: ~9.2B EPIX minted (rate starts at 10.527B, ends at 7.895B)
+- **Year 5**: ~2.9B EPIX minted
+- **Year 10**: ~519M EPIX minted
+- **Year 20**: ~29M EPIX minted
+- **After Year 20**: ~33.4M EPIX/year (constant tail emission)
+- **Total at Year 20**: ~36.7B EPIX
+- **Max Supply Reached**: ~Year 178
 
-The maximum supply protection ensures the total never exceeds exactly 42B EPIX.
+The tail emission (constant rate after year 20) ensures the chain eventually reaches the 42B max supply. The maximum supply protection ensures the total never exceeds exactly 42B EPIX.
