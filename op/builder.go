@@ -1,6 +1,7 @@
 package op
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,10 +30,8 @@ var DefaultConfig = ProposalBuilderConfig{
 }
 
 const (
-	inflightProposalsKey        = "optimistic_proposal_inflight_proposals"
 	proposalPerHeightKey        = "optimistic_proposal_proposals_per_height"
 	proposalCreationDurationKey = "optimistic_proposal_creation_duration"
-	lateProposalsKey            = "optimistic_proposal_late_proposals"
 	worseProposalsKey           = "optimistic_proposal_worse_proposals"
 	prepareProposalWaitDuration = "optimistic_prepare_proposal_wait_duration"
 )
@@ -110,6 +109,10 @@ func (pb *ProposalBuilder) BuildAsync(
 	txVerifier baseapp.ProposalTxVerifier,
 	app *baseapp.BaseApp,
 ) {
+	// create a cancellable sdk context
+	cancellable, cancel := context.WithCancel(ctx.Context())
+	ctx = ctx.WithContext(cancellable)
+
 	var (
 		// ticker will tick every time we should start building a new proposal
 		ticker           = time.NewTicker(pb.config.RebuildTimeout)
@@ -122,7 +125,7 @@ func (pb *ProposalBuilder) BuildAsync(
 			select {
 			case <-ticker.C:
 				proposalContext := pb.newProposalContext(ctx, app)
-				pb.logger.Debug("building a new proposal", "for_height", proposalContext.BlockHeight())
+				pb.logger.Debug("building a new proposal", "height", proposalContext.BlockHeight())
 
 				proposalsCreated++
 				telemetry.SetGauge(float32(proposalsCreated), proposalPerHeightKey)
@@ -134,6 +137,9 @@ func (pb *ProposalBuilder) BuildAsync(
 
 				ticker.Reset(pb.config.RebuildTimeout)
 			case <-pb.done:
+				pb.logger.Info("OP received done signal, cancelling context for any proposals being built", "for_height", ctx.BlockHeight())
+				// tell any in progress operations to stop
+				cancel()
 				return
 			}
 		}

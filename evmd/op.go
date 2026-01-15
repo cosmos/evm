@@ -113,7 +113,12 @@ func (listener *OptimisticProposalCommitListener) ListenCommit(
 ) error {
 	listener.app.lastCommitTime = time.Now()
 
+	// swap out the basectx in the sdk context to be one that is disconnected
+	// from its parent. when commit returns the base context will be cancelled,
+	// which we do not want, since we rely on context cancellation via a
+	// timeout in prepare proposal to know when to stop collecting txs.
 	sdkctx := sdk.UnwrapSDKContext(ctx)
+	sdkctx = sdkctx.WithContext(context.Background())
 
 	currHeight := sdkctx.BlockHeight()
 	nextHeight := sdkctx.BlockHeight() + 1
@@ -131,8 +136,7 @@ func (listener *OptimisticProposalCommitListener) ListenCommit(
 
 	listener.app.Logger().Info(
 		"creating proposal builder",
-		"height", currHeight,
-		"next_height", nextHeight,
+		"height", nextHeight,
 	)
 
 	// create instance and start building proposals for the next height
@@ -141,7 +145,7 @@ func (listener *OptimisticProposalCommitListener) ListenCommit(
 		listener.config,
 		listener.app.Logger(),
 	)
-	go listener.app.optimisticProp.BuildAsync(
+	listener.app.optimisticProp.BuildAsync(
 		sdkctx,
 		listener.app.EVMMempool,
 		NewNoCheckProposalTxVerifier(listener.app.BaseApp),

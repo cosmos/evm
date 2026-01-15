@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/holiman/uint256"
 
 	cmttypes "github.com/cometbft/cometbft/types"
@@ -410,10 +411,17 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
 	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_selectby_duration") }(time.Now()) //nolint:staticcheck
 
+	height := sdk.UnwrapSDKContext(goCtx).BlockHeight()
 	iter := m.buildIterator(goCtx, txs)
 
 	for iter != nil && filter(iter.Tx()) {
-		iter = iter.Next()
+		select {
+		case <-goCtx.Done():
+			m.logger.Warn("context cancelled during SelectBy tx filtering, exiting early", "height", height, "instance", uuid.New().String())
+			return
+		default:
+			iter = iter.Next()
+		}
 	}
 }
 
