@@ -28,6 +28,11 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
+// AllowUnsafeSyncInsert indicates whether to perform synchronous inserts into the mempool
+// for testing purposes. When true, Insert will block until the transaction is fully processed.
+// This should be used only in tests to ensure deterministic behavior
+var AllowUnsafeSyncInsert = false
+
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
 	SubscriberName = "evm"
@@ -52,6 +57,7 @@ type (
 		/** Utils **/
 		logger        log.Logger
 		txConfig      client.TxConfig
+		clientCtx     client.Context
 		blockchain    *Blockchain
 		blockGasLimit uint64 // Block gas limit from consensus parameters
 		minTip        *uint256.Int
@@ -88,7 +94,6 @@ func NewExperimentalEVMMempool(
 	vmKeeper VMKeeperI,
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
-	clientCtx client.Context,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -120,19 +125,6 @@ func NewExperimentalEVMMempool(
 	}
 
 	legacyPool := legacypool.New(legacyConfig, blockchain)
-
-	// Set up broadcast function using clientCtx
-	if config.BroadCastTxFn != nil {
-		legacyPool.BroadcastTxFn = config.BroadCastTxFn
-	} else {
-		// Create default broadcast function using clientCtx.
-		// The EVM mempool will broadcast transactions when it promotes them
-		// from queued into pending, noting their readiness to be executed.
-		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
-			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(clientCtx, txConfig, txs)
-		}
-	}
 
 	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
@@ -179,6 +171,7 @@ func NewExperimentalEVMMempool(
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
+	// Create the evmMempool
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:      vmKeeper,
 		txPool:        txPool,
@@ -190,6 +183,16 @@ func NewExperimentalEVMMempool(
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
+	}
+
+	// Set up broadcast function
+	if config.BroadCastTxFn != nil {
+		legacyPool.BroadcastTxFn = config.BroadCastTxFn
+	} else {
+		// Create default broadcast function using clientCtx.
+		// The EVM mempool will broadcast transactions when it promotes them
+		// from queued into pending, noting their readiness to be executed.
+		legacyPool.BroadcastTxFn = evmMempool.defaultBroadcastTxFn
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -207,6 +210,11 @@ func (m *ExperimentalEVMMempool) GetBlockchain() *Blockchain {
 // This provides direct access to the EVM-specific transaction management functionality.
 func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 	return m.txPool
+}
+
+// SetClientCtx sets the client context provider for broadcasting transactions
+func (m *ExperimentalEVMMempool) SetClientCtx(clientCtx client.Context) {
+	m.clientCtx = clientCtx
 }
 
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
@@ -227,7 +235,7 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 		hash := ethMsg.Hash()
 		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
-		errs := m.txPool.Add(ethTxs, true)
+		errs := m.txPool.Add(ethTxs, AllowUnsafeSyncInsert)
 		if len(errs) > 0 && errs[0] != nil {
 			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
@@ -477,20 +485,32 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 	return orderedEVMPendingTxes, cosmosPendingTxes
 }
 
+// defaultBroadcastTxFn is the default function for broadcasting EVM transactions
+// using the configured client context
+func (m *ExperimentalEVMMempool) defaultBroadcastTxFn(txs []*ethtypes.Transaction) error {
+	m.logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
+
+	// Apply the broadcast EVM transactions using the client context
+	return broadcastEVMTransactions(m.clientCtx, txs)
+}
+
 // broadcastEVMTransactions converts Ethereum transactions to Cosmos SDK format and broadcasts them.
 // This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
 // using the provided client context. It handles encoding and error reporting for each transaction.
-func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig, ethTxs []*ethtypes.Transaction) error {
+func broadcastEVMTransactions(clientCtx client.Context, ethTxs []*ethtypes.Transaction) error {
 	for _, ethTx := range ethTxs {
 		msg := &evmtypes.MsgEthereumTx{}
-		msg.FromEthereumTx(ethTx)
-
-		txBuilder := txConfig.NewTxBuilder()
-		if err := txBuilder.SetMsgs(msg); err != nil {
-			return fmt.Errorf("failed to set msg in tx builder: %w", err)
+		ethSigner := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
+		if err := msg.FromSignedEthereumTx(ethTx, ethSigner); err != nil {
+			return fmt.Errorf("failed to convert ethereum transaction: %w", err)
 		}
 
-		txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+		cosmosTx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), evmtypes.GetEVMCoinDenom())
+		if err != nil {
+			return fmt.Errorf("failed to build cosmos tx: %w", err)
+		}
+
+		txBytes, err := clientCtx.TxConfig.TxEncoder()(cosmosTx)
 		if err != nil {
 			return fmt.Errorf("failed to encode transaction: %w", err)
 		}
@@ -499,7 +519,7 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 		if err != nil {
 			return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
 		}
-		if res.Code != 0 {
+		if res.Code != 0 && res.Code != 19 && res.RawLog != "already known" {
 			return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
 		}
 	}
