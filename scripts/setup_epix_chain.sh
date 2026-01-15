@@ -474,6 +474,40 @@ configure_total_supply() {
     log_info "Total supply set to: $(echo "scale=0; $TOTAL_SUPPLY / 10^18" | bc) EPIX"
 }
 
+# Configure denom metadata for the bank module
+# This is required by the EVM module to recognize the native token
+configure_denom_metadata() {
+    log_info "Configuring denom metadata for aepix/epix..."
+
+    # Add metadata for aepix/epix denominations
+    # This is required by the EVM module to initialize the coin info
+    jq --arg base_denom "$DENOM" --arg display_denom "$DISPLAY_DENOM" \
+        '.app_state.bank.denom_metadata = [{
+            "description": "The native staking and governance token of the EpixChain",
+            "denom_units": [
+                {
+                    "denom": $base_denom,
+                    "exponent": 0,
+                    "aliases": [$base_denom]
+                },
+                {
+                    "denom": $display_denom,
+                    "exponent": 18,
+                    "aliases": [$display_denom]
+                }
+            ],
+            "base": $base_denom,
+            "display": $display_denom,
+            "name": "EpixChain",
+            "symbol": "EPIX",
+            "uri": "",
+            "uri_hash": ""
+        }]' \
+        "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+
+    log_info "Denom metadata configured: base=$DENOM, display=$DISPLAY_DENOM"
+}
+
 # Configure EVM parameters
 configure_evm() {
     log_info "Configuring EVM parameters..."
@@ -1080,6 +1114,7 @@ configure_genesis() {
     process_airdrop_csv
     configure_community_pool
     configure_total_supply
+    configure_denom_metadata
     configure_evm
     deploy_wepix
     configure_consensus
