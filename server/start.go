@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	abciserver "github.com/cometbft/cometbft/abci/server"
 	tcmd "github.com/cometbft/cometbft/cmd/cometbft/commands"
@@ -35,18 +34,15 @@ import (
 	srvflags "github.com/cosmos/evm/server/flags"
 	servertypes "github.com/cosmos/evm/server/types"
 
-	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
-	servergrpc "github.com/cosmos/cosmos-sdk/server/grpc"
 	servercmtlog "github.com/cosmos/cosmos-sdk/server/log"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
@@ -61,7 +57,6 @@ type Application interface {
 	types.Application
 	AppWithPendingTxStream
 	GetMempool() sdkmempool.ExtMempool
-	SetClientCtx(clientCtx client.Context)
 }
 
 // AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
@@ -137,7 +132,7 @@ which accepts a path for the resulting pprof file.
 			if !withbft {
 				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
-					return startStandAlone(serverCtx, clientCtx, opts)
+					return startStandAlone(serverCtx, opts)
 				})
 			}
 
@@ -252,7 +247,7 @@ which accepts a path for the resulting pprof file.
 // Parameters:
 // - svrCtx: The context object that holds server configurations, logger, and other stateful information.
 // - opts: Options for starting the server, including functions for creating the application and opening the database.
-func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts StartOptions) error {
+func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 	addr := svrCtx.Viper.GetString(srvflags.Address)
 	transport := svrCtx.Viper.GetString(srvflags.Transport)
 	home := svrCtx.Viper.GetString(flags.FlagHome)
@@ -283,11 +278,6 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
-	evmApp, ok := app.(Application)
-	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
-	}
-	evmApp.SetClientCtx(clientCtx)
 
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
@@ -406,7 +396,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	if !ok {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
 	}
-	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {
@@ -468,6 +457,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		app.RegisterTxService(clientCtx)
 		app.RegisterTendermintService(clientCtx)
 		app.RegisterNodeService(clientCtx, config.Config)
+
+		// Set the clientCtx into the mempool
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+			m.SetClientCtx(clientCtx)
+		}
 	}
 
 	metrics, err := startTelemetry(config)
@@ -529,12 +523,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			WithChainID(genDoc.ChainID)
 	}
 
-	grpcSrv, clientCtx, err := startGrpcServer(ctx, svrCtx, clientCtx, g, config.GRPC, app)
+	grpcSrv, clientCtx, err := server.StartGrpcServer(ctx, g, config.GRPC, clientCtx, svrCtx, app,
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
 	if err != nil {
 		return err
-	}
-	if grpcSrv != nil {
-		defer grpcSrv.GracefulStop()
 	}
 
 	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics, config.EVM.GethMetricsAddress)
@@ -585,11 +578,11 @@ func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	)
 }
 
-func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) {
-	if !cfg.Telemetry.Enabled {
+func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) { //nolint:staticcheck // TODO: fix
+	if !cfg.Telemetry.Enabled { //nolint:staticcheck // TODO: fix
 		return nil, nil
 	}
-	return telemetry.New(cfg.Telemetry)
+	return telemetry.New(cfg.Telemetry) //nolint:staticcheck // TODO: fix
 }
 
 // wrapCPUProfile runs callback in a goroutine, then wait for quit signals.
@@ -630,65 +623,6 @@ func getCtx(svrCtx *server.Context, block bool) (*errgroup.Group, context.Contex
 	return g, ctx
 }
 
-// startGrpcServer starts a gRPC server based on the provided configuration.
-func startGrpcServer(
-	ctx context.Context,
-	svrCtx *server.Context,
-	clientCtx client.Context,
-	g *errgroup.Group,
-	config serverconfig.GRPCConfig,
-	app types.Application,
-) (*grpc.Server, client.Context, error) {
-	if !config.Enable {
-		// return grpcServer as nil if gRPC is disabled
-		return nil, clientCtx, nil
-	}
-	_, _, err := net.SplitHostPort(config.Address)
-	if err != nil {
-		return nil, clientCtx, errorsmod.Wrapf(err, "invalid grpc address %s", config.Address)
-	}
-
-	maxSendMsgSize := config.MaxSendMsgSize
-	if maxSendMsgSize == 0 {
-		maxSendMsgSize = serverconfig.DefaultGRPCMaxSendMsgSize
-	}
-
-	maxRecvMsgSize := config.MaxRecvMsgSize
-	if maxRecvMsgSize == 0 {
-		maxRecvMsgSize = serverconfig.DefaultGRPCMaxRecvMsgSize
-	}
-
-	// if gRPC is enabled, configure gRPC client for gRPC gateway and json-rpc
-	grpcClient, err := grpc.NewClient(
-		config.Address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.ForceCodec(codec.NewProtoCodec(clientCtx.InterfaceRegistry).GRPCCodec()),
-			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-			grpc.MaxCallSendMsgSize(maxSendMsgSize),
-		),
-	)
-	if err != nil {
-		return nil, clientCtx, err
-	}
-	// Set `GRPCClient` to `clientCtx` to enjoy concurrent grpc query.
-	// only use it if gRPC server is enabled.
-	clientCtx = clientCtx.WithGRPCClient(grpcClient)
-	svrCtx.Logger.Debug("gRPC client assigned to client context", "address", config.Address)
-
-	grpcSrv, err := servergrpc.NewGRPCServer(clientCtx, app, config)
-	if err != nil {
-		return nil, clientCtx, err
-	}
-
-	// Start the gRPC server in a goroutine. Note, the provided ctx will ensure
-	// that the server is gracefully shut down.
-	g.Go(func() error {
-		return servergrpc.StartGRPCServer(ctx, svrCtx.Logger.With("module", "grpc-server"), config, grpcSrv)
-	})
-	return grpcSrv, clientCtx, nil
-}
-
 // startAPIServer starts an API server based on the provided configuration and application context.
 // Parameters:
 // - ctx: The context used for managing the server's lifecycle, allowing for graceful shutdown.
@@ -707,7 +641,7 @@ func startAPIServer(
 	svrCfg serverconfig.Config,
 	app types.Application,
 	grpcSrv *grpc.Server,
-	metrics *telemetry.Metrics,
+	metrics *telemetry.Metrics, //nolint:staticcheck // TODO: fix
 	gethMetricsAddress string,
 ) {
 	if !svrCfg.API.Enable {
@@ -717,8 +651,8 @@ func startAPIServer(
 	apiSrv := api.New(clientCtx, svrCtx.Logger.With("server", "api"), grpcSrv)
 	app.RegisterAPIRoutes(apiSrv, svrCfg.API)
 
-	if svrCfg.Telemetry.Enabled {
-		apiSrv.SetTelemetry(metrics)
+	if svrCfg.Telemetry.Enabled { //nolint:staticcheck // TODO: fix
+		apiSrv.SetTelemetry(metrics) //nolint:staticcheck // TODO: fix
 		g.Go(func() error {
 			return evmmetrics.StartGethMetricServer(ctx, svrCtx.Logger.With("server", "geth_metrics"), gethMetricsAddress)
 		})

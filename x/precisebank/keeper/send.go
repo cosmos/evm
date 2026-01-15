@@ -471,10 +471,10 @@ func (k Keeper) Send(goCtx context.Context, msg *banktypes.MsgSend) (*banktypes.
 	defer func() {
 		for _, a := range msg.Amount {
 			if a.Amount.IsInt64() {
-				telemetry.SetGaugeWithLabels(
+				telemetry.SetGaugeWithLabels( //nolint:staticcheck // TODO: fix
 					[]string{"tx", "msg", "send"},
 					float32(a.Amount.Int64()),
-					[]metrics.Label{telemetry.NewLabel("denom", a.Denom)},
+					[]metrics.Label{telemetry.NewLabel("denom", a.Denom)}, //nolint:staticcheck // TODO: fix
 				)
 			}
 		}
