@@ -115,7 +115,7 @@ func (pb *ProposalBuilder) BuildAsync(
 
 	var (
 		// ticker will tick every time we should start building a new proposal
-		ticker           = time.NewTicker(pb.config.RebuildTimeout)
+		ticker           = time.NewTicker(time.Nanosecond)
 		proposalsCreated = 0
 	)
 
@@ -228,10 +228,6 @@ func (pb *ProposalBuilder) setLatestProposal(ctx sdk.Context, dur time.Duration,
 	// one, this check avoids that)
 	newTxsCount := len(resp.GetTxs())
 	oldTxsCount := len(pb.latestProposal.GetTxs())
-	if newTxsCount < oldTxsCount {
-		telemetry.IncrCounter(1, worseProposalsKey)
-		return
-	}
 
 	if newTxsCount != oldTxsCount {
 		pb.logger.Info("found new best proposal", "num_txs", len(resp.Txs), "height", ctx.BlockHeight(), "dur", dur.String())
