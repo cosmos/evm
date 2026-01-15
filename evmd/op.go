@@ -3,16 +3,26 @@ package evmd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	storetypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/op"
+)
+
+const (
+	commitToProposeDuruationKey = "op_commit_to_propose_duration"
 )
 
 func (app *EVMD) NewOptimisticPrepareProposalHandler(defaultHandler sdk.PrepareProposalHandler) sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
 		height := req.Height
+
+		if height > 1 {
+			telemetry.MeasureSince(app.lastCommitTime, commitToProposeDuruationKey)
+		}
 
 		// optimistic proposal not running for this height or could have
 		// already been stopped or never started, i.e. genesis, or incremented
@@ -101,6 +111,8 @@ func (listener *OptimisticProposalCommitListener) ListenCommit(
 	res abci.ResponseCommit,
 	changeSet []*storetypes.StoreKVPair,
 ) error {
+	listener.app.lastCommitTime = time.Now()
+
 	sdkctx := sdk.UnwrapSDKContext(ctx)
 
 	currHeight := sdkctx.BlockHeight()

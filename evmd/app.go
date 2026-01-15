@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	goruntime "runtime"
 
@@ -202,6 +203,7 @@ type EVMD struct {
 	sm *module.SimulationManager
 
 	optimisticProp *op.ProposalBuilder
+	lastCommitTime time.Time
 
 	// module configurator
 	configurator module.Configurator
