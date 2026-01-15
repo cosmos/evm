@@ -13,6 +13,7 @@ import (
 
 	"github.com/cosmos/evm/x/erc20/client/cli"
 	"github.com/cosmos/evm/x/erc20/keeper"
+	v2 "github.com/cosmos/evm/x/erc20/migrations/v2"
 	"github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/core/appmodule"
@@ -27,7 +28,7 @@ import (
 )
 
 // consensusVersion defines the current x/erc20 module consensus version.
-const consensusVersion = 1
+const consensusVersion = 2
 
 // type check to ensure the interface is properly implemented
 var (
@@ -121,6 +122,12 @@ func (AppModule) Name() string {
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), &am.keeper)
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
+
+	if err := cfg.RegisterMigration(types.ModuleName, 1, func(ctx sdk.Context) error {
+		return v2.MigrateDynamicPrecompilesToERC20(ctx, am.keeper.EVMKeeper(), &am.keeper, types.ModuleAddress)
+	}); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 1 to 2: %v", types.ModuleName, err))
+	}
 }
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {

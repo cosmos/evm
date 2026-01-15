@@ -15,14 +15,18 @@ import (
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 // setupBankPrecompile is a helper function to set up an instance of the Bank precompile for
 // a given token denomination.
 func (s *PrecompileTestSuite) setupBankPrecompile() *bank.Precompile {
+	bankKeeper := s.network.App.GetBankKeeper()
+	bankMsgServer := bankkeeper.NewMsgServerImpl(bankKeeper)
 	return bank.NewPrecompile(
-		s.network.App.GetBankKeeper(),
+		bankMsgServer,
+		bankKeeper,
 		*s.network.App.GetErc20Keeper(),
 	)
 }
@@ -30,8 +34,11 @@ func (s *PrecompileTestSuite) setupBankPrecompile() *bank.Precompile {
 // setupBankPrecompile is a helper function to set up an instance of the Bank precompile for
 // a given token denomination.
 func (is *IntegrationTestSuite) setupBankPrecompile() *bank.Precompile {
+	bankKeeper := is.network.App.GetBankKeeper()
+	bankMsgServer := bankkeeper.NewMsgServerImpl(bankKeeper)
 	return bank.NewPrecompile(
-		is.network.App.GetBankKeeper(),
+		bankMsgServer,
+		bankKeeper,
 		*is.network.App.GetErc20Keeper(),
 	)
 }
