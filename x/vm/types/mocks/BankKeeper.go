@@ -101,11 +101,11 @@ func (_m *BankKeeper) GetSupply(ctx context.Context, denom string) types.Coin {
 
 // IsSendEnabledCoins provides a mock function with given fields: ctx, coins
 func (_m *BankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...types.Coin) error {
-	_va := make([]any, len(coins))
+	_va := make([]interface{}, len(coins))
 	for _i := range coins {
 		_va[_i] = coins[_i]
 	}
-	var _ca []any
+	var _ca []interface{}
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
@@ -242,6 +242,24 @@ func (_m *BankKeeper) SendCoinsFromModuleToAccountVirtual(ctx context.Context, s
 	return r0
 }
 
+// SetBalance provides a mock function with given fields: ctx, addr, amt
+func (_m *BankKeeper) SetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	ret := _m.Called(ctx, addr, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetBalance")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, types.Coin) error); ok {
+		r0 = rf(ctx, addr, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SetDenomMetaData provides a mock function with given fields: ctx, denomMetaData
 func (_m *BankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata) {
 	_m.Called(ctx, denomMetaData)
@@ -270,8 +288,7 @@ func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, 
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *BankKeeper {
+}) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 
