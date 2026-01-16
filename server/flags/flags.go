@@ -82,6 +82,9 @@ const (
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
 )
 
+// IAVLXEnable (experimental) enables the IAVLX storage engine.
+const IAVLXEnable = "iavlx-enable"
+
 // TLS flags
 const (
 	TLSCertPath = "tls.certificate-path"

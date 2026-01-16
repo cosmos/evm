@@ -292,8 +292,9 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 	}()
 	evmApp, ok := app.(Application)
 	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+		return fmt.Errorf("app is not an EVM application (%v)", app)
 	}
+
 	evmApp.SetClientCtx(clientCtx)
 
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
