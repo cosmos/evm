@@ -643,7 +643,7 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address]types.Transactions {
 	return pool.validPendingTxs.Collect(ctx, height, filter)
 }
 

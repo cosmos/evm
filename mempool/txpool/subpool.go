@@ -19,7 +19,6 @@ package txpool
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -28,45 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/holiman/uint256"
 )
-
-// LazyTransaction contains a small subset of the transaction properties that is
-// enough for the miner and other APIs to handle large batches of transactions;
-// and supports pulling up the entire transaction when really needed.
-type LazyTransaction struct {
-	Pool LazyResolver       // Transaction resolver to pull the real transaction up
-	Hash common.Hash        // Transaction hash to pull up if needed
-	Tx   *types.Transaction // Transaction if already resolved
-
-	Time      time.Time    // Time when the transaction was first seen
-	GasFeeCap *uint256.Int // Maximum fee per gas the transaction may consume
-	GasTipCap *uint256.Int // Maximum miner tip per gas the transaction can pay
-
-	Gas     uint64 // Amount of gas required by the transaction
-	BlobGas uint64 // Amount of blob gas required by the transaction
-}
-
-// Resolve retrieves the full transaction belonging to a lazy handle if it is still
-// maintained by the transaction pool.
-//
-// Note, the method will *not* cache the retrieved transaction if the original
-// pool has not cached it. The idea being, that if the tx was too big to insert
-// originally, silently saving it will cause more trouble down the line (and
-// indeed seems to have caused a memory bloat in the original implementation
-// which did just that).
-func (ltx *LazyTransaction) Resolve() *types.Transaction {
-	if ltx.Tx != nil {
-		return ltx.Tx
-	}
-	return ltx.Pool.Get(ltx.Hash)
-}
-
-// LazyResolver is a minimal interface needed for a transaction pool to satisfy
-// resolving lazy transactions. It's mostly a helper to avoid the entire sub-
-// pool being injected into the lazy transaction.
-type LazyResolver interface {
-	// Get returns a transaction if it is contained in the pool, or nil otherwise.
-	Get(hash common.Hash) *types.Transaction
-}
 
 // PendingFilter is a collection of filter rules to allow retrieving a subset
 // of transactions for announcement or mining.
@@ -163,7 +123,7 @@ type SubPool interface {
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
+	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address]types.Transactions
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions

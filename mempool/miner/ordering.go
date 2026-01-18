@@ -23,13 +23,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
-
-	"github.com/cosmos/evm/mempool/txpool"
 )
 
 // txWithMinerFee wraps a transaction with its gas price or effective miner gasTipCap
 type txWithMinerFee struct {
-	tx   *txpool.LazyTransaction
+	tx   *types.Transaction
 	from common.Address
 	fees *uint256.Int
 }
@@ -37,15 +35,19 @@ type txWithMinerFee struct {
 // newTxWithMinerFee creates a wrapped transaction, calculating the effective
 // miner gasTipCap if a base fee is provided.
 // Returns error in case of a negative effective miner gasTipCap.
-func newTxWithMinerFee(tx *txpool.LazyTransaction, from common.Address, baseFee *uint256.Int) (*txWithMinerFee, error) {
-	tip := new(uint256.Int).Set(tx.GasTipCap)
+func newTxWithMinerFee(tx *types.Transaction, from common.Address, baseFee *uint256.Int) (*txWithMinerFee, error) {
+	// TODO: are we ok to panic if not ok here?
+	tip, _ := uint256.FromBig(tx.GasTipCap())
 	if baseFee != nil {
-		if tx.GasFeeCap.Cmp(baseFee) < 0 {
+		feeCap, _ := uint256.FromBig(tx.GasFeeCap())
+		if feeCap.Cmp(baseFee) < 0 {
 			return nil, types.ErrGasFeeCapTooLow
 		}
-		tip = new(uint256.Int).Sub(tx.GasFeeCap, baseFee)
-		if tip.Gt(tx.GasTipCap) {
-			tip = tx.GasTipCap
+
+		// TODO: double check we take the min here
+		calculatedTipCap := new(uint256.Int).Sub(feeCap, baseFee)
+		if !calculatedTipCap.Gt(tip) {
+			tip = calculatedTipCap
 		}
 	}
 	return &txWithMinerFee{
@@ -65,7 +67,7 @@ func (s txByPriceAndTime) Less(i, j int) bool {
 	// deterministic sorting
 	cmp := s[i].fees.Cmp(s[j].fees)
 	if cmp == 0 {
-		return s[i].tx.Time.Before(s[j].tx.Time)
+		return s[i].tx.Time().Before(s[j].tx.Time())
 	}
 	return cmp > 0
 }
@@ -88,10 +90,10 @@ func (s *txByPriceAndTime) Pop() interface{} {
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
 type TransactionsByPriceAndNonce struct {
-	txs     map[common.Address][]*txpool.LazyTransaction // Per account nonce-sorted list of transactions
-	heads   txByPriceAndTime                             // Next transaction for each unique account (price heap)
-	signer  types.Signer                                 // Signer for the set of transactions
-	baseFee *uint256.Int                                 // Current base fee
+	txs     map[common.Address]types.Transactions // Per account nonce-sorted list of transactions
+	heads   txByPriceAndTime                      // Next transaction for each unique account (price heap)
+	signer  types.Signer                          // Signer for the set of transactions
+	baseFee *uint256.Int                          // Current base fee
 }
 
 // NewTransactionsByPriceAndNonce creates a transaction set that can retrieve
@@ -99,7 +101,7 @@ type TransactionsByPriceAndNonce struct {
 //
 // Note, the input map is reowned so the caller should not interact any more with
 // if after providing it to the constructor.
-func NewTransactionsByPriceAndNonce(signer types.Signer, txs map[common.Address][]*txpool.LazyTransaction, baseFee *big.Int) *TransactionsByPriceAndNonce {
+func NewTransactionsByPriceAndNonce(signer types.Signer, txs map[common.Address]types.Transactions, baseFee *big.Int) *TransactionsByPriceAndNonce {
 	// Convert the basefee from header format to uint256 format
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
@@ -128,7 +130,7 @@ func NewTransactionsByPriceAndNonce(signer types.Signer, txs map[common.Address]
 }
 
 // Peek returns the next transaction by price.
-func (t *TransactionsByPriceAndNonce) Peek() (*txpool.LazyTransaction, *uint256.Int) {
+func (t *TransactionsByPriceAndNonce) Peek() (*types.Transaction, *uint256.Int) {
 	if len(t.heads) == 0 {
 		return nil, nil
 	}

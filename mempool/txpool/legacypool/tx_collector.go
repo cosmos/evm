@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/holiman/uint256"
 )
 
 var (
@@ -104,7 +103,7 @@ func (c *txCollector) StartNewHeight(height *big.Int) func() {
 // Collect collects txs in the collector at a height. If this height has not
 // been reached by the collector, it will wait until the context times out or
 // the height is reached.
-func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address]types.Transactions {
 	genesis := big.NewInt(0)
 
 	start := time.Now()
@@ -227,7 +226,7 @@ func newTxs() *txs {
 }
 
 // Get returns the current set of txs.
-func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+func (t *txs) Get(filter txpool.PendingFilter) map[common.Address]types.Transactions {
 	// Do not support blob txs
 	if filter.OnlyBlobTxs {
 		return nil
@@ -249,7 +248,7 @@ func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.Lazy
 	}
 
 	numSelected := 0
-	pending := make(map[common.Address][]*txpool.LazyTransaction, len(t.txs))
+	pending := make(map[common.Address]types.Transactions, len(t.txs))
 
 	for addr, txs := range t.txs {
 		sort.Sort(types.TxByNonce(txs))
@@ -264,22 +263,9 @@ func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.Lazy
 			}
 		}
 
-		// Convert to lazy transactions
 		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i, tx := range txs {
-				lazies[i] = &txpool.LazyTransaction{
-					Hash:      tx.Hash(),
-					Tx:        tx,
-					Time:      tx.Time(),
-					GasFeeCap: uint256.MustFromBig(tx.GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
-					Gas:       tx.Gas(),
-					BlobGas:   tx.BlobGas(),
-				}
-			}
-			numSelected += len(lazies)
-			pending[addr] = lazies
+			numSelected += len(txs)
+			pending[addr] = txs
 		}
 	}
 

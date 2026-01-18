@@ -151,8 +151,8 @@ func TestCollectWithMinTip(t *testing.T) {
 		t.Fatalf("Expected 1 tx after filtering, got %d", len(result[addr1]))
 	}
 
-	if result[addr1][0].Tx.Nonce() != 0 {
-		t.Errorf("Expected high tip tx (nonce 0), got nonce %d", result[addr1][0].Tx.Nonce())
+	if result[addr1][0].Nonce() != 0 {
+		t.Errorf("Expected high tip tx (nonce 0), got nonce %d", result[addr1][0].Nonce())
 	}
 }
 
@@ -168,7 +168,7 @@ func TestCollectorBehindByOneHeight(t *testing.T) {
 	collector.AddTx(addr1, tx1)
 
 	// Start collecting height 2 in background
-	resultChan := make(chan map[common.Address][]*txpool.LazyTransaction)
+	resultChan := make(chan map[common.Address]types.Transactions)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -199,8 +199,8 @@ func TestCollectorBehindByOneHeight(t *testing.T) {
 		t.Errorf("Expected 1 tx, got %d", len(result[addr1]))
 	}
 
-	if result[addr1][0].Tx.Nonce() != 1 {
-		t.Errorf("Expected tx with nonce 1, got %d", result[addr1][0].Tx.Nonce())
+	if result[addr1][0].Nonce() != 1 {
+		t.Errorf("Expected tx with nonce 1, got %d", result[addr1][0].Nonce())
 	}
 }
 
@@ -215,7 +215,7 @@ func TestCollectorBehindByTwoHeights(t *testing.T) {
 	collector.AddTx(addr1, createTestTx(0, big.NewInt(1e9), big.NewInt(2e9)))
 
 	// Start collecting height 3 in background
-	resultChan := make(chan map[common.Address][]*txpool.LazyTransaction)
+	resultChan := make(chan map[common.Address]types.Transactions)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -252,8 +252,8 @@ func TestCollectorBehindByTwoHeights(t *testing.T) {
 		t.Errorf("Expected 1 tx, got %d", len(result[addr1]))
 	}
 
-	if result[addr1][0].Tx.Nonce() != 2 {
-		t.Errorf("Expected tx with nonce 2, got %d", result[addr1][0].Tx.Nonce())
+	if result[addr1][0].Nonce() != 2 {
+		t.Errorf("Expected tx with nonce 2, got %d", result[addr1][0].Nonce())
 	}
 }
 
@@ -286,8 +286,8 @@ func TestRemoveTx(t *testing.T) {
 		t.Fatalf("Expected 1 tx after removal, got %d", len(result[addr1]))
 	}
 
-	if result[addr1][0].Tx.Nonce() != 1 {
-		t.Errorf("Expected tx with nonce 1, got %d", result[addr1][0].Tx.Nonce())
+	if result[addr1][0].Nonce() != 1 {
+		t.Errorf("Expected tx with nonce 1, got %d", result[addr1][0].Nonce())
 	}
 }
 
@@ -346,8 +346,8 @@ func TestTxsAreSortedByNonce(t *testing.T) {
 
 	// Check that txs are sorted by nonce
 	for i := 0; i < len(result[addr1]); i++ {
-		if result[addr1][i].Tx.Nonce() != uint64(i) {
-			t.Errorf("Expected nonce %d at position %d, got %d", i, i, result[addr1][i].Tx.Nonce())
+		if result[addr1][i].Nonce() != uint64(i) {
+			t.Errorf("Expected nonce %d at position %d, got %d", i, i, result[addr1][i].Nonce())
 		}
 	}
 }

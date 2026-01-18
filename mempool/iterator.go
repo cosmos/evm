@@ -7,7 +7,6 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/mempool/miner"
-	"github.com/cosmos/evm/mempool/txpool"
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -171,7 +170,7 @@ func (i *EVMMempoolIterator) shouldUseEVM() bool {
 }
 
 // getNextEVMTx retrieves the next EVM transaction and its fee
-func (i *EVMMempoolIterator) getNextEVMTx() (*txpool.LazyTransaction, *uint256.Int) {
+func (i *EVMMempoolIterator) getNextEVMTx() (*ethtypes.Transaction, *uint256.Int) {
 	if i.evmIterator == nil {
 		return nil, nil
 	}
@@ -200,7 +199,7 @@ func (i *EVMMempoolIterator) getNextCosmosTx() (sdk.Tx, *uint256.Int) {
 
 // getPreferredTransaction returns the preferred transaction based on fee priority.
 // Takes both transaction types as input and returns the preferred one, or nil if neither is available.
-func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTransaction, nextCosmosTx sdk.Tx) sdk.Tx {
+func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *ethtypes.Transaction, nextCosmosTx sdk.Tx) sdk.Tx {
 	// If no transactions available, return nil
 	if nextEVMTx == nil && nextCosmosTx == nil {
 		i.logger.Debug("no transactions available from either mempool")
@@ -340,15 +339,15 @@ func (i *EVMMempoolIterator) hasMoreTransactions() bool {
 // convertEVMToSDKTx converts an Ethereum transaction to a Cosmos SDK transaction.
 // It wraps the EVM transaction in a MsgEthereumTx and builds a proper SDK transaction
 // using the configured transaction builder and bond denomination for fees.
-func (i *EVMMempoolIterator) convertEVMToSDKTx(nextEVMTx *txpool.LazyTransaction) sdk.Tx {
+func (i *EVMMempoolIterator) convertEVMToSDKTx(nextEVMTx *ethtypes.Transaction) sdk.Tx {
 	if nextEVMTx == nil {
 		i.logger.Debug("EVM transaction is nil, skipping conversion")
 		return nil
 	}
 
 	msgEthereumTx := &msgtypes.MsgEthereumTx{}
-	hash := nextEVMTx.Tx.Hash()
-	if err := msgEthereumTx.FromSignedEthereumTx(nextEVMTx.Tx, ethtypes.LatestSignerForChainID(i.chainID)); err != nil {
+	hash := nextEVMTx.Hash()
+	if err := msgEthereumTx.FromSignedEthereumTx(nextEVMTx, ethtypes.LatestSignerForChainID(i.chainID)); err != nil {
 		i.logger.Error("failed to convert signed Ethereum transaction", "error", err, "tx_hash", hash)
 		return nil // Return nil for invalid tx instead of panicking
 	}

@@ -388,8 +388,8 @@ func (p *TxPool) Add(txs []*types.Transaction, sync bool) []error {
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (p *TxPool) Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction {
-	txs := make(map[common.Address][]*LazyTransaction)
+func (p *TxPool) Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address]types.Transactions {
+	txs := make(map[common.Address]types.Transactions)
 	for _, subpool := range p.Subpools {
 		for addr, set := range subpool.Pending(ctx, height, filter) {
 			txs[addr] = set
