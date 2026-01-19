@@ -116,3 +116,7 @@ func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 	// Wait for block commit
 	s.AwaitNBlocks(t, 1)
 }
+
+func (s *SystemTestSuite) SetBaseFee(baseFee *big.Int) {
+	s.baseFee = baseFee
+}
