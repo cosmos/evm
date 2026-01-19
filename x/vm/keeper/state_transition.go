@@ -461,7 +461,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 		// - increase sender's nonce by one no matter the result.
 		stateDB.SetNonce(sender.Address(), msg.Nonce, tracing.NonceChangeEoACall)
 		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
-		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
+		// Only increment nonce if it wasn't already incremented during evm.Create()
+		// (e.g., by nested contract creations through EIP-7702 delegation)
+		if stateDB.GetNonce(sender.Address()) == msg.Nonce {
+			stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
+		}
 	} else {
 		// Apply EIP-7702 authorizations.
 		if msg.SetCodeAuthorizations != nil {
