@@ -1,11 +1,11 @@
 package mempool
 
 import (
-	evmmempool "github.com/cosmos/evm/mempool"
 	"time"
 
 	"github.com/stretchr/testify/suite"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
