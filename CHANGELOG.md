@@ -14,7 +14,7 @@
 - [\#690](https://github.com/cosmos/evm/pull/690) Fix Ledger hardware wallet support for coin type 60.
 - [\#769](https://github.com/cosmos/evm/pull/769) Fix erc20 ibc middleware to not to validate sender address format.
 - [\#790](https://github.com/cosmos/evm/pull/790) fix panic in historical query due to missing EvmCoinInfo.
-- [\#814](https://github.com/cosmos/evm/pull/814) Fix duplicated events in post tx processor.
+- [\#817](https://github.com/cosmos/evm/pull/817) Align GetCoinbaseAddress to handle empty proposer address in contexts like CheckTx where proposer doesn't exist.
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
 - [\#828](https://github.com/cosmos/evm/pull/828) Validate decimals before conversion to prevent panic when coininfo is missing in historical queries.
 - [\#920](https://github.com/cosmos/evm/pull/920) Fix GetCoinbaseAddress to correctly convert validator operator address from Bech32 format to Ethereum address for block.coinbase opcode.
