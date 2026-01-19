@@ -3,17 +3,17 @@ src="repo_header.svg"
 alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and customizability to your chain"
 />
 
+## What is Cosmos EVM?
+
+Cosmos EVM is a plug-and-play solution that adds EVM compatibility and customizability to your Cosmos SDK chain. Cosmos EVM is used by Ondo, Mezo, Mantra, XRP sidechain, Telegram Application Chain (TAC), Stable, and others. Cosmos EVM equips Cosmos chains with complete Ethereum capabilities: Solidity smart contracts, Ethereum JSON-RPC, native support for the EVM wallet/token/user experience, and access to the entire Ethereum developer ecosystem. Its precompiles and extensions allow developers to leverage modules like [IBC](https://github.com/cosmos/ibc-go) with EVM and get native ERC-20 support for tokens on Cosmos. 
+
+Cosmos EVM is customizable for your business use case, chain architecture, and performance needs.
+
 **Please note**: This repo is undergoing changes while the code is being audited and tested. For the time being we will
 be making v0.x releases. Some breaking changes might occur. Cosmos Labs will only mark the Cosmos EVM repository as stable with a v1
 release after the audit, key stability features and benchmarking are completed.
 
 **Visit the official documentation for Cosmos EVM**: [evm.cosmos.network](https://evm.cosmos.network/)
-
-## What is Cosmos EVM?
-
-Cosmos EVM is a plug-and-play solution that adds EVM compatibility and customizability to your Cosmos SDK chain. Cosmos EVM equips Cosmos chains with complete Ethereum capabilities: Solidity smart contracts, Ethereum JSON-RPC, native support for the EVM wallet/token/user experience, and access to the entire Ethereum developer ecosystem. Its precompiles and extensions allow developers to leverage modules like [IBC](https://github.com/cosmos/ibc-go) with EVM and get native ERC-20 support for tokens on Cosmos. 
-
-Cosmos EVM is customizable for your business use case, chain architecture, and performance needs.
 
 
 ## Integration

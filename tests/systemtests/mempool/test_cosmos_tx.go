@@ -50,7 +50,8 @@ func TestCosmosTxsCompatibility(t *testing.T) {
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
+	s := NewTestSuite(t)
+	ctx := NewTestContext()
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -58,11 +59,11 @@ func TestCosmosTxsCompatibility(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				s.BeforeEachCase(t)
+				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
 					action(s)
 				}
-				s.AfterEachCase(t)
+				s.AfterEachCase(t, ctx)
 			})
 		}
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -79,6 +80,9 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	// Verify initial mempool state
 	initialCount := mempool.CountTx()
 	s.Require().Equal(0, initialCount, "mempool should be empty initially")
+
+	// Enforces deterministic mempool state for tests
+	evmmempool.AllowUnsafeSyncInsert = true
 
 	s.network = nw
 	s.factory = tf
