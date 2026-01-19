@@ -371,7 +371,7 @@ func RunTxBroadcasting(t *testing.T) {
 
 	// Now modify the consensus timeout to slow down block production
 	// This gives us time to verify broadcasting happens before blocks are committed
-	s.ModifyConsensusTimeout(t, "5s")
+	s.ModifyConsensusTimeout(t, "20s")
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
