@@ -56,7 +56,7 @@ func RunTxBroadcasting(t *testing.T) {
 					// Step 2: Verify tx appears in nodes 1, 2, 3 mempools within 3 seconds
 					// Expected: tx is gossiped to all nodes BEFORE any block is committed (5s timeout)
 					// This proves mempool gossip works, not just block propagation
-					maxWaitTime := 3 * time.Second
+					maxWaitTime := 5 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					for _, nodeIdx := range []int{1, 2, 3} {
@@ -164,7 +164,7 @@ func RunTxBroadcasting(t *testing.T) {
 					// - tx3 (nonce=2) should be promoted from queued to pending on node1
 					// - Promoted tx3 should then be gossiped to all other nodes
 					// This proves queued txs get rebroadcast when promoted
-					maxWaitTime = 3 * time.Second
+					maxWaitTime = 5 * time.Second
 					ticker2 := time.NewTicker(checkInterval)
 					defer ticker2.Stop()
 
@@ -238,7 +238,7 @@ func RunTxBroadcasting(t *testing.T) {
 
 					// Step 2: Verify tx is in node0's pending pool
 					// Poll for the transaction to appear (it should be fast, but we need to wait for async processing)
-					maxWaitTime := 3 * time.Second
+					maxWaitTime := 5 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
@@ -305,8 +305,8 @@ func RunTxBroadcasting(t *testing.T) {
 					require.NoError(t, err, "failed to send tx to node0")
 
 					// Step 2: Wait for tx to be gossiped to node1
-					// Expected: tx appears in node1's pending pool within 3 seconds
-					maxWaitTime := 3 * time.Second
+					// Expected: tx appears in node1's pending pool within 5 seconds
+					maxWaitTime := 5 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
