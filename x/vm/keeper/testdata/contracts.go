@@ -12,3 +12,11 @@ func LoadERC20Contract() (evmtypes.CompiledContract, error) {
 func LoadMessageCallContract() (evmtypes.CompiledContract, error) {
 	return contractutils.LegacyLoadContractFromJSONFile("MessageCallContract.json")
 }
+
+func LoadDelegationTargetContract() (evmtypes.CompiledContract, error) {
+	return contractutils.LegacyLoadContractFromJSONFile("DelegationTarget.json")
+}
+
+func LoadMaliciousDeployerContract() (evmtypes.CompiledContract, error) {
+	return contractutils.LegacyLoadContractFromJSONFile("MaliciousDeployer.json")
+}

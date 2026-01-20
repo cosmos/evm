@@ -259,8 +259,6 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
 	}
 
-	eventsLen := len(tmpCtx.EventManager().Events())
-
 	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
 	if !k.HasHooks() {
 		// If there are no hooks, we can commit the state immediately if the tx is successful
@@ -293,11 +291,6 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 				receipt.Bloom = ethtypes.Bloom{}
 			} else {
 				res.Logs = types.NewLogsFromEth(receipt.Logs)
-			}
-
-			events := tmpCtx.EventManager().Events()
-			if len(events) > eventsLen {
-				ctx.EventManager().EmitEvents(events[eventsLen:])
 			}
 		}
 	}
@@ -468,7 +461,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 		// - increase sender's nonce by one no matter the result.
 		stateDB.SetNonce(sender.Address(), msg.Nonce, tracing.NonceChangeEoACall)
 		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
-		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
+		// Only increment nonce if it wasn't already incremented during evm.Create()
+		// (e.g., by nested contract creations through EIP-7702 delegation)
+		if stateDB.GetNonce(sender.Address()) == msg.Nonce {
+			stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
+		}
 	} else {
 		// Apply EIP-7702 authorizations.
 		if msg.SetCodeAuthorizations != nil {

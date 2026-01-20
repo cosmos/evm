@@ -38,6 +38,8 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
+const TestPostProcessingEventType = "test_post_processing_event"
+
 func (s *KeeperTestSuite) TestContextSetConsensusParams() {
 	// set new value of max gas in consensus params
 	maxGas := int64(123456789)
@@ -156,14 +158,26 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 		msg      string
 		malleate func() sdk.Context
 		expPass  bool
+		expEmpty bool
 	}{
+		{
+			"empty proposer address - should return empty address without error",
+			func() sdk.Context {
+				header := s.Network.GetContext().BlockHeader()
+				header.ProposerAddress = sdk.ConsAddress{}
+				return s.Network.GetContext().WithBlockHeader(header)
+			},
+			true,
+			true,
+		},
 		{
 			"validator not found",
 			func() sdk.Context {
 				header := s.Network.GetContext().BlockHeader()
-				header.ProposerAddress = []byte{}
+				header.ProposerAddress = []byte{1, 2, 3}
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
+			false,
 			false,
 		},
 		{
@@ -172,23 +186,33 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 				return s.Network.GetContext()
 			},
 			true,
+			false,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
 			ctx := tc.malleate()
-			proposerAddress := ctx.BlockHeader().ProposerAddress
+			var proposerAddress sdk.ConsAddress
+			if tc.expEmpty {
+				proposerAddress = sdk.ConsAddress{}
+			} else {
+				proposerAddress = ctx.BlockHeader().ProposerAddress
+			}
 
 			// Function being tested
 			coinbase, err := s.Network.App.GetEVMKeeper().GetCoinbaseAddress(
 				ctx,
-				sdk.ConsAddress(proposerAddress),
+				proposerAddress,
 			)
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				s.Require().Equal(proposerAddressHex, coinbase)
+				if tc.expEmpty {
+					s.Require().Equal(common.Address{}, coinbase)
+				} else {
+					s.Require().Equal(proposerAddressHex, coinbase)
+				}
 			} else {
 				s.Require().Error(err)
 			}
@@ -653,6 +677,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 					keeper.NewMultiEvmHooks(
 						&testHooks{
 							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+								ctx.EventManager().EmitEvent(sdk.NewEvent(TestPostProcessingEventType))
 								return nil
 							},
 						},
@@ -684,7 +709,17 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				s.Require().Equal(senderBefore.Sub(sdkmath.NewIntFromBigInt(transferAmt)), senderAfter)
 				s.Require().Equal(recipientBefore.Add(sdkmath.NewIntFromBigInt(transferAmt)), recipientAfter)
 			},
-			func(s *KeeperTestSuite) {},
+			func(s *KeeperTestSuite) {
+				// check if the event emitted exactly once
+				events := s.Network.GetContext().EventManager().Events()
+				var postProcessingEvents []sdk.Event
+				for _, event := range events {
+					if event.Type == TestPostProcessingEventType {
+						postProcessingEvents = append(postProcessingEvents, event)
+					}
+				}
+				s.Require().Len(postProcessingEvents, 1)
+			},
 		},
 		{
 			"pass - evm tx succeeds, post processing is called but fails, the balance is unchanged",
