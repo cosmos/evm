@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -44,6 +45,7 @@ import (
 	"github.com/holiman/uint256"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
@@ -1788,6 +1790,9 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
+
+	// first pass to quickly remove all txs that are old (likely included in
+	// the prev block), or where the sender as ran out of funds.
 	for addr, list := range pool.pending {
 		if isReorgCancelled(reset, cancelled) {
 			pendingDemotedCancelled.Mark(1)
@@ -1805,6 +1810,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			log.Trace("Removed old pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonOld).Mark(1)
 		}
+
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
 		drops, costInvalids := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range drops {
@@ -1817,44 +1823,14 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		pendingNofundsMeter.Mark(int64(len(drops)))
 		pendingDemotedCostly.Mark(int64(len(costInvalids)))
 
-		// Drop all transactions that now fail the pools RecheckTxFn
-		//
-		// Note this is happening after the nonce removal above since this
-		// check is slower, we would like it to happen on the fewest txs as
-		// possible.
-		recheckStart := time.Now()
-		ctx, write := pool.rechecker.GetContext()
-		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.Recheck(ctx, tx)
-			if !newCtx.IsZero() {
-				ctx = newCtx
-			}
-			if err == nil {
-				// always write changes back to the original context
-				write()
-			}
-			return tolerateRecheckErr(err) != nil
-		})
-
-		for _, tx := range recheckDrops {
-			hash := tx.Hash()
-			pool.all.Remove(hash)
-			pool.markTxRemoved(addr, tx, Pending)
-			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
-		}
-		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
-		pendingDemotedRecheck.Mark(int64(len(recheckInvalids)))
-		pendingRecheckDurationTimer.UpdateSince(recheckStart)
-
-		invalids := append(costInvalids, recheckInvalids...)
-		for _, tx := range invalids {
+		for _, tx := range costInvalids {
 			hash := tx.Hash()
 			log.Trace("Demoting pending transaction", "hash", hash)
 
 			// Internal shuffle shouldn't touch the lookup set.
 			pool.enqueueTx(hash, tx, false)
 		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(recheckDrops) + len(invalids)))
+		pendingGauge.Dec(int64(len(olds) + len(drops) + len(costInvalids)))
 
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
@@ -1875,10 +1851,97 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			if _, ok := pool.queue[addr]; !ok {
 				pool.reserver.Release(addr)
 			}
-		} else {
-			pool.validPendingTxs.AddList(addr, list)
 		}
 	}
+
+	// time the duration of rechecking the pending pool
+	defer func(start time.Time) { pendingRecheckDurationTimer.UpdateSince(start) }(time.Now())
+
+	// Construct a set of txs in the same order that we want to propose them
+	// in (price + nonce order).
+	//
+	// We must recheck txs in this order, since the order of checking txs
+	// may have implications on txs succeeding or failing recheck. Thus, if we
+	// check in one order but propose in another, then this may fail validation
+	// by other nodes.
+	txs := pool.executionOrderedTxs(pool.pending)
+
+	ctx, write := pool.rechecker.GetContext()
+	for !txs.Empty() {
+		if isReorgCancelled(reset, cancelled) {
+			pendingDemotedCancelled.Mark(1)
+			return
+		}
+
+		tx, _ := txs.Peek()
+		addr, _ := types.Sender(pool.signer, tx) // TODO: handle error
+
+		// Drop all transactions that now fail the pools RecheckTxFn
+		newCtx, err := pool.rechecker.Recheck(ctx, tx)
+		if !newCtx.IsZero() {
+			// if we got a new valid context, update the current recheck
+			// context so that future txs are rechecked on top of it
+			ctx = newCtx
+		}
+
+		if tolerateRecheckErr(err) != nil {
+			// remove this tx from and ensure that no future txs for this
+			// account will be returned by Peek
+			txs.Pop()
+
+			// if we do not tolerate this error, drop the tx that failed and
+			// invalidate all future txs for this account
+			hash := tx.Hash()
+
+			// this will remove all future txs from pending as well
+			removed, invalids := pool.pending[addr].Remove(tx)
+			if !removed {
+				panic(fmt.Sprintf("tried to remove tx '%s' from pending pool but it does not exist", hash))
+			}
+
+			// remove from lookup
+			pool.all.Remove(hash)
+
+			// notify callbacks that a tx was removed from pending
+			pool.markTxRemoved(addr, tx, Pending)
+			log.Trace("Removed pending transaction that failed recheck", "hash", hash)
+
+			pendingRecheckDropMeter.Mark(1)
+
+			// enqueue all invalidated txs
+			for _, tx := range invalids {
+				hash := tx.Hash()
+				log.Trace("Demoting pending transaction due to invalidation (lower nonce failed recheck)", "hash", hash)
+
+				// Internal shuffle shouldn't touch the lookup set.
+				pool.enqueueTx(hash, tx, false)
+			}
+			pendingDemotedRecheck.Mark(int64(len(invalids)))
+			continue
+		}
+
+		// write state updates back to context
+		write()
+
+		// remove this tx and replace with next best tx
+		txs.Shift()
+
+		// add tx to valid pending txs list
+		pool.validPendingTxs.AddTx(addr, tx)
+	}
+}
+
+func (pool *LegacyPool) executionOrderedTxs(txs map[common.Address]*list) *miner.TransactionsByPriceAndNonce {
+	ordered := make(map[common.Address]types.Transactions)
+	for addr, txs := range txs {
+		ordered[addr] = txs.Flatten()
+	}
+
+	return miner.NewTransactionsByPriceAndNonce(
+		pool.signer,
+		ordered,
+		pool.currentHead.Load().BaseFee,
+	)
 }
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
@@ -2197,6 +2260,8 @@ func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
 // ignored from recheck, i.e. we do not want to drop txs from the mempool if we
 // have received specific errors from recheck.
 func tolerateRecheckErr(err error) error {
+	// TODO: we should tolerate if the tx is below the base fee
+
 	// TODO: Fix import cycle if we try and properly match on
 	// errors.Is(mempool.ErrNonceLow)
 	if err != nil && strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
