@@ -245,6 +245,8 @@ type Config struct {
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+
+	MinTip *big.Int // The minimum tip required
 }
 
 // DefaultConfig contains the default configurations for the transaction pool.
@@ -261,6 +263,8 @@ var DefaultConfig = Config{
 	GlobalQueue:  1024,
 
 	Lifetime: 3 * time.Hour,
+
+	MinTip: big.NewInt(0),
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -1789,7 +1793,9 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	defer func(t0 time.Time) { demoteTimer.UpdateSince(t0) }(time.Now())
 
 	// Iterate over all accounts and demote any non-executable transactions
-	gasLimit := pool.currentHead.Load().GasLimit
+	currentHead := pool.currentHead.Load()
+	gasLimit := currentHead.GasLimit
+	baseFee := currentHead.BaseFee
 
 	// first pass to quickly remove all txs that are old (likely included in
 	// the prev block), or where the sender as ran out of funds.
@@ -1875,6 +1881,20 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 
 		tx, _ := txs.Peek()
 		addr, _ := types.Sender(pool.signer, tx) // TODO: handle error
+
+		// if this tx does not currently satisfy the min tip given the current
+		// base fee, remove it (and all subsequent txs for this account) from
+		// consideration
+		//
+		// TODO: think about this more, are there conditions here where this
+		// does not make sense to do? are there conditions where we may
+		// encounter a tx out of nonce order where this condition is true for
+		// that tx, but a tx that we encounter in the future is able to be
+		// executed
+		if tx.EffectiveGasTipIntCmp(pool.config.MinTip, baseFee) < 0 {
+			txs.Pop()
+			continue
+		}
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		newCtx, err := pool.rechecker.Recheck(ctx, tx)

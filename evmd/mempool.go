@@ -79,11 +79,14 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 // createMempoolConfig creates a new EVMMempoolConfig with the default configuration
 // and overrides it with values from appOpts if they exist and are non-zero.
 func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
+	legacyPoolConfig := server.GetLegacyPoolConfig(appOpts, logger)
+	// TODO: change where mintip is read in from
+	legacyPoolConfig.MinTip = server.GetMinTip(appOpts, logger)
+
 	return &evmmempool.EVMMempoolConfig{
 		AnteHandler:              app.GetAnteHandler(),
-		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
+		LegacyPoolConfig:         legacyPoolConfig,
 		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
-		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
 	}, nil

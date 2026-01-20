@@ -60,7 +60,6 @@ type (
 		txConfig      client.TxConfig
 		blockchain    *Blockchain
 		blockGasLimit uint64 // Block gas limit from consensus parameters
-		minTip        *uint256.Int
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -90,7 +89,6 @@ type EVMMempoolConfig struct {
 	AnteHandler      sdk.AnteHandler
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
-	MinTip        *uint256.Int
 	// OperateExclusively indicates whether this mempool is the ONLY mempool in the chain.
 	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
@@ -202,7 +200,6 @@ func NewExperimentalEVMMempool(
 		txConfig:                 txConfig,
 		blockchain:               blockchain,
 		blockGasLimit:            config.BlockGasLimit,
-		minTip:                   config.MinTip,
 		anteHandler:              config.AnteHandler,
 		operateExclusively:       config.OperateExclusively,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
@@ -616,7 +613,6 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 	}
 
 	filter := txpool.PendingFilter{
-		MinTip:       m.minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,

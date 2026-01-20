@@ -2,10 +2,10 @@ package server
 
 import (
 	"math"
+	"math/big"
 	"path/filepath"
 	"time"
 
-	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
@@ -94,16 +94,16 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 
 // GetMinTip reads the min tip from the app options, set from app.toml
 // This field is also known as the minimum priority fee
-func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
+func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *big.Int {
 	if appOpts == nil {
 		logger.Error("app options is nil, using zero min tip")
 		return nil
 	}
 
 	minTipUint64 := cast.ToUint64(appOpts.Get(srvflags.EVMMinTip))
-	minTip := uint256.NewInt(minTipUint64)
+	minTip := new(big.Int).SetUint64(minTipUint64)
 
-	if minTip.Cmp(uint256.NewInt(0)) >= 0 { // zero or positive
+	if minTip.Cmp(big.NewInt(0)) >= 0 { // zero or positive
 		return minTip
 	}
 
