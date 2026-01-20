@@ -649,8 +649,8 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address]types.Transactions {
-	return pool.validPendingTxs.Collect(ctx, height, filter)
+func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int) []txpool.TxWithFees {
+	return pool.validPendingTxs.Collect(ctx, height)
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
@@ -1879,8 +1879,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			return
 		}
 
-		tx, _ := txs.Peek()
-		addr, _ := types.Sender(pool.signer, tx) // TODO: handle error
+		tx, addr, fees := txs.Peek()
 
 		// if this tx does not currently satisfy the min tip given the current
 		// base fee, remove it (and all subsequent txs for this account) from
@@ -1937,17 +1936,25 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 				pool.enqueueTx(hash, tx, false)
 			}
 			pendingDemotedRecheck.Mark(int64(len(invalids)))
+
+			// Delete the entire pending entry if it became empty.
+			if pool.pending[addr].Empty() {
+				delete(pool.pending, addr)
+				if _, ok := pool.queue[addr]; !ok {
+					pool.reserver.Release(addr)
+				}
+			}
 			continue
 		}
 
-		// write state updates back to context
+		// successful recheck, write state updates back to context
 		write()
 
 		// remove this tx and replace with next best tx
 		txs.Shift()
 
 		// add tx to valid pending txs list
-		pool.validPendingTxs.AddTx(addr, tx)
+		pool.validPendingTxs.AddTx(txpool.TxWithFees{Tx: tx, Fees: fees})
 	}
 }
 
@@ -2240,7 +2247,6 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // includes the tx in the next valid pending txs set, i.e. to be included in
 // the next block, if selected by the application.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
-	pool.validPendingTxs.AddTx(addr, tx)
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}

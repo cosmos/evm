@@ -130,11 +130,11 @@ func NewTransactionsByPriceAndNonce(signer types.Signer, txs map[common.Address]
 }
 
 // Peek returns the next transaction by price.
-func (t *TransactionsByPriceAndNonce) Peek() (*types.Transaction, *uint256.Int) {
+func (t *TransactionsByPriceAndNonce) Peek() (*types.Transaction, common.Address, *uint256.Int) {
 	if len(t.heads) == 0 {
-		return nil, nil
+		return nil, common.Address{}, nil
 	}
-	return t.heads[0].tx, t.heads[0].fees
+	return t.heads[0].tx, t.heads[0].from, t.heads[0].fees
 }
 
 // Shift replaces the current best head with the next one from the same account.

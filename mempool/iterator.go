@@ -6,7 +6,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	"github.com/cosmos/evm/mempool/miner"
+	"github.com/cosmos/evm/mempool/txpool"
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -25,7 +25,7 @@ var _ mempool.Iterator = &EVMMempoolIterator{}
 // proper sequencing during block building.
 type EVMMempoolIterator struct {
 	/** Mempool Iterators **/
-	evmIterator    *miner.TransactionsByPriceAndNonce
+	evmIterator    []txpool.TxWithFees
 	cosmosIterator mempool.Iterator
 
 	/** Utils **/
@@ -45,7 +45,7 @@ type EVMMempoolIterator struct {
 // Returns nil if both iterators are empty or nil. The bondDenom parameter specifies the native
 // token denomination for fee comparisons, and chainId is used for EVM transaction conversion.
 func NewEVMMempoolIterator(
-	evmIterator *miner.TransactionsByPriceAndNonce,
+	evmIterator []txpool.TxWithFees,
 	cosmosIterator mempool.Iterator,
 	logger log.Logger,
 	txConfig client.TxConfig,
@@ -53,7 +53,7 @@ func NewEVMMempoolIterator(
 	blockchain *Blockchain,
 ) mempool.Iterator {
 	// Check if we have any transactions at all
-	hasEVM := evmIterator != nil && !evmIterator.Empty()
+	hasEVM := len(evmIterator) != 0
 	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
 
 	// Add the iterator name to the logger
@@ -171,10 +171,10 @@ func (i *EVMMempoolIterator) shouldUseEVM() bool {
 
 // getNextEVMTx retrieves the next EVM transaction and its fee
 func (i *EVMMempoolIterator) getNextEVMTx() (*ethtypes.Transaction, *uint256.Int) {
-	if i.evmIterator == nil {
+	if len(i.evmIterator) == 0 {
 		return nil, nil
 	}
-	return i.evmIterator.Peek()
+	return i.evmIterator[0].Tx, i.evmIterator[0].Fees
 }
 
 // getNextCosmosTx retrieves the next Cosmos transaction and its effective gas tip
@@ -234,10 +234,8 @@ func (i *EVMMempoolIterator) advanceCurrentIterator() {
 	if useEVM {
 		i.logger.Debug("advancing EVM iterator")
 		// We used EVM transaction, advance EVM iterator
-		// NOTE: EVM transactions are automatically removed by the maintenance loop in the txpool
-		// so we shift instead of popping
 		if i.evmIterator != nil {
-			i.evmIterator.Shift()
+			i.evmIterator = i.evmIterator[1:]
 		} else {
 			i.logger.Error("EVM iterator is nil but shouldUseEVM returned true")
 		}

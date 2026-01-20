@@ -48,6 +48,12 @@ type TxMetadata struct {
 	Size uint64 // The length of the 'rlp encoding' of a transaction
 }
 
+// TxWithFees denotes a transaction and its associated fees.
+type TxWithFees struct {
+	Tx   *types.Transaction // A transaction
+	Fees *uint256.Int       // The fees associated with the transaction
+}
+
 // RemovalReason is a string describing why a tx is being removed.
 type RemovalReason string
 
@@ -122,7 +128,7 @@ type SubPool interface {
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address]types.Transactions
+	Pending(ctx context.Context, height *big.Int) []TxWithFees
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions
