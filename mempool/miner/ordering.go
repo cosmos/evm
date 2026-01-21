@@ -37,17 +37,17 @@ type txWithMinerFee struct {
 // miner gasTipCap if a base fee is provided.
 // Returns error in case of a negative effective miner gasTipCap.
 func newTxWithMinerFee(tx *types.Transaction, from common.Address, baseFee *uint256.Int) (*txWithMinerFee, error) {
-	tip, ok := uint256.FromBig(tx.GasTipCap())
-	if !ok {
-		panic(fmt.Sprintf("unable to convert gas tip cap for tx %s to uint256", tx.Hash()))
+	tip, overflow := uint256.FromBig(tx.GasTipCap())
+	if overflow {
+		panic(fmt.Sprintf("overflow converting gas tip cap %s for tx %s to uint256", tx.GasTipCap().String(), tx.Hash()))
 	}
 
 	if baseFee != nil {
 		// if we have a base fee, and the (fee cap - base fee) (aka effective
 		// tip cap) is less than the specified tip cap, use that instead.
-		feeCap, ok := uint256.FromBig(tx.GasFeeCap())
-		if !ok {
-			panic(fmt.Sprintf("unable to convert gas fee cap for tx %s to uint256", tx.Hash()))
+		feeCap, overflow := uint256.FromBig(tx.GasFeeCap())
+		if overflow {
+			panic(fmt.Sprintf("overflow converting gas fee cap %s for tx %s to uint256", tx.GasFeeCap().String(), tx.Hash()))
 		}
 		if feeCap.Cmp(baseFee) < 0 {
 			return nil, types.ErrGasFeeCapTooLow
