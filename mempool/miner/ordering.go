@@ -18,6 +18,7 @@ package miner
 
 import (
 	"container/heap"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -36,18 +37,25 @@ type txWithMinerFee struct {
 // miner gasTipCap if a base fee is provided.
 // Returns error in case of a negative effective miner gasTipCap.
 func newTxWithMinerFee(tx *types.Transaction, from common.Address, baseFee *uint256.Int) (*txWithMinerFee, error) {
-	// TODO: are we ok to panic if not ok here?
-	tip, _ := uint256.FromBig(tx.GasTipCap())
+	tip, ok := uint256.FromBig(tx.GasTipCap())
+	if !ok {
+		panic(fmt.Sprintf("unable to convert gas tip cap for tx %s to uint256", tx.Hash()))
+	}
+
 	if baseFee != nil {
-		feeCap, _ := uint256.FromBig(tx.GasFeeCap())
+		// if we have a base fee, and the (fee cap - base fee) (aka effective
+		// tip cap) is less than the specified tip cap, use that instead.
+		feeCap, ok := uint256.FromBig(tx.GasFeeCap())
+		if !ok {
+			panic(fmt.Sprintf("unable to convert gas fee cap for tx %s to uint256", tx.Hash()))
+		}
 		if feeCap.Cmp(baseFee) < 0 {
 			return nil, types.ErrGasFeeCapTooLow
 		}
 
-		// TODO: double check we take the min here
-		calculatedTipCap := new(uint256.Int).Sub(feeCap, baseFee)
-		if !calculatedTipCap.Gt(tip) {
-			tip = calculatedTipCap
+		effectiveTipCap := new(uint256.Int).Sub(feeCap, baseFee)
+		if effectiveTipCap.Lt(tip) {
+			tip = effectiveTipCap
 		}
 	}
 	return &txWithMinerFee{
