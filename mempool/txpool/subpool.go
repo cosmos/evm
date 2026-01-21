@@ -123,11 +123,8 @@ type SubPool interface {
 	// to a later point to batch multiple ones together.
 	Add(txs []*types.Transaction, sync bool) []error
 
-	// Pending retrieves all currently processable transactions, grouped by origin
-	// account and sorted by nonce.
-	//
-	// The transactions can also be pre-filtered by the dynamic fee components to
-	// reduce allocations and load on downstream subsystems.
+	// Pending retrieves all currently processable transactions, in the order
+	// that they should be executed in, along with each transactions fees.
 	Pending(ctx context.Context, height *big.Int) []TxWithFees
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
