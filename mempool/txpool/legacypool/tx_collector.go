@@ -171,14 +171,14 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int) []txpool.TxW
 }
 
 // AddTx adds a single tx to the collector.
-func (c *txCollector) AddTx(tx txpool.TxWithFees) {
+func (c *txCollector) AppendTx(tx txpool.TxWithFees) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	if c.txs == nil {
 		return
 	}
-	c.txs.Add(tx)
+	c.txs.AppendTx(tx)
 }
 
 // RemoveTx removes a tx from the collector.
@@ -219,8 +219,8 @@ func (t *txs) Get() []txpool.TxWithFees {
 	return t.txs
 }
 
-// add adds tx to the current set.
-func (t *txs) Add(tx txpool.TxWithFees) {
+// AppendTx adds tx to the back of the current set.
+func (t *txs) AppendTx(tx txpool.TxWithFees) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

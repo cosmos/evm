@@ -976,7 +976,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, addAl
 // and returns whether it was inserted or an older was better.
 //
 // Note, this method assumes the pool lock is held!
-func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) bool {
+func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction, reset bool) bool {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
 		pool.pending[addr] = newList(true)
@@ -1009,7 +1009,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 
 	// Successful promotion, bump the heartbeat
 	pool.beats[addr] = time.Now()
-	pool.markTxPromoted(addr, tx)
+	pool.markTxPromoted(addr, tx, reset)
 	return true
 }
 
@@ -1617,7 +1617,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		queuedNonReadies.Mark(int64(listLen - len(readies)))
 		for _, tx := range readies {
 			hash := tx.Hash()
-			if pool.promoteTx(addr, hash, tx) {
+			if pool.promoteTx(addr, hash, tx, reset != nil) {
 				promoted = append(promoted, tx)
 			}
 		}
@@ -1954,7 +1954,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		txs.Shift()
 
 		// add tx to valid pending txs list
-		pool.validPendingTxs.AddTx(txpool.TxWithFees{Tx: tx, Fees: fees})
+		pool.validPendingTxs.AppendTx(txpool.TxWithFees{Tx: tx, Fees: fees})
 	}
 }
 
@@ -2246,7 +2246,27 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // markTxPromoted calls the OnTxPromoted callback if it has been supplied and
 // includes the tx in the next valid pending txs set, i.e. to be included in
 // the next block, if selected by the application.
-func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
+func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction, reset bool) {
+	if !reset {
+		// NOTE: we are only appending the tx to the valid pending set if this tx
+		// was promoted outside of the context of a reset, i.e we have not seen
+		// a new block, and are simply promoting txs from the queue pool to the
+		// pending pool. We cannot add to the valid pending set during reset
+		// since this tx will be rechecked again during demoteUnexecutables,
+		// where it will be rechecked in the correct execution order, and
+		// placed into the valid pending set in its correct order based on
+		// price.
+		//
+		// Outside of reset, we append this tx to the valid pending txs set in
+		// the incorrect spot (the very back... if this tx was a higher price
+		// than all of the other txs, we should put it at the very front, but
+		// that would invalidate the previous rechecks of all other txs already
+		// in the valid pending txs set). We know this is safe since when txs
+		// are promoted outside of reset, they are rechecked on top of state
+		// that all prior pending txs have written to via recheck.
+		fees := uint256.NewInt(0) // TODO: calc actual fees
+		pool.validPendingTxs.AppendTx(txpool.TxWithFees{Tx: tx, Fees: fees})
+	}
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}

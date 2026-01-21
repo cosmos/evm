@@ -697,15 +697,15 @@ func TestDropping(t *testing.T) {
 	)
 	pool.all.Add(tx0)
 	pool.priced.Put(tx0)
-	pool.promoteTx(account, tx0.Hash(), tx0)
+	pool.promoteTx(account, tx0.Hash(), tx0, false)
 
 	pool.all.Add(tx1)
 	pool.priced.Put(tx1)
-	pool.promoteTx(account, tx1.Hash(), tx1)
+	pool.promoteTx(account, tx1.Hash(), tx1, false)
 
 	pool.all.Add(tx2)
 	pool.priced.Put(tx2)
-	pool.promoteTx(account, tx2.Hash(), tx2)
+	pool.promoteTx(account, tx2.Hash(), tx2, false)
 
 	pool.enqueueTx(tx10.Hash(), tx10, true)
 	pool.enqueueTx(tx11.Hash(), tx11, true)
@@ -2938,7 +2938,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 
 	for i := 0; i < size; i++ {
 		tx := transaction(uint64(i), 100000, key)
-		pool.promoteTx(account, tx.Hash(), tx)
+		pool.promoteTx(account, tx.Hash(), tx, false)
 	}
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
