@@ -182,7 +182,7 @@ func (c *txCollector) AppendTx(tx txpool.TxWithFees) {
 }
 
 // RemoveTx removes a tx from the collector.
-func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
+func (c *txCollector) RemoveTx(tx *types.Transaction) {
 	defer func(t0 time.Time) { collectorRemoveDuraiton.UpdateSince(t0) }(time.Now())
 
 	c.mu.RLock()
@@ -191,7 +191,7 @@ func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
 	if c.txs == nil {
 		return
 	}
-	c.txs.Remove(addr, tx)
+	c.txs.Remove(tx)
 }
 
 // txs is a set of transactions at a height that can be added to or removed
@@ -232,7 +232,7 @@ func (t *txs) AppendTx(tx txpool.TxWithFees) {
 }
 
 // RemoveTx removes a tx for an address from the current set.
-func (t *txs) Remove(addr common.Address, tx *types.Transaction) {
+func (t *txs) Remove(tx *types.Transaction) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

@@ -2288,7 +2288,11 @@ func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction
 	if p == Pending {
 		defer func(t0 time.Time) { pendingRemoveCBTimer.UpdateSince(t0) }(time.Now())
 
-		pool.validPendingTxs.RemoveTx(addr, tx)
+		// TODO: removing from the valid pending txs set will throw off the
+		// consistent ordering of recheck txs <-> execution ordering. We need
+		// to defer the removal of txs to only be during reset, before promote
+		// + demote.
+		pool.validPendingTxs.RemoveTx(tx)
 	}
 	if pool.OnTxRemoved != nil {
 		pool.OnTxRemoved(tx, p)

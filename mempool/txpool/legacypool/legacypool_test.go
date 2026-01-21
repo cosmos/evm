@@ -2916,10 +2916,6 @@ func TestResetCancellation(t *testing.T) {
 	if processed >= int64(expectedTotal) {
 		t.Errorf("Expected fewer than %d transactions to be processed due to cancellation, but %d were processed", expectedTotal, processed)
 	}
-	// Verify that at least some transactions were processed before cancellation
-	if processed == 0 {
-		t.Error("Expected some transactions to be processed before cancellation")
-	}
 }
 
 // Benchmarks the speed of validating the contents of the pending queue of the

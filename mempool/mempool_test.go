@@ -359,7 +359,7 @@ func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *m
 	mockRechecker := &MockRechecker{}
 
 	// Setup mock expectations
-	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
+	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1)).Maybe()
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
 	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10000000)).Maybe()
 	mockVMKeeper.On("GetEvmCoinInfo", mock.Anything).Return(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Maybe()
@@ -416,7 +416,6 @@ func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *m
 	config := &mempool.EVMMempoolConfig{
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    30000000,
-		MinTip:           uint256.NewInt(0),
 		AnteHandler:      nil, // No ante handler for this test
 	}
 
