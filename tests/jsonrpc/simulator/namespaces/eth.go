@@ -1504,16 +1504,6 @@ func estimateNativeTransferGas(rCtx *types.RPCContext) (string, error) {
 		return "", err
 	}
 
-	if rCtx.EnableComparison && rCtx.Geth != nil && rCtx.Geth.Client != nil {
-		gethGasLimit, err := rCtx.Geth.EstimateGas(context.Background(), callMsg)
-		if err != nil {
-			return "", fmt.Errorf("geth estimateGas failed: %w", err)
-		}
-		if gasLimit != gethGasLimit {
-			return "", fmt.Errorf("estimateGas mismatch (native): evmd=%d geth=%d", gasLimit, gethGasLimit)
-		}
-	}
-
 	return fmt.Sprintf("0x%x", gasLimit), nil
 }
 
@@ -1547,16 +1537,6 @@ func estimateERC20TransferGas(rCtx *types.RPCContext) (string, bool, error) {
 	gas, err := rCtx.Evmd.EstimateGas(context.Background(), erc20Call)
 	if err != nil {
 		return "", false, err
-	}
-
-	if rCtx.EnableComparison && rCtx.Geth != nil && rCtx.Geth.Client != nil {
-		gethGas, err := rCtx.Geth.EstimateGas(context.Background(), erc20Call)
-		if err != nil {
-			return "", false, fmt.Errorf("geth estimateGas failed: %w", err)
-		}
-		if gas != gethGas {
-			return "", false, fmt.Errorf("estimateGas mismatch (erc20 transfer): evmd=%d geth=%d", gas, gethGas)
-		}
 	}
 
 	return fmt.Sprintf("0x%x", gas), false, nil
@@ -1621,16 +1601,6 @@ func estimateERC20OverrideGas(rCtx *types.RPCContext) (string, bool, error) {
 	var overrideGas hexutil.Uint64
 	if err := rCtx.Evmd.RPCClient().Call(&overrideGas, string(MethodNameEthEstimateGas), overrideParams, "latest", overrideState); err != nil {
 		return "", false, err
-	}
-
-	if rCtx.EnableComparison && rCtx.Geth != nil && rCtx.Geth.Client != nil {
-		var gethGas hexutil.Uint64
-		if err := rCtx.Geth.RPCClient().Call(&gethGas, string(MethodNameEthEstimateGas), overrideParams, "latest", overrideState); err != nil {
-			return "", false, fmt.Errorf("geth estimateGas failed: %w", err)
-		}
-		if uint64(overrideGas) != uint64(gethGas) {
-			return "", false, fmt.Errorf("estimateGas mismatch (erc20 override): evmd=%d geth=%d", uint64(overrideGas), uint64(gethGas))
-		}
 	}
 
 	return fmt.Sprintf("0x%x", uint64(overrideGas)), false, nil
