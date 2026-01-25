@@ -241,7 +241,7 @@ require (
 
 replace (
 	// cometbft security fix: tachyon-39
-	github.com/cometbft/cometbft => github.com/MudDev/cometbft-sec-tachyon v0.39.0-beta.2-tachyon-39
+	github.com/cometbft/cometbft => github.com/EpixZone/cometbft v0.39.0-beta.2-patch-39
 	github.com/cosmos/evm => ../..
 	// TODO replace this once we no longer pull in an ibc-go version which points to old groups module path
 	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251216200936-98a683ee20a3

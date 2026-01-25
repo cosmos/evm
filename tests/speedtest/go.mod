@@ -4,7 +4,7 @@ go 1.25.5
 
 replace (
 	// cometbft security fix: tachyon-39
-	github.com/cometbft/cometbft => github.com/MudDev/cometbft-sec-tachyon v0.39.0-beta.2-tachyon-39
+	github.com/cometbft/cometbft => github.com/EpixZone/cometbft v0.39.0-beta.2-patch-39
 	github.com/cosmos/evm => ../../
 	github.com/cosmos/evm/evmd => ../../evmd
 	// use Cosmos geth fork
