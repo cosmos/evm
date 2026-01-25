@@ -5,7 +5,7 @@
       "authority": "epix10d07y265gmmuvt4z0w9aw880jnsr700j0fas3g",
       "plan": {
         "name": "v0.5.3",
-        "height": "REPLACE_WITH_UPGRADE_HEIGHT_AFTER_TESTNET_UPGRADE",
+        "height": "2123456",
         "info": "https://github.com/EpixZone/EpixChain/releases/tag/v0.5.3"
       }
     }
