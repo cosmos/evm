@@ -3,6 +3,8 @@ module github.com/cosmos/evm/tests/speedtest
 go 1.25.5
 
 replace (
+	// cometbft security fix: tachyon-39
+	github.com/cometbft/cometbft => github.com/MudDev/cometbft-sec-tachyon v0.39.0-beta.2-tachyon-39
 	github.com/cosmos/evm => ../../
 	github.com/cosmos/evm/evmd => ../../evmd
 	// use Cosmos geth fork
@@ -29,10 +31,10 @@ require (
 	cloud.google.com/go/iam v1.5.3 // indirect
 	cloud.google.com/go/monitoring v1.24.2 // indirect
 	cloud.google.com/go/storage v1.58.0 // indirect
-	cosmossdk.io/api v0.9.2 // indirect
-	cosmossdk.io/client/v2 v2.0.0-beta.7 // indirect
+	cosmossdk.io/api v1.0.0-alpha.1 // indirect
+	cosmossdk.io/client/v2 v2.10.0-beta.4 // indirect
 	cosmossdk.io/collections v1.3.1 // indirect
-	cosmossdk.io/core v0.11.3 // indirect
+	cosmossdk.io/core v1.1.0-alpha.2 // indirect
 	cosmossdk.io/depinject v1.2.1 // indirect
 	cosmossdk.io/errors v1.0.2 // indirect
 	cosmossdk.io/math v1.5.3 // indirect
@@ -40,7 +42,7 @@ require (
 	cosmossdk.io/store v1.3.0-beta.0 // indirect
 	cosmossdk.io/x/evidence v0.2.0 // indirect
 	cosmossdk.io/x/feegrant v0.2.0 // indirect
-	cosmossdk.io/x/tx v0.14.0 // indirect
+	cosmossdk.io/x/tx v1.2.0-alpha.1 // indirect
 	cosmossdk.io/x/upgrade v0.2.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
@@ -95,7 +97,7 @@ require (
 	github.com/cockroachdb/redact v1.1.6 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb // indirect
 	github.com/cometbft/cometbft v0.39.0-beta.2 // indirect
-	github.com/cometbft/cometbft-db v0.14.1 // indirect
+	github.com/cometbft/cometbft-db v1.0.4 // indirect
 	github.com/consensys/gnark-crypto v0.18.1 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect

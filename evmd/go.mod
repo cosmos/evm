@@ -316,6 +316,8 @@ require (
 replace (
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
+	// cometbft security fix: tachyon-39
+	github.com/cometbft/cometbft => github.com/MudDev/cometbft-sec-tachyon v0.39.0-beta.2-tachyon-39
 	github.com/cosmos/evm => ../
 	// use Cosmos geth fork
 	// branch: release/1.16
