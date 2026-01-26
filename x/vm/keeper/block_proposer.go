@@ -10,11 +10,11 @@ import (
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // GetCoinbaseAddress converts the block proposer's validator operator address to an Ethereum address
 // for use as block.coinbase in the EVM.
+// Returns zero address if any error occurs.
 func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddress) (_ common.Address, err error) {
 	ctx, span := ctx.StartSpan(tracer, "GetCoinbaseAddress", trace.WithAttributes(
 		attribute.String("proposer_address", proposerAddress.String()),
@@ -27,12 +27,7 @@ func (k Keeper) GetCoinbaseAddress(ctx sdk.Context, proposerAddress sdk.ConsAddr
 	}
 	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, proposerAddress)
 	if err != nil {
-		return common.Address{}, errorsmod.Wrapf(
-			stakingtypes.ErrNoValidatorFound,
-			"failed to retrieve validator from block proposer address %s. Error: %s",
-			proposerAddress.String(),
-			err.Error(),
-		)
+		return common.Address{}, nil
 	}
 
 	bz, err := sdk.ValAddressFromBech32(validator.GetOperator())
