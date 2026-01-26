@@ -1795,7 +1795,6 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	// Iterate over all accounts and demote any non-executable transactions
 	currentHead := pool.currentHead.Load()
 	gasLimit := currentHead.GasLimit
-	baseFee := currentHead.BaseFee
 
 	// first pass to quickly remove all txs that are old (likely included in
 	// the prev block), or where the sender as ran out of funds.
