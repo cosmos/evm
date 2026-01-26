@@ -272,7 +272,6 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/prometheus-retention-time  = "0"/prometheus-retention-time  = "1000000000000"/g' "$APP_TOML"
   sed -i.bak 's/enabled = false/enabled = true/g' "$APP_TOML"
   sed -i.bak 's/enable = false/enable = true/g' "$APP_TOML"
-  sed -i.bak 's/enable-indexer = false/enable-indexer = true/g' "$APP_TOML"
 
   # --------- maybe generate additional users ---------
   # start with provided/default list

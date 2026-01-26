@@ -49,7 +49,6 @@ func (k *Keeper) EndBlock(ctx sdk.Context) (err error) {
 	}
 
 	k.CollectTxBloom(ctx)
-	k.ResetTransientGasUsed(ctx)
 
 	return nil
 }
