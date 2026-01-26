@@ -1884,13 +1884,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		// if this tx does not currently satisfy the min tip given the current
 		// base fee, remove it (and all subsequent txs for this account) from
 		// consideration
-		//
-		// TODO: think about this more, are there conditions here where this
-		// does not make sense to do? are there conditions where we may
-		// encounter a tx out of nonce order where this condition is true for
-		// that tx, but a tx that we encounter in the future is able to be
-		// executed
-		if tx.EffectiveGasTipIntCmp(pool.config.MinTip, baseFee) < 0 {
+		if fees.ToBig().Cmp(pool.config.MinTip) < 0 {
 			txs.Pop()
 			continue
 		}
@@ -1947,8 +1941,12 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			continue
 		}
 
-		// successful recheck, write state updates back to context
-		write()
+		// tolerated error
+
+		if err != nil {
+			// successful recheck, write state updates back to context
+			write()
+		}
 
 		// remove this tx and replace with next best tx
 		txs.Shift()
@@ -1958,6 +1956,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	}
 }
 
+// executionOrderedTxs returns all txs in the pending pool in the order that they will be
 func (pool *LegacyPool) executionOrderedTxs(txs map[common.Address]*list) *miner.TransactionsByPriceAndNonce {
 	ordered := make(map[common.Address]types.Transactions)
 	for addr, txs := range txs {
