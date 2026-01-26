@@ -314,7 +314,7 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 			addr,
 			krSigner,
 			signer,
-			ethtypes.AccessListTxType,
+			ethtypes.LegacyTxType,
 			nil,
 			nil,
 			nil,
