@@ -122,12 +122,9 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Fund fee collector account
-			ctx := s.Network.GetContext()
 			coins := sdktypes.NewCoins(sdktypes.NewCoin(types.GetEVMCoinDenom(), sdkmath.NewInt(1e18)))
-			err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", coins)
-			s.Require().NoError(err)
-			err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", coins)
-			s.Require().NoError(err)
+			err = s.Network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(s.Network.GetContext(), coins, s.Keyring.GetAddr(0))
+			s.Require().NoError(err, "failed to deduct gas fees")
 
 			// Get EthereumTx msg
 			msg := tc.getMsg()
