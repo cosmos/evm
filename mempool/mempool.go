@@ -233,7 +233,7 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		// Insert into EVM pool
-		hash := ethMsg.Hash()
+		hash := ethMsg.AsTransaction().Hash()
 		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
 		errs := m.txPool.Add(ethTxs, AllowUnsafeSyncInsert)
@@ -329,7 +329,7 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 		// We should not do this with EVM transactions because removing them causes the subsequent ones to
 		// be dequeued as temporarily invalid, only to be requeued a block later.
 		// The EVM mempool handles removal based on account nonce automatically.
-		hash := msg.Hash()
+		hash := msg.AsTransaction().Hash()
 		if m.shouldRemoveFromEVMPool(tx) {
 			m.logger.Debug("manually removing EVM transaction", "tx_hash", hash)
 			m.legacyTxPool.RemoveTx(hash, false, true)
