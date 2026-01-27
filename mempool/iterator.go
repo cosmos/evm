@@ -125,6 +125,7 @@ func (i *EVMMempoolIterator) Tx() sdk.Tx {
 
 // shouldUseEVM determines which transaction type to prioritize based on fee comparison.
 // Returns true if the EVM transaction should be selected, false if Cosmos transaction should be used.
+// Accepts optional pre-fetched tx and fee values for optimization.
 // EVM transactions will be prioritized in the following conditions:
 // 1. Cosmos mempool has no transactions
 // 2. EVM mempool has no transactions (fallback to Cosmos)
@@ -132,10 +133,14 @@ func (i *EVMMempoolIterator) Tx() sdk.Tx {
 // 4. Cosmos transaction fee denomination doesn't match bond denom
 // 5. Cosmos transaction fee is lower than the EVM transaction fee
 // 6. Cosmos transaction fee overflows when converted to uint256
-func (i *EVMMempoolIterator) shouldUseEVM() bool {
-	// Get next transactions from both iterators
-	nextEVMTx, evmFee := i.getNextEVMTx()
-	nextCosmosTx, cosmosFee := i.getNextCosmosTx()
+func (i *EVMMempoolIterator) shouldUseEVM(
+	nextEVMTx *txpool.LazyTransaction, evmFee *uint256.Int,
+	nextCosmosTx sdk.Tx, cosmosFee *uint256.Int,
+) bool {
+	if nextEVMTx == nil || evmFee == nil || nextCosmosTx == nil || cosmosFee == nil {
+		nextEVMTx, evmFee = i.getNextEVMTx()
+		nextCosmosTx, cosmosFee = i.getNextCosmosTx()
+	}
 
 	// Handle cases where only one type is available
 	if nextEVMTx == nil {
@@ -200,8 +205,16 @@ func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTrans
 		return nil
 	}
 
+	var evmFee, cosmosFee *uint256.Int
+	if nextEVMTx != nil {
+		_, evmFee = i.getNextEVMTx()
+	}
+	if nextCosmosTx != nil {
+		_, cosmosFee = i.getNextCosmosTx()
+	}
+
 	// Determine which transaction type to prioritize based on fee comparison
-	useEVM := i.shouldUseEVM()
+	useEVM := i.shouldUseEVM(nextEVMTx, evmFee, nextCosmosTx, cosmosFee)
 
 	if useEVM {
 		i.logger.Debug("preferring EVM transaction based on fee comparison")
@@ -223,7 +236,7 @@ func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTrans
 
 // advanceCurrentIterator advances the appropriate iterator based on which transaction was used
 func (i *EVMMempoolIterator) advanceCurrentIterator() {
-	useEVM := i.shouldUseEVM()
+	useEVM := i.shouldUseEVM(nil, nil, nil, nil)
 
 	if useEVM {
 		i.logger.Debug("advancing EVM iterator")
