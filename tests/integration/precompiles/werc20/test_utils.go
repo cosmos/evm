@@ -1,6 +1,7 @@
 package werc20
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -10,6 +11,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	basegrpc "github.com/cosmos/evm/testutil/integration/base/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/keyring"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
@@ -166,7 +168,12 @@ func VerifyBalanceChanges(
 			account.IntegerDelta, account.FractionalDelta, account.AccountType.String(), grpcHandler)
 	}
 
+	// Only verify remainder if precisebank module is available
 	res, err := grpcHandler.Remainder()
+	if errors.Is(err, basegrpc.ErrPreciseBankNotAvailable) {
+		// Skip remainder verification if precisebank is not available
+		return
+	}
 	Expect(err).ToNot(HaveOccurred(), "failed to get precisebank module remainder")
 	actualRemainder := res.Remainder.Amount.BigInt()
 	Expect(actualRemainder).To(Equal(expectedRemainder))
@@ -191,14 +198,23 @@ func GetBalanceSnapshot(addr sdk.AccAddress, grpcHandler grpc.Handler) (*Balance
 	}
 
 	// Get fractional balance using the new grpcHandler method
+	// If precisebank is not available, fractional balance is zero
 	fracRes, err := grpcHandler.FractionalBalance(addr)
+	var fractionalBalance *big.Int
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fractional balance: %w", err)
+		// Check if precisebank module is not available
+		if errors.Is(err, basegrpc.ErrPreciseBankNotAvailable) {
+			fractionalBalance = big.NewInt(0)
+		} else {
+			return nil, fmt.Errorf("failed to get fractional balance: %w", err)
+		}
+	} else {
+		fractionalBalance = fracRes.FractionalBalance.Amount.BigInt()
 	}
 
 	return &BalanceSnapshot{
 		IntegerBalance:    intRes.Balance.Amount.BigInt(),
-		FractionalBalance: fracRes.FractionalBalance.Amount.BigInt(),
+		FractionalBalance: fractionalBalance,
 	}, nil
 }
 
