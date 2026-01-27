@@ -4,8 +4,6 @@ import (
 	"github.com/cosmos/evm/server/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	"cosmossdk.io/math"
 )
 
 const (
@@ -27,10 +25,6 @@ const (
 	// EighteenDecimalsChainID provides an example EIP-155 chain ID for use in tests
 	EighteenDecimalsChainID = 9001
 
-	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
-	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
-	// WEVMOSContractTestnet is the WEVMOS contract address for testnet
-	WEVMOSContractTestnet = "0xcc491f589b45d4a3c679016195b3fb87d7848210"
 	// ExampleEvmAddress1 is the example EVM address
 	ExampleEvmAddressAlice = "0x1e0DE5DB1a39F99cBc67B00fA3415181b3509e42"
 	// ExampleEvmAddress2 is the example EVM address
@@ -148,23 +142,9 @@ var (
 
 	// ExampleTokenPairs creates a slice of token pairs, that contains a pair for the native denom of the example chain
 	// implementation.
-	ExampleTokenPairs = []erc20types.TokenPair{
-		{
-			Erc20Address:  WEVMOSContractMainnet,
-			Denom:         ExampleAttoDenom,
-			Enabled:       true,
-			ContractOwner: erc20types.OWNER_MODULE,
-		},
-	}
+	ExampleTokenPairs = []erc20types.TokenPair{}
 
 	// ExampleAllowances creates a slice of allowances, that contains an allowance for the native denom of the example chain
 	// implementation.
-	ExampleAllowances = []erc20types.Allowance{
-		{
-			Erc20Address: WEVMOSContractMainnet,
-			Owner:        ExampleEvmAddressAlice,
-			Spender:      ExampleEvmAddressBob,
-			Value:        math.NewInt(100),
-		},
-	}
+	ExampleAllowances = []erc20types.Allowance{}
 )

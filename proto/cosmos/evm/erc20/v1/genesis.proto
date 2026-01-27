@@ -19,9 +19,7 @@ message GenesisState {
   // allowances is a slice of the registered allowances at genesis
   repeated Allowance allowances = 3
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
-  // native_precompiles is a slice of registered native precompiles at genesis
-  repeated string native_precompiles = 4
-      [ (gogoproto.nullable) = true, (amino.dont_omitempty) = true ];
+  reserved 4; // native precompiles field is deprecated
   // dynamic_precompiles is a slice of registered dynamic precompiles at genesis
   repeated string dynamic_precompiles = 5
       [ (gogoproto.nullable) = true, (amino.dont_omitempty) = true ];
