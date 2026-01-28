@@ -12,40 +12,53 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// LoadEvmCoinInfo load EvmCoinInfo from bank denom metadata
+// LoadEvmCoinInfo loads EvmCoinInfo from bank denom metadata.
+// For 18-decimal chains: evm_denom is the base (exp=0), extended_denom = evm_denom.
+// For non-18-decimal chains: evm_denom has exp>0, extended_denom required.
 func (k Keeper) LoadEvmCoinInfo(ctx sdk.Context) (_ types.EvmCoinInfo, err error) {
 	params := k.GetParams(ctx)
 	ctx, span := ctx.StartSpan(tracer, "LoadEvmCoinInfo", trace.WithAttributes(
 		attribute.String("evm_denom", params.EvmDenom),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
-	var decimals types.Decimals
-	evmDenomMetadata, found := k.bankWrapper.GetDenomMetaData(ctx, params.EvmDenom)
+
+	// try evm_denom first, then extended_denom
+	metadata, found := k.bankWrapper.GetDenomMetaData(ctx, params.EvmDenom)
+	if !found && params.ExtendedDenomOptions != nil {
+		metadata, found = k.bankWrapper.GetDenomMetaData(ctx, params.ExtendedDenomOptions.ExtendedDenom)
+	}
 	if !found {
-		return types.EvmCoinInfo{}, fmt.Errorf("denom metadata %s could not be found", params.EvmDenom)
+		return types.EvmCoinInfo{}, fmt.Errorf("denom metadata not found for evm_denom %s", params.EvmDenom)
 	}
 
-	for _, denomUnit := range evmDenomMetadata.DenomUnits {
-		if denomUnit.Denom == evmDenomMetadata.Display {
-			decimals = types.Decimals(denomUnit.Exponent)
-		}
+	// Extract exponents from denom_units
+	exponents := make(map[string]uint32)
+	for _, unit := range metadata.DenomUnits {
+		exponents[unit.Denom] = unit.Exponent
 	}
 
-	var extendedDenom string
-	if decimals == 18 {
-		extendedDenom = params.EvmDenom
-	} else {
-		if params.ExtendedDenomOptions == nil {
-			return types.EvmCoinInfo{}, fmt.Errorf("extended denom options cannot be nil for non-18-decimal chains")
-		}
+	evmDenomExp, ok := exponents[params.EvmDenom]
+	if !ok {
+		return types.EvmCoinInfo{}, fmt.Errorf("evm_denom %s not found in denom_units", params.EvmDenom)
+	}
+
+	extendedDenom := params.EvmDenom
+	decimals := evmDenomExp
+	if evmDenomExp == 0 {
+		// evm_denom is the base, 18-decimal chain
+		decimals = 18
+	} else if params.ExtendedDenomOptions != nil {
+		// Non-18-decimal chain, use extended_denom
 		extendedDenom = params.ExtendedDenomOptions.ExtendedDenom
+	} else {
+		return types.EvmCoinInfo{}, fmt.Errorf("extended_denom_options required when evm_denom exp > 0")
 	}
 
 	return types.EvmCoinInfo{
 		Denom:         params.EvmDenom,
 		ExtendedDenom: extendedDenom,
-		DisplayDenom:  evmDenomMetadata.Display,
-		Decimals:      decimals.Uint32(),
+		DisplayDenom:  metadata.Display,
+		Decimals:      decimals,
 	}, nil
 }
 

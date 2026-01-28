@@ -36,6 +36,7 @@ BUILD_FOR_DEBUG=false
 ADDITIONAL_USERS=0
 MNEMONIC_FILE=""      # output file (defaults later to $CHAINDIR/mnemonics.yaml)
 MNEMONICS_INPUT=""    # input yaml to prefill dev keys
+DENOM_UTEST=false   # if true, use utest as evm_denom (6-decimal: atest/utest/test), otherwise use atest (18-decimal: atest/test). Set via --denom-utest flag.
 
 usage() {
   cat <<EOF
@@ -49,6 +50,8 @@ Options:
   --additional-users N     Create N extra users: dev4, dev5, ...
   --mnemonic-file PATH     Where to write mnemonics YAML (default: \$HOME/.evmd/mnemonics.yaml)
   --mnemonics-input PATH   Read dev mnemonics from a yaml file (key: mnemonics:)
+  --denom-utest            Use utest as evm_denom (6-decimal: atest/utest/test configuration)
+                            Default: use atest as evm_denom (18-decimal: atest/test configuration)
 EOF
 }
 
@@ -88,6 +91,10 @@ while [[ $# -gt 0 ]]; do
         echo "Error: --mnemonics-input requires a path."; usage; exit 1
       fi
       MNEMONICS_INPUT="$2"; shift 2
+      ;;
+    --denom-utest)
+      echo "Flag --denom-utest passed -> Using utest as evm_denom (6-decimal: atest/utest/test)"
+      DENOM_UTEST=true; shift
       ;;
     -h|--help)
       usage; exit 0
@@ -164,7 +171,7 @@ write_mnemonics_yaml() {
 # ---------- Add funded account ----------
 add_genesis_funds() {
   local keyname="$1"
-  evmd genesis add-genesis-account "$keyname" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+  evmd genesis add-genesis-account "$keyname" 1000000000000000000000${DENOM} --keyring-backend "$KEYRING" --home "$CHAINDIR"
 }
 
 # Setup local node if overwrite is set to Yes, otherwise skip setup
@@ -230,22 +237,42 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   # init chain w/ validator mnemonic
   echo "$VAL_MNEMONIC" | evmd init $MONIKER -o --chain-id "$CHAINID" --home "$CHAINDIR" --recover
 
-  # ---------- Genesis customizations ----------
-  jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  # Configure denom based on flag (must be set before add_genesis_funds is called)
+  if [[ "$DENOM_UTEST" == "true" ]]; then
+    DENOM="utest"
+    echo "Using utest as evm_denom (6-decimal: atest/utest/test configuration)"
+  else
+    DENOM="atest"
+    echo "Using atest as evm_denom (18-decimal: atest/test configuration)"
+  fi
 
-  jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  # ---------- Genesis customizations ----------
+  # Configure denom_metadata based on flag
+  if [[ "$DENOM_UTEST" == "true" ]]; then
+    # 6-decimal configuration: denom_metadata with atest/utest/test (utest has 6 decimals)
+    # Set base_fee to 0 so no gas is deducted, making it easier to verify ExtendedDenom balances
+    jq '.app_state["feemarket"]["params"]["base_fee"]="0.000000000000000000"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+    jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"utest","exponent":6,"aliases":[]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+    jq '.app_state["evm"]["params"]["extended_denom_options"]["extended_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  else
+    # 18-decimal configuration: denom_metadata with atest/test only (no utest, atest has 18 decimals)
+    jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+    # Remove extended_denom_options for 18-decimal chains (evm_denom == extended_denom)
+    jq 'del(.app_state["evm"]["params"]["extended_denom_options"])' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  fi
+
+  # Set denom for all modules using DENOM variable
+  jq --arg denom "$DENOM" '.app_state["staking"]["params"]["bond_denom"]=$denom' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --arg denom "$DENOM" '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]=$denom' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --arg denom "$DENOM" '.app_state["gov"]["params"]["min_deposit"][0]["denom"]=$denom' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --arg denom "$DENOM" '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]=$denom' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --arg denom "$DENOM" '.app_state["evm"]["params"]["evm_denom"]=$denom' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --arg denom "$DENOM" '.app_state["mint"]["params"]["mint_denom"]=$denom' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805", "0x0000000000000000000000000000000000000806", "0x0000000000000000000000000000000000000807"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-  jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-
   jq '.app_state.erc20.native_precompiles=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"atest",enabled:true}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --arg denom "$DENOM" '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:$denom,enabled:true}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.consensus.params.block.max_gas="10000000"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
@@ -255,7 +282,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/"expedited_voting_period": "86400s"/"expedited_voting_period": "15s"/g' "$GENESIS"
 
   # fund validator (devs already funded in the loop)
-  evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+  evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000${DENOM} --keyring-backend "$KEYRING" --home "$CHAINDIR"
 
   # ---------- Config customizations ----------
   sed -i.bak 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$CONFIG_TOML"
@@ -266,6 +293,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$CONFIG_TOML"
   sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
   sed -i.bak 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$CONFIG_TOML"
+  sed -i.bak 's|^cors_allowed_origins = \[\]|cors_allowed_origins = ["*"]|g' "$CONFIG_TOML"
 
   # enable prometheus metrics and all APIs for dev node
   sed -i.bak 's/prometheus = false/prometheus = true/' "$CONFIG_TOML"
@@ -324,7 +352,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 
   # --------- Finalize genesis ---------
-  evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
+  evmd genesis gentx "$VAL_KEY" 1000000000000000000000${DENOM} --gas-prices ${BASEFEE}${DENOM} --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
   evmd genesis collect-gentxs --home "$CHAINDIR"
   evmd genesis validate-genesis --home "$CHAINDIR"
 
@@ -342,8 +370,9 @@ fi
 evmd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0atest \
+	--minimum-gas-prices=0${DENOM} \
 	--evm.min-tip=0 \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
+	--api.enabled-unsafe-cors \
 	--chain-id "$CHAINID"
