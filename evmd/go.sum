@@ -280,8 +280,8 @@ github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260106173710-fd8291796e71 h1:COB44
 github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260106173710-fd8291796e71/go.mod h1:LCYe65YQ75/i+YlmTi/svh840AAPTFjubGrZ2gGt3Mg=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
-github.com/cosmos/go-ethereum v1.16.2-cosmos-1 h1:QIaIS6HIdPSBdTvpFhxswhMLUJgcr4irbd2o9ZKldAI=
-github.com/cosmos/go-ethereum v1.16.2-cosmos-1/go.mod h1:X5CIOyo8SuK1Q5GnaEizQVLHT/DfsiGWuNeVdQcEMNA=
+github.com/cosmos/go-ethereum v1.16.2-cosmos-1.0.20260126204437-32ededcf907f h1:xsll4sPrBiGOaLCfRRsGXBQeveGId7TYI+WJ7KkTuwE=
+github.com/cosmos/go-ethereum v1.16.2-cosmos-1.0.20260126204437-32ededcf907f/go.mod h1:X5CIOyo8SuK1Q5GnaEizQVLHT/DfsiGWuNeVdQcEMNA=
 github.com/cosmos/gogogateway v1.2.0 h1:Ae/OivNhp8DqBi/sh2A8a1D0y638GpL3tkmLQAiKxTE=
 github.com/cosmos/gogogateway v1.2.0/go.mod h1:iQpLkGWxYcnCdz5iAdLcRBSw3h7NXeOkZ4GUkT+tbFI=
 github.com/cosmos/gogoproto v1.4.2/go.mod h1:cLxOsn1ljAHSV527CHOtaIP91kK6cCrZETRBrkzItWU=
