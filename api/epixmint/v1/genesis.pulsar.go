@@ -450,14 +450,15 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 }
 
 var (
-	md_Params                            protoreflect.MessageDescriptor
-	fd_Params_mint_denom                 protoreflect.FieldDescriptor
-	fd_Params_initial_annual_mint_amount protoreflect.FieldDescriptor
-	fd_Params_annual_reduction_rate      protoreflect.FieldDescriptor
-	fd_Params_block_time_seconds         protoreflect.FieldDescriptor
-	fd_Params_max_supply                 protoreflect.FieldDescriptor
-	fd_Params_community_pool_rate        protoreflect.FieldDescriptor
-	fd_Params_staking_rewards_rate       protoreflect.FieldDescriptor
+	md_Params                               protoreflect.MessageDescriptor
+	fd_Params_mint_denom                    protoreflect.FieldDescriptor
+	fd_Params_initial_annual_mint_amount    protoreflect.FieldDescriptor
+	fd_Params_annual_reduction_rate         protoreflect.FieldDescriptor
+	fd_Params_block_time_seconds            protoreflect.FieldDescriptor
+	fd_Params_max_supply                    protoreflect.FieldDescriptor
+	fd_Params_community_pool_rate           protoreflect.FieldDescriptor
+	fd_Params_staking_rewards_rate          protoreflect.FieldDescriptor
+	fd_Params_min_validator_self_delegation protoreflect.FieldDescriptor
 )
 
 func init() {
@@ -470,6 +471,7 @@ func init() {
 	fd_Params_max_supply = md_Params.Fields().ByName("max_supply")
 	fd_Params_community_pool_rate = md_Params.Fields().ByName("community_pool_rate")
 	fd_Params_staking_rewards_rate = md_Params.Fields().ByName("staking_rewards_rate")
+	fd_Params_min_validator_self_delegation = md_Params.Fields().ByName("min_validator_self_delegation")
 }
 
 var _ protoreflect.Message = (*fastReflection_Params)(nil)
@@ -579,6 +581,12 @@ func (x *fastReflection_Params) Range(f func(protoreflect.FieldDescriptor, proto
 			return
 		}
 	}
+	if x.MinValidatorSelfDelegation != "" {
+		value := protoreflect.ValueOfString(x.MinValidatorSelfDelegation)
+		if !f(fd_Params_min_validator_self_delegation, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -608,6 +616,8 @@ func (x *fastReflection_Params) Has(fd protoreflect.FieldDescriptor) bool {
 		return x.CommunityPoolRate != ""
 	case "epixmint.v1.Params.staking_rewards_rate":
 		return x.StakingRewardsRate != ""
+	case "epixmint.v1.Params.min_validator_self_delegation":
+		return x.MinValidatorSelfDelegation != ""
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: epixmint.v1.Params"))
@@ -638,6 +648,8 @@ func (x *fastReflection_Params) Clear(fd protoreflect.FieldDescriptor) {
 		x.CommunityPoolRate = ""
 	case "epixmint.v1.Params.staking_rewards_rate":
 		x.StakingRewardsRate = ""
+	case "epixmint.v1.Params.min_validator_self_delegation":
+		x.MinValidatorSelfDelegation = ""
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: epixmint.v1.Params"))
@@ -675,6 +687,9 @@ func (x *fastReflection_Params) Get(descriptor protoreflect.FieldDescriptor) pro
 	case "epixmint.v1.Params.staking_rewards_rate":
 		value := x.StakingRewardsRate
 		return protoreflect.ValueOfString(value)
+	case "epixmint.v1.Params.min_validator_self_delegation":
+		value := x.MinValidatorSelfDelegation
+		return protoreflect.ValueOfString(value)
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: epixmint.v1.Params"))
@@ -709,6 +724,8 @@ func (x *fastReflection_Params) Set(fd protoreflect.FieldDescriptor, value proto
 		x.CommunityPoolRate = value.Interface().(string)
 	case "epixmint.v1.Params.staking_rewards_rate":
 		x.StakingRewardsRate = value.Interface().(string)
+	case "epixmint.v1.Params.min_validator_self_delegation":
+		x.MinValidatorSelfDelegation = value.Interface().(string)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: epixmint.v1.Params"))
@@ -743,6 +760,8 @@ func (x *fastReflection_Params) Mutable(fd protoreflect.FieldDescriptor) protore
 		panic(fmt.Errorf("field community_pool_rate of message epixmint.v1.Params is not mutable"))
 	case "epixmint.v1.Params.staking_rewards_rate":
 		panic(fmt.Errorf("field staking_rewards_rate of message epixmint.v1.Params is not mutable"))
+	case "epixmint.v1.Params.min_validator_self_delegation":
+		panic(fmt.Errorf("field min_validator_self_delegation of message epixmint.v1.Params is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: epixmint.v1.Params"))
@@ -769,6 +788,8 @@ func (x *fastReflection_Params) NewField(fd protoreflect.FieldDescriptor) protor
 	case "epixmint.v1.Params.community_pool_rate":
 		return protoreflect.ValueOfString("")
 	case "epixmint.v1.Params.staking_rewards_rate":
+		return protoreflect.ValueOfString("")
+	case "epixmint.v1.Params.min_validator_self_delegation":
 		return protoreflect.ValueOfString("")
 	default:
 		if fd.IsExtension() {
@@ -866,6 +887,10 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
+		l = len(x.MinValidatorSelfDelegation)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -894,6 +919,13 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.MinValidatorSelfDelegation) > 0 {
+			i -= len(x.MinValidatorSelfDelegation)
+			copy(dAtA[i:], x.MinValidatorSelfDelegation)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.MinValidatorSelfDelegation)))
+			i--
+			dAtA[i] = 0x42
 		}
 		if len(x.StakingRewardsRate) > 0 {
 			i -= len(x.StakingRewardsRate)
@@ -1202,6 +1234,38 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 				}
 				x.StakingRewardsRate = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
+			case 8:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field MinValidatorSelfDelegation", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.MinValidatorSelfDelegation = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -1307,6 +1371,9 @@ type Params struct {
 	CommunityPoolRate string `protobuf:"bytes,6,opt,name=community_pool_rate,json=communityPoolRate,proto3" json:"community_pool_rate,omitempty"`
 	// staking_rewards_rate is the percentage of minted tokens allocated to staking rewards.
 	StakingRewardsRate string `protobuf:"bytes,7,opt,name=staking_rewards_rate,json=stakingRewardsRate,proto3" json:"staking_rewards_rate,omitempty"`
+	// min_validator_self_delegation is the minimum amount of tokens a validator must self-delegate
+	// to create a validator. This is enforced network-wide and cannot be bypassed.
+	MinValidatorSelfDelegation string `protobuf:"bytes,8,opt,name=min_validator_self_delegation,json=minValidatorSelfDelegation,proto3" json:"min_validator_self_delegation,omitempty"`
 }
 
 func (x *Params) Reset() {
@@ -1378,6 +1445,13 @@ func (x *Params) GetStakingRewardsRate() string {
 	return ""
 }
 
+func (x *Params) GetMinValidatorSelfDelegation() string {
+	if x != nil {
+		return x.MinValidatorSelfDelegation
+	}
+	return ""
+}
+
 var File_epixmint_v1_genesis_proto protoreflect.FileDescriptor
 
 var file_epixmint_v1_genesis_proto_rawDesc = []byte{
@@ -1390,7 +1464,7 @@ var file_epixmint_v1_genesis_proto_rawDesc = []byte{
 	0x65, 0x73, 0x69, 0x73, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x31, 0x0a, 0x06, 0x70, 0x61, 0x72,
 	0x61, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x65, 0x70, 0x69, 0x78,
 	0x6d, 0x69, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0x04,
-	0xc8, 0xde, 0x1f, 0x00, 0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xc4, 0x04, 0x0a,
+	0xc8, 0xde, 0x1f, 0x00, 0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xb4, 0x05, 0x0a,
 	0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x6d, 0x69, 0x6e, 0x74, 0x5f,
 	0x64, 0x65, 0x6e, 0x6f, 0x6d, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x6d, 0x69, 0x6e,
 	0x74, 0x44, 0x65, 0x6e, 0x6f, 0x6d, 0x12, 0x68, 0x0a, 0x1a, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61,
@@ -1426,7 +1500,14 @@ var file_epixmint_v1_genesis_proto_rawDesc = []byte{
 	0x6f, 0x73, 0x73, 0x64, 0x6b, 0x2e, 0x69, 0x6f, 0x2f, 0x6d, 0x61, 0x74, 0x68, 0x2e, 0x4c, 0x65,
 	0x67, 0x61, 0x63, 0x79, 0x44, 0x65, 0x63, 0xd2, 0xb4, 0x2d, 0x0a, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
 	0x73, 0x2e, 0x44, 0x65, 0x63, 0x52, 0x12, 0x73, 0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x52, 0x65,
-	0x77, 0x61, 0x72, 0x64, 0x73, 0x52, 0x61, 0x74, 0x65, 0x3a, 0x08, 0x98, 0xa0, 0x1f, 0x00, 0xe8,
+	0x77, 0x61, 0x72, 0x64, 0x73, 0x52, 0x61, 0x74, 0x65, 0x12, 0x6e, 0x0a, 0x1d, 0x6d, 0x69, 0x6e,
+	0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x73, 0x65, 0x6c, 0x66, 0x5f,
+	0x64, 0x65, 0x6c, 0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09,
+	0x42, 0x2b, 0xc8, 0xde, 0x1f, 0x00, 0xda, 0xde, 0x1f, 0x15, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x73, 0x64, 0x6b, 0x2e, 0x69, 0x6f, 0x2f, 0x6d, 0x61, 0x74, 0x68, 0x2e, 0x49, 0x6e, 0x74, 0xd2,
+	0xb4, 0x2d, 0x0a, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x49, 0x6e, 0x74, 0x52, 0x1a, 0x6d,
+	0x69, 0x6e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x6c, 0x66, 0x44,
+	0x65, 0x6c, 0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x3a, 0x08, 0x98, 0xa0, 0x1f, 0x00, 0xe8,
 	0xa0, 0x1f, 0x01, 0x42, 0x95, 0x01, 0x0a, 0x0f, 0x63, 0x6f, 0x6d, 0x2e, 0x65, 0x70, 0x69, 0x78,
 	0x6d, 0x69, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x42, 0x0c, 0x47, 0x65, 0x6e, 0x65, 0x73, 0x69, 0x73,
 	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x27, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x73,

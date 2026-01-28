@@ -922,6 +922,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		MaxTxGasWanted:         maxGasWanted,
 		DynamicFeeChecker:      true,
 		PendingTxListener:      app.onPendingTx,
+		EpixMintKeeper:         &app.EpixMintKeeper,
 	}
 	if err := options.Validate(); err != nil {
 		panic(err)

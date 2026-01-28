@@ -57,4 +57,12 @@ message Params {
     (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
     (gogoproto.nullable) = false
   ];
+
+  // min_validator_self_delegation is the minimum amount of tokens a validator must self-delegate
+  // to create a validator. This is enforced network-wide and cannot be bypassed.
+  string min_validator_self_delegation = 8 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
 }

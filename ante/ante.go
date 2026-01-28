@@ -33,6 +33,8 @@ type HandlerOptions struct {
 	// use dynamic fee checker or the cosmos-sdk default one for native transactions
 	DynamicFeeChecker bool
 	PendingTxListener PendingTxListener
+	// EpixMintKeeper is used to check minimum validator self-delegation requirements
+	EpixMintKeeper EpixMintKeeper
 }
 
 // Validate checks if the keepers are defined

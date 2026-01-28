@@ -19,15 +19,21 @@ func DefaultParams() Params {
 	if !ok {
 		panic("invalid max supply")
 	}
+	// 1M EPIX in aepix (18 decimals): 1 * 10^6 * 10^18 = 10^24
+	minValidatorSelfDelegation, ok := math.NewIntFromString("1000000000000000000000000")
+	if !ok {
+		panic("invalid min validator self delegation")
+	}
 
 	return Params{
-		MintDenom:               "aepix", // Extended precision denomination
-		InitialAnnualMintAmount: initialAnnualMintAmount,
-		AnnualReductionRate:     math.LegacyMustNewDecFromStr("0.25"), // 25% annual reduction
-		BlockTimeSeconds:        6,                                    // 6 second blocks
-		MaxSupply:               maxSupply,
-		CommunityPoolRate:       math.LegacyMustNewDecFromStr("0.02"), // 2% to community pool
-		StakingRewardsRate:      math.LegacyMustNewDecFromStr("0.98"), // 98% to staking rewards
+		MintDenom:                  "aepix", // Extended precision denomination
+		InitialAnnualMintAmount:    initialAnnualMintAmount,
+		AnnualReductionRate:        math.LegacyMustNewDecFromStr("0.25"), // 25% annual reduction
+		BlockTimeSeconds:           6,                                    // 6 second blocks
+		MaxSupply:                  maxSupply,
+		CommunityPoolRate:          math.LegacyMustNewDecFromStr("0.02"), // 2% to community pool
+		StakingRewardsRate:         math.LegacyMustNewDecFromStr("0.98"), // 98% to staking rewards
+		MinValidatorSelfDelegation: minValidatorSelfDelegation,           // 1M EPIX minimum to create validator
 	}
 }
 
@@ -52,6 +58,9 @@ func (p Params) Validate() error {
 		return err
 	}
 	if err := validateStakingRewardsRate(p.StakingRewardsRate); err != nil {
+		return err
+	}
+	if err := validateMinValidatorSelfDelegation(p.MinValidatorSelfDelegation); err != nil {
 		return err
 	}
 	return nil
@@ -180,6 +189,23 @@ func validateStakingRewardsRate(i interface{}) error {
 	return nil
 }
 
+func validateMinValidatorSelfDelegation(i interface{}) error {
+	v, ok := i.(math.Int)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if v.IsNil() {
+		return fmt.Errorf("min validator self delegation cannot be nil")
+	}
+
+	if v.IsNegative() {
+		return fmt.Errorf("min validator self delegation cannot be negative: %s", v)
+	}
+
+	return nil
+}
+
 // String implements the Stringer interface.
 func (p Params) String() string {
 	return fmt.Sprintf(`Mint Params:
@@ -189,8 +215,9 @@ func (p Params) String() string {
   Block Time Seconds:            %d
   Max Supply:                    %s
   Community Pool Rate:           %s
-  Staking Rewards Rate:          %s`,
+  Staking Rewards Rate:          %s
+  Min Validator Self Delegation: %s`,
 		p.MintDenom, p.InitialAnnualMintAmount, p.AnnualReductionRate, p.BlockTimeSeconds,
-		p.MaxSupply, p.CommunityPoolRate, p.StakingRewardsRate,
+		p.MaxSupply, p.CommunityPoolRate, p.StakingRewardsRate, p.MinValidatorSelfDelegation,
 	)
 }

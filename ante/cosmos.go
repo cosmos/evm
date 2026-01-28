@@ -19,7 +19,7 @@ func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		txFeeChecker = evmante.NewDynamicFeeChecker(&feemarketParams)
 	}
 
-	return sdk.ChainAnteDecorators(
+	decorators := []sdk.AnteDecorator{
 		cosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
 		cosmosante.NewAuthzLimiterDecorator( // disable the Msg types that cannot be included on an authz.MsgExec msgs field
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
@@ -40,5 +40,12 @@ func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		ante.NewSigVerificationDecorator(options.AccountKeeper, options.SignModeHandler),
 		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
 		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
-	)
+	}
+
+	// Add minimum validator self-delegation check if epixmint keeper is available
+	if options.EpixMintKeeper != nil {
+		decorators = append(decorators, NewMinValidatorSelfDelegationDecorator(options.EpixMintKeeper))
+	}
+
+	return sdk.ChainAnteDecorators(decorators...)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
@@ -61,18 +62,30 @@ func (app EVMD) RegisterUpgradeHandlers() {
 		},
 	)
 
-	// Register v0.5.3 upgrade handler - Deterministic Emission Fix
+	// Register v0.5.3 upgrade handler - Deterministic Emission Fix + Min Validator Self-Delegation
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeName_v0_5_3,
 		func(ctx context.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			sdkCtx := sdk.UnwrapSDKContext(ctx)
-			sdkCtx.Logger().Info("Starting EpixChain v0.5.3 upgrade - Deterministic Emission Fix...")
+			sdkCtx.Logger().Info("Starting EpixChain v0.5.3 upgrade - Deterministic Emission Fix + Min Validator Self-Delegation...")
 
 			// Log the upgrade details for transparency
 			sdkCtx.Logger().Info("This upgrade fixes a consensus bug in token emission calculations")
+			sdkCtx.Logger().Info("This upgrade also sets minimum validator self-delegation to 1,000,000 EPIX")
 
-			// No state migration needed - the fix is purely in the calculation logic
-			// which will take effect from this block forward
+			// Set minimum validator self-delegation to 1M EPIX
+			// 1M EPIX in aepix (18 decimals): 1 * 10^6 * 10^18 = 10^24
+			minValidatorSelfDelegation, ok := math.NewIntFromString("1000000000000000000000000")
+			if !ok {
+				return nil, fmt.Errorf("failed to parse min validator self delegation")
+			}
+
+			epixmintParams := app.EpixMintKeeper.GetParams(sdkCtx)
+			epixmintParams.MinValidatorSelfDelegation = minValidatorSelfDelegation
+			if err := app.EpixMintKeeper.SetParams(sdkCtx, epixmintParams); err != nil {
+				return nil, fmt.Errorf("failed to set epixmint params: %w", err)
+			}
+			sdkCtx.Logger().Info("Minimum validator self-delegation set to 1,000,000 EPIX")
 
 			// Run module migrations
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)

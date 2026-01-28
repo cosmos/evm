@@ -3,12 +3,13 @@ package keeper
 import (
 	"context"
 
-	"github.com/cosmos/evm/x/epixmint/types"
-
+	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cosmos/evm/x/epixmint/types"
 )
 
 // Keeper of the epixmint store
@@ -85,4 +86,10 @@ func (k Keeper) SetParams(ctx context.Context, params types.Params) error {
 // storeService returns the store service for the epixmint module.
 func (k Keeper) storeService(ctx context.Context) storetypes.KVStore {
 	return sdk.UnwrapSDKContext(ctx).KVStore(k.storeKey)
+}
+
+// GetMinValidatorSelfDelegation returns the minimum self-delegation required to create a validator.
+func (k Keeper) GetMinValidatorSelfDelegation(ctx context.Context) math.Int {
+	params := k.GetParams(ctx)
+	return params.MinValidatorSelfDelegation
 }
