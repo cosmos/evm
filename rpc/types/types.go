@@ -40,6 +40,7 @@ type TxResultAdditionalFields struct {
 	GasUsed   uint64         `json:"gasUsed"`
 	Nonce     uint64         `json:"nonce"`
 	Data      []byte         `json:"data"`
+	GasLimit  *uint64        `json:"gasLimit"`
 }
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction

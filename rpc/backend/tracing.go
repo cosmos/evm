@@ -21,7 +21,7 @@ import (
 // and returns them as a JSON object.
 func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfig) (interface{}, error) {
 	// Get transaction by hash
-	transaction, _, err := b.GetTxByEthHash(hash)
+	transaction, additional, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.logger.Debug("tx not found", "hash", hash)
 		return nil, err
@@ -40,7 +40,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 
 	// check tx index is not out of bound
 	if len(blk.Block.Txs) > math.MaxUint32 {
-		return nil, fmt.Errorf("tx count %d is overfloing", len(blk.Block.Txs))
+		return nil, fmt.Errorf("tx count %d is overflowing", len(blk.Block.Txs))
 	}
 	txsLen := uint32(len(blk.Block.Txs)) // #nosec G115 -- checked for int overflow already
 	if txsLen < transaction.TxIndex {
@@ -49,19 +49,73 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	}
 
 	var predecessors []*evmtypes.MsgEthereumTx
-	for _, txBz := range blk.Block.Txs[:transaction.TxIndex] {
-		tx, err := b.clientCtx.TxConfig.TxDecoder()(txBz)
+	for i := 0; i < int(transaction.TxIndex); i++ {
+		predecessorTx, txAdditional, err := b.GetTxByTxIndex(blk.Block.Height, uint(i))
 		if err != nil {
-			b.logger.Debug("failed to decode transaction in block", "height", blk.Block.Height, "error", err.Error())
+			b.logger.Debug("failed to get tx by index",
+				"height", blk.Block.Height,
+				"index", i,
+				"error", err.Error())
 			continue
 		}
-		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
-			if !ok {
+
+		if txAdditional != nil {
+			// This is a derived tx, fetch all derived txs from events in this Cosmos tx
+			blockRes, err := b.rpcClient.BlockResults(b.ctx, &blk.Block.Height)
+			if err == nil && i < len(blockRes.TxsResults) {
+				txResult := blockRes.TxsResults[i]
+				cosmosTx, err := b.clientCtx.TxConfig.TxDecoder()(blk.Block.Txs[i])
+				if err == nil {
+					parsedTxs, err := rpctypes.ParseTxResult(txResult, cosmosTx)
+					if err == nil {
+						for _, parsedTx := range parsedTxs.Txs {
+							// Stop when we reach the current transaction
+							if parsedTx.Hash == txAdditional.Hash {
+								break
+							}
+							// Only include derived txs
+							if parsedTx.Type == evmtypes.DerivedTxType {
+								ethMsg := b.parseDerivedTxFromAdditionalFields(&rpctypes.TxResultAdditionalFields{
+									Value:     parsedTx.Amount,
+									Hash:      parsedTx.Hash,
+									TxHash:    parsedTx.TxHash,
+									Type:      parsedTx.Type,
+									Recipient: parsedTx.Recipient,
+									Sender:    parsedTx.Sender,
+									GasUsed:   parsedTx.GasUsed,
+									Data:      parsedTx.Data,
+									Nonce:     parsedTx.Nonce,
+									GasLimit:  &parsedTx.GasLimit,
+								})
+								if ethMsg != nil {
+									predecessors = append(predecessors, ethMsg)
+								}
+							}
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		// Fallback: decode as normal Cosmos tx
+		tx, err := b.clientCtx.TxConfig.TxDecoder()(blk.Block.Txs[i])
+		if err != nil {
+			b.logger.Debug("failed to decode transaction in block",
+				"height", blk.Block.Height,
+				"index", i,
+				"error", err.Error())
+			continue
+		}
+
+		index := int(predecessorTx.MsgIndex)
+		for j := 0; j < index; j++ {
+			msg := tx.GetMsgs()[j]
+			// Check if it’s a normal Ethereum tx
+			if ethMsg, ok := msg.(*evmtypes.MsgEthereumTx); ok {
+				predecessors = append(predecessors, ethMsg)
 				continue
 			}
-
-			predecessors = append(predecessors, ethMsg)
 		}
 	}
 
@@ -74,17 +128,66 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	// add predecessor messages in current cosmos tx
 	index := int(transaction.MsgIndex) // #nosec G115
 	for i := 0; i < index; i++ {
-		ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
-		if !ok {
+		msg := tx.GetMsgs()[i]
+		// Check if it's a normal Ethereum tx
+		if ethMsg, ok := msg.(*evmtypes.MsgEthereumTx); ok {
+			predecessors = append(predecessors, ethMsg)
 			continue
 		}
-		predecessors = append(predecessors, ethMsg)
 	}
 
-	ethMessage, ok := tx.GetMsgs()[transaction.MsgIndex].(*evmtypes.MsgEthereumTx)
-	if !ok {
-		b.logger.Debug("invalid transaction type", "type", fmt.Sprintf("%T", tx))
-		return nil, fmt.Errorf("invalid transaction type %T", tx)
+	// For derived transactions, parse all derived txs from the current Cosmos tx's events
+	if additional != nil {
+		// This is a derived tx, fetch all derived txs from events in this Cosmos tx
+		blockRes, err := b.rpcClient.BlockResults(b.ctx, &blk.Block.Height)
+		if err == nil && int(transaction.TxIndex) < len(blockRes.TxsResults) {
+			txResult := blockRes.TxsResults[transaction.TxIndex]
+			parsedTxs, err := rpctypes.ParseTxResult(txResult, tx)
+			if err == nil {
+				// Add all derived txs that come before the current one as predecessors
+				for _, parsedTx := range parsedTxs.Txs {
+					// Stop when we reach the current transaction
+					if parsedTx.Hash == additional.Hash {
+						break
+					}
+					// Only include derived txs
+					if parsedTx.Type == evmtypes.DerivedTxType {
+						ethMsg := b.parseDerivedTxFromAdditionalFields(&rpctypes.TxResultAdditionalFields{
+							Value:     parsedTx.Amount,
+							Hash:      parsedTx.Hash,
+							TxHash:    parsedTx.TxHash,
+							Type:      parsedTx.Type,
+							Recipient: parsedTx.Recipient,
+							Sender:    parsedTx.Sender,
+							GasUsed:   parsedTx.GasUsed,
+							Data:      parsedTx.Data,
+							Nonce:     parsedTx.Nonce,
+							GasLimit:  &parsedTx.GasLimit,
+						})
+						if ethMsg != nil {
+							predecessors = append(predecessors, ethMsg)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	var ethMessage *evmtypes.MsgEthereumTx
+	var ok bool
+
+	if additional == nil {
+		ethMessage, ok = tx.GetMsgs()[transaction.MsgIndex].(*evmtypes.MsgEthereumTx)
+		if !ok {
+			b.logger.Debug("invalid transaction type", "type", fmt.Sprintf("%T", tx.GetMsgs()[transaction.MsgIndex]))
+			return nil, fmt.Errorf("invalid transaction type %T", tx.GetMsgs()[transaction.MsgIndex])
+		}
+	} else {
+		ethMessage = b.parseDerivedTxFromAdditionalFields(additional)
+		if ethMessage == nil {
+			b.logger.Error("failed to get derived eth msg from additional fields")
+			return nil, fmt.Errorf("failed to get derived eth msg from additional fields")
+		}
 	}
 
 	nc, ok := b.clientCtx.Client.(tmrpcclient.NetworkClient)

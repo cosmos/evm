@@ -74,6 +74,7 @@ type ParsedTx struct {
 	Recipient common.Address
 	Sender    common.Address
 	Nonce     uint64
+	GasLimit  uint64
 	Data      []byte
 }
 
@@ -233,6 +234,7 @@ func ParseTxIndexerResult(
 				GasUsed:   parsedTx.GasUsed,
 				Data:      parsedTx.Data,
 				Nonce:     parsedTx.Nonce,
+				GasLimit:  &parsedTx.GasLimit,
 			}, nil
 	}
 	return &types.TxResult{
@@ -285,6 +287,7 @@ func ParseTxBlockResult(
 				GasUsed:   parsedTx.GasUsed,
 				Data:      parsedTx.Data,
 				Nonce:     parsedTx.Nonce,
+				GasLimit:  &parsedTx.GasLimit,
 			}, nil
 	}
 	return &types.TxResult{
@@ -410,6 +413,13 @@ func fillTxAttribute(tx *ParsedTx, key, value string) error {
 			return err
 		}
 		tx.Nonce = nonce
+
+	case evmtypes.AttributeKeyTxGasLimit:
+		gasLimit, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		tx.GasLimit = gasLimit
 
 	case evmtypes.AttributeKeyTxData:
 		hexBytes, err := hexutil.Decode(value)

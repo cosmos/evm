@@ -316,10 +316,12 @@ func (b *Backend) parseDerivedTxFromAdditionalFields(
 	additional *rpctypes.TxResultAdditionalFields,
 ) *evmtypes.MsgEthereumTx {
 	recipient := additional.Recipient
+	gas := gasForDerivedEthTx(additional)
+
 	t := ethtypes.NewTx(&ethtypes.LegacyTx{
 		Nonce:    additional.Nonce,
 		Data:     additional.Data,
-		Gas:      additional.GasUsed,
+		Gas:      gas,
 		To:       &recipient,
 		GasPrice: nil,
 		Value:    additional.Value,
@@ -336,6 +338,29 @@ func (b *Backend) parseDerivedTxFromAdditionalFields(
 	ethMsg.Hash = additional.Hash.Hex()
 	ethMsg.From = additional.Sender.Hex()
 	return ethMsg
+}
+
+// gasForDerivedEthTx returns the gas value to use for a derived Ethereum transaction.
+//
+// GasLimit is preferred when available, as it reflects the originally declared
+// transaction gas. For older transactions where GasLimit was not
+// emitted and is zero, GasUsed is used as a fallback for backward compatibility.
+//
+// When falling back to GasUsed, a multiplier is applied to reduce false failures
+// during EVM tracing (e.g. "intrinsic gas too low" or unintended REVERTs), since
+// GasUsed may be lower than the original GasLimit due to some opcodes REFUNDs.
+func gasForDerivedEthTx(additional *rpctypes.TxResultAdditionalFields) uint64 {
+	const gasFallbackMultiplier = 2
+
+	if additional.GasLimit != nil && *additional.GasLimit > 0 {
+		return *additional.GasLimit
+	}
+
+	if additional.GasUsed > 0 {
+		return additional.GasUsed * gasFallbackMultiplier
+	}
+
+	return 0
 }
 
 // HeaderByNumber returns the block header identified by height.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -487,10 +488,18 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 
 	for i, tx := range req.Predecessors {
 		ethTx := tx.AsTransaction()
-		msg, err := ethTx.AsMessage(signer, cfg.BaseFee)
-		if err != nil {
-			continue
+
+		var msg ethtypes.Message
+		// if tx is not unsigned, from field should be derived from signer, which can be done using AsMessage function
+		if !isUnsigned(ethTx) {
+			msg, err = ethTx.AsMessage(signer, cfg.BaseFee)
+			if err != nil {
+				continue
+			}
+		} else {
+			msg = unsignedTxAsMessage(common.BytesToAddress(req.Msg.GetFrom()), ethTx, cfg.BaseFee)
 		}
+
 		txConfig.TxHash = ethTx.Hash()
 		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
 		// reset gas meter for each transaction
@@ -515,7 +524,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		_ = json.Unmarshal([]byte(req.TraceConfig.TracerJsonConfig), &tracerConfig)
 	}
 
-	result, _, err := k.traceTx(ctx, cfg, txConfig, signer, tx, req.TraceConfig, false, tracerConfig)
+	result, _, err := k.traceTx(ctx, cfg, txConfig, signer, common.BytesToAddress(req.Msg.GetFrom()), tx, req.TraceConfig, false, tracerConfig)
 	if err != nil {
 		// error will be returned with detail status from traceTx
 		return nil, err
@@ -582,7 +591,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		ethTx := tx.AsTransaction()
 		txConfig.TxHash = ethTx.Hash()
 		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
-		traceResult, logIndex, err := k.traceTx(ctx, cfg, txConfig, signer, ethTx, req.TraceConfig, true, nil)
+		traceResult, logIndex, err := k.traceTx(ctx, cfg, txConfig, signer, common.BytesToAddress(tx.GetFrom()), ethTx, req.TraceConfig, true, nil)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
@@ -608,6 +617,7 @@ func (k *Keeper) traceTx(
 	cfg *statedb.EVMConfig,
 	txConfig statedb.TxConfig,
 	signer ethtypes.Signer,
+	from common.Address,
 	tx *ethtypes.Transaction,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
@@ -620,9 +630,15 @@ func (k *Keeper) traceTx(
 		err       error
 		timeout   = defaultTraceTimeout
 	)
-	msg, err := tx.AsMessage(signer, cfg.BaseFee)
-	if err != nil {
-		return nil, 0, status.Error(codes.Internal, err.Error())
+	var msg ethtypes.Message
+	// if tx is not unsigned, from field should be derived from signer, which can be done using AsMessage function
+	if !isUnsigned(tx) {
+		msg, err = tx.AsMessage(signer, cfg.BaseFee)
+		if err != nil {
+			return nil, 0, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		msg = unsignedTxAsMessage(from, tx, cfg.BaseFee)
 	}
 
 	if traceConfig == nil {
@@ -721,4 +737,30 @@ func (k Keeper) Config(_ context.Context, _ *types.QueryConfigRequest) (*types.Q
 	config.Decimals = uint64(types.GetEVMCoinDecimals())
 
 	return &types.QueryConfigResponse{Config: config}, nil
+}
+
+func isUnsigned(ethTx *ethtypes.Transaction) bool {
+	r, v, s := ethTx.RawSignatureValues()
+
+	return (r == nil && v == nil && s == nil) || (r.Int64() == 0 && v.Int64() == 0 && s.Int64() == 0)
+}
+func unsignedTxAsMessage(fromAddress common.Address, tx *ethtypes.Transaction, baseFee *big.Int) ethtypes.Message {
+	gasPrice := new(big.Int).Set(tx.GasPrice())
+	// If baseFee provided, set gasPrice to effectiveGasPrice.
+	if baseFee != nil {
+		gasPrice = math.BigMin(new(big.Int).Add(tx.GasTipCap(), baseFee), tx.GasFeeCap())
+	}
+	return ethtypes.NewMessage(
+		fromAddress,
+		tx.To(),
+		tx.Nonce(),
+		tx.Value(),
+		tx.Gas(),
+		gasPrice,
+		tx.GasFeeCap(),
+		tx.GasTipCap(),
+		tx.Data(),
+		tx.AccessList(),
+		false,
+	)
 }

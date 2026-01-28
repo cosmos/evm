@@ -427,6 +427,26 @@ func (b *Backend) GetTxByEthHash(hash common.Hash) (*types.TxResult, *rpctypes.T
 	return txResult, txAdditional, nil
 }
 
+func (b *Backend) GetTxByEthHashAndMsgIndex(hash common.Hash, index int) (*types.TxResult, *rpctypes.TxResultAdditionalFields, error) {
+	if b.indexer != nil {
+		txRes, err := b.indexer.GetByTxHash(hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		return txRes, nil, nil
+	}
+
+	// fallback to tendermint tx indexer
+	query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, hash.Hex())
+	txResult, txAdditional, err := b.queryTendermintTxIndexer(query, func(txs *rpctypes.ParsedTxs) *rpctypes.ParsedTx {
+		return txs.GetTxByMsgIndex(index)
+	})
+	if err != nil {
+		return nil, nil, errorsmod.Wrapf(err, "GetTxByEthHash %s", hash.Hex())
+	}
+	return txResult, txAdditional, nil
+}
+
 // GetTxByTxIndex uses `/tx_query` to find transaction by tx index of valid ethereum txs
 func (b *Backend) GetTxByTxIndex(height int64, index uint) (*types.TxResult, *rpctypes.TxResultAdditionalFields, error) {
 	int32Index := int32(index) //#nosec G115 -- checked for int overflow already

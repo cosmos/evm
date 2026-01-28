@@ -17,6 +17,7 @@ const (
 	AttributeKeyTxType          = "txType"
 	AttributeKeyTxLog           = "txLog"
 	AttributeKeyTxNonce         = "txNonce"
+	AttributeKeyTxGasLimit      = "txGasLimit"
 	AttributeKeyTxData          = "txData"
 
 	// tx failed in eth vm execution
