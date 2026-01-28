@@ -10,11 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/holiman/uint256"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
@@ -60,7 +58,6 @@ type (
 		txConfig      client.TxConfig
 		blockchain    *Blockchain
 		blockGasLimit uint64 // Block gas limit from consensus parameters
-		minTip        *uint256.Int
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -90,7 +87,6 @@ type EVMMempoolConfig struct {
 	AnteHandler      sdk.AnteHandler
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
-	MinTip        *uint256.Int
 	// OperateExclusively indicates whether this mempool is the ONLY mempool in the chain.
 	// If false, comet-bft also operates its own clist-mempool. If true, then the mempool expects exclusive
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
@@ -202,7 +198,6 @@ func NewExperimentalEVMMempool(
 		txConfig:                 txConfig,
 		blockchain:               blockchain,
 		blockGasLimit:            config.BlockGasLimit,
-		minTip:                   config.MinTip,
 		anteHandler:              config.AnteHandler,
 		operateExclusively:       config.OperateExclusively,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
@@ -601,13 +596,8 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) ([]txpool.TxWithFees, sdkmempool.Iterator) {
 	sdkctx := sdk.UnwrapSDKContext(ctx)
-	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
-	var baseFeeUint *uint256.Int
-	if baseFee != nil {
-		baseFeeUint = uint256.MustFromBig(baseFee)
-	}
 
 	if m.pendingTxProposalTimeout > 0 {
 		var cancel context.CancelFunc
@@ -615,18 +605,10 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 		defer cancel()
 	}
 
-	filter := txpool.PendingFilter{
-		MinTip:       m.minTip,
-		BaseFee:      baseFeeUint,
-		BlobFee:      nil,
-		OnlyPlainTxs: true,
-		OnlyBlobTxs:  false,
-	}
-	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()-1), filter)
-	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
+	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()-1))
 	cosmosIterator := m.cosmosPool.Select(ctx, txs)
 
-	return evmIterator, cosmosIterator
+	return evmPendingTxs, cosmosIterator
 }
 
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {

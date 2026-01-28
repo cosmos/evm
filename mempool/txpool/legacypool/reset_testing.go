@@ -31,7 +31,7 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 	// Ensure BaseFee is set for EIP-1559 compatibility in tests
 	if newHead.BaseFee == nil && pool.chainconfig.IsLondon(newHead.Number) {
 		// Set a default base fee for testing
-		newHead.BaseFee = big.NewInt(1000000000) // 1 gwei default
+		newHead.BaseFee = big.NewInt(1) // 1 gwei default
 	}
 
 	pool.resetInternalState(newHead, reinject)

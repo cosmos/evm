@@ -3,9 +3,11 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
+
 	core "github.com/ethereum/go-ethereum/core"
 
 	event "github.com/ethereum/go-ethereum/event"
@@ -42,6 +44,11 @@ func (_m *SubPool) Add(txs []*types.Transaction, sync bool) []error {
 	}
 
 	return r0
+}
+
+// CancelReset provides a mock function with no fields
+func (_m *SubPool) CancelReset() {
+	_m.Called()
 }
 
 // Clear provides a mock function with no fields
@@ -295,37 +302,37 @@ func (_m *SubPool) Nonce(addr common.Address) uint64 {
 	return r0
 }
 
-// Pending provides a mock function with given fields: filter
-func (_m *SubPool) Pending(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	ret := _m.Called(filter)
+// Pending provides a mock function with given fields: ctx, height
+func (_m *SubPool) Pending(ctx context.Context, height *big.Int) []txpool.TxWithFees {
+	ret := _m.Called(ctx, height)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Pending")
 	}
 
-	var r0 map[common.Address][]*txpool.LazyTransaction
-	if rf, ok := ret.Get(0).(func(txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction); ok {
-		r0 = rf(filter)
+	var r0 []txpool.TxWithFees
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []txpool.TxWithFees); ok {
+		r0 = rf(ctx, height)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[common.Address][]*txpool.LazyTransaction)
+			r0 = ret.Get(0).([]txpool.TxWithFees)
 		}
 	}
 
 	return r0
 }
 
-// RemoveTx provides a mock function with given fields: hash, outofbound, unreserve
-func (_m *SubPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool) int {
-	ret := _m.Called(hash, outofbound, unreserve)
+// RemoveTx provides a mock function with given fields: hash, outofbound, unreserve, reason
+func (_m *SubPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason txpool.RemovalReason) int {
+	ret := _m.Called(hash, outofbound, unreserve, reason)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveTx")
 	}
 
 	var r0 int
-	if rf, ok := ret.Get(0).(func(common.Hash, bool, bool) int); ok {
-		r0 = rf(hash, outofbound, unreserve)
+	if rf, ok := ret.Get(0).(func(common.Hash, bool, bool, txpool.RemovalReason) int); ok {
+		r0 = rf(hash, outofbound, unreserve, reason)
 	} else {
 		r0 = ret.Get(0).(int)
 	}
@@ -432,8 +439,7 @@ func (_m *SubPool) ValidateTxBasics(tx *types.Transaction) error {
 func NewSubPool(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *SubPool {
+}) *SubPool {
 	mock := &SubPool{}
 	mock.Mock.Test(t)
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sort"
 	"sync"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/holiman/uint256"
 )
 
 var (
@@ -104,7 +102,7 @@ func (c *txCollector) StartNewHeight(height *big.Int) func() {
 // Collect collects txs in the collector at a height. If this height has not
 // been reached by the collector, it will wait until the context times out or
 // the height is reached.
-func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+func (c *txCollector) Collect(ctx context.Context, height *big.Int) []txpool.TxWithFees {
 	genesis := big.NewInt(0)
 
 	start := time.Now()
@@ -134,7 +132,7 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 			// have been added to the collector at this point
 			if c.currentHeight.Cmp(genesis) == 0 {
 				collectorWaitDuration.UpdateSince(start)
-				ts := txs.Get(filter)
+				ts := txs.Get()
 				return ts
 			}
 
@@ -149,7 +147,7 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 			}
 
 			collectorWaitDuration.UpdateSince(start)
-			ts := txs.Get(filter)
+			ts := txs.Get()
 			return ts
 		}
 
@@ -172,30 +170,19 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 	}
 }
 
-// AddList adds a list of txs to the collector.
-func (c *txCollector) AddList(addr common.Address, list *list) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.txs == nil {
-		return
-	}
-	c.txs.Add(addr, list.Flatten())
-}
-
 // AddTx adds a single tx to the collector.
-func (c *txCollector) AddTx(addr common.Address, tx *types.Transaction) {
+func (c *txCollector) AppendTx(tx txpool.TxWithFees) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	if c.txs == nil {
 		return
 	}
-	c.txs.Add(addr, []*types.Transaction{tx})
+	c.txs.AppendTx(tx)
 }
 
 // RemoveTx removes a tx from the collector.
-func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
+func (c *txCollector) RemoveTx(tx *types.Transaction) {
 	defer func(t0 time.Time) { collectorRemoveDuraiton.UpdateSince(t0) }(time.Now())
 
 	c.mu.RLock()
@@ -204,13 +191,13 @@ func (c *txCollector) RemoveTx(addr common.Address, tx *types.Transaction) {
 	if c.txs == nil {
 		return
 	}
-	c.txs.Remove(addr, tx)
+	c.txs.Remove(tx)
 }
 
 // txs is a set of transactions at a height that can be added to or removed
 // from.
 type txs struct {
-	txs map[common.Address]types.Transactions
+	txs []txpool.TxWithFees
 
 	// lookup provides a fast lookup to determine if a tx is in the set or not.
 	lookup map[common.Hash]struct{}
@@ -220,112 +207,50 @@ type txs struct {
 
 // newTxs creates a new txs set.
 func newTxs() *txs {
-	return &txs{
-		txs:    make(map[common.Address]types.Transactions),
-		lookup: make(map[common.Hash]struct{}),
-	}
+	return &txs{lookup: make(map[common.Hash]struct{})}
 }
 
 // Get returns the current set of txs.
-func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	// Do not support blob txs
-	if filter.OnlyBlobTxs {
-		return nil
-	}
-
+func (t *txs) Get() []txpool.TxWithFees {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
-	var (
-		minTipBig  *big.Int
-		baseFeeBig *big.Int
-	)
-	if filter.MinTip != nil {
-		minTipBig = filter.MinTip.ToBig()
-	}
-	if filter.BaseFee != nil {
-		baseFeeBig = filter.BaseFee.ToBig()
-	}
-
-	numSelected := 0
-	pending := make(map[common.Address][]*txpool.LazyTransaction, len(t.txs))
-
-	for addr, txs := range t.txs {
-		sort.Sort(types.TxByNonce(txs))
-
-		// Filter by minimum tip if configured
-		if minTipBig != nil {
-			for i, tx := range txs {
-				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
-					txs = txs[:i]
-					break
-				}
-			}
-		}
-
-		// Convert to lazy transactions
-		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i, tx := range txs {
-				lazies[i] = &txpool.LazyTransaction{
-					Hash:      tx.Hash(),
-					Tx:        tx,
-					Time:      tx.Time(),
-					GasFeeCap: uint256.MustFromBig(tx.GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
-					Gas:       tx.Gas(),
-					BlobGas:   tx.BlobGas(),
-				}
-			}
-			numSelected += len(lazies)
-			pending[addr] = lazies
-		}
-	}
-
-	txsCollected.Mark(int64(numSelected))
-	return pending
+	txsCollected.Mark(int64(len(t.txs)))
+	return t.txs
 }
 
-// add adds txs to the current set.
-func (t *txs) Add(addr common.Address, txs types.Transactions) {
+// AppendTx adds tx to the back of the current set.
+func (t *txs) AppendTx(tx txpool.TxWithFees) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	toAdd := make([]*types.Transaction, 0, len(txs))
-	for _, tx := range txs {
-		if _, exists := t.lookup[tx.Hash()]; exists {
-			continue
-		}
-		toAdd = append(toAdd, tx)
+	if _, exists := t.lookup[tx.Tx.Hash()]; exists {
+		return
 	}
 
-	if existing, ok := t.txs[addr]; ok {
-		t.txs[addr] = append(existing, toAdd...)
-	} else {
-		t.txs[addr] = toAdd
-	}
+	t.txs = append(t.txs, tx)
 }
 
 // RemoveTx removes a tx for an address from the current set.
-func (t *txs) Remove(addr common.Address, tx *types.Transaction) {
+func (t *txs) Remove(tx *types.Transaction) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	defer delete(t.lookup, tx.Hash())
 
-	txs, ok := t.txs[addr]
-	if !ok {
-		return
-	}
+	// TODO: this needs to change, this will change the execution order.
+	// we actually cant remove from this at all, as that will also have effects
+	// on the recheck. we need to defer removing until after a block has been
+	// processed, and then we process the removals, then we rebuild the txs set
+	// from scratch.
 
 	// Find and remove the tx by nonce
 	nonce := tx.Nonce()
-	for i := 0; i < len(txs); i++ {
-		if txs[i].Nonce() == nonce {
+	for i := 0; i < len(t.txs); i++ {
+		if t.txs[i].Tx.Nonce() == nonce {
 			// Swap with last element and truncate
-			txs[i] = txs[len(txs)-1]
-			t.txs[addr] = txs[:len(txs)-1]
+			t.txs[i] = t.txs[len(t.txs)-1]
+			t.txs = t.txs[:len(t.txs)-1]
 			return
 		}
 	}

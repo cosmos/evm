@@ -6,7 +6,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -26,7 +25,7 @@ var _ mempool.Iterator = &EVMMempoolIterator{}
 // proper sequencing during block building.
 type EVMMempoolIterator struct {
 	/** Mempool Iterators **/
-	evmIterator    *miner.TransactionsByPriceAndNonce
+	evmIterator    []txpool.TxWithFees
 	cosmosIterator mempool.Iterator
 
 	/** Utils **/
@@ -46,7 +45,7 @@ type EVMMempoolIterator struct {
 // Returns nil if both iterators are empty or nil. The bondDenom parameter specifies the native
 // token denomination for fee comparisons, and chainId is used for EVM transaction conversion.
 func NewEVMMempoolIterator(
-	evmIterator *miner.TransactionsByPriceAndNonce,
+	evmIterator []txpool.TxWithFees,
 	cosmosIterator mempool.Iterator,
 	logger log.Logger,
 	txConfig client.TxConfig,
@@ -54,7 +53,7 @@ func NewEVMMempoolIterator(
 	blockchain *Blockchain,
 ) mempool.Iterator {
 	// Check if we have any transactions at all
-	hasEVM := evmIterator != nil && !evmIterator.Empty()
+	hasEVM := len(evmIterator) != 0
 	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
 
 	// Add the iterator name to the logger
@@ -171,11 +170,11 @@ func (i *EVMMempoolIterator) shouldUseEVM() bool {
 }
 
 // getNextEVMTx retrieves the next EVM transaction and its fee
-func (i *EVMMempoolIterator) getNextEVMTx() (*txpool.LazyTransaction, *uint256.Int) {
-	if i.evmIterator == nil {
+func (i *EVMMempoolIterator) getNextEVMTx() (*ethtypes.Transaction, *uint256.Int) {
+	if len(i.evmIterator) == 0 {
 		return nil, nil
 	}
-	return i.evmIterator.Peek()
+	return i.evmIterator[0].Tx, i.evmIterator[0].Fees
 }
 
 // getNextCosmosTx retrieves the next Cosmos transaction and its effective gas tip
@@ -200,7 +199,7 @@ func (i *EVMMempoolIterator) getNextCosmosTx() (sdk.Tx, *uint256.Int) {
 
 // getPreferredTransaction returns the preferred transaction based on fee priority.
 // Takes both transaction types as input and returns the preferred one, or nil if neither is available.
-func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTransaction, nextCosmosTx sdk.Tx) sdk.Tx {
+func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *ethtypes.Transaction, nextCosmosTx sdk.Tx) sdk.Tx {
 	// If no transactions available, return nil
 	if nextEVMTx == nil && nextCosmosTx == nil {
 		i.logger.Debug("no transactions available from either mempool")
@@ -235,10 +234,8 @@ func (i *EVMMempoolIterator) advanceCurrentIterator() {
 	if useEVM {
 		i.logger.Debug("advancing EVM iterator")
 		// We used EVM transaction, advance EVM iterator
-		// NOTE: EVM transactions are automatically removed by the maintenance loop in the txpool
-		// so we shift instead of popping
 		if i.evmIterator != nil {
-			i.evmIterator.Shift()
+			i.evmIterator = i.evmIterator[1:]
 		} else {
 			i.logger.Error("EVM iterator is nil but shouldUseEVM returned true")
 		}
@@ -340,15 +337,15 @@ func (i *EVMMempoolIterator) hasMoreTransactions() bool {
 // convertEVMToSDKTx converts an Ethereum transaction to a Cosmos SDK transaction.
 // It wraps the EVM transaction in a MsgEthereumTx and builds a proper SDK transaction
 // using the configured transaction builder and bond denomination for fees.
-func (i *EVMMempoolIterator) convertEVMToSDKTx(nextEVMTx *txpool.LazyTransaction) sdk.Tx {
+func (i *EVMMempoolIterator) convertEVMToSDKTx(nextEVMTx *ethtypes.Transaction) sdk.Tx {
 	if nextEVMTx == nil {
 		i.logger.Debug("EVM transaction is nil, skipping conversion")
 		return nil
 	}
 
 	msgEthereumTx := &msgtypes.MsgEthereumTx{}
-	hash := nextEVMTx.Tx.Hash()
-	if err := msgEthereumTx.FromSignedEthereumTx(nextEVMTx.Tx, ethtypes.LatestSignerForChainID(i.chainID)); err != nil {
+	hash := nextEVMTx.Hash()
+	if err := msgEthereumTx.FromSignedEthereumTx(nextEVMTx, ethtypes.LatestSignerForChainID(i.chainID)); err != nil {
 		i.logger.Error("failed to convert signed Ethereum transaction", "error", err, "tx_hash", hash)
 		return nil // Return nil for invalid tx instead of panicking
 	}
