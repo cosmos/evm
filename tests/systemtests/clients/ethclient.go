@@ -112,7 +112,7 @@ func (ec *EthClient) WaitForCommit(
 	}
 }
 
-// CheckTxsPending checks if a transaction is either pending in the mempool or already committed.
+// CheckTxsPending checks if a transaction is either pending in the mempool.
 func (ec *EthClient) CheckTxsPending(
 	nodeID string,
 	txHash string,
@@ -140,6 +140,45 @@ func (ec *EthClient) CheckTxsPending(
 			if ok := slices.Contains(pendingTxHashes, txHash); ok {
 				return nil
 			}
+		}
+	}
+}
+
+// CheckTxsPendingOrCommitted checks if a transaction is either pending in the mempool or already committed.
+func (ec *EthClient) CheckTxsPendingOrCommitted(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for transaction %s", txHash)
+		case <-ticker.C:
+			pendingTxs, _, err := ec.TxPoolContent(ctx, nodeID)
+			if err != nil {
+				fmt.Printf("DEBUG: failed to get txpool content: %v", err)
+				continue // Retry on error
+			}
+
+			pendingTxHashes := extractTxHashesSorted(pendingTxs)
+
+			if ok := slices.Contains(pendingTxHashes, txHash); ok {
+				return nil
+			}
+
+			_, err = ec.Clients[nodeID].TransactionReceipt(context.Background(), common.HexToHash(txHash))
+			if err != nil {
+				continue // Retry on error
+			}
+
+			return nil
 		}
 	}
 }
