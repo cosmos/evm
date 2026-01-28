@@ -11,7 +11,7 @@
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
-- [\#952](https://github.com/cosmos/evm/issues/952) Allow shouldUseEVM to accept pre-fetched transactions and fees to avoid redundant lookups.
+- [\#952](https://github.com/cosmos/evm/issues/952) Allow shouldUseEVM to take caller-peeked transactions and fees to avoid redundant lookups.
 
 ### FEATURES
 

@@ -101,14 +101,8 @@ func (i *EVMMempoolIterator) Next() mempool.Iterator {
 // It selects between EVM and Cosmos transactions based on fee priority
 // and converts EVM transactions to SDK format.
 func (i *EVMMempoolIterator) Tx() sdk.Tx {
-	// Get current transactions from both iterators
-	nextEVMTx, _ := i.getNextEVMTx()
-	nextCosmosTx, _ := i.getNextCosmosTx()
-
-	i.logger.Debug("getting current transaction", "has_evm", nextEVMTx != nil, "has_cosmos", nextCosmosTx != nil)
-
 	// Return the preferred transaction based on fee priority
-	tx := i.getPreferredTransaction(nextEVMTx, nextCosmosTx)
+	tx := i.getPreferredTransaction()
 
 	if tx == nil {
 		i.logger.Debug("no preferred transaction available")
@@ -124,8 +118,9 @@ func (i *EVMMempoolIterator) Tx() sdk.Tx {
 // =============================================================================
 
 // shouldUseEVM determines which transaction type to prioritize based on fee comparison.
-// Returns true if the EVM transaction should be selected, false if Cosmos transaction should be used.
-// Accepts optional pre-fetched tx and fee values for optimization.
+// Returns (useEVM, nextEVMTx, nextCosmosTx):
+// - useEVM is true if the EVM transaction should be selected, false if Cosmos should be used.
+// - nextEVMTx/nextCosmosTx are the currently-peeked transactions used for the decision.
 // EVM transactions will be prioritized in the following conditions:
 // 1. Cosmos mempool has no transactions
 // 2. EVM mempool has no transactions (fallback to Cosmos)
@@ -133,30 +128,25 @@ func (i *EVMMempoolIterator) Tx() sdk.Tx {
 // 4. Cosmos transaction fee denomination doesn't match bond denom
 // 5. Cosmos transaction fee is lower than the EVM transaction fee
 // 6. Cosmos transaction fee overflows when converted to uint256
-func (i *EVMMempoolIterator) shouldUseEVM(
-	nextEVMTx *txpool.LazyTransaction, evmFee *uint256.Int,
-	nextCosmosTx sdk.Tx, cosmosFee *uint256.Int,
-) bool {
-	if nextEVMTx == nil || evmFee == nil || nextCosmosTx == nil || cosmosFee == nil {
-		nextEVMTx, evmFee = i.getNextEVMTx()
-		nextCosmosTx, cosmosFee = i.getNextCosmosTx()
-	}
+func (i *EVMMempoolIterator) shouldUseEVM() (useEVM bool, nextEVMTx *txpool.LazyTransaction, nextCosmosTx sdk.Tx) {
+	nextEVMTx, evmFee := i.getNextEVMTx()
+	nextCosmosTx, cosmosFee := i.getNextCosmosTx()
 
 	// Handle cases where only one type is available
 	if nextEVMTx == nil {
 		i.logger.Debug("no EVM transaction available, preferring Cosmos")
-		return false // Use Cosmos when no EVM transaction available
+		return false, nextEVMTx, nextCosmosTx // Use Cosmos when no EVM transaction available
 	}
 	if nextCosmosTx == nil {
 		i.logger.Debug("no Cosmos transaction available, preferring EVM")
-		return true // Use EVM when no Cosmos transaction available
+		return true, nextEVMTx, nextCosmosTx // Use EVM when no Cosmos transaction available
 	}
 
 	// Both have transactions - compare fees
 	// cosmosFee can never be nil, but can be zero if no valid fee found
 	if cosmosFee.IsZero() {
 		i.logger.Debug("Cosmos transaction has no valid fee, preferring EVM", "evm_fee", evmFee.String())
-		return true // Use EVM if Cosmos transaction has no valid fee
+		return true, nextEVMTx, nextCosmosTx // Use EVM if Cosmos transaction has no valid fee
 	}
 
 	// Compare fees - prefer EVM unless Cosmos has higher fee
@@ -165,7 +155,7 @@ func (i *EVMMempoolIterator) shouldUseEVM(
 		"evm_fee", evmFee.String(),
 		"cosmos_fee", cosmosFee.String())
 
-	return !cosmosHigher
+	return !cosmosHigher, nextEVMTx, nextCosmosTx
 }
 
 // getNextEVMTx retrieves the next EVM transaction and its fee
@@ -198,23 +188,15 @@ func (i *EVMMempoolIterator) getNextCosmosTx() (sdk.Tx, *uint256.Int) {
 
 // getPreferredTransaction returns the preferred transaction based on fee priority.
 // Takes both transaction types as input and returns the preferred one, or nil if neither is available.
-func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTransaction, nextCosmosTx sdk.Tx) sdk.Tx {
+func (i *EVMMempoolIterator) getPreferredTransaction() sdk.Tx {
+	// Determine which transaction type to prioritize based on fee comparison
+	useEVM, nextEVMTx, nextCosmosTx := i.shouldUseEVM()
+
 	// If no transactions available, return nil
 	if nextEVMTx == nil && nextCosmosTx == nil {
 		i.logger.Debug("no transactions available from either mempool")
 		return nil
 	}
-
-	var evmFee, cosmosFee *uint256.Int
-	if nextEVMTx != nil {
-		_, evmFee = i.getNextEVMTx()
-	}
-	if nextCosmosTx != nil {
-		_, cosmosFee = i.getNextCosmosTx()
-	}
-
-	// Determine which transaction type to prioritize based on fee comparison
-	useEVM := i.shouldUseEVM(nextEVMTx, evmFee, nextCosmosTx, cosmosFee)
 
 	if useEVM {
 		i.logger.Debug("preferring EVM transaction based on fee comparison")
@@ -236,7 +218,7 @@ func (i *EVMMempoolIterator) getPreferredTransaction(nextEVMTx *txpool.LazyTrans
 
 // advanceCurrentIterator advances the appropriate iterator based on which transaction was used
 func (i *EVMMempoolIterator) advanceCurrentIterator() {
-	useEVM := i.shouldUseEVM(nil, nil, nil, nil)
+	useEVM, _, _ := i.shouldUseEVM()
 
 	if useEVM {
 		i.logger.Debug("advancing EVM iterator")
