@@ -338,3 +338,13 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
     echo "pending mode is on, please wait for the first block committed."
   fi
 fi
+
+# Start the node
+evmd start "$TRACE" \
+	--pruning nothing \
+	--log_level $LOGLEVEL \
+	--minimum-gas-prices=0atest \
+	--evm.min-tip=0 \
+	--home "$CHAINDIR" \
+	--json-rpc.api eth,txpool,personal,net,debug,web3 \
+	--chain-id "$CHAINID"
