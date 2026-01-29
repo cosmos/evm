@@ -266,6 +266,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$CONFIG_TOML"
   sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
   sed -i.bak 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$CONFIG_TOML"
+  sed -i.bak 's/type = "flood"/type = "app"/g' "$CONFIG_TOML"
 
   # enable prometheus metrics and all APIs for dev node
   sed -i.bak 's/prometheus = false/prometheus = true/' "$CONFIG_TOML"
@@ -337,13 +338,3 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
     echo "pending mode is on, please wait for the first block committed."
   fi
 fi
-
-# Start the node
-evmd start "$TRACE" \
-	--pruning nothing \
-	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0atest \
-	--evm.min-tip=0 \
-	--home "$CHAINDIR" \
-	--json-rpc.api eth,txpool,personal,net,debug,web3 \
-	--chain-id "$CHAINID"
