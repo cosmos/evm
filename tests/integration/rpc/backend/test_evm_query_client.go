@@ -340,3 +340,11 @@ func RegisterGlobalMinGasPrice(queryClient *mocks.EVMQueryClient, height int64) 
 	queryClient.EXPECT().GlobalMinGasPrice(mock.Anything, &evmtypes.QueryGlobalMinGasPriceRequest{}).
 		Return(&evmtypes.QueryGlobalMinGasPriceResponse{MinGasPrice: math.OneInt()}, nil)
 }
+
+// Precompile
+func RegisterPrecompile(queryClient *mocks.EVMQueryClient, address interface{}) {
+	queryClient.On("Precompile", mock.Anything, mock.MatchedBy(func(req *evmtypes.QueryPrecompileRequest) bool {
+		return true
+	})).
+		Return(&evmtypes.QueryPrecompileResponse{}, nil)
+}

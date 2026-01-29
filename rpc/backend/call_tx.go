@@ -422,20 +422,7 @@ func (b *Backend) DoCall(
 		return nil, errors.New("header not found")
 	}
 
-	var bzOverrides []byte
-	if overrides != nil {
-		bzOverrides = *overrides
-	}
-
-	req := evmtypes.EthCallRequest{
-		Args:            bz,
-		GasCap:          b.RPCGasCap(),
-		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
-		Overrides:       bzOverrides,
-	}
-
-	// From NewContextWithHeight: if the provided height is 0,
+	// From ContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
 	ctx = rpctypes.ContextWithHeight(ctx, blockNr.Int64())
@@ -453,6 +440,36 @@ func (b *Backend) DoCall(
 	// Make sure the context is canceled when the call has completed
 	// this makes sure resources are cleaned up.
 	defer cancel()
+
+	var isPrecompile bool
+	if args.To != nil {
+		precompileReq := &evmtypes.QueryPrecompileRequest{Address: args.To.Hex()}
+		if res, err := b.QueryClient.Precompile(ctx, precompileReq); err == nil {
+			isPrecompile = res.IsPrecompile
+		}
+	}
+
+	evmOverrides, cosmosOverrides, err := rpctypes.ParseOverrides(overrides, isPrecompile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse overrides: %w", err)
+	}
+
+	var bzOverrides []byte
+	if evmOverrides != nil {
+		bzOverrides, err = json.Marshal(evmOverrides)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal EVM overrides: %w", err)
+		}
+	}
+
+	req := evmtypes.EthCallRequest{
+		Args:            bz,
+		GasCap:          b.RPCGasCap(),
+		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
+		ChainId:         b.EvmChainID.Int64(),
+		Overrides:       bzOverrides,
+		StateOverrides:  cosmosOverrides,
+	}
 
 	res, err := b.QueryClient.EthCall(ctx, &req)
 	if err != nil {
