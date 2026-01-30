@@ -86,8 +86,11 @@ func (im IBCMiddleware) OnRecvPacket(
 			Status: channeltypesv2.PacketStatus_Failure,
 		}
 	}
-	im.keeper.OnRecvPacket(ctx, packet, ack)
-	return recvResult
+	modifiedAck := im.keeper.OnRecvPacket(ctx, packet, ack)
+	if !modifiedAck.Success() {
+		return channeltypesv2.RecvPacketResult{Status: channeltypesv2.PacketStatus_Failure}
+	}
+	return channeltypesv2.RecvPacketResult{Status: recvResult.Status, Acknowledgement: modifiedAck.Acknowledgement()}
 }
 
 // OnAcknowledgementPacket implements the IBCModule interface.

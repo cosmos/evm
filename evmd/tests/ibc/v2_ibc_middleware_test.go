@@ -17,6 +17,7 @@ import (
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 	v2 "github.com/cosmos/evm/x/erc20/v2"
+	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
@@ -941,4 +942,102 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			}
 		})
 	}
+}
+
+func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20Rollback() {
+	suite.SetupTest()
+	nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+	senderEthAddr := nativeErc20.Account
+	sender := sdk.AccAddress(senderEthAddr.Bytes())
+	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
+
+	evmCtx := suite.evmChainA.GetContext()
+	evmApp := suite.evmChainA.App.(*evmd.EVMD)
+
+	_, err := evmApp.Erc20Keeper.ConvertERC20(
+		evmCtx,
+		types.NewMsgConvertERC20(
+			sendAmt,
+			sender,
+			nativeErc20.ContractAddr,
+			senderEthAddr,
+		),
+	)
+	suite.Require().NoError(err)
+
+	path := suite.pathAToB
+	chainBAcc := suite.chainB.SenderAccount.GetAddress()
+	packetData := transfertypes.NewFungibleTokenPacketData(
+		nativeErc20.Denom, sendAmt.String(),
+		sender.String(), chainBAcc.String(),
+		"",
+	)
+	payload := channeltypesv2.NewPayload(
+		transfertypes.PortID, transfertypes.PortID,
+		transfertypes.V1, transfertypes.EncodingJSON,
+		packetData.GetBytes(),
+	)
+	timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
+	packet, err := path.EndpointA.MsgSendPacketWithSender(timeoutTimestamp, payload, evmibctesting.SenderAccount{
+		SenderPrivKey: suite.evmChainA.SenderPrivKey,
+		SenderAccount: suite.evmChainA.SenderAccount,
+	})
+	suite.Require().NoError(err)
+
+	escrowAddr := transfertypes.GetEscrowAddress(transfertypes.PortID, path.EndpointA.ClientID)
+	escrowedBal := evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
+	suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+
+	_, err = path.EndpointB.MsgRecvPacketWithResult(packet)
+	suite.Require().NoError(err)
+
+	chainBNativeErc20Denom := transfertypes.NewDenom(
+		nativeErc20.Denom,
+		transfertypes.NewHop(
+			transfertypes.PortID,
+			path.EndpointB.ClientID,
+		),
+	)
+	receiver := suite.evmChainA.SenderAccount.GetAddress()
+	returnData := transfertypes.NewFungibleTokenPacketData(
+		chainBNativeErc20Denom.Path(), sendAmt.String(),
+		chainBAcc.String(), receiver.String(), "",
+	)
+	returnPayload := channeltypesv2.NewPayload(
+		transfertypes.PortID, transfertypes.PortID,
+		transfertypes.V1, transfertypes.EncodingJSON,
+		returnData.GetBytes(),
+	)
+	reversePath := path.Reversed()
+	returnTimeout := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
+	returnPacket, err := reversePath.EndpointA.MsgSendPacketWithSender(returnTimeout, returnPayload, evmibctesting.SenderAccount{
+		SenderPrivKey: suite.chainB.SenderPrivKey,
+		SenderAccount: suite.chainB.SenderAccount,
+	})
+	suite.Require().NoError(err)
+
+	evmCtx = suite.evmChainA.GetContext()
+	evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, false)
+
+	res, err := reversePath.EndpointB.MsgRecvPacketWithResult(returnPacket)
+	suite.Require().NoError(err)
+
+	ackBytes, err := evmibctesting.ParseAckV2FromEvents(res.Events)
+	suite.Require().NoError(err)
+	var ack channeltypesv2.Acknowledgement
+	err = proto.Unmarshal(ackBytes, &ack)
+	suite.Require().NoError(err)
+	suite.Require().Equal(1, len(ack.AppAcknowledgements))
+
+	// Verify packet was successfully received in bank keeper but not received by erc20 contract resulting in ErrAck
+	suite.Require().Equal([][]byte{channeltypesv2.ErrorAcknowledgement[:]}, ack.AppAcknowledgements)
+	evmCtx = suite.evmChainA.GetContext()
+	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
+	suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+
+	erc20BalAfterRecv := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+	suite.Require().Equal("0", erc20BalAfterRecv.String())
+
+	bankBalAfterRecv := evmApp.BankKeeper.GetBalance(evmCtx, receiver, nativeErc20.Denom)
+	suite.Require().Equal("0", bankBalAfterRecv.Amount.String())
 }
