@@ -267,7 +267,13 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	return m.insert(ctx, tx, true)
+	// wait for an error to be returned or context cancelled
+	select {
+	case err := <-m.insert(ctx, tx):
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // InsertAsync adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
@@ -276,34 +282,41 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
 func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
-	return m.insert(ctx, tx, false)
+	select {
+	case err := <-m.insert(ctx, tx):
+		// if we have an error ready on the channel returned from insert,
+		// return that (cosmos tx or unable to try and insert the tx due to
+		// parsing error).
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// error was not ready immediately, return nil while async things
+		// happen
+		return nil
+	}
 }
 
-func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
-	ethMsg, err := evmTxFromCosmosTx(tx)
+func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) chan error {
+	out := make(chan error)
 
+	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 
-		if !sync {
-			m.iq.Push(ethTx)
-			return nil
-		}
-
-		errs := m.txPool.Add([]*ethtypes.Transaction{ethTx}, sync)
-		if len(errs) != 1 {
-			panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-		}
-		if errs[0] != nil {
-			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
-		}
-		return errs[0]
+		// we push the tx onto the insert queue so the tx will be inserted
+		// at a later point. We pass along the `out` chan, so that the
+		// insert queue will notify the caller of any errors that occurred
+		// when inserting into the mempool.
+		m.iq.Push(ethTx, out)
+		return out
 	case errors.Is(err, ErrNotEVMTransaction):
-		return m.insertCosmosTx(ctx, tx)
+		out <- m.insertCosmosTx(ctx, tx)
 	default:
-		return err
+		out <- err
 	}
+	return out
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also

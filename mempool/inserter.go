@@ -17,11 +17,16 @@ type TxPool interface {
 	Add(txs []*ethtypes.Transaction, sync bool) []error
 }
 
+type item struct {
+	tx  *ethtypes.Transaction
+	sub chan<- error
+}
+
 // insertQueue allows for txs to be pushed into a pool asynchronously.
 type insertQueue struct {
 	// queue is a queue of txs to be inserted into the pool. txs are pushed
 	// onto the back, and popped from the from, FIFO.
-	queue deque.Deque[*ethtypes.Transaction]
+	queue deque.Deque[item]
 	lock  sync.RWMutex
 
 	// signal signals that there are txs available in the queue. Consumers of
@@ -50,13 +55,14 @@ func newInsertQueue(pool TxPool, logger log.Logger) *insertQueue {
 }
 
 // Push enqueues a tx to eventually be added to the pool.
-func (iq *insertQueue) Push(tx *ethtypes.Transaction) {
+func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 	if tx == nil {
 		return
 	}
 
 	iq.lock.Lock()
-	iq.queue.PushBack(tx)
+	iq.queue.PushBack(item{tx: tx, sub: sub})
+	fmt.Println("pushed tx to back of insert queue", "hash", tx.Hash())
 	iq.lock.Unlock()
 
 	// signal that there are txs available
@@ -77,11 +83,19 @@ func (iq *insertQueue) loop() {
 		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size")
 		if numTxsAvailable > 0 {
 			iq.lock.Lock()
-			tx := iq.queue.PopFront()
+			item := iq.queue.PopFront()
 			iq.lock.Unlock()
 
-			if tx != nil {
-				iq.addTx(tx)
+			if item.tx != nil {
+				err := iq.addTx(item.tx)
+
+				// if the item has a subscriber on it, push any errors that
+				// occurred to them
+				if item.sub != nil {
+					item.sub <- err
+					fmt.Println("inserted tx to pool and notified caller", "hash", item.tx.Hash())
+					close(item.sub)
+				}
 			}
 			if numTxsAvailable-1 > 0 {
 				// there are still txs available, try and insert immediately
@@ -105,8 +119,8 @@ func (iq *insertQueue) loop() {
 	}
 }
 
-// addTx adds a tx to the pool, logging an error if any occurred.
-func (iq *insertQueue) addTx(tx *ethtypes.Transaction) {
+// addTx adds a tx to the pool, returning any errors that occurred
+func (iq *insertQueue) addTx(tx *ethtypes.Transaction) error {
 	defer func(t0 time.Time) {
 		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck
 	}(time.Now())
@@ -115,9 +129,7 @@ func (iq *insertQueue) addTx(tx *ethtypes.Transaction) {
 	if len(errs) != 1 {
 		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
 	}
-	if errs[0] != nil {
-		iq.logger.Error("error inserting evm tx into pool", "tx_hash", tx.Hash(), "err", errs[0])
-	}
+	return errs[0]
 }
 
 // Close stops the main loop of the insert queue.
