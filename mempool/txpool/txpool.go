@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -81,7 +82,7 @@ type TxPool struct {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
+func New(gasTip uint64, chain BlockChain, tracker *reserver.ReservationTracker, subpools []SubPool) (*TxPool, error) {
 	// Retrieve the current head so that all Subpools and this main coordinator
 	// pool will have the same starting state, even if the chain moves forward
 	// during initialization.
@@ -106,9 +107,8 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 		term:     make(chan struct{}),
 		sync:     make(chan chan error),
 	}
-	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
-		if err := subpool.Init(gasTip, head, reserver.NewHandle(i)); err != nil {
+		if err := subpool.Init(gasTip, head, tracker.NewHandle(i)); err != nil {
 			for j := i - 1; j >= 0; j-- {
 				subpools[j].Close()
 			}

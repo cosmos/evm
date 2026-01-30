@@ -43,6 +43,25 @@ const (
 	txGasLimit = 50000
 )
 
+func TestMempool_Reserver(t *testing.T) {
+	mp, _, txConfig, _, bus, accounts := setupMempoolWithAccounts(t)
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+	// for a reset to happen for block 1 and wait for it
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
+	err = mp.Insert(sdk.Context{}, tx)
+	require.NoError(t, err)
+
+}
+
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
