@@ -1017,6 +1017,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20Rollback() {
 	suite.Require().NoError(err)
 
 	evmCtx = suite.evmChainA.GetContext()
+	// Set SendEnabled = false on our denom to trigger failure in middleware keeper call
 	evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, false)
 
 	res, err := reversePath.EndpointB.MsgRecvPacketWithResult(returnPacket)
