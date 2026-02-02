@@ -218,41 +218,6 @@ func (b *Backend) handleSendTxError(tx *ethtypes.Transaction, signer ethtypes.Si
 	return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 }
 
-func (b *Backend) handleInsertTxError(tx *ethtypes.Transaction, signer ethtypes.Signer, err error) (common.Hash, error) {
-	txHash := tx.Hash()
-
-	// Check if this is a nonce gap error that was successfully queued
-	if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-		// Transaction was successfully queued due to nonce gap, return success to client
-		b.Logger.Debug("Transaction queued due to nonce gap", "hash", txHash.Hex())
-		return txHash, nil
-	}
-
-	if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
-		from, err := signer.Sender(tx)
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
-		}
-
-		nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
-		}
-
-		// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
-		if tx.Nonce() < nonce {
-			return common.Hash{}, err
-		}
-
-		// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
-		return txHash, nil
-	}
-
-	b.Logger.Error("Failed to broadcast tx", "error", err.Error())
-
-	return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
-}
-
 // SetTxDefaults populates tx message with default values in case they are not
 // provided on the args
 func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.TransactionArgs, error) {

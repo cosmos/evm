@@ -180,7 +180,7 @@ type MempoolConfig struct {
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
 	// InsertQueueSize is the maximum number of transactions that can be in the
 	// insert queue at once (0 means unbounded)
-	InsertQueueSize uint64 `mapstructure:"insert-queue-size"`
+	InsertQueueSize int `mapstructure:"insert-queue-size"`
 }
 
 // DefaultMempoolConfig returns the default mempool configuration

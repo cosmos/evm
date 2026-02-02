@@ -40,18 +40,16 @@ type insertQueue struct {
 
 	// maxSize is the max amount of txs that can be in the insert queue before
 	// rejecting new additions
-	maxSize uint64
+	maxSize int
 
 	logger log.Logger
 	done   chan struct{}
 }
 
-var (
-	ErrInsertQueueFull = errors.New("insert queue full")
-)
+var ErrInsertQueueFull = errors.New("insert queue full")
 
 // newInsertQueue creates a new insertQueue
-func newInsertQueue(pool TxPool, maxSize uint64, logger log.Logger) *insertQueue {
+func newInsertQueue(pool TxPool, maxSize int, logger log.Logger) *insertQueue {
 	iq := &insertQueue{
 		pool:    pool,
 		maxSize: maxSize,
@@ -153,7 +151,7 @@ func (iq *insertQueue) addTx(tx *ethtypes.Transaction) error {
 func (iq *insertQueue) isFull() bool {
 	iq.lock.RLock()
 	defer iq.lock.RUnlock()
-	return iq.queue.Len() >= int(iq.maxSize)
+	return iq.queue.Len() >= iq.maxSize
 }
 
 // Close stops the main loop of the insert queue.

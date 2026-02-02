@@ -154,13 +154,13 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
 }
 
-func GetInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
+func GetInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
 		logger.Error("app options is nil, using insert queue size of 5000")
 		return 5000
 	}
 
-	return cast.ToUint64(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
+	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

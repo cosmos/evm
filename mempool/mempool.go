@@ -101,7 +101,7 @@ type EVMMempoolConfig struct {
 	// InsertQueueSize is how many txs can be stored in the insert queue
 	// pending insertion into the mempool. Note the insert queue is only used
 	// for EVM txs.
-	InsertQueueSize uint64
+	InsertQueueSize int
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.

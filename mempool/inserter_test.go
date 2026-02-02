@@ -166,15 +166,14 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	})
 
 	logger := log.NewNopLogger()
-	maxSize := uint64(5)
-	iq := newInsertQueue(pool, maxSize, logger)
+	iq := newInsertQueue(pool, 5, logger)
 	defer iq.Close()
 
 	// Fill the queue to capacity
 	// Note: The first tx will be immediately popped and start processing (where it blocks),
 	// so we need to push maxSize + 1 transactions to actually fill the queue
-	for i := uint64(0); i <= maxSize; i++ {
-		tx := ethtypes.NewTransaction(i+1, [20]byte{byte(i + 1)}, nil, 21000, nil, nil)
+	for nonce := uint64(0); nonce <= 5; nonce++ {
+		tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
 		iq.Push(tx, nil)
 	}
 
