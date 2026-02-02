@@ -281,11 +281,8 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
 	ethMsg, err := evmTxFromCosmosTx(tx)
-
-	switch {
-	case err == nil:
+	if err == nil {
 		ethTx := ethMsg.AsTransaction()
-
 		if !sync {
 			m.iq.Push(ethTx)
 			return nil
@@ -299,11 +296,9 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
 		}
 		return errs[0]
-	case errors.Is(err, ErrNotEVMTransaction):
-		return m.insertCosmosTx(ctx, tx)
-	default:
-		return err
 	}
+
+	return m.insertCosmosTx(ctx, tx)
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
