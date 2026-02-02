@@ -34,7 +34,7 @@ func NewBankWrapper(
 // Bank wrapper own methods
 // ------------------------------------------------------------------------------------------
 
-func (w BankWrapper) SetBalanceForAccount(ctx context.Context, account sdk.AccAddress, amt *big.Int) error {
+func (w BankWrapper) SetBalance(ctx context.Context, account sdk.AccAddress, amt *big.Int) error {
 	coin := sdk.Coin{Denom: types.GetEVMCoinDenom(), Amount: sdkmath.NewIntFromBigInt(amt)}
 
 	convertedCoin, err := types.ConvertEvmCoinDenomToExtendedDenom(coin)
@@ -42,7 +42,7 @@ func (w BankWrapper) SetBalanceForAccount(ctx context.Context, account sdk.AccAd
 		return errors.Wrap(err, "failed to set coins in bank wrapper")
 	}
 
-	return w.SetBalance(ctx, account, convertedCoin)
+	return w.UncheckedSetBalance(ctx, account, convertedCoin)
 }
 
 // ------------------------------------------------------------------------------------------

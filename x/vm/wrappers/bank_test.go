@@ -22,7 +22,7 @@ import (
 
 // --------------------------------------TRANSACTIONS-----------------------------------------------
 
-func TestSetBalanceForAccount(t *testing.T) {
+func TestSetBalance(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
 
@@ -95,7 +95,7 @@ func TestSetBalanceForAccount(t *testing.T) {
 			tc.mockSetup(mockBankKeeper)
 
 			bankWrapper := wrappers.NewBankWrapper(mockBankKeeper)
-			err = bankWrapper.SetBalanceForAccount(context.Background(), account, tc.amount)
+			err = bankWrapper.SetBalance(context.Background(), account, tc.amount)
 
 			if tc.expectErr != "" {
 				require.ErrorContains(t, err, tc.expectErr)

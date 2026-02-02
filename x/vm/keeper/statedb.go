@@ -113,7 +113,7 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	return k.bankWrapper.SetBalanceForAccount(ctx, cosmosAddr, amount.ToBig())
+	return k.bankWrapper.SetBalance(ctx, cosmosAddr, amount.ToBig())
 }
 
 // SetAccount updates nonce/balance/codeHash together.

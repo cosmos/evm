@@ -88,7 +88,7 @@ type EvmHooks interface {
 type BankWrapper interface {
 	BankKeeper
 
-	SetBalanceForAccount(ctx context.Context, account sdk.AccAddress, amt *big.Int) error
+	SetBalance(ctx context.Context, account sdk.AccAddress, amt *big.Int) error
 }
 
 // ConsensusParamsKeeper defines the expected consensus params keeper.

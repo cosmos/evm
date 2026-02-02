@@ -873,54 +873,6 @@ func (_c *BankKeeper_SendCoinsFromModuleToModule_Call) RunAndReturn(run func(con
 	return _c
 }
 
-// SetBalance provides a mock function with given fields: ctx, addr, amt
-func (_m *BankKeeper) SetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
-	ret := _m.Called(ctx, addr, amt)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SetBalance")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, types.Coin) error); ok {
-		r0 = rf(ctx, addr, amt)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// BankKeeper_SetBalance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetBalance'
-type BankKeeper_SetBalance_Call struct {
-	*mock.Call
-}
-
-// SetBalance is a helper method to define mock.On call
-//   - ctx context.Context
-//   - addr types.AccAddress
-//   - amt types.Coin
-func (_e *BankKeeper_Expecter) SetBalance(ctx interface{}, addr interface{}, amt interface{}) *BankKeeper_SetBalance_Call {
-	return &BankKeeper_SetBalance_Call{Call: _e.mock.On("SetBalance", ctx, addr, amt)}
-}
-
-func (_c *BankKeeper_SetBalance_Call) Run(run func(ctx context.Context, addr types.AccAddress, amt types.Coin)) *BankKeeper_SetBalance_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(types.AccAddress), args[2].(types.Coin))
-	})
-	return _c
-}
-
-func (_c *BankKeeper_SetBalance_Call) Return(_a0 error) *BankKeeper_SetBalance_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *BankKeeper_SetBalance_Call) RunAndReturn(run func(context.Context, types.AccAddress, types.Coin) error) *BankKeeper_SetBalance_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // SetDenomMetaData provides a mock function with given fields: ctx, denomMetaData
 func (_m *BankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata) {
 	_m.Called(ctx, denomMetaData)
@@ -1003,13 +955,60 @@ func (_c *BankKeeper_SpendableCoin_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
+// UncheckedSetBalance provides a mock function with given fields: ctx, addr, amt
+func (_m *BankKeeper) UncheckedSetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	ret := _m.Called(ctx, addr, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UncheckedSetBalance")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, types.Coin) error); ok {
+		r0 = rf(ctx, addr, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// BankKeeper_UncheckedSetBalance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UncheckedSetBalance'
+type BankKeeper_UncheckedSetBalance_Call struct {
+	*mock.Call
+}
+
+// UncheckedSetBalance is a helper method to define mock.On call
+//   - ctx context.Context
+//   - addr types.AccAddress
+//   - amt types.Coin
+func (_e *BankKeeper_Expecter) UncheckedSetBalance(ctx interface{}, addr interface{}, amt interface{}) *BankKeeper_UncheckedSetBalance_Call {
+	return &BankKeeper_UncheckedSetBalance_Call{Call: _e.mock.On("UncheckedSetBalance", ctx, addr, amt)}
+}
+
+func (_c *BankKeeper_UncheckedSetBalance_Call) Run(run func(ctx context.Context, addr types.AccAddress, amt types.Coin)) *BankKeeper_UncheckedSetBalance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(types.AccAddress), args[2].(types.Coin))
+	})
+	return _c
+}
+
+func (_c *BankKeeper_UncheckedSetBalance_Call) Return(_a0 error) *BankKeeper_UncheckedSetBalance_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BankKeeper_UncheckedSetBalance_Call) RunAndReturn(run func(context.Context, types.AccAddress, types.Coin) error) *BankKeeper_UncheckedSetBalance_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewBankKeeper creates a new instance of BankKeeper. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *BankKeeper {
+}) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

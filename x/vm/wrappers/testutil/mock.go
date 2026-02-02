@@ -427,20 +427,6 @@ func (mr *MockBankKeeperMockRecorder) SendCoinsFromModuleToAccountVirtual(ctx, s
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccountVirtual", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromModuleToAccountVirtual), ctx, senderModule, recipientAddr, amt)
 }
 
-// SetBalance mocks base method.
-func (m *MockBankKeeper) SetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetBalance", ctx, addr, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetBalance indicates an expected call of SetBalance.
-func (mr *MockBankKeeperMockRecorder) SetBalance(ctx, addr, amt any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalance", reflect.TypeOf((*MockBankKeeper)(nil).SetBalance), ctx, addr, amt)
-}
-
 // SetDenomMetaData mocks base method.
 func (m *MockBankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData types1.Metadata) {
 	m.ctrl.T.Helper()
@@ -465,6 +451,20 @@ func (m *MockBankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddres
 func (mr *MockBankKeeperMockRecorder) SpendableCoin(ctx, addr, denom any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpendableCoin", reflect.TypeOf((*MockBankKeeper)(nil).SpendableCoin), ctx, addr, denom)
+}
+
+// UncheckedSetBalance mocks base method.
+func (m *MockBankKeeper) UncheckedSetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UncheckedSetBalance", ctx, addr, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UncheckedSetBalance indicates an expected call of UncheckedSetBalance.
+func (mr *MockBankKeeperMockRecorder) UncheckedSetBalance(ctx, addr, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UncheckedSetBalance", reflect.TypeOf((*MockBankKeeper)(nil).UncheckedSetBalance), ctx, addr, amt)
 }
 
 // MockStakingKeeper is a mock of StakingKeeper interface.
@@ -903,31 +903,17 @@ func (mr *MockBankWrapperMockRecorder) SendCoinsFromModuleToAccountVirtual(ctx, 
 }
 
 // SetBalance mocks base method.
-func (m *MockBankWrapper) SetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+func (m *MockBankWrapper) SetBalance(ctx context.Context, account types.AccAddress, amt *big.Int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetBalance", ctx, addr, amt)
+	ret := m.ctrl.Call(m, "SetBalance", ctx, account, amt)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetBalance indicates an expected call of SetBalance.
-func (mr *MockBankWrapperMockRecorder) SetBalance(ctx, addr, amt any) *gomock.Call {
+func (mr *MockBankWrapperMockRecorder) SetBalance(ctx, account, amt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalance", reflect.TypeOf((*MockBankWrapper)(nil).SetBalance), ctx, addr, amt)
-}
-
-// SetBalanceForAccount mocks base method.
-func (m *MockBankWrapper) SetBalanceForAccount(ctx context.Context, account types.AccAddress, amt *big.Int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetBalanceForAccount", ctx, account, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetBalanceForAccount indicates an expected call of SetBalanceForAccount.
-func (mr *MockBankWrapperMockRecorder) SetBalanceForAccount(ctx, account, amt any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalanceForAccount", reflect.TypeOf((*MockBankWrapper)(nil).SetBalanceForAccount), ctx, account, amt)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBalance", reflect.TypeOf((*MockBankWrapper)(nil).SetBalance), ctx, account, amt)
 }
 
 // SetDenomMetaData mocks base method.
@@ -954,6 +940,20 @@ func (m *MockBankWrapper) SpendableCoin(ctx context.Context, addr types.AccAddre
 func (mr *MockBankWrapperMockRecorder) SpendableCoin(ctx, addr, denom any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpendableCoin", reflect.TypeOf((*MockBankWrapper)(nil).SpendableCoin), ctx, addr, denom)
+}
+
+// UncheckedSetBalance mocks base method.
+func (m *MockBankWrapper) UncheckedSetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UncheckedSetBalance", ctx, addr, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UncheckedSetBalance indicates an expected call of UncheckedSetBalance.
+func (mr *MockBankWrapperMockRecorder) UncheckedSetBalance(ctx, addr, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UncheckedSetBalance", reflect.TypeOf((*MockBankWrapper)(nil).UncheckedSetBalance), ctx, addr, amt)
 }
 
 // MockVMKeeper is a mock of VMKeeper interface.
