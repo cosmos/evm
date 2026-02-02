@@ -44,7 +44,7 @@ func TestSetBalance(t *testing.T) {
 				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
 
 				mbk.EXPECT().
-					SetBalance(gomock.Any(), account, expectedCoin).
+					UncheckedSetBalance(gomock.Any(), account, expectedCoin).
 					Return(nil)
 			},
 		},
@@ -58,7 +58,7 @@ func TestSetBalance(t *testing.T) {
 				expectedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, amt)
 
 				mbk.EXPECT().
-					SetBalance(gomock.Any(), account, expectedCoin).
+					UncheckedSetBalance(gomock.Any(), account, expectedCoin).
 					Return(nil)
 			},
 		},
@@ -71,7 +71,7 @@ func TestSetBalance(t *testing.T) {
 				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
 
 				mbk.EXPECT().
-					SetBalance(
+					UncheckedSetBalance(
 						gomock.Any(),
 						account,
 						expectedCoin,
