@@ -52,6 +52,13 @@ global-queue = {{ .EVM.Mempool.GlobalQueue }}
 # Lifetime is the maximum amount of time non-executable transaction are queued
 lifetime = "{{ .EVM.Mempool.Lifetime }}"
 
+# EVMTxInsertTimeout is how long to wait for EVM tx insertion before returning a queued status.
+# If a transaction takes longer than this to insert into the mempool, the RPC will return
+# success with the tx hash, indicating the tx is queued and will be processed asynchronously.
+# This prevents clients from timing out under heavy load. Set to 0 to wait indefinitely.
+# Recommended: 2-5 seconds.
+evm-tx-insert-timeout = "{{ .EVM.Mempool.InsertTimeout }}"
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################

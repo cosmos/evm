@@ -80,6 +80,7 @@ const (
 	EVMMempoolGlobalQueue              = "evm.mempool.global-queue"
 	EVMMempoolLifetime                 = "evm.mempool.lifetime"
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
+	EVMTxInsertTimeout                 = "evm.mempool.evm-tx-insert-timeout"
 )
 
 // IAVLXEnable (experimental) enables the IAVLX storage engine.

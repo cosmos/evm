@@ -175,18 +175,24 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
+	// InsertTimeout is how long to wait for tx insertion before returning ErrTxQueued.
+	// If a transaction takes longer than this to insert, clients will receive a success
+	// response indicating the tx is queued and will be processed asynchronously.
+	// Set to 0 to wait indefinitely. Recommended: 2-5 seconds.
+	InsertTimeout time.Duration `mapstructure:"evm-tx-insert-timeout"`
 }
 
 // DefaultMempoolConfig returns the default mempool configuration
 func DefaultMempoolConfig() MempoolConfig {
 	return MempoolConfig{
-		PriceLimit:   1,             // Minimum gas price of 1 wei
-		PriceBump:    10,            // 10% price bump to replace transaction
-		AccountSlots: 16,            // 16 executable transaction slots per account
-		GlobalSlots:  5120,          // 4096 + 1024 = 5120 global executable slots
-		AccountQueue: 64,            // 64 non-executable transaction slots per account
-		GlobalQueue:  1024,          // 1024 global non-executable slots
-		Lifetime:     3 * time.Hour, // 3 hour lifetime for queued transactions
+		PriceLimit:    1,               // Minimum gas price of 1 wei
+		PriceBump:     10,              // 10% price bump to replace transaction
+		AccountSlots:  16,              // 16 executable transaction slots per account
+		GlobalSlots:   5120,            // 4096 + 1024 = 5120 global executable slots
+		AccountQueue:  64,              // 64 non-executable transaction slots per account
+		GlobalQueue:   1024,            // 1024 global non-executable slots
+		Lifetime:      3 * time.Hour,   // 3 hour lifetime for queued transactions
+		InsertTimeout: 5 * time.Second, // 5 second timeout before returning queued status
 	}
 }
 

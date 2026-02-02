@@ -157,6 +157,34 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		// return to clients.
 		err := b.Mempool.Insert(b.Application.GetContextForCheckTx(txBytes), cosmosTx)
 		if err != nil {
+			// Check if tx was queued vs actual error
+			if errors.Is(err, mempool.ErrTxQueued) {
+				// Tx is queued - return success with hash
+				// The tx will be processed asynchronously
+				b.Logger.Info("Transaction queued for insertion", "hash", txHash)
+
+				// Track the tx for later status queries
+				if err := b.Mempool.TrackTx(txHash); err != nil {
+					b.Logger.Error("error tracking queued tx", "hash", txHash, "err", err)
+				}
+
+				return tx.Hash(), nil
+			}
+
+			if errors.Is(err, mempool.ErrTxAlreadyQueued) {
+				// Tx is already in the insert queue - return success with hash
+				// No need to track again, we're already tracking it
+				b.Logger.Debug("Transaction already in insert queue", "hash", txHash)
+				return tx.Hash(), nil
+			}
+
+			if errors.Is(err, mempool.ErrInsertTimeout) {
+				// Insertion timed out and tx wasn't queued - reject
+				b.Logger.Error("Transaction insertion timed out", "hash", txHash)
+				return common.Hash{}, fmt.Errorf("transaction insertion timed out")
+			}
+
+			// Actual error - reject the transaction
 			return common.Hash{}, fmt.Errorf("failed to insert tx %s into mempool: %w", txHash, err)
 		}
 

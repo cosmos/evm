@@ -86,11 +86,48 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
+		InsertTimeout:            server.GetInsertTimeout(appOpts, logger),
 	}, nil
 }
 
 const (
-	CodeTypeNoRetry = 1
+	// CodeAlreadyKnown defines a non retryable error code since if this tx is
+	// submitted again, it will be rejected again since the pool already
+	// contains this tx.
+	CodeAlreadyKnown = iota
+
+	// CodeReplaceUnderpriced defines a non retryable error code since if this
+	// tx is submitted again, it will be rejected again since it it is still
+	// underpriced to replace a tx already in the mempool.
+	CodeReplaceUnderpriced
+
+	// CodeTxInvalid defines a non retryable error code since if this tx is
+	// submitted again, it will be rejected again since it failed some level of
+	// non temporary validation (signature, paring, etc...).
+	CodeTxInvalid
+)
+
+const (
+	// CodeTxPoolFull defines a retryable error code since this error is
+	// returned temporarily while the tx pool is full and not accepting txs.
+	CodeTxPoolFull = abci.CodeTypeRetry + 1
+
+	// CodeTxUnderpriced defines a retryable error code since this error is
+	// returned if the mempool is full but the tx cheaper than the cheapest tx
+	// in the pool so it cannot bump another tx out
+	CodeTxUnderpriced = abci.CodeTypeRetry + 2
+
+	// CodeTxReplacesFuturePending defines a retryable error code
+	// since this error is returned if the tx pool is full and this tx is
+	// priced higher than the cheapest tx in the pool (i.e. it is beneficial to
+	// accept it and remove the cheaper txs). However this tx is also nonce
+	// gapped (future), and to add it we must drop a tx from the pending pool.
+	// Now this is actually not beneficial to add this tx since it may not
+	// become executable for a long time, but the pending tx is currently
+	// executable, so we opt to not add this tx. This will only happen if the
+	// pool is full, so we simply return that the pool is full so the user can
+	// wait until the pool is not full and retry this tx.
+	CodeTxReplacesFuturePending = abci.CodeTypeRetry + 3
 )
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
@@ -108,34 +145,17 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 		if err := evmMempool.InsertAsync(ctx, tx); err != nil {
 			switch {
 			case errors.Is(err, txpool.ErrAlreadyKnown):
-				code = CodeTypeNoRetry
-			case errors.Is(err, legacypool.ErrTxPoolOverflow) || errors.Is(err, txpool.ErrUnderpriced) || errors.Is(err, legacypool.ErrFutureReplacePending):
-				// ErrUnderpriced is grouped here since this is returned if the
-				// mempool is full but the tx cheaper than the cheapest tx in the
-				// pool so it cannot bump another tx out
-				//
-				// ErrFutureReplacePending is grouped here since this is returned
-				// if the tx pool is full and this tx is priced higher than the
-				// cheapest tx in the pool (i.e. it is beneficial to accept it and
-				// remove the cheaper txs). However this tx is also nonce gapped
-				// (future), and to add it we must drop a tx from the pending pool.
-				// Now this is actually not beneficial to add this tx since it may
-				// not become executable for a long time, but the pending tx is
-				// currently executable, so we opt to not add this tx. This will
-				// only happen if the pool is full, so we simply return that the
-				// pool is full so the user can wait until the pool is not full and
-				// retry this tx.
-				code = abci.CodeTypeRetry
+				code = CodeAlreadyKnown
+			case errors.Is(err, legacypool.ErrTxPoolOverflow):
+				code = CodeTxPoolFull
+			case errors.Is(err, txpool.ErrUnderpriced):
+				code = CodeTxUnderpriced
+			case errors.Is(err, legacypool.ErrFutureReplacePending):
+				code = CodeTxReplacesFuturePending
 			case errors.Is(err, txpool.ErrReplaceUnderpriced):
-				// Submitting this tx again will result in the same error unless
-				// the current tx it is trying to replace is discarded for some
-				// reason, this is unlikely so we simply return that this tx is
-				// invalid in order to signal to the user that they should modify
-				// it before resubmission.
-				fallthrough
+				code = CodeReplaceUnderpriced
 			default:
-				// failed some level of validation
-				code = CodeTypeNoRetry
+				code = CodeTxInvalid
 			}
 		}
 		return &abci.ResponseInsertTx{Code: code}, nil

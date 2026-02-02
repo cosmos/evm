@@ -156,6 +156,15 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
 }
 
+func GetInsertTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	if appOpts == nil {
+		logger.Error("app options is nil, using insert timeout of 0 (wait indefinitely)")
+		return 0
+	}
+
+	return cast.ToDuration(appOpts.Get(srvflags.EVMTxInsertTimeout))
+}
+
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
 		// we don't want to return 0 here, as then appOpts.Get() will return nil and that will be

@@ -54,6 +54,7 @@ type (
 		cosmosPool               sdkmempool.ExtMempool
 		operateExclusively       bool
 		pendingTxProposalTimeout time.Duration
+		insertTimeout            time.Duration
 
 		/** Utils **/
 		logger        log.Logger
@@ -98,6 +99,10 @@ type EVMMempoolConfig struct {
 	// PendingTxProposalTimeout is the max amount of time to allocate to
 	// fetching (or watiing to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
+	// InsertTimeout is how long to wait for tx insertion before returning
+	// ErrTxQueued. If a transaction takes longer than this to insert, it will
+	// be queued asynchronously.
+	InsertTimeout time.Duration
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -206,6 +211,7 @@ func NewExperimentalEVMMempool(
 		anteHandler:              config.AnteHandler,
 		operateExclusively:       config.OperateExclusively,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
+		insertTimeout:            config.InsertTimeout,
 		reapList:                 NewReapList(txEncoder),
 		txTracker:                newTxTracker(),
 		iq:                       newInsertQueue(legacyPool, logger),
@@ -267,11 +273,38 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+	// Create a timeout context if insertTimeout is configured and context doesn't have a deadline
+	if m.insertTimeout > 0 {
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, m.insertTimeout)
+			defer cancel()
+		}
+	}
+
+	errCh := m.insert(ctx, tx)
+
 	// wait for an error to be returned or context cancelled
 	select {
-	case err := <-m.insert(ctx, tx):
+	case err := <-errCh:
+		// Got result before timeout - return actual error
 		return err
 	case <-ctx.Done():
+		// Context cancelled or timed out
+		// Check if it's because of timeout vs cancellation
+		if ctx.Err() == context.DeadlineExceeded {
+			// Timeout occurred - verify the transaction is actually in the insert queue
+			// Only check for EVM transactions
+			if ethMsg, err := evmTxFromCosmosTx(tx); err == nil {
+				txHash := ethMsg.AsTransaction().Hash()
+				if m.iq.Contains(txHash) {
+					// Transaction is queued and will be processed asynchronously
+					return ErrTxQueued
+				}
+			}
+			// Timeout occurred but tx wasn't queued (or not an EVM tx)
+			return ErrInsertTimeout
+		}
 		return ctx.Err()
 	}
 }
@@ -304,6 +337,12 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) chan err
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
+
+		// Check if the tx is already in the insert queue
+		if m.iq.Contains(ethTx.Hash()) {
+			out <- ErrTxAlreadyQueued
+			return out
+		}
 
 		// we push the tx onto the insert queue so the tx will be inserted
 		// at a later point. We pass along the `out` chan, so that the
