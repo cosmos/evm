@@ -236,6 +236,8 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
 	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
 	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
+	cmd.Flags().Duration(srvflags.EVMMempoolPendingTxProposalTimeout, cosmosevmserverconfig.DefaultMempoolConfig().PendingTxProposalTimeout, "the maximum amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal")
+	cmd.Flags().Uint64(srvflags.EVMMempoolInsertQueueSize, cosmosevmserverconfig.DefaultMempoolConfig().InsertQueueSize, "the maximum number of transactions that can be in the insert queue at once")
 
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")

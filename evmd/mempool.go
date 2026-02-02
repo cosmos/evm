@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cosmos/evm/mempool/txpool"
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log"
@@ -86,48 +85,13 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		MinTip:                   server.GetMinTip(appOpts, logger),
 		OperateExclusively:       mempoolOperateExclusively,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
-		InsertTimeout:            server.GetInsertTimeout(appOpts, logger),
+		InsertQueueSize:          server.GetInsertQueueSize(appOpts, logger),
 	}, nil
 }
 
 const (
-	// CodeAlreadyKnown defines a non retryable error code since if this tx is
-	// submitted again, it will be rejected again since the pool already
-	// contains this tx.
-	CodeAlreadyKnown = iota
-
-	// CodeReplaceUnderpriced defines a non retryable error code since if this
-	// tx is submitted again, it will be rejected again since it it is still
-	// underpriced to replace a tx already in the mempool.
-	CodeReplaceUnderpriced
-
-	// CodeTxInvalid defines a non retryable error code since if this tx is
-	// submitted again, it will be rejected again since it failed some level of
-	// non temporary validation (signature, paring, etc...).
-	CodeTxInvalid
-)
-
-const (
-	// CodeTxPoolFull defines a retryable error code since this error is
-	// returned temporarily while the tx pool is full and not accepting txs.
-	CodeTxPoolFull = abci.CodeTypeRetry + 1
-
-	// CodeTxUnderpriced defines a retryable error code since this error is
-	// returned if the mempool is full but the tx cheaper than the cheapest tx
-	// in the pool so it cannot bump another tx out
-	CodeTxUnderpriced = abci.CodeTypeRetry + 2
-
-	// CodeTxReplacesFuturePending defines a retryable error code
-	// since this error is returned if the tx pool is full and this tx is
-	// priced higher than the cheapest tx in the pool (i.e. it is beneficial to
-	// accept it and remove the cheaper txs). However this tx is also nonce
-	// gapped (future), and to add it we must drop a tx from the pending pool.
-	// Now this is actually not beneficial to add this tx since it may not
-	// become executable for a long time, but the pending tx is currently
-	// executable, so we opt to not add this tx. This will only happen if the
-	// pool is full, so we simply return that the pool is full so the user can
-	// wait until the pool is not full and retry this tx.
-	CodeTxReplacesFuturePending = abci.CodeTypeRetry + 3
+	// CodeTxInvalid defines a non retryable error code
+	CodeTxInvalid = 0
 )
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
@@ -144,16 +108,8 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 		code := abci.CodeTypeOK
 		if err := evmMempool.InsertAsync(ctx, tx); err != nil {
 			switch {
-			case errors.Is(err, txpool.ErrAlreadyKnown):
-				code = CodeAlreadyKnown
-			case errors.Is(err, legacypool.ErrTxPoolOverflow):
-				code = CodeTxPoolFull
-			case errors.Is(err, txpool.ErrUnderpriced):
-				code = CodeTxUnderpriced
-			case errors.Is(err, legacypool.ErrFutureReplacePending):
-				code = CodeTxReplacesFuturePending
-			case errors.Is(err, txpool.ErrReplaceUnderpriced):
-				code = CodeReplaceUnderpriced
+			case errors.Is(err, mempool.ErrInsertQueueFull):
+				code = abci.CodeTypeRetry
 			default:
 				code = CodeTxInvalid
 			}

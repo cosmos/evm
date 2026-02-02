@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -37,17 +38,26 @@ type insertQueue struct {
 	// pool is the txPool that txs will be added to.
 	pool TxPool
 
+	// maxSize is the max amount of txs that can be in the insert queue before
+	// rejecting new additions
+	maxSize uint64
+
 	logger log.Logger
 	done   chan struct{}
 }
 
+var (
+	ErrInsertQueueFull = errors.New("insert queue full")
+)
+
 // newInsertQueue creates a new insertQueue
-func newInsertQueue(pool TxPool, logger log.Logger) *insertQueue {
+func newInsertQueue(pool TxPool, maxSize uint64, logger log.Logger) *insertQueue {
 	iq := &insertQueue{
-		pool:   pool,
-		logger: logger,
-		signal: make(chan struct{}, 1),
-		done:   make(chan struct{}),
+		pool:    pool,
+		maxSize: maxSize,
+		logger:  logger,
+		signal:  make(chan struct{}, 1),
+		done:    make(chan struct{}),
 	}
 
 	go iq.loop()
@@ -61,6 +71,11 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 	}
 
 	iq.lock.Lock()
+	if iq.queue.Len() >= int(iq.maxSize) {
+		sub <- ErrInsertQueueFull
+		iq.lock.Unlock()
+		return
+	}
 	iq.queue.PushBack(item{tx: tx, sub: sub})
 	iq.lock.Unlock()
 

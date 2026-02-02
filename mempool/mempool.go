@@ -54,7 +54,6 @@ type (
 		cosmosPool               sdkmempool.ExtMempool
 		operateExclusively       bool
 		pendingTxProposalTimeout time.Duration
-		insertTimeout            time.Duration
 
 		/** Utils **/
 		logger        log.Logger
@@ -99,10 +98,10 @@ type EVMMempoolConfig struct {
 	// PendingTxProposalTimeout is the max amount of time to allocate to
 	// fetching (or watiing to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
-	// InsertTimeout is how long to wait for tx insertion before returning
-	// ErrTxQueued. If a transaction takes longer than this to insert, it will
-	// be queued asynchronously.
-	InsertTimeout time.Duration
+	// InsertQueueSize is how many txs can be stored in the insert queue
+	// pending insertion into the mempool. Note the insert queue is only used
+	// for EVM txs.
+	InsertQueueSize uint64
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -211,10 +210,9 @@ func NewExperimentalEVMMempool(
 		anteHandler:              config.AnteHandler,
 		operateExclusively:       config.OperateExclusively,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		insertTimeout:            config.InsertTimeout,
 		reapList:                 NewReapList(txEncoder),
 		txTracker:                newTxTracker(),
-		iq:                       newInsertQueue(legacyPool, logger),
+		iq:                       newInsertQueue(legacyPool, config.InsertQueueSize, logger),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
