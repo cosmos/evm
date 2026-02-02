@@ -347,5 +347,4 @@ evmd start "$TRACE" \
 	--evm.min-tip=0 \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
-        --evm.mempool.pending-tx-proposal-timeout="250ms" \ 
 	--chain-id "$CHAINID"
