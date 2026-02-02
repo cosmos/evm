@@ -90,8 +90,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 }
 
 const (
-	// CodeTxInvalid defines a non retryable error code
-	CodeTxInvalid = 0
+	CodeTypeNoRetry = 1
 )
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
@@ -107,11 +106,16 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 
 		code := abci.CodeTypeOK
 		if err := evmMempool.InsertAsync(ctx, tx); err != nil {
+			// since we are using InsertAsync here, the only errors that will
+			// be returned are via the InsertQueue if it is full (for EVM txs),
+			// in which case we should retry, or some level of validation
+			// failed on a cosmos tx (CheckTx), invalid encoding, etc, in which
+			// case we should not retry
 			switch {
 			case errors.Is(err, mempool.ErrInsertQueueFull):
 				code = abci.CodeTypeRetry
 			default:
-				code = CodeTxInvalid
+				code = CodeTypeNoRetry
 			}
 		}
 		return &abci.ResponseInsertTx{Code: code}, nil
