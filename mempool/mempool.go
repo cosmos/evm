@@ -305,7 +305,7 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 }
 
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) chan error {
-	subscription := make(chan error)
+	subscription := make(chan error, 1)
 
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {

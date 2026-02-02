@@ -70,12 +70,15 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 		return
 	}
 
-	iq.lock.Lock()
-	if iq.queue.Len() >= int(iq.maxSize) {
-		sub <- ErrInsertQueueFull
-		iq.lock.Unlock()
+	if iq.isFull() {
+		if sub != nil {
+			sub <- ErrInsertQueueFull
+			close(sub)
+		}
 		return
 	}
+
+	iq.lock.Lock()
 	iq.queue.PushBack(item{tx: tx, sub: sub})
 	iq.lock.Unlock()
 
@@ -101,7 +104,6 @@ func (iq *insertQueue) loop() {
 			iq.lock.Unlock()
 
 			if item.tx != nil {
-				time.Sleep(5 * time.Second)
 				err := iq.addTx(item.tx)
 
 				// if the item has a subscriber on it, push any errors that
@@ -144,6 +146,14 @@ func (iq *insertQueue) addTx(tx *ethtypes.Transaction) error {
 		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
 	}
 	return errs[0]
+}
+
+// isFull returns true if the insert queue is at capacity and cannot accept
+// anymore items, false otherwise.
+func (iq *insertQueue) isFull() bool {
+	iq.lock.RLock()
+	defer iq.lock.RUnlock()
+	return iq.queue.Len() >= int(iq.maxSize)
 }
 
 // Close stops the main loop of the insert queue.

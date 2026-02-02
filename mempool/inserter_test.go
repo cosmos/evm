@@ -56,7 +56,7 @@ func (m *mockTxPool) setAddFn(fn func([]*ethtypes.Transaction, bool) []error) {
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Create a test transaction
@@ -79,7 +79,7 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -108,7 +108,7 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Push nil transaction
@@ -132,7 +132,7 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	})
 
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Push first transaction to start processing
@@ -150,4 +150,51 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 		iq.Push(tx, nil)
 	}
 	require.Less(t, time.Since(start), 100*time.Millisecond, "pushes should not block")
+}
+
+func TestInsertQueue_RejectsWhenFull(t *testing.T) {
+	pool := newMockTxPool()
+
+	// when addFn is called, push a value onto a channel to signal that a
+	// single tx has been popped from the queue, then block forever so no more
+	// txs can be popped, that means we can add 1 more tx then the queue will
+	// be at max capacity, and adding 1 after that will trigger an error
+	added := make(chan struct{}, 1)
+	pool.setAddFn(func(txs []*ethtypes.Transaction, sync bool) []error {
+		added <- struct{}{}
+		select {} // block forever
+	})
+
+	logger := log.NewNopLogger()
+	maxSize := uint64(5)
+	iq := newInsertQueue(pool, maxSize, logger)
+	defer iq.Close()
+
+	// Fill the queue to capacity
+	// Note: The first tx will be immediately popped and start processing (where it blocks),
+	// so we need to push maxSize + 1 transactions to actually fill the queue
+	for i := uint64(0); i <= maxSize; i++ {
+		tx := ethtypes.NewTransaction(i+1, [20]byte{byte(i + 1)}, nil, 21000, nil, nil)
+		iq.Push(tx, nil)
+	}
+
+	// wait for first tx to be popped and addFn to be called and blocking
+	<-added
+
+	// Try to push one more transaction with error channel, queue is now at max capacity
+	tx := ethtypes.NewTransaction(100, [20]byte{0x64}, nil, 21000, nil, nil)
+	iq.Push(tx, nil)
+
+	// Push another tx into the full queue, should be rejected
+	sub := make(chan error, 1)
+	fullTx := ethtypes.NewTransaction(101, [20]byte{0x64}, nil, 21000, nil, nil)
+	iq.Push(fullTx, sub)
+
+	// Verify we got the queue full error
+	select {
+	case err := <-sub:
+		require.ErrorIs(t, err, ErrInsertQueueFull, "should receive queue full error")
+	default:
+		t.Fatal("did not receive error from full queue")
+	}
 }
