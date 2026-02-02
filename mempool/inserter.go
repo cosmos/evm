@@ -62,10 +62,17 @@ func newInsertQueue(pool TxPool, maxSize int, logger log.Logger) *insertQueue {
 	return iq
 }
 
-// Push enqueues a tx to eventually be added to the pool.
+// Push enqueues a tx to eventually be added to the pool. The sub param, if non
+// nil, must be buffered with capacity 1, and will be used to notify the caller
+// of the txs insertion status, once it is processed through the InsertQueue
+// and added to the TxPool. The InsertQueue will close the sub after this
+// happens. If no error occurs, a nil error will be pushed to the sub.
 func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 	if tx == nil {
 		return
+	}
+	if sub != nil && cap(sub) != 1 {
+		panic(fmt.Errorf("sub must be a buffered chan of capacity 1, instead got %d", cap(sub)))
 	}
 
 	if iq.isFull() {

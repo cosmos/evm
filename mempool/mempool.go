@@ -271,10 +271,6 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	// TODO: Do we want an explicit timeout here? Currently we are just leaving
-	// it up to the caller to cancel context (the only caller here is the rpc
-	// backend, CometBFT calls InsertAsync).
-
 	// wait for a result to be returned or context cancelled
 	select {
 	case err := <-m.insert(ctx, tx):
