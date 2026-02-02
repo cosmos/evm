@@ -101,6 +101,26 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 
 	txHash := ethTx.Hash()
 
+	// publish tx directly to app-side mempool, avoiding broadcasting to
+	// consensus layer.
+	if b.UseAppMempool {
+		// we are directly calling into the mempool rather than the ABCI
+		// handler for InsertTx, since the ABCI handler obfuscates the error's
+		// returned via codes, and we would like to have the full error to
+		// return to clients.
+		err := b.Mempool.Insert(b.Application.GetContextForCheckTx(txBytes), tx)
+		if err != nil {
+			// no need for special error handling like in the broadcast tx case
+			// since this is coming directly from the evm mempool insert.
+			return common.Hash{}, err
+		}
+
+		if err := b.Mempool.TrackTx(txHash); err != nil {
+			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
+		}
+		return txHash, nil
+	}
+
 	// Broadcast transaction in sync mode (default)
 	// NOTE: If error is encountered on the node, the broadcast will not return an error
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)

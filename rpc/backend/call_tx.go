@@ -165,7 +165,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		if err := b.Mempool.TrackTx(txHash); err != nil {
 			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
 		}
-		return tx.Hash(), nil
+		return txHash, nil
 	}
 
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
