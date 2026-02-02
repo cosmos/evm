@@ -273,38 +273,15 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	// Create a timeout context if insertTimeout is configured and context doesn't have a deadline
-	if m.insertTimeout > 0 {
-		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, m.insertTimeout)
-			defer cancel()
-		}
-	}
+	// TODO: Do we want an explicit timeout here? Currently we are just leaving
+	// it up to the caller to cancel context (the only caller here is the rpc
+	// backend, CometBFT calls InsertAsync).
 
-	errCh := m.insert(ctx, tx)
-
-	// wait for an error to be returned or context cancelled
+	// wait for a result to be returned or context cancelled
 	select {
-	case err := <-errCh:
-		// Got result before timeout - return actual error
+	case err := <-m.insert(ctx, tx):
 		return err
 	case <-ctx.Done():
-		// Context cancelled or timed out
-		// Check if it's because of timeout vs cancellation
-		if ctx.Err() == context.DeadlineExceeded {
-			// Timeout occurred - verify the transaction is actually in the insert queue
-			// Only check for EVM transactions
-			if ethMsg, err := evmTxFromCosmosTx(tx); err == nil {
-				txHash := ethMsg.AsTransaction().Hash()
-				if m.iq.Contains(txHash) {
-					// Transaction is queued and will be processed asynchronously
-					return ErrTxQueued
-				}
-			}
-			// Timeout occurred but tx wasn't queued (or not an EVM tx)
-			return ErrInsertTimeout
-		}
 		return ctx.Err()
 	}
 }
@@ -317,45 +294,44 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
 	select {
 	case err := <-m.insert(ctx, tx):
-		// if we have an error ready on the channel returned from insert,
-		// return that (cosmos tx or unable to try and insert the tx due to
-		// parsing error).
+		// if we have a result immediately, ready on the channel returned from
+		// insert, return that (cosmos tx or unable to try and insert the tx
+		// due to parsing error).
 		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		// error was not ready immediately, return nil while async things
-		// happen
+		// result was not ready immediately, return nil while async things happen
 		return nil
 	}
 }
 
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) chan error {
-	out := make(chan error)
+	subscription := make(chan error)
 
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 
-		// Check if the tx is already in the insert queue
-		if m.iq.Contains(ethTx.Hash()) {
-			out <- ErrTxAlreadyQueued
-			return out
-		}
-
-		// we push the tx onto the insert queue so the tx will be inserted
-		// at a later point. We pass along the `out` chan, so that the
-		// insert queue will notify the caller of any errors that occurred
-		// when inserting into the mempool.
-		m.iq.Push(ethTx, out)
-		return out
+		// we push the tx onto the insert queue so the tx will be inserted at a
+		// later point. We pass along the `subscription` chan, so that the
+		// insert queue will notify the caller of any errors that occurred when
+		// inserting into the mempool.
+		m.iq.Push(ethTx, subscription)
+		return subscription
 	case errors.Is(err, ErrNotEVMTransaction):
-		out <- m.insertCosmosTx(ctx, tx)
+		// inserting cosmos txs do not have the same insert queue behavior as
+		// evm txs, thus we wait for the insert to return and push its value
+		// onto the subscription, so the subscription is already populated with
+		// the insert result upon callers receiving it
+		subscription <- m.insertCosmosTx(ctx, tx)
 	default:
-		out <- err
+		// could not determine if a tx is cosmos or evm, pre populate the
+		// subscription channel with the error
+		subscription <- err
 	}
-	return out
+	return subscription
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also

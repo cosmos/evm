@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gammazero/deque"
 
@@ -30,9 +29,6 @@ type insertQueue struct {
 	queue deque.Deque[item]
 	lock  sync.RWMutex
 
-	// inQueue tracks tx hashes currently in the queue to prevent duplicates
-	inQueue map[common.Hash]struct{}
-
 	// signal signals that there are txs available in the queue. Consumers of
 	// the queue should wait on this channel after they have popped all txs off
 	// the queue, to know when there are new txs available.
@@ -48,11 +44,10 @@ type insertQueue struct {
 // newInsertQueue creates a new insertQueue
 func newInsertQueue(pool TxPool, logger log.Logger) *insertQueue {
 	iq := &insertQueue{
-		pool:    pool,
-		logger:  logger,
-		signal:  make(chan struct{}, 1),
-		done:    make(chan struct{}),
-		inQueue: make(map[common.Hash]struct{}),
+		pool:   pool,
+		logger: logger,
+		signal: make(chan struct{}, 1),
+		done:   make(chan struct{}),
 	}
 
 	go iq.loop()
@@ -67,8 +62,6 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 
 	iq.lock.Lock()
 	iq.queue.PushBack(item{tx: tx, sub: sub})
-	iq.inQueue[tx.Hash()] = struct{}{}
-	fmt.Println("pushed tx to back of insert queue", "hash", tx.Hash())
 	iq.lock.Unlock()
 
 	// signal that there are txs available
@@ -76,14 +69,6 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 	case iq.signal <- struct{}{}:
 	default:
 	}
-}
-
-// Contains checks if a tx with the given hash is currently in the insert queue.
-func (iq *insertQueue) Contains(hash common.Hash) bool {
-	iq.lock.RLock()
-	defer iq.lock.RUnlock()
-	_, exists := iq.inQueue[hash]
-	return exists
 }
 
 // loop is the main loop of the insertQueue. This will pop txs off the front of
@@ -98,19 +83,16 @@ func (iq *insertQueue) loop() {
 		if numTxsAvailable > 0 {
 			iq.lock.Lock()
 			item := iq.queue.PopFront()
-			if item.tx != nil {
-				delete(iq.inQueue, item.tx.Hash())
-			}
 			iq.lock.Unlock()
 
 			if item.tx != nil {
+				time.Sleep(5 * time.Second)
 				err := iq.addTx(item.tx)
 
 				// if the item has a subscriber on it, push any errors that
 				// occurred to them
 				if item.sub != nil {
 					item.sub <- err
-					fmt.Println("inserted tx to pool and notified caller", "hash", item.tx.Hash())
 					close(item.sub)
 				}
 			}
