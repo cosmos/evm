@@ -163,6 +163,7 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	gasPrice := (account.initialBalance - txValue) / txGasLimit // assuming they divide evenly
 	pendingTx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, new(big.Int).SetUint64(gasPrice))
 	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), pendingTx))
+	require.NoError(t, mp.GetTxPool().Sync())
 
 	pending, queued := legacyPool.ContentFrom(account.address)
 	require.Len(t, pending, 1)
