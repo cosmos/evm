@@ -59,3 +59,7 @@ func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) b
 func (k Keeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
 	return k.bk.GetSupply(ctx, denom)
 }
+
+func (k Keeper) LockedCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return k.bk.LockedCoins(ctx, addr)
+}

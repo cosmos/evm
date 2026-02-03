@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
@@ -113,7 +114,10 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	return k.bankWrapper.SetBalance(ctx, cosmosAddr, amount.ToBig())
+	locked := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
+	newBalance := new(big.Int).Add(amount.ToBig(), locked.AmountOf(types.GetEVMCoinDenom()).BigInt())
+
+	return k.bankWrapper.SetBalance(ctx, cosmosAddr, newBalance)
 }
 
 // SetAccount updates nonce/balance/codeHash together.

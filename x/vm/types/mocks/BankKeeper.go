@@ -134,6 +134,26 @@ func (_m *BankKeeper) IterateTotalSupply(ctx context.Context, cb func(types.Coin
 	_m.Called(ctx, cb)
 }
 
+// LockedCoins provides a mock function with given fields: ctx, addr
+func (_m *BankKeeper) LockedCoins(ctx context.Context, addr types.AccAddress) types.Coins {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockedCoins")
+	}
+
+	var r0 types.Coins
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress) types.Coins); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.Coins)
+		}
+	}
+
+	return r0
+}
+
 // MintCoins provides a mock function with given fields: ctx, moduleName, amt
 func (_m *BankKeeper) MintCoins(ctx context.Context, moduleName string, amt types.Coins) error {
 	ret := _m.Called(ctx, moduleName, amt)

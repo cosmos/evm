@@ -54,6 +54,7 @@ type BankKeeper interface {
 	SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 	UncheckedSetBalance(ctx context.Context, addr sdk.AccAddress, amt sdk.Coin) error
+	LockedCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins
 }
 
 // StakingKeeper returns the historical headers kept in store.
