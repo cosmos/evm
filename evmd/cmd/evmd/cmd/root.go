@@ -62,7 +62,7 @@ func NewRootCmd() *cobra.Command {
 		dbm.NewMemDB(),
 		nil,
 		true,
-		simtestutil.EmptyAppOptions{},
+		simtestutil.NewAppOptionsWithFlagHome(config.MustGetDefaultNodeHome()),
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
