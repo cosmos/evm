@@ -128,11 +128,11 @@ func newEthMsgTx(
 		templateDynamicFeeTx.Nonce = nonce
 
 		if data != nil {
-			templateAccessListTx.Data = data
+			templateDynamicFeeTx.Data = data
 		} else {
-			templateAccessListTx.Data = []byte{}
+			templateDynamicFeeTx.Data = []byte{}
 		}
-		templateAccessListTx.AccessList = accessList
+		templateDynamicFeeTx.AccessList = accessList
 		ethTx = ethtypes.NewTx(templateDynamicFeeTx)
 		baseFee = big.NewInt(3)
 	case ethtypes.SetCodeTxType:
@@ -165,7 +165,7 @@ func newNativeMessage(
 	txType byte,
 	data []byte,
 	accessList ethtypes.AccessList,
-	authorizationList []ethtypes.SetCodeAuthorization, //nolint:unparam
+	authorizationList []ethtypes.SetCodeAuthorization,
 ) (*core.Message, error) {
 	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList, authorizationList)
 	if err != nil {
@@ -314,7 +314,7 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 			addr,
 			krSigner,
 			signer,
-			ethtypes.AccessListTxType,
+			ethtypes.LegacyTxType,
 			nil,
 			nil,
 			nil,

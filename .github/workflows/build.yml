@@ -1,0 +1,106 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - feat/krakatoa
+
+# Cancel superseded runs for the same branch
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-latest
+          - goos: linux
+            goarch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for git describe to get version tags
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          check-latest: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.goarch }}-
+            ${{ runner.os }}-go-
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always | sed 's/^v//')
+          COMMIT=$(git log -1 --format='%H')
+          COMMIT_SHORT=$(git log -1 --format='%h')
+          TMVERSION=$(go list -m github.com/cometbft/cometbft | sed 's:.* ::')
+          # Sanitize branch name for use in filenames (replace / with -)
+          BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's|/|-|g')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
+          echo "commit_short=${COMMIT_SHORT}" >> "$GITHUB_OUTPUT"
+          echo "tmversion=${TMVERSION}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build evmd
+        working-directory: evmd
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+        run: |
+          BINARY_NAME="evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          
+          # Build matching Makefile approach
+          go build \
+            -trimpath \
+            -tags "netgo" \
+            -ldflags "-w -s \
+              -X github.com/cosmos/cosmos-sdk/version.Name=evmd \
+              -X github.com/cosmos/cosmos-sdk/version.AppName=evmd \
+              -X github.com/cosmos/cosmos-sdk/version.Version=${{ steps.version.outputs.version }} \
+              -X github.com/cosmos/cosmos-sdk/version.Commit=${{ steps.version.outputs.commit }} \
+              -X github.com/cometbft/cometbft/version.TMCoreSemVer=${{ steps.version.outputs.tmversion }} \
+              -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo" \
+            -o "${BINARY_NAME}" \
+            ./cmd/evmd
+
+      - name: Generate checksum
+        working-directory: evmd
+        run: |
+          BINARY_NAME="evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          sha256sum "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            evmd/evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}
+            evmd/evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256
+          retention-days: 30
+          if-no-files-found: error
