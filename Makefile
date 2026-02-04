@@ -191,11 +191,11 @@ ifeq ($(OS_FAMILY),Darwin)
 endif
 
 test-fuzz:
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzMintCoins ./x/precisebank/keeper
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzBurnCoins ./x/precisebank/keeper
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzSendCoins ./x/precisebank/keeper
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzGenesisStateValidate_NonZeroRemainder ./x/precisebank/types
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzGenesisStateValidate_ZeroRemainder ./x/precisebank/types
+	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzMintCoins ./x/precisebank/keeper
+	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzBurnCoins ./x/precisebank/keeper
+	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzSendCoins ./x/precisebank/keeper
+	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzGenesisStateValidate_NonZeroRemainder ./x/precisebank/types
+	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzGenesisStateValidate_ZeroRemainder ./x/precisebank/types
 
 test-scripts:
 	@echo "Running scripts tests"
