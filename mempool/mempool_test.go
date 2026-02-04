@@ -44,7 +44,7 @@ const (
 )
 
 func TestMempool_Reserver(t *testing.T) {
-	mp, _, txConfig, _, bus, accounts, makeCtx := setupMempoolWithAccounts(t)
+	mp, _, txConfig, _, bus, accounts, makeCtx := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -53,34 +53,73 @@ func TestMempool_Reserver(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	// for a reset to happen for block 1 and wait for it
 	require.NoError(t, mp.GetTxPool().Sync())
 
-	// Insert an Ethereum tx from account 0
-	ethTx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
+	accountKey := accounts[0].key
+
+	// insert eth tx from account0
+	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
 	err = mp.Insert(sdk.Context{}, ethTx)
 	require.NoError(t, err)
 
-	// Insert a Cosmos tx from the same sender (account 0)
-	cosmosTx := createTestCosmosTx(t, txConfig, accounts[0].key)
+	// insert cosmos tx from acount0, should error
+	cosmosTx := createTestCosmosTx(t, txConfig, accountKey)
 	err = mp.Insert(makeCtx(), cosmosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
+	// remove the eth tx
 	err = mp.Remove(ethTx)
 	require.NoError(t, err)
 
-	cosmosTx2 := createTestCosmosTx(t, txConfig, accounts[0].key)
-	err = mp.Insert(makeCtx(), cosmosTx2)
+	// should be able to insert the cosmos tx now
+	err = mp.Insert(makeCtx(), cosmosTx)
 	require.NoError(t, err)
 
+	// eth tx should now fail.
 	err = mp.Insert(sdk.Context{}, ethTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
+}
+
+func TestMempool_ReserverMultiSigner(t *testing.T) {
+	mp, _, txConfig, _, bus, accounts, makeCtx := setupMempoolWithAccounts(t, 4)
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	accountKey := accounts[0].key
+
+	// insert eth tx from account0
+	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
+	err = mp.Insert(sdk.Context{}, ethTx)
+	require.NoError(t, err)
+
+	// inserting accounts 1 & 2 should be fine.
+	cosmosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[1].key, accounts[2].key)
+	err = mp.Insert(makeCtx(), cosmosTx)
+	require.NoError(t, err)
+
+	// submitting account1 key should fail, since it was part of the signer group in the cosmos tx.
+	ethTx2 := createMsgEthereumTx(t, txConfig, accounts[1].key, 1, big.NewInt(1e8))
+	err = mp.Insert(makeCtx(), ethTx2)
+	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
+
+	// account 0 already has ethTx in pool, should fail.
+	comsosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[3].key, accounts[0].key)
+	err = mp.Insert(makeCtx(), comsosTx)
+	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
+
 }
 
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t)
+	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -172,7 +211,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 }
 
 func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t)
+	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -225,7 +264,7 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 }
 
 func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t)
+	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -293,7 +332,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 }
 
 func TestMempool_ReapNewBlock(t *testing.T) {
-	mp, vmKeeper, txConfig, _, bus, accounts, _ := setupMempoolWithAccounts(t)
+	mp, vmKeeper, txConfig, _, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -361,12 +400,12 @@ type testAccount struct {
 	initialBalance uint64
 }
 
-func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount, func() sdk.Context) {
+func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount, func() sdk.Context) {
 	t.Helper()
 
 	// Create accounts
-	accounts := make([]testAccount, 3)
-	for i := 0; i < 3; i++ {
+	accounts := make([]testAccount, numAccounts)
+	for i := range numAccounts {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		accounts[i] = testAccount{
@@ -617,6 +656,55 @@ func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.Priva
 		Sequence: 0,
 	}
 	err = txBuilder.SetSignatures(sig)
+	require.NoError(t, err)
+
+	return txBuilder.GetTx()
+}
+
+// createTestMultiSignerCosmosTx creates a Cosmos SDK transaction with multiple signers.
+// Each key produces one MsgSend from that signer.
+func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys ...*ecdsa.PrivateKey) sdk.Tx {
+	t.Helper()
+	require.NotEmpty(t, keys, "must provide at least one key")
+
+	var msgs []sdk.Msg
+	var sigs []signingtypes.SignatureV2
+
+	for i, key := range keys {
+		pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
+		pubKey := &ethsecp256k1.PubKey{Key: pubKeyBytes}
+		addr := pubKey.Address().Bytes()
+		addrStr := sdk.MustBech32ifyAddressBytes(constants.ExampleBech32Prefix, addr)
+
+		// Each signer has their own MsgSend
+		msg := &banktypes.MsgSend{
+			FromAddress: addrStr,
+			ToAddress:   addrStr, // send to self
+			Amount:      sdk.NewCoins(sdk.NewInt64Coin("aevmos", 1000)),
+		}
+		msgs = append(msgs, msg)
+
+		// Create signature info for this signer
+		sigData := &signingtypes.SingleSignatureData{
+			SignMode:  signingtypes.SignMode_SIGN_MODE_DIRECT,
+			Signature: nil,
+		}
+		sig := signingtypes.SignatureV2{
+			PubKey:   pubKey,
+			Data:     sigData,
+			Sequence: uint64(i),
+		}
+		sigs = append(sigs, sig)
+	}
+
+	txBuilder := txConfig.NewTxBuilder()
+	err := txBuilder.SetMsgs(msgs...)
+	require.NoError(t, err)
+
+	txBuilder.SetGasLimit(100000 * uint64(len(keys)))
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("aevmos", 1000000)))
+
+	err = txBuilder.SetSignatures(sigs...)
 	require.NoError(t, err)
 
 	return txBuilder.GetTx()

@@ -287,8 +287,7 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 
-	switch {
-	case err == nil:
+	if err == nil {
 		ethTx := ethMsg.AsTransaction()
 
 		if !sync {
@@ -304,11 +303,8 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
 		}
 		return errs[0]
-	case errors.Is(err, ErrNotEVMTransaction):
-		return m.insertCosmosTx(ctx, tx)
-	default:
-		return err
 	}
+	return m.insertCosmosTx(ctx, tx)
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
@@ -355,20 +351,17 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 	msCache.Write()
 
 	// Extract signer addresses and convert to EVM addresses
-	evmAddrs, err := extractEVMAddrs(tx)
+	evmAddrs, err := signerAddressesFromSDKTx(tx)
 	if err != nil {
 		return err
 	}
-	for _, addr := range evmAddrs {
-		if err := m.cosmosReserver.Hold(addr); err != nil {
-			return err
-		}
+	if err := m.cosmosReserver.Hold(evmAddrs...); err != nil {
+		return err
 	}
+
 	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
-		for _, addr := range evmAddrs {
-			m.cosmosReserver.Release(addr)
-		}
+		m.cosmosReserver.Release(evmAddrs...)
 		return err
 	}
 
@@ -379,21 +372,21 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 	return nil
 }
 
-func extractEVMAddrs(tx sdk.Tx) ([]common.Address, error) {
-	var evmAddrs []common.Address
+func signerAddressesFromSDKTx(tx sdk.Tx) ([]common.Address, error) {
+	var signerAddrs []common.Address
 	if sigTx, ok := tx.(interface{ GetSigners() ([][]byte, error) }); ok {
-		signerAddrs, err := sigTx.GetSigners()
+		signers, err := sigTx.GetSigners()
 		if err != nil {
 			return nil, err
 		}
-		for _, addr := range signerAddrs {
-			evmAddrs = append(evmAddrs, common.BytesToAddress(addr))
+		for _, addr := range signers {
+			signerAddrs = append(signerAddrs, common.BytesToAddress(addr))
 		}
 	}
-	if len(evmAddrs) == 0 {
+	if len(signerAddrs) == 0 {
 		return nil, fmt.Errorf("tx contains no signers")
 	}
-	return evmAddrs, nil
+	return signerAddrs, nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -550,15 +543,11 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 	m.reapList.DropCosmosTx(tx)
 	m.logger.Debug("Cosmos transaction removed successfully")
 
-	evmAddrs, err := extractEVMAddrs(tx)
+	evmAddrs, err := signerAddressesFromSDKTx(tx)
 	if err != nil {
 		return err
 	}
-	for _, evmAddr := range evmAddrs {
-		if err := m.cosmosReserver.Release(evmAddr); err != nil {
-			return err
-		}
-	}
+	m.cosmosReserver.Release(evmAddrs...)
 
 	return nil
 }
