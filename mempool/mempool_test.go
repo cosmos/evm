@@ -48,7 +48,7 @@ const (
 func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey)
+	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
 	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil
 	}
@@ -93,7 +93,7 @@ func TestMempool_Reserver(t *testing.T) {
 func TestMempool_ReserverMultiSigner(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey)
+	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
 	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil
 	}
@@ -522,7 +522,7 @@ type testAccount struct {
 	initialBalance uint64
 }
 
-func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
+func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) { //nolint:unparam // its fine.
 	t.Helper()
 	return setupMempoolWithAnteHandler(t, nil, numAccounts)
 }
