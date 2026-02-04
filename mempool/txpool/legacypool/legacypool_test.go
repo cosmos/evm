@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	reserver2 "github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -203,27 +204,32 @@ type reserver struct {
 	lock     sync.RWMutex
 }
 
-func newReserver() txpool.Reserver {
+func newReserver() reserver2.Reserver {
 	return &reserver{accounts: make(map[common.Address]struct{})}
 }
 
-func (r *reserver) Hold(addr common.Address) error {
+func (r *reserver) Hold(addrs ...common.Address) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	if _, exists := r.accounts[addr]; exists {
-		panic("already reserved")
+	for _, addr := range addrs {
+		if _, exists := r.accounts[addr]; exists {
+			panic("already reserved")
+		}
+		r.accounts[addr] = struct{}{}
 	}
-	r.accounts[addr] = struct{}{}
+
 	return nil
 }
 
-func (r *reserver) Release(addr common.Address) error {
+func (r *reserver) Release(addrs ...common.Address) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	if _, exists := r.accounts[addr]; !exists {
-		panic("not reserved")
+	for _, addr := range addrs {
+		if _, exists := r.accounts[addr]; !exists {
+			panic("not reserved")
+		}
+		delete(r.accounts, addr)
 	}
-	delete(r.accounts, addr)
 	return nil
 }
 

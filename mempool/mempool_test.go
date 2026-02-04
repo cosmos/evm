@@ -124,7 +124,6 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 	comsosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[3].key, accounts[0].key)
 	err = mp.Insert(makeCtx(), comsosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
-
 }
 
 // Ensures txs are not reaped multiple times when promoting and demoting the
