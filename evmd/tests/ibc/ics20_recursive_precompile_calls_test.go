@@ -24,8 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -74,7 +72,7 @@ type stakingRewards struct {
 func (suite *ICS20RecursivePrecompileCallsTestSuite) prepareStakingRewards(ctx sdk.Context, stkRs ...stakingRewards) (sdk.Context, error) {
 	for _, r := range stkRs {
 		// set distribution module account balance which pays out the rewards
-		bondDenom, err := suite.chainA.App.(*evmd.EVMD).StakingKeeper.BondDenom(suite.chainA.GetContext())
+		bondDenom, err := suite.chainA.App.(*IBCApp).StakingKeeper.BondDenom(suite.chainA.GetContext())
 		suite.Require().NoError(err)
 		coins := sdk.NewCoins(sdk.NewCoin(bondDenom, r.RewardAmt))
 		if err := suite.mintCoinsForDistrMod(ctx, coins); err != nil {
@@ -83,7 +81,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) prepareStakingRewards(ctx s
 
 		// allocate rewards to validator
 		allocatedRewards := sdk.NewDecCoins(sdk.NewDecCoin(bondDenom, r.RewardAmt))
-		if err := suite.chainA.App.(*evmd.EVMD).GetDistrKeeper().AllocateTokensToValidator(ctx, r.Validator, allocatedRewards); err != nil {
+		if err := suite.chainA.App.(*IBCApp).GetDistrKeeper().AllocateTokensToValidator(ctx, r.Validator, allocatedRewards); err != nil {
 			return ctx, err
 		}
 	}
@@ -92,7 +90,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) prepareStakingRewards(ctx s
 
 func (suite *ICS20RecursivePrecompileCallsTestSuite) mintCoinsForDistrMod(ctx sdk.Context, amount sdk.Coins) error {
 	// Mint tokens for the distribution module to simulate fee accrued
-	if err := suite.chainA.App.(*evmd.EVMD).GetBankKeeper().MintCoins(
+	if err := suite.chainA.App.(*IBCApp).GetBankKeeper().MintCoins(
 		ctx,
 		minttypes.ModuleName,
 		amount,
@@ -100,7 +98,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) mintCoinsForDistrMod(ctx sd
 		return err
 	}
 
-	return suite.chainA.App.(*evmd.EVMD).GetBankKeeper().SendCoinsFromModuleToModule(
+	return suite.chainA.App.(*IBCApp).GetBankKeeper().SendCoinsFromModuleToModule(
 		ctx,
 		minttypes.ModuleName,
 		distrtypes.ModuleName,
@@ -114,7 +112,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	contractData evmtypes.CompiledContract,
 	senderAcc evmibctesting.SenderAccount,
 ) {
-	evmAppA := suite.chainA.App.(*evmd.EVMD)
+	evmAppA := suite.chainA.App.(*IBCApp)
 	ctxA := suite.chainA.GetContext()
 	senderAddr := senderAcc.SenderAccount.GetAddress()
 	senderEVMAddr := common.BytesToAddress(senderAddr.Bytes())
@@ -222,11 +220,11 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 }
 
 func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0, integration.SetupEvmd)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0, SetupEvmd)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
-	evmAppA := suite.chainA.App.(*evmd.EVMD)
+	evmAppA := suite.chainA.App.(*IBCApp)
 	suite.chainAPrecompile = ics20.NewPrecompile(
 		evmAppA.BankKeeper,
 		*evmAppA.StakingKeeper,
@@ -242,7 +240,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
 	avail := evmAppA.Erc20Keeper.IsNativePrecompileAvailable(suite.chainA.GetContext(), common.HexToAddress("0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"))
 	suite.Require().True(avail)
 
-	evmAppB := suite.chainB.App.(*evmd.EVMD)
+	evmAppB := suite.chainB.App.(*IBCApp)
 	suite.chainBPrecompile = ics20.NewPrecompile(
 		evmAppB.BankKeeper,
 		*evmAppB.StakingKeeper,
@@ -302,7 +300,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				suite.setupContractForTesting(contractAddr, contractData, senderAcc)
 			},
 			func(querier distributionkeeper.Querier, valAddr string, eventAmount int) {
-				evmAppA := suite.chainA.App.(*evmd.EVMD)
+				evmAppA := suite.chainA.App.(*IBCApp)
 				bondDenom, err := evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				suite.Require().NoError(err)
 				contractBondDenomBalance := evmAppA.BankKeeper.GetBalance(suite.chainA.GetContext(), nativeErc20.ContractAddr.Bytes(), bondDenom)
@@ -350,7 +348,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				suite.setupContractForTesting(contractAddr, contractData, senderAcc)
 			},
 			func(querier distributionkeeper.Querier, valAddr string, eventAmount int) {
-				evmAppA := suite.chainA.App.(*evmd.EVMD)
+				evmAppA := suite.chainA.App.(*IBCApp)
 				bondDenom, err := evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				suite.Require().NoError(err)
 				contractBondDenomBalance := evmAppA.BankKeeper.GetBalance(suite.chainA.GetContext(), nativeErc20.ContractAddr.Bytes(), bondDenom)
@@ -382,7 +380,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 
 			tc.malleate(senderAccount)
 
-			evmAppA := suite.chainA.App.(*evmd.EVMD)
+			evmAppA := suite.chainA.App.(*IBCApp)
 
 			// Get balance helper function
 			GetBalance := func(addr sdk.AccAddress) sdk.Coin {
@@ -410,7 +408,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 
 			// Check distribution rewards before transfer
-			querier := distributionkeeper.NewQuerier(evmAppA.DistrKeeper)
+			querier := distributionkeeper.NewQuerier(evmAppA.GetDistrKeeper())
 			vals, err := evmAppA.StakingKeeper.GetAllValidators(suite.chainA.GetContext())
 			suite.Require().NoError(err)
 
@@ -490,7 +488,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(transferAmount.String(), chainAEscrowBalance.Amount.String())
 
 			// check that voucher exists on chain B
-			evmAppB := suite.chainB.App.(*evmd.EVMD)
+			evmAppB := suite.chainB.App.(*IBCApp)
 			chainBDenom := transfertypes.NewDenom(originalCoin.Denom, traceAToB)
 			chainBBalance := evmAppB.BankKeeper.GetBalance(
 				suite.chainB.GetContext(),

@@ -464,6 +464,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 			ctx = ctx.WithMultiStore(cms)
 			baseFee := s.network.App.GetEVMKeeper().GetBaseFee(ctx)
 
+			// Funds sufficient fee to fee_collector module account considering virtual fee collection option enabled
+			sufficientFee := sdk.NewCoins(sdk.NewCoin(s.baseDenom, math.NewInt(1e18)))
+			err = s.network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(ctx, sufficientFee, s.keyring.GetAddr(0))
+			s.Require().NoError(err, "failed to deduct gas fees")
+
 			// malleate testcase
 			caller, input := tc.malleate()
 			contract := vm.NewPrecompile(caller, s.precompile.Address(), uint256.NewInt(0), uint64(1e6))

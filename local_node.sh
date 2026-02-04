@@ -33,6 +33,7 @@ set -e
 install=true
 overwrite=""
 BUILD_FOR_DEBUG=false
+BUILD_TAGS=${BUILD_TAGS:-}
 ADDITIONAL_USERS=0
 MNEMONIC_FILE=""      # output file (defaults later to $CHAINDIR/mnemonics.yaml)
 MNEMONICS_INPUT=""    # input yaml to prefill dev keys
@@ -45,6 +46,7 @@ Options:
   -y                       Overwrite existing chain data without prompt
   -n                       Do not overwrite existing chain data
   --no-install             Skip 'make install'
+  --build-tags TAGS        Build tags passed to 'make install' (e.g. all_precompiles)
   --remote-debugging       Build with nooptimization,nostrip
   --additional-users N     Create N extra users: dev4, dev5, ...
   --mnemonic-file PATH     Where to write mnemonics YAML (default: \$HOME/.evmd/mnemonics.yaml)
@@ -66,6 +68,12 @@ while [[ $# -gt 0 ]]; do
     --no-install)
       echo "Flag --no-install passed -> Skipping installation of the evmd binary."
       install=false; shift
+      ;;
+    --build-tags)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --build-tags requires a value."; usage; exit 1
+      fi
+      BUILD_TAGS="$2"; shift 2
       ;;
     --remote-debugging)
       echo "Flag --remote-debugging passed -> Building with remote debugging options."
