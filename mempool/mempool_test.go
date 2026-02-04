@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/mocks"
 	"github.com/cosmos/evm/mempool/reserver"
@@ -31,9 +31,11 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txmodule "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -48,7 +50,10 @@ const (
 )
 
 func TestMempool_Reserver(t *testing.T) {
-	mp, _, txConfig, _, _, accounts, makeCtx := setupMempoolWithAccounts(t, 3)
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey)
+	mp, _, txConfig, _, _, accounts := setupMempoolWithAccounts(t, 3)
 
 	accountKey := accounts[0].key
 
@@ -59,7 +64,7 @@ func TestMempool_Reserver(t *testing.T) {
 
 	// insert cosmos tx from acount0, should error
 	cosmosTx := createTestCosmosTx(t, txConfig, accountKey, 0)
-	err = mp.Insert(makeCtx(), cosmosTx)
+	err = mp.Insert(ctx, cosmosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
 	// remove the eth tx
@@ -70,12 +75,12 @@ func TestMempool_Reserver(t *testing.T) {
 	require.Equal(t, 0, mp.CountTx())
 
 	// should be able to insert the cosmos tx now
-	err = mp.Insert(makeCtx(), cosmosTx)
+	err = mp.Insert(ctx, cosmosTx)
 	require.NoError(t, err)
 
 	// should be able to send another tx from the same account to the same pool.
 	cosmosTx2 := createTestCosmosTx(t, txConfig, accountKey, 1)
-	err = mp.Insert(makeCtx(), cosmosTx2)
+	err = mp.Insert(ctx, cosmosTx2)
 	require.NoError(t, err)
 
 	// there should be 2 txs at this point
@@ -87,7 +92,10 @@ func TestMempool_Reserver(t *testing.T) {
 }
 
 func TestMempool_ReserverMultiSigner(t *testing.T) {
-	mp, _, txConfig, _, _, accounts, makeCtx := setupMempoolWithAccounts(t, 4)
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey)
+	mp, _, txConfig, _, _, accounts := setupMempoolWithAccounts(t, 4)
 
 	accountKey := accounts[0].key
 
@@ -98,24 +106,24 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 
 	// inserting accounts 1 & 2 should be fine.
 	cosmosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[1].key, accounts[2].key)
-	err = mp.Insert(makeCtx(), cosmosTx)
+	err = mp.Insert(ctx, cosmosTx)
 	require.NoError(t, err)
 
 	// submitting account1 key should fail, since it was part of the signer group in the cosmos tx.
 	ethTx2 := createMsgEthereumTx(t, txConfig, accounts[1].key, 1, big.NewInt(1e8))
-	err = mp.Insert(makeCtx(), ethTx2)
+	err = mp.Insert(ctx, ethTx2)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
 	// account 0 already has ethTx in pool, should fail.
 	comsosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[3].key, accounts[0].key)
-	err = mp.Insert(makeCtx(), comsosTx)
+	err = mp.Insert(ctx, comsosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -207,7 +215,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 }
 
 func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -260,7 +268,7 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 }
 
 func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
+	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -328,7 +336,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 }
 
 func TestMempool_ReapNewBlock(t *testing.T) {
-	mp, vmKeeper, txConfig, _, bus, accounts, _ := setupMempoolWithAccounts(t, 3)
+	mp, vmKeeper, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -387,6 +395,122 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[1]), uint64(1)) // 1 or 2
 }
 
+func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, bus, _ := setupMempoolWithAnteHandler(t, anteHandler, 3)
+
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	// create a multimsg cosmos tx
+	txBuilder := txConfig.NewTxBuilder()
+
+	fromAddr := sdk.AccAddress([]byte("from"))
+	toAddr1 := sdk.AccAddress([]byte("addr1"))
+	toAddr2 := sdk.AccAddress([]byte("addr2"))
+
+	msg1 := banktypes.NewMsgSend(
+		fromAddr,
+		toAddr1,
+		sdk.NewCoins(sdk.NewInt64Coin("stake", 1000)),
+	)
+	msg2 := banktypes.NewMsgSend(
+		fromAddr,
+		toAddr2,
+		sdk.NewCoins(sdk.NewInt64Coin("stake", 2000)),
+	)
+	err = txBuilder.SetMsgs(msg1, msg2)
+	require.NoError(t, err)
+
+	err = txBuilder.SetSignatures(signing.SignatureV2{
+		PubKey: secp256k1.GenPrivKey().PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+			Signature: []byte("signature"),
+		},
+		Sequence: 0,
+	})
+	require.NoError(t, err)
+
+	multiMsgTx := txBuilder.GetTx()
+
+	require.Len(t, multiMsgTx.GetMsgs(), 2, "transaction should have 2 messages")
+
+	// create a context for the insert operation (must have a multistore on it
+	// for ante handler execution, so we have to use the more complicated
+	// setup)
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey)
+
+	require.NoError(t, mp.Insert(ctx, multiMsgTx))
+	require.Equal(t, 1, mp.CountTx(), "expected a single tx to be in the mempool")
+
+	txs, err := mp.ReapNewValidTxs(0, 0)
+	require.NoError(t, err)
+	require.Len(t, txs, 1, "expected a single tx to be reaped")
+}
+
+func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, bus, _ := setupMempoolWithAnteHandler(t, anteHandler, 3)
+
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	txBuilder := txConfig.NewTxBuilder()
+
+	msg1 := banktypes.NewMsgSend(
+		sdk.AccAddress([]byte("from")),
+		sdk.AccAddress([]byte("addr")),
+		sdk.NewCoins(sdk.NewInt64Coin("stake", 2000)),
+	)
+	msg2 := &vmtypes.MsgEthereumTx{}
+	err = txBuilder.SetMsgs(msg1, msg2)
+	require.NoError(t, err)
+
+	err = txBuilder.SetSignatures(signing.SignatureV2{
+		PubKey: secp256k1.GenPrivKey().PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+			Signature: []byte("signature"),
+		},
+		Sequence: 0,
+	})
+	require.NoError(t, err)
+
+	multiMsgTx := txBuilder.GetTx()
+	require.Len(t, multiMsgTx.GetMsgs(), 2, "transaction should have 2 messages")
+
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey)
+
+	err = mp.Insert(ctx, multiMsgTx)
+	require.ErrorIs(t, err, mempool.ErrMultiMsgEthereumTransaction)
+	require.Equal(t, 0, mp.CountTx(), "expected no txs to be in the mempool")
+
+	txs, err := mp.ReapNewValidTxs(0, 0)
+	require.NoError(t, err)
+	require.Len(t, txs, 0, "expected no txs to be reaped")
+}
+
 // Helper types and functions
 
 type testAccount struct {
@@ -396,7 +520,12 @@ type testAccount struct {
 	initialBalance uint64
 }
 
-func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount, func() sdk.Context) {
+func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
+	t.Helper()
+	return setupMempoolWithAnteHandler(t, nil, numAccounts)
+}
+
+func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
 	t.Helper()
 
 	// Create accounts
@@ -451,18 +580,11 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 
 	mockVMKeeper.On("SetEvmMempool", mock.Anything).Maybe()
 
-	// Track latest height for the context callback (height=0 means "latest")
-	var latestHeight int64 = 1
-
 	// Create context callback
-	getCtxCallback := func(height int64, _ bool) (sdk.Context, error) { //nolint:unparam // false positive, required fn sig
+	getCtxCallback := func(height int64, prove bool) (sdk.Context, error) {
 		storeKey := storetypes.NewKVStoreKey("test")
 		transientKey := storetypes.NewTransientStoreKey("transient_test")
 		ctx := testutil.DefaultContext(storeKey, transientKey)
-		// height=0 means "latest" (matches SDK's CreateQueryContext behavior)
-		if height == 0 {
-			height = latestHeight
-		}
 		return ctx.
 			WithBlockTime(time.Now()).
 			WithBlockHeader(cmtproto.Header{AppHash: []byte("00000000000000000000000000000000")}).
@@ -470,19 +592,17 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 			WithChainID(strconv.Itoa(constants.EighteenDecimalsChainID)), nil
 	}
 
-	// Create TxConfig using proper encoding config with address codec
-	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
-	interfaceRegistry := encodingConfig.InterfaceRegistry
+	// Create TxConfig
+	interfaceRegistry := codectypes.NewInterfaceRegistry()
 	vmtypes.RegisterInterfaces(interfaceRegistry)
 	txmodule.RegisterInterfaces(interfaceRegistry)
 	protoCodec := codec.NewProtoCodec(interfaceRegistry)
 	txConfig := tx.NewTxConfig(protoCodec, tx.DefaultSignModes)
-	encodingConfig.InterfaceRegistry = interfaceRegistry
 
 	// Create client context
 	clientCtx := client.Context{}.
-		WithCodec(encodingConfig.Codec).
-		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
+		WithCodec(protoCodec).
+		WithInterfaceRegistry(interfaceRegistry).
 		WithTxConfig(txConfig)
 
 	// Create mempool config
@@ -495,9 +615,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    30000000,
 		MinTip:           uint256.NewInt(0),
-		AnteHandler: func(ctx sdk.Context, tx sdk.Tx, simulate bool) (newCtx sdk.Context, err error) {
-			return ctx, nil
-		},
+		AnteHandler:      anteHandler,
 	}
 
 	// Create mempool
@@ -519,11 +637,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	require.NoError(t, eventBus.Start())
 	mp.SetEventBus(eventBus)
 
-	makeCtx := func() sdk.Context {
-		ctx, _ := getCtxCallback(1, false)
-		return ctx
-	}
-	return mp, mockVMKeeper, txConfig, mockRechecker, eventBus, accounts, makeCtx
+	return mp, mockVMKeeper, txConfig, mockRechecker, eventBus, accounts
 }
 
 func createMsgEthereumTx(

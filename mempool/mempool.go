@@ -286,10 +286,8 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
 	ethMsg, err := evmTxFromCosmosTx(tx)
-
 	if err == nil {
 		ethTx := ethMsg.AsTransaction()
-
 		if !sync {
 			m.iq.Push(ethTx)
 			return nil
@@ -303,8 +301,15 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
 		}
 		return errs[0]
+	case errors.Is(err, ErrMultiMsgEthereumTransaction):
+		// there are multiple messages in this tx and one or more of them is an
+		// evm tx, this is invalid
+		return err
+	default:
+		// tx either has no messages, or has a single non MsgEtherumTx msg, or
+		// has multiple msgs, where none are MsgEthereumTx
+		return m.insertCosmosTx(ctx, tx)
 	}
-	return m.insertCosmosTx(ctx, tx)
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
@@ -621,9 +626,24 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 	if len(msgs) == 0 {
 		return nil, ErrNoMessages
 	}
-	if len(msgs) != 1 {
+
+	// ethereum txs should only contain a single msg that is a MsgEthereumTx
+	// type
+	if len(msgs) > 1 {
+		// transaction has > 1 msg, will be treated as a cosmos tx by the
+		// mempool. validate that none of the msgs are a MsgEthereumTx since
+		// those should only be used in the single msg case
+		for _, msg := range msgs {
+			if _, ok := msg.(*evmtypes.MsgEthereumTx); ok {
+				return nil, ErrMultiMsgEthereumTransaction
+			}
+		}
+
+		// transaction has > 1 msg, but none were ethereum txs, this is
+		// still not a valid eth tx
 		return nil, fmt.Errorf("%w, got %d", ErrExpectedOneMessage, len(msgs))
 	}
+
 	ethMsg, ok := msgs[0].(*evmtypes.MsgEthereumTx)
 	if !ok {
 		return nil, ErrNotEVMTransaction
