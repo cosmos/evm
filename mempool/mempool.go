@@ -361,7 +361,7 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 
 	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
-		m.cosmosReserver.Release(evmAddrs...)
+		m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 		return err
 	}
 
@@ -547,7 +547,7 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 	if err != nil {
 		return err
 	}
-	m.cosmosReserver.Release(evmAddrs...)
+	m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 
 	return nil
 }

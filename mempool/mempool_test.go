@@ -9,13 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/holiman/uint256"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/mempool"
@@ -25,6 +18,13 @@ import (
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
@@ -455,7 +455,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	var latestHeight int64 = 1
 
 	// Create context callback
-	getCtxCallback := func(height int64, prove bool) (sdk.Context, error) {
+	getCtxCallback := func(height int64, _ bool) (sdk.Context, error) {
 		storeKey := storetypes.NewKVStoreKey("test")
 		transientKey := storetypes.NewTransientStoreKey("transient_test")
 		ctx := testutil.DefaultContext(storeKey, transientKey)
@@ -693,7 +693,7 @@ func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys 
 		sig := signingtypes.SignatureV2{
 			PubKey:   pubKey,
 			Data:     sigData,
-			Sequence: uint64(i),
+			Sequence: uint64(i), //nolint:gosec // its fine.
 		}
 		sigs = append(sigs, sig)
 	}
