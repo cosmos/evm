@@ -11,7 +11,10 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/codec"
+	txmodule "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
@@ -486,7 +489,12 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 
 	// Create TxConfig using proper encoding config with address codec
 	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
-	txConfig := encodingConfig.TxConfig
+	interfaceRegistry := encodingConfig.InterfaceRegistry
+	vmtypes.RegisterInterfaces(interfaceRegistry)
+	txmodule.RegisterInterfaces(interfaceRegistry)
+	protoCodec := codec.NewProtoCodec(interfaceRegistry)
+	txConfig := tx.NewTxConfig(protoCodec, tx.DefaultSignModes)
+	encodingConfig.InterfaceRegistry = interfaceRegistry
 
 	// Create client context
 	clientCtx := client.Context{}.
