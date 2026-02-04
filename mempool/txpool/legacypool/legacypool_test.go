@@ -197,18 +197,18 @@ func setupPool() (*LegacyPool, *MockRechecker, *ecdsa.PrivateKey) {
 	return setupPoolWithConfig(params.TestChainConfig)
 }
 
-// reserver is a utility struct to sanity check that accounts are
+// dummyReserver is a utility struct to sanity check that accounts are
 // properly reserved by the blobpool (no duplicate reserves or unreserves).
-type reserver struct {
+type dummyReserver struct {
 	accounts map[common.Address]struct{}
 	lock     sync.RWMutex
 }
 
 func newReserver() reserver2.Reserver {
-	return &reserver{accounts: make(map[common.Address]struct{})}
+	return &dummyReserver{accounts: make(map[common.Address]struct{})}
 }
 
-func (r *reserver) Hold(addrs ...common.Address) error {
+func (r *dummyReserver) Hold(addrs ...common.Address) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	for _, addr := range addrs {
@@ -221,7 +221,7 @@ func (r *reserver) Hold(addrs ...common.Address) error {
 	return nil
 }
 
-func (r *reserver) Release(addrs ...common.Address) error {
+func (r *dummyReserver) Release(addrs ...common.Address) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	for _, addr := range addrs {
@@ -233,8 +233,8 @@ func (r *reserver) Release(addrs ...common.Address) error {
 	return nil
 }
 
-func (r *reserver) Has(address common.Address) bool {
-	return false // reserver only supports a single pool
+func (r *dummyReserver) Has(address common.Address) bool {
+	return false // dummyReserver only supports a single pool
 }
 
 func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecker, *ecdsa.PrivateKey) {
