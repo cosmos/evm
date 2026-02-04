@@ -455,7 +455,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	var latestHeight int64 = 1
 
 	// Create context callback
-	getCtxCallback := func(height int64, _ bool) (sdk.Context, error) {
+	getCtxCallback := func(height int64, _ bool) (sdk.Context, error) { //nolint:unparam // false positive, required fn sig
 		storeKey := storetypes.NewKVStoreKey("test")
 		transientKey := storetypes.NewTransientStoreKey("transient_test")
 		ctx := testutil.DefaultContext(storeKey, transientKey)
