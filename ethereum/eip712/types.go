@@ -342,16 +342,16 @@ func typesAreEqual(types1 []apitypes.Type, types2 []apitypes.Type) bool {
 func sanitizeTypedef(str string) string {
 	buf := new(bytes.Buffer)
 	caser := cases.Title(language.English, cases.NoLower)
-	parts := strings.Split(str, ".")
+	parts := strings.SplitSeq(str, ".")
 
-	for _, part := range parts {
+	for part := range parts {
 		if part == rootPrefix {
 			buf.WriteString(typePrefix)
 			continue
 		}
 
-		subparts := strings.Split(part, "_")
-		for _, subpart := range subparts {
+		subparts := strings.SplitSeq(part, "_")
+		for subpart := range subparts {
 			buf.WriteString(caser.String(subpart))
 		}
 	}
