@@ -9,6 +9,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/mempool"
@@ -19,13 +29,6 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/holiman/uint256"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
@@ -33,12 +36,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	cmttypes "github.com/cometbft/cometbft/types"
 )
 
 const (
@@ -433,10 +432,10 @@ func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
 	err = txBuilder.SetMsgs(msg1, msg2)
 	require.NoError(t, err)
 
-	err = txBuilder.SetSignatures(signing.SignatureV2{
+	err = txBuilder.SetSignatures(signingtypes.SignatureV2{
 		PubKey: secp256k1.GenPrivKey().PubKey(),
-		Data: &signing.SingleSignatureData{
-			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+		Data: &signingtypes.SingleSignatureData{
+			SignMode:  signingtypes.SignMode_SIGN_MODE_DIRECT,
 			Signature: []byte("signature"),
 		},
 		Sequence: 0,
@@ -488,10 +487,10 @@ func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
 	err = txBuilder.SetMsgs(msg1, msg2)
 	require.NoError(t, err)
 
-	err = txBuilder.SetSignatures(signing.SignatureV2{
+	err = txBuilder.SetSignatures(signingtypes.SignatureV2{
 		PubKey: secp256k1.GenPrivKey().PubKey(),
-		Data: &signing.SingleSignatureData{
-			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+		Data: &signingtypes.SingleSignatureData{
+			SignMode:  signingtypes.SignMode_SIGN_MODE_DIRECT,
 			Signature: []byte("signature"),
 		},
 		Sequence: 0,
