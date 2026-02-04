@@ -48,22 +48,13 @@ const (
 )
 
 func TestMempool_Reserver(t *testing.T) {
-	mp, _, txConfig, _, bus, accounts, makeCtx := setupMempoolWithAccounts(t, 3)
-	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{
-			Height:  1,
-			Time:    time.Now(),
-			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
-		},
-	})
-	require.NoError(t, err)
-	require.NoError(t, mp.GetTxPool().Sync())
+	mp, _, txConfig, _, _, accounts, makeCtx := setupMempoolWithAccounts(t, 3)
 
 	accountKey := accounts[0].key
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err = mp.Insert(sdk.Context{}, ethTx)
+	err := mp.Insert(sdk.Context{}, ethTx)
 	require.NoError(t, err)
 
 	// insert cosmos tx from acount0, should error
@@ -96,22 +87,13 @@ func TestMempool_Reserver(t *testing.T) {
 }
 
 func TestMempool_ReserverMultiSigner(t *testing.T) {
-	mp, _, txConfig, _, bus, accounts, makeCtx := setupMempoolWithAccounts(t, 4)
-	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{
-			Height:  1,
-			Time:    time.Now(),
-			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
-		},
-	})
-	require.NoError(t, err)
-	require.NoError(t, mp.GetTxPool().Sync())
+	mp, _, txConfig, _, _, accounts, makeCtx := setupMempoolWithAccounts(t, 4)
 
 	accountKey := accounts[0].key
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err = mp.Insert(sdk.Context{}, ethTx)
+	err := mp.Insert(sdk.Context{}, ethTx)
 	require.NoError(t, err)
 
 	// inserting accounts 1 & 2 should be fine.
