@@ -63,7 +63,7 @@ func TestMempool_Reserver(t *testing.T) {
 	require.NoError(t, err)
 
 	// insert cosmos tx from acount0, should error
-	cosmosTx := createTestCosmosTx(t, txConfig, accountKey)
+	cosmosTx := createTestCosmosTx(t, txConfig, accountKey, 0)
 	err = mp.Insert(makeCtx(), cosmosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
@@ -71,9 +71,20 @@ func TestMempool_Reserver(t *testing.T) {
 	err = mp.Remove(ethTx)
 	require.NoError(t, err)
 
+	// pool should be clear
+	require.Equal(t, 0, mp.CountTx())
+
 	// should be able to insert the cosmos tx now
 	err = mp.Insert(makeCtx(), cosmosTx)
 	require.NoError(t, err)
+
+	// should be able to send another tx from the same account to the same pool.
+	cosmosTx2 := createTestCosmosTx(t, txConfig, accountKey, 1)
+	err = mp.Insert(makeCtx(), cosmosTx2)
+	require.NoError(t, err)
+
+	// there should be 2 txs at this point
+	require.Equal(t, 2, mp.CountTx())
 
 	// eth tx should now fail.
 	err = mp.Insert(sdk.Context{}, ethTx)
@@ -623,7 +634,7 @@ func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Co
 func (mr *MockRechecker) Update(chain legacypool.BlockChain, header *types.Header) {}
 
 // createTestCosmosTx creates a real Cosmos SDK transaction with the given signer
-func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.PrivateKey) sdk.Tx {
+func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.PrivateKey, sequence uint64) sdk.Tx {
 	t.Helper()
 
 	pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
@@ -653,7 +664,7 @@ func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.Priva
 	sig := signingtypes.SignatureV2{
 		PubKey:   pubKey,
 		Data:     sigData,
-		Sequence: 0,
+		Sequence: sequence,
 	}
 	err = txBuilder.SetSignatures(sig)
 	require.NoError(t, err)
