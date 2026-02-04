@@ -32,10 +32,13 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txmodule "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 const (
@@ -318,6 +321,122 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[1]), uint64(1)) // 1 or 2
 }
 
+func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, bus, _ := setupMempoolWithAnteHandler(t, anteHandler)
+
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	// create a multimsg cosmos tx
+	txBuilder := txConfig.NewTxBuilder()
+
+	fromAddr := sdk.AccAddress([]byte("from"))
+	toAddr1 := sdk.AccAddress([]byte("addr1"))
+	toAddr2 := sdk.AccAddress([]byte("addr2"))
+
+	msg1 := banktypes.NewMsgSend(
+		fromAddr,
+		toAddr1,
+		sdk.NewCoins(sdk.NewInt64Coin("stake", 1000)),
+	)
+	msg2 := banktypes.NewMsgSend(
+		fromAddr,
+		toAddr2,
+		sdk.NewCoins(sdk.NewInt64Coin("stake", 2000)),
+	)
+	err = txBuilder.SetMsgs(msg1, msg2)
+	require.NoError(t, err)
+
+	err = txBuilder.SetSignatures(signing.SignatureV2{
+		PubKey: secp256k1.GenPrivKey().PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+			Signature: []byte("signature"),
+		},
+		Sequence: 0,
+	})
+	require.NoError(t, err)
+
+	multiMsgTx := txBuilder.GetTx()
+
+	require.Len(t, multiMsgTx.GetMsgs(), 2, "transaction should have 2 messages")
+
+	// create a context for the insert operation (must have a multistore on it
+	// for ante handler execution, so we have to use the more complicated
+	// setup)
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey)
+
+	require.NoError(t, mp.Insert(ctx, multiMsgTx))
+	require.Equal(t, 1, mp.CountTx(), "expected a single tx to be in the mempool")
+
+	txs, err := mp.ReapNewValidTxs(0, 0)
+	require.NoError(t, err)
+	require.Len(t, txs, 1, "expected a single tx to be reaped")
+}
+
+func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, bus, _ := setupMempoolWithAnteHandler(t, anteHandler)
+
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	txBuilder := txConfig.NewTxBuilder()
+
+	msg1 := banktypes.NewMsgSend(
+		sdk.AccAddress([]byte("from")),
+		sdk.AccAddress([]byte("addr")),
+		sdk.NewCoins(sdk.NewInt64Coin("stake", 2000)),
+	)
+	msg2 := &vmtypes.MsgEthereumTx{}
+	err = txBuilder.SetMsgs(msg1, msg2)
+	require.NoError(t, err)
+
+	err = txBuilder.SetSignatures(signing.SignatureV2{
+		PubKey: secp256k1.GenPrivKey().PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+			Signature: []byte("signature"),
+		},
+		Sequence: 0,
+	})
+	require.NoError(t, err)
+
+	multiMsgTx := txBuilder.GetTx()
+	require.Len(t, multiMsgTx.GetMsgs(), 2, "transaction should have 2 messages")
+
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey)
+
+	err = mp.Insert(ctx, multiMsgTx)
+	require.ErrorIs(t, err, mempool.ErrMultiMsgEthereumTransaction)
+	require.Equal(t, 0, mp.CountTx(), "expected no txs to be in the mempool")
+
+	txs, err := mp.ReapNewValidTxs(0, 0)
+	require.NoError(t, err)
+	require.Len(t, txs, 0, "expected no txs to be reaped")
+}
+
 // Helper types and functions
 
 type testAccount struct {
@@ -328,6 +447,11 @@ type testAccount struct {
 }
 
 func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
+	t.Helper()
+	return setupMempoolWithAnteHandler(t, nil)
+}
+
+func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
 	t.Helper()
 
 	// Create accounts
@@ -417,7 +541,7 @@ func setupMempoolWithAccounts(t *testing.T) (*mempool.ExperimentalEVMMempool, *m
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    30000000,
 		MinTip:           uint256.NewInt(0),
-		AnteHandler:      nil, // No ante handler for this test
+		AnteHandler:      anteHandler,
 	}
 
 	// Create mempool
