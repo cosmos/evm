@@ -286,7 +286,8 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
 	ethMsg, err := evmTxFromCosmosTx(tx)
-	if err == nil {
+	switch {
+	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 		if !sync {
 			m.iq.Push(ethTx)

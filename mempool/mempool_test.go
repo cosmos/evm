@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/mocks"
 	"github.com/cosmos/evm/mempool/reserver"
@@ -30,14 +30,11 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	txmodule "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -53,7 +50,10 @@ func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey)
-	mp, _, txConfig, _, _, accounts := setupMempoolWithAccounts(t, 3)
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, 3)
 
 	accountKey := accounts[0].key
 
@@ -95,7 +95,10 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey)
-	mp, _, txConfig, _, _, accounts := setupMempoolWithAccounts(t, 4)
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, 4)
 
 	accountKey := accounts[0].key
 
@@ -580,11 +583,18 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 
 	mockVMKeeper.On("SetEvmMempool", mock.Anything).Maybe()
 
+	// Track latest height for the context callback (height=0 means "latest")
+	var latestHeight int64 = 1
+
 	// Create context callback
 	getCtxCallback := func(height int64, prove bool) (sdk.Context, error) {
 		storeKey := storetypes.NewKVStoreKey("test")
 		transientKey := storetypes.NewTransientStoreKey("transient_test")
 		ctx := testutil.DefaultContext(storeKey, transientKey)
+		// height=0 means "latest" (matches SDK's CreateQueryContext behavior)
+		if height == 0 {
+			height = latestHeight
+		}
 		return ctx.
 			WithBlockTime(time.Now()).
 			WithBlockHeader(cmtproto.Header{AppHash: []byte("00000000000000000000000000000000")}).
@@ -592,17 +602,16 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 			WithChainID(strconv.Itoa(constants.EighteenDecimalsChainID)), nil
 	}
 
-	// Create TxConfig
-	interfaceRegistry := codectypes.NewInterfaceRegistry()
-	vmtypes.RegisterInterfaces(interfaceRegistry)
-	txmodule.RegisterInterfaces(interfaceRegistry)
-	protoCodec := codec.NewProtoCodec(interfaceRegistry)
-	txConfig := tx.NewTxConfig(protoCodec, tx.DefaultSignModes)
+	// Create TxConfig using proper encoding config with address codec
+	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
+	// Register vm types so MsgEthereumTx can be decoded
+	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	txConfig := encodingConfig.TxConfig
 
 	// Create client context
 	clientCtx := client.Context{}.
-		WithCodec(protoCodec).
-		WithInterfaceRegistry(interfaceRegistry).
+		WithCodec(encodingConfig.Codec).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(txConfig)
 
 	// Create mempool config
