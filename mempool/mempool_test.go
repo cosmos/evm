@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	mempool2 "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -37,6 +36,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
@@ -68,7 +68,7 @@ func TestMempool_Reserver(t *testing.T) {
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
 	// remove the eth tx
-	err = mp.RemoveWithReason(ctx, ethTx, mempool2.RemoveReason{Error: errors.New("some error")})
+	err = mp.RemoveWithReason(ctx, ethTx, mempooltypes.RemoveReason{Error: errors.New("some error")})
 	require.NoError(t, err)
 
 	// pool should be clear
