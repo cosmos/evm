@@ -60,7 +60,7 @@ func TestMempool_Reserver(t *testing.T) {
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err := mp.Insert(sdk.Context{}, ethTx)
+	err := mp.Insert(ctx, ethTx)
 	require.NoError(t, err)
 
 	// insert cosmos tx from acount0, should error
@@ -88,7 +88,7 @@ func TestMempool_Reserver(t *testing.T) {
 	require.Equal(t, 2, mp.CountTx())
 
 	// eth tx should now fail.
-	err = mp.Insert(sdk.Context{}, ethTx)
+	err = mp.Insert(ctx, ethTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 
@@ -105,7 +105,7 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err := mp.Insert(sdk.Context{}, ethTx)
+	err := mp.Insert(ctx, ethTx)
 	require.NoError(t, err)
 
 	// inserting accounts 1 & 2 should be fine.

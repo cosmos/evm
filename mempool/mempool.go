@@ -281,13 +281,17 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		return fmt.Errorf("inserting tx: %w", err)
 	}
 
-	// wait for a result to be returned or context cancelled
-	select {
-	case err := <-errC:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
+	if errC != nil {
+		// if we got back a non nil async error channel, wait for that to
+		// resolve
+		select {
+		case err := <-errC:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
+	return nil
 }
 
 // InsertAsync adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
