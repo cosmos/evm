@@ -151,6 +151,11 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	// publish tx directly to app-side mempool, avoiding broadcasting to
 	// consensus layer.
 	if b.UseAppMempool {
+		// track the tx for tx inclusion timing metrics of local txs
+		if err := b.Mempool.TrackTx(txHash); err != nil {
+			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
+		}
+
 		// we are directly calling into the mempool rather than the ABCI
 		// handler for InsertTx, since the ABCI handler obfuscates the error's
 		// returned via codes, and we would like to have the full error to
@@ -159,12 +164,10 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		if err != nil {
 			// no need for special error handling like in the broadcast tx case
 			// since this is coming directly from the evm mempool insert.
+			b.Mempool.StopTrackingTx(txHash)
 			return common.Hash{}, err
 		}
 
-		if err := b.Mempool.TrackTx(txHash); err != nil {
-			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
-		}
 		return txHash, nil
 	}
 

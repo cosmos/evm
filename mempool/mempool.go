@@ -242,7 +242,7 @@ func NewExperimentalEVMMempool(
 		// the reap guard.
 		evmMempool.reapList.DropEVMTx(tx)
 
-		_ = evmMempool.txTracker.RemoveTx(tx.Hash(), pool)
+		_ = evmMempool.txTracker.RemoveTxFromPool(tx.Hash(), pool)
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -660,6 +660,14 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 	return evmIterator, cosmosIterator
 }
 
+// TrackTx submits a tx to be tracked for its tx inclusion metrics.
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
+}
+
+// StopTrackingTx stops a tx from being tracked for its tx inclusion metrics.
+// This should only be used if a tx has not yet been included in the mempool,
+// i.e. received an error from Insert.
+func (m *ExperimentalEVMMempool) StopTrackingTx(hash common.Hash) {
+	m.txTracker.RemoveTx(hash)
 }
