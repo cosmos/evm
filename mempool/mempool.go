@@ -271,9 +271,14 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+	errC, err := m.insert(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("inserting tx: %w", err)
+	}
+
 	// wait for a result to be returned or context cancelled
 	select {
-	case err := <-m.insert(ctx, tx):
+	case err := <-errC:
 		return err
 	case <-ctx.Done():
 		return ctx.Err()
@@ -286,8 +291,13 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
 func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
+	errC, err := m.insert(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("inserting tx: %w", err)
+	}
+
 	select {
-	case err := <-m.insert(ctx, tx):
+	case err := <-errC:
 		// if we have a result immediately, ready on the channel returned from
 		// insert, return that (cosmos tx or unable to try and insert the tx
 		// due to parsing error).
@@ -300,32 +310,31 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 	}
 }
 
-func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) chan error {
-	subscription := make(chan error, 1)
-
+// insert inserts a tx into its respective mempool, returning a channel for any
+// async errors that may happen later upon actual mempool insertion, and an
+// error for any errors that occurred synchronously.
+func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 
 		// we push the tx onto the insert queue so the tx will be inserted at a
-		// later point. We pass along the `subscription` chan, so that the
-		// insert queue will notify the caller of any errors that occurred when
-		// inserting into the mempool.
-		m.iq.Push(ethTx, subscription)
-		return subscription
+		// later point. We get back a subscription that the insert queue will
+		// use to notify the caller of any errors that occurred when inserting
+		// into the mempool.
+		sub := m.iq.Push(ethTx)
+		return sub, nil
 	case errors.Is(err, ErrNotEVMTransaction):
 		// inserting cosmos txs do not have the same insert queue behavior as
-		// evm txs, thus we wait for the insert to return and push its value
-		// onto the subscription, so the subscription is already populated with
-		// the insert result upon callers receiving it
-		subscription <- m.insertCosmosTx(ctx, tx)
+		// evm txs, thus we synchronously wait for the insert to return	and
+		// simply return its error
+		return nil, m.insertCosmosTx(ctx, tx)
 	default:
-		// could not determine if a tx is cosmos or evm, pre populate the
-		// subscription channel with the error
-		subscription <- err
+		// could not determine if a tx is cosmos or evm, immediately return
+		// synchronous error
+		return nil, err
 	}
-	return subscription
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also

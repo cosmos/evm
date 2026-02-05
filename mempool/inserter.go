@@ -67,20 +67,18 @@ func newInsertQueue(pool TxPool, maxSize int, logger log.Logger) *insertQueue {
 // of the txs insertion status, once it is processed through the InsertQueue
 // and added to the TxPool. The InsertQueue will close the sub after this
 // happens. If no error occurs, a nil error will be pushed to the sub.
-func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
-	if tx == nil {
-		return
-	}
-	if sub != nil && cap(sub) != 1 {
-		panic(fmt.Errorf("sub must be a buffered chan of capacity 1, instead got %d", cap(sub)))
-	}
+func (iq *insertQueue) Push(tx *ethtypes.Transaction) <-chan error {
+	sub := make(chan error, 1)
 
+	if tx == nil {
+		// TODO: when do we expect this to happen?
+		close(sub)
+		return sub
+	}
 	if iq.isFull() {
-		if sub != nil {
-			sub <- ErrInsertQueueFull
-			close(sub)
-		}
-		return
+		sub <- ErrInsertQueueFull
+		close(sub)
+		return sub
 	}
 
 	iq.lock.Lock()
@@ -92,6 +90,8 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 	case iq.signal <- struct{}{}:
 	default:
 	}
+
+	return sub
 }
 
 // loop is the main loop of the insertQueue. This will pop txs off the front of
@@ -113,10 +113,8 @@ func (iq *insertQueue) loop() {
 
 				// if the item has a subscriber on it, push any errors that
 				// occurred to them
-				if item.sub != nil {
-					item.sub <- err
-					close(item.sub)
-				}
+				item.sub <- err
+				close(item.sub)
 			}
 			if numTxsAvailable-1 > 0 {
 				// there are still txs available, try and insert immediately
