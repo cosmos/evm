@@ -268,9 +268,9 @@ func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.Lazy
 
 		// Convert to lazy transactions
 		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i, tx := range txs {
-				lazies[i] = &txpool.LazyTransaction{
+			lazies := make([]*txpool.LazyTransaction, 0, len(txs))
+			for _, tx := range txs {
+				lazies = append(lazies, &txpool.LazyTransaction{
 					Hash:      tx.Hash(),
 					Tx:        tx,
 					Time:      tx.Time(),
@@ -278,7 +278,7 @@ func (t *txs) Get(filter txpool.PendingFilter) map[common.Address][]*txpool.Lazy
 					GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
 					Gas:       tx.Gas(),
 					BlobGas:   tx.BlobGas(),
-				}
+				})
 				if numSelected+len(lazies) >= maxTxs {
 					break
 				}
