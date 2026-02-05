@@ -13,7 +13,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
 	github.com/stretchr/testify v1.11.1
-	github.com/test-go/testify v1.1.4
 	github.com/tidwall/gjson v1.18.0
 )
 
@@ -31,7 +30,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
-	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -311,4 +309,4 @@ replace (
 
 replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251211155820-afd2ee7d3c3b
 
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20251202172620-73384e926a1b
+replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20260204163943-9e0f43cd7ddf
