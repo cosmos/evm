@@ -18,7 +18,7 @@ type TxPool interface {
 	Add(txs []*ethtypes.Transaction, sync bool) []error
 }
 
-type item struct {
+type insertItem struct {
 	tx  *ethtypes.Transaction
 	sub chan<- error
 }
@@ -27,7 +27,7 @@ type item struct {
 type insertQueue struct {
 	// queue is a queue of txs to be inserted into the pool. txs are pushed
 	// onto the back, and popped from the from, FIFO.
-	queue deque.Deque[item]
+	queue deque.Deque[insertItem]
 	lock  sync.RWMutex
 
 	// signal signals that there are txs available in the queue. Consumers of
@@ -84,7 +84,7 @@ func (iq *insertQueue) Push(tx *ethtypes.Transaction, sub chan<- error) {
 	}
 
 	iq.lock.Lock()
-	iq.queue.PushBack(item{tx: tx, sub: sub})
+	iq.queue.PushBack(insertItem{tx: tx, sub: sub})
 	iq.lock.Unlock()
 
 	// signal that there are txs available
