@@ -140,6 +140,11 @@ func TestEVMMempoolIterator_getPreferredTransaction(t *testing.T) {
 	require.NoError(t, err)
 	lazy := &txpool.LazyTransaction{Tx: signed}
 
+	// conversion failure due to wrong chain ID
+	wrongChainIDSigned, err := ethtypes.SignTx(unsigned, ethtypes.LatestSignerForChainID(big.NewInt(2)), key)
+	require.NoError(t, err)
+	wrongChainLazy := &txpool.LazyTransaction{Tx: wrongChainIDSigned}
+
 	it := &EVMMempoolIterator{
 		logger:    log.NewNopLogger(),
 		txConfig:  encoding.MakeConfig(chainID).TxConfig,
@@ -155,6 +160,7 @@ func TestEVMMempoolIterator_getPreferredTransaction(t *testing.T) {
 		cosmosFee *uint256.Int
 		wantSrc   txSource
 		wantNil   bool
+		wantShift bool
 	}
 
 	testCases := []testCase{
@@ -165,12 +171,15 @@ func TestEVMMempoolIterator_getPreferredTransaction(t *testing.T) {
 		{name: "prefer evm on tie", evmTx: lazy, evmFee: uint256.NewInt(5), cosmosTx: cosmosFeeTx, cosmosFee: uint256.NewInt(5), wantSrc: txSourceEVM},
 		{name: "prefer evm when cosmos tip is zero", evmTx: lazy, evmFee: uint256.NewInt(5), cosmosTx: cosmosFeeTx, cosmosFee: uint256.NewInt(0), wantSrc: txSourceEVM},
 		{name: "prefer evm when cosmos tip is nil", evmTx: lazy, evmFee: uint256.NewInt(5), cosmosTx: cosmosFeeTx, cosmosFee: nil, wantSrc: txSourceEVM},
+		{name: "fallback to cosmos when evm conversion fails", evmTx: wrongChainLazy, evmFee: uint256.NewInt(10), cosmosTx: cosmosFeeTx, cosmosFee: uint256.NewInt(1), wantSrc: txSourceCosmos, wantShift: true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			it.shiftEVMOnNext = false
 			tx, src := it.getPreferredTransaction(tc.evmTx, tc.evmFee, tc.cosmosTx, tc.cosmosFee)
 			require.Equal(t, tc.wantSrc, src)
+			require.Equal(t, tc.wantShift, it.shiftEVMOnNext)
 
 			if tc.wantNil {
 				require.Nil(t, tx)
@@ -185,4 +194,30 @@ func TestEVMMempoolIterator_getPreferredTransaction(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("Next advances EVM on fallback", func(t *testing.T) {
+		cosmosTx := fakeFeeTx{gas: 1, fee: sdk.NewCoins(sdk.NewInt64Coin(denom, 1))}
+		cosmosNext := &fakeCosmosIter{tx: nil, next: nil}
+		cosmosIter := &fakeCosmosIter{tx: cosmosTx, next: cosmosNext}
+
+		evmi := &fakeEVMIter{firstFee: uint256.NewInt(10), secondFee: uint256.NewInt(10), tx: wrongChainLazy}
+		iter := &EVMMempoolIterator{
+			evmIterator:    evmi,
+			cosmosIterator: cosmosIter,
+			logger:         log.NewNopLogger(),
+			txConfig:       encoding.MakeConfig(chainID).TxConfig,
+			bondDenom:      denom,
+			chainID:        chainIDBig,
+			blockchain:     nil,
+		}
+
+		got := iter.Tx()
+		feeTx, ok := got.(sdk.FeeTx)
+		require.True(t, ok, "expected Cosmos FeeTx, got %T", got)
+		require.Equal(t, int64(1), feeTx.GetFee().AmountOf(denom).Int64())
+
+		require.NotNil(t, iter.Next())
+		require.Equal(t, 1, evmi.shiftCalls)
+		require.Equal(t, cosmosNext, iter.cosmosIterator)
+	})
 }

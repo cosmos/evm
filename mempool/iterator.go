@@ -20,6 +20,13 @@ import (
 
 var _ mempool.Iterator = &EVMMempoolIterator{}
 
+// evmTxIterator is the minimal interface EVMMempoolIterator needs from an EVM-side tx iterator.
+//
+// Contract:
+//   - Peek returns the current candidate tx and its already-computed “priority fee” (tip).
+//     Implementations may return (nil, nil) when empty.
+//   - Shift advances the iterator to the next candidate.
+//   - Empty reports whether there are any candidates remaining.
 type evmTxIterator interface {
 	Peek() (*txpool.LazyTransaction, *uint256.Int)
 	Shift()
@@ -43,6 +50,9 @@ type EVMMempoolIterator struct {
 	evmIterator    evmTxIterator
 	cosmosIterator mempool.Iterator
 	lastSource     txSource
+	// shiftEVMOnNext is set when we wanted to return an EVM tx but conversion failed and we returned
+	// a Cosmos tx instead; Next() still advances the EVM iterator to avoid retrying that EVM tx.
+	shiftEVMOnNext bool
 
 	/** Utils **/
 	logger   log.Logger
@@ -100,6 +110,12 @@ func (i *EVMMempoolIterator) Next() mempool.Iterator {
 		_ = i.Tx()
 	}
 
+	// If Tx() fell back from EVM to Cosmos due to conversion failure, also advance EVM once.
+	if i.shiftEVMOnNext {
+		i.advanceCurrentIterator(txSourceEVM)
+		i.shiftEVMOnNext = false
+	}
+
 	i.advanceCurrentIterator(i.lastSource)
 	i.lastSource = txSourceUnknown
 
@@ -116,6 +132,10 @@ func (i *EVMMempoolIterator) Next() mempool.Iterator {
 // It selects between EVM and Cosmos transactions based on fee priority
 // and converts EVM transactions to SDK format.
 func (i *EVMMempoolIterator) Tx() sdk.Tx {
+	// Clear any pending advancement flags; Tx() may re-set them based on the chosen path.
+	// This keeps repeated Tx() calls idempotent between Next() calls.
+	i.shiftEVMOnNext = false
+
 	// Get current transactions (and fees) from both iterators
 	nextEVMTx, evmFee := i.getNextEVMTx()
 	nextCosmosTx, cosmosFee := i.getNextCosmosTx()
@@ -175,6 +195,9 @@ func (i *EVMMempoolIterator) getNextCosmosTx() (sdk.Tx, *uint256.Int) {
 //
 // cosmosFee is the already-derived Cosmos effective tip; any issues while computing it (e.g. fee
 // missing/invalid, denom mismatch, overflow) are represented as a zero/invalid tip upstream.
+//
+// Note: txSource indicates which iterator Next() should advance.
+// Returning (nil, txSourceEVM) means: skip this unconvertible EVM tx, but still advance EVM.
 func (i *EVMMempoolIterator) getPreferredTransaction(
 	nextEVMTx *txpool.LazyTransaction, evmFee *uint256.Int,
 	nextCosmosTx sdk.Tx, cosmosFee *uint256.Int,
@@ -215,11 +238,17 @@ func (i *EVMMempoolIterator) getPreferredTransaction(
 				return evmTx, txSourceEVM
 			}
 		}
-		// Fall back to Cosmos if EVM is not available or conversion fails
-		i.logger.Debug("EVM transaction conversion failed, falling back to Cosmos transaction")
+		// Fall back to Cosmos if EVM conversion fails.
+		// We also need to advance the EVM iterator on Next() to avoid repeatedly attempting the same
+		// unconvertible EVM tx.
+		i.logger.Debug("EVM transaction conversion failed")
 		if nextCosmosTx != nil {
+			i.logger.Debug("falling back to Cosmos transaction")
+			i.shiftEVMOnNext = true
 			return nextCosmosTx, txSourceCosmos
 		}
+
+		// No Cosmos tx to fall back to; return nil but still advance EVM on Next().
 		return nil, txSourceEVM
 	}
 
@@ -228,7 +257,7 @@ func (i *EVMMempoolIterator) getPreferredTransaction(
 	if nextCosmosTx != nil {
 		return nextCosmosTx, txSourceCosmos
 	}
-	return nil, txSourceEVM
+	return nil, txSourceUnknown
 }
 
 // advanceCurrentIterator advances the iterator that produced the transaction returned by Tx().
