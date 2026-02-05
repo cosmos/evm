@@ -956,6 +956,40 @@ func (_c *BankKeeper_SetDenomMetaData_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// SetSupply provides a mock function with given fields: ctx, coin
+func (_m *BankKeeper) SetSupply(ctx context.Context, coin types.Coin) {
+	_m.Called(ctx, coin)
+}
+
+// BankKeeper_SetSupply_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetSupply'
+type BankKeeper_SetSupply_Call struct {
+	*mock.Call
+}
+
+// SetSupply is a helper method to define mock.On call
+//   - ctx context.Context
+//   - coin types.Coin
+func (_e *BankKeeper_Expecter) SetSupply(ctx interface{}, coin interface{}) *BankKeeper_SetSupply_Call {
+	return &BankKeeper_SetSupply_Call{Call: _e.mock.On("SetSupply", ctx, coin)}
+}
+
+func (_c *BankKeeper_SetSupply_Call) Run(run func(ctx context.Context, coin types.Coin)) *BankKeeper_SetSupply_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(types.Coin))
+	})
+	return _c
+}
+
+func (_c *BankKeeper_SetSupply_Call) Return() *BankKeeper_SetSupply_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *BankKeeper_SetSupply_Call) RunAndReturn(run func(context.Context, types.Coin)) *BankKeeper_SetSupply_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SpendableCoin provides a mock function with given fields: ctx, addr, denom
 func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, denom string) types.Coin {
 	ret := _m.Called(ctx, addr, denom)

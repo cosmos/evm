@@ -60,6 +60,10 @@ func (k Keeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
 	return k.bk.GetSupply(ctx, denom)
 }
 
+func (k Keeper) SetSupply(ctx context.Context, coin sdk.Coin) {
+	k.bk.SetSupply(ctx, coin)
+}
+
 func (k Keeper) LockedCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
 	return k.bk.LockedCoins(ctx, addr)
 }

@@ -267,6 +267,11 @@ func (_m *BankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData bankty
 	_m.Called(ctx, denomMetaData)
 }
 
+// SetSupply provides a mock function with given fields: ctx, coin
+func (_m *BankKeeper) SetSupply(ctx context.Context, coin types.Coin) {
+	_m.Called(ctx, coin)
+}
+
 // SpendableCoin provides a mock function with given fields: ctx, addr, denom
 func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, denom string) types.Coin {
 	ret := _m.Called(ctx, addr, denom)

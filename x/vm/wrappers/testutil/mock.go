@@ -453,6 +453,18 @@ func (mr *MockBankKeeperMockRecorder) SetDenomMetaData(ctx, denomMetaData any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDenomMetaData", reflect.TypeOf((*MockBankKeeper)(nil).SetDenomMetaData), ctx, denomMetaData)
 }
 
+// SetSupply mocks base method.
+func (m *MockBankKeeper) SetSupply(ctx context.Context, coin types.Coin) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSupply", ctx, coin)
+}
+
+// SetSupply indicates an expected call of SetSupply.
+func (mr *MockBankKeeperMockRecorder) SetSupply(ctx, coin any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSupply", reflect.TypeOf((*MockBankKeeper)(nil).SetSupply), ctx, coin)
+}
+
 // SpendableCoin mocks base method.
 func (m *MockBankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, denom string) types.Coin {
 	m.ctrl.T.Helper()
@@ -954,6 +966,18 @@ func (m *MockBankWrapper) SetDenomMetaData(ctx context.Context, denomMetaData ty
 func (mr *MockBankWrapperMockRecorder) SetDenomMetaData(ctx, denomMetaData any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDenomMetaData", reflect.TypeOf((*MockBankWrapper)(nil).SetDenomMetaData), ctx, denomMetaData)
+}
+
+// SetSupply mocks base method.
+func (m *MockBankWrapper) SetSupply(ctx context.Context, coin types.Coin) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSupply", ctx, coin)
+}
+
+// SetSupply indicates an expected call of SetSupply.
+func (mr *MockBankWrapperMockRecorder) SetSupply(ctx, coin any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSupply", reflect.TypeOf((*MockBankWrapper)(nil).SetSupply), ctx, coin)
 }
 
 // SpendableCoin mocks base method.

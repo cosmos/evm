@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/math"
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
 
@@ -114,8 +115,20 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	denom := types.GetEVMCoinDenom()
+
+	// Get previous spendable balance
+	prevBalance := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, denom)
+	// Get locked balance
 	locked := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
-	newBalance := new(big.Int).Add(amount.ToBig(), locked.AmountOf(types.GetEVMCoinDenom()).BigInt())
+	// New balance is the sum of statedb balance (which doesn't include locked funds) and locked balance
+	newBalance := new(big.Int).Add(amount.ToBig(), locked.AmountOf(denom).BigInt())
+
+	// Calculate and update the Supply
+	supplyDelta := new(big.Int).Sub(newBalance, prevBalance.Amount.BigInt())
+	currentSupply := k.bankWrapper.GetSupply(ctx, denom)
+	newSupply := currentSupply.AddAmount(math.NewIntFromBigInt(supplyDelta))
+	k.bankWrapper.SetSupply(ctx, newSupply)
 
 	return k.bankWrapper.SetBalance(ctx, cosmosAddr, newBalance)
 }

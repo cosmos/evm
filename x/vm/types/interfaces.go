@@ -49,6 +49,7 @@ type BankKeeper interface {
 	IterateAccountBalances(ctx context.Context, account sdk.AccAddress, cb func(coin sdk.Coin) bool)
 	IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool)
 	GetSupply(ctx context.Context, denom string) sdk.Coin
+	SetSupply(ctx context.Context, coin sdk.Coin)
 	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
 	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
 	SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
