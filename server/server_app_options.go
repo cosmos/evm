@@ -154,7 +154,7 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
 }
 
-func GetInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) int {
+func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
 		logger.Error("app options is nil, using insert queue size of 5000")
 		return 5000
