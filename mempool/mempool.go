@@ -561,7 +561,7 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
 func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reason sdkmempool.RemoveReason) bool {
 	if reason.Error == nil {
-		return true
+		return false
 	}
 	// Comet will attempt to remove transactions from the mempool after completing successfully.
 	// We should not do this with EVM transactions because removing them causes the subsequent ones to
