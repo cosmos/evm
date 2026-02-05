@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/suite"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {

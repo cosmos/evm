@@ -29,6 +29,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -329,7 +330,7 @@ type LegacyPool struct {
 	currentHead   atomic.Pointer[types.Header] // Current head of the blockchain
 	currentState  vm.StateDB                   // Current state in the blockchain head
 	pendingNonces *noncer                      // Pending state tracking virtual nonces
-	reserver      txpool.Reserver              // Address reserver to ensure exclusivity across subpools
+	reserver      reserver.Reserver            // Address reserver to ensure exclusivity across subpools
 	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
 	validPendingTxs   *txCollector // Per height collection of pending txs that have been validated
@@ -426,7 +427,7 @@ func (pool *LegacyPool) Filter(tx *types.Transaction) bool {
 // Init sets the gas price needed to keep a transaction in the pool and the chain
 // head to allow balance / nonce checks. The internal
 // goroutines will be spun up and the pool deemed operational afterwards.
-func (pool *LegacyPool) Init(gasTip uint64, head *types.Header, reserver txpool.Reserver) error {
+func (pool *LegacyPool) Init(gasTip uint64, head *types.Header, reserver reserver.Reserver) error {
 	// Set the address reserver to request exclusive access to pooled accounts
 	pool.reserver = reserver
 

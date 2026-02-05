@@ -13,7 +13,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
 	github.com/stretchr/testify v1.11.1
-	github.com/test-go/testify v1.1.4
 	github.com/tidwall/gjson v1.18.0
 )
 

@@ -222,7 +222,6 @@ var (
 			erc20Bz := cdc.MustMarshalJSON(&erc20Gen)
 
 			genesisState[erc20types.ModuleName] = erc20Bz
-
 		}
 	}
 
