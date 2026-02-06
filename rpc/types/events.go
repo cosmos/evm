@@ -255,7 +255,7 @@ func ParseTxBlockResult(
 	tx sdk.Tx,
 	txIndex int,
 	height int64,
-) (*types.TxResult, *TxResultAdditionalFields, error) {
+) ([]*types.TxResult, []*TxResultAdditionalFields, error) {
 	txs, err := ParseTxResult(txResult, tx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse tx events: block %d, index %d, %v", height, txIndex, err)
@@ -264,20 +264,26 @@ func ParseTxBlockResult(
 	if len(txs.Txs) == 0 {
 		return nil, nil, nil
 	}
-	// TODO: check why when there are multiple derived txs events are in reversed order
-	parsedTx := txs.Txs[len(txs.Txs)-1]
-	if parsedTx.Type == evmtypes.DerivedTxType {
-		return &types.TxResult{
-				Height: height,
-				// #nosec G115 always in range
-				TxIndex: uint32(txIndex),
-				// #nosec G115 always in range
-				MsgIndex:          uint32(parsedTx.MsgIndex),
-				EthTxIndex:        parsedTx.EthTxIndex,
-				Failed:            parsedTx.Failed,
-				GasUsed:           parsedTx.GasUsed,
-				CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
-			}, &TxResultAdditionalFields{
+
+	results := make([]*types.TxResult, 0, len(txs.Txs))
+	additionals := make([]*TxResultAdditionalFields, 0, len(txs.Txs))
+
+	for _, parsedTx := range txs.Txs {
+		result := &types.TxResult{
+			Height: height,
+			// #nosec G115 always in range
+			TxIndex: uint32(txIndex),
+			// #nosec G115 always in range
+			MsgIndex:          uint32(parsedTx.MsgIndex),
+			EthTxIndex:        parsedTx.EthTxIndex,
+			Failed:            parsedTx.Failed,
+			GasUsed:           parsedTx.GasUsed,
+			CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
+		}
+		results = append(results, result)
+
+		if parsedTx.Type == evmtypes.DerivedTxType {
+			additionals = append(additionals, &TxResultAdditionalFields{
 				Value:     parsedTx.Amount,
 				Hash:      parsedTx.Hash,
 				TxHash:    parsedTx.TxHash,
@@ -288,19 +294,13 @@ func ParseTxBlockResult(
 				Data:      parsedTx.Data,
 				Nonce:     parsedTx.Nonce,
 				GasLimit:  &parsedTx.GasLimit,
-			}, nil
+			})
+		} else {
+			additionals = append(additionals, nil)
+		}
 	}
-	return &types.TxResult{
-		Height: height,
-		// #nosec G115 always in range
-		TxIndex: uint32(txIndex),
-		// #nosec G115 always in range
-		MsgIndex:          uint32(parsedTx.MsgIndex),
-		EthTxIndex:        parsedTx.EthTxIndex,
-		Failed:            parsedTx.Failed,
-		GasUsed:           parsedTx.GasUsed,
-		CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
-	}, nil, nil
+
+	return results, additionals, nil
 }
 
 func (p *ParsedTxs) newTx(attrs []abci.EventAttribute) error {

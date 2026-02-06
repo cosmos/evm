@@ -282,10 +282,12 @@ func (b *Backend) EthMsgsFromTendermintBlock(
 
 		// if tx can not be decoded or MsgEthereumTx was not found, try to parse it from block results
 		if shouldCheckForDerivedCosmosEVMTx {
-			ethMsg, additional := b.parseDerivedTxFromBlockResults(txResults, i, tx, block)
-			if ethMsg != nil {
-				result = append(result, ethMsg)
-				txsAdditional = append(txsAdditional, additional)
+			ethMsgs, additionals := b.parseDerivedTxFromBlockResults(txResults, i, tx, block)
+			for idx, ethMsg := range ethMsgs {
+				if ethMsg != nil {
+					result = append(result, ethMsg)
+					txsAdditional = append(txsAdditional, additionals[idx])
+				}
 			}
 		}
 	}
@@ -298,18 +300,28 @@ func (b *Backend) parseDerivedTxFromBlockResults(
 	i int,
 	tx sdk.Tx,
 	block *tmtypes.Block,
-) (*evmtypes.MsgEthereumTx, *rpctypes.TxResultAdditionalFields) {
-	res, additional, err := rpctypes.ParseTxBlockResult(txResults[i], tx, i, block.Height)
+) ([]*evmtypes.MsgEthereumTx, []*rpctypes.TxResultAdditionalFields) {
+	results, additionals, err := rpctypes.ParseTxBlockResult(txResults[i], tx, i, block.Height)
 	// just skip tx if it can not be parsed, so remaining txs from the block are parsed
 	if err != nil {
 		b.logger.Error(err.Error())
 		return nil, nil
 	}
-	if additional == nil || res == nil {
+	if len(results) == 0 {
 		b.logger.Debug("derived ethereum tx not found in msgs: block %d, index %d", block.Height, i)
 		return nil, nil
 	}
-	return b.parseDerivedTxFromAdditionalFields(additional), additional
+
+	ethMsgs := make([]*evmtypes.MsgEthereumTx, 0, len(additionals))
+	derivedAdditionals := make([]*rpctypes.TxResultAdditionalFields, 0, len(additionals))
+	for idx, additional := range additionals {
+		if additional == nil || results[idx] == nil {
+			continue
+		}
+		ethMsgs = append(ethMsgs, b.parseDerivedTxFromAdditionalFields(additional))
+		derivedAdditionals = append(derivedAdditionals, additional)
+	}
+	return ethMsgs, derivedAdditionals
 }
 
 func (b *Backend) parseDerivedTxFromAdditionalFields(
