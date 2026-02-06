@@ -101,11 +101,11 @@ func (_m *BankKeeper) GetSupply(ctx context.Context, denom string) types.Coin {
 
 // IsSendEnabledCoins provides a mock function with given fields: ctx, coins
 func (_m *BankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...types.Coin) error {
-	_va := make([]any, len(coins))
+	_va := make([]interface{}, len(coins))
 	for _i := range coins {
 		_va[_i] = coins[_i]
 	}
-	var _ca []any
+	var _ca []interface{}
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
@@ -132,6 +132,26 @@ func (_m *BankKeeper) IterateAccountBalances(ctx context.Context, account types.
 // IterateTotalSupply provides a mock function with given fields: ctx, cb
 func (_m *BankKeeper) IterateTotalSupply(ctx context.Context, cb func(types.Coin) bool) {
 	_m.Called(ctx, cb)
+}
+
+// LockedCoins provides a mock function with given fields: ctx, addr
+func (_m *BankKeeper) LockedCoins(ctx context.Context, addr types.AccAddress) types.Coins {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockedCoins")
+	}
+
+	var r0 types.Coins
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress) types.Coins); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.Coins)
+		}
+	}
+
+	return r0
 }
 
 // MintCoins provides a mock function with given fields: ctx, moduleName, amt
@@ -265,13 +285,30 @@ func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, 
 	return r0
 }
 
+// UncheckedSetBalance provides a mock function with given fields: ctx, addr, amt
+func (_m *BankKeeper) UncheckedSetBalance(ctx context.Context, addr types.AccAddress, amt types.Coin) error {
+	ret := _m.Called(ctx, addr, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UncheckedSetBalance")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, types.Coin) error); ok {
+		r0 = rf(ctx, addr, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewBankKeeper creates a new instance of BankKeeper. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *BankKeeper {
+}) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 
