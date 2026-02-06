@@ -377,13 +377,9 @@ Unified iterator combining EVM and Cosmos transaction streams.
 
 **Selection Logic**:
 
-```go
-func (i *EVMMempoolIterator) shouldUseEVM() bool {
-    // 1. Availability check
-    // 2. Fee comparison: effective_tip_evm vs effective_tip_cosmos
-    // 3. EVM preferred on ties or invalid Cosmos fees
-}
-```
+- Peek the next tx from both pools once per `Tx()` call.
+- Compare effective tips (fee priority); prefer EVM on ties or when Cosmos tip is unavailable/invalid.
+- Remember the chosen source so `Next()` advances the same pool that `Tx()` returned.
 
 ### CheckTx Handler
 
