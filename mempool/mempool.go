@@ -15,6 +15,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/mempool/miner"
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
@@ -47,6 +48,8 @@ type (
 	ExperimentalEVMMempool struct {
 		/** Keepers **/
 		vmKeeper VMKeeperI
+
+		cosmosReserver *reserver.ReservationHandle
 
 		/** Mempools **/
 		txPool                   *txpool.TxPool
@@ -148,7 +151,8 @@ func NewExperimentalEVMMempool(
 		legacypool.WithRecheck(rechecker),
 	)
 
-	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	tracker := reserver.NewReservationTracker()
+	txPool, err := txpool.New(uint64(0), blockchain, tracker, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
 	}
@@ -195,6 +199,7 @@ func NewExperimentalEVMMempool(
 
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:                 vmKeeper,
+		cosmosReserver:           tracker.NewHandle(-1),
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
 		cosmosPool:               cosmosPool,
@@ -281,11 +286,9 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 
 func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
 	ethMsg, err := evmTxFromCosmosTx(tx)
-
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
-
 		if !sync {
 			m.iq.Push(ethTx)
 			return nil
@@ -299,10 +302,14 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
 		}
 		return errs[0]
-	case errors.Is(err, ErrNotEVMTransaction):
-		return m.insertCosmosTx(ctx, tx)
-	default:
+	case errors.Is(err, ErrMultiMsgEthereumTransaction):
+		// there are multiple messages in this tx and one or more of them is an
+		// evm tx, this is invalid
 		return err
+	default:
+		// tx either has no messages, or has a single non MsgEtherumTx msg, or
+		// has multiple msgs, where none are MsgEthereumTx
+		return m.insertCosmosTx(ctx, tx)
 	}
 }
 
@@ -349,8 +356,18 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 	// anteHandler invocation using this state will build off its updates.
 	msCache.Write()
 
+	// Extract signer addresses and convert to EVM addresses
+	evmAddrs, err := signerAddressesFromSDKTx(tx)
+	if err != nil {
+		return err
+	}
+	if err := m.cosmosReserver.Hold(evmAddrs...); err != nil {
+		return err
+	}
+
 	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
+		m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 		return err
 	}
 
@@ -359,6 +376,23 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 		panic(fmt.Errorf("successfully inserted cosmos tx, but failed to insert into reap list: %w", err))
 	}
 	return nil
+}
+
+func signerAddressesFromSDKTx(tx sdk.Tx) ([]common.Address, error) {
+	var signerAddrs []common.Address
+	if sigTx, ok := tx.(interface{ GetSigners() ([][]byte, error) }); ok {
+		signers, err := sigTx.GetSigners()
+		if err != nil {
+			return nil, err
+		}
+		for _, addr := range signers {
+			signerAddrs = append(signerAddrs, common.BytesToAddress(addr))
+		}
+	}
+	if len(signerAddrs) == 0 {
+		return nil, fmt.Errorf("tx contains no signers")
+	}
+	return signerAddrs, nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -515,6 +549,12 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 	m.reapList.DropCosmosTx(tx)
 	m.logger.Debug("Cosmos transaction removed successfully")
 
+	evmAddrs, err := signerAddressesFromSDKTx(tx)
+	if err != nil {
+		return err
+	}
+	m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
+
 	return nil
 }
 
@@ -523,7 +563,6 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(hash common.Hash, reaso
 	if reason.Error == nil {
 		return false
 	}
-
 	// Comet will attempt to remove transactions from the mempool after completing successfully.
 	// We should not do this with EVM transactions because removing them causes the subsequent ones to
 	// be dequeued as temporarily invalid, only to be requeued a block later.
@@ -588,9 +627,24 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 	if len(msgs) == 0 {
 		return nil, ErrNoMessages
 	}
-	if len(msgs) != 1 {
+
+	// ethereum txs should only contain a single msg that is a MsgEthereumTx
+	// type
+	if len(msgs) > 1 {
+		// transaction has > 1 msg, will be treated as a cosmos tx by the
+		// mempool. validate that none of the msgs are a MsgEthereumTx since
+		// those should only be used in the single msg case
+		for _, msg := range msgs {
+			if _, ok := msg.(*evmtypes.MsgEthereumTx); ok {
+				return nil, ErrMultiMsgEthereumTransaction
+			}
+		}
+
+		// transaction has > 1 msg, but none were ethereum txs, this is
+		// still not a valid eth tx
 		return nil, fmt.Errorf("%w, got %d", ErrExpectedOneMessage, len(msgs))
 	}
+
 	ethMsg, ok := msgs[0].(*evmtypes.MsgEthereumTx)
 	if !ok {
 		return nil, ErrNotEVMTransaction

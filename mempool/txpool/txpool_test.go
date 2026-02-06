@@ -8,6 +8,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	legacypool_mocks "github.com/cosmos/evm/mempool/txpool/legacypool/mocks"
@@ -95,7 +96,8 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 		waitForSubscription <- struct{}{}
 	}).Return(event.NewSubscription(func(c <-chan struct{}) error { return nil }))
 
-	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool})
+	tracker := reserver.NewReservationTracker()
+	pool, err := txpool.New(gasTip, chain, tracker, []txpool.SubPool{legacyPool})
 	require.NoError(t, err)
 	defer pool.Close()
 

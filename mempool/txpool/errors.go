@@ -58,12 +58,6 @@ var (
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
 
-	// ErrAlreadyReserved is returned if the sender address has a pending transaction
-	// in a different subpool. For example, this error is returned in response to any
-	// input transaction of non-blob type when a blob transaction from this sender
-	// remains pending (and vice-versa).
-	ErrAlreadyReserved = errors.New("address already reserved")
-
 	// ErrInflightTxLimitReached is returned when the maximum number of in-flight
 	// transactions is reached for specific accounts.
 	ErrInflightTxLimitReached = errors.New("in-flight transaction limit reached for delegated accounts")

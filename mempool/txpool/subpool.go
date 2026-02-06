@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -109,7 +110,7 @@ type SubPool interface {
 	// These should not be passed as a constructor argument - nor should the pools
 	// start by themselves - in order to keep multiple Subpools in lockstep with
 	// one another.
-	Init(gasTip uint64, head *types.Header, reserver Reserver) error
+	Init(gasTip uint64, head *types.Header, reserver reserver.Reserver) error
 
 	// Close terminates any background processing threads and releases any held
 	// resources.
