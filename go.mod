@@ -380,6 +380,6 @@ replace (
 
 replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20260206152034-6d38fc76f4f7
 
-replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260206164408-ca81dc06295a
+replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260206171802-11b322099d1a
 
 retract v0.4.0
