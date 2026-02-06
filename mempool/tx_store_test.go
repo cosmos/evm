@@ -4,9 +4,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 	protov2 "google.golang.org/protobuf/proto"
+
+	"github.com/cosmos/gogoproto/proto"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -18,7 +19,7 @@ type mockTx struct {
 
 var _ sdk.Tx = (*mockTx)(nil)
 
-func (m *mockTx) GetMsgs() []proto.Message     { return nil }
+func (m *mockTx) GetMsgs() []proto.Message              { return nil }
 func (m *mockTx) GetMsgsV2() ([]protov2.Message, error) { return nil, nil }
 
 func newMockTx(id int) sdk.Tx {
@@ -102,7 +103,7 @@ func TestCosmosTxStoreRemoveAll(t *testing.T) {
 func TestCosmosTxStoreConcurrentRemove(t *testing.T) {
 	store := NewCosmosTxStore()
 
-	var numTxs = 1000
+	numTxs := 1000
 	txs := make([]sdk.Tx, numTxs)
 	for i := range txs {
 		txs[i] = newMockTx(i)

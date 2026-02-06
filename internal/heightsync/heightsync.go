@@ -23,10 +23,6 @@ var (
 	// that the HeightSync had not yet reached.
 	hsHeightBehind = metrics.NewRegisteredMeter("height_sync/heightbehind", nil)
 
-	// hsWaitDuration is the time callers of Get spend waiting for the value
-	// to become available (via completion or timeout).
-	hsWaitDuration = metrics.NewRegisteredTimer("height_sync/waittime", nil)
-
 	// hsDuration is the total time callers of Get spend from invocation to
 	// return.
 	hsDuration = metrics.NewRegisteredTimer("height_sync/duration", nil)

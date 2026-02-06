@@ -8,8 +8,9 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/cosmos/evm/internal/heightsync"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/evm/internal/heightsync"
 )
 
 // testValue is a simple value for testing the generic height-sync behavior.
@@ -68,7 +69,7 @@ func TestGetTimeoutBeforeHeight(t *testing.T) {
 }
 
 func TestGetPartialResults(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) { //nolint:thelper
 		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 		// start new height but don't call EndCurrentHeight
@@ -88,7 +89,7 @@ func TestGetPartialResults(t *testing.T) {
 }
 
 func TestGetBehindByOneHeight(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) { //nolint:thelper
 		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
@@ -118,7 +119,7 @@ func TestGetBehindByOneHeight(t *testing.T) {
 }
 
 func TestGetBehindByTwoHeights(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) { //nolint:thelper
 		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
