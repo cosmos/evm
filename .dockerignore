@@ -1,0 +1,3 @@
+tests/jsonrpc/.evmd
+tests/jsonrpc/simulator/results
+.testnets

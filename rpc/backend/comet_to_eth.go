@@ -269,10 +269,32 @@ func (b *Backend) ReceiptsFromCometBlock(
 	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
+
+	// Lazily resolved list of all eth messages in the block, used as fallback
+	// when EthTxIndex is uninitialized (-1).
+	var allEthMsgs []*evmtypes.MsgEthereumTx
+
 	for i, ethMsg := range msgs {
 		txResult, err := b.GetTxByEthHash(ctx, ethMsg.Hash())
 		if err != nil {
 			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
+		}
+
+		// Resolve EthTxIndex if uninitialized (-1), same fallback as GetTransactionByHash
+		if txResult.EthTxIndex == -1 {
+			if allEthMsgs == nil {
+				allEthMsgs = b.EthMsgsFromCometBlock(ctx, resBlock, blockRes)
+			}
+			txHash := ethMsg.Hash()
+			for j := range allEthMsgs {
+				if allEthMsgs[j].Hash() == txHash {
+					txResult.EthTxIndex = int32(j) //#nosec G115
+					break
+				}
+			}
+		}
+		if txResult.EthTxIndex == -1 {
+			return nil, fmt.Errorf("can't find index of ethereum tx: hash=%s", ethMsg.Hash())
 		}
 
 		cumulatedGasUsed += txResult.GasUsed

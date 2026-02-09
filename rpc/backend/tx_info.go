@@ -421,7 +421,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(ctx context.Context, block *cmtr
 	} else {
 		i := int(idx) // #nosec G115
 		ethMsgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
-		if i >= len(ethMsgs) {
+		if i < 0 || i >= len(ethMsgs) {
 			b.Logger.Debug("block txs index out of bound", "index", i)
 			return nil, nil
 		}
