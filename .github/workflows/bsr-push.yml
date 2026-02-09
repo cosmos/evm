@@ -4,6 +4,13 @@ name: Push to Buf Schema Registry
 # Buf Schema Registry at https://buf.build/mud/epixchain
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "proto/**"
+      - "buf.work.yaml"
+      - "buf.gen.yaml"
+      - "buf.gen.proto.yaml"
     tags:
       - "v*.*.*"
 permissions: read-all
