@@ -257,3 +257,23 @@ func TestVerifySignature_InvalidSigStillFails(t *testing.T) {
 	require.False(t, pubKey.VerifySignature([]byte(chainSignDoc), sig),
 		"invalid signature should still fail verification even with field stripping")
 }
+
+func TestVerifySignature_UpdatedCosmJSIncludesFields(t *testing.T) {
+	privKey, err := GenerateKey()
+	require.NoError(t, err)
+	pubKey := &PubKey{Key: privKey.PubKey().Bytes()}
+
+	// Simulate a future cosmjs that includes use_aliasing and encoding in the sign doc.
+	// Both the wallet and the chain produce the same sign doc with these fields present.
+	signDocWithFields := `{"account_number":"220","chain_id":"epix_1916-1","fee":{"amount":[{"amount":"2500","denom":"aepix"}],"gas":"200000"},"memo":"","msgs":[{"type":"cosmos-sdk/MsgTransfer","value":{"encoding":"","receiver":"osmo1w5gvwq6s8mycgc80h5urhlqs5esjq3n7tdgyk4","sender":"epix133geakf970neekfr8j6h68gaf08fj3srwl04lk","source_channel":"channel-0","source_port":"transfer","timeout_height":{"revision_height":"99999999","revision_number":"1"},"token":{"amount":"5000000000000000000000","denom":"aepix"},"use_aliasing":false}}],"sequence":"21"}`
+
+	// Wallet signs the doc that includes the extra fields
+	sigHash := crypto.Keccak256Hash([]byte(signDocWithFields))
+	sig, err := privKey.Sign(sigHash.Bytes())
+	require.NoError(t, err)
+
+	// Chain verifies with the same doc — should pass on the first direct ECDSA check,
+	// field stripping is never needed
+	require.True(t, pubKey.VerifySignature([]byte(signDocWithFields), sig),
+		"when cosmjs includes the IBC fields, direct verification should succeed without fallback")
+}
