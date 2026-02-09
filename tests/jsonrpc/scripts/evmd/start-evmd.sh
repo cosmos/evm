@@ -127,7 +127,7 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
     evmd genesis add-genesis-account '$USER4_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
     
     # Generate and collect validator transaction
-    evmd genesis gentx '$VAL_KEY' 1000000000000000000000atest --gas-prices '${BASEFEE}atest' --keyring-backend '$KEYRING' --chain-id '$CHAIN_ID' --home /data
+    evmd genesis gentx '$VAL_KEY' 1000000000000000000000000atest --min-self-delegation 1000000000000000000000000 --gas-prices '${BASEFEE}atest' --keyring-backend '$KEYRING' --chain-id '$CHAIN_ID' --home /data
     evmd genesis collect-gentxs --home /data
     evmd genesis validate-genesis --home /data
 "

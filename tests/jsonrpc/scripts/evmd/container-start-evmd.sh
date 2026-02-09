@@ -67,7 +67,7 @@ evmd genesis add-genesis-account "$USER3_KEY" 1000000000000000000000atest --keyr
 evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
 
 # Generate validator transaction
-evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices "${BASEFEE}atest" --keyring-backend "$KEYRING" --chain-id "$CHAIN_ID" --home "$CHAINDIR"
+evmd genesis gentx "$VAL_KEY" 1000000000000000000000000atest --min-self-delegation 1000000000000000000000000 --gas-prices "${BASEFEE}atest" --keyring-backend "$KEYRING" --chain-id "$CHAIN_ID" --home "$CHAINDIR"
 evmd genesis collect-gentxs --home "$CHAINDIR"
 evmd genesis validate-genesis --home "$CHAINDIR"
 
