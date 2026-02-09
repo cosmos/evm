@@ -13,8 +13,8 @@ RUN go mod download
 COPY . .
 RUN LEDGER_ENABLED=false COSMOS_BUILD_OPTIONS="staticlink" BUILD_TAGS=muslc make build
 RUN echo "Checking binary linkage..." \
-    && file /work/build/evmd \
-    && (file /work/build/evmd | grep -q "statically linked" || echo "Warning: Binary may not be statically linked")
+    && file /work/build/epixd \
+    && (file /work/build/epixd | grep -q "statically linked" || echo "Warning: Binary may not be statically linked")
 
 FROM alpine:$IMG_TAG AS run
 RUN apk add --no-cache build-base jq bash curl
@@ -29,8 +29,9 @@ WORKDIR /evmd
 
 # Copy the wrapper script and binary to expected locations
 COPY contrib/images/evmd-env/wrapper.sh /usr/bin/wrapper.sh
-COPY --from=evmd-builder /work/build/evmd /evmd/
-COPY --from=evmd-builder /work/build/evmd /usr/local/bin/
+COPY --from=evmd-builder /work/build/epixd /evmd/epixd
+COPY --from=evmd-builder /work/build/epixd /usr/local/bin/epixd
+RUN ln -s /evmd/epixd /evmd/evmd && ln -s /usr/local/bin/epixd /usr/local/bin/evmd
 
 # Set proper ownership and permissions before switching to nonroot user
 RUN chown nonroot:nonroot /usr/bin/wrapper.sh && chmod +x /usr/bin/wrapper.sh
