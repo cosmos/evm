@@ -19,6 +19,24 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
+// nextAction is the type of action that the iterator should take based on the
+// current transaction selection
+type nextAction int
+
+const (
+	// advance signals to the iterator that it should move the iterator
+	// pointer to the next best tx
+	advance nextAction = iota
+
+	// skipAccount signals to the iterator that it should move the iterator
+	// pointer past all txs for this account, to the next best tx that is not
+	// for this account
+	skipAccount
+
+	// none signals that no action should be taken for this iterator
+	none
+)
+
 var _ mempool.Iterator = &EVMMempoolIterator{}
 
 // EVMMempoolIterator provides a unified iterator over both EVM and Cosmos transactions in the mempool.
@@ -30,14 +48,17 @@ type EVMMempoolIterator struct {
 	evmIterator    *miner.TransactionsByPriceAndNonce
 	cosmosIterator mempool.Iterator
 
-	/** Cached current state - recomputed only when iterator advances **/
-	currentTx     sdk.Tx // The resolved preferred tx for the current position
-	advanceEVM    bool   // Whether the current preferred tx came from the EVM iterator
-	advanceCosmos bool
+	// currentTx is the preferred tx to return via Tx() based on the state of
+	// both internal iterators
+	currentTx sdk.Tx
 
-	/** Cached chain params - computed once at construction **/
-	baseFee   *uint256.Int    // Base fee, cached from blockchain header
-	ethSigner ethtypes.Signer // Cached EVM signer
+	// nextEVMAction is the action that the evm iterator should take on the next
+	// call to Next()
+	nextEVMAction nextAction
+
+	// nextCosmosAction is the action that the cosmos iterator should take on the next
+	// call to Next()
+	nextCosmosAction nextAction
 
 	/** Utils **/
 	logger   log.Logger
@@ -46,6 +67,8 @@ type EVMMempoolIterator struct {
 	/** Chain Params **/
 	bondDenom string
 	chainID   *big.Int
+	baseFee   *uint256.Int    // cached on iterator creation
+	ethSigner ethtypes.Signer // cached on iterator creation
 }
 
 // NewEVMMempoolIterator creates a new unified iterator over EVM and Cosmos transactions.
@@ -69,19 +92,22 @@ func NewEVMMempoolIterator(
 	}
 
 	iter := &EVMMempoolIterator{
-		evmIterator:    evmIterator,
-		cosmosIterator: cosmosIterator,
-		logger:         logger,
-		txConfig:       txConfig,
-		bondDenom:      bondDenom,
-		chainID:        chainID,
-		ethSigner:      ethtypes.LatestSignerForChainID(chainID),
-		baseFee:        currentBaseFee(blockchain),
+		evmIterator:      evmIterator,
+		cosmosIterator:   cosmosIterator,
+		nextEVMAction:    none,
+		nextCosmosAction: none,
+		logger:           logger,
+		txConfig:         txConfig,
+		bondDenom:        bondDenom,
+		chainID:          chainID,
+		ethSigner:        ethtypes.LatestSignerForChainID(chainID),
+		baseFee:          currentBaseFee(blockchain),
 	}
 
-	// Eagerly resolve the first preferred transaction
+	// setup internal currentTx state
 	iter.resolveCurrentTx()
 
+	// if there is no currentTx, we have no txs to return
 	if iter.currentTx == nil {
 		return nil
 	}
@@ -93,19 +119,10 @@ func NewEVMMempoolIterator(
 // It determines which iterator (EVM or Cosmos) provided the current transaction and advances
 // that iterator accordingly. Returns nil when no more transactions are available.
 func (i *EVMMempoolIterator) Next() mempool.Iterator {
-	// advance iterators
-	switch {
-	case i.advanceEVM:
-		i.advanceEVM = false
-		if i.evmIterator != nil {
-			i.evmIterator.Shift()
-		}
-	case i.advanceCosmos:
-		i.advanceCosmos = false
-		if i.cosmosIterator != nil {
-			i.cosmosIterator = i.cosmosIterator.Next()
-		}
-	}
+	// increment iterators forward based on action that was determined to be
+	// taken previous call to Next()
+	i.handleNextEVMAction()
+	i.handleNextCosmosAction()
 
 	// resolve the next preferred transaction
 	i.resolveCurrentTx()
@@ -115,6 +132,39 @@ func (i *EVMMempoolIterator) Next() mempool.Iterator {
 	}
 
 	return i
+}
+
+// handleNextEVMAction increments evm iterator state based on nextEVMAction
+func (i *EVMMempoolIterator) handleNextEVMAction() {
+	switch i.nextEVMAction {
+	case advance:
+		if i.evmIterator != nil {
+			i.evmIterator.Shift()
+		}
+	case skipAccount:
+		if i.evmIterator != nil {
+			i.evmIterator.Pop()
+		}
+	case none:
+		// no action
+	}
+	i.nextEVMAction = none
+}
+
+// handleNextCosmosAction increments cosmos iterator state based on
+// nextCosmosAction
+func (i *EVMMempoolIterator) handleNextCosmosAction() {
+	switch i.nextCosmosAction {
+	case advance:
+		if i.cosmosIterator != nil {
+			i.cosmosIterator = i.cosmosIterator.Next()
+		}
+	case skipAccount:
+		// no action for cosmos
+	case none:
+		// no action
+	}
+	i.nextCosmosAction = none
 }
 
 // Tx returns the current transaction from the iterator.
@@ -130,7 +180,7 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 	cosmosTx, cosmosFee := i.peekCosmos()
 
 	if evmTx == nil && cosmosTx == nil {
-		i.advanceEVM, i.advanceCosmos = false, false
+		i.nextEVMAction, i.nextCosmosAction = none, none
 		i.currentTx = nil
 		return
 	}
@@ -138,21 +188,26 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 	useEVM := i.compareFeePriority(evmTx, evmFee, cosmosTx, cosmosFee)
 
 	if useEVM {
-		i.advanceEVM = true
 		sdkTx, err := i.convertEVMToSDKTx(evmTx)
 		if err == nil {
+			i.nextEVMAction = advance
 			i.currentTx = sdkTx
 			return
 		}
 		i.logger.Error("EVM transaction conversion failed, falling back to Cosmos transaction", "tx_hash", evmTx.Hash, "err", err)
 
-		// Even if the conversion to cosmos tx failed, we still want advanceEVM
-		// to be true, so that this invalid tx gets skipped over when we
-		// advance iterators, i.e. if we are here both advanceCosmos and
-		// advanceEVM will be true
+		// conversion failed, this tx will not be included in the list of
+		// returned txs by this iterator, therefore, fall future txs for this
+		// account will be invalid, thus we should skip all future txs for this
+		// account
+		i.nextEVMAction = skipAccount
+
+		// we are skipping the above account, and falling back to using the
+		// current cosmos tx. technically, the next accounts evm tx may be a
+		// higher fee
 	}
 
-	i.advanceCosmos = true
+	i.nextCosmosAction = advance
 	i.currentTx = cosmosTx
 }
 
@@ -166,12 +221,12 @@ func (i *EVMMempoolIterator) compareFeePriority(evmTx *txpool.LazyTransaction, e
 		return true
 	}
 
-	// Both have transactions - compare fees
+	// both have transactions - compare fees
 	if cosmosFee.IsZero() {
-		return true // Use EVM if Cosmos transaction has no valid fee
+		return true // use EVM if Cosmos transaction has no valid fee
 	}
 
-	// Prefer EVM unless Cosmos has strictly higher fee
+	// prefer EVM unless Cosmos has strictly higher fee
 	return !cosmosFee.Gt(evmFee)
 }
 
