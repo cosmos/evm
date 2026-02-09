@@ -1057,7 +1057,7 @@ func TestMempool_RunReorg(t *testing.T) {
 
 			// Run reorg
 			ctx = ctx.WithBlockHeight(2)
-			err := mp.RunReorg(ctx)
+			err := mp.RecheckCosmosTxs(ctx)
 			require.NoError(t, err)
 
 			require.Equal(t, len(tc.expectedRemain), mp.CountTx(),

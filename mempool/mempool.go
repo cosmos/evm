@@ -703,9 +703,9 @@ func Equal(s1, s2 signerSequence) bool {
 	return s1.account == s2.account
 }
 
-// RunReorg rechecks the transactions in the cosmosPool.
+// RecheckCosmosTxs rechecks the transactions in the cosmosPool.
 // Specifically, it checks that, if a tx fails with nonce[N], all subsequent txs are failed if their nonce[M] satisfies M>N.
-func (m *ExperimentalEVMMempool) RunReorg(ctx context.Context) error {
+func (m *ExperimentalEVMMempool) RecheckCosmosTxs(ctx context.Context) error {
 	// tracks any failed senders and their nonce.
 	failedAtSequence := make(map[string]uint64)
 	// list of txs to remove
