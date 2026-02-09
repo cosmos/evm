@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CHAINID="${CHAIN_ID:-9001}"
+CHAINID="${CHAIN_ID:-test_262144-1}"
 MONIKER="localtestnet"
 # Remember to change to other types of keyring like 'file' in-case exposing to outside world,
 # otherwise your balance will be wiped quickly
@@ -330,7 +330,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 
   # --------- Finalize genesis ---------
-  epixd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
+  epixd genesis gentx "$VAL_KEY" 1000000000000000000000000atest --min-self-delegation 1000000000000000000000000 --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
   epixd genesis collect-gentxs --home "$CHAINDIR"
   epixd genesis validate-genesis --home "$CHAINDIR"
 
