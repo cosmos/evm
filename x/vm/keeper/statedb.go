@@ -114,25 +114,10 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	locked := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
+	newBalance := new(big.Int).Add(amount.ToBig(), locked.AmountOf(types.GetEVMCoinDenom()).BigInt())
 
-	balance := coin.Amount.BigInt()
-	delta := new(big.Int).Sub(amount.ToBig(), balance)
-	switch delta.Sign() {
-	case 1:
-		// mint
-		if err := k.bankWrapper.MintAmountToAccount(ctx, cosmosAddr, delta); err != nil {
-			return err
-		}
-	case -1:
-		// burn
-		if err := k.bankWrapper.BurnAmountFromAccount(ctx, cosmosAddr, new(big.Int).Neg(delta)); err != nil {
-			return err
-		}
-	default:
-		// not changed
-	}
-	return nil
+	return k.bankWrapper.SetBalance(ctx, cosmosAddr, newBalance)
 }
 
 // SetAccount updates nonce/balance/codeHash together.
