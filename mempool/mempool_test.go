@@ -880,7 +880,7 @@ func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys 
 	return txBuilder.GetTx()
 }
 
-func TestMempool_RunReorg(t *testing.T) {
+func TestMempool_Recheck(t *testing.T) {
 	// accountTx represents a transaction for a specific account at a specific nonce
 	type accountTx struct {
 		account int    // index into accounts slice (0=Alice, 1=Bob, 2=Charlie)
@@ -1056,9 +1056,7 @@ func TestMempool_RunReorg(t *testing.T) {
 			}
 
 			// Run reorg
-			ctx = ctx.WithBlockHeight(2)
-			err := mp.RecheckCosmosTxs(ctx)
-			require.NoError(t, err)
+			mp.RecheckCosmosTxs()
 
 			require.Equal(t, len(tc.expectedRemain), mp.CountTx(),
 				"expected %d txs to remain, got %d", len(tc.expectedRemain), mp.CountTx())

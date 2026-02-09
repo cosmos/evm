@@ -29,7 +29,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
@@ -55,7 +54,7 @@ type (
 		/** Mempools **/
 		txPool                   *txpool.TxPool
 		legacyTxPool             *legacypool.LegacyPool
-		cosmosPool               sdkmempool.ExtMempool
+		cosmosPool               *RecheckMempool
 		operateExclusively       bool
 		pendingTxProposalTimeout time.Duration
 
@@ -198,12 +197,20 @@ func NewExperimentalEVMMempool(
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
+	// Wrap cosmos pool with recheck functionality
+	recheckPool := NewRecheckMempool(
+		logger,
+		cosmosPool,
+		config.AnteHandler,
+		blockchain.GetLatestContext,
+	)
+
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:                 vmKeeper,
 		cosmosReserver:           tracker.NewHandle(-1),
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:               cosmosPool,
+		cosmosPool:               recheckPool,
 		logger:                   logger,
 		txConfig:                 txConfig,
 		blockchain:               blockchain,
@@ -248,6 +255,9 @@ func NewExperimentalEVMMempool(
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
+
+	// Start the cosmos pool recheck loop
+	evmMempool.cosmosPool.Start()
 
 	return evmMempool
 }
@@ -594,6 +604,8 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	go func() {
 		for range sub.Out() {
 			m.GetBlockchain().NotifyNewBlock()
+			// Trigger cosmos pool recheck on new block (non-blocking)
+			m.cosmosPool.TriggerRecheck()
 		}
 	}()
 }
@@ -613,6 +625,10 @@ func (m *ExperimentalEVMMempool) Close() error {
 	}
 
 	m.iq.Close()
+
+	if err := m.cosmosPool.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close cosmos pool: %w", err))
+	}
 
 	if err := m.txPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
@@ -688,6 +704,12 @@ func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
 }
 
+// RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
+// This is primarily used for testing.
+func (m *ExperimentalEVMMempool) RecheckCosmosTxs() {
+	m.cosmosPool.TriggerRecheckSync()
+}
+
 type signerSequence struct {
 	account string
 	seq     uint64
@@ -701,90 +723,4 @@ func Equal(s1, s2 signerSequence) bool {
 		return false
 	}
 	return s1.account == s2.account
-}
-
-// RecheckCosmosTxs rechecks the transactions in the cosmosPool.
-// Specifically, it checks that, if a tx fails with nonce[N], all subsequent txs are failed if their nonce[M] satisfies M>N.
-func (m *ExperimentalEVMMempool) RecheckCosmosTxs(ctx context.Context) error {
-	// tracks any failed senders and their nonce.
-	failedAtSequence := make(map[string]uint64)
-	// list of txs to remove
-	removeTxs := make([]sdk.Tx, 0)
-
-	iter := m.cosmosPool.Select(ctx, nil)
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	cc, _ := sdkCtx.CacheContext()
-
-	for iter != nil {
-		txn := iter.Tx()
-		if txn == nil {
-			break
-		}
-
-		signerSeqs := make([]signerSequence, 0)
-		sigTx, ok := txn.(authsigning.SigVerifiableTx)
-		if ok {
-			sigs, err := sigTx.GetSignaturesV2()
-			if err != nil {
-				return err
-			}
-			for _, sig := range sigs {
-				signerSeqs = append(signerSeqs, signerSequence{
-					account: sig.PubKey.Address().String(),
-					seq:     sig.Sequence,
-				})
-			}
-		} else {
-			return fmt.Errorf(
-				"unable to reorg: tx does not implement %T",
-				(*authsigning.SigVerifiableTx)(nil),
-			)
-		}
-
-		invalidTx := false
-		// loop over all signers and check if they already have a failed sequence
-		for _, sig := range signerSeqs {
-			failedSeq, ok := failedAtSequence[sig.account]
-			// this tx is bad only if the failed Sequence came before this txs seq.
-			if ok && failedSeq < sig.seq {
-				invalidTx = true
-			}
-		}
-
-		// if the signers were valid for this tx, we run it through the antehandler.
-		if !invalidTx {
-			// Branch cc so failed tx state doesn't leak into the accumulated context
-			anteCtx, writeCache := cc.CacheContext()
-			newCtx, err := m.anteHandler(anteCtx, txn, false)
-			if err == nil {
-				writeCache() // commit changes
-				cc = newCtx
-			} else {
-				// mark tx invalid
-				invalidTx = true
-			}
-		}
-
-		// if the tx was invalid, we need to ensure all the signers-seq combinations are marked invalid.
-		if invalidTx {
-			removeTxs = append(removeTxs, txn)
-			for _, sig := range signerSeqs {
-				failedSeq, exists := failedAtSequence[sig.account]
-				if !exists || failedSeq > sig.seq {
-					failedAtSequence[sig.account] = sig.seq
-				}
-			}
-		}
-
-		iter = iter.Next()
-	}
-
-	// finally, remove all the bad txs.
-	for _, txn := range removeTxs {
-		if err := m.cosmosPool.Remove(txn); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
