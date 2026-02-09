@@ -706,15 +706,15 @@ func Equal(s1, s2 signerSequence) bool {
 // RunReorg rechecks the transactions in the cosmosPool.
 // Specifically, it checks that, if a tx fails with nonce[N], all subsequent txs are failed if their nonce[M] satisfies M>N.
 func (m *ExperimentalEVMMempool) RunReorg(ctx context.Context) error {
-	// Track the sequence at which each sender failed (only remove txs >= this sequence)
+	// tracks any failed senders and their nonce.
 	failedAtSequence := make(map[string]uint64)
+	// list of txs to remove
 	removeTxs := make([]sdk.Tx, 0)
 
 	iter := m.cosmosPool.Select(ctx, nil)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	cc, _ := sdkCtx.CacheContext()
 
-	// first pass: run ante handler on all txs, track which senders fail and at what sequence
 	for iter != nil {
 		txn := iter.Tx()
 		if txn == nil {
@@ -734,13 +734,17 @@ func (m *ExperimentalEVMMempool) RunReorg(ctx context.Context) error {
 					seq:     sig.Sequence,
 				})
 			}
+		} else {
+			return fmt.Errorf(
+				"unable to reorg: tx does not implement %T",
+				(*authsigning.SigVerifiableTx)(nil),
+			)
 		}
 
 		invalidTx := false
 		// loop over all signers and check if they already have a failed sequence
 		for _, sig := range signerSeqs {
 			failedSeq, ok := failedAtSequence[sig.account]
-			// this signer already has a failed sequence.
 			// this tx is bad only if the failed Sequence came before this txs seq.
 			if ok && failedSeq < sig.seq {
 				invalidTx = true
@@ -749,17 +753,19 @@ func (m *ExperimentalEVMMempool) RunReorg(ctx context.Context) error {
 
 		// if the signers were valid for this tx, we run it through the antehandler.
 		if !invalidTx {
-			ctx, err := m.anteHandler(cc, txn, false)
-			// no error = good. persist the context.
+			// Branch cc so failed tx state doesn't leak into the accumulated context
+			anteCtx, writeCache := cc.CacheContext()
+			newCtx, err := m.anteHandler(anteCtx, txn, false)
 			if err == nil {
-				cc = ctx
+				writeCache() // commit changes
+				cc = newCtx
 			} else {
-				// otherwise, mark it invalid
+				// mark tx invalid
 				invalidTx = true
 			}
 		}
 
-		// if the tx was invalid, we need to fail all the account's sequences.
+		// if the tx was invalid, we need to ensure all the signers-seq combinations are marked invalid.
 		if invalidTx {
 			removeTxs = append(removeTxs, txn)
 			for _, sig := range signerSeqs {
@@ -773,6 +779,7 @@ func (m *ExperimentalEVMMempool) RunReorg(ctx context.Context) error {
 		iter = iter.Next()
 	}
 
+	// finally, remove all the bad txs.
 	for _, txn := range removeTxs {
 		if err := m.cosmosPool.Remove(txn); err != nil {
 			return err
