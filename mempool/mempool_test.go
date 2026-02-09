@@ -1,8 +1,10 @@
 package mempool_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -38,6 +40,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -45,6 +48,49 @@ const (
 	txValue    = 100
 	txGasLimit = 50000
 )
+
+func TestMempool_Iterate(t *testing.T) {
+	numAccs := 20
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, numAccs)
+
+	numTxsEach := 5
+	for i := range numAccs {
+		for range numTxsEach {
+			cosmosTx := createTestCosmosTx(t, txConfig, accounts[i].key, accounts[i].nonce)
+			accounts[i].nonce++
+			err := mp.Insert(ctx, cosmosTx)
+			require.NoError(t, err)
+		}
+	}
+
+	// have to do the below to make select work..
+	ctx = ctx.WithBlockHeight(2)
+	myCtx, _ := context.WithTimeout(ctx, time.Nanosecond)
+
+	// -------
+	iter := mp.Select(myCtx, nil)
+
+	for iter != nil {
+		sdkTx := iter.Tx()
+		if sdkTx == nil {
+			break
+		}
+		if sigTx, ok := sdkTx.(authsigning.SigVerifiableTx); ok {
+			signers, _ := sigTx.GetSigners()
+			sigs, _ := sigTx.GetSignaturesV2()
+			for i, signer := range signers {
+				fmt.Printf("sender: %x, nonce: %d\n", signer, sigs[i].Sequence)
+			}
+		}
+		iter = iter.Next()
+	}
+}
 
 func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
@@ -832,4 +878,190 @@ func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys 
 	require.NoError(t, err)
 
 	return txBuilder.GetTx()
+}
+
+func TestMempool_RunReorg(t *testing.T) {
+	// accountTx represents a transaction for a specific account at a specific nonce
+	type accountTx struct {
+		account int    // index into accounts slice (0=Alice, 1=Bob, 2=Charlie)
+		nonce   uint64 // transaction nonce/sequence
+	}
+
+	tests := []struct {
+		name           string
+		insertTxs      []accountTx // txs to insert into mempool
+		failTxs        []accountTx // txs that should fail ante handler during reorg
+		expectedRemain []accountTx // txs expected to remain after reorg
+	}{
+		{
+			name: "single account middle nonce fails - removes it and higher nonces",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 0, nonce: 2},
+			},
+			failTxs: []accountTx{
+				{account: 0, nonce: 1},
+			},
+			expectedRemain: []accountTx{
+				{account: 0, nonce: 0}, // kept: passed ante before nonce 1 failed
+				// nonce 1: removed (failed ante)
+				// nonce 2: removed (same sender, nonce > failed nonce)
+			},
+		},
+		{
+			name: "single account first nonce fails - removes all",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 0, nonce: 2},
+			},
+			failTxs: []accountTx{
+				{account: 0, nonce: 0},
+			},
+			expectedRemain: []accountTx{
+				// all removed: nonce 0 failed, nonces 1,2 have higher nonce
+			},
+		},
+		{
+			name: "single account last nonce fails - keeps earlier nonces",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 0, nonce: 2},
+			},
+			failTxs: []accountTx{
+				{account: 0, nonce: 2},
+			},
+			expectedRemain: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				// nonce 2: removed (failed ante)
+			},
+		},
+		{
+			name: "multiple accounts - failure in one does not affect others",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 0, nonce: 2},
+				{account: 1, nonce: 0},
+				{account: 1, nonce: 1},
+				{account: 2, nonce: 0},
+			},
+			failTxs: []accountTx{
+				{account: 0, nonce: 1},
+			},
+			expectedRemain: []accountTx{
+				{account: 0, nonce: 0}, // kept: passed before failure
+				// account 0, nonce 1: removed (failed)
+				// account 0, nonce 2: removed (higher nonce than failure)
+				{account: 1, nonce: 0}, // kept: different account
+				{account: 1, nonce: 1}, // kept: different account
+				{account: 2, nonce: 0}, // kept: different account
+			},
+		},
+		{
+			name: "multiple accounts with multiple failures",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 1, nonce: 0},
+				{account: 1, nonce: 1},
+				{account: 2, nonce: 0},
+			},
+			failTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 1, nonce: 1},
+			},
+			expectedRemain: []accountTx{
+				// account 0: all removed (nonce 0 failed)
+				{account: 1, nonce: 0}, // kept: passed before nonce 1 failed
+				// account 1, nonce 1: removed (failed)
+				{account: 2, nonce: 0}, // kept: no failures
+			},
+		},
+		{
+			name: "no failures - all txs remain",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 1, nonce: 0},
+			},
+			failTxs: []accountTx{},
+			expectedRemain: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 0, nonce: 1},
+				{account: 1, nonce: 0},
+			},
+		},
+		{
+			name: "all txs fail",
+			insertTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 1, nonce: 0},
+			},
+			failTxs: []accountTx{
+				{account: 0, nonce: 0},
+				{account: 1, nonce: 0},
+			},
+			expectedRemain: []accountTx{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			storeKey := storetypes.NewKVStoreKey("test")
+			transientKey := storetypes.NewTransientStoreKey("transient_test")
+			ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+
+			// failSet controls which txs fail - initially empty so Insert succeeds
+			failSet := make(map[string]bool)
+
+			anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+				if sigTx, ok := tx.(authsigning.SigVerifiableTx); ok {
+					signers, _ := sigTx.GetSigners()
+					sigs, _ := sigTx.GetSignaturesV2()
+					if len(signers) > 0 && len(sigs) > 0 {
+						key := fmt.Sprintf("%x-%d", signers[0], sigs[0].Sequence)
+						if failSet[key] {
+							return sdk.Context{}, errors.New("ante check failed")
+						}
+					}
+				}
+				return ctx, nil
+			}
+
+			mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, 3)
+
+			// Helper to get signer address for an account
+			getSignerAddr := func(accountIdx int) []byte {
+				pubKeyBytes := crypto.CompressPubkey(&accounts[accountIdx].key.PublicKey)
+				pubKey := &ethsecp256k1.PubKey{Key: pubKeyBytes}
+				return pubKey.Address().Bytes()
+			}
+
+			// Insert all txs first (failSet is empty, so all insertions succeed)
+			for _, tx := range tc.insertTxs {
+				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
+				require.NoError(t, mp.Insert(ctx, cosmosTx))
+			}
+
+			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")
+
+			// Now configure which txs should fail during RunReorg
+			for _, fail := range tc.failTxs {
+				signerAddr := getSignerAddr(fail.account)
+				failSet[fmt.Sprintf("%x-%d", signerAddr, fail.nonce)] = true
+			}
+
+			// Run reorg
+			ctx = ctx.WithBlockHeight(2)
+			err := mp.RunReorg(ctx)
+			require.NoError(t, err)
+
+			require.Equal(t, len(tc.expectedRemain), mp.CountTx(),
+				"expected %d txs to remain, got %d", len(tc.expectedRemain), mp.CountTx())
+		})
+	}
 }

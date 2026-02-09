@@ -29,6 +29,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
@@ -685,4 +686,98 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
+}
+
+type signerSequence struct {
+	account string
+	seq     uint64
+}
+
+func Equal(s1, s2 signerSequence) bool {
+	if len(s1.account) != len(s2.account) {
+		return false
+	}
+	if s1.seq != s2.seq {
+		return false
+	}
+	return s1.account == s2.account
+}
+
+// RunReorg rechecks the transactions in the cosmosPool.
+// Specifically, it checks that, if a tx fails with nonce[N], all subsequent txs are failed if their nonce[M] satisfies M>N.
+func (m *ExperimentalEVMMempool) RunReorg(ctx context.Context) error {
+	// Track the sequence at which each sender failed (only remove txs >= this sequence)
+	failedAtSequence := make(map[string]uint64)
+	removeTxs := make([]sdk.Tx, 0)
+
+	iter := m.cosmosPool.Select(ctx, nil)
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	cc, _ := sdkCtx.CacheContext()
+
+	// first pass: run ante handler on all txs, track which senders fail and at what sequence
+	for iter != nil {
+		txn := iter.Tx()
+		if txn == nil {
+			break
+		}
+
+		signerSeqs := make([]signerSequence, 0)
+		sigTx, ok := txn.(authsigning.SigVerifiableTx)
+		if ok {
+			sigs, err := sigTx.GetSignaturesV2()
+			if err != nil {
+				return err
+			}
+			for _, sig := range sigs {
+				signerSeqs = append(signerSeqs, signerSequence{
+					account: sig.PubKey.Address().String(),
+					seq:     sig.Sequence,
+				})
+			}
+		}
+
+		invalidTx := false
+		// loop over all signers and check if they already have a failed sequence
+		for _, sig := range signerSeqs {
+			failedSeq, ok := failedAtSequence[sig.account]
+			// this signer already has a failed sequence.
+			// this tx is bad only if the failed Sequence came before this txs seq.
+			if ok && failedSeq < sig.seq {
+				invalidTx = true
+			}
+		}
+
+		// if the signers were valid for this tx, we run it through the antehandler.
+		if !invalidTx {
+			ctx, err := m.anteHandler(cc, txn, false)
+			// no error = good. persist the context.
+			if err == nil {
+				cc = ctx
+			} else {
+				// otherwise, mark it invalid
+				invalidTx = true
+			}
+		}
+
+		// if the tx was invalid, we need to fail all the account's sequences.
+		if invalidTx {
+			removeTxs = append(removeTxs, txn)
+			for _, sig := range signerSeqs {
+				failedSeq, exists := failedAtSequence[sig.account]
+				if !exists || failedSeq > sig.seq {
+					failedAtSequence[sig.account] = sig.seq
+				}
+			}
+		}
+
+		iter = iter.Next()
+	}
+
+	for _, txn := range removeTxs {
+		if err := m.cosmosPool.Remove(txn); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
