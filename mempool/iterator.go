@@ -24,17 +24,17 @@ import (
 type nextAction int
 
 const (
+	// none signals that no action should be taken for this iterator
+	none nextAction = iota
+
 	// advance signals to the iterator that it should move the iterator
 	// pointer to the next best tx
-	advance nextAction = iota
+	advance
 
 	// skipAccount signals to the iterator that it should move the iterator
 	// pointer past all txs for this account, to the next best tx that is not
 	// for this account
 	skipAccount
-
-	// none signals that no action should be taken for this iterator
-	none
 )
 
 var _ mempool.Iterator = &EVMMempoolIterator{}
@@ -185,9 +185,7 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 		return
 	}
 
-	useEVM := i.compareFeePriority(evmTx, evmFee, cosmosTx, cosmosFee)
-
-	if useEVM {
+	if i.shouldSelectEVMTx(evmTx, evmFee, cosmosTx, cosmosFee) {
 		sdkTx, err := i.convertEVMToSDKTx(evmTx)
 		if err == nil {
 			i.nextEVMAction = advance
@@ -211,9 +209,15 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 	i.currentTx = cosmosTx
 }
 
-// compareFeePriority determines which transaction type to prioritize based on fee comparison.
-// Returns true if the EVM transaction should be selected.
-func (i *EVMMempoolIterator) compareFeePriority(evmTx *txpool.LazyTransaction, evmFee *uint256.Int, cosmosTx sdk.Tx, cosmosFee *uint256.Int) bool {
+// shouldSelectEVMTx determines if the EVM tx should be used based on a fee
+// comparison. Returns true if the evmTx should be selected, false if the
+// cosmosTx.
+func (i *EVMMempoolIterator) shouldSelectEVMTx(
+	evmTx *txpool.LazyTransaction,
+	evmFee *uint256.Int,
+	cosmosTx sdk.Tx,
+	cosmosFee *uint256.Int,
+) bool {
 	if evmTx == nil {
 		return false
 	}
