@@ -1041,7 +1041,7 @@ func TestMempool_Recheck(t *testing.T) {
 				return pubKey.Address().Bytes()
 			}
 
-			// Insert all txs first (failSet is empty, so all insertions succeed)
+			// insert all txs first (failSet is empty, so all insertions succeed).
 			for _, tx := range tc.insertTxs {
 				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
 				require.NoError(t, mp.Insert(ctx, cosmosTx))
@@ -1049,13 +1049,12 @@ func TestMempool_Recheck(t *testing.T) {
 
 			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")
 
-			// Now configure which txs should fail during RunReorg
+			// set txs that should fail
 			for _, fail := range tc.failTxs {
 				signerAddr := getSignerAddr(fail.account)
 				failSet[fmt.Sprintf("%x-%d", signerAddr, fail.nonce)] = true
 			}
 
-			// Run reorg
 			mp.RecheckCosmosTxs()
 
 			require.Equal(t, len(tc.expectedRemain), mp.CountTx(),

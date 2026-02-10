@@ -327,10 +327,17 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 
 	// Use underlying pool's Remove (we already hold the lock)
 	for _, txn := range removeTxs {
-		// important: call our `Remove` method as it handles the reserver releases.
-		if err := m.Remove(txn); err != nil {
+		if err := m.ExtMempool.Remove(txn); err != nil {
 			m.logger.Error("failed to remove tx during recheck", "err", err)
+			continue
 		}
+		// Release address reservations after successful removal
+		addrs, err := signerAddressesFromTx(txn)
+		if err != nil {
+			m.logger.Error("failed to extract signer addresses for release", "err", err)
+			continue
+		}
+		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 	}
 	txsRemoved = len(removeTxs)
 }
