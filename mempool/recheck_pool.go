@@ -1,8 +1,14 @@
 package mempool
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"cosmossdk.io/log"
 
@@ -10,6 +16,23 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
+
+var (
+	meter           = otel.Meter("github.com/cosmos/evm/mempool")
+	recheckDuration metric.Float64Histogram
+)
+
+func init() {
+	var err error
+	recheckDuration, err = meter.Float64Histogram(
+		"mempool.recheck.duration",
+		metric.WithDescription("Duration of cosmos mempool recheck loop"),
+		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // RecheckMempool wraps an ExtMempool and provides event-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
@@ -142,6 +165,12 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 // dependent txs with higher sequences from the same signer).
 func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{}) {
 	defer close(done)
+	start := time.Now()
+	txsRemoved := 0
+	defer func() {
+		recheckDuration.Record(context.Background(), float64(time.Since(start).Milliseconds()),
+			metric.WithAttributes(attribute.Int("txs_removed", txsRemoved)))
+	}()
 
 	ctx, err := m.getCtx()
 	if err != nil {
@@ -214,6 +243,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 			m.logger.Error("failed to remove tx during recheck", "err", err)
 		}
 	}
+	txsRemoved = len(removeTxs)
 }
 
 // extractSignerSequences extracts account addresses and sequences from a tx.
