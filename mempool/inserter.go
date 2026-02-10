@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gammazero/deque"
 
@@ -105,18 +106,25 @@ func (iq *insertQueue) loop() {
 		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size")
 		if numTxsAvailable > 0 {
 			iq.lock.Lock()
-			item := iq.queue.PopFront()
+			var subscriptions []chan<- error
+			var toInsert types.Transactions
+			popped := 0
+			for item := range iq.queue.IterPopBack() {
+				popped++
+				if item.tx != nil {
+					toInsert = append(toInsert, item.tx)
+					subscriptions = append(subscriptions, item.sub)
+				}
+			}
 			iq.lock.Unlock()
 
-			if item.tx != nil {
-				err := iq.addTx(item.tx)
-
-				// if the item has a subscriber on it, push any errors that
-				// occurred to them
-				item.sub <- err
-				close(item.sub)
+			errs := iq.addTxs(toInsert)
+			for i, err := range errs {
+				subscriptions[i] <- err
+				close(subscriptions[i])
 			}
-			if numTxsAvailable-1 > 0 {
+
+			if numTxsAvailable-popped > 0 {
 				// there are still txs available, try and insert immediately
 				// again, unless cancelled
 				select {
@@ -136,6 +144,19 @@ func (iq *insertQueue) loop() {
 			// new txs available
 		}
 	}
+}
+
+// addTxs adds a tx to the pool, returning any errors that occurred
+func (iq *insertQueue) addTxs(txs types.Transactions) []error {
+	defer func(t0 time.Time) {
+		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck
+	}(time.Now())
+
+	errs := iq.pool.Add(txs, false)
+	if len(errs) != len(txs) {
+		panic(fmt.Errorf("expected a %d errors from mempool insert but instead got %d", len(txs), len(errs)))
+	}
+	return errs
 }
 
 // addTx adds a tx to the pool, returning any errors that occurred
