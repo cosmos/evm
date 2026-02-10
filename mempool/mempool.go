@@ -48,8 +48,6 @@ type (
 		/** Keepers **/
 		vmKeeper VMKeeperI
 
-		cosmosReserver *reserver.ReservationHandle
-
 		/** Mempools **/
 		txPool                   *txpool.TxPool
 		legacyTxPool             *legacypool.LegacyPool
@@ -197,13 +195,13 @@ func NewExperimentalEVMMempool(
 	recheckPool := NewRecheckMempool(
 		logger,
 		cosmosPool,
+		tracker.NewHandle(-1),
 		config.AnteHandler,
 		blockchain.GetLatestContext,
 	)
 
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:                 vmKeeper,
-		cosmosReserver:           tracker.NewHandle(-1),
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
 		cosmosPool:               recheckPool,
@@ -321,23 +319,13 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 }
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool.
-// The RecheckMempool handles ante handler validation and locking internally.
+// The RecheckMempool handles ante handler validation, address reservation, and locking internally.
 func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
 	m.logger.Debug("inserting Cosmos transaction")
 
-	// Extract signer addresses for reservation
-	evmAddrs, err := signerAddressesFromSDKTx(tx)
-	if err != nil {
-		return err
-	}
-	if err := m.cosmosReserver.Hold(evmAddrs...); err != nil {
-		return err
-	}
-
-	// Insert into cosmos pool (handles locking and ante handler internally)
+	// Insert into cosmos pool (handles locking, ante handler, and address reservation internally)
 	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
-		m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 		return err
 	}
 
@@ -346,23 +334,6 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 		panic(fmt.Errorf("successfully inserted cosmos tx, but failed to insert into reap list: %w", err))
 	}
 	return nil
-}
-
-func signerAddressesFromSDKTx(tx sdk.Tx) ([]common.Address, error) {
-	var signerAddrs []common.Address
-	if sigTx, ok := tx.(interface{ GetSigners() ([][]byte, error) }); ok {
-		signers, err := sigTx.GetSigners()
-		if err != nil {
-			return nil, err
-		}
-		for _, addr := range signers {
-			signerAddrs = append(signerAddrs, common.BytesToAddress(addr))
-		}
-	}
-	if len(signerAddrs) == 0 {
-		return nil, fmt.Errorf("tx contains no signers")
-	}
-	return signerAddrs, nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -511,6 +482,7 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason 
 func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	m.logger.Debug("Removing Cosmos transaction")
 
+	// Remove from cosmos pool (handles address reservation release internally)
 	err := sdkmempool.RemoveWithReason(ctx, m.cosmosPool, tx, reason)
 	if err != nil {
 		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
@@ -519,12 +491,6 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 
 	m.reapList.DropCosmosTx(tx)
 	m.logger.Debug("Cosmos transaction removed successfully")
-
-	evmAddrs, err := signerAddressesFromSDKTx(tx)
-	if err != nil {
-		return err
-	}
-	m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 
 	return nil
 }

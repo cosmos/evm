@@ -6,9 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/cosmos/evm/mempool/reserver"
 
 	"cosmossdk.io/log"
 
@@ -48,6 +51,9 @@ type RecheckMempool struct {
 	// Read lock: Select, CountTx
 	mu sync.RWMutex
 
+	// reserver coordinates address reservations with other pools (e.g., legacypool)
+	reserver *reserver.ReservationHandle
+
 	anteHandler sdk.AnteHandler
 	getCtx      func() (sdk.Context, error)
 	logger      log.Logger
@@ -66,11 +72,13 @@ type RecheckMempool struct {
 func NewRecheckMempool(
 	logger log.Logger,
 	pool sdkmempool.ExtMempool,
+	reserver *reserver.ReservationHandle,
 	anteHandler sdk.AnteHandler,
 	getCtx func() (sdk.Context, error),
 ) *RecheckMempool {
 	return &RecheckMempool{
 		ExtMempool:      pool,
+		reserver:        reserver,
 		anteHandler:     anteHandler,
 		getCtx:          getCtx,
 		logger:          logger.With(log.ModuleKey, "RecheckMempool"),
@@ -102,20 +110,50 @@ func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// Extract signer addresses for reservation
+	addrs, err := signerAddressesFromTx(tx)
+	if err != nil {
+		return err
+	}
+
+	// Reserve addresses to prevent conflicts with EVM pool
+	if err := m.reserver.Hold(addrs...); err != nil {
+		return err
+	}
+
 	// Run ante handler for validation
 	if _, err := m.anteHandler(sdk.UnwrapSDKContext(goCtx), tx, false); err != nil {
+		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
 
 	// Insert into underlying pool
-	return m.ExtMempool.Insert(goCtx, tx)
+	if err := m.ExtMempool.Insert(goCtx, tx); err != nil {
+		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
+		return err
+	}
+
+	return nil
 }
 
 // Remove removes a transaction from the pool.
 func (m *RecheckMempool) Remove(tx sdk.Tx) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.ExtMempool.Remove(tx)
+
+	if err := m.ExtMempool.Remove(tx); err != nil {
+		return err
+	}
+
+	// Release address reservations after successful removal
+	addrs, err := signerAddressesFromTx(tx)
+	if err != nil {
+		m.logger.Error("failed to extract signer addresses for release", "err", err)
+		return nil // tx was removed, just log the error
+	}
+	m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
+
+	return nil
 }
 
 // Select returns an iterator over transactions in the pool.
@@ -289,7 +327,8 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 
 	// Use underlying pool's Remove (we already hold the lock)
 	for _, txn := range removeTxs {
-		if err := m.ExtMempool.Remove(txn); err != nil {
+		// important: call our `Remove` method as it handles the reserver releases.
+		if err := m.Remove(txn); err != nil {
 			m.logger.Error("failed to remove tx during recheck", "err", err)
 		}
 	}
@@ -330,4 +369,28 @@ func isCancelled(ch <-chan struct{}) bool {
 	default:
 		return false
 	}
+}
+
+// signerAddressesFromTx extracts signer addresses from a transaction as EVM addresses.
+func signerAddressesFromTx(tx sdk.Tx) ([]common.Address, error) {
+	sigTx, ok := tx.(interface{ GetSigners() ([][]byte, error) })
+	if !ok {
+		return nil, fmt.Errorf("tx does not implement GetSigners")
+	}
+
+	signers, err := sigTx.GetSigners()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(signers) == 0 {
+		return nil, fmt.Errorf("tx contains no signers")
+	}
+
+	addrs := make([]common.Address, 0, len(signers))
+	for _, signer := range signers {
+		addrs = append(addrs, common.BytesToAddress(signer))
+	}
+
+	return addrs, nil
 }
