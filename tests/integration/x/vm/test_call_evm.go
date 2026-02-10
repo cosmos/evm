@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -53,6 +54,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 		from     common.Address
 		malleate func() []byte
 		deploy   bool
+		gasCap   *big.Int
 		expPass  bool
 	}{
 		{
@@ -64,6 +66,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				return data
 			},
 			false,
+			nil,
 			true,
 		},
 		{
@@ -75,7 +78,20 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				return data
 			},
 			false,
+			nil,
 			true,
+		},
+		{
+			"fail with small gas cap",
+			types.ModuleAddress,
+			func() []byte {
+				account := utiltx.GenerateAddress()
+				data, _ := erc20.Pack("balanceOf", account)
+				return data
+			},
+			false,
+			big.NewInt(1),
+			false,
 		},
 		{
 			"pass with empty data",
@@ -84,6 +100,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				return []byte{}
 			},
 			false,
+			nil,
 			true,
 		},
 
@@ -94,6 +111,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				return []byte{}
 			},
 			false,
+			nil,
 			false,
 		},
 		{
@@ -105,6 +123,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				return data
 			},
 			true,
+			nil,
 			true,
 		},
 		{
@@ -121,6 +140,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				return data
 			},
 			true,
+			nil,
 			false,
 		},
 	}
@@ -134,9 +154,9 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 			var err error
 
 			if tc.deploy {
-				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), tc.from, nil, data, true, nil)
+				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), tc.from, nil, data, true, tc.gasCap)
 			} else {
-				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), tc.from, &wcosmosEVMContract, data, false, nil)
+				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), tc.from, &wcosmosEVMContract, data, false, tc.gasCap)
 			}
 
 			if tc.expPass {
