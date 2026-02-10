@@ -37,9 +37,9 @@ func init() {
 	}
 }
 
-// RecheckMempool wraps an ExtMempool and provides event-driven rechecking
+// RecheckMempool wraps an ExtMempool and provides block-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
-// pattern but simplified for Cosmos semantics (no reorgs, no nonce tracking).
+// pattern but simplified for Cosmos mempool behavior (no reorgs, no queued/pending management).
 //
 // All pool mutations (Insert, Remove) and reads (Select, CountTx) are protected
 // by a RWMutex to ensure thread-safety during recheck operations.
@@ -51,14 +51,14 @@ type RecheckMempool struct {
 	// Read lock: Select, CountTx
 	mu sync.RWMutex
 
-	// reserver coordinates address reservations with other pools (e.g., legacypool)
+	// reserver coordinates address reservations with other pools (i.e. legacypool)
 	reserver *reserver.ReservationHandle
 
 	anteHandler sdk.AnteHandler
 	getCtx      func() (sdk.Context, error)
 	logger      log.Logger
 
-	// Event channels
+	// event channels
 	reqRecheckCh    chan struct{}
 	recheckDoneCh   chan chan struct{}
 	shutdownCh      chan struct{}
@@ -110,24 +110,20 @@ func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Extract signer addresses for reservation
+	// Reserve addresses to prevent conflicts with EVM pool
 	addrs, err := signerAddressesFromTx(tx)
 	if err != nil {
 		return err
 	}
-
-	// Reserve addresses to prevent conflicts with EVM pool
 	if err := m.reserver.Hold(addrs...); err != nil {
 		return err
 	}
 
-	// Run ante handler for validation
 	if _, err := m.anteHandler(sdk.UnwrapSDKContext(goCtx), tx, false); err != nil {
 		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
 
-	// Insert into underlying pool
 	if err := m.ExtMempool.Insert(goCtx, tx); err != nil {
 		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 		return err
@@ -145,7 +141,6 @@ func (m *RecheckMempool) Remove(tx sdk.Tx) error {
 		return err
 	}
 
-	// Release address reservations after successful removal
 	addrs, err := signerAddressesFromTx(tx)
 	if err != nil {
 		m.logger.Error("failed to extract signer addresses for release", "err", err)
@@ -203,7 +198,6 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 	)
 
 	for {
-		// Launch recheck if idle and work pending
 		if curDone == nil && launchNextRun {
 			cancelCh = make(chan struct{})
 			go m.runRecheck(nextDone, cancelCh)
@@ -214,9 +208,7 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 
 		select {
 		case <-m.reqRecheckCh:
-			// New block arrived - schedule recheck
 			if curDone != nil && cancelCh != nil {
-				// Recheck in progress - cancel it (work is stale)
 				close(cancelCh)
 				cancelCh = nil
 			}
@@ -224,12 +216,10 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 			m.recheckDoneCh <- nextDone
 
 		case <-curDone:
-			// Recheck finished
 			curDone = nil
 			cancelCh = nil
 
 		case <-m.shutdownCh:
-			// cancel and wait for in-flight recheck
 			if curDone != nil {
 				if cancelCh != nil {
 					close(cancelCh)
@@ -254,7 +244,6 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 			metric.WithAttributes(attribute.Int("txs_removed", txsRemoved)))
 	}()
 
-	// Hold write lock for entire recheck operation (like legacypool's runReorg)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -268,8 +257,6 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 	removeTxs := make([]sdk.Tx, 0)
 
 	cc, _ := ctx.CacheContext()
-
-	// Use underlying pool's Select (we already hold the lock)
 	iter := m.ExtMempool.Select(ctx, nil)
 	for iter != nil {
 		if isCancelled(cancelled) {
@@ -282,7 +269,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 			break
 		}
 
-		signerSeqs, err := m.extractSignerSequences(txn)
+		signerSeqs, err := extractSignerSequences(txn)
 		if err != nil {
 			m.logger.Error("failed to extract signer sequences", "err", err)
 			iter = iter.Next()
@@ -325,13 +312,11 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 		return
 	}
 
-	// Use underlying pool's Remove (we already hold the lock)
 	for _, txn := range removeTxs {
 		if err := m.ExtMempool.Remove(txn); err != nil {
 			m.logger.Error("failed to remove tx during recheck", "err", err)
 			continue
 		}
-		// Release address reservations after successful removal
 		addrs, err := signerAddressesFromTx(txn)
 		if err != nil {
 			m.logger.Error("failed to extract signer addresses for release", "err", err)
@@ -343,7 +328,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 }
 
 // extractSignerSequences extracts account addresses and sequences from a tx.
-func (m *RecheckMempool) extractSignerSequences(txn sdk.Tx) ([]signerSequence, error) {
+func extractSignerSequences(txn sdk.Tx) ([]signerSequence, error) {
 	sigTx, ok := txn.(authsigning.SigVerifiableTx)
 	if !ok {
 		return nil, fmt.Errorf(
@@ -380,7 +365,7 @@ func isCancelled(ch <-chan struct{}) bool {
 
 // signerAddressesFromTx extracts signer addresses from a transaction as EVM addresses.
 func signerAddressesFromTx(tx sdk.Tx) ([]common.Address, error) {
-	sigTx, ok := tx.(interface{ GetSigners() ([][]byte, error) })
+	sigTx, ok := tx.(authsigning.SigVerifiableTx)
 	if !ok {
 		return nil, fmt.Errorf("tx does not implement GetSigners")
 	}
