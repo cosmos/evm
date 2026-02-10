@@ -102,20 +102,10 @@ func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	// Branch the multistore so ante handler writes don't affect state on failure
-	ms := ctx.MultiStore()
-	msCache := ms.CacheMultiStore()
-	ctx = ctx.WithMultiStore(msCache)
-
 	// Run ante handler for validation
-	if _, err := m.anteHandler(ctx, tx, false); err != nil {
+	if _, err := m.anteHandler(sdk.UnwrapSDKContext(goCtx), tx, false); err != nil {
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
-
-	// Ante handler succeeded - commit state changes
-	msCache.Write()
 
 	// Insert into underlying pool
 	return m.ExtMempool.Insert(goCtx, tx)
