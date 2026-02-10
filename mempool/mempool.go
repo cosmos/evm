@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -67,9 +66,6 @@ type (
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
-
-		/** Concurrency **/
-		mu sync.Mutex
 
 		eventBus *cmttypes.EventBus
 
@@ -324,50 +320,12 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync boo
 	}
 }
 
-// insertCosmosTx inserts a cosmos tx into the cosmos mempool. This also
-// performs a CheckTx (anteHandler) call in the hot path.
+// insertCosmosTx inserts a cosmos tx into the cosmos mempool.
+// The RecheckMempool handles ante handler validation and locking internally.
 func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
-	// we have to process cosmos txs serially.
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	// Insert into cosmos pool for non-EVM transactions
 	m.logger.Debug("inserting Cosmos transaction")
 
-	// NOTE: this is a check tx back in the hot path of comet and will slow
-	// down the insert, however for our initial purposes we do not plan to have
-	// many (if any) cosmos txs, so we are accepting this limitation for now
-	// for simplicity.
-
-	// copying context/ms branching done in runTx
-
-	// get the current multistore in the context
-	ms := ctx.MultiStore()
-
-	// branch the multistore into so we have a place to make anteHandler writes
-	// without messing up the original state in case the anteHandler sequence
-	// fails
-	msCache := ms.CacheMultiStore()
-
-	// set the branched multistore as the multistore that the context will use.
-	// so writes happening via this context will use the branched multistore.
-	ctx = ctx.WithMultiStore(msCache)
-
-	// execute the anteHandlers on our new context, and get a context that has
-	// the anteHandler updates written to it.
-	if _, err := m.anteHandler(ctx, tx, false); err != nil {
-		return fmt.Errorf("running anteHandler sequence for tx: %w", err)
-	}
-
-	// anteHandler has successfully completed, write its updates that are
-	// sitting in the branched multistore, back to their parent multistore.
-	// After this we will have updated the parent state and the next
-	// anteHandler invocation using this state will build off its updates.
-	msCache.Write()
-
-	// Extract signer addresses and convert to EVM addresses
+	// Extract signer addresses for reservation
 	evmAddrs, err := signerAddressesFromSDKTx(tx)
 	if err != nil {
 		return err
@@ -376,6 +334,7 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx
 		return err
 	}
 
+	// Insert into cosmos pool (handles locking and ante handler internally)
 	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
 		m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
@@ -547,7 +506,8 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason 
 	}
 }
 
-// caller should hold the lock
+// removeCosmosTx removes a cosmos tx from the mempool.
+// The RecheckMempool handles locking internally.
 func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	m.logger.Debug("Removing Cosmos transaction")
 

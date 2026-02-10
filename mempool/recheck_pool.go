@@ -37,8 +37,16 @@ func init() {
 // RecheckMempool wraps an ExtMempool and provides event-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
 // pattern but simplified for Cosmos semantics (no reorgs, no nonce tracking).
+//
+// All pool mutations (Insert, Remove) and reads (Select, CountTx) are protected
+// by a RWMutex to ensure thread-safety during recheck operations.
 type RecheckMempool struct {
 	sdkmempool.ExtMempool
+
+	// mu protects the pool during mutations and reads.
+	// Write lock: Insert, Remove, runRecheck
+	// Read lock: Select, CountTx
+	mu sync.RWMutex
 
 	anteHandler sdk.AnteHandler
 	getCtx      func() (sdk.Context, error)
@@ -86,6 +94,52 @@ func (m *RecheckMempool) Close() error {
 	})
 	m.wg.Wait()
 	return nil
+}
+
+// Insert adds a transaction to the pool after running the ante handler.
+// This is the main entry point for new cosmos transactions.
+func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Branch the multistore so ante handler writes don't affect state on failure
+	ms := ctx.MultiStore()
+	msCache := ms.CacheMultiStore()
+	ctx = ctx.WithMultiStore(msCache)
+
+	// Run ante handler for validation
+	if _, err := m.anteHandler(ctx, tx, false); err != nil {
+		return fmt.Errorf("ante handler failed: %w", err)
+	}
+
+	// Ante handler succeeded - commit state changes
+	msCache.Write()
+
+	// Insert into underlying pool
+	return m.ExtMempool.Insert(goCtx, tx)
+}
+
+// Remove removes a transaction from the pool.
+func (m *RecheckMempool) Remove(tx sdk.Tx) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.ExtMempool.Remove(tx)
+}
+
+// Select returns an iterator over transactions in the pool.
+func (m *RecheckMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.ExtMempool.Select(ctx, txs)
+}
+
+// CountTx returns the number of transactions in the pool.
+func (m *RecheckMempool) CountTx() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.ExtMempool.CountTx()
 }
 
 // TriggerRecheck signals that a new block arrived and returns a channel
@@ -160,9 +214,9 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 	}
 }
 
-// runRecheck performs the actual recheck work. It iterates through all txs,
-// runs them through the ante handler, and removes any that fail (plus any
-// dependent txs with higher sequences from the same signer).
+// runRecheck performs the actual recheck work. It holds the write lock for the
+// entire duration, iterates through all txs, runs them through the ante handler,
+// and removes any that fail (plus dependent txs with higher sequences).
 func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{}) {
 	defer close(done)
 	start := time.Now()
@@ -171,6 +225,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 		recheckDuration.Record(context.Background(), float64(time.Since(start).Milliseconds()),
 			metric.WithAttributes(attribute.Int("txs_removed", txsRemoved)))
 	}()
+
+	// Hold write lock for entire recheck operation (like legacypool's runReorg)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	ctx, err := m.getCtx()
 	if err != nil {
@@ -183,7 +241,8 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 
 	cc, _ := ctx.CacheContext()
 
-	iter := m.Select(ctx, nil)
+	// Use underlying pool's Select (we already hold the lock)
+	iter := m.ExtMempool.Select(ctx, nil)
 	for iter != nil {
 		if isCancelled(cancelled) {
 			m.logger.Debug("recheck cancelled - new block arrived")
@@ -238,8 +297,9 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 		return
 	}
 
+	// Use underlying pool's Remove (we already hold the lock)
 	for _, txn := range removeTxs {
-		if err := m.Remove(txn); err != nil {
+		if err := m.ExtMempool.Remove(txn); err != nil {
 			m.logger.Error("failed to remove tx during recheck", "err", err)
 		}
 	}
