@@ -107,7 +107,7 @@ func (iq *insertQueue) loop() {
 		// if nothing is available, wait for new txs to become available before
 		// checking again
 		if numTxsAvailable == 0 {
-			if iq.hasNewTxs() {
+			if iq.waitForNewTxs() {
 				continue
 			}
 			return
@@ -121,6 +121,7 @@ func (iq *insertQueue) loop() {
 		iq.lock.Lock()
 		for item := range iq.queue.IterPopFront() {
 			if item.tx == nil {
+				close(item.sub)
 				continue
 			}
 
@@ -137,21 +138,20 @@ func (iq *insertQueue) loop() {
 			close(subscriptions[i])
 		}
 
-		if numTxsAvailable-len(toInsert) > 0 {
-			// there are still txs available, try and insert immediately
-			// again, unless cancelled
-			select {
-			case <-iq.done:
-				return
-			default:
-				continue
-			}
+		// check if we have been told to cancel, if not, check for more txs to
+		// insert
+		select {
+		case <-iq.done:
+			return
+		default:
+			continue
 		}
 	}
 }
 
-func (iq *insertQueue) hasNewTxs() bool {
-	// no txs available, block until signaled or done
+// waitForNewTxs blocks and waits for new txs to become available and returns
+// true if that happens, or false if we have cancelled before then
+func (iq *insertQueue) waitForNewTxs() bool {
 	select {
 	case <-iq.done:
 		return false

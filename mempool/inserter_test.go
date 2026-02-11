@@ -169,19 +169,24 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	iq := newInsertQueue(pool, 5, logger)
 	defer iq.Close()
 
-	// Fill the queue to capacity
-	// Note: The first tx will be immediately popped and start processing (where it blocks),
-	// so we need to push maxSize + 1 transactions to actually fill the queue
-	for nonce := uint64(0); nonce <= 5; nonce++ {
-		tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
-		_ = iq.Push(tx)
-	}
+	// This first tx will be immediately popped and start processing (where it
+	// blocks)
+	nonce := uint64(0)
+	tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
+	_ = iq.Push(tx)
+	nonce++
 
 	// wait for first tx to be popped and addFn to be called and blocking
 	<-added
 
+	// Fill the queue to capacity
+	for ; nonce <= 5; nonce++ {
+		tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
+		_ = iq.Push(tx)
+	}
+
 	// Try to push one more transaction with error channel, queue is now at max capacity
-	tx := ethtypes.NewTransaction(100, [20]byte{0x64}, nil, 21000, nil, nil)
+	tx = ethtypes.NewTransaction(100, [20]byte{0x64}, nil, 21000, nil, nil)
 	_ = iq.Push(tx)
 
 	// Push another tx into the full queue, should be rejected
