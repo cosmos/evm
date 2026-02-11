@@ -101,6 +101,10 @@ type EVMMempoolConfig struct {
 	// PendingTxProposalTimeout is the max amount of time to allocate to
 	// fetching (or watiing to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
+	// InsertQueueSize is how many txs can be stored in the insert queue
+	// pending insertion into the mempool. Note the insert queue is only used
+	// for EVM txs.
+	InsertQueueSize int
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -213,7 +217,7 @@ func NewExperimentalEVMMempool(
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(txEncoder),
 		txTracker:                newTxTracker(),
-		iq:                       newInsertQueue(legacyPool, logger),
+		iq:                       newInsertQueue(legacyPool, config.InsertQueueSize, logger),
 	}
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
@@ -243,7 +247,7 @@ func NewExperimentalEVMMempool(
 		// the reap guard.
 		evmMempool.reapList.DropEVMTx(tx)
 
-		_ = evmMempool.txTracker.RemoveTx(tx.Hash(), pool)
+		_ = evmMempool.txTracker.RemoveTxFromPool(tx.Hash(), pool)
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -272,7 +276,22 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	return m.insert(ctx, tx, true)
+	errC, err := m.insert(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("inserting tx: %w", err)
+	}
+
+	if errC != nil {
+		// if we got back a non nil async error channel, wait for that to
+		// resolve
+		select {
+		case err := <-errC:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
 }
 
 // InsertAsync adds a transaction to the appropriate mempool (EVM or Cosmos). EVM
@@ -281,35 +300,49 @@ func (m *ExperimentalEVMMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
 func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
-	return m.insert(ctx, tx, false)
+	errC, err := m.insert(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("inserting tx: %w", err)
+	}
+
+	select {
+	case err := <-errC:
+		// if we have a result immediately, ready on the channel returned from
+		// insert, return that (cosmos tx or unable to try and insert the tx
+		// due to parsing error).
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// result was not ready immediately, return nil while async things happen
+		return nil
+	}
 }
 
-func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx, sync bool) error {
+// insert inserts a tx into its respective mempool, returning a channel for any
+// async errors that may happen later upon actual mempool insertion, and an
+// error for any errors that occurred synchronously.
+func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
-		if !sync {
-			m.iq.Push(ethTx)
-			return nil
-		}
 
-		errs := m.txPool.Add([]*ethtypes.Transaction{ethTx}, sync)
-		if len(errs) != 1 {
-			panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-		}
-		if errs[0] != nil {
-			m.logger.Error("error inserting evm tx into pool", "tx_hash", ethTx.Hash(), "err", errs[0])
-		}
-		return errs[0]
+		// we push the tx onto the insert queue so the tx will be inserted at a
+		// later point. We get back a subscription that the insert queue will
+		// use to notify the caller of any errors that occurred when inserting
+		// into the mempool.
+		sub := m.iq.Push(ethTx)
+		return sub, nil
 	case errors.Is(err, ErrMultiMsgEthereumTransaction):
 		// there are multiple messages in this tx and one or more of them is an
 		// evm tx, this is invalid
-		return err
+		return nil, err
 	default:
-		// tx either has no messages, or has a single non MsgEtherumTx msg, or
-		// has multiple msgs, where none are MsgEthereumTx
-		return m.insertCosmosTx(ctx, tx)
+		// inserting cosmos txs do not have the same insert queue behavior as
+		// evm txs, thus we synchronously wait for the insert to return	and
+		// simply return its error
+		return nil, m.insertCosmosTx(ctx, tx)
 	}
 }
 
@@ -683,6 +716,14 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 	return evmIterator, cosmosIterator
 }
 
+// TrackTx submits a tx to be tracked for its tx inclusion metrics.
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
+}
+
+// StopTrackingTx stops a tx from being tracked for its tx inclusion metrics.
+// This should only be used if a tx has not yet been included in the mempool,
+// i.e. received an error from Insert.
+func (m *ExperimentalEVMMempool) StopTrackingTx(hash common.Hash) {
+	m.txTracker.RemoveTx(hash)
 }

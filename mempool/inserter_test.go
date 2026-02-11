@@ -56,14 +56,14 @@ func (m *mockTxPool) setAddFn(fn func([]*ethtypes.Transaction, bool) []error) {
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Create a test transaction
 	tx := ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil)
 
 	// Push transaction
-	iq.Push(tx)
+	_ = iq.Push(tx)
 
 	// Wait for transaction to be processed
 	require.Eventually(t, func() bool {
@@ -79,7 +79,7 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -88,9 +88,9 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	tx3 := ethtypes.NewTransaction(3, [20]byte{0x03}, nil, 21000, nil, nil)
 
 	// Push transactions
-	iq.Push(tx1)
-	iq.Push(tx2)
-	iq.Push(tx3)
+	_ = iq.Push(tx1)
+	_ = iq.Push(tx2)
+	_ = iq.Push(tx3)
 
 	// Wait for all transactions to be processed
 	require.Eventually(t, func() bool {
@@ -108,11 +108,11 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Push nil transaction
-	iq.Push(nil)
+	_ = iq.Push(nil)
 
 	// Wait a bit to ensure nothing is processed
 	time.Sleep(100 * time.Millisecond)
@@ -132,12 +132,12 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	})
 
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, logger)
+	iq := newInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Push first transaction to start processing
 	tx1 := ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil)
-	iq.Push(tx1)
+	_ = iq.Push(tx1)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -147,7 +147,57 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	var nonce uint64
 	for nonce = 0; nonce < 100; nonce++ {
 		tx := ethtypes.NewTransaction(nonce+2, [20]byte{byte(nonce + 2)}, nil, 21000, nil, nil)
-		iq.Push(tx)
+		_ = iq.Push(tx)
 	}
 	require.Less(t, time.Since(start), 100*time.Millisecond, "pushes should not block")
+}
+
+func TestInsertQueue_RejectsWhenFull(t *testing.T) {
+	pool := newMockTxPool()
+
+	// when addFn is called, push a value onto a channel to signal that a
+	// single tx has been popped from the queue, then block forever so no more
+	// txs can be popped, that means we can add 1 more tx then the queue will
+	// be at max capacity, and adding 1 after that will trigger an error
+	added := make(chan struct{}, 1)
+	pool.setAddFn(func(txs []*ethtypes.Transaction, sync bool) []error {
+		added <- struct{}{}
+		select {} // block forever
+	})
+
+	logger := log.NewNopLogger()
+	iq := newInsertQueue(pool, 5, logger)
+	defer iq.Close()
+
+	// This first tx will be immediately popped and start processing (where it
+	// blocks)
+	nonce := uint64(0)
+	tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
+	_ = iq.Push(tx)
+	nonce++
+
+	// wait for first tx to be popped and addFn to be called and blocking
+	<-added
+
+	// Fill the queue to capacity
+	for ; nonce <= 5; nonce++ {
+		tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
+		_ = iq.Push(tx)
+	}
+
+	// Try to push one more transaction with error channel, queue is now at max capacity
+	tx = ethtypes.NewTransaction(100, [20]byte{0x64}, nil, 21000, nil, nil)
+	_ = iq.Push(tx)
+
+	// Push another tx into the full queue, should be rejected
+	fullTx := ethtypes.NewTransaction(101, [20]byte{0x64}, nil, 21000, nil, nil)
+	sub := iq.Push(fullTx)
+
+	// Verify we got the queue full error
+	select {
+	case err := <-sub:
+		require.ErrorIs(t, err, ErrInsertQueueFull, "should receive queue full error")
+	default:
+		t.Fatal("did not receive error from full queue")
+	}
 }

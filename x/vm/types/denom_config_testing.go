@@ -10,6 +10,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -18,9 +19,14 @@ import (
 // can only be set via `EVMConfigurator` before starting the app.
 var testingEvmCoinInfo *EvmCoinInfo
 
+// testingEvmCoinInfoMu protects concurrent access to testingEvmCoinInfo
+var testingEvmCoinInfoMu sync.RWMutex
+
 // SetDefaultEvmCoinInfo sets the default EVM coin info to be used as fallback.
 // This should be called during keeper initialization.
 func SetDefaultEvmCoinInfo(coinInfo EvmCoinInfo) {
+	testingEvmCoinInfoMu.Lock()
+	defer testingEvmCoinInfoMu.Unlock()
 	testingEvmCoinInfo = &coinInfo
 }
 
@@ -64,26 +70,37 @@ func setDisplayDenom(displayDenom string) error {
 // GetEVMCoinDecimals returns the decimals used in the representation of the EVM
 // coin.
 func GetEVMCoinDecimals() Decimals {
+	testingEvmCoinInfoMu.RLock()
+	defer testingEvmCoinInfoMu.RUnlock()
 	return Decimals(testingEvmCoinInfo.Decimals)
 }
 
 // GetEVMCoinDenom returns the denom used for the EVM coin.
 func GetEVMCoinDenom() string {
+	testingEvmCoinInfoMu.RLock()
+	defer testingEvmCoinInfoMu.RUnlock()
 	return testingEvmCoinInfo.Denom
 }
 
 // GetEVMCoinExtendedDenom returns the extended denom used for the EVM coin.
 func GetEVMCoinExtendedDenom() string {
+	testingEvmCoinInfoMu.RLock()
+	defer testingEvmCoinInfoMu.RUnlock()
 	return testingEvmCoinInfo.ExtendedDenom
 }
 
 // GetEVMCoinDisplayDenom returns the display denom used for the EVM coin.
 func GetEVMCoinDisplayDenom() string {
+	testingEvmCoinInfoMu.RLock()
+	defer testingEvmCoinInfoMu.RUnlock()
 	return testingEvmCoinInfo.DisplayDenom
 }
 
 // setTestingEVMCoinInfo allows to define denom and decimals of the coin used in the EVM.
 func setTestingEVMCoinInfo(eci EvmCoinInfo) error {
+	testingEvmCoinInfoMu.Lock()
+	defer testingEvmCoinInfoMu.Unlock()
+
 	if testingEvmCoinInfo != nil {
 		return errors.New("testing EVM coin info already set. Make sure you run the configurator's ResetTestConfig before trying to set a new evm coin info")
 	}
@@ -110,5 +127,7 @@ func setTestingEVMCoinInfo(eci EvmCoinInfo) error {
 
 // resetEVMCoinInfo resets to nil the testingEVMCoinInfo
 func resetEVMCoinInfo() {
+	testingEvmCoinInfoMu.Lock()
+	defer testingEvmCoinInfoMu.Unlock()
 	testingEvmCoinInfo = nil
 }
