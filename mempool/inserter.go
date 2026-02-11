@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gammazero/deque"
 
@@ -104,50 +103,66 @@ func (iq *insertQueue) loop() {
 		iq.lock.RUnlock()
 
 		telemetry.SetGauge(float32(numTxsAvailable), "expmempool_inserter_queue_size")
-		if numTxsAvailable > 0 {
-			iq.lock.Lock()
-			var subscriptions []chan<- error
-			var toInsert types.Transactions
-			popped := 0
-			for item := range iq.queue.IterPopBack() {
-				popped++
-				if item.tx != nil {
-					toInsert = append(toInsert, item.tx)
-					subscriptions = append(subscriptions, item.sub)
-				}
-			}
-			iq.lock.Unlock()
 
-			errs := iq.addTxs(toInsert)
-			for i, err := range errs {
-				subscriptions[i] <- err
-				close(subscriptions[i])
+		// if nothing is available, wait for new txs to become available before
+		// checking again
+		if numTxsAvailable == 0 {
+			if iq.hasNewTxs() {
+				continue
 			}
-
-			if numTxsAvailable-popped > 0 {
-				// there are still txs available, try and insert immediately
-				// again, unless cancelled
-				select {
-				case <-iq.done:
-					return
-				default:
-					continue
-				}
-			}
+			return
 		}
 
-		// no txs available, block until signaled or done
-		select {
-		case <-iq.done:
-			return
-		case <-iq.signal:
-			// new txs available
+		var (
+			subscriptions []chan<- error
+			toInsert      ethtypes.Transactions
+		)
+
+		iq.lock.Lock()
+		for item := range iq.queue.IterPopFront() {
+			if item.tx == nil {
+				continue
+			}
+
+			toInsert = append(toInsert, item.tx)
+			subscriptions = append(subscriptions, item.sub)
+		}
+		iq.lock.Unlock()
+
+		errs := iq.addTxs(toInsert)
+
+		// push any potential errors out to subscribers
+		for i, err := range errs {
+			subscriptions[i] <- err
+			close(subscriptions[i])
+		}
+
+		if numTxsAvailable-len(toInsert) > 0 {
+			// there are still txs available, try and insert immediately
+			// again, unless cancelled
+			select {
+			case <-iq.done:
+				return
+			default:
+				continue
+			}
 		}
 	}
 }
 
+func (iq *insertQueue) hasNewTxs() bool {
+	// no txs available, block until signaled or done
+	select {
+	case <-iq.done:
+		return false
+	case <-iq.signal:
+		// new txs available
+		return true
+	}
+}
+
 // addTxs adds a tx to the pool, returning any errors that occurred
-func (iq *insertQueue) addTxs(txs types.Transactions) []error {
+func (iq *insertQueue) addTxs(txs ethtypes.Transactions) []error {
 	defer func(t0 time.Time) {
 		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck
 	}(time.Now())
@@ -157,19 +172,6 @@ func (iq *insertQueue) addTxs(txs types.Transactions) []error {
 		panic(fmt.Errorf("expected a %d errors from mempool insert but instead got %d", len(txs), len(errs)))
 	}
 	return errs
-}
-
-// addTx adds a tx to the pool, returning any errors that occurred
-func (iq *insertQueue) addTx(tx *ethtypes.Transaction) error {
-	defer func(t0 time.Time) {
-		telemetry.MeasureSince(t0, "expmempool_inserter_add") //nolint:staticcheck
-	}(time.Now())
-
-	errs := iq.pool.Add([]*ethtypes.Transaction{tx}, false)
-	if len(errs) != 1 {
-		panic(fmt.Errorf("expected a single error when compacting evm tx add errors"))
-	}
-	return errs[0]
 }
 
 // isFull returns true if the insert queue is at capacity and cannot accept
