@@ -55,11 +55,11 @@ type RecheckMempool struct {
 	logger      log.Logger
 
 	// event channels
-	reqRecheckCh    chan struct{}
-	recheckDoneCh   chan chan struct{}
-	shutdownCh      chan struct{}
-	shutdownOnce    sync.Once
-	recheckShutdown chan struct{} // closed when scheduleRecheckLoop exits
+	reqRecheckCh    chan struct{}      // channel that schedules rechecking.
+	recheckDoneCh   chan chan struct{} // channel that is returned to recheck callers that signals when a recheck is complete.
+	shutdownCh      chan struct{}      // shutdown channel to gracefully shutdown the recheck loop.
+	shutdownOnce    sync.Once          // ensures shutdown channel is only closed once.
+	recheckShutdown chan struct{}      // closed when scheduleRecheckLoop exits
 
 	wg sync.WaitGroup
 }
