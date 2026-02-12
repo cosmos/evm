@@ -139,8 +139,7 @@ func (m *RecheckMempool) Remove(tx sdk.Tx) error {
 
 	addrs, err := signerAddressesFromTx(tx)
 	if err != nil {
-		m.logger.Error("failed to extract signer addresses for release", "err", err)
-		return nil // tx was removed, just log the error
+		panic("failed to extract signer addresses from tx during Remove")
 	}
 	m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 
