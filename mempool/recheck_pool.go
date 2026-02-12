@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -20,10 +19,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-var (
-	meter           = otel.Meter("github.com/cosmos/evm/mempool")
-	recheckDuration metric.Float64Histogram
-)
+var recheckDuration metric.Float64Histogram
 
 func init() {
 	var err error

@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"go.opentelemetry.io/otel"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -30,7 +31,11 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+var (
+	meter = otel.Meter("github.com/cosmos/evm/mempool")
+	
+	_ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+)
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
