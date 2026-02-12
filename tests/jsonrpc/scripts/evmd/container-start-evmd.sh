@@ -50,13 +50,11 @@ echo "$USER4_MNEMONIC" | evmd keys add "$USER4_KEY" --recover --keyring-backend 
 
 # Configure genesis file
 echo "🔧 Configuring genesis file..."
-jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
 # Add genesis accounts
 echo "🔧 Setting up genesis accounts..."
@@ -66,9 +64,15 @@ evmd genesis add-genesis-account "$USER2_KEY" 1000000000000000000000atest --keyr
 evmd genesis add-genesis-account "$USER3_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
 evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
 
-# Generate validator transaction
-evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices "${BASEFEE}atest" --keyring-backend "$KEYRING" --chain-id "$CHAIN_ID" --home "$CHAINDIR"
-evmd genesis collect-gentxs --home "$CHAINDIR"
+# Set up POA genesis validator
+VALIDATOR_PUBKEY=$(evmd cometbft show-validator --home "$CHAINDIR")
+VAL_ADDR=$(evmd keys show "$VAL_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")
+
+jq --arg addr "$VAL_ADDR" '.app_state["poa"]["params"]["admin"]=$addr' "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+jq --argjson pubkey "$VALIDATOR_PUBKEY" --arg addr "$VAL_ADDR" \
+  '.app_state["poa"]["validators"]=[{"pub_key": $pubkey, "power": "10000000", "metadata": {"operator_address": $addr, "moniker": "localtestnet", "description": "Local testnet validator"}}]' \
+  "$GENESIS" > "$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+
 evmd genesis validate-genesis --home "$CHAINDIR"
 
 # Reduce block time by adjusting consensus timeouts

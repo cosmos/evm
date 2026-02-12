@@ -92,12 +92,10 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
 # Configure genesis file using jq directly on host
 echo -e "${GREEN}Configuring genesis file...${NC}"
 # Change parameter token denominations to desired value
-jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
-jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 
 # Add default token metadata to genesis
 jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
@@ -125,10 +123,16 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
     evmd genesis add-genesis-account '$USER2_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
     evmd genesis add-genesis-account '$USER3_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
     evmd genesis add-genesis-account '$USER4_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
-    
-    # Generate and collect validator transaction
-    evmd genesis gentx '$VAL_KEY' 1000000000000000000000atest --gas-prices '${BASEFEE}atest' --keyring-backend '$KEYRING' --chain-id '$CHAIN_ID' --home /data
-    evmd genesis collect-gentxs --home /data
+
+    # Set up POA genesis validator
+    VALIDATOR_PUBKEY=\$(evmd cometbft show-validator --home /data)
+    VAL_ADDR=\$(evmd keys show '$VAL_KEY' -a --keyring-backend '$KEYRING' --home /data)
+
+    jq --arg addr \"\$VAL_ADDR\" '.app_state[\"poa\"][\"params\"][\"admin\"]=\$addr' /data/config/genesis.json > /data/config/tmp_genesis.json && mv /data/config/tmp_genesis.json /data/config/genesis.json
+    jq --argjson pubkey \"\$VALIDATOR_PUBKEY\" --arg addr \"\$VAL_ADDR\" \
+      '.app_state[\"poa\"][\"validators\"]=[{\"pub_key\": \$pubkey, \"power\": \"10000000\", \"metadata\": {\"operator_address\": \$addr, \"moniker\": \"localtestnet\", \"description\": \"Local testnet validator\"}}]' \
+      /data/config/genesis.json > /data/config/tmp_genesis.json && mv /data/config/tmp_genesis.json /data/config/genesis.json
+
     evmd genesis validate-genesis --home /data
 "
 

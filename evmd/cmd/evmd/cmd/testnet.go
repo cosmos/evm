@@ -27,12 +27,12 @@ import (
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/runtime"
+	poatypes "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa/types"
 	"github.com/cosmos/cosmos-sdk/server"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
@@ -45,8 +45,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	customnetwork "github.com/cosmos/evm/evmd/tests/network"
 	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
@@ -333,9 +331,10 @@ func initTestnetFiles(
 	}
 
 	var (
-		genAccounts []authtypes.GenesisAccount
-		genBalances []banktypes.Balance
-		genFiles    []string
+		genAccounts   []authtypes.GenesisAccount
+		genBalances   []banktypes.Balance
+		genFiles      []string
+		poaValidators []poatypes.Validator
 	)
 
 	const (
@@ -381,7 +380,6 @@ func initTestnetFiles(
 		}
 		nodeDirName := fmt.Sprintf("%s%d", args.nodeDirPrefix, i)
 		nodeDir := filepath.Join(args.outputDir, nodeDirName, args.nodeDaemonHome)
-		gentxsDir := filepath.Join(args.outputDir, "gentxs")
 
 		nodeConfig.SetRoot(nodeDir)
 		nodeConfig.Moniker = nodeDirName
@@ -417,7 +415,6 @@ func initTestnetFiles(
 			return err
 		}
 
-		memo := fmt.Sprintf("%s@%s:%d", nodeIDs[i], ip, p2pPortStart+portOffset)
 		genFiles = append(genFiles, nodeConfig.GenesisFile())
 
 		kb, err := keyring.New(sdk.KeyringServiceName(), args.keyringBackend, nodeDir, inBuf, clientCtx.Codec, cosmosevmkeyring.Option())
@@ -450,10 +447,8 @@ func initTestnetFiles(
 		}
 
 		accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
-		accStakingTokens := sdk.TokensFromConsensusPower(500, sdk.DefaultPowerReduction)
 		coins := sdk.Coins{
 			sdk.NewCoin(TEST_DENOM, accTokens),
-			sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
 		}
 
 		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: coins.Sort()})
@@ -464,58 +459,37 @@ func initTestnetFiles(
 			genBalances = append(genBalances, bals...)
 			genAccounts = append(genAccounts, accs...)
 		}
-		valTokens := sdk.TokensFromConsensusPower(args.validatorPowers[i], sdk.DefaultPowerReduction)
-		createValMsg, err := stakingtypes.NewMsgCreateValidator(
-			sdk.ValAddress(addr).String(),
-			valPubKeys[i],
-			sdk.NewCoin(sdk.DefaultBondDenom, valTokens),
-			stakingtypes.NewDescription(nodeDirName, "", "", "", ""),
-			stakingtypes.NewCommissionRates(math.LegacyOneDec(), math.LegacyOneDec(), math.LegacyOneDec()),
-			math.OneInt(),
-		)
+
+		// Create POA validator entry for this node
+		pubKeyAny, err := codectypes.NewAnyWithValue(valPubKeys[i])
 		if err != nil {
 			return err
 		}
-
-		txBuilder := clientCtx.TxConfig.NewTxBuilder()
-		if err := txBuilder.SetMsgs(createValMsg); err != nil {
-			return err
-		}
-
-		txBuilder.SetMemo(memo)
-
-		txFactory := tx.Factory{}
-		txFactory = txFactory.
-			WithChainID(args.chainID).
-			WithMemo(memo).
-			WithKeybase(kb).
-			WithTxConfig(clientCtx.TxConfig)
-
-		if err := tx.Sign(cmd.Context(), txFactory, nodeDirName, txBuilder, true); err != nil {
-			return err
-		}
-
-		txBz, err := clientCtx.TxConfig.TxJSONEncoder()(txBuilder.GetTx())
-		if err != nil {
-			return err
-		}
-
-		if err := writeFile(fmt.Sprintf("%v.json", nodeDirName), gentxsDir, txBz); err != nil {
-			return err
-		}
+		poaValidators = append(poaValidators, poatypes.Validator{
+			PubKey: pubKeyAny,
+			Power:  args.validatorPowers[i],
+			Metadata: &poatypes.ValidatorMetadata{
+				Moniker:         nodeDirName,
+				Description:     fmt.Sprintf("Validator %s", nodeDirName),
+				OperatorAddress: addr.String(),
+			},
+		})
 
 		srvconfig.SetConfigTemplate(config.EVMAppTemplate)
 
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config", "app.toml"), evmCfg)
 	}
 
-	if err := initGenFiles(clientCtx, mbm, args.chainID, genAccounts, genBalances, genFiles, args.numValidators); err != nil {
+	// Use the first validator's address as the POA admin
+	adminAddr := poaValidators[0].Metadata.OperatorAddress
+
+	if err := initGenFiles(clientCtx, mbm, args.chainID, genAccounts, genBalances, genFiles, args.numValidators, poaValidators, adminAddr); err != nil {
 		return err
 	}
 
-	err := collectGenFiles(
-		clientCtx, nodeConfig, args.chainID, nodeIDs, valPubKeys, args.numValidators,
-		args.outputDir, args.nodeDirPrefix, args.nodeDaemonHome, genBalIterator, clientCtx.TxConfig.SigningContext().ValidatorAddressCodec(),
+	err := setCanonicalGenesisTime(
+		nodeConfig, args.chainID, args.numValidators,
+		args.outputDir, args.nodeDirPrefix, args.nodeDaemonHome,
 		sdkRPCPort, p2pPortStart, args.singleMachine,
 	)
 	if err != nil {
@@ -528,10 +502,8 @@ func initTestnetFiles(
 
 func addExtraAccounts(kb keyring.Keyring, algo keyring.SignatureAlgo) ([]banktypes.Balance, []authtypes.GenesisAccount) {
 	accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
-	accStakingTokens := sdk.TokensFromConsensusPower(500, sdk.DefaultPowerReduction)
 	coins := sdk.Coins{
 		sdk.NewCoin(TEST_DENOM, accTokens),
-		sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
 	}
 	coins = coins.Sort()
 
@@ -553,6 +525,7 @@ func initGenFiles(
 	clientCtx client.Context, mbm module.BasicManager, chainID string,
 	genAccounts []authtypes.GenesisAccount, genBalances []banktypes.Balance,
 	genFiles []string, numValidators int,
+	poaValidators []poatypes.Validator, adminAddr string,
 ) error {
 	appGenState := mbm.DefaultGenesis(clientCtx.Codec)
 
@@ -586,6 +559,13 @@ func initGenFiles(
 	evmGenState.Params.EvmDenom = TEST_DENOM
 	appGenState[evmtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&evmGenState)
 
+	// set the POA genesis state with validators and admin
+	poaGenState := poatypes.GenesisState{
+		Params:     poatypes.Params{Admin: adminAddr},
+		Validators: poaValidators,
+	}
+	appGenState[poatypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&poaGenState)
+
 	appGenStateJSON, err := json.MarshalIndent(appGenState, "", "  ")
 	if err != nil {
 		return err
@@ -606,14 +586,15 @@ func initGenFiles(
 	return nil
 }
 
-func collectGenFiles(
-	clientCtx client.Context, nodeConfig *cmtconfig.Config, chainID string,
-	nodeIDs []string, valPubKeys []cryptotypes.PubKey, numValidators int,
-	outputDir, nodeDirPrefix, nodeDaemonHome string, genBalIterator banktypes.GenesisBalancesIterator, valAddrCodec runtime.ValidatorAddressCodec,
+// setCanonicalGenesisTime reads genesis files for all nodes and rewrites them
+// with a canonical genesis time. Unlike the old collectGenFiles, this does not
+// process gentxs since POA validators are set directly in genesis state.
+func setCanonicalGenesisTime(
+	nodeConfig *cmtconfig.Config, chainID string, numValidators int,
+	outputDir, nodeDirPrefix, nodeDaemonHome string,
 	rpcPortStart, p2pPortStart int,
 	singleMachine bool,
 ) error {
-	var appState json.RawMessage
 	genTime := tmtime.Now()
 
 	for i := 0; i < numValidators; i++ {
@@ -624,34 +605,19 @@ func collectGenFiles(
 		}
 		nodeDirName := fmt.Sprintf("%s%d", nodeDirPrefix, i)
 		nodeDir := filepath.Join(outputDir, nodeDirName, nodeDaemonHome)
-		gentxsDir := filepath.Join(outputDir, "gentxs")
 		nodeConfig.Moniker = nodeDirName
-
 		nodeConfig.SetRoot(nodeDir)
-
-		nodeID, valPubKey := nodeIDs[i], valPubKeys[i]
-		initCfg := genutiltypes.NewInitConfig(chainID, gentxsDir, nodeID, valPubKey)
-
-		appGenesis, err := genutiltypes.AppGenesisFromFile(nodeConfig.GenesisFile())
-		if err != nil {
-			return err
-		}
-
-		nodeAppState, err := genutil.GenAppStateFromConfig(clientCtx.Codec, clientCtx.TxConfig, nodeConfig, initCfg, appGenesis, genBalIterator, genutiltypes.DefaultMessageValidator,
-			valAddrCodec)
-		if err != nil {
-			return err
-		}
-
-		if appState == nil {
-			// set the canonical application state (they should not differ)
-			appState = nodeAppState
-		}
 
 		genFile := nodeConfig.GenesisFile()
 
-		// overwrite each validator's genesis file to have a canonical genesis time
-		if err := genutil.ExportGenesisFileWithTime(genFile, chainID, nil, appState, genTime); err != nil {
+		genDoc, err := types.GenesisDocFromFile(genFile)
+		if err != nil {
+			return err
+		}
+
+		genDoc.GenesisTime = genTime
+
+		if err := genDoc.SaveAs(genFile); err != nil {
 			return err
 		}
 	}

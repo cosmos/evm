@@ -231,12 +231,10 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   echo "$VAL_MNEMONIC" | evmd init $MONIKER -o --chain-id "$CHAINID" --home "$CHAINDIR" --recover
 
   # ---------- Genesis customizations ----------
-  jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
@@ -323,9 +321,17 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
     done
   fi
 
-  # --------- Finalize genesis ---------
-  evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
-  evmd genesis collect-gentxs --home "$CHAINDIR"
+  # --------- Finalize genesis (POA validator setup) ---------
+  # Get the validator's public key and address for POA genesis
+  VALIDATOR_PUBKEY=$(evmd cometbft show-validator --home "$CHAINDIR")
+  VAL_ADDR=$(evmd keys show "$VAL_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")
+
+  # Set the POA admin and add the validator to genesis
+  jq --arg addr "$VAL_ADDR" '.app_state["poa"]["params"]["admin"]=$addr' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq --argjson pubkey "$VALIDATOR_PUBKEY" --arg addr "$VAL_ADDR" \
+    '.app_state["poa"]["validators"]=[{"pub_key": $pubkey, "power": "10000000", "metadata": {"operator_address": $addr, "moniker": "localtestnet", "description": "Local testnet validator"}}]' \
+    "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+
   evmd genesis validate-genesis --home "$CHAINDIR"
 
   # --------- Write YAML with mnemonics if the user specified more ---------
