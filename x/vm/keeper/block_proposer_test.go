@@ -34,14 +34,14 @@ func (suite *KeeperTestSuite) TestGetCoinbaseAddress() {
 			expectedErr:  false,
 		},
 		{
-			name:         "validator not found returns error",
+			name:         "validator not found returns zero address",
 			proposerAddr: proposerConsAddr,
 			malleate: func() {
 				suite.stakingKeeper.On("GetValidatorByConsAddr", mock.Anything, proposerConsAddr).
 					Return(stakingtypes.Validator{}, stakingtypes.ErrNoValidatorFound).Once()
 			},
 			expectedAddr: common.Address{},
-			expectedErr:  true,
+			expectedErr:  false,
 		},
 		{
 			name:         "empty proposer address returns empty address",
