@@ -37,7 +37,6 @@ import (
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
-	sdknetwork "github.com/cosmos/cosmos-sdk/testutil/network"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -403,6 +402,7 @@ func initTestnetFiles(
 				return err
 			}
 		}
+		_ = ip // ip may be used in future for persistent peers configuration
 
 		if err := parseAndApplyConfigChanges(nodeConfig, args.configChanges); err != nil {
 			_ = os.RemoveAll(args.outputDir)
@@ -714,8 +714,23 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 	return nil
 }
 
+// testNetworkValidatorI mirrors the cosmos-sdk testutil/network ValidatorI interface
+// to avoid importing testutil/network which transitively pulls in testutil/configurator
+// with missing circuit/nft module dependencies in cosmossdk.io/api v1.0.0.
+type testNetworkValidatorI interface {
+	GetCtx() *server.Context
+	GetAppConfig() *srvconfig.Config
+}
+
+// TestNetworkFixture mirrors the cosmos-sdk testutil/network TestFixture struct.
+type TestNetworkFixture struct {
+	AppConstructor func(val testNetworkValidatorI) servertypes.Application
+	GenesisState   map[string]json.RawMessage
+	EncodingConfig moduletestutil.TestEncodingConfig
+}
+
 // NewTestNetworkFixture returns a new evmd AppConstructor for network simulation tests
-func NewTestNetworkFixture() sdknetwork.TestFixture {
+func NewTestNetworkFixture() TestNetworkFixture {
 	dir, err := os.MkdirTemp("", "evm")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
@@ -730,7 +745,7 @@ func NewTestNetworkFixture() sdknetwork.TestFixture {
 		simtestutil.EmptyAppOptions{},
 	)
 
-	appCtr := func(val sdknetwork.ValidatorI) servertypes.Application {
+	appCtr := func(val testNetworkValidatorI) servertypes.Application {
 		return evmd.NewExampleApp(
 			log.NewNopLogger(),
 			dbm.NewMemDB(),
@@ -740,7 +755,7 @@ func NewTestNetworkFixture() sdknetwork.TestFixture {
 		)
 	}
 
-	return sdknetwork.TestFixture{
+	return TestNetworkFixture{
 		AppConstructor: appCtr,
 		GenesisState:   app.DefaultGenesis(),
 		EncodingConfig: moduletestutil.TestEncodingConfig{
