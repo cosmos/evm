@@ -50,7 +50,7 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
 	poaAdapterA := evmd.NewPOAStakingAdapter(
 		evmAppA.POAKeeper,
-		evmtypes.GetEVMCoinDenom(),
+		evmtypes.GetEVMCoinDenom,
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 	)
@@ -63,7 +63,7 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
 	poaAdapterB := evmd.NewPOAStakingAdapter(
 		evmAppB.POAKeeper,
-		evmtypes.GetEVMCoinDenom(),
+		evmtypes.GetEVMCoinDenom,
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 	)

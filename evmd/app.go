@@ -323,7 +323,7 @@ func NewExampleApp(
 	// Create POA adapter to satisfy the various StakingKeeper interfaces
 	poaAdapter := NewPOAStakingAdapter(
 		app.POAKeeper,
-		evmtypes.GetEVMCoinDenom(),
+		evmtypes.GetEVMCoinDenom,
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 	)

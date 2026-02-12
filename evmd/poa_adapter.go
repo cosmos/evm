@@ -20,7 +20,7 @@ import (
 // interfaces required by genutil, evidence, EVM, ERC20, and common precompiles.
 type POAStakingAdapter struct {
 	keeper           *poakeeper.Keeper
-	bondDenom        string
+	bondDenomFn      func() string
 	consAddressCodec address.Codec
 	valAddressCodec  address.Codec
 }
@@ -28,13 +28,13 @@ type POAStakingAdapter struct {
 // NewPOAStakingAdapter creates a new POAStakingAdapter.
 func NewPOAStakingAdapter(
 	keeper *poakeeper.Keeper,
-	bondDenom string,
+	bondDenomFn func() string,
 	consAddressCodec address.Codec,
 	valAddressCodec address.Codec,
 ) *POAStakingAdapter {
 	return &POAStakingAdapter{
 		keeper:           keeper,
-		bondDenom:        bondDenom,
+		bondDenomFn:      bondDenomFn,
 		consAddressCodec: consAddressCodec,
 		valAddressCodec:  valAddressCodec,
 	}
@@ -42,7 +42,7 @@ func NewPOAStakingAdapter(
 
 // BondDenom returns the configured bond denomination.
 func (a *POAStakingAdapter) BondDenom(_ context.Context) (string, error) {
-	return a.bondDenom, nil
+	return a.bondDenomFn(), nil
 }
 
 // ValidatorAddressCodec returns the validator address codec.
