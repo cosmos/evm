@@ -133,9 +133,9 @@ func (txt *txTracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, e
 	return checkpoints, nil
 }
 
-// RemoveTx tracks final values for a tx as it exists the mempool and removes
-// it from the txTracker.
-func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) error {
+// RemoveTxFromPool tracks final values for a tx as it exits the mempool and
+// removes it from the txTracker.
+func (txt *txTracker) RemoveTxFromPool(hash common.Hash, pool legacypool.PoolType) error {
 	defer txt.removeTx(hash)
 
 	switch pool {
@@ -146,6 +146,12 @@ func (txt *txTracker) RemoveTx(hash common.Hash, pool legacypool.PoolType) error
 	}
 
 	return nil
+}
+
+// RemoveTx removes a tx from the tx tracker and does not record any metrics as
+// it exits the tracker.
+func (txt *txTracker) RemoveTx(hash common.Hash) {
+	txt.removeTx(hash)
 }
 
 // removeTx removes a tx by hash.

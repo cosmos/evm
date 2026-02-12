@@ -105,7 +105,7 @@ func TestMempool_Reserver(t *testing.T) {
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err := mp.Insert(sdk.Context{}, ethTx)
+	err := mp.Insert(ctx, ethTx)
 	require.NoError(t, err)
 
 	// insert cosmos tx from acount0, should error
@@ -133,7 +133,7 @@ func TestMempool_Reserver(t *testing.T) {
 	require.Equal(t, 2, mp.CountTx())
 
 	// eth tx should now fail.
-	err = mp.Insert(sdk.Context{}, ethTx)
+	err = mp.Insert(ctx, ethTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 
@@ -150,7 +150,7 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err := mp.Insert(sdk.Context{}, ethTx)
+	err := mp.Insert(ctx, ethTx)
 	require.NoError(t, err)
 
 	// inserting accounts 1 & 2 should be fine.
@@ -189,7 +189,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// Account 0: Insert 3 sequential transactions (nonce 0, 1, 2) - should all go to pending
 	for nonce := uint64(0); nonce < 3; nonce++ {
 		tx := createMsgEthereumTx(t, txConfig, accounts[0].key, nonce, big.NewInt(1e8))
-		err := mp.Insert(sdk.Context{}, tx)
+		err := mp.Insert(sdk.Context{}.WithContext(context.Background()), tx)
 		require.NoError(t, err, "failed to insert pending tx for account 0, nonce %d", nonce)
 	}
 
@@ -246,7 +246,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// re submit tx 1 to the mempool to fill the nonce gap, since this is
 	// now a new valid txn, it should be returned by reap again
 	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e8))
-	err = mp.Insert(sdk.Context{}, tx)
+	err = mp.Insert(sdk.Context{}.WithContext(context.Background()), tx)
 	require.NoError(t, err, "failed to insert pending tx for account 0, nonce %d", 1)
 
 	// sync the pool tx 1 and 2 should now be promoted to pending
@@ -287,7 +287,8 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	account := accounts[0]
 	gasPrice := (account.initialBalance - txValue) / txGasLimit // assuming they divide evenly
 	pendingTx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, new(big.Int).SetUint64(gasPrice))
-	require.NoError(t, mp.Insert(sdk.Context{}, pendingTx))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), pendingTx))
+	require.NoError(t, mp.GetTxPool().Sync())
 
 	pending, queued := legacyPool.ContentFrom(account.address)
 	require.Len(t, pending, 1)
@@ -307,7 +308,7 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	// it to be rechecked again and dropped.
 
 	queuedTx := createMsgEthereumTx(t, txConfig, accounts[0].key, 2, new(big.Int).SetUint64(100))
-	require.Error(t, mp.Insert(sdk.Context{}, queuedTx))
+	require.Error(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), queuedTx))
 
 	pending, queued = legacyPool.ContentFrom(account.address)
 	require.Len(t, pending, 1)
@@ -332,7 +333,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 
 	// insert a single tx for an account at nonce 0
 	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(sdk.Context{}, tx))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), tx))
 
 	// wait for another reset to make sure the pool processes the above
 	// txn into pending
@@ -369,7 +370,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 	// insert the same tx again and make sure the tx can still be returned
 	// from the next call to reap
 	tx = createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(sdk.Context{}, tx))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), tx))
 
 	// sync the pool to make sure its promoted to pending
 	require.NoError(t, mp.GetTxPool().Sync())
@@ -399,11 +400,11 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 	require.NoError(t, mp.GetTxPool().Sync())
 
 	tx0 := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(sdk.Context{}, tx0))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), tx0))
 	tx1 := createMsgEthereumTx(t, txConfig, accounts[0].key, 1, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(sdk.Context{}, tx1))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), tx1))
 	tx2 := createMsgEthereumTx(t, txConfig, accounts[0].key, 2, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(sdk.Context{}, tx2))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), tx2))
 
 	// wait for another reset to make sure the pool processes the above
 	// txns into pending
@@ -560,6 +561,60 @@ func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
 	require.Len(t, txs, 0, "expected no txs to be reaped")
 }
 
+func TestMempool_InsertSynchronous(t *testing.T) {
+	mp, _, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	// Wait for reset to happen for block 1
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+
+	// Insert a transaction using the synchronous Insert method
+	// This should wait for the transaction to be added to the pool before returning
+	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
+	err = mp.Insert(sdk.Context{}.WithContext(context.Background()), tx)
+	require.NoError(t, err)
+
+	// After Insert returns, the transaction should already be in the pool
+	// (either pending or queued). We don't need to call Sync() to wait.
+	pending, queued := legacyPool.ContentFrom(accounts[0].address)
+	totalTxs := len(pending) + len(queued)
+	require.Equal(t, 1, totalTxs, "transaction should be in pool immediately after Insert returns")
+}
+
+func TestMempool_InsertSynchronousReturnsError(t *testing.T) {
+	mp, _, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
+	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	})
+	require.NoError(t, err)
+
+	// Wait for reset to happen for block 1
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// Create a transaction with a gas price that would exceed the account balance
+	// Account balance is 100000000000100, so set gas price extremely high
+	excessiveGasPrice := new(big.Int).SetUint64(accounts[0].initialBalance * 100)
+	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, excessiveGasPrice)
+	err = mp.Insert(sdk.Context{}.WithContext(context.Background()), tx)
+
+	// The synchronous Insert should return the error from the tx pool
+	require.Error(t, err, "Insert should return error when tx pool rejects transaction")
+	require.Contains(t, err.Error(), "insufficient funds", "error should indicate insufficient funds")
+}
+
 // Helper types and functions
 
 type testAccount struct {
@@ -671,6 +726,7 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 		BlockGasLimit:    30000000,
 		MinTip:           uint256.NewInt(0),
 		AnteHandler:      anteHandler,
+		InsertQueueSize:  1000,
 	}
 
 	// Create mempool

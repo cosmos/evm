@@ -12,7 +12,6 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -24,13 +23,14 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const shutdownTimeout = 200 * time.Millisecond
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
-	InsertTx(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error)
+	GetContextForCheckTx(txBytes []byte) sdk.Context
 }
 
 // StartJSONRPC starts the JSON-RPC server

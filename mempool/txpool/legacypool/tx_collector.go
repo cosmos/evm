@@ -112,14 +112,15 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 
 	for {
 		c.mu.RLock()
+		currentHeight := new(big.Int).Set(c.currentHeight)
 
-		cmp := c.currentHeight.Cmp(height)
+		cmp := currentHeight.Cmp(height)
 
 		// Should never see a situation where the collector has a higher hight
 		// than the callers
 		if cmp > 0 {
 			defer c.mu.RUnlock() // Defer unlock since the panic will read
-			panic(fmt.Errorf("collector received collect request at height %d, but collector is at height %d, cannot serve requests in the past", height, c.currentHeight))
+			panic(fmt.Errorf("collector received collect request at height %d, but collector is at height %d, cannot serve requests in the past", height, currentHeight))
 		}
 
 		// If we're at the target height, wait for completion or timeout
@@ -132,7 +133,7 @@ func (c *txCollector) Collect(ctx context.Context, height *big.Int, filter txpoo
 			// that no more txs will arrive, since the mempool is not going to
 			// be reset at this height, therefore we simply return any txs that
 			// have been added to the collector at this point
-			if c.currentHeight.Cmp(genesis) == 0 {
+			if currentHeight.Cmp(genesis) == 0 {
 				collectorWaitDuration.UpdateSince(start)
 				ts := txs.Get(filter)
 				return ts
