@@ -103,9 +103,6 @@ func (m *RecheckMempool) Close() error {
 // Insert adds a transaction to the pool after running the ante handler.
 // This is the main entry point for new cosmos transactions.
 func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	// Reserve addresses to prevent conflicts with EVM pool
 	addrs, err := signerAddressesFromTx(tx)
 	if err != nil {
@@ -114,6 +111,9 @@ func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	if err := m.reserver.Hold(addrs...); err != nil {
 		return err
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if _, err := m.anteHandler(sdk.UnwrapSDKContext(goCtx), tx, false); err != nil {
 		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
