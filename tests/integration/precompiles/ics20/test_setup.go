@@ -5,14 +5,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
-	evmaddress "github.com/cosmos/evm/encoding/address"
+	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type PrecompileTestSuite struct {
@@ -46,32 +43,20 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.chainA = s.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	s.chainB = s.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
-	evmAppA := s.chainA.App.(*evmd.EVMD)
-	poaAdapterA := evmd.NewPOAStakingAdapter(
-		evmAppA.POAKeeper,
-		evmtypes.GetEVMCoinDenom(),
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-	)
+	evmAppA := s.chainA.App.(evm.IBCApp)
 	s.chainAPrecompile = ics20.NewPrecompile(
-		evmAppA.BankKeeper,
-		poaAdapterA,
-		evmAppA.TransferKeeper,
-		evmAppA.IBCKeeper.ChannelKeeper,
+		evmAppA.GetBankKeeper(),
+		nil, // staking keeper not used by ICS20 precompile
+		evmAppA.GetTransferKeeper(),
+		evmAppA.GetIBCKeeper().ChannelKeeper,
 	)
 	s.chainABondDenom = evmtypes.GetEVMCoinDenom()
-	evmAppB := s.chainB.App.(*evmd.EVMD)
-	poaAdapterB := evmd.NewPOAStakingAdapter(
-		evmAppB.POAKeeper,
-		evmtypes.GetEVMCoinDenom(),
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-	)
+	evmAppB := s.chainB.App.(evm.IBCApp)
 	s.chainBPrecompile = ics20.NewPrecompile(
-		evmAppB.BankKeeper,
-		poaAdapterB,
-		evmAppB.TransferKeeper,
-		evmAppB.IBCKeeper.ChannelKeeper,
+		evmAppB.GetBankKeeper(),
+		nil, // staking keeper not used by ICS20 precompile
+		evmAppB.GetTransferKeeper(),
+		evmAppB.GetIBCKeeper().ChannelKeeper,
 	)
 	s.chainBBondDenom = evmtypes.GetEVMCoinDenom()
 }
