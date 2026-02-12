@@ -635,18 +635,3 @@ func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 func (m *ExperimentalEVMMempool) RecheckCosmosTxs() {
 	m.cosmosPool.TriggerRecheckSync()
 }
-
-type signerSequence struct {
-	account string
-	seq     uint64
-}
-
-func Equal(s1, s2 signerSequence) bool {
-	if len(s1.account) != len(s2.account) {
-		return false
-	}
-	if s1.seq != s2.seq {
-		return false
-	}
-	return s1.account == s2.account
-}

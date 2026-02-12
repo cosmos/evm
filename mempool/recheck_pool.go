@@ -327,6 +327,11 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 	txsRemoved = len(removeTxs)
 }
 
+type signerSequence struct {
+	account string
+	seq     uint64
+}
+
 // extractSignerSequences extracts account addresses and sequences from a tx.
 func extractSignerSequences(txn sdk.Tx) ([]signerSequence, error) {
 	sigTx, ok := txn.(authsigning.SigVerifiableTx)
