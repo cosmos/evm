@@ -355,3 +355,17 @@ func unwrapBlockNOrHash(blockNOrHash types.BlockNumberOrHash) string {
 	}
 	return ""
 }
+
+// Fallback to find tx index by iterating all valid eth transactions for legacy blocks that don't have AttributeKeyTxIndex in events
+func FindEthTxIndexByHash(ctx context.Context, txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults, b *Backend) (int32, error) {
+	msgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
+	for i := range msgs {
+		if msgs[i].Hash() == txHash {
+			if i > math.MaxInt32 {
+				return -1, fmt.Errorf("tx index overflow")
+			}
+			return int32(i), nil //#nosec G115 -- checked for int overflow already
+		}
+	}
+	return -1, fmt.Errorf("can't find index of ethereum tx")
+}
