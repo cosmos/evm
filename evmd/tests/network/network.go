@@ -41,7 +41,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -56,7 +55,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // package-wide network lock to only allow one test network at a time
@@ -339,7 +337,6 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		nodeDirName := fmt.Sprintf("node%d", i)
 		nodeDir := filepath.Join(network.BaseDir, nodeDirName, "evmd")
 		clientDir := filepath.Join(network.BaseDir, nodeDirName, "evmoscli")
-		gentxsDir := filepath.Join(network.BaseDir, "gentxs")
 
 		err := os.MkdirAll(filepath.Join(nodeDir, "config"), 0o750)
 		if err != nil {
@@ -421,70 +418,6 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: balances.Sort()})
 		genAccounts = append(genAccounts, authtypes.NewBaseAccount(addr, nil, 0, 0))
 
-		commission, err := math.LegacyNewDecFromStr("0.5")
-		if err != nil {
-			return nil, err
-		}
-
-		// determine validator bonded tokens
-		bondedTokens := cfg.BondedTokens
-		if len(cfg.BondedTokensPerValidator) > 0 {
-			if i < len(cfg.BondedTokensPerValidator) {
-				bondedTokens = cfg.BondedTokensPerValidator[i]
-			} else {
-				// use last value if not enough entries
-				bondedTokens = cfg.BondedTokensPerValidator[len(cfg.BondedTokensPerValidator)-1]
-			}
-		}
-
-		createValMsg, err := stakingtypes.NewMsgCreateValidator(
-			sdk.ValAddress(addr).String(),
-			valPubKeys[i],
-			sdk.NewCoin(cfg.BondDenom, bondedTokens),
-			stakingtypes.NewDescription(nodeDirName, "", "", "", ""),
-			stakingtypes.NewCommissionRates(commission, math.LegacyOneDec(), math.LegacyOneDec()),
-			math.OneInt(),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		p2pURL, err := url.Parse(p2pAddr)
-		if err != nil {
-			return nil, err
-		}
-
-		memo := fmt.Sprintf("%s@%s:%s", nodeIDs[i], p2pURL.Hostname(), p2pURL.Port())
-		fee := sdk.NewCoins(sdk.NewCoin(cfg.BondDenom, math.NewInt(0)))
-		txBuilder := cfg.TxConfig.NewTxBuilder()
-		err = txBuilder.SetMsgs(createValMsg)
-		if err != nil {
-			return nil, err
-		}
-		txBuilder.SetFeeAmount(fee)    // Arbitrary fee
-		txBuilder.SetGasLimit(1000000) // Need at least 100386
-		txBuilder.SetMemo(memo)
-
-		txFactory := tx.Factory{}
-		txFactory = txFactory.
-			WithChainID(cfg.ChainID).
-			WithMemo(memo).
-			WithKeybase(kb).
-			WithTxConfig(cfg.TxConfig)
-
-		if err := tx.Sign(context.Background(), txFactory, nodeDirName, txBuilder, true); err != nil {
-			return nil, err
-		}
-
-		txBz, err := cfg.TxConfig.TxJSONEncoder()(txBuilder.GetTx())
-		if err != nil {
-			return nil, err
-		}
-
-		if err := WriteFile(fmt.Sprintf("%v.json", nodeDirName), gentxsDir, txBz); err != nil {
-			return nil, err
-		}
-
 		customAppTemplate, _ := evmconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.EighteenDecimalsChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
@@ -523,7 +456,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		}
 	}
 
-	err := initGenFiles(cfg, genAccounts, genBalances, genFiles)
+	err := initGenFiles(cfg, genAccounts, genBalances, genFiles, valPubKeys)
 	if err != nil {
 		return nil, err
 	}

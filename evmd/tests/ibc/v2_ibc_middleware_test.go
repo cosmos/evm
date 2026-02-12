@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -146,8 +147,8 @@ func (suite *MiddlewareV2TestSuite) TestOnSendPacket() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 			packetData = transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
 				ibctesting.DefaultCoinAmount.String(),
@@ -484,8 +485,8 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 			sendAmt := ibctesting.DefaultCoinAmount
 			escrowAddress := transfertypes.GetEscrowAddress(
 				transfertypes.PortID,
@@ -746,8 +747,8 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacket() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 			packetData = transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
 				ibctesting.DefaultCoinAmount.String(),

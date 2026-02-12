@@ -1094,8 +1094,8 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 			ctxA := suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctxA)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
@@ -1322,8 +1322,8 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 			ctxA := suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctxA)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
@@ -1602,8 +1602,8 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 
 			ctxA := suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctxA)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
@@ -1921,8 +1921,8 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 			ctxA := suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
-			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctxA)
-			suite.Require().NoError(err)
+			bondDenom := evmtypes.GetEVMCoinDenom()
+			var err error
 
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()

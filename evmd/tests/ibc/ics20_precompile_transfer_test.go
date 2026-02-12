@@ -15,10 +15,12 @@ import (
 
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/ics20"
 	chainutil "github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -46,16 +48,28 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
+	poaAdapterA := evmd.NewPOAStakingAdapter(
+		evmAppA.POAKeeper,
+		evmtypes.GetEVMCoinDenom(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+	)
 	suite.chainAPrecompile = ics20.NewPrecompile(
 		evmAppA.BankKeeper,
-		*evmAppA.StakingKeeper,
+		poaAdapterA,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
 	)
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
+	poaAdapterB := evmd.NewPOAStakingAdapter(
+		evmAppB.POAKeeper,
+		evmtypes.GetEVMCoinDenom(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+	)
 	suite.chainBPrecompile = ics20.NewPrecompile(
 		evmAppB.BankKeeper,
-		*evmAppB.StakingKeeper,
+		poaAdapterB,
 		evmAppB.TransferKeeper,
 		evmAppB.IBCKeeper.ChannelKeeper,
 	)
@@ -81,8 +95,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 		{
 			"transfer single denom",
 			func(_ evmibctesting.SenderAccount) {
-				evmAppA := suite.chainA.App.(*evmd.EVMD)
-				sourceDenomToTransfer, err = evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
+				sourceDenomToTransfer = evmtypes.GetEVMCoinDenom()
 				msgAmount = evmibctesting.DefaultCoinAmount
 			},
 		},
@@ -90,8 +103,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			"transfer amount larger than int64",
 			func(_ evmibctesting.SenderAccount) {
 				var ok bool
-				evmAppA := suite.chainA.App.(*evmd.EVMD)
-				sourceDenomToTransfer, err = evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
+				sourceDenomToTransfer = evmtypes.GetEVMCoinDenom()
 				msgAmount, ok = sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 				suite.Require().True(ok)
 			},
@@ -99,8 +111,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 		{
 			"transfer entire balance",
 			func(_ evmibctesting.SenderAccount) {
-				evmAppA := suite.chainA.App.(*evmd.EVMD)
-				sourceDenomToTransfer, err = evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
+				sourceDenomToTransfer = evmtypes.GetEVMCoinDenom()
 				msgAmount = transfertypes.UnboundedSpendLimit()
 			},
 		},

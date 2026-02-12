@@ -25,6 +25,9 @@ import (
 
 	"cosmossdk.io/log"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	poatypes "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa/types"
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	servergrpc "github.com/cosmos/cosmos-sdk/server/grpc"
@@ -35,8 +38,6 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 func startInProcess(cfg Config, val *Validator) error {
@@ -163,12 +164,9 @@ func collectGenFiles(cfg Config, vals []*Validator, outputDir string) error {
 		cmtCfg := vals[i].Ctx.Config
 
 		nodeDir := filepath.Join(outputDir, vals[i].Moniker, "evmd")
-		gentxsDir := filepath.Join(outputDir, "gentxs")
 
 		cmtCfg.Moniker = vals[i].Moniker
 		cmtCfg.SetRoot(nodeDir)
-
-		initCfg := genutiltypes.NewInitConfig(cfg.ChainID, gentxsDir, vals[i].NodeID, vals[i].PubKey)
 
 		genFile := cmtCfg.GenesisFile()
 		appGenesis, err := genutiltypes.AppGenesisFromFile(genFile)
@@ -176,14 +174,8 @@ func collectGenFiles(cfg Config, vals []*Validator, outputDir string) error {
 			return err
 		}
 
-		appState, err := genutil.GenAppStateFromConfig(cfg.Codec, cfg.TxConfig,
-			cmtCfg, initCfg, appGenesis, banktypes.GenesisBalancesIterator{}, genutiltypes.DefaultMessageValidator, cfg.TxConfig.SigningContext().ValidatorAddressCodec())
-		if err != nil {
-			return err
-		}
-
 		// overwrite each validator's genesis file to have a canonical genesis time
-		if err := genutil.ExportGenesisFileWithTime(genFile, cfg.ChainID, nil, appState, genTime); err != nil {
+		if err := genutil.ExportGenesisFileWithTime(genFile, cfg.ChainID, nil, appGenesis.AppState, genTime); err != nil {
 			return err
 		}
 	}
@@ -191,7 +183,7 @@ func collectGenFiles(cfg Config, vals []*Validator, outputDir string) error {
 	return nil
 }
 
-func initGenFiles(cfg Config, genAccounts []authtypes.GenesisAccount, genBalances []banktypes.Balance, genFiles []string) error {
+func initGenFiles(cfg Config, genAccounts []authtypes.GenesisAccount, genBalances []banktypes.Balance, genFiles []string, valPubKeys []cryptotypes.PubKey) error {
 	// set the accounts in the genesis state
 	var authGenState authtypes.GenesisState
 	cfg.Codec.MustUnmarshalJSON(cfg.GenesisState[authtypes.ModuleName], &authGenState)
@@ -209,11 +201,25 @@ func initGenFiles(cfg Config, genAccounts []authtypes.GenesisAccount, genBalance
 	bankGenState.Balances = genBalances
 	cfg.GenesisState[banktypes.ModuleName] = cfg.Codec.MustMarshalJSON(&bankGenState)
 
-	var stakingGenState stakingtypes.GenesisState
-	cfg.Codec.MustUnmarshalJSON(cfg.GenesisState[stakingtypes.ModuleName], &stakingGenState)
+	// set POA genesis with validators
+	poaValidators := make([]poatypes.Validator, 0, len(valPubKeys))
+	for _, pubKey := range valPubKeys {
+		pkAny, err := codectypes.NewAnyWithValue(pubKey)
+		if err != nil {
+			return err
+		}
 
-	stakingGenState.Params.BondDenom = cfg.BondDenom
-	cfg.GenesisState[stakingtypes.ModuleName] = cfg.Codec.MustMarshalJSON(&stakingGenState)
+		poaValidators = append(poaValidators, poatypes.Validator{
+			PubKey: pkAny,
+			Power:  1,
+		})
+	}
+
+	poaGenState := poatypes.GenesisState{
+		Params:     poatypes.Params{Admin: authtypes.NewModuleAddress(govtypes.ModuleName).String()},
+		Validators: poaValidators,
+	}
+	cfg.GenesisState[poatypes.ModuleName] = cfg.Codec.MustMarshalJSON(&poaGenState)
 
 	var govGenState govv1.GenesisState
 	cfg.Codec.MustUnmarshalJSON(cfg.GenesisState[govtypes.ModuleName], &govGenState)
@@ -221,12 +227,6 @@ func initGenFiles(cfg Config, genAccounts []authtypes.GenesisAccount, genBalance
 	govGenState.Params.MinDeposit[0].Denom = cfg.BondDenom
 	govGenState.Params.ExpeditedMinDeposit[0].Denom = cfg.BondDenom
 	cfg.GenesisState[govtypes.ModuleName] = cfg.Codec.MustMarshalJSON(&govGenState)
-
-	var inflationGenState minttypes.GenesisState
-	cfg.Codec.MustUnmarshalJSON(cfg.GenesisState[minttypes.ModuleName], &inflationGenState)
-
-	inflationGenState.Params.MintDenom = cfg.BondDenom
-	cfg.GenesisState[minttypes.ModuleName] = cfg.Codec.MustMarshalJSON(&inflationGenState)
 
 	var evmGenState evmtypes.GenesisState
 	cfg.Codec.MustUnmarshalJSON(cfg.GenesisState[evmtypes.ModuleName], &evmGenState)

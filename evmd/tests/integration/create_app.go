@@ -21,8 +21,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
@@ -85,12 +83,6 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	fmGen := feemarkettypes.DefaultGenesisState()
 	fmGen.Params.NoBaseFee = true
 	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
-	stakingGen := stakingtypes.DefaultGenesisState()
-	stakingGen.Params.BondDenom = constants.ExampleAttoDenom
-	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
-	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = constants.ExampleAttoDenom
-	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
 
 	return app, genesisState
 }

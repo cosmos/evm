@@ -5,10 +5,14 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm"
+	"github.com/cosmos/evm/evmd"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type PrecompileTestSuite struct {
@@ -42,20 +46,32 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.chainA = s.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	s.chainB = s.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
-	evmAppA := s.chainA.App.(evm.IBCApp)
+	evmAppA := s.chainA.App.(*evmd.EVMD)
+	poaAdapterA := evmd.NewPOAStakingAdapter(
+		evmAppA.POAKeeper,
+		evmtypes.GetEVMCoinDenom(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+	)
 	s.chainAPrecompile = ics20.NewPrecompile(
-		evmAppA.GetBankKeeper(),
-		*evmAppA.GetStakingKeeper(),
-		evmAppA.GetTransferKeeper(),
-		evmAppA.GetIBCKeeper().ChannelKeeper,
+		evmAppA.BankKeeper,
+		poaAdapterA,
+		evmAppA.TransferKeeper,
+		evmAppA.IBCKeeper.ChannelKeeper,
 	)
-	s.chainABondDenom, _ = evmAppA.GetStakingKeeper().BondDenom(s.chainA.GetContext())
-	evmAppB := s.chainB.App.(evm.IBCApp)
+	s.chainABondDenom = evmtypes.GetEVMCoinDenom()
+	evmAppB := s.chainB.App.(*evmd.EVMD)
+	poaAdapterB := evmd.NewPOAStakingAdapter(
+		evmAppB.POAKeeper,
+		evmtypes.GetEVMCoinDenom(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+	)
 	s.chainBPrecompile = ics20.NewPrecompile(
-		evmAppB.GetBankKeeper(),
-		*evmAppB.GetStakingKeeper(),
-		evmAppB.GetTransferKeeper(),
-		evmAppB.GetIBCKeeper().ChannelKeeper,
+		evmAppB.BankKeeper,
+		poaAdapterB,
+		evmAppB.TransferKeeper,
+		evmAppB.IBCKeeper.ChannelKeeper,
 	)
-	s.chainBBondDenom, _ = evmAppB.GetStakingKeeper().BondDenom(s.chainB.GetContext())
+	s.chainBBondDenom = evmtypes.GetEVMCoinDenom()
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -47,7 +48,6 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 	var (
 		sourceDenomToTransfer string
 		msgAmount             sdkmath.Int
-		err                   error
 	)
 
 	// originally a basic test case from the IBC testing package, and it has been added as-is to ensure that
@@ -96,8 +96,7 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 			tc.malleate()
 
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
-			sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.evmChainA.GetContext())
-			suite.Require().NoError(err)
+			sourceDenomToTransfer = evmtypes.GetEVMCoinDenom()
 			senderBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), senderAddr, sourceDenomToTransfer)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)

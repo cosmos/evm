@@ -24,7 +24,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	poatypes "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa/types"
 	"github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/testutil/mock"
@@ -32,6 +35,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 // SetupOptions defines arguments that are passed into `Simapp` constructor.
@@ -91,20 +95,57 @@ func Setup(t *testing.T, chainID string, evmChainID uint64) *EVMD {
 	return app
 }
 
-// SetupWithGenesisValSet initializes a new EVMD with a validator set and genesis accounts
-// that also act as delegators. For simplicity, each validator is bonded with a delegation
-// of one consensus engine unit in the default token of the simapp from first genesis
-// account. A Nop logger is set in EVMD.
+// SetupWithGenesisValSet initializes a new EVMD with a validator set and genesis accounts.
+// In POA mode, validators are added directly to the POA genesis state instead of
+// using staking delegations. A Nop logger is set in EVMD.
 func SetupWithGenesisValSet(t *testing.T, chainID string, evmChainID uint64, valSet *cmttypes.ValidatorSet, genAccs []authtypes.GenesisAccount, balances ...banktypes.Balance) *EVMD {
 	t.Helper()
 
 	app, genesisState := setup(true, 5, chainID, evmChainID)
-	genesisState, err := simtestutil.GenesisStateWithValSet(app.AppCodec(), genesisState, valSet, genAccs, balances...)
-	var bankGenesis banktypes.GenesisState
-	app.AppCodec().MustUnmarshalJSON(genesisState[banktypes.ModuleName], &bankGenesis)
-	require.NoError(t, err)
-	bankGenesis.DenomMetadata = network.GenerateBankGenesisMetadata(evmChainID)
-	genesisState[banktypes.ModuleName] = app.AppCodec().MustMarshalJSON(&bankGenesis)
+
+	// Set auth genesis with provided accounts
+	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)
+	genesisState[authtypes.ModuleName] = app.AppCodec().MustMarshalJSON(authGenesis)
+
+	// Create POA validators from the CometBFT validator set
+	poaValidators := make([]poatypes.Validator, 0, len(valSet.Validators))
+	for _, val := range valSet.Validators {
+		pk, err := cryptocodec.FromCmtPubKeyInterface(val.PubKey)
+		require.NoError(t, err)
+
+		pkAny, err := codectypes.NewAnyWithValue(pk)
+		require.NoError(t, err)
+
+		poaValidators = append(poaValidators, poatypes.Validator{
+			PubKey: pkAny,
+			Power:  val.VotingPower,
+		})
+	}
+
+	// Set POA genesis with validators
+	poaGenState := poatypes.GenesisState{
+		Params:     poatypes.Params{Admin: authtypes.NewModuleAddress(govtypes.ModuleName).String()},
+		Validators: poaValidators,
+	}
+	genesisState[poatypes.ModuleName] = app.AppCodec().MustMarshalJSON(&poaGenState)
+
+	// Calculate total supply from balances
+	totalSupply := sdk.NewCoins()
+	for _, b := range balances {
+		totalSupply = totalSupply.Add(b.Coins...)
+	}
+
+	// Set bank genesis with balances, total supply, and denom metadata
+	bankGenesis := banktypes.NewGenesisState(
+		banktypes.DefaultGenesisState().Params,
+		balances,
+		totalSupply,
+		network.GenerateBankGenesisMetadata(evmChainID),
+		[]banktypes.SendEnabled{},
+	)
+	genesisState[banktypes.ModuleName] = app.AppCodec().MustMarshalJSON(bankGenesis)
+
+	// Set EVM genesis with the correct denom
 	var evmGenesis types.GenesisState
 	app.AppCodec().MustUnmarshalJSON(genesisState[types.ModuleName], &evmGenesis)
 	evmGenesis.Params.EvmDenom = testconstants.ChainsCoinInfo[evmChainID].Denom
