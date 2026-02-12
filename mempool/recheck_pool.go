@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cosmos/evm/mempool/reserver"
@@ -19,7 +18,11 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-var recheckDuration metric.Float64Histogram
+var (
+	recheckDuration   metric.Float64Histogram
+	recheckRemovals   metric.Int64Histogram
+	recheckNumChecked metric.Int64Histogram
+)
 
 func init() {
 	var err error
@@ -27,6 +30,22 @@ func init() {
 		"mempool.recheck.duration",
 		metric.WithDescription("Duration of cosmos mempool recheck loop"),
 		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	recheckRemovals, err = meter.Int64Histogram(
+		"mempool.recheck.removals",
+		metric.WithDescription("Number of transactions that were removed from the pool per iteration"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	recheckNumChecked, err = meter.Int64Histogram(
+		"mempool.recheck.num_checked",
+		metric.WithDescription("Number of transactions rechecked per iteration"),
 	)
 	if err != nil {
 		panic(err)
@@ -234,9 +253,15 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 	defer close(done)
 	start := time.Now()
 	txsRemoved := 0
+	txsChecked := 0
 	defer func() {
-		recheckDuration.Record(context.Background(), float64(time.Since(start).Milliseconds()),
-			metric.WithAttributes(attribute.Int("txs_removed", txsRemoved)))
+		recheckDuration.Record(context.Background(), float64(time.Since(start).Milliseconds()))
+		if txsRemoved > 0 {
+			recheckRemovals.Record(context.Background(), int64(txsRemoved))
+		}
+		if txsChecked > 0 {
+			recheckNumChecked.Record(context.Background(), int64(txsChecked))
+		}
 	}()
 
 	m.mu.Lock()
@@ -264,6 +289,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 			break
 		}
 
+		txsChecked++
 		signerSeqs, err := extractSignerSequences(txn)
 		if err != nil {
 			m.logger.Error("failed to extract signer sequences", "err", err)
