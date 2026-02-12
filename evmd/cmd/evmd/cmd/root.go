@@ -25,6 +25,7 @@ import (
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
 
+	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	snapshottypes "cosmossdk.io/store/snapshots/types"
@@ -141,6 +142,19 @@ func NewRootCmd() *cobra.Command {
 	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
 	autoCliOpts.ClientCtx = initClientCtx
 
+	// Skip GetBlockResults and GetLatestBlockResults autocli generation because
+	// their proto messages have a "height" field that collides with the "height"
+	// flag added by AddQueryFlagsToCmd (cosmossdk.io/api v1.0.0 added these RPCs
+	// but the autocli descriptor in the SDK doesn't account for the flag collision).
+	if consensusOpts, ok := autoCliOpts.ModuleOptions["consensus"]; ok && consensusOpts.Query != nil {
+		if cometDesc, ok := consensusOpts.Query.SubCommands["comet"]; ok {
+			cometDesc.RpcCommandOptions = append(cometDesc.RpcCommandOptions,
+				&autocliv1.RpcCommandOptions{RpcMethod: "GetBlockResults", Skip: true},
+				&autocliv1.RpcCommandOptions{RpcMethod: "GetLatestBlockResults", Skip: true},
+			)
+		}
+	}
+
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
 	}
@@ -225,7 +239,9 @@ func queryCommand() *cobra.Command {
 		authcmd.QueryTxsByEventsCmd(),
 		authcmd.QueryTxCmd(),
 		sdkserver.QueryBlockCmd(),
-		sdkserver.QueryBlockResultsCmd(),
+		// NOTE: QueryBlockResultsCmd is not added here because autocli
+		// auto-generates a get-block-results command from the CometBFT service
+		// proto, which would cause a "height" flag collision.
 	)
 
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
