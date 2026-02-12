@@ -110,23 +110,19 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/consensus"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	distr "github.com/cosmos/cosmos-sdk/x/distribution"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	poa "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa"
+	poakeeper "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa/keeper"
+	poatypes "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa/types"
 )
 
 func init() {
@@ -165,10 +161,7 @@ type EVMD struct {
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
 	BankKeeper            bankkeeper.Keeper
-	StakingKeeper         *stakingkeeper.Keeper
-	SlashingKeeper        slashingkeeper.Keeper
-	MintKeeper            mintkeeper.Keeper
-	DistrKeeper           distrkeeper.Keeper
+	POAKeeper             *poakeeper.Keeper
 	GovKeeper             govkeeper.Keeper
 	UpgradeKeeper         *upgradekeeper.Keeper
 	AuthzKeeper           authzkeeper.Keeper
@@ -230,8 +223,8 @@ func NewExampleApp(
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
 	keys := storetypes.NewKVStoreKeys(
-		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
-		minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
+		authtypes.StoreKey, banktypes.StoreKey,
+		poatypes.StoreKey,
 		govtypes.StoreKey, consensusparamtypes.StoreKey,
 		upgradetypes.StoreKey, feegrant.StoreKey, evidencetypes.StoreKey, authzkeeper.StoreKey,
 		// ibc keys
@@ -239,6 +232,7 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
+	tKeys := storetypes.NewTransientStoreKeys(poatypes.TransientStoreKey)
 	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
 	var nonTransientKeys []storetypes.StoreKey
@@ -318,51 +312,23 @@ func NewExampleApp(
 	}
 	app.txConfig = txConfig
 
-	app.StakingKeeper = stakingkeeper.NewKeeper(
+	app.POAKeeper = poakeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[stakingtypes.StoreKey]),
+		runtime.NewKVStoreService(keys[poatypes.StoreKey]),
+		runtime.NewTransientStoreService(tKeys[poatypes.TransientStoreKey]),
 		app.AccountKeeper,
 		app.BankKeeper,
-		authAddr,
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+	)
+
+	// Create POA adapter to satisfy the various StakingKeeper interfaces
+	poaAdapter := NewPOAStakingAdapter(
+		app.POAKeeper,
+		evmtypes.GetEVMCoinDenom(),
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
-	)
-
-	app.MintKeeper = mintkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[minttypes.StoreKey]),
-		app.StakingKeeper,
-		app.AccountKeeper,
-		app.BankKeeper,
-		authtypes.FeeCollectorName,
-		authAddr,
-	)
-
-	app.DistrKeeper = distrkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[distrtypes.StoreKey]),
-		app.AccountKeeper,
-		app.BankKeeper,
-		app.StakingKeeper,
-		authtypes.FeeCollectorName,
-		authAddr,
-	)
-
-	app.SlashingKeeper = slashingkeeper.NewKeeper(
-		appCodec,
-		app.LegacyAmino(),
-		runtime.NewKVStoreService(keys[slashingtypes.StoreKey]),
-		app.StakingKeeper,
-		authAddr,
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 	)
 
 	app.FeeGrantKeeper = feegrantkeeper.NewKeeper(appCodec, runtime.NewKVStoreService(keys[feegrant.StoreKey]), app.AccountKeeper)
-
-	// register the staking hooks
-	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
-	app.StakingKeeper.SetHooks(
-		stakingtypes.NewMultiStakingHooks(app.DistrKeeper.Hooks(), app.SlashingKeeper.Hooks()),
-	)
 
 	app.AuthzKeeper = authzkeeper.NewKeeper(
 		runtime.NewKVStoreService(keys[authzkeeper.StoreKey]),
@@ -405,16 +371,16 @@ func NewExampleApp(
 		runtime.NewKVStoreService(keys[govtypes.StoreKey]),
 		app.AccountKeeper,
 		app.BankKeeper,
-		app.DistrKeeper,
+		POAGovDistributionAdapter{},
 		app.MsgServiceRouter(),
 		govConfig,
 		authAddr,
-		govkeeper.NewDefaultCalculateVoteResultsAndVotingPower(app.StakingKeeper),
+		poakeeper.NewPOACalculateVoteResultsAndVotingPowerFn(*app.POAKeeper),
 	)
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			app.POAKeeper.NewGovHooks(),
 		),
 	)
 
@@ -422,8 +388,8 @@ func NewExampleApp(
 	evidenceKeeper := evidencekeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[evidencetypes.StoreKey]),
-		app.StakingKeeper,
-		app.SlashingKeeper,
+		poaAdapter,
+		POASlashingAdapter{},
 		app.AccountKeeper.AddressCodec(),
 		runtime.ProvideCometInfoService(),
 	)
@@ -456,25 +422,22 @@ func NewExampleApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
-		app.StakingKeeper,
+		poaAdapter,
 		app.FeeMarketKeeper,
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
 		evmChainID,
 		tracer,
 	).WithStaticPrecompiles(
-		precompiletypes.DefaultStaticPrecompiles(
-			*app.StakingKeeper,
-			app.DistrKeeper,
-			app.PreciseBankKeeper,
-			&app.Erc20Keeper,
-			&app.TransferKeeper,
-			app.IBCKeeper.ChannelKeeper,
-			app.IBCKeeper.ClientKeeper,
-			app.GovKeeper,
-			app.SlashingKeeper,
-			appCodec,
-		),
+		// NOTE: staking, distribution, and slashing precompiles are removed in POA mode.
+		// ICS20 is constructed manually because WithICS20Precompile requires a concrete stakingkeeper.Keeper.
+		precompiletypes.NewStaticPrecompiles().
+			WithPraguePrecompiles().
+			WithP256Precompile().
+			WithBech32Precompile().
+			WithICS02Precompile(appCodec, app.IBCKeeper.ClientKeeper).
+			WithBankPrecompile(app.PreciseBankKeeper, &app.Erc20Keeper).
+			WithGovPrecompile(app.GovKeeper, app.PreciseBankKeeper, appCodec),
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -484,7 +447,7 @@ func NewExampleApp(
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
 		app.EVMKeeper,
-		app.StakingKeeper,
+		poaAdapter,
 		&app.TransferKeeper,
 	)
 
@@ -559,17 +522,14 @@ func NewExampleApp(
 	// must be passed by reference here.
 	app.ModuleManager = module.NewManager(
 		genutil.NewAppModule(
-			app.AccountKeeper, app.StakingKeeper,
+			app.AccountKeeper, poaAdapter,
 			app, app.txConfig,
 		),
 		auth.NewAppModule(appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts, nil),
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, nil),
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		gov.NewAppModule(appCodec, &app.GovKeeper, app.AccountKeeper, app.BankKeeper, nil),
-		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, nil, nil),
-		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil, app.interfaceRegistry),
-		distr.NewAppModule(appCodec, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil),
-		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, nil),
+		poa.NewAppModule(appCodec, app.POAKeeper),
 		upgrade.NewAppModule(app.UpgradeKeeper, app.AccountKeeper.AddressCodec()),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
@@ -594,7 +554,6 @@ func NewExampleApp(
 		app.ModuleManager,
 		map[string]module.AppModuleBasic{
 			genutiltypes.ModuleName:     genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
-			stakingtypes.ModuleName:     staking.AppModuleBasic{},
 			govtypes.ModuleName:         gov.NewAppModuleBasic(nil),
 			ibctransfertypes.ModuleName: transfer.AppModuleBasic{AppModuleBasic: &ibctransfer.AppModuleBasic{}},
 		},
@@ -609,14 +568,9 @@ func NewExampleApp(
 		evmtypes.ModuleName,
 	)
 
-	// During begin block slashing happens after distr.BeginBlocker so that
-	// there is nothing left over in the validator fee pool, so as to keep the
-	// CanWithdrawInvariant invariant.
-	//
-	// NOTE: staking module is required if HistoricalEntries param > 0
 	// NOTE: capability module's beginblocker must come before any modules using capabilities (e.g. IBC)
 	app.ModuleManager.SetOrderBeginBlockers(
-		minttypes.ModuleName,
+		poatypes.ModuleName,
 
 		// IBC modules
 		ibcexported.ModuleName, ibctransfertypes.ModuleName,
@@ -625,9 +579,7 @@ func NewExampleApp(
 		erc20types.ModuleName, feemarkettypes.ModuleName,
 		evmtypes.ModuleName, // NOTE: EVM BeginBlocker must come after FeeMarket BeginBlocker
 
-		// TODO: remove no-ops? check if all are no-ops before removing
-		distrtypes.ModuleName, slashingtypes.ModuleName,
-		evidencetypes.ModuleName, stakingtypes.ModuleName,
+		evidencetypes.ModuleName,
 		authtypes.ModuleName, banktypes.ModuleName, govtypes.ModuleName, genutiltypes.ModuleName,
 		authz.ModuleName, feegrant.ModuleName,
 		consensusparamtypes.ModuleName,
@@ -640,7 +592,7 @@ func NewExampleApp(
 	app.ModuleManager.SetOrderEndBlockers(
 		banktypes.ModuleName,
 		govtypes.ModuleName,
-		stakingtypes.ModuleName,
+		poatypes.ModuleName,
 		authtypes.ModuleName,
 
 		// Cosmos EVM EndBlockers
@@ -648,21 +600,18 @@ func NewExampleApp(
 
 		// no-ops
 		ibcexported.ModuleName, ibctransfertypes.ModuleName,
-		distrtypes.ModuleName,
-		slashingtypes.ModuleName, minttypes.ModuleName,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
 		feegrant.ModuleName, upgradetypes.ModuleName, consensusparamtypes.ModuleName,
 		precisebanktypes.ModuleName,
 		vestingtypes.ModuleName,
 	)
 
-	// NOTE: The genutils module must occur after staking so that pools are
+	// NOTE: The genutils module must occur after POA so that pools are
 	// properly initialized with tokens from genesis accounts.
 	// NOTE: The genutils module must also occur after auth so that it can access the params from auth.
 	genesisModuleOrder := []string{
 		authtypes.ModuleName, banktypes.ModuleName,
-		distrtypes.ModuleName, stakingtypes.ModuleName, slashingtypes.ModuleName, govtypes.ModuleName,
-		minttypes.ModuleName,
+		poatypes.ModuleName, govtypes.ModuleName,
 		ibcexported.ModuleName,
 
 		// Cosmos EVM modules
@@ -717,6 +666,7 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
+	app.MountTransientStores(tKeys)
 	app.MountObjectStores(oKeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
@@ -897,9 +847,6 @@ func (app *EVMD) TxConfig() client.TxConfig {
 func (app *EVMD) DefaultGenesis() map[string]json.RawMessage {
 	genesis := app.BasicModuleManager.DefaultGenesis(app.appCodec)
 
-	mintGenState := NewMintGenesisState()
-	genesis[minttypes.ModuleName] = app.appCodec.MustMarshalJSON(mintGenState)
-
 	evmGenState := NewEVMGenesisState()
 	genesis[evmtypes.ModuleName] = app.appCodec.MustMarshalJSON(evmGenState)
 
@@ -975,7 +922,7 @@ func (app *EVMD) GetBaseApp() *baseapp.BaseApp {
 
 // GetStakingKeeperSDK implements the TestingApp interface.
 func (app *EVMD) GetStakingKeeperSDK() stakingkeeper.Keeper {
-	return *app.StakingKeeper
+	return stakingkeeper.Keeper{}
 }
 
 // GetIBCKeeper implements the TestingApp interface.
@@ -1004,7 +951,7 @@ func (app *EVMD) GetEvidenceKeeper() *evidencekeeper.Keeper {
 }
 
 func (app *EVMD) GetSlashingKeeper() slashingkeeper.Keeper {
-	return app.SlashingKeeper
+	return slashingkeeper.Keeper{}
 }
 
 func (app *EVMD) GetBankKeeper() bankkeeper.Keeper {
@@ -1028,15 +975,15 @@ func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
 }
 
 func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
-	return app.DistrKeeper
+	return distrkeeper.Keeper{}
 }
 
 func (app *EVMD) GetStakingKeeper() *stakingkeeper.Keeper {
-	return app.StakingKeeper
+	return nil
 }
 
 func (app *EVMD) GetMintKeeper() mintkeeper.Keeper {
-	return app.MintKeeper
+	return mintkeeper.Keeper{}
 }
 
 func (app *EVMD) GetPreciseBankKeeper() *precisebankkeeper.Keeper {

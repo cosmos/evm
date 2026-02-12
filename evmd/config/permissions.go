@@ -5,10 +5,8 @@ import (
 	"sort"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	poatypes "github.com/cosmos/cosmos-sdk/enterprise/poa/x/poa/types"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -52,13 +50,10 @@ func BlockedAddresses() map[string]bool {
 
 // module account permissions
 var maccPerms = map[string][]string{
-	authtypes.FeeCollectorName:     nil,
-	distrtypes.ModuleName:          nil,
-	transfertypes.ModuleName:       {authtypes.Minter, authtypes.Burner},
-	minttypes.ModuleName:           {authtypes.Minter},
-	stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
-	stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
-	govtypes.ModuleName:            {authtypes.Burner},
+	authtypes.FeeCollectorName: nil,
+	poatypes.ModuleName:        nil,
+	transfertypes.ModuleName:   {authtypes.Minter, authtypes.Burner},
+	govtypes.ModuleName:        {authtypes.Burner},
 
 	// Cosmos EVM modules
 	vmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
