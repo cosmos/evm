@@ -309,6 +309,11 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 
 	contractAddr := common.HexToAddress(contractAddress)
 
+	// Only allow src_callback to target the packet sender.
+	if contractAddr != sender {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "source callback contract must match packet sender: sender=%s contract=%s", sender.Hex(), contractAddr.Hex())
+	}
+
 	// Check if the contract address contains code.
 	// This check is required because if there is no code, the call will still pass on the EVM side,
 	// but it will ignore the calldata and funds may get stuck.
@@ -394,6 +399,11 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	}
 	sender := common.BytesToAddress(senderAccount.Bytes())
 	contractAddr := common.HexToAddress(contractAddress)
+
+	// Only allow src_callback to target the packet sender.
+	if contractAddr != sender {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "source callback contract must match packet sender: sender=%s contract=%s", sender.Hex(), contractAddr.Hex())
+	}
 
 	// Check if the contract address contains code.
 	// This check is required because if there is no code, the call will still pass on the EVM side,
