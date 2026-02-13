@@ -25,7 +25,7 @@ func iavlxStorage(appOpts servertypes.AppOptions) func(*baseapp.BaseApp) {
 		MinCompactionSeconds:  30,
 		RetainVersions:        1,
 		CompactWAL:            true,
-		DisableCompaction:     false,
+		DisableCompaction:     true, // todo: tmp!
 		CompactionOrphanAge:   200,
 		CompactionOrphanRatio: 0.95,
 		CompactAfterVersions:  2000,
