@@ -76,12 +76,22 @@ func (k Keeper) CallEVMWithData(
 		return nil, err
 	}
 
+	gasLimit := config.DefaultGasCap
+	if gasCap != nil && gasCap.Sign() > 0 {
+		if gasCap.BitLen() <= 64 {
+			provided := gasCap.Uint64()
+			if provided < gasLimit {
+				gasLimit = provided
+			}
+		}
+	}
+
 	msg := core.Message{
 		From:       from,
 		To:         contract,
 		Nonce:      nonce,
 		Value:      big.NewInt(0),
-		GasLimit:   config.DefaultGasCap,
+		GasLimit:   gasLimit,
 		GasPrice:   big.NewInt(0),
 		GasTipCap:  big.NewInt(0),
 		GasFeeCap:  big.NewInt(0),
