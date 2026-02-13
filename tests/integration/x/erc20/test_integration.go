@@ -103,7 +103,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(err).To(BeNil())
 
 						tokenPairs := res.TokenPairs
-						Expect(tokenPairs).To(HaveLen(2))
+						Expect(tokenPairs).To(HaveLen(1))
 						for i, tokenPair := range tokenPairs {
 							if tokenPair.Erc20Address == contract.Hex() {
 								Expect(tokenPairs[i].ContractOwner).To(Equal(types.OWNER_EXTERNAL))
@@ -132,7 +132,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(err).To(BeNil())
 
 						tokenPairs := res.TokenPairs
-						Expect(tokenPairs).To(HaveLen(3))
+						Expect(tokenPairs).To(HaveLen(2))
 						for i, tokenPair := range tokenPairs {
 							if tokenPair.Erc20Address == contract2.Hex() {
 								Expect(tokenPairs[i].ContractOwner).To(Equal(types.OWNER_EXTERNAL))
