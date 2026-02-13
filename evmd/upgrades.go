@@ -4,13 +4,17 @@ import (
 	"context"
 
 	"github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/common"
 
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	erc20v2 "github.com/cosmos/evm/x/erc20/migrations/v2"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 )
 
 // UpgradeName defines the on-chain upgrade name for the sample EVMD upgrade
@@ -66,6 +70,18 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
 				return nil, err
 			}
+
+			erc20ModuleAddr := authtypes.NewModuleAddress(erc20types.ModuleName)
+			deployer := common.BytesToAddress(erc20ModuleAddr.Bytes())
+			if err := erc20v2.MigrateDynamicPrecompilesToERC20(
+				sdkCtx,
+				app.EVMKeeper,
+				app.Erc20Keeper,
+				deployer,
+			); err != nil {
+				return nil, err
+			}
+
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},
 	)
