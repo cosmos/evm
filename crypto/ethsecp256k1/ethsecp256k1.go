@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -211,29 +212,49 @@ func (pubKey *PubKey) UnmarshalAminoJSON(bz []byte) error {
 //
 // CONTRACT: The signature should be in [R || S] format.
 func (pubKey PubKey) VerifySignature(msg, sig []byte) bool {
-	return pubKey.verifySignatureECDSA(msg, sig) || pubKey.verifySignatureAsEIP712(msg, sig)
+	if pubKey.verifySignatureECDSA(msg, sig) {
+		return true
+	}
+
+	// If direct verification fails, try stripping extra fields that newer IBC versions
+	// add to the amino sign doc (e.g., use_aliasing, encoding from IBC v10) but that
+	// wallets like Keplr don't include in the sign doc they sign.
+	if strippedMsg := stripExtraAminoFields(msg); strippedMsg != nil {
+		if pubKey.verifySignatureECDSA(strippedMsg, sig) {
+			return true
+		}
+	}
+
+	return pubKey.verifySignatureAsEIP712(msg, sig)
 }
 
 // Verifies the signature as an EIP-712 signature by first converting the message payload
 // to EIP-712 object bytes, then performing ECDSA verification on the hash. This is to support
 // signing a Cosmos payload using EIP-712.
 func (pubKey PubKey) verifySignatureAsEIP712(msg, sig []byte) bool {
-	eip712Bytes, err := eip712.GetEIP712BytesForMsg(msg)
-	if err != nil {
-		return false
+	// Try both the original message and the stripped version (without extra IBC fields)
+	msgsToTry := [][]byte{msg}
+	if strippedMsg := stripExtraAminoFields(msg); strippedMsg != nil {
+		msgsToTry = append(msgsToTry, strippedMsg)
 	}
 
-	if pubKey.verifySignatureECDSA(eip712Bytes, sig) {
-		return true
+	for _, tryMsg := range msgsToTry {
+		eip712Bytes, err := eip712.GetEIP712BytesForMsg(tryMsg)
+		if err == nil {
+			if pubKey.verifySignatureECDSA(eip712Bytes, sig) {
+				return true
+			}
+		}
+
+		legacyEIP712Bytes, err := eip712.LegacyGetEIP712BytesForMsg(tryMsg)
+		if err == nil {
+			if pubKey.verifySignatureECDSA(legacyEIP712Bytes, sig) {
+				return true
+			}
+		}
 	}
 
-	// Try verifying the signature using the legacy EIP-712 encoding
-	legacyEIP712Bytes, err := eip712.LegacyGetEIP712BytesForMsg(msg)
-	if err != nil {
-		return false
-	}
-
-	return pubKey.verifySignatureECDSA(legacyEIP712Bytes, sig)
+	return false
 }
 
 // Perform standard ECDSA signature verification for the given raw bytes and signature.
@@ -245,4 +266,68 @@ func (pubKey PubKey) verifySignatureECDSA(msg, sig []byte) bool {
 
 	// the signature needs to be in [R || S] format when provided to VerifySignature
 	return crypto.VerifySignature(pubKey.Key, crypto.Keccak256Hash(msg).Bytes(), sig)
+}
+
+// stripExtraAminoFields removes fields from amino sign doc message values that are
+// added by newer IBC module versions (e.g., IBC v10's use_aliasing, encoding) but
+// are not present in the sign docs that wallets like Keplr produce. The chain's
+// aminojson encoder includes these fields due to (amino.dont_omitempty) proto
+// annotations, but the wallet's cosmjs frontend doesn't know about them.
+// Returns nil if the message is not an amino sign doc or no fields were stripped.
+func stripExtraAminoFields(msg []byte) []byte {
+	// Use json.Decoder with UseNumber to preserve numeric precision
+	decoder := json.NewDecoder(bytes.NewReader(msg))
+	decoder.UseNumber()
+	var signDoc map[string]interface{}
+	if err := decoder.Decode(&signDoc); err != nil {
+		return nil
+	}
+
+	// Check if this looks like an amino sign doc
+	msgs, ok := signDoc["msgs"]
+	if !ok {
+		return nil
+	}
+	msgsArr, ok := msgs.([]interface{})
+	if !ok || len(msgsArr) == 0 {
+		return nil
+	}
+
+	// Fields that IBC v10 adds with dont_omitempty but wallets don't include
+	extraFields := []string{"use_aliasing", "encoding"}
+
+	modified := false
+	for _, msgItem := range msgsArr {
+		msgMap, ok := msgItem.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		valueObj, ok := msgMap["value"]
+		if !ok {
+			continue
+		}
+		valueMap, ok := valueObj.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, field := range extraFields {
+			if _, exists := valueMap[field]; exists {
+				delete(valueMap, field)
+				modified = true
+			}
+		}
+	}
+
+	if !modified {
+		return nil
+	}
+
+	// Re-serialize with sorted keys (Go's json.Marshal sorts map keys,
+	// consistent with amino's canonical JSON)
+	result, err := json.Marshal(signDoc)
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
