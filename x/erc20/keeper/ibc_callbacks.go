@@ -50,11 +50,6 @@ func (k Keeper) OnRecvPacket(
 		return channeltypes.NewErrorAcknowledgement(err)
 	}
 
-	// use a zero gas config to avoid extra costs for the relayers
-	ctx = ctx.
-		WithKVGasConfig(storetypes.GasConfig{}).
-		WithTransientKVGasConfig(storetypes.GasConfig{})
-
 	// Parse the transferred denom early to check for early exit conditions
 	// before attempting to parse potentially foreign sender addresses (e.g. Penumbra)
 	token := transfertypes.Token{
