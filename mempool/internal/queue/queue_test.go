@@ -1,4 +1,4 @@
-package mempool
+package queue
 
 import (
 	"sync"
@@ -56,7 +56,7 @@ func (m *mockTxPool) setAddFn(fn func([]*ethtypes.Transaction, bool) []error) {
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, 1000, logger)
+	iq := NewInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Create a test transaction
@@ -79,7 +79,7 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, 1000, logger)
+	iq := NewInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -108,7 +108,7 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockTxPool()
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, 1000, logger)
+	iq := NewInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Push nil transaction
@@ -132,7 +132,7 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	})
 
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, 1000, logger)
+	iq := NewInsertQueue(pool, 1000, logger)
 	defer iq.Close()
 
 	// Push first transaction to start processing
@@ -166,7 +166,7 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	})
 
 	logger := log.NewNopLogger()
-	iq := newInsertQueue(pool, 5, logger)
+	iq := NewInsertQueue(pool, 5, logger)
 	defer iq.Close()
 
 	// This first tx will be immediately popped and start processing (where it
@@ -196,7 +196,7 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	// Verify we got the queue full error
 	select {
 	case err := <-sub:
-		require.ErrorIs(t, err, ErrInsertQueueFull, "should receive queue full error")
+		require.ErrorIs(t, err, ErrQueueFull, "should receive queue full error")
 	default:
 		t.Fatal("did not receive error from full queue")
 	}
