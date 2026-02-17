@@ -14,9 +14,9 @@ import (
 // mockPool is a mock that records inserted transactions and optionally
 // delegates to a custom function.
 type mockPool struct {
-	mu      sync.Mutex
+	mu       sync.Mutex
 	insertFn func([]*ethtypes.Transaction) []error
-	txs     []*ethtypes.Transaction
+	txs      []*ethtypes.Transaction
 }
 
 func newMockPool() *mockPool {
@@ -34,9 +34,7 @@ func (m *mockPool) insert(txs []*ethtypes.Transaction) []error {
 	}
 
 	errs := make([]error, len(txs))
-	for _, tx := range txs {
-		m.txs = append(m.txs, tx)
-	}
+	m.txs = append(m.txs, txs...)
 	return errs
 }
 

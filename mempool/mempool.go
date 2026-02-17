@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -68,9 +67,6 @@ type (
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
-
-		/** Concurrency **/
-		mu sync.Mutex
 
 		eventBus *cmttypes.EventBus
 
