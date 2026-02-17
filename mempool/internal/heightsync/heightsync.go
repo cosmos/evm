@@ -28,17 +28,33 @@ var (
 	hsDuration = metrics.NewRegisteredTimer("height_sync/duration", nil)
 )
 
-// HeightSync manages per height access to an instance of a value V.
-type HeightSync[V any] struct {
+// HeightSync synchronizes access to a per-height tx store for mempool
+// implementations.
+//
+// At every new block height, mempools need to revalidate (recheck) their
+// transactions against the latest chain state. This rechecking happens
+// asynchronously — txs are validated one by one and pushed into a store as
+// they pass. Meanwhile, block proposers may need to read from that store to
+// build the next block.
+//
+// HeightSync solves this coordination problem. It holds a Store per height
+// that producers populate via Do (e.g. during rechecking), and that consumers
+// read via GetStore. GetStore blocks until either all operations for the
+// requested height are complete (EndCurrentHeight is called) or the caller's
+// context times out, whichever comes first. This lets block builders wait for
+// the full set of rechecked txs when time permits, while still returning
+// partial results under time pressure rather than holding a lock on the
+// mempool itself.
+type HeightSync[Store any] struct {
 	// currentHeight is the height that the value is currently managed for
 	currentHeight *big.Int
 
-	// vFactory is a function that returns a new *V, called at every new height
-	vFactory func() *V
+	// reset is a function that returns a new store, called at every new height
+	reset func() *Store
 
-	// value is the current *V that operations are happening on via Do and will
+	// store is the current Store that operations are happening on via Do and will
 	// be returned via Get until a new height is started via StartNewHeight
-	value *V
+	store *Store
 
 	// heightChanged is closed when currentHeight is no longer being worked
 	heightChanged chan struct{}
@@ -53,25 +69,25 @@ type HeightSync[V any] struct {
 }
 
 // NewHeightSync creates a new HeightSync starting at the given height.
-func NewHeightSync[V any](startHeight *big.Int, factory func() *V) *HeightSync[V] {
-	return &HeightSync[V]{
+func NewHeightSync[Store any](startHeight *big.Int, reset func() *Store) *HeightSync[Store] {
+	return &HeightSync[Store]{
 		currentHeight: startHeight,
-		vFactory:      factory,
-		value:         factory(),
+		reset:         reset,
+		store:         reset(),
 		heightChanged: make(chan struct{}),
 		done:          make(chan struct{}),
 	}
 }
 
 // StartNewHeight resets the HeightSync for a new height, overwriting the
-// previous value V with a fresh value via the factory.
-func (hs *HeightSync[V]) StartNewHeight(height *big.Int) {
+// previous Store with a fresh Store via the reset fn.
+func (hs *HeightSync[Store]) StartNewHeight(height *big.Int) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
-	// create new value for this height
+	// create new Store for this height
 	hs.currentHeight = new(big.Int).Set(height)
-	hs.value = hs.vFactory()
+	hs.store = hs.reset()
 
 	// close old channel and create new one to wake up consumers
 	oldChan := hs.heightChanged
@@ -85,18 +101,18 @@ func (hs *HeightSync[V]) StartNewHeight(height *big.Int) {
 // for this height.
 //
 // If operations are not marked as complete, callers of Get must wait for a
-// context timeout in order to access the value at this height.
-func (hs *HeightSync[V]) EndCurrentHeight() {
+// context timeout in order to access the Store at this height.
+func (hs *HeightSync[Store]) EndCurrentHeight() {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 	close(hs.done)
 }
 
-// GetValue returns the value at the given height. If the HeightSync has not yet
-// reached the target height, GetValue blocks until the height is reached or the
-// context expires. If the height is reached, GetValue waits for EndCurrentHeight
+// GetStore returns the store at the given height. If the HeightSync has not yet
+// reached the target height, GetStore blocks until the height is reached or the
+// context expires. If the height is reached, GetStore waits for EndCurrentHeight
 // to be called (or for the context to expire) before returning.
-func (hs *HeightSync[V]) GetValue(ctx context.Context, height *big.Int) *V {
+func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Store {
 	genesis := big.NewInt(0)
 
 	start := time.Now()
@@ -116,7 +132,7 @@ func (hs *HeightSync[V]) GetValue(ctx context.Context, height *big.Int) *V {
 
 		// if we're at the target height, wait for completion or timeout
 		if cmp == 0 {
-			value := hs.value
+			value := hs.store
 			done := hs.done
 			hs.mu.RUnlock()
 
@@ -137,7 +153,7 @@ func (hs *HeightSync[V]) GetValue(ctx context.Context, height *big.Int) *V {
 			return value
 		}
 
-		// current height is behind target, we cannot return the value V at the
+		// current height is behind target, we cannot return the Store at the
 		// current height, so we must wait for the height to advance to the
 		// callers target height
 		heightChangedChan := hs.heightChanged
@@ -151,7 +167,7 @@ func (hs *HeightSync[V]) GetValue(ctx context.Context, height *big.Int) *V {
 			// height changed, loop back to check if we've reached target
 			continue
 		case <-ctx.Done():
-			// caller is done waiting, but we still do not have a value at the
+			// caller is done waiting, but we still do not have a Store at the
 			// correct height to return, return nil instead
 			hsTimeout.Mark(1)
 			return nil
@@ -159,13 +175,13 @@ func (hs *HeightSync[V]) GetValue(ctx context.Context, height *big.Int) *V {
 	}
 }
 
-// Do executes fn with the current value. The value will be non-nil.
-func (hs *HeightSync[V]) Do(fn func(v *V)) {
+// Do executes fn with the current store. The store will be non-nil.
+func (hs *HeightSync[Store]) Do(fn func(store *Store)) {
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 
-	if hs.value == nil {
+	if hs.store == nil {
 		return
 	}
-	fn(hs.value)
+	fn(hs.store)
 }

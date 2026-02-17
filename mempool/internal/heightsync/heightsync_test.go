@@ -10,26 +10,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/internal/heightsync"
+	"github.com/cosmos/evm/mempool/internal/heightsync"
 )
 
-// testValue is a simple value for testing the generic height-sync behavior.
-type testValue struct {
+// testStore is a simple store for testing the generic height-sync behavior.
+type testStore struct {
 	items []string
 	mu    sync.Mutex
 }
 
-func newTestValue() *testValue {
-	return &testValue{}
+func newTestValue() *testStore {
+	return &testStore{}
 }
 
-func (s *testValue) add(item string) {
+func (s *testStore) add(item string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.items = append(s.items, item)
 }
 
-func (s *testValue) get() []string {
+func (s *testStore) get() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.items...)
@@ -39,7 +39,7 @@ func TestBasicGetAfterCompletion(t *testing.T) {
 	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 	hv.StartNewHeight(big.NewInt(1))
-	hv.Do(func(s *testValue) {
+	hv.Do(func(s *testStore) {
 		s.add("a")
 		s.add("b")
 	})
@@ -48,7 +48,7 @@ func TestBasicGetAfterCompletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	value := hv.GetValue(ctx, big.NewInt(1))
+	value := hv.GetStore(ctx, big.NewInt(1))
 	require.NotNil(t, value)
 
 	items := value.get()
@@ -64,7 +64,7 @@ func TestGetTimeoutBeforeHeight(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	value := hv.GetValue(ctx, big.NewInt(3))
+	value := hv.GetStore(ctx, big.NewInt(3))
 	require.Nil(t, value)
 }
 
@@ -74,14 +74,14 @@ func TestGetPartialResults(t *testing.T) {
 
 		// start new height but don't call EndCurrentHeight
 		hv.StartNewHeight(big.NewInt(1))
-		hv.Do(func(s *testValue) {
+		hv.Do(func(s *testStore) {
 			s.add("partial")
 		})
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
-		value := hv.GetValue(ctx, big.NewInt(1))
+		value := hv.GetStore(ctx, big.NewInt(1))
 		require.NotNil(t, value)
 		require.ErrorIs(t, ctx.Err(), context.DeadlineExceeded) // ensure we waiting for context to timeout
 		require.Equal(t, []string{"partial"}, value.get())
@@ -93,14 +93,14 @@ func TestGetBehindByOneHeight(t *testing.T) {
 		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
-		hv.Do(func(s *testValue) { s.add("height1") })
+		hv.Do(func(s *testStore) { s.add("height1") })
 
 		// request height 2 in background
-		valueChan := make(chan *testValue)
+		valueChan := make(chan *testStore)
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
-			valueChan <- hv.GetValue(ctx, big.NewInt(2))
+			valueChan <- hv.GetStore(ctx, big.NewInt(2))
 		}()
 
 		time.Sleep(1 * time.Second)
@@ -109,7 +109,7 @@ func TestGetBehindByOneHeight(t *testing.T) {
 
 		// advance to height 2
 		hv.StartNewHeight(big.NewInt(2))
-		hv.Do(func(s *testValue) { s.add("height2") })
+		hv.Do(func(s *testStore) { s.add("height2") })
 		hv.EndCurrentHeight()
 
 		value := <-valueChan
@@ -123,14 +123,14 @@ func TestGetBehindByTwoHeights(t *testing.T) {
 		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
-		hv.Do(func(s *testValue) { s.add("height1") })
+		hv.Do(func(s *testStore) { s.add("height1") })
 
 		// request height 3 in background
-		valueChan := make(chan *testValue)
+		valueChan := make(chan *testStore)
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			valueChan <- hv.GetValue(ctx, big.NewInt(3))
+			valueChan <- hv.GetStore(ctx, big.NewInt(3))
 		}()
 
 		time.Sleep(1 * time.Second)
@@ -138,14 +138,14 @@ func TestGetBehindByTwoHeights(t *testing.T) {
 		// advance through height 2
 		hv.EndCurrentHeight()
 		hv.StartNewHeight(big.NewInt(2))
-		hv.Do(func(s *testValue) { s.add("height2") })
+		hv.Do(func(s *testStore) { s.add("height2") })
 
 		time.Sleep(1 * time.Second)
 
 		// advance to height 3
 		hv.EndCurrentHeight()
 		hv.StartNewHeight(big.NewInt(3))
-		hv.Do(func(s *testValue) { s.add("height3") })
+		hv.Do(func(s *testStore) { s.add("height3") })
 		hv.EndCurrentHeight()
 
 		value := <-valueChan
@@ -165,7 +165,7 @@ func TestPanicOnOldHeight(t *testing.T) {
 	defer cancel()
 
 	require.Panics(t, func() {
-		hv.GetValue(ctx, big.NewInt(1))
+		hv.GetStore(ctx, big.NewInt(1))
 	})
 }
 
@@ -173,7 +173,7 @@ func TestStartNewHeightResetsValue(t *testing.T) {
 	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
 
 	hv.StartNewHeight(big.NewInt(1))
-	hv.Do(func(s *testValue) { s.add("old") })
+	hv.Do(func(s *testStore) { s.add("old") })
 	hv.EndCurrentHeight()
 
 	// advance to height 2 - should get a fresh store
@@ -183,7 +183,7 @@ func TestStartNewHeightResetsValue(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	result := hv.GetValue(ctx, big.NewInt(2))
+	result := hv.GetStore(ctx, big.NewInt(2))
 	require.NotNil(t, result)
 	require.Empty(t, result.get())
 }
@@ -199,7 +199,7 @@ func TestConcurrentDo(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			hv.Do(func(s *testValue) {
+			hv.Do(func(s *testStore) {
 				s.add("x")
 			})
 		}()
@@ -211,7 +211,7 @@ func TestConcurrentDo(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	result := hv.GetValue(ctx, big.NewInt(1))
+	result := hv.GetStore(ctx, big.NewInt(1))
 	require.NotNil(t, result)
 	require.Len(t, result.get(), numOps)
 }
