@@ -16,15 +16,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-
 	"github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 
-	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -151,10 +148,24 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 
 	txHash := tx.Hash()
 
-	// publish tx directly to app-side mempool, avoiding broadcasting to consensus layer.
+	// publish tx directly to app-side mempool, avoiding broadcasting to
+	// consensus layer.
 	if b.UseAppMempool {
-		if err := b.mempoolInsertTx(txHash, txBytes); err != nil {
-			return b.handleSendTxError(tx, ethSigner, err)
+		// track the tx for tx inclusion timing metrics of local txs
+		if err := b.Mempool.TrackTx(txHash); err != nil {
+			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
+		}
+
+		// we are directly calling into the mempool rather than the ABCI
+		// handler for InsertTx, since the ABCI handler obfuscates the error's
+		// returned via codes, and we would like to have the full error to
+		// return to clients.
+		err := b.Mempool.Insert(b.Application.GetContextForCheckTx(txBytes), cosmosTx)
+		if err != nil {
+			// no need for special error handling like in the broadcast tx case
+			// since this is coming directly from the evm mempool insert.
+			b.Mempool.StopTrackingTx(txHash)
+			return common.Hash{}, err
 		}
 
 		return txHash, nil
@@ -172,45 +183,6 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 
 	return txHash, nil
-}
-
-// mempoolInsertTx inserts a tx into the app-side mempool.
-// bytes are expected to be already encoded in cosmos tx format.
-func (b *Backend) mempoolInsertTx(hash common.Hash, cometTxBytes []byte) error {
-	if b.Application == nil {
-		return errors.New("abci application is not set")
-	}
-
-	res, err := b.Application.InsertTx(&abci.RequestInsertTx{Tx: cometTxBytes})
-
-	code := uint32(0)
-	if res != nil {
-		code = res.Code
-	}
-
-	if txRes := client.CheckCometError(err, cometTxBytes); txRes != nil {
-		err = errorsmod.ABCIError(txRes.Codespace, txRes.Code, txRes.RawLog)
-	}
-
-	switch {
-	case err != nil && code != 0:
-		b.Logger.Error(
-			"Failed to insert tx into app-side mempool",
-			"error", err.Error(),
-			"hash", hash.Hex(),
-			"code", code,
-		)
-		return fmt.Errorf("%w: code %d", err, code)
-	case err != nil:
-		return err
-	case code > 0:
-		return fmt.Errorf("unable to insert tx: code %d", code)
-	default:
-		if err := b.Mempool.TrackTx(hash); err != nil {
-			b.Logger.Error("error tracking inserted inserted into mempool", "hash", hash, "err", err)
-		}
-		return nil
-	}
 }
 
 // handleSendTxError temporary workaround for check-tx backward compatibility

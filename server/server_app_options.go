@@ -147,13 +147,20 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 
 func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
 	if appOpts == nil {
-		// we don't want to return 0 here, as then appOpts.Get() will return nil and that will be
-		// "accidentally" cast to the correct evm max tx default of 0, thereby hiding the error
 		logger.Error("app options is nil, using pending tx proposal timeout of 0 (unlimited)")
 		return 0
 	}
 
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
+}
+
+func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) int {
+	if appOpts == nil {
+		logger.Error("app options is nil, using insert queue size of 5000")
+		return 5000
+	}
+
+	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

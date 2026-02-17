@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
@@ -184,7 +183,7 @@ type Opt func(*Backend)
 // Application represents ABCI application itself (us).
 // This is used for opaque ABCI calls instead of injecting BaseApp into Backend.
 type Application interface {
-	InsertTx(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error)
+	GetContextForCheckTx(txBytes []byte) sdk.Context
 }
 
 // WithUnprotectedTxs sets whether to allow unprotected transactions.
