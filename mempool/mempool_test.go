@@ -71,7 +71,8 @@ func TestMempool_Iterate(t *testing.T) {
 
 	// have to do the below to make select work..
 	ctx = ctx.WithBlockHeight(2)
-	myCtx, _ := context.WithTimeout(ctx, time.Nanosecond)
+	myCtx, cancel := context.WithTimeout(ctx, time.Nanosecond)
+	t.Cleanup(cancel)
 
 	// -------
 	iter := mp.Select(myCtx, nil)

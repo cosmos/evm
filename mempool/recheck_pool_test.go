@@ -100,7 +100,7 @@ func TestRecheckMempool_Insert(t *testing.T) {
 
 			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, getCtx)
 
-			tx := newRecheckTestTx(t, acc.key, 0)
+			tx := newRecheckTestTx(t, acc.key)
 			err := mp.Insert(ctx, tx)
 
 			if tc.expectErr != nil {
@@ -155,7 +155,7 @@ func TestRecheckMempool_Remove(t *testing.T) {
 
 			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
 
-			tx := newRecheckTestTx(t, acc.key, 0)
+			tx := newRecheckTestTx(t, acc.key)
 			require.NoError(t, mp.Insert(ctx, tx))
 
 			otherHandle := tracker.NewHandle(2)
@@ -275,7 +275,7 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 
 	for range numTxsToInsert {
 		key, _ := crypto.GenerateKey()
-		tx := newRecheckTestTx(t, key, 0)
+		tx := newRecheckTestTx(t, key)
 		require.NoError(t, mp.Insert(ctx, tx))
 	}
 
@@ -329,7 +329,7 @@ func TestRecheckMempool_GetCtxError(t *testing.T) {
 	defer mp.Close()
 
 	acc := newRecheckTestAccount(t)
-	tx := newRecheckTestTx(t, acc.key, 0)
+	tx := newRecheckTestTx(t, acc.key)
 
 	insertCtx := ctx
 	insertGetCtx := func() (sdk.Context, error) { return insertCtx, nil }
@@ -363,7 +363,7 @@ func TestRecheckMempool_RemoveErrorDuringRecheck(t *testing.T) {
 	mp.Start()
 	defer mp.Close()
 
-	tx := newRecheckTestTx(t, acc.key, 0)
+	tx := newRecheckTestTx(t, acc.key)
 	require.NoError(t, mp.Insert(ctx, tx))
 
 	failOnRecheck = true
@@ -392,7 +392,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 	numTxs := 5
 	for range numTxs {
 		key, _ := crypto.GenerateKey()
-		tx := newRecheckTestTx(t, key, 0)
+		tx := newRecheckTestTx(t, key)
 		require.NoError(t, mp.Insert(ctx, tx))
 	}
 
@@ -591,9 +591,9 @@ func TestMempool_Recheck(t *testing.T) {
 }
 
 // newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.
-func newRecheckTestTx(t *testing.T, key *ecdsa.PrivateKey, sequence uint64) sdk.Tx {
+func newRecheckTestTx(t *testing.T, key *ecdsa.PrivateKey) sdk.Tx {
 	t.Helper()
-	return &recheckTestTx{key: key, sequence: sequence}
+	return &recheckTestTx{key: key}
 }
 
 // recheckTestTx is a minimal sdk.Tx implementation for unit testing.
