@@ -13,6 +13,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 )
 
+// insertItem is an item in the queue that contains the user data (Tx) along
+// with a subscription that the user is using to wait on the response from the
+// insert.
 type insertItem[Tx any] struct {
 	tx  *Tx
 	sub chan<- error

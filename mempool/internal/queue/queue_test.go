@@ -11,52 +11,51 @@ import (
 	"cosmossdk.io/log"
 )
 
-// mockTxPool is a mock implementation of TxPool for testing
-type mockTxPool struct {
-	mu     sync.Mutex
-	addFn  func([]*ethtypes.Transaction, bool) []error
-	txs    []*ethtypes.Transaction
-	addErr error
+// mockPool is a mock that records inserted transactions and optionally
+// delegates to a custom function.
+type mockPool struct {
+	mu      sync.Mutex
+	insertFn func([]*ethtypes.Transaction) []error
+	txs     []*ethtypes.Transaction
 }
 
-func newMockTxPool() *mockTxPool {
-	return &mockTxPool{
+func newMockPool() *mockPool {
+	return &mockPool{
 		txs: make([]*ethtypes.Transaction, 0),
 	}
 }
 
-func (m *mockTxPool) Add(txs []*ethtypes.Transaction, sync bool) []error {
+func (m *mockPool) insert(txs []*ethtypes.Transaction) []error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.addFn != nil {
-		return m.addFn(txs, sync)
+	if m.insertFn != nil {
+		return m.insertFn(txs)
 	}
 
 	errs := make([]error, len(txs))
-	for i, tx := range txs {
+	for _, tx := range txs {
 		m.txs = append(m.txs, tx)
-		errs[i] = m.addErr
 	}
 	return errs
 }
 
-func (m *mockTxPool) getTxs() []*ethtypes.Transaction {
+func (m *mockPool) getTxs() []*ethtypes.Transaction {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.txs
 }
 
-func (m *mockTxPool) setAddFn(fn func([]*ethtypes.Transaction, bool) []error) {
+func (m *mockPool) setInsertFn(fn func([]*ethtypes.Transaction) []error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.addFn = fn
+	m.insertFn = fn
 }
 
 func TestInsertQueue_PushAndProcess(t *testing.T) {
-	pool := newMockTxPool()
+	pool := newMockPool()
 	logger := log.NewNopLogger()
-	iq := NewInsertQueue(pool, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
 	defer iq.Close()
 
 	// Create a test transaction
@@ -77,9 +76,9 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 }
 
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
-	pool := newMockTxPool()
+	pool := newMockPool()
 	logger := log.NewNopLogger()
-	iq := NewInsertQueue(pool, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -106,9 +105,9 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 }
 
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
-	pool := newMockTxPool()
+	pool := newMockPool()
 	logger := log.NewNopLogger()
-	iq := NewInsertQueue(pool, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
 	defer iq.Close()
 
 	// Push nil transaction
@@ -123,16 +122,16 @@ func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 }
 
 func TestInsertQueue_SlowAddition(t *testing.T) {
-	pool := newMockTxPool()
+	pool := newMockPool()
 
-	// Make Add slow to allow queue to back up
-	pool.setAddFn(func(txs []*ethtypes.Transaction, sync bool) []error {
+	// Make insert slow to allow queue to back up
+	pool.setInsertFn(func(txs []*ethtypes.Transaction) []error {
 		time.Sleep(10 * time.Second)
-		return []error{nil}
+		return make([]error, len(txs))
 	})
 
 	logger := log.NewNopLogger()
-	iq := NewInsertQueue(pool, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
 	defer iq.Close()
 
 	// Push first transaction to start processing
@@ -153,20 +152,20 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 }
 
 func TestInsertQueue_RejectsWhenFull(t *testing.T) {
-	pool := newMockTxPool()
+	pool := newMockPool()
 
-	// when addFn is called, push a value onto a channel to signal that a
+	// when insertFn is called, push a value onto a channel to signal that a
 	// single tx has been popped from the queue, then block forever so no more
 	// txs can be popped, that means we can add 1 more tx then the queue will
 	// be at max capacity, and adding 1 after that will trigger an error
 	added := make(chan struct{}, 1)
-	pool.setAddFn(func(txs []*ethtypes.Transaction, sync bool) []error {
+	pool.setInsertFn(func(txs []*ethtypes.Transaction) []error {
 		added <- struct{}{}
 		select {} // block forever
 	})
 
 	logger := log.NewNopLogger()
-	iq := NewInsertQueue(pool, 5, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 5, logger)
 	defer iq.Close()
 
 	// This first tx will be immediately popped and start processing (where it
@@ -176,7 +175,7 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	_ = iq.Push(tx)
 	nonce++
 
-	// wait for first tx to be popped and addFn to be called and blocking
+	// wait for first tx to be popped and insertFn to be called and blocking
 	<-added
 
 	// Fill the queue to capacity
