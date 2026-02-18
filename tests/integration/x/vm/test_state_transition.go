@@ -1185,6 +1185,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 
 			err = s.Network.NextBlock()
 			if tc.expVMErr {
+				s.Require().NoError(err)
 				s.Require().NotEmpty(res.VmError)
 				return
 			}
