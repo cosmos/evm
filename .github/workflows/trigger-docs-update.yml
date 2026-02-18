@@ -1,5 +1,7 @@
 # .github/workflows/trigger-docs-update.yml
 name: Trigger Docs Changelog Update
+permissions:
+  contents: read
 
 on:
   release:
