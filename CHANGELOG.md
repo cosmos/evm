@@ -37,6 +37,7 @@
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
 - [\#828](https://github.com/cosmos/evm/pull/828) Validate decimals before conversion to prevent panic when coininfo is missing in historical queries.
 - [\#920](https://github.com/cosmos/evm/pull/920) Fix GetCoinbaseAddress to correctly convert validator operator address from Bech32 format to Ethereum address for block.coinbase opcode.
+- [\#705](https://github.com/cosmos/evm/pull/705) Fix dynamic precompiles being disabled when EVM state overrides are used in eth_call.
 - [\#967](https://github.com/cosmos/evm/pull/967) Fix return value of erc20 ibcv2 middleware to properly reflect application success and middleware failure.
 - [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
 
