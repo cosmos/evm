@@ -10,8 +10,6 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
-	storetypes "cosmossdk.io/store/types"
-
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -26,21 +24,6 @@ var _ types.MsgServer = Keeper{}
 // ERC20 tokens to the coin denomination, and continue with a regular transfer.
 func (k Keeper) Transfer(goCtx context.Context, msg *types.MsgTransfer) (*types.MsgTransferResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	// Temporarily save the KV and transient KV gas config. To avoid extra costs for relayers
-	// these two gas config are replaced with empty one and should be restored before exiting this function.
-	kvGasCfg := ctx.KVGasConfig()
-	transientKVGasCfg := ctx.TransientKVGasConfig()
-	ctx = ctx.
-		WithKVGasConfig(storetypes.GasConfig{}).
-		WithTransientKVGasConfig(storetypes.GasConfig{})
-
-	defer func() {
-		// Return the KV gas config to initial values
-		ctx = ctx.
-			WithKVGasConfig(kvGasCfg).
-			WithTransientKVGasConfig(transientKVGasCfg)
-	}()
 
 	// use native denom or contract address
 	denom := strings.TrimPrefix(msg.Token.Denom, erc20types.Erc20NativeCoinDenomPrefix)
