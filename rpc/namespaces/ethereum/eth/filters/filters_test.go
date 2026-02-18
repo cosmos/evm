@@ -18,7 +18,7 @@ import (
 	filtermocks "github.com/cosmos/evm/rpc/namespaces/ethereum/eth/filters/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 func TestLogs(t *testing.T) {
