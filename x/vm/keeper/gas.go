@@ -25,21 +25,34 @@ func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *para
 	return core.IntrinsicGas(msg.Data(), msg.AccessList(), isContractCreation, homestead, istanbul)
 }
 
-// RefundGas transfers the leftover gas to the sender of the message, capped to half of the total gas
+// RefundGas transfers the leftover gas and baseFee amount to the sender of the message, capped to half of the total gas
 // consumed in the transaction. Additionally, the function sets the total gas consumed to the value
 // returned by the EVM execution, thus ignoring the previous intrinsic gas consumed during in the
 // AnteHandler.
-func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) error {
-	// Return EVM tokens for remaining gas, exchanged at the original rate.
+// and then burns baseFee amount from the sender account.
+func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, gasUsed uint64, baseFee *big.Int, denom string) error {
+	if msg.GasPrice().Sign() < 0 {
+		return errorsmod.Wrapf(types.ErrInvalidRefund, "gas price cannot be negative %d", msg.GasPrice().Int64())
+	}
+
+	// refundable amount for leftover gas: leftoverGas * effectiveGasPrice
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(leftoverGas), msg.GasPrice())
 
-	switch remaining.Sign() {
+	// refundable amount for base fee: baseFee * gasUsed
+	baseFeeRefund := big.NewInt(0)
+	if msg.GasPrice().Sign() > 0 && baseFee != nil && baseFee.Sign() > 0 && gasUsed > 0 {
+		baseFeeRefund = new(big.Int).Mul(baseFee, new(big.Int).SetUint64(gasUsed))
+	}
+
+	refundAmt := new(big.Int).Add(remaining, baseFeeRefund)
+
+	switch refundAmt.Sign() {
 	case -1:
 		// negative refund errors
-		return errorsmod.Wrapf(types.ErrInvalidRefund, "refunded amount value cannot be negative %d", remaining.Int64())
+		return errorsmod.Wrapf(types.ErrInvalidRefund, "refunded amount value cannot be negative %d", refundAmt.Int64())
 	case 1:
 		// positive amount refund
-		refundedCoins := sdk.Coins{sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(remaining))}
+		refundedCoins := sdk.Coins{sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(refundAmt))}
 
 		// refund to sender from the fee collector module account, which is the escrow account in charge of collecting tx fees
 		err := k.bankWrapper.SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, msg.From().Bytes(), refundedCoins)
@@ -49,6 +62,13 @@ func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64
 		}
 	default:
 		// no refund, consume gas and update the tx gas meter
+	}
+
+	// burn baseFee * gasUsed from the sender account after refund
+	if baseFeeRefund.Sign() > 0 {
+		if err := k.bankWrapper.BurnAmountFromAccount(ctx, msg.From().Bytes(), baseFeeRefund); err != nil {
+			return errorsmod.Wrapf(err, "failed to burn base fee from sender %s", msg.From().Hex())
+		}
 	}
 
 	return nil

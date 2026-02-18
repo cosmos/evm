@@ -127,6 +127,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 
 	// add predecessor messages in current cosmos tx
 	index := int(transaction.MsgIndex) // #nosec G115
+
 	for i := 0; i < index; i++ {
 		msg := tx.GetMsgs()[i]
 		// Check if it's a normal Ethereum tx

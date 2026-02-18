@@ -111,8 +111,8 @@ var _ = Describe("Bank Extension -", func() {
 		contractData ContractData
 		passCheck    testutil.LogCheckArgs
 
-		cosmosEVMTotalSupply, _ = new(big.Int).SetString("200003000000000000000000", 10)
-		xmplTotalSupply, _      = new(big.Int).SetString("200000000000000000000000", 10)
+		cosmosEVMTotalSupply *big.Int
+		xmplTotalSupply      *big.Int
 	)
 
 	BeforeEach(func() {
@@ -146,6 +146,12 @@ var _ = Describe("Bank Extension -", func() {
 
 		err = is.network.NextBlock()
 		Expect(err).ToNot(HaveOccurred(), "failed to advance block")
+
+		// Get actual total supply after contract deployment
+		totSupplRes, err := is.grpcHandler.GetTotalSupply()
+		Expect(err).ToNot(HaveOccurred(), "failed to get total supply")
+		cosmosEVMTotalSupply = totSupplRes.Supply.AmountOf(is.bondDenom).BigInt()
+		xmplTotalSupply = totSupplRes.Supply.AmountOf(is.tokenDenom).BigInt()
 	})
 
 	Context("Direct precompile queries", func() {

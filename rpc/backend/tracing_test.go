@@ -117,7 +117,7 @@ func (suite *BackendTestSuite) TestTraceTransaction() {
 				)
 				_, err := RegisterBlockMultipleTxs(client, height, []types.Tx{txBz, txBz2})
 				suite.Require().NoError(err)
-				RegisterTraceTransactionWithPredecessors(queryClient, msgEthereumTx, []*evmtypes.MsgEthereumTx{msgEthereumTx})
+				RegisterTraceTransactionWithPredecessors(queryClient, msgEthereumTx, nil)
 				RegisterConsensusParams(client, height)
 			},
 			&types.Block{Header: types.Header{Height: 1, ChainID: ChainID}, Data: types.Data{Txs: []types.Tx{txBz, txBz2}}},

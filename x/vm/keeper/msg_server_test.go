@@ -3,6 +3,9 @@ package keeper_test
 import (
 	"math/big"
 
+	ethparams "github.com/ethereum/go-ethereum/params"
+
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/evm/testutil/integration/os/utils"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -13,7 +16,11 @@ import (
 
 func (suite *KeeperTestSuite) TestEthereumTx() {
 	suite.enableFeemarket = true
-	defer func() { suite.enableFeemarket = false }()
+	suite.mintFeeCollector = true
+	defer func() {
+		suite.enableFeemarket = false
+		suite.mintFeeCollector = false
+	}()
 	suite.SetupTest()
 	testCases := []struct {
 		name        string
@@ -53,6 +60,30 @@ func (suite *KeeperTestSuite) TestEthereumTx() {
 		suite.Run(tc.name, func() {
 			msg := tc.getMsg()
 
+			// Ensure fee collector has sufficient balance for each subtest
+			if suite.mintFeeCollector {
+				feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+				denom := types.GetEVMCoinExtendedDenom()
+				currentBalance := suite.network.App.BankKeeper.GetBalance(suite.network.GetContext(), feeCollectorAddr, denom)
+
+				baseFee := suite.network.App.EVMKeeper.GetBaseFee(suite.network.GetContext())
+				if baseFee == nil {
+					baseFee = big.NewInt(0)
+				}
+
+				gasLimit := new(big.Int).SetUint64(msg.GetGas())
+				requiredBalance := sdkmath.NewIntFromBigInt(new(big.Int).Mul(gasLimit, baseFee)).
+					Add(sdkmath.NewIntFromUint64(ethparams.TxGas - 1))
+
+				if currentBalance.Amount.LT(requiredBalance) {
+					coinsToAdd := sdktypes.NewCoins(sdktypes.NewCoin(denom, requiredBalance.Sub(currentBalance.Amount)))
+					err := suite.network.App.BankKeeper.MintCoins(suite.network.GetContext(), types.ModuleName, coinsToAdd)
+					suite.Require().NoError(err)
+					err = suite.network.App.BankKeeper.SendCoinsFromModuleToModule(suite.network.GetContext(), types.ModuleName, authtypes.FeeCollectorName, coinsToAdd)
+					suite.Require().NoError(err)
+				}
+			}
+
 			// Function to be tested
 			res, err := suite.network.App.EVMKeeper.EthereumTx(suite.network.GetContext(), msg)
 
@@ -76,7 +107,6 @@ func (suite *KeeperTestSuite) TestEthereumTx() {
 			suite.Require().NoError(err)
 		})
 	}
-	suite.enableFeemarket = false
 }
 
 func (suite *KeeperTestSuite) TestUpdateParams() {

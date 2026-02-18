@@ -460,11 +460,14 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 			gasUsed := transactionGas - tc.leftoverGas
 			refund := keeper.GasToRefund(vmdb.GetRefund(), gasUsed, tc.refundQuotient)
 			suite.Require().Equal(tc.expGasRefund, refund)
+			baseFee := big.NewInt(1)
 
 			err = unitNetwork.App.EVMKeeper.RefundGas(
 				unitNetwork.GetContext(),
 				coreMsg,
 				refund,
+				gasUsed,
+				baseFee,
 				unitNetwork.GetBaseDenom(),
 			)
 

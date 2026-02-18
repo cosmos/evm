@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/params"
+	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/testutil/integration/os/factory"
@@ -56,7 +56,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	// Set custom balance based on test params
 	customGenesis := network.CustomGenesisState{}
 	feemarketGenesis := feemarkettypes.DefaultGenesisState()
-	if s.enableFeemarket {
+	if suite.enableFeemarket {
 		feemarketGenesis.Params.EnableHeight = 1
 		feemarketGenesis.Params.NoBaseFee = false
 	} else {
@@ -64,9 +64,14 @@ func (suite *KeeperTestSuite) SetupTest() {
 	}
 	customGenesis[feemarkettypes.ModuleName] = feemarketGenesis
 
-	if s.mintFeeCollector {
-		// mint some coin to fee collector
-		coins := sdk.NewCoins(sdk.NewCoin(evmtypes.GetEVMCoinDenom(), sdkmath.NewInt(int64(params.TxGas)-1)))
+	if suite.mintFeeCollector {
+		// Mint coins to fee collector for gas refunds
+		baseFee := feemarketGenesis.Params.BaseFee.TruncateInt()
+		gasUsed := sdkmath.NewIntFromUint64(ethparams.TxGas)
+		refundBuffer := sdkmath.NewIntFromUint64(ethparams.TxGas - 1)
+		requiredBalance := gasUsed.Mul(baseFee).Add(refundBuffer)
+
+		coins := sdk.NewCoins(sdk.NewCoin(evmtypes.GetEVMCoinExtendedDenom(), requiredBalance))
 		balances := []banktypes.Balance{
 			{
 				Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
@@ -85,13 +90,13 @@ func (suite *KeeperTestSuite) SetupTest() {
 	gh := grpc.NewIntegrationHandler(nw)
 	tf := factory.New(nw, gh)
 
-	s.network = nw
-	s.factory = tf
-	s.handler = gh
-	s.keyring = keys
+	suite.network = nw
+	suite.factory = tf
+	suite.handler = gh
+	suite.keyring = keys
 
 	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetChainID())
-	if !s.enableLondonHF {
+	if !suite.enableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt
 		chainConfig.ArrowGlacierBlock = &maxInt
