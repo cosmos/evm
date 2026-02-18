@@ -322,8 +322,8 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				coin := sdk.NewCoin(denom, math.NewInt(10))
 
 				pair, err := suite.network.App.GetErc20Keeper().RegisterERC20Extension(suite.network.GetContext(), coinMetadata.Base)
-				suite.Require().Equal(pair.Denom, denom)
 				suite.Require().NoError(err)
+				suite.Require().Equal(pair.Denom, denom)
 
 				transferMsg := types.NewMsgTransfer(types.PortID, chan0, coin, senderAcc.String(), receiver.String(), timeoutHeight, 0, "")
 
