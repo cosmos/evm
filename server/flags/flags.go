@@ -84,7 +84,7 @@ const (
 )
 
 // IAVLXEnable (experimental) enables the IAVLX storage engine.
-const IAVLXEnable = "iavlx-enable"
+const IAVLXOptions = "iavlx-options"
 
 // TLS flags
 const (

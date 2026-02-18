@@ -9,7 +9,7 @@ import (
 	gethmetrics "github.com/ethereum/go-ethereum/metrics"
 	gethprom "github.com/ethereum/go-ethereum/metrics/prometheus"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 // StartGethMetricServer starts the geth metrics server on the specified address.
