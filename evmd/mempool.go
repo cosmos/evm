@@ -3,16 +3,15 @@ package evmd
 import (
 	"fmt"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/server"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-
-	evmmempool "github.com/cosmos/evm/mempool"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.

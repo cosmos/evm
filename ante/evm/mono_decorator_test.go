@@ -27,7 +27,7 @@ import (
 	vmtypes "github.com/cosmos/evm/x/vm/types/mocks"
 
 	"cosmossdk.io/core/address"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 
