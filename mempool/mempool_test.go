@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -39,6 +40,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -46,6 +48,50 @@ const (
 	txValue    = 100
 	txGasLimit = 50000
 )
+
+func TestMempool_Iterate(t *testing.T) {
+	numAccs := 20
+	storeKey := storetypes.NewKVStoreKey("test")
+	transientKey := storetypes.NewTransientStoreKey("transient_test")
+	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, numAccs)
+
+	numTxsEach := 5
+	for i := range numAccs {
+		for range numTxsEach {
+			cosmosTx := createTestCosmosTx(t, txConfig, accounts[i].key, accounts[i].nonce)
+			accounts[i].nonce++
+			err := mp.Insert(ctx, cosmosTx)
+			require.NoError(t, err)
+		}
+	}
+
+	// have to do the below to make select work..
+	ctx = ctx.WithBlockHeight(2)
+	myCtx, cancel := context.WithTimeout(ctx, time.Nanosecond)
+	t.Cleanup(cancel)
+
+	// -------
+	iter := mp.Select(myCtx, nil)
+
+	for iter != nil {
+		sdkTx := iter.Tx()
+		if sdkTx == nil {
+			break
+		}
+		if sigTx, ok := sdkTx.(authsigning.SigVerifiableTx); ok {
+			signers, _ := sigTx.GetSigners()
+			sigs, _ := sigTx.GetSignaturesV2()
+			for i, signer := range signers {
+				fmt.Printf("sender: %x, nonce: %d\n", signer, sigs[i].Sequence)
+			}
+		}
+		iter = iter.Next()
+	}
+}
 
 func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
