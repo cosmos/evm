@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cast"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/server"
 )

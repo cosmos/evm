@@ -34,7 +34,7 @@ import (
 	srvflags "github.com/cosmos/evm/server/flags"
 	servertypes "github.com/cosmos/evm/server/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"

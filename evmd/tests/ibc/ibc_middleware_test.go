@@ -1218,6 +1218,8 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 
 				// Verify callback execution by checking counter increment
 				if strings.Contains(tc.memo(), "src_callback") {
+					senderEVM := common.BytesToAddress(sender)
+					expectsCallbackExec := contractAddr == senderEVM
 					counterRes, err := evmApp.EVMKeeper.CallEVM(
 						ctxA,
 						contractData.ABI,
@@ -1232,7 +1234,11 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 					var counter *big.Int
 					err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
 					suite.Require().NoError(err)
-					suite.Require().True(counter.Cmp(big.NewInt(1)) >= 0, "Counter should be incremented by callback")
+					if expectsCallbackExec {
+						suite.Require().True(counter.Cmp(big.NewInt(1)) >= 0, "Counter should be incremented by callback")
+					} else {
+						suite.Require().Equal(big.NewInt(0).String(), counter.String(), "Counter should remain 0 when callback is gated")
+					}
 				}
 
 				// Verify refund for error acknowledgements
@@ -2021,6 +2027,8 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				// The onPacketTimeout function in the contract doesn't modify the counter,
 				// so we verify the callback was executed by checking the counter remains unchanged
 				if strings.Contains(tc.memo(), "src_callback") {
+					senderEVM := common.BytesToAddress(sender)
+					expectsCallbackExec := contractAddr == senderEVM
 					counterRes, err := evmApp.EVMKeeper.CallEVM(
 						ctxA,
 						contractData.ABI,
@@ -2036,9 +2044,13 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 					err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
 					suite.Require().NoError(err)
 
-					// For timeout callbacks, counter should be -1
-					// This verifies the callback was executed without error, but didn't change the counter
-					suite.Require().Equal(big.NewInt(-1).String(), counter.String(), "Counter should be -1 for timeout callbacks")
+					if expectsCallbackExec {
+						// For timeout callbacks, counter should be -1
+						// This verifies the callback was executed without error, but didn't change the counter
+						suite.Require().Equal(big.NewInt(-1).String(), counter.String(), "Counter should be -1 for timeout callbacks")
+					} else {
+						suite.Require().Equal(big.NewInt(0).String(), counter.String(), "Counter should remain 0 when callback is gated")
+					}
 				}
 
 				// Verify refund for timeouts (tokens should always be refunded on timeout)
