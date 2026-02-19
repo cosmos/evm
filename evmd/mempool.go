@@ -112,7 +112,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 			// failed on a cosmos tx (CheckTx), invalid encoding, etc, in which
 			// case we should not retry
 			switch {
-			case errors.Is(err, mempool.ErrInsertQueueFull):
+			case errors.Is(err, mempool.ErrQueueFull):
 				code = abci.CodeTypeRetry
 			default:
 				code = CodeTypeNoRetry
