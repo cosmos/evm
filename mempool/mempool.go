@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"go.opentelemetry.io/otel"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -31,7 +32,11 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+var (
+	meter = otel.Meter("github.com/cosmos/evm/mempool")
+
+	_ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+)
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
@@ -49,12 +54,10 @@ type (
 		/** Keepers **/
 		vmKeeper VMKeeperI
 
-		cosmosReserver *reserver.ReservationHandle
-
 		/** Mempools **/
 		txPool                   *txpool.TxPool
 		legacyTxPool             *legacypool.LegacyPool
-		cosmosPool               sdkmempool.ExtMempool
+		cosmosPool               *RecheckMempool
 		operateExclusively       bool
 		pendingTxProposalTimeout time.Duration
 
@@ -199,12 +202,20 @@ func NewExperimentalEVMMempool(
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
+	// Wrap cosmos pool with recheck functionality
+	recheckPool := NewRecheckMempool(
+		logger,
+		cosmosPool,
+		tracker.NewHandle(-1),
+		config.AnteHandler,
+		blockchain.GetLatestContext,
+	)
+
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:                 vmKeeper,
-		cosmosReserver:           tracker.NewHandle(-1),
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:               cosmosPool,
+		cosmosPool:               recheckPool,
 		logger:                   logger,
 		txConfig:                 txConfig,
 		blockchain:               blockchain,
@@ -272,6 +283,9 @@ func NewExperimentalEVMMempool(
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
+
+	// Start the cosmos pool recheck loop
+	evmMempool.cosmosPool.Start()
 
 	return evmMempool
 }
@@ -373,48 +387,14 @@ func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan 
 	}
 }
 
-// insertCosmosTx inserts a cosmos tx into the cosmos mempool
-func (m *ExperimentalEVMMempool) insertCosmosTx(ctx sdk.Context, tx sdk.Tx) error {
+// insertCosmosTx inserts a cosmos tx into the cosmos mempool.
+// The RecheckMempool handles ante handler validation, address reservation, and locking internally.
+func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
 	m.logger.Debug("inserting Cosmos transaction")
 
-	// copying context/ms branching done in runTx
-
-	// get the current multistore in the context
-	ms := ctx.MultiStore()
-
-	// branch the multistore into so we have a place to make anteHandler writes
-	// without messing up the original state in case the anteHandler sequence
-	// fails
-	msCache := ms.CacheMultiStore()
-
-	// set the branched multistore as the multistore that the context will use.
-	// so writes happening via this context will use the branched multistore.
-	ctx = ctx.WithMultiStore(msCache)
-
-	// execute the anteHandlers on our new context, and get a context that has
-	// the anteHandler updates written to it.
-	if _, err := m.anteHandler(ctx, tx, false); err != nil {
-		return fmt.Errorf("running anteHandler sequence for tx: %w", err)
-	}
-
-	// anteHandler has successfully completed, write its updates that are
-	// sitting in the branched multistore, back to their parent multistore.
-	// After this we will have updated the parent state and the next
-	// anteHandler invocation using this state will build off its updates.
-	msCache.Write()
-
-	// Extract signer addresses and convert to EVM addresses
-	evmAddrs, err := signerAddressesFromSDKTx(tx)
-	if err != nil {
-		return err
-	}
-	if err := m.cosmosReserver.Hold(evmAddrs...); err != nil {
-		return err
-	}
-
-	if err := m.cosmosPool.Insert(ctx, tx); err != nil {
+	// Insert into cosmos pool (handles locking, ante handler, and address reservation internally)
+	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
-		m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 		return err
 	}
 
@@ -423,23 +403,6 @@ func (m *ExperimentalEVMMempool) insertCosmosTx(ctx sdk.Context, tx sdk.Tx) erro
 		panic(fmt.Errorf("successfully inserted cosmos tx, but failed to insert into reap list: %w", err))
 	}
 	return nil
-}
-
-func signerAddressesFromSDKTx(tx sdk.Tx) ([]common.Address, error) {
-	var signerAddrs []common.Address
-	if sigTx, ok := tx.(interface{ GetSigners() ([][]byte, error) }); ok {
-		signers, err := sigTx.GetSigners()
-		if err != nil {
-			return nil, err
-		}
-		for _, addr := range signers {
-			signerAddrs = append(signerAddrs, common.BytesToAddress(addr))
-		}
-	}
-	if len(signerAddrs) == 0 {
-		return nil, fmt.Errorf("tx contains no signers")
-	}
-	return signerAddrs, nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -583,10 +546,12 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason 
 	}
 }
 
-// caller should hold the lock
+// removeCosmosTx removes a cosmos tx from the mempool.
+// The RecheckMempool handles locking internally.
 func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	m.logger.Debug("Removing Cosmos transaction")
 
+	// Remove from cosmos pool (handles address reservation release internally)
 	err := sdkmempool.RemoveWithReason(ctx, m.cosmosPool, tx, reason)
 	if err != nil {
 		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
@@ -595,12 +560,6 @@ func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, 
 
 	m.reapList.DropCosmosTx(tx)
 	m.logger.Debug("Cosmos transaction removed successfully")
-
-	evmAddrs, err := signerAddressesFromSDKTx(tx)
-	if err != nil {
-		return err
-	}
-	m.cosmosReserver.Release(evmAddrs...) //nolint:errcheck // ignoring is fine here.
 
 	return nil
 }
@@ -640,6 +599,8 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	go func() {
 		for range sub.Out() {
 			m.GetBlockchain().NotifyNewBlock()
+			// Trigger cosmos pool recheck on new block (non-blocking)
+			m.cosmosPool.TriggerRecheck()
 		}
 	}()
 }
@@ -660,6 +621,10 @@ func (m *ExperimentalEVMMempool) Close() error {
 
 	m.evmQueue.Close()
 	m.cosmosQueue.Close()
+
+	if err := m.cosmosPool.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close cosmos pool: %w", err))
+	}
 
 	if err := m.txPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
@@ -734,6 +699,12 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.
 func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
+}
+
+// RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
+// This is primarily used for testing.
+func (m *ExperimentalEVMMempool) RecheckCosmosTxs() {
+	m.cosmosPool.TriggerRecheckSync()
 }
 
 // StopTrackingTx stops a tx from being tracked for its tx inclusion metrics.
