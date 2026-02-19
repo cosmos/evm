@@ -307,21 +307,18 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 
 		if !invalidTx {
 			txCtx, writeCache := cc.CacheContext()
-			newCtx, err := m.anteHandler(txCtx, txn, false)
-			if err == nil {
+			if newCtx, err := m.anteHandler(txCtx, txn, false); err == nil {
 				writeCache()
 				cc = newCtx
-			} else {
-				invalidTx = true
+				iter = iter.Next()
+				continue
 			}
 		}
 
-		if invalidTx {
-			removeTxs = append(removeTxs, txn)
-			for _, sig := range signerSeqs {
-				if existing, ok := failedAtSequence[sig.account]; !ok || existing > sig.seq {
-					failedAtSequence[sig.account] = sig.seq
-				}
+		removeTxs = append(removeTxs, txn)
+		for _, sig := range signerSeqs {
+			if existing, ok := failedAtSequence[sig.account]; !ok || existing > sig.seq {
+				failedAtSequence[sig.account] = sig.seq
 			}
 		}
 
