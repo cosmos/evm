@@ -363,7 +363,7 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *ExperimentalEVMMempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
