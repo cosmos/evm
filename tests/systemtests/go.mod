@@ -29,7 +29,7 @@ require (
 	cosmossdk.io/store v1.10.0-rc.2.0.20260217205615-0d33c2463b76 // indirect
 	cosmossdk.io/x/tx v1.2.0-rc.1 // indirect
 	cosmossdk.io/x/upgrade v0.2.0 // indirect
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
