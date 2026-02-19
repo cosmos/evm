@@ -17,7 +17,7 @@ import (
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/eth")
