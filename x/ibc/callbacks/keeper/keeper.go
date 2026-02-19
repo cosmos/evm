@@ -146,8 +146,10 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
 	isolatedAddrHex := common.BytesToAddress(isolatedAddr.Bytes())
 
-	acc := k.authKeeper.NewAccountWithAddress(ctx, receiver)
-	k.authKeeper.SetAccount(ctx, acc)
+	if !k.authKeeper.HasAccount(ctx, receiver) {
+		acc := k.authKeeper.NewAccountWithAddress(ctx, receiver)
+		k.authKeeper.SetAccount(ctx, acc)
+	}
 
 	// Ensure receiver address is equal to the isolated address.
 	if receiverHex.Cmp(isolatedAddrHex) != 0 {
