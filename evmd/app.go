@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	"io"
-	"os"
 
 	goruntime "runtime"
 
@@ -265,7 +266,6 @@ func NewExampleApp(
 		encodingConfig.TxConfig.TxDecoder(),
 		nonTransientKeys,
 		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
 		func(store storetypes.MultiStore) string {
 			return sdk.DefaultBondDenom
 		},

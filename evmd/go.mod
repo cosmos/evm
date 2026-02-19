@@ -388,3 +388,5 @@ replace (
 )
 
 //replace github.com/cosmos/cosmos-sdk => ../../cosmos-sdk
+
+replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260219193149-cf7fd85346de
