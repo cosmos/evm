@@ -736,8 +736,11 @@ func (suite *StateDBTestSuite) TestSetStorage() {
 
 func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 	testCases := []struct {
-		name     string
-		malleate func(sdk.Context, *mocks.EVMKeeper) *statedb.StateDB
+		name                      string
+		malleate                  func(sdk.Context, *mocks.EVMKeeper) *statedb.StateDB
+		expSelfDestructed         bool
+		expKeeperCodeBeforeCommit []byte
+		expAccountExistsAfterTx   bool
 	}{
 		{
 			"new account",
@@ -749,6 +752,9 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 				db.CreateContract(address)
 				return db
 			},
+			true,
+			nil,
+			false,
 		},
 		{
 			"pre-funded account",
@@ -762,6 +768,24 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 				db.CreateContract(address)
 				return db
 			},
+			true,
+			nil,
+			false,
+		},
+		{
+			"existing contract from prior tx",
+			func(ctx sdk.Context, keeper *mocks.EVMKeeper) *statedb.StateDB {
+				db := statedb.New(ctx, keeper, emptyTxConfig)
+				db.CreateAccount(address)
+				db.SetCode(address, []byte("existing contract"))
+				db.AddBalance(address, uint256.NewInt(10), tracing.BalanceChangeUnspecified)
+				db.CreateContract(address)
+				suite.Require().NoError(db.Commit())
+				return statedb.New(ctx, keeper, emptyTxConfig)
+			},
+			false,
+			[]byte("existing contract"),
+			true,
 		},
 	}
 
@@ -771,17 +795,21 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 			keeper := mocks.NewEVMKeeper()
 			db := tc.malleate(ctx, keeper)
 
-			_, _ = db.SelfDestruct6780(address)
-			suite.Require().True(db.HasSelfDestructed(address))
-			suite.Require().Nil(keeper.GetCode(ctx, db.GetCodeHash(address)),
-				"code should NOT be in keeper yet before Commit")
+			_, selfDestructed := db.SelfDestruct6780(address)
+			suite.Require().Equal(tc.expSelfDestructed, selfDestructed)
+			suite.Require().Equal(tc.expSelfDestructed, db.HasSelfDestructed(address))
+			suite.Require().Equal(tc.expKeeperCodeBeforeCommit, keeper.GetCode(ctx, db.GetCodeHash(address)))
 
 			err := db.Commit()
-			suite.Require().NoError(err, "Commit should succeed - code persisted before DeleteAccount")
+			suite.Require().NoError(err)
 
 			db = statedb.New(ctx, keeper, emptyTxConfig)
-			suite.Require().False(db.Exist(address))
-			suite.Require().Nil(keeper.GetCode(ctx, db.GetCodeHash(address)))
+			suite.Require().Equal(tc.expAccountExistsAfterTx, db.Exist(address))
+			if tc.expAccountExistsAfterTx {
+				suite.Require().Equal(tc.expKeeperCodeBeforeCommit, keeper.GetCode(ctx, db.GetCodeHash(address)))
+			} else {
+				suite.Require().Nil(keeper.GetCode(ctx, db.GetCodeHash(address)))
+			}
 		})
 	}
 }
