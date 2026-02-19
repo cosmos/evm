@@ -345,12 +345,6 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 		// if we have a result immediately, ready on the channel returned from
 		// insert, return that (cosmos tx or unable to try and insert the tx
 		// due to parsing error).
-
-		// replacing the error sent via the internal package to a more
-		// accessible error
-		if errors.Is(err, queue.ErrQueueFull) {
-			err = ErrQueueFull
-		}
 		return err
 	case <-ctx.Done():
 		return ctx.Err()

@@ -1,6 +1,10 @@
 package mempool
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/cosmos/evm/mempool/internal/queue"
+)
 
 var (
 	ErrNoMessages                  = errors.New("transaction has no messages")
@@ -10,5 +14,7 @@ var (
 	ErrMultiMsgEthereumTransaction = errors.New("transaction contains multiple messages with an EVM msg")
 	ErrNonceGap                    = errors.New("tx nonce is higher than account nonce")
 	ErrNonceLow                    = errors.New("tx nonce is lower than account nonce")
-	ErrQueueFull                   = errors.New("queue full")
+	// ErrQueueFull is aliased from the internal queue package so that external
+	// packages (e.g. evmd) can check for this error without importing internal/.
+	ErrQueueFull = queue.ErrQueueFull
 )
