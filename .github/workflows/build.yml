@@ -7,7 +7,6 @@ on:
       - main
       - feat/krakatoa
 
-# Cancel superseded runs for the same branch
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -18,17 +17,12 @@ permissions:
 jobs:
   build:
     timeout-minutes: 15
+    runs-on: depot-ubuntu-22.04-4
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            runner: ubuntu-latest
-          - goos: linux
-            goarch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+        goarch: [amd64, arm64]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,27 +34,21 @@ jobs:
         with:
           go-version: "1.25"
           check-latest: true
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.goarch }}-
-            ${{ runner.os }}-go-
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            evmd/go.sum
 
       - name: Get version info
         id: version
+        shell: bash
         run: |
           VERSION=$(git describe --tags --always | sed 's/^v//')
           COMMIT=$(git log -1 --format='%H')
           COMMIT_SHORT=$(git log -1 --format='%h')
           TMVERSION=$(go list -m github.com/cometbft/cometbft | sed 's:.* ::')
-          # Sanitize branch name for use in filenames (replace / with -)
           BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's|/|-|g')
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
           echo "commit_short=${COMMIT_SHORT}" >> "$GITHUB_OUTPUT"
@@ -70,13 +58,13 @@ jobs:
       - name: Build evmd
         working-directory: evmd
         env:
-          GOOS: ${{ matrix.goos }}
+          GOOS: linux
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "1"
+        shell: bash
         run: |
-          BINARY_NAME="evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          
-          # Build matching Makefile approach
+          BINARY_NAME="evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-linux-${{ matrix.goarch }}"
+
           go build \
             -trimpath \
             -tags "netgo" \
@@ -92,16 +80,17 @@ jobs:
 
       - name: Generate checksum
         working-directory: evmd
+        shell: bash
         run: |
-          BINARY_NAME="evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          BINARY_NAME="evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-linux-${{ matrix.goarch }}"
           sha256sum "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-linux-${{ matrix.goarch }}
           path: |
-            evmd/evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}
-            evmd/evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256
+            evmd/evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-linux-${{ matrix.goarch }}
+            evmd/evmd-${{ steps.version.outputs.branch }}-${{ steps.version.outputs.commit_short }}-linux-${{ matrix.goarch }}.sha256
           retention-days: 30
           if-no-files-found: error
