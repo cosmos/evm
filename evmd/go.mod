@@ -9,11 +9,11 @@ require (
 	cosmossdk.io/errors v1.1.0
 	cosmossdk.io/log/v2 v2.0.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20260218215555-7e25253de494
+	cosmossdk.io/store v1.10.0-rc.2.0.20260219183841-2e6228e08092
 	cosmossdk.io/tools/confix v0.1.2
 	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260217150107-284338bcd3d9
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260218215555-7e25253de494
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260219183841-2e6228e08092
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260218223220-b79d0ea10a0f
@@ -387,4 +387,4 @@ replace (
 	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
 
-replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260218215555-7e25253de494
+//replace github.com/cosmos/cosmos-sdk => ../../cosmos-sdk

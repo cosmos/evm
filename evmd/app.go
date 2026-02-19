@@ -225,7 +225,6 @@ func NewExampleApp(
 	baseAppOptions = append(
 		baseAppOptions,
 		baseapp.SetOptimisticExecution(),
-		iavlxStorage(appOpts),
 	)
 
 	bApp := baseapp.NewBaseApp(

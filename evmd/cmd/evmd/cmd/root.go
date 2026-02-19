@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -276,6 +277,11 @@ func newApp(
 		panic(err)
 	}
 
+	fmt.Println("===newApp PRUNING OPTIONS===")
+	fmt.Printf("KeepRecent: %x\n", pruningOpts.KeepRecent)
+	fmt.Printf("Interval: %x\n", pruningOpts.Interval)
+	fmt.Printf("Strategy: %x\n", pruningOpts.Strategy)
+
 	// get the chain id
 	chainID, err := getChainIDFromOpts(appOpts)
 	if err != nil {
@@ -293,6 +299,7 @@ func newApp(
 	)
 
 	baseappOptions := []func(*baseapp.BaseApp){
+		evmd.IAVLXStorage(appOpts),
 		baseapp.SetPruning(pruningOpts),
 		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))),
 		baseapp.SetQueryGasLimit(cast.ToUint64(appOpts.Get(sdkserver.FlagQueryGasLimit))),

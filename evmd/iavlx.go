@@ -13,14 +13,15 @@ import (
 	"github.com/spf13/cast"
 )
 
-// iavlxStorage enables IAVLX if the flag is set to true
-func iavlxStorage(appOpts servertypes.AppOptions) func(*baseapp.BaseApp) {
+// IAVLXStorage enables IAVLX if the flag is set to true
+func IAVLXStorage(appOpts servertypes.AppOptions) func(*baseapp.BaseApp) {
 
 	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 
 	return func(app *baseapp.BaseApp) {
 		var opts iavl.Options
 		optsJson, ok := appOpts.Get(flags2.IAVLXOptions).(string)
+		fmt.Println("IAVLX Options JSON:", optsJson)
 		if !ok || optsJson == "" {
 			fmt.Println("Using iavl/v1")
 			return

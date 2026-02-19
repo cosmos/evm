@@ -77,6 +77,7 @@ func (a appCreator) newApp(
 	)
 	baseappOptions := []func(*baseapp.BaseApp){
 		baseapp.SetChainID(chainID),
+		evmd.IAVLXStorage(appOpts),
 		baseapp.SetPruning(pruningOpts),
 		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(server.FlagMinGasPrices))),
 		baseapp.SetHaltHeight(cast.ToUint64(appOpts.Get(server.FlagHaltHeight))),
