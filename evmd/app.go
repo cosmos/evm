@@ -265,7 +265,6 @@ func NewExampleApp(
 		encodingConfig.TxConfig.TxDecoder(),
 		nonTransientKeys,
 		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
 		func(store storetypes.MultiStore) string {
 			return sdk.DefaultBondDenom
 		},
