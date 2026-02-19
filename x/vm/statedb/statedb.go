@@ -713,6 +713,14 @@ func (s *StateDB) commitWithCtx(ctx sdk.Context) error {
 	for _, addr := range s.journal.sortedDirties() {
 		obj := s.stateObjects[addr]
 		if obj.selfDestructed {
+			// For EIP-6780 same-tx self-destruct: persist code+account first so DeleteAccount's
+			// IsContract check can verify it, then immediately delete everything
+			if obj.code != nil && obj.dirtyCode && len(obj.code) > 0 {
+				s.keeper.SetCode(ctx, obj.CodeHash(), obj.code)
+				if err := s.keeper.SetAccount(ctx, obj.Address(), obj.account); err != nil {
+					return errorsmod.Wrap(err, "failed to set account before delete")
+				}
+			}
 			if err := s.keeper.DeleteAccount(ctx, obj.Address()); err != nil {
 				return errorsmod.Wrapf(err, "failed to delete account %s", obj.Address())
 			}
