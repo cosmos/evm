@@ -101,6 +101,41 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	return res, err
 }
 
+// NextBlockWithTxsNoLock advances the chain by one block with the provided
+// transactions but does NOT acquire the commit lock. This simulates production
+// behavior where beginCommitRead in legacypool is a no-op (commit_lock_default.go),
+// allowing the legacypool's background reorg goroutine to access IAVL state
+// concurrently during Commit.
+func (n *IntegrationNetwork) NextBlockWithTxsNoLock(txBytes ...[]byte) (*abcitypes.ResponseFinalizeBlock, error) {
+	header := n.ctx.BlockHeader()
+	header.Height++
+	header.AppHash = n.app.LastCommitID().Hash
+	newBlockTime := header.Time.Add(time.Second)
+	header.Time = newBlockTime
+
+	req := buildFinalizeBlockReq(header, n.valSet.Validators, txBytes...)
+
+	res, err := n.app.FinalizeBlock(req)
+	if err != nil {
+		return nil, err
+	}
+
+	newCtx := n.app.GetBaseApp().NewContextLegacy(false, header)
+	newCtx = newCtx.WithMinGasPrices(n.ctx.MinGasPrices())
+	newCtx = newCtx.WithKVGasConfig(n.ctx.KVGasConfig())
+	newCtx = newCtx.WithTransientKVGasConfig(n.ctx.TransientKVGasConfig())
+	newCtx = newCtx.WithConsensusParams(n.ctx.ConsensusParams())
+	newCtx = newCtx.WithBlockGasMeter(storetypes.NewInfiniteGasMeter())
+	newCtx = newCtx.WithVoteInfos(req.DecidedLastCommit.GetVotes())
+	newCtx = newCtx.WithHeaderHash(header.AppHash)
+	n.ctx = newCtx
+
+	// No commit lock — matches production where beginCommitRead is a no-op
+	_, err = n.app.Commit()
+
+	return res, err
+}
+
 // buildFinalizeBlockReq is a helper function to build
 // properly the FinalizeBlock request
 func buildFinalizeBlockReq(header cmtproto.Header, validators []*cmttypes.Validator, txs ...[]byte) *abcitypes.RequestFinalizeBlock {

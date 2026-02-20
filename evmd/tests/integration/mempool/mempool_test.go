@@ -15,3 +15,8 @@ func TestMempoolIntegrationTestSuite(t *testing.T) {
 	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
 	suite.Run(t, mempool.NewMempoolIntegrationTestSuite(create))
 }
+
+func TestMempoolIntegrationTestSuiteIAVLX(t *testing.T) {
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmdWithIAVLX, "evm.IntegrationNetworkApp")
+	suite.Run(t, mempool.NewMempoolIntegrationTestSuite(create))
+}

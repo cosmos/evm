@@ -3,6 +3,7 @@ package integration
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
@@ -17,8 +18,6 @@ import (
 	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -83,7 +82,45 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 
 func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64) simutils.AppOptionsMap {
 	return simutils.AppOptionsMap{
-		flags.FlagHome:      home,
-		srvflags.EVMChainID: evmChainID,
+		flags.FlagHome:                     home,
+		srvflags.EVMChainID:                evmChainID,
+		srvflags.EVMMempoolInsertQueueSize: 5000,
 	}
+}
+
+// CreateEvmdWithIAVLX creates an evm app using iavlx (IAVL v2) as the
+// underlying commit multi-store. Unlike iavl v1, iavlx shares mutable
+// MemNode structures between the CommitTree and ImmutableTree returned
+// by GetImmutable, making concurrent reads during writes unsafe.
+func CreateEvmdWithIAVLX(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
+	if err != nil {
+		panic(err)
+	}
+
+	// iavlx needs its data directory to exist
+	if err := os.MkdirAll(filepath.Join(defaultNodeHome, "data", "iavlx"), 0o755); err != nil {
+		panic(err)
+	}
+
+	appOptions := simutils.AppOptionsMap{
+		flags.FlagHome:                     defaultNodeHome,
+		srvflags.EVMChainID:                evmChainID,
+		srvflags.EVMMempoolInsertQueueSize: 5000,
+		srvflags.IAVLXOptions:              "{}",
+	}
+
+	baseAppOptions := append(customBaseAppOptions,
+		baseapp.SetChainID(chainID),
+		evmd.IAVLXStorage(appOptions),
+	)
+
+	return evmd.NewExampleApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		true,
+		appOptions,
+		baseAppOptions...,
+	)
 }
