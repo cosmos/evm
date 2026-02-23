@@ -644,7 +644,11 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
 func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	return pool.validPendingTxs.GetStore(ctx, height).Txs(filter)
+	txStore := pool.validPendingTxs.GetStore(ctx, height)
+	if txStore == nil {
+		return nil
+	}
+	return txStore.Txs(filter)
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
