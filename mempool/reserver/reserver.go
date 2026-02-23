@@ -85,13 +85,10 @@ func (h *ReservationHandle) Hold(addrs ...common.Address) error {
 	defer h.tracker.lock.Unlock()
 
 	for _, addr := range addrs {
-		// Double reservations are forbidden even from the same pool to
-		// avoid subtle bugs in the long term.
 		owner, exists := h.tracker.accounts[addr]
 		if exists {
 			if owner == h.id {
-				log.Error("pool attempted to reserve already-owned address", "address", addr)
-				return nil // Ignore fault to give the pool a chance to recover while the bug gets fixed
+				return nil // Address already reserved for this pool, nothing else to do
 			}
 			return ErrAlreadyReserved
 		}
