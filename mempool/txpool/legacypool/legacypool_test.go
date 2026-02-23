@@ -17,6 +17,7 @@
 package legacypool
 
 import (
+	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"errors"
@@ -2925,6 +2926,21 @@ func TestResetCancellation(t *testing.T) {
 	// Verify that at least some transactions were processed before cancellation
 	if processed == 0 {
 		t.Error("Expected some transactions to be processed before cancellation")
+	}
+}
+
+func TestPendingFutureHeight(t *testing.T) {
+	t.Parallel()
+
+	pool, _, _ := setupPool()
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	result := pool.Pending(ctx, big.NewInt(999), txpool.PendingFilter{})
+	if result != nil {
+		t.Fatalf("expected nil from Pending when HeightSync times out, got %v", result)
 	}
 }
 
