@@ -56,6 +56,10 @@ func (p *Precompile) UpdateClient(
 		return nil, err
 	}
 
+	if err := clientMsg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+
 	if err := p.clientKeeper.UpdateClient(ctx, clientID, clientMsg); err != nil {
 		return nil, err
 	}
