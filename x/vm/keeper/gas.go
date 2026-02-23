@@ -41,7 +41,7 @@ func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *para
 // returned by the EVM execution, thus ignoring the previous intrinsic gas consumed during in the
 // AnteHandler.
 func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) (err error) {
-	ctx, span := ctx.StartSpan(tracer, "RefundGas", trace.WithAttributes(attribute.Int64("leftover_gas", int64(leftoverGas)))) //nolint:gosec // G115
+	ctx, span := ctx.StartSpan(tracer, "RefundGas", trace.WithAttributes(attribute.Int64("leftover_gas", int64(leftoverGas))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// Return EVM tokens for remaining gas, exchanged at the original rate.
@@ -78,7 +78,7 @@ func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64
 func (k *Keeper) ResetGasMeterAndConsumeGas(ctx sdk.Context, gasUsed uint64) {
 	// reset the gas count
 	ctx, span := ctx.StartSpan(tracer, "ResetGasMeterAndConsumeGas", trace.WithAttributes(
-		attribute.Int64("gas_used", int64(gasUsed)), //nolint:gosec // G115
+		attribute.Int64("gas_used", int64(gasUsed)),
 	))
 	defer span.End()
 	ctx.GasMeter().RefundGas(ctx.GasMeter().GasConsumed(), "reset the gas count")

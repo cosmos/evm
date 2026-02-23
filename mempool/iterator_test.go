@@ -743,7 +743,7 @@ func buildCosmosTx(
 	require.NoError(t, txBuilder.SetMsgs(msg))
 
 	txBuilder.SetGasLimit(gas)
-	feeAmount := new(big.Int).Mul(big.NewInt(gasPriceWei), big.NewInt(int64(gas))) //nolint:gosec
+	feeAmount := new(big.Int).Mul(big.NewInt(gasPriceWei), big.NewInt(int64(gas)))
 	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(feeAmount))))
 
 	signMode, err := authsigning.APISignModeToInternal(txConfig.SignModeHandler().DefaultMode())

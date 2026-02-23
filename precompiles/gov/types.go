@@ -383,7 +383,7 @@ func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) (*VotesOutput
 		options := make([]WeightedVoteOption, len(v.Options))
 		for j, opt := range v.Options {
 			options[j] = WeightedVoteOption{
-				Option: uint8(opt.Option), //nolint:gosec // G115
+				Option: uint8(opt.Option),
 				Weight: opt.Weight,
 			}
 		}
@@ -441,7 +441,7 @@ func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) (*VoteOutput, e
 	options := make([]WeightedVoteOption, len(res.Vote.Options))
 	for j, opt := range res.Vote.Options {
 		options[j] = WeightedVoteOption{
-			Option: uint8(opt.Option), //nolint:gosec // G115
+			Option: uint8(opt.Option),
 			Weight: opt.Weight,
 		}
 	}
@@ -649,7 +649,7 @@ func ParseProposalsArgs(method *abi.Method, args []interface{}, addrCdc address.
 	}
 
 	return &govv1.QueryProposalsRequest{
-		ProposalStatus: govv1.ProposalStatus(input.ProposalStatus), //nolint:gosec // G115
+		ProposalStatus: govv1.ProposalStatus(input.ProposalStatus),
 		Voter:          voter,
 		Depositor:      depositor,
 		Pagination:     &input.Pagination,
@@ -678,15 +678,15 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) (*Propo
 	po.Proposal = ProposalData{
 		Id:       res.Proposal.Id,
 		Messages: msgs,
-		Status:   uint32(res.Proposal.Status), //nolint:gosec // G115
+		Status:   uint32(res.Proposal.Status),
 		FinalTallyResult: TallyResultData{
 			Yes:        res.Proposal.FinalTallyResult.YesCount,
 			Abstain:    res.Proposal.FinalTallyResult.AbstainCount,
 			No:         res.Proposal.FinalTallyResult.NoCount,
 			NoWithVeto: res.Proposal.FinalTallyResult.NoWithVetoCount,
 		},
-		SubmitTime:     uint64(res.Proposal.SubmitTime.Unix()),     //nolint:gosec // G115
-		DepositEndTime: uint64(res.Proposal.DepositEndTime.Unix()), //nolint:gosec // G115
+		SubmitTime:     uint64(res.Proposal.SubmitTime.Unix()),
+		DepositEndTime: uint64(res.Proposal.DepositEndTime.Unix()),
 		TotalDeposit:   coins,
 		Metadata:       res.Proposal.Metadata,
 		Title:          res.Proposal.Title,
@@ -695,10 +695,10 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) (*Propo
 	}
 	// The following fields are nil when proposal is in deposit period
 	if res.Proposal.VotingStartTime != nil {
-		po.Proposal.VotingStartTime = uint64(res.Proposal.VotingStartTime.Unix()) //nolint:gosec // G115
+		po.Proposal.VotingStartTime = uint64(res.Proposal.VotingStartTime.Unix())
 	}
 	if res.Proposal.VotingEndTime != nil {
-		po.Proposal.VotingEndTime = uint64(res.Proposal.VotingEndTime.Unix()) //nolint:gosec // G115
+		po.Proposal.VotingEndTime = uint64(res.Proposal.VotingEndTime.Unix())
 	}
 	return po, nil
 }
@@ -727,15 +727,15 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) (*Pro
 		proposalData := ProposalData{
 			Id:       p.Id,
 			Messages: msgs,
-			Status:   uint32(p.Status), //nolint:gosec // G115
+			Status:   uint32(p.Status),
 			FinalTallyResult: TallyResultData{
 				Yes:        p.FinalTallyResult.YesCount,
 				Abstain:    p.FinalTallyResult.AbstainCount,
 				No:         p.FinalTallyResult.NoCount,
 				NoWithVeto: p.FinalTallyResult.NoWithVetoCount,
 			},
-			SubmitTime:     uint64(p.SubmitTime.Unix()),     //nolint:gosec // G115
-			DepositEndTime: uint64(p.DepositEndTime.Unix()), //nolint:gosec // G115
+			SubmitTime:     uint64(p.SubmitTime.Unix()),
+			DepositEndTime: uint64(p.DepositEndTime.Unix()),
 			TotalDeposit:   coins,
 			Metadata:       p.Metadata,
 			Title:          p.Title,
@@ -745,10 +745,10 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) (*Pro
 
 		// The following fields are nil when proposal is in deposit period
 		if p.VotingStartTime != nil {
-			proposalData.VotingStartTime = uint64(p.VotingStartTime.Unix()) //nolint:gosec // G115
+			proposalData.VotingStartTime = uint64(p.VotingStartTime.Unix())
 		}
 		if p.VotingEndTime != nil {
-			proposalData.VotingEndTime = uint64(p.VotingEndTime.Unix()) //nolint:gosec // G115
+			proposalData.VotingEndTime = uint64(p.VotingEndTime.Unix())
 		}
 
 		po.Proposals[i] = proposalData

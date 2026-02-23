@@ -66,14 +66,14 @@ func StateKey(address common.Address, key []byte) []byte {
 func ObjectGasUsedKey(txIndex int) []byte {
 	var key [1 + 8]byte
 	key[0] = prefixObjectGasUsed
-	binary.BigEndian.PutUint64(key[1:], uint64(txIndex)) //nolint:gosec
+	binary.BigEndian.PutUint64(key[1:], uint64(txIndex))
 	return key[:]
 }
 
 func ObjectBloomKey(txIndex, msgIndex int) []byte {
 	var key [1 + 8 + 8]byte
 	key[0] = prefixObjectBloom
-	binary.BigEndian.PutUint64(key[1:], uint64(txIndex))  //nolint:gosec
-	binary.BigEndian.PutUint64(key[9:], uint64(msgIndex)) //nolint:gosec
+	binary.BigEndian.PutUint64(key[1:], uint64(txIndex))
+	binary.BigEndian.PutUint64(key[9:], uint64(msgIndex))
 	return key[:]
 }

@@ -19,7 +19,7 @@ func (tx EthereumTx) Size() int {
 	if tx.Transaction == nil {
 		return 0
 	}
-	return int(tx.Transaction.Size()) //nolint:gosec
+	return int(tx.Transaction.Size())
 }
 
 func (tx EthereumTx) MarshalTo(dst []byte) (int, error) {

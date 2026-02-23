@@ -172,7 +172,7 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 			_, err = s.factory.ExecuteEthTx(sender.Priv, evmtypes.EvmTxArgs{
 				To:       &burnerAddr,
 				Amount:   senderBal.BigInt(),
-				GasLimit: uint64(defaultEVMCoinTransferGasLimit), //nolint:gosec // G115
+				GasLimit: uint64(defaultEVMCoinTransferGasLimit),
 				GasPrice: gasPrice.BigInt(),
 			})
 			s.Require().NoError(err)
@@ -182,7 +182,7 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 			_, err = s.factory.ExecuteEthTx(recipient.Priv, evmtypes.EvmTxArgs{
 				To:       &burnerAddr,
 				Amount:   recipientBal.BigInt(),
-				GasLimit: uint64(defaultEVMCoinTransferGasLimit), //nolint:gosec // G115
+				GasLimit: uint64(defaultEVMCoinTransferGasLimit),
 				GasPrice: gasPrice.BigInt(),
 			})
 			s.Require().NoError(err)
@@ -210,7 +210,7 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 				txRes, _ := s.factory.ExecuteEthTx(sender.Priv, evmtypes.EvmTxArgs{
 					To:       &recipient.Addr,
 					Amount:   randAmount.BigInt(),
-					GasLimit: uint64(gasLimit), //nolint:gosec // G115
+					GasLimit: uint64(gasLimit),
 					GasPrice: gasPrice.BigInt(),
 				})
 				err = s.network.NextBlock()

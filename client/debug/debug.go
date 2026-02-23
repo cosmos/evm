@@ -189,7 +189,7 @@ func LegacyEIP712Cmd() *cobra.Command {
 				return errors.Wrap(err, "parse evm-chain-id")
 			}
 
-			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, uint64(evmChainID), stdTx.GetMsgs()[0], txBytes, nil) //nolint:gosec // G115 // overflow not a concern
+			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, uint64(evmChainID), stdTx.GetMsgs()[0], txBytes, nil)
 			if err != nil {
 				return errors.Wrap(err, "wrap tx to typed data")
 			}

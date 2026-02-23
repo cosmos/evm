@@ -268,7 +268,6 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 
 // GetTransactionByBlockHashAndIndex returns the transaction identified by hash and index.
 func (b *Backend) GetTransactionByBlockHashAndIndex(ctx context.Context, hash common.Hash, idx hexutil.Uint) (result *rpctypes.RPCTransaction, err error) {
-	//nolint:gosec // unlikely
 	ctx, span := tracer.Start(ctx, "GetTransactionByBlockHashAndIndex", trace.WithAttributes(attribute.String("hash", hash.Hex()), attribute.Int64("idx", int64(idx))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
@@ -294,7 +293,6 @@ func (b *Backend) GetTransactionByBlockHashAndIndex(ctx context.Context, hash co
 
 // GetTransactionByBlockNumberAndIndex returns the transaction identified by number and index.
 func (b *Backend) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNum rpctypes.BlockNumber, idx hexutil.Uint) (result *rpctypes.RPCTransaction, err error) {
-	//nolint:gosec // unlikely
 	ctx, span := tracer.Start(ctx, "GetTransactionByBlockNumberAndIndex", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64()), attribute.Int64("idx", int64(idx))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
@@ -338,7 +336,6 @@ func (b *Backend) GetTxByEthHash(ctx context.Context, hash common.Hash) (result 
 
 // GetTxByTxIndex uses `/tx_query` to find transaction by tx index of valid ethereum txs
 func (b *Backend) GetTxByTxIndex(ctx context.Context, height int64, index uint) (result *servertypes.TxResult, err error) {
-	//nolint:gosec // unlikely
 	ctx, span := tracer.Start(ctx, "GetTxByTxIndex", trace.WithAttributes(attribute.Int64("height", height), attribute.Int64("index", int64(index))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
@@ -392,7 +389,6 @@ func (b *Backend) QueryCometTxIndexer(ctx context.Context, query string, txGette
 
 // GetTransactionByBlockAndIndex is the common code shared by `GetTransactionByBlockNumberAndIndex` and `GetTransactionByBlockHashAndIndex`.
 func (b *Backend) GetTransactionByBlockAndIndex(ctx context.Context, block *cmtrpctypes.ResultBlock, idx hexutil.Uint) (result *rpctypes.RPCTransaction, err error) {
-	//nolint:gosec // unlikely
 	ctx, span := tracer.Start(ctx, "GetTransactionByBlockAndIndex", trace.WithAttributes(attribute.Int64("blockHeight", block.Block.Height), attribute.Int64("idx", int64(idx))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 

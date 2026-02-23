@@ -166,7 +166,7 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "SetAccount", trace.WithAttributes(
 		attribute.String("address", addr.Hex()),
-		attribute.Int64("nonce", int64(account.Nonce)), //nolint:gosec // G115
+		attribute.Int64("nonce", int64(account.Nonce)),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// update account

@@ -260,7 +260,7 @@ func TestNewMsgVote(t *testing.T) {
 				require.Equal(t, voterAddr, returnAddr)
 				require.Equal(t, tt.wantVoter, msg.Voter)
 				require.Equal(t, tt.wantProposalID, msg.ProposalId)
-				require.Equal(t, tt.wantOption, uint8(msg.Option)) //nolint:gosec // doesn't matter here
+				require.Equal(t, tt.wantOption, uint8(msg.Option))
 				require.Equal(t, tt.wantMetadata, msg.Metadata)
 			}
 		})

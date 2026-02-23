@@ -289,7 +289,7 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeCreateValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
+				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight()))
 
 				// Check the fully unpacked event matches the one emitted
 				var createValidatorEvent staking.EventCreateValidator
@@ -599,7 +599,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
+				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight()))
 
 				// Check the fully unpacked event matches the one emitted
 				var editValidatorEvent staking.EventEditValidator
@@ -637,7 +637,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
+				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight()))
 
 				// Check the fully unpacked event matches the one emitted
 				var editValidatorEvent staking.EventEditValidator
@@ -673,7 +673,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
+				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight()))
 
 				// Check the fully unpacked event matches the one emitted
 				var editValidatorEvent staking.EventEditValidator
@@ -854,7 +854,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeDelegate]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
+				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight()))
 			},
 			false,
 			"",

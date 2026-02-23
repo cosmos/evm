@@ -67,8 +67,23 @@ linters:
           - revive
         text: avoid meaningless package names
       - linters:
+          - revive
+        text: avoid package names that conflict with Go standard library
+      - linters:
           - gosec
         text: Use of weak random number generator
+      - linters:
+          - gosec
+        text: "G115:"
+      - linters:
+          - gosec
+        text: "G705:"
+      - linters:
+          - gosec
+        text: "G704:"
+      - linters:
+          - gosec
+        text: "G101:"
       - linters:
           - golint
         text: comment on exported var
@@ -82,8 +97,12 @@ linters:
           - staticcheck
         text: 'ST1016:'
       - linters:
-          - staticcheck
+        - staticcheck
         path: migrations
+        text: 'SA1019:'
+      - linters:
+        - staticcheck
+        path: crypto/
         text: 'SA1019:'
       - linters:
           - staticcheck

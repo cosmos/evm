@@ -406,7 +406,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	ctx, span := ctx.StartSpan(tracer, "ApplyMessageWithConfig", trace.WithAttributes(
 		attribute.String("hash", txConfig.TxHash.String()),
-		attribute.Int("tx_index", int(txConfig.TxIndex)), //nolint:gosec // G115
+		attribute.Int("tx_index", int(txConfig.TxIndex)),
 		attribute.Bool("commit", commit),
 		attribute.Bool("internal", internal),
 	))
@@ -612,7 +612,7 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "applyAuthorization", trace.WithAttributes(
 		attribute.String("delegate_address", auth.Address.Hex()),
-		attribute.Int64("nonce", int64(auth.Nonce)), //nolint:gosec // G115
+		attribute.Int64("nonce", int64(auth.Nonce)),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	authority, err := k.validateAuthorization(ctx, auth, state, chainID)
@@ -644,7 +644,7 @@ func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAutho
 func (k *Keeper) validateAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
 	_, span := ctx.StartSpan(tracer, "validateAuthorization", trace.WithAttributes(
 		attribute.String("delegate_address", auth.Address.Hex()),
-		attribute.Int64("nonce", int64(auth.Nonce)), //nolint:gosec // G115
+		attribute.Int64("nonce", int64(auth.Nonce)),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// Verify chain ID is null or equal to current chain ID.

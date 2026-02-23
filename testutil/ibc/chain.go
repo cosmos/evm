@@ -1,4 +1,3 @@
-//nolint:gosec // Reason: G115 warnings are safe in test context
 package ibctesting
 
 import (

@@ -465,7 +465,7 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
 	if acct != nil && k.IsContract(ctx, ethparams.HistoryStorageAddress) {
 		// set current block hash in the contract storage, compatible with EIP-2935
-		ringIndex := uint64(ctx.BlockHeight()) % window //nolint:gosec // G115 // won't exceed uint64
+		ringIndex := uint64(ctx.BlockHeight()) % window
 		var key common.Hash
 		binary.BigEndian.PutUint64(key[24:], ringIndex)
 		k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
@@ -475,7 +475,7 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 // GetHeaderHash sets block hash into EIP-2935 compatible storage contract.
 func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
 	ctx, span := ctx.StartSpan(tracer, "GetHeaderHash", trace.WithAttributes(
-		attribute.Int64("height", int64(height)), //nolint:gosec // G115
+		attribute.Int64("height", int64(height)),
 	))
 	defer span.End()
 	window := uint64(types.DefaultHistoryServeWindow)

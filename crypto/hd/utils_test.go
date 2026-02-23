@@ -135,7 +135,7 @@ func (w *Wallet) derivePrivateKey(path accounts.DerivationPath) (*ecdsa.PrivateK
 		if w.fixIssue172 && key.IsAffectedByIssue172() {
 			key, err = key.Derive(n)
 		} else {
-			key, err = key.DeriveNonStandard(n) //nolint:staticcheck // SA1019 this is used for testing only
+			key, err = key.DeriveNonStandard(n)
 		}
 		if err != nil {
 			return nil, err

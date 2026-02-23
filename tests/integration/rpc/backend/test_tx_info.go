@@ -46,7 +46,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 		},
 	}
 
-	blockTime := uint64(block.Time.UTC().Unix()) //nolint:gosec // G115
+	blockTime := uint64(block.Time.UTC().Unix())
 	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, blockTime, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
@@ -299,7 +299,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 		},
 	}
 
-	blockTime := uint64(defaultBlock.Time.UTC().Unix()) //nolint:gosec // G115
+	blockTime := uint64(defaultBlock.Time.UTC().Unix())
 	txFromMsg := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
@@ -395,7 +395,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 	msgEthTx, bz := s.buildEthereumTx()
 	defaultBlock := types.MakeBlock(1, []types.Tx{bz}, nil, nil)
-	blockTime := uint64(defaultBlock.Time.UTC().Unix()) //nolint:gosec // G115
+	blockTime := uint64(defaultBlock.Time.UTC().Unix())
 	txFromMsg := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
@@ -688,7 +688,7 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 			res, err := s.backend.GetTransactionReceipt(s.Ctx(), tc.tx.Hash())
 			if tc.expPass {
 				s.Require().Equal(res["transactionHash"], tc.tx.Hash())
-				s.Require().Equal(res["blockNumber"], hexutil.Uint64(tc.block.Height)) //nolint: gosec // G115
+				s.Require().Equal(res["blockNumber"], hexutil.Uint64(tc.block.Height))
 				requiredFields := []string{"status", "cumulativeGasUsed", "logsBloom", "logs", "gasUsed", "blockHash", "blockNumber", "transactionIndex", "effectiveGasPrice", "from", "to", "type"}
 				for _, field := range requiredFields {
 					s.Require().NotNil(res[field], "field was empty %s", field)

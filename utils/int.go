@@ -51,5 +51,5 @@ func SafeHexToInt64(value hexutil.Uint64) (int64, error) {
 		return 0, fmt.Errorf("hexutil.Uint64 value %v cannot exceed %v", value, math.MaxInt64)
 	}
 
-	return int64(value), nil //nolint:gosec // checked
+	return int64(value), nil
 }

@@ -70,7 +70,7 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		txHash = common.BytesToHash(header.DataHash)
 	}
 
-	time := uint64(header.Time.UTC().Unix()) //nolint:gosec // G115 // won't exceed uint64
+	time := uint64(header.Time.UTC().Unix())
 	return &ethtypes.Header{
 		ParentHash:  common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		UncleHash:   ethtypes.EmptyUncleHash,
@@ -140,9 +140,9 @@ func MakeHeader(
 		ParentHash: common.BytesToHash(cmtHeader.LastBlockID.Hash.Bytes()),
 		Coinbase:   validatorAddr,
 		Difficulty: big.NewInt(0),
-		GasLimit:   uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
+		GasLimit:   uint64(gasLimit),
 		Number:     big.NewInt(cmtHeader.Height),
-		Time:       uint64(cmtHeader.Time.UTC().Unix()), //nolint:gosec // G115 // timestamp won't exceed uint64
+		Time:       uint64(cmtHeader.Time.UTC().Unix()),
 	}
 
 	if evmtypes.GetEthChainConfig().IsLondon(header.Number) {
@@ -220,14 +220,14 @@ func NewRPCTransaction(
 
 	case ethtypes.AccessListTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec // G115
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
 
 	case ethtypes.DynamicFeeTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec // G115
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
@@ -247,7 +247,7 @@ func NewRPCTransaction(
 
 	case ethtypes.BlobTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
@@ -264,7 +264,7 @@ func NewRPCTransaction(
 
 	case ethtypes.SetCodeTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
@@ -404,7 +404,7 @@ func RPCMarshalHeader(head *ethtypes.Header, blockHash []byte) map[string]interf
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
-		"gasUsed":          (*hexutil.Big)(big.NewInt(int64(head.GasUsed))), //nolint:gosec // G115
+		"gasUsed":          (*hexutil.Big)(big.NewInt(int64(head.GasUsed))),
 		"timestamp":        hexutil.Uint64(head.Time),
 		"transactionsRoot": head.TxHash,
 		"receiptsRoot":     head.ReceiptHash,
@@ -447,7 +447,7 @@ func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmtrpccore.ResultBlock, ms
 		}
 		if fullTx {
 			formatTx = func(idx int, _ *ethtypes.Transaction) interface{} {
-				txIdx := uint64(idx) //nolint:gosec // G115
+				txIdx := uint64(idx)
 				return newRPCTransactionFromBlockIndex(block, common.BytesToHash(blockHash), txIdx, config)
 			}
 		}

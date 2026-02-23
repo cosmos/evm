@@ -827,11 +827,11 @@ func FuzzSendCoins(f *testing.F) {
 		recipient := sdk.AccAddress([]byte{2})
 
 		// Initial balances
-		suite.MintToAccount(sender, cs(c(types.ExtendedCoinDenom(), int64(startBalSender))))      //nolint:gosec // G115
-		suite.MintToAccount(recipient, cs(c(types.ExtendedCoinDenom(), int64(startBalReceiver)))) //nolint:gosec // G115
+		suite.MintToAccount(sender, cs(c(types.ExtendedCoinDenom(), int64(startBalSender))))
+		suite.MintToAccount(recipient, cs(c(types.ExtendedCoinDenom(), int64(startBalReceiver))))
 
 		// Send amount
-		sendCoins := cs(c(types.ExtendedCoinDenom(), int64(sendAmount))) //nolint:gosec // G115
+		sendCoins := cs(c(types.ExtendedCoinDenom(), int64(sendAmount)))
 		err := suite.network.App.GetPreciseBankKeeper().SendCoins(suite.network.GetContext(), sender, recipient, sendCoins)
 		if startBalSender < sendAmount {
 			suite.Require().Error(err, "expected insufficient funds error")
