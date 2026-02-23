@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -639,8 +640,24 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
 func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+	var (
+		evmIterator    *miner.TransactionsByPriceAndNonce
+		cosmosIterator sdkmempool.Iterator
+		wg             sync.WaitGroup
+	)
+
 	selectHeight := new(big.Int).SetInt64(sdk.UnwrapSDKContext(ctx).BlockHeight() - 1)
-	return m.evmIterator(ctx, selectHeight), m.cosmosIterator(ctx, selectHeight)
+	wg.Go(func() {
+		evmIterator = m.evmIterator(ctx, selectHeight)
+	})
+
+	wg.Go(func() {
+		cosmosIterator = m.cosmosIterator(ctx, selectHeight)
+	})
+
+	wg.Wait()
+
+	return evmIterator, cosmosIterator
 }
 
 // evmIterator returns an iterator over the current valid txs in the evm
