@@ -88,8 +88,6 @@ const (
 	// DefaultFilterCleanupInterval defines how often expired filters are cleaned up.
 	DefaultFilterCleanupInterval = 30 * time.Second
 
-	// DefaultFilterRequireAuth controls whether filter methods require authenticated RPC access.
-	DefaultFilterRequireAuth = false
 	// DefaultFeeHistoryCap is the default cap for total number of blocks that can be fetched
 	DefaultFeeHistoryCap int32 = 100
 
@@ -247,8 +245,6 @@ type JSONRPCConfig struct {
 	FilterTimeout time.Duration `mapstructure:"filter-timeout"`
 	// FilterCleanupInterval defines how often expired filters are cleaned up.
 	FilterCleanupInterval time.Duration `mapstructure:"filter-cleanup-interval"`
-	// FilterRequireAuth defines if filter methods require authenticated RPC access.
-	FilterRequireAuth bool `mapstructure:"filter-require-auth"`
 	// FeeHistoryCap is the global cap for total number of blocks that can be fetched
 	FeeHistoryCap int32 `mapstructure:"feehistory-cap"`
 	// Enable defines if the EVM RPC server should be enabled.
@@ -349,7 +345,6 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		FilterClientCap:       DefaultFilterClientCap,
 		FilterTimeout:         DefaultFilterTimeout,
 		FilterCleanupInterval: DefaultFilterCleanupInterval,
-		FilterRequireAuth:     DefaultFilterRequireAuth,
 		FeeHistoryCap:         DefaultFeeHistoryCap,
 		BlockRangeCap:         DefaultBlockRangeCap,
 		LogsCap:               DefaultLogsCap,

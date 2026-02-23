@@ -21,7 +21,6 @@ func TestDefaultConfig(t *testing.T) {
 	require.Equal(t, serverconfig.DefaultFilterClientCap, cfg.JSONRPC.FilterClientCap)
 	require.Equal(t, serverconfig.DefaultFilterTimeout, cfg.JSONRPC.FilterTimeout)
 	require.Equal(t, serverconfig.DefaultFilterCleanupInterval, cfg.JSONRPC.FilterCleanupInterval)
-	require.Equal(t, serverconfig.DefaultFilterRequireAuth, cfg.JSONRPC.FilterRequireAuth)
 }
 
 func TestJSONRPCConfigValidate_FilterProtectionFields(t *testing.T) {

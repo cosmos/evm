@@ -64,7 +64,6 @@ func init() {
 			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
-			requireAuthForFilters := evmBackend.GetConfig().JSONRPC.FilterRequireAuth
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -73,11 +72,10 @@ func init() {
 					Public:    true,
 				},
 				{
-					Namespace:     EthNamespace,
-					Version:       apiVersion,
-					Service:       filters.NewPublicAPI(ctx.Logger, clientCtx, stream, evmBackend),
-					Public:        true,
-					Authenticated: requireAuthForFilters,
+					Namespace: EthNamespace,
+					Version:   apiVersion,
+					Service:   filters.NewPublicAPI(ctx.Logger, clientCtx, stream, evmBackend),
+					Public:    true,
 				},
 			}
 		},

@@ -99,9 +99,6 @@ filter-timeout = "{{ .JSONRPC.FilterTimeout }}"
 # FilterCleanupInterval defines how often expired filters are cleaned up.
 filter-cleanup-interval = "{{ .JSONRPC.FilterCleanupInterval }}"
 
-# FilterRequireAuth requires authenticated RPC access for filter methods.
-filter-require-auth = {{ .JSONRPC.FilterRequireAuth }}
-
 # FeeHistoryCap sets the global cap for total number of blocks that can be fetched
 feehistory-cap = {{ .JSONRPC.FeeHistoryCap }}
 
