@@ -29,7 +29,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
@@ -334,7 +333,8 @@ type LegacyPool struct {
 	reserver      reserver.Reserver            // Address reserver to ensure exclusivity across subpools
 	rechecker     Rechecker                    // Checks a tx for validity against the current state
 
-	validPendingTxs *heightsync.HeightSync[TxStore] // Per height store of pending txs that have been validated
+	validPendingTxs   *txCollector // Per height collection of pending txs that have been validated
+	onHeightValidated func()       // Callback to signal that all txs have been validated for this height
 
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
@@ -385,23 +385,24 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
-		config:           config,
-		chain:            chain,
-		chainconfig:      chain.Config(),
-		signer:           types.LatestSigner(chain.Config()),
-		pending:          make(map[common.Address]*list),
-		queue:            make(map[common.Address]*list),
-		beats:            make(map[common.Address]time.Time),
-		all:              newLookup(),
-		rechecker:        newNopRechecker(),
-		validPendingTxs:  heightsync.NewHeightSync[TxStore](chain.CurrentBlock().Number, NewTxStore),
-		reqResetCh:       make(chan *txpoolResetRequest),
-		reqPromoteCh:     make(chan *accountSet),
-		reqCancelResetCh: make(chan struct{}),
-		queueTxEventCh:   make(chan *types.Transaction),
-		reorgDoneCh:      make(chan chan struct{}),
-		reorgShutdownCh:  make(chan struct{}),
-		initDoneCh:       make(chan struct{}),
+		config:            config,
+		chain:             chain,
+		chainconfig:       chain.Config(),
+		signer:            types.LatestSigner(chain.Config()),
+		pending:           make(map[common.Address]*list),
+		queue:             make(map[common.Address]*list),
+		beats:             make(map[common.Address]time.Time),
+		all:               newLookup(),
+		rechecker:         newNopRechecker(),
+		validPendingTxs:   newTxCollector(chain.CurrentBlock().Number),
+		onHeightValidated: func() {},
+		reqResetCh:        make(chan *txpoolResetRequest),
+		reqPromoteCh:      make(chan *accountSet),
+		reqCancelResetCh:  make(chan struct{}),
+		queueTxEventCh:    make(chan *types.Transaction),
+		reorgDoneCh:       make(chan chan struct{}),
+		reorgShutdownCh:   make(chan struct{}),
+		initDoneCh:        make(chan struct{}),
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -644,7 +645,7 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
 func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	return pool.validPendingTxs.GetStore(ctx, height).Txs(filter)
+	return pool.validPendingTxs.Collect(ctx, height, filter)
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
@@ -1460,7 +1461,7 @@ func (pool *LegacyPool) runReorg(input reorgInput) {
 			nonces[addr] = highestPending.Nonce() + 1
 		}
 		pool.pendingNonces.setAll(nonces)
-		pool.validPendingTxs.EndCurrentHeight()
+		pool.onHeightValidated()
 	}
 
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
@@ -1518,7 +1519,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
 	pool.rechecker.Update(pool.chain, newHead)
-	pool.validPendingTxs.StartNewHeight(newHead.Number)
+	pool.onHeightValidated = pool.validPendingTxs.StartNewHeight(newHead.Number)
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1876,9 +1877,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 				pool.reserver.Release(addr)
 			}
 		} else {
-			pool.validPendingTxs.Do(func(store *TxStore) {
-				store.AddTxs(addr, list.Flatten())
-			})
+			pool.validPendingTxs.AddList(addr, list)
 		}
 	}
 }
@@ -2159,9 +2158,7 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // includes the tx in the next valid pending txs set, i.e. to be included in
 // the next block, if selected by the application.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
-	pool.validPendingTxs.Do(func(store *TxStore) {
-		store.AddTx(addr, tx)
-	})
+	pool.validPendingTxs.AddTx(addr, tx)
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}
@@ -2183,9 +2180,7 @@ func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction
 	if p == Pending {
 		defer func(t0 time.Time) { pendingRemoveCBTimer.UpdateSince(t0) }(time.Now())
 
-		pool.validPendingTxs.Do(func(store *TxStore) {
-			store.RemoveTx(addr, tx)
-		})
+		pool.validPendingTxs.RemoveTx(addr, tx)
 	}
 	if pool.OnTxRemoved != nil {
 		pool.OnTxRemoved(tx, p)
