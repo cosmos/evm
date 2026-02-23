@@ -136,7 +136,7 @@ func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 		return err
 	}
 	if err := m.reserver.Hold(addrs...); err != nil {
-		return fmt.Errorf("reserving %d addresses for cosmos recheck pool: %w", len(addrs), err)
+		return err
 	}
 
 	m.mu.Lock()
@@ -160,19 +160,6 @@ func (m *RecheckMempool) Remove(tx sdk.Tx) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.removeLocked(tx)
-}
-
-// RemoveWithReason removes a transaction from the pool. This must be
-// explicitly defined to prevent Go from promoting the embedded ExtMempool's
-// RemoveWithReason, which would bypass the reserver release logic.
-func (m *RecheckMempool) RemoveWithReason(_ context.Context, tx sdk.Tx, _ sdkmempool.RemoveReason) error {
-	return m.Remove(tx)
-}
-
-// removeLocked removes a tx from the underlying pool and releases the
-// reserver. Caller must hold m.mu.
-func (m *RecheckMempool) removeLocked(tx sdk.Tx) error {
 	if err := m.ExtMempool.Remove(tx); err != nil {
 		return err
 	}
