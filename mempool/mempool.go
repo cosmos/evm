@@ -230,26 +230,34 @@ func NewExperimentalEVMMempool(
 
 	// Create insert queues for evm and cosmos txs
 
-	evmQueue := queue.New[ethtypes.Transaction](func(txs []*ethtypes.Transaction) []error {
-		return txPool.Add(txs, false)
-	}, config.InsertQueueSize, logger)
+	evmQueue := queue.New(
+		func(txs []*ethtypes.Transaction) []error {
+			return txPool.Add(txs, false)
+		},
+		config.InsertQueueSize,
+		logger,
+	)
 	evmMempool.evmQueue = evmQueue
 
-	cosmosQueue := queue.New[sdk.Tx](func(txs []*sdk.Tx) []error {
-		errs := make([]error, len(txs))
-		ctx, err := blockchain.GetLatestContext()
-		if err != nil {
-			for i := range txs {
-				errs[i] = err
+	cosmosQueue := queue.New(
+		func(txs []*sdk.Tx) []error {
+			errs := make([]error, len(txs))
+			ctx, err := blockchain.GetLatestContext()
+			if err != nil {
+				for i := range txs {
+					errs[i] = err
+				}
+				return errs
+			}
+
+			for i, tx := range txs {
+				errs[i] = evmMempool.insertCosmosTx(ctx, *tx)
 			}
 			return errs
-		}
-
-		for i, tx := range txs {
-			errs[i] = evmMempool.insertCosmosTx(ctx, *tx)
-		}
-		return errs
-	}, config.InsertQueueSize, logger)
+		},
+		config.InsertQueueSize,
+		logger,
+	)
 	evmMempool.cosmosQueue = cosmosQueue
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
