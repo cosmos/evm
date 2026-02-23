@@ -59,7 +59,7 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		calldata  []byte
+		calldata       []byte
 		expClientState []byte
 		expErr         bool
 	)
@@ -238,8 +238,8 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 
 				misbehaviour := &ibctm.Misbehaviour{
 					ClientId: clientID,
-					Header1: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
-					Header2: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header1:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header2:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
 				}
 
 				anyMisbehavior, err := clienttypes.PackClientMessage(misbehaviour)
@@ -897,21 +897,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 	}
 }
 
-func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
+func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreezeAttack() {
 	clientID := ibctesting.FirstClientID
 	evmAppA := s.chainA.App.(*evmd.EVMD)
 
 	// ---------------------------------------------------------------
-	// Step 1: Verify the client is Active before the attack
-	// ---------------------------------------------------------------
-	status := evmAppA.IBCKeeper.ClientKeeper.GetClientStatus(
-		s.chainA.GetContext(), clientID,
-	)
-	s.Require().Equal(ibcexported.Active, status,
-		"precondition: client must be Active before attack")
-
-	// ---------------------------------------------------------------
-	// Step 2: Record the current trusted height (the client's latest
+	// Step 1: Record the current trusted height (the client's latest
 	// consensus state) and the trusted validators at that height.
 	// ---------------------------------------------------------------
 	trustedHeight := evmAppA.IBCKeeper.ClientKeeper.GetClientLatestHeight(
@@ -921,7 +912,7 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
 	s.Require().True(ok, "must have trusted validators at the client's latest height")
 
 	// ---------------------------------------------------------------
-	// Step 3: Create Header 1 at height H (= trustedHeight + 1).
+	// Step 2: Create Header 1 at height H (= trustedHeight + 1).
 	// This is a perfectly legitimate header from chainB, signed by
 	// chainB's current validator set.
 	// ---------------------------------------------------------------
@@ -940,7 +931,7 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
 	)
 
 	// ---------------------------------------------------------------
-	// Step 4: Create Header 2 at height H+1 (higher than Header 1)
+	// Step 3: Create Header 2 at height H+1 (higher than Header 1)
 	// with a later timestamp (normal BFT monotonic time).
 	// Both headers reference the same trustedHeight.
 	// ---------------------------------------------------------------
@@ -959,7 +950,7 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
 	)
 
 	// ---------------------------------------------------------------
-	// Step 5: Build the Misbehaviour with REVERSED ordering.
+	// Step 4: Build the Misbehaviour with REVERSED ordering.
 	//
 	// Header1 = header at height H   (LOWER)
 	// Header2 = header at height H+1 (HIGHER)
@@ -974,15 +965,7 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
 	}
 
 	// ---------------------------------------------------------------
-	// Step 6: Sanity check -- ValidateBasic() SHOULD reject this.
-	// This proves it is NOT real misbehaviour.
-	// ---------------------------------------------------------------
-	err := misbehaviour.ValidateBasic()
-	s.Require().Error(err, "ValidateBasic must reject reversed-height misbehaviour")
-	s.T().Logf("ValidateBasic correctly rejects: %v", err)
-
-	// ---------------------------------------------------------------
-	// Step 7: Serialize the misbehaviour as protobuf Any and marshal
+	// Step 5: Serialize the misbehaviour as protobuf Any and marshal
 	// to bytes, exactly as the precompile will receive it.
 	// ---------------------------------------------------------------
 	anyMisbehaviour, err := clienttypes.PackClientMessage(misbehaviour)
@@ -998,14 +981,14 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
 	s.Require().NoError(err)
 
 	// ---------------------------------------------------------------
-	// Step 8: Submit via an EVM transaction to the ICS02 precompile.
+	// Step 6: Submit via an EVM transaction to the ICS02 precompile.
 	// The precompile deserializes the bytes and calls
 	// keeper.UpdateClient WITHOUT calling ValidateBasic().
 	// ---------------------------------------------------------------
 	senderIdx := 1
 	senderAccount := s.chainA.SenderAccounts[senderIdx]
 
-	_, _, resp, err := s.chainA.SendEvmTx(
+	_, _, _, err = s.chainA.SendEvmTx(
 		senderAccount, senderIdx,
 		s.chainAPrecompile.Address(),
 		big.NewInt(0),
@@ -1014,30 +997,18 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreeze() {
 	)
 
 	// ---------------------------------------------------------------
-	// Step 9: Assert the attack succeeded.
+	// Step 7: Assert the attack failed.
 	// ---------------------------------------------------------------
-	s.Require().NoError(err, "EVM tx must succeed (no revert)")
-
-	// The precompile should return UpdateResultMisbehaviour (1),
-	// indicating it falsely detected misbehaviour.
-	out, err := s.chainAPrecompile.Unpack(ics02.UpdateClientMethod, resp.Ret)
-	s.Require().NoError(err)
-	result, ok := out[0].(uint8)
-	s.Require().True(ok)
-	s.Require().Equal(ics02.UpdateResultMisbehaviour, result,
-		"precompile must return Misbehaviour result (false positive)")
+	s.Require().Error(err, "ValidateBasic error should be returned by precompile")
 
 	// ---------------------------------------------------------------
-	// Step 10: Assert the client is now Frozen.
+	// Step 8: Assert the client is still active (not frozen).
 	// ---------------------------------------------------------------
-	status = evmAppA.IBCKeeper.ClientKeeper.GetClientStatus(
+	status := evmAppA.IBCKeeper.ClientKeeper.GetClientStatus(
 		s.chainA.GetContext(), clientID,
 	)
-	s.Require().Equal(ibcexported.Frozen, status,
-		"client must be Frozen after the attack")
-
-	s.T().Log("SUCCESS: IBC client was frozen using two legitimate (non-misbehaving) headers")
-	s.T().Log("Root cause: missing ValidateBasic() in precompiles/ics02/tx.go")
+	s.Require().Equal(ibcexported.Active, status,
+		"client must be active after the failed attack")
 }
 
 func TestICS02ClientTestSuite(t *testing.T) {
