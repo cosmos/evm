@@ -103,6 +103,8 @@ build: go.sum $(BUILDDIR)/
 
 # Cross-compile for Linux AMD64
 build-linux:
+	CC="zig cc -target x86_64-linux-gnu" \
+	CXX="zig c++ -target x86_64-linux-gnu" \
 	GOOS=linux GOARCH=amd64 $(MAKE) build
 
 # Install into $(BINDIR)
