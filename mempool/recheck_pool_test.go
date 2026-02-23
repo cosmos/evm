@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/reserver"
 
 	"cosmossdk.io/log"
@@ -98,7 +100,7 @@ func TestRecheckMempool_Insert(t *testing.T) {
 			ctx := newRecheckTestContext()
 			getCtx := func() (sdk.Context, error) { return ctx, nil }
 
-			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, getCtx)
+			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, newTestRecheckedTxs(), getCtx)
 
 			tx := newRecheckTestTx(t, acc.key)
 			err := mp.Insert(ctx, tx)
@@ -153,7 +155,7 @@ func TestRecheckMempool_Remove(t *testing.T) {
 			ctx := newRecheckTestContext()
 			getCtx := func() (sdk.Context, error) { return ctx, nil }
 
-			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
+			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), getCtx)
 
 			tx := newRecheckTestTx(t, acc.key)
 			require.NoError(t, mp.Insert(ctx, tx))
@@ -192,7 +194,7 @@ func TestRecheckMempool_StartClose(t *testing.T) {
 	ctx := newRecheckTestContext()
 	getCtx := func() (sdk.Context, error) { return ctx, nil }
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), getCtx)
 
 	mp.Start()
 
@@ -216,7 +218,7 @@ func TestRecheckMempool_CloseIdempotent(t *testing.T) {
 	ctx := newRecheckTestContext()
 	getCtx := func() (sdk.Context, error) { return ctx, nil }
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), getCtx)
 	mp.Start()
 
 	require.NoError(t, mp.Close())
@@ -230,11 +232,11 @@ func TestRecheckMempool_TriggerRecheckAfterShutdown(t *testing.T) {
 	ctx := newRecheckTestContext()
 	getCtx := func() (sdk.Context, error) { return ctx, nil }
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), getCtx)
 	mp.Start()
 	require.NoError(t, mp.Close())
 
-	done := mp.TriggerRecheck()
+	done := mp.TriggerRecheck(big.NewInt(1))
 	select {
 	case <-done:
 		// Expected - returns immediately after shutdown
@@ -270,7 +272,7 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 		return ctx, nil
 	}
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, newTestRecheckedTxs(), getCtx)
 	mp.Start()
 
 	for range numTxsToInsert {
@@ -279,7 +281,7 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 		require.NoError(t, mp.Insert(ctx, tx))
 	}
 
-	recheckDone := mp.TriggerRecheck()
+	recheckDone := mp.TriggerRecheck(big.NewInt(1))
 
 	<-ready            // tx 1 is waiting
 	gate <- struct{}{} // release tx 1
@@ -324,7 +326,7 @@ func TestRecheckMempool_GetCtxError(t *testing.T) {
 	ctxErr := errors.New("context unavailable")
 	getCtx := func() (sdk.Context, error) { return sdk.Context{}, ctxErr }
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), getCtx)
 	mp.Start()
 	defer mp.Close()
 
@@ -333,12 +335,12 @@ func TestRecheckMempool_GetCtxError(t *testing.T) {
 
 	insertCtx := ctx
 	insertGetCtx := func() (sdk.Context, error) { return insertCtx, nil }
-	insertMp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, insertGetCtx)
+	insertMp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), insertGetCtx)
 	require.NoError(t, insertMp.Insert(insertCtx, tx))
 
 	require.Equal(t, 1, mp.CountTx())
 
-	mp.TriggerRecheckSync()
+	mp.TriggerRecheckSync(big.NewInt(1))
 
 	require.Equal(t, 1, mp.CountTx(), "tx should remain when getCtx fails")
 }
@@ -359,7 +361,7 @@ func TestRecheckMempool_RemoveErrorDuringRecheck(t *testing.T) {
 		return ctx, nil
 	}
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, newTestRecheckedTxs(), getCtx)
 	mp.Start()
 	defer mp.Close()
 
@@ -369,7 +371,7 @@ func TestRecheckMempool_RemoveErrorDuringRecheck(t *testing.T) {
 	failOnRecheck = true
 	pool.removeErr = errors.New("remove failed")
 
-	mp.TriggerRecheckSync()
+	mp.TriggerRecheckSync(big.NewInt(1))
 
 	require.Equal(t, 1, mp.CountTx(), "tx remains when remove fails")
 }
@@ -385,7 +387,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 	ctx := newRecheckTestContext()
 	getCtx := func() (sdk.Context, error) { return ctx, nil }
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, getCtx)
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, newTestRecheckedTxs(), getCtx)
 	mp.Start()
 	defer mp.Close()
 
@@ -403,7 +405,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			done := mp.TriggerRecheck()
+			done := mp.TriggerRecheck(big.NewInt(1))
 			select {
 			case <-done:
 				// Expected - recheck completed
@@ -582,12 +584,224 @@ func TestMempool_Recheck(t *testing.T) {
 				failSet[fmt.Sprintf("%x-%d", signerAddr, fail.nonce)] = true
 			}
 
-			mp.RecheckCosmosTxs()
+			mp.RecheckCosmosTxs(big.NewInt(1))
 
 			require.Equal(t, len(tc.expectedRemain), mp.CountTx(),
 				"expected %d txs to remain, got %d", len(tc.expectedRemain), mp.CountTx())
 		})
 	}
+}
+
+// ----------------------------------------------------------------------------
+// Height Sync'd Store Tests
+// ----------------------------------------------------------------------------
+
+func TestRecheckMempool_RecheckedTxs(t *testing.T) {
+	tests := []struct {
+		name          string
+		numTxs        int
+		failTxIndices []int // which tx indices fail the ante handler on recheck
+	}{
+		{
+			name:          "all txs pass",
+			numTxs:        3,
+			failTxIndices: []int{},
+		},
+		{
+			name:          "one tx fails on recheck",
+			numTxs:        3,
+			failTxIndices: []int{1},
+		},
+		{
+			name:          "all txs fail on recheck",
+			numTxs:        3,
+			failTxIndices: []int{0, 1, 2},
+		},
+		{
+			name:          "empty pool",
+			numTxs:        0,
+			failTxIndices: []int{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := reserver.NewReservationTracker()
+			handle := tracker.NewHandle(1)
+			pool := &recheckMockPool{}
+			ctx := newRecheckTestContext()
+			getCtx := func() (sdk.Context, error) { return ctx, nil }
+			recheckedTxs := newTestRecheckedTxs()
+
+			failSet := make(map[sdk.Tx]bool)
+			failOnRecheck := false
+			anteHandler := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
+				if failOnRecheck && failSet[tx] {
+					return sdk.Context{}, errors.New("recheck failed")
+				}
+				return ctx, nil
+			}
+
+			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, recheckedTxs, getCtx)
+			mp.Start()
+			defer mp.Close()
+
+			txs := make([]sdk.Tx, tc.numTxs)
+			for i := range tc.numTxs {
+				key, _ := crypto.GenerateKey()
+				txs[i] = newRecheckTestTx(t, key)
+				require.NoError(t, mp.Insert(ctx, txs[i]))
+			}
+
+			for _, idx := range tc.failTxIndices {
+				failSet[txs[idx]] = true
+			}
+			failOnRecheck = true
+
+			height := big.NewInt(1)
+			mp.TriggerRecheckSync(height)
+
+			expectedCount := tc.numTxs - len(tc.failTxIndices)
+			require.Equal(t, expectedCount, mp.CountTx())
+
+			iter := mp.RecheckedTxs(context.Background(), height)
+			rechecked := collectIteratorTxs(iter)
+			require.Len(t, rechecked, expectedCount)
+
+			for i, tx := range txs {
+				if failSet[tx] {
+					require.NotContains(t, rechecked, tx, "failed tx %d should not be in rechecked store", i)
+				} else {
+					require.Contains(t, rechecked, tx, "passing tx %d should be in rechecked store", i)
+				}
+			}
+		})
+	}
+}
+
+func TestRecheckMempool_RecheckedTxsReset(t *testing.T) {
+	tests := []struct {
+		name                 string
+		numInitialTxs        int
+		removeBetweenHeights []int // indices of txs to remove between height 1 and height 2
+	}{
+		{
+			name:                 "remove one tx between heights",
+			numInitialTxs:        3,
+			removeBetweenHeights: []int{2},
+		},
+		{
+			name:                 "remove all txs between heights",
+			numInitialTxs:        2,
+			removeBetweenHeights: []int{0, 1},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := reserver.NewReservationTracker()
+			handle := tracker.NewHandle(1)
+			pool := &recheckMockPool{}
+			ctx := newRecheckTestContext()
+			getCtx := func() (sdk.Context, error) { return ctx, nil }
+			recheckedTxs := newTestRecheckedTxs()
+
+			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, noopAnteHandler, recheckedTxs, getCtx)
+			mp.Start()
+			defer mp.Close()
+
+			txs := make([]sdk.Tx, tc.numInitialTxs)
+			for i := range tc.numInitialTxs {
+				key, _ := crypto.GenerateKey()
+				txs[i] = newRecheckTestTx(t, key)
+				require.NoError(t, mp.Insert(ctx, txs[i]))
+			}
+
+			// Recheck at height 1 - all txs pass
+			mp.TriggerRecheckSync(big.NewInt(1))
+			iter1 := mp.RecheckedTxs(context.Background(), big.NewInt(1))
+			rechecked1 := collectIteratorTxs(iter1)
+			require.Len(t, rechecked1, tc.numInitialTxs)
+
+			// Remove txs between heights (simulating block inclusion)
+			removed := make(map[int]bool)
+			for _, idx := range tc.removeBetweenHeights {
+				require.NoError(t, mp.Remove(txs[idx]))
+				removed[idx] = true
+			}
+
+			// Recheck at height 2 - store should be fresh
+			mp.TriggerRecheckSync(big.NewInt(2))
+			iter2 := mp.RecheckedTxs(context.Background(), big.NewInt(2))
+			rechecked2 := collectIteratorTxs(iter2)
+			require.Len(t, rechecked2, tc.numInitialTxs-len(tc.removeBetweenHeights))
+
+			for i, tx := range txs {
+				if removed[i] {
+					require.NotContains(t, rechecked2, tx, "removed tx %d should not be in height 2 store", i)
+				} else {
+					require.Contains(t, rechecked2, tx, "tx %d should be in height 2 store", i)
+				}
+			}
+		})
+	}
+}
+
+func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
+	acc := newRecheckTestAccount(t)
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	pool := &recheckMockPool{}
+	ctx := newRecheckTestContext()
+	getCtx := func() (sdk.Context, error) { return ctx, nil }
+	recheckedTxs := newTestRecheckedTxs()
+
+	var callCount atomic.Int32
+	gate := make(chan struct{})
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
+		if callCount.Add(1) > 1 {
+			// Second call is from recheck - block until gate is released
+			<-gate
+		}
+		return ctx, nil
+	}
+
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, anteHandler, recheckedTxs, getCtx)
+	mp.Start()
+	defer mp.Close()
+
+	tx := newRecheckTestTx(t, acc.key)
+	require.NoError(t, mp.Insert(ctx, tx))
+
+	height := big.NewInt(1)
+	recheckDone := mp.TriggerRecheck(height)
+
+	// RecheckedTxs should block because recheck is in progress
+	result := make(chan sdkmempool.Iterator, 1)
+	go func() {
+		result <- mp.RecheckedTxs(context.Background(), height)
+	}()
+
+	select {
+	case <-result:
+		t.Fatal("RecheckedTxs should block until recheck completes")
+	case <-time.After(100 * time.Millisecond):
+		// Expected - still blocking
+	}
+
+	// Release the gate to let recheck complete
+	close(gate)
+
+	select {
+	case iter := <-result:
+		rechecked := collectIteratorTxs(iter)
+		require.Len(t, rechecked, 1, "should have 1 rechecked tx")
+		require.Equal(t, tx, rechecked[0])
+	case <-time.After(2 * time.Second):
+		t.Fatal("RecheckedTxs did not return after recheck completed")
+	}
+
+	<-recheckDone
 }
 
 // newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.
@@ -741,4 +955,25 @@ func newRecheckTestContext() sdk.Context {
 
 func noopAnteHandler(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
 	return ctx, nil
+}
+
+// newTestRecheckedTxs creates a HeightSync[CosmosTxStore] for testing, starting at height 0.
+func newTestRecheckedTxs() *heightsync.HeightSync[mempool.CosmosTxStore] {
+	return heightsync.New(big.NewInt(0), func() *mempool.CosmosTxStore {
+		return mempool.NewCosmosTxStore()
+	})
+}
+
+// collectIteratorTxs drains an sdkmempool.Iterator into a slice.
+func collectIteratorTxs(iter sdkmempool.Iterator) []sdk.Tx {
+	var txs []sdk.Tx
+	for iter != nil {
+		tx := iter.Tx()
+		if tx == nil {
+			break
+		}
+		txs = append(txs, tx)
+		iter = iter.Next()
+	}
+	return txs
 }
