@@ -35,7 +35,7 @@ import (
 var (
 	meter = otel.Meter("github.com/cosmos/evm/mempool")
 
-	_ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+	_ sdkmempool.ExtMempool = (*ExperimentalEVMMempool)(nil)
 )
 
 const (
