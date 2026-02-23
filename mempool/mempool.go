@@ -14,6 +14,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -206,6 +207,7 @@ func NewExperimentalEVMMempool(
 		cosmosPool,
 		tracker.NewHandle(-1),
 		config.AnteHandler,
+		heightsync.New[CosmosTxStore](blockchain.CurrentBlock().Number, func() *CosmosTxStore { return NewCosmosTxStore() }),
 		blockchain.GetLatestContext,
 	)
 
@@ -569,7 +571,7 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		for range sub.Out() {
 			m.GetBlockchain().NotifyNewBlock()
 			// Trigger cosmos pool recheck on new block (non-blocking)
-			m.cosmosPool.TriggerRecheck()
+			m.cosmosPool.TriggerRecheck(m.GetBlockchain().CurrentBlock().Number)
 		}
 	}()
 }
@@ -637,17 +639,18 @@ func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
 func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+	selectHeight := new(big.Int).SetInt64(sdk.UnwrapSDKContext(ctx).BlockHeight() - 1)
+	return m.evmIterator(ctx, selectHeight), m.cosmosIterator(ctx, selectHeight)
+}
+
+// evmIterator returns an iterator over the current valid txs in the evm
+// mempool at height.
+func (m *ExperimentalEVMMempool) evmIterator(ctx context.Context, height *big.Int) *miner.TransactionsByPriceAndNonce {
 	sdkctx := sdk.UnwrapSDKContext(ctx)
 	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)
-	}
-
-	if m.pendingTxProposalTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
-		defer cancel()
 	}
 
 	filter := txpool.PendingFilter{
@@ -657,11 +660,25 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 		OnlyPlainTxs: true,
 		OnlyBlobTxs:  false,
 	}
-	evmPendingTxs := m.txPool.Pending(ctx, new(big.Int).SetInt64(sdkctx.BlockHeight()-1), filter)
-	evmIterator := miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
-	cosmosIterator := m.cosmosPool.Select(ctx, txs)
 
-	return evmIterator, cosmosIterator
+	if m.pendingTxProposalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
+		defer cancel()
+	}
+	evmPendingTxs := m.txPool.Pending(ctx, height, filter)
+	return miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
+}
+
+// cosmosIterator returns an iterator over the current valid txs in the cosmos
+// mempool at height.
+func (m *ExperimentalEVMMempool) cosmosIterator(ctx context.Context, height *big.Int) sdkmempool.Iterator {
+	if m.pendingTxProposalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
+		defer cancel()
+	}
+	return m.cosmosPool.RecheckedTxs(ctx, height)
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.
@@ -671,8 +688,8 @@ func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 
 // RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
 // This is primarily used for testing.
-func (m *ExperimentalEVMMempool) RecheckCosmosTxs() {
-	m.cosmosPool.TriggerRecheckSync()
+func (m *ExperimentalEVMMempool) RecheckCosmosTxs(height *big.Int) {
+	m.cosmosPool.TriggerRecheckSync(height)
 }
 
 // StopTrackingTx stops a tx from being tracked for its tx inclusion metrics.

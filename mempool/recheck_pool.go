@@ -3,12 +3,14 @@ package mempool
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/reserver"
 
 	"cosmossdk.io/log"
@@ -74,11 +76,15 @@ type RecheckMempool struct {
 	logger      log.Logger
 
 	// event channels
-	reqRecheckCh    chan struct{}      // channel that schedules rechecking.
-	recheckDoneCh   chan chan struct{} // channel that is returned to recheck callers that signals when a recheck is complete.
-	shutdownCh      chan struct{}      // shutdown channel to gracefully shutdown the recheck loop.
-	shutdownOnce    sync.Once          // ensures shutdown channel is only closed once.
-	recheckShutdown chan struct{}      // closed when scheduleRecheckLoop exits
+	reqRecheckCh    chan *recheckRequest // channel that schedules rechecking.
+	recheckDoneCh   chan chan struct{}   // channel that is returned to recheck callers that signals when a recheck is complete.
+	shutdownCh      chan struct{}        // shutdown channel to gracefully shutdown the recheck loop.
+	shutdownOnce    sync.Once            // ensures shutdown channel is only closed once.
+	recheckShutdown chan struct{}        // closed when scheduleRecheckLoop exits
+
+	// recheckedTxs is a height synced CosmosTxStore, used to collect txs that
+	// have been rechecked at a height, and discard of them once the chain.
+	recheckedTxs *heightsync.HeightSync[CosmosTxStore]
 
 	wg sync.WaitGroup
 }
@@ -89,6 +95,7 @@ func NewRecheckMempool(
 	pool sdkmempool.ExtMempool,
 	reserver *reserver.ReservationHandle,
 	anteHandler sdk.AnteHandler,
+	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
 	getCtx func() (sdk.Context, error),
 ) *RecheckMempool {
 	return &RecheckMempool{
@@ -97,10 +104,11 @@ func NewRecheckMempool(
 		anteHandler:     anteHandler,
 		getCtx:          getCtx,
 		logger:          logger.With(log.ModuleKey, "RecheckMempool"),
-		reqRecheckCh:    make(chan struct{}),
+		reqRecheckCh:    make(chan *recheckRequest),
 		recheckDoneCh:   make(chan chan struct{}),
 		shutdownCh:      make(chan struct{}),
 		recheckShutdown: make(chan struct{}),
+		recheckedTxs:    recheckedTxs,
 	}
 }
 
@@ -179,11 +187,15 @@ func (m *RecheckMempool) CountTx() int {
 	return m.ExtMempool.CountTx()
 }
 
+type recheckRequest struct {
+	newHeight *big.Int
+}
+
 // TriggerRecheck signals that a new block arrived and returns a channel
 // that closes when the recheck completes (or is superseded by another).
-func (m *RecheckMempool) TriggerRecheck() <-chan struct{} {
+func (m *RecheckMempool) TriggerRecheck(newHeight *big.Int) <-chan struct{} {
 	select {
-	case m.reqRecheckCh <- struct{}{}:
+	case m.reqRecheckCh <- &recheckRequest{newHeight: newHeight}:
 		return <-m.recheckDoneCh
 	case <-m.recheckShutdown:
 		ch := make(chan struct{})
@@ -193,8 +205,18 @@ func (m *RecheckMempool) TriggerRecheck() <-chan struct{} {
 }
 
 // TriggerRecheckSync triggers a recheck and blocks until complete.
-func (m *RecheckMempool) TriggerRecheckSync() {
-	<-m.TriggerRecheck()
+func (m *RecheckMempool) TriggerRecheckSync(newHeight *big.Int) {
+	<-m.TriggerRecheck(newHeight)
+}
+
+// RecheckedTxs returns the txs that have been rechecked for a height. The
+// RecheckMempool must be currently operating on this height (i.e. recheck has
+// been triggered on this height via TriggerRecheck). If height is in the past
+// (TriggerRecheck has been called on height + 1), this will panic. If height
+// is in the future, this will block until TriggerReset is called for height,
+// or the context times out.
+func (m *RecheckMempool) RecheckedTxs(ctx context.Context, height *big.Int) sdkmempool.Iterator {
+	return m.recheckedTxs.GetStore(ctx, height).Iterator()
 }
 
 // scheduleRecheckLoop is the main event loop that coordinates recheck execution.
@@ -208,24 +230,27 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 		curDone       chan struct{} // non-nil while recheck is running
 		nextDone      = make(chan struct{})
 		launchNextRun bool
+		recheckReq    *recheckRequest
 		cancelCh      chan struct{} // closed to signal cancellation
 	)
 
 	for {
 		if curDone == nil && launchNextRun {
 			cancelCh = make(chan struct{})
-			go m.runRecheck(nextDone, cancelCh)
+			go m.runRecheck(nextDone, recheckReq.newHeight, cancelCh)
 
 			curDone, nextDone = nextDone, make(chan struct{})
 			launchNextRun = false
+			recheckReq = nil
 		}
 
 		select {
-		case <-m.reqRecheckCh:
+		case req := <-m.reqRecheckCh:
 			if curDone != nil && cancelCh != nil {
 				close(cancelCh)
 				cancelCh = nil
 			}
+			recheckReq = req
 			launchNextRun = true
 			m.recheckDoneCh <- nextDone
 
@@ -249,7 +274,7 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 // runRecheck performs the actual recheck work. It holds the write lock for the
 // entire duration, iterates through all txs, runs them through the ante handler,
 // and removes any that fail (plus dependent txs with higher sequences).
-func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{}) {
+func (m *RecheckMempool) runRecheck(done chan struct{}, height *big.Int, cancelled <-chan struct{}) {
 	defer close(done)
 	start := time.Now()
 	txsRemoved := 0
@@ -262,10 +287,15 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 		if txsChecked > 0 {
 			recheckNumChecked.Record(context.Background(), int64(txsChecked))
 		}
+
 	}()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.recheckedTxs.StartNewHeight(height)
+	m.logger.Info("reset recheckpool", "height", height.String())
+	defer m.recheckedTxs.EndCurrentHeight()
 
 	ctx, err := m.getCtx()
 	if err != nil {
@@ -311,6 +341,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 				writeCache()
 				cc = newCtx
 				iter = iter.Next()
+				m.markTxRechecked(txn)
 				continue
 			}
 		}
@@ -343,6 +374,14 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, cancelled <-chan struct{
 		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 	}
 	txsRemoved = len(removeTxs)
+}
+
+// markTxRechecked adds a tx into the height synced cosmos tx store
+func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) {
+		store.AddTx(txn)
+		fmt.Println("added tx to store")
+	})
 }
 
 type signerSequence struct {
