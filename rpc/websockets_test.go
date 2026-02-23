@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/server/config"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client"
 )

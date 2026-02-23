@@ -5,21 +5,20 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/evm/evmd/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/testutil/integration/evm/network"
-	"github.com/cosmos/evm/x/vm/types"
-
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/evmd/config"
+	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/testutil/integration/evm/network"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	"github.com/cosmos/evm/x/vm/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"

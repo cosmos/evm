@@ -11,6 +11,7 @@
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
+- [\#968](https://github.com/cosmos/evm/pull/968) Use normal gas config in ibc transfer to prevent potential DoS attack
 
 ### FEATURES
 
@@ -36,8 +37,12 @@
 - [\#814](https://github.com/cosmos/evm/pull/814) Fix duplicated events in post tx processor.
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
 - [\#828](https://github.com/cosmos/evm/pull/828) Validate decimals before conversion to prevent panic when coininfo is missing in historical queries.
+- [\#905](https://github.com/cosmos/evm/pull/905) Fix EIP-6780 selfdestruct to properly delete contracts at pre-funded addresses by persisting code and account before DeleteAccount's IsContract check.
 - [\#920](https://github.com/cosmos/evm/pull/920) Fix GetCoinbaseAddress to correctly convert validator operator address from Bech32 format to Ethereum address for block.coinbase opcode.
+- [\#705](https://github.com/cosmos/evm/pull/705) Fix dynamic precompiles being disabled when EVM state overrides are used in eth_call.
 - [\#967](https://github.com/cosmos/evm/pull/967) Fix return value of erc20 ibcv2 middleware to properly reflect application success and middleware failure.
+- [\#992](https://github.com/cosmos/evm/pull/992) Respect the provided `gasCap` in `CallEVMWithData` instead of always used the default cap.
+- [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
 
 ## v0.5.0
 
