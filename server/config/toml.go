@@ -90,6 +90,10 @@ txfee-cap = {{ .JSONRPC.TxFeeCap }}
 # FilterCap sets the global cap for total number of filters that can be created
 filter-cap = {{ .JSONRPC.FilterCap }}
 
+# GetProofStorageKeysCap sets the max number of storage keys accepted by eth_getProof.
+# Set to 0 to disable eth_getProof.
+getproof-storage-keys-cap = {{ .JSONRPC.GetProofStorageKeysCap }}
+
 # FeeHistoryCap sets the global cap for total number of blocks that can be fetched
 feehistory-cap = {{ .JSONRPC.FeeHistoryCap }}
 

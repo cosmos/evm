@@ -54,6 +54,14 @@ func (b *Backend) GetProof(ctx context.Context, address common.Address, storageK
 	ctx, span := tracer.Start(ctx, "GetProof", trace.WithAttributes(attribute.String("address", address.String()), attribute.StringSlice("storageKeys", storageKeys), attribute.String("blockNorHash", unwrapBlockNOrHash(blockNrOrHash))))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
+	maxStorageKeys := int(b.Cfg.JSONRPC.GetProofStorageKeysCap)
+	if maxStorageKeys == 0 {
+		return nil, errors.New("eth_getProof is disabled")
+	}
+	if maxStorageKeys > 0 && len(storageKeys) > maxStorageKeys {
+		return nil, fmt.Errorf("too many storage keys requested: got %d max %d", len(storageKeys), maxStorageKeys)
+	}
+
 	blockNum, err := b.BlockNumberFromComet(ctx, blockNrOrHash)
 	if err != nil {
 		return nil, err
