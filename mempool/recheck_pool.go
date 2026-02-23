@@ -304,7 +304,6 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, height *big.Int, cancell
 		if txsChecked > 0 {
 			recheckNumChecked.Record(context.Background(), int64(txsChecked))
 		}
-
 	}()
 
 	m.mu.Lock()
