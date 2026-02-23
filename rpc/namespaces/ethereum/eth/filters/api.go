@@ -3,6 +3,8 @@ package filters
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/rpc/types"
+	evmsrvconfig "github.com/cosmos/evm/server/config"
 	evmtrace "github.com/cosmos/evm/trace"
 
 	"cosmossdk.io/log/v2"
@@ -28,14 +31,15 @@ var (
 	errInvalidBlockRange      = errors.New("invalid block range params")
 	errPendingLogsUnsupported = errors.New("pending logs are not supported")
 
-	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/eth/filters")
+	tracer                    = otel.Tracer("evm/rpc/namespaces/ethereum/eth/filters")
+	errFilterCreationDisabled = errors.New("filter creation is disabled")
 )
 
 // FilterAPI gathers
 type FilterAPI interface {
-	NewPendingTransactionFilter() rpc.ID
-	NewBlockFilter() rpc.ID
-	NewFilter(criteria filters.FilterCriteria) (rpc.ID, error)
+	NewPendingTransactionFilter(ctx context.Context) (rpc.ID, error)
+	NewBlockFilter(ctx context.Context) (rpc.ID, error)
+	NewFilter(ctx context.Context, criteria filters.FilterCriteria) (rpc.ID, error)
 	GetFilterChanges(id rpc.ID) (interface{}, error)
 	GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ethtypes.Log, error)
 	UninstallFilter(id rpc.ID) bool
@@ -63,6 +67,11 @@ type Backend interface {
 // consider a filter inactive if it has not been polled for within deadline
 const defaultDeadline = 5 * time.Minute
 
+const (
+	defaultCleanupInterval = 30 * time.Second
+	defaultClientFilterCap = int32(32)
+)
+
 // filter is a helper struct that holds meta information over the filter type
 // and associated subscription in the event system.
 type filter struct {
@@ -70,6 +79,7 @@ type filter struct {
 	deadline *time.Timer // filter is inactive when deadline triggers
 	crit     filters.FilterCriteria
 	offset   int // offset for stream subscription
+	owner    string
 }
 
 // PublicFilterAPI offers support to create and manage filters. This will allow external clients to retrieve various
@@ -82,6 +92,10 @@ type PublicFilterAPI struct {
 	filtersMu sync.Mutex
 	filters   map[rpc.ID]*filter
 	deadline  time.Duration
+
+	cleanupInterval   time.Duration
+	clientCap         int32
+	clientFilterCount map[string]int
 }
 
 // NewPublicAPI returns a new PublicFilterAPI instance.
@@ -91,8 +105,24 @@ func NewPublicAPI(
 	stream *stream.RPCStream,
 	backend Backend,
 ) *PublicFilterAPI {
-	api := NewPublicAPIWithDeadline(logger, clientCtx, stream, backend, defaultDeadline)
-	return api
+	deadline := defaultDeadline
+	cleanupInterval := defaultCleanupInterval
+	clientCap := defaultClientFilterCap
+
+	if cfgBackend, ok := backend.(interface{ GetConfig() evmsrvconfig.Config }); ok {
+		jsonRPC := cfgBackend.GetConfig().JSONRPC
+		if jsonRPC.FilterTimeout > 0 {
+			deadline = jsonRPC.FilterTimeout
+		}
+		if jsonRPC.FilterCleanupInterval > 0 {
+			cleanupInterval = jsonRPC.FilterCleanupInterval
+		}
+		if jsonRPC.FilterClientCap >= 0 {
+			clientCap = jsonRPC.FilterClientCap
+		}
+	}
+
+	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, cleanupInterval, clientCap)
 }
 
 // NewPublicAPIWithDeadline returns a new PublicFilterAPI instance with the given deadline.
@@ -103,6 +133,18 @@ func NewPublicAPIWithDeadline(
 	backend Backend,
 	deadline time.Duration,
 ) *PublicFilterAPI {
+	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, defaultCleanupInterval, defaultClientFilterCap)
+}
+
+func newPublicAPIWithOptions(
+	logger log.Logger,
+	clientCtx client.Context,
+	stream *stream.RPCStream,
+	backend Backend,
+	deadline time.Duration,
+	cleanupInterval time.Duration,
+	clientCap int32,
+) *PublicFilterAPI {
 	logger = logger.With("api", "filter")
 	api := &PublicFilterAPI{
 		logger:    logger,
@@ -111,6 +153,10 @@ func NewPublicAPIWithDeadline(
 		filters:   make(map[rpc.ID]*filter),
 		events:    stream,
 		deadline:  deadline,
+
+		cleanupInterval:   cleanupInterval,
+		clientCap:         clientCap,
+		clientFilterCount: make(map[string]int),
 	}
 
 	go api.timeoutLoop()
@@ -121,7 +167,7 @@ func NewPublicAPIWithDeadline(
 // timeoutLoop runs every 5 minutes and deletes filters that have not been recently used.
 // Tt is started when the api is created.
 func (api *PublicFilterAPI) timeoutLoop() {
-	ticker := time.NewTicker(api.deadline)
+	ticker := time.NewTicker(api.cleanupInterval)
 	defer ticker.Stop()
 
 	for {
@@ -131,13 +177,92 @@ func (api *PublicFilterAPI) timeoutLoop() {
 		for id, f := range api.filters {
 			select {
 			case <-f.deadline.C:
-				delete(api.filters, id)
+				api.deleteFilterLocked(id)
 			default:
 				continue
 			}
 		}
 		api.filtersMu.Unlock()
 	}
+}
+
+func (api *PublicFilterAPI) clientIPFromContext(ctx context.Context) string {
+	peerInfo := rpc.PeerInfoFromContext(ctx)
+	remoteAddr := strings.TrimSpace(peerInfo.RemoteAddr)
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		remoteAddr = host
+	}
+	if remoteAddr == "" {
+		remoteAddr = "unknown"
+	}
+	if peerInfo.Transport == "" {
+		return remoteAddr
+	}
+	return fmt.Sprintf("%s:%s", peerInfo.Transport, remoteAddr)
+}
+
+func stopAndDrainTimer(timer *time.Timer) {
+	if timer == nil {
+		return
+	}
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+}
+
+func (api *PublicFilterAPI) resetFilterTimer(timer *time.Timer) {
+	if timer == nil {
+		return
+	}
+	stopAndDrainTimer(timer)
+	timer.Reset(api.deadline)
+}
+
+func (api *PublicFilterAPI) ensureFilterCreationAllowedLocked(clientIP string) error {
+	globalCap := int(api.backend.RPCFilterCap())
+	if globalCap <= 0 {
+		return errFilterCreationDisabled
+	}
+
+	if len(api.filters) >= globalCap {
+		return fmt.Errorf("error creating filter: max limit reached")
+	}
+
+	if api.clientCap > 0 && api.clientFilterCount[clientIP] >= int(api.clientCap) {
+		return fmt.Errorf("error creating filter: per-client max limit reached")
+	}
+
+	return nil
+}
+
+func (api *PublicFilterAPI) installFilterLocked(clientIP string, filterData *filter) rpc.ID {
+	id := rpc.NewID()
+	filterData.owner = clientIP
+	api.filters[id] = filterData
+	api.clientFilterCount[clientIP]++
+	return id
+}
+
+func (api *PublicFilterAPI) deleteFilterLocked(id rpc.ID) bool {
+	f, found := api.filters[id]
+	if !found {
+		return false
+	}
+
+	delete(api.filters, id)
+	stopAndDrainTimer(f.deadline)
+
+	if f.owner != "" {
+		api.clientFilterCount[f.owner]--
+		if api.clientFilterCount[f.owner] <= 0 {
+			delete(api.clientFilterCount, f.owner)
+		}
+	}
+
+	return true
 }
 
 // NewPendingTransactionFilter creates a filter that fetches pending transaction hashes
@@ -147,46 +272,46 @@ func (api *PublicFilterAPI) timeoutLoop() {
 // `eth_getFilterChanges` polling method that is also used for log filters.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newPendingTransactionFilter
-func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
+func (api *PublicFilterAPI) NewPendingTransactionFilter(ctx context.Context) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return rpc.ID("error creating pending tx filter: max limit reached")
+	clientIP := api.clientIPFromContext(ctx)
+	if err := api.ensureFilterCreationAllowedLocked(clientIP); err != nil {
+		return "", err
 	}
 
-	id := rpc.NewID()
 	_, offset := api.events.PendingTxStream().ReadNonBlocking(-1)
-	api.filters[id] = &filter{
+	id := api.installFilterLocked(clientIP, &filter{
 		typ:      filters.PendingTransactionsSubscription,
 		deadline: time.NewTimer(api.deadline),
 		offset:   offset,
-	}
+	})
 
-	return id
+	return id, nil
 }
 
 // NewBlockFilter creates a filter that fetches blocks that are imported into the chain.
 // It is part of the filter package since polling goes with eth_getFilterChanges.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newblockfilter
-func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
+func (api *PublicFilterAPI) NewBlockFilter(ctx context.Context) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return rpc.ID("error creating block filter: max limit reached")
+	clientIP := api.clientIPFromContext(ctx)
+	if err := api.ensureFilterCreationAllowedLocked(clientIP); err != nil {
+		return "", err
 	}
 
-	id := rpc.NewID()
 	_, offset := api.events.HeaderStream().ReadNonBlocking(-1)
-	api.filters[id] = &filter{
+	id := api.installFilterLocked(clientIP, &filter{
 		typ:      filters.BlocksSubscription,
 		deadline: time.NewTimer(api.deadline),
 		offset:   offset,
-	}
+	})
 
-	return id
+	return id, nil
 }
 
 // NewFilter creates a new filter and returns the filter id. It can be
@@ -202,22 +327,22 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 // In case "fromBlock" > "toBlock" an error is returned.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newfilter
-func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, error) {
+func (api *PublicFilterAPI) NewFilter(ctx context.Context, criteria filters.FilterCriteria) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return "", fmt.Errorf("error creating filter: max limit reached")
+	clientIP := api.clientIPFromContext(ctx)
+	if err := api.ensureFilterCreationAllowedLocked(clientIP); err != nil {
+		return "", err
 	}
 
-	id := rpc.NewID()
 	_, offset := api.events.LogStream().ReadNonBlocking(-1)
-	api.filters[id] = &filter{
+	id := api.installFilterLocked(clientIP, &filter{
 		typ:      filters.LogsSubscription,
 		deadline: time.NewTimer(api.deadline),
 		crit:     criteria,
 		offset:   offset,
-	}
+	})
 
 	return id, nil
 }
@@ -265,10 +390,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCrit
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_uninstallfilter
 func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 	api.filtersMu.Lock()
-	_, found := api.filters[id]
-	if found {
-		delete(api.filters, id)
-	}
+	found := api.deleteFilterLocked(id)
 	api.filtersMu.Unlock()
 
 	return found
@@ -334,12 +456,7 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		return nil, fmt.Errorf("filter %s not found", id)
 	}
 
-	if !f.deadline.Stop() {
-		// timer expired but filter is not yet removed in timeout loop
-		// receive timer value and reset timer
-		<-f.deadline.C
-	}
-	f.deadline.Reset(api.deadline)
+	api.resetFilterTimer(f.deadline)
 
 	switch f.typ {
 	case filters.PendingTransactionsSubscription:

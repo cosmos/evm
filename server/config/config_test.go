@@ -17,6 +17,52 @@ func TestDefaultConfig(t *testing.T) {
 	require.False(t, cfg.JSONRPC.Enable)
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
+	require.Equal(t, serverconfig.DefaultFilterCap, cfg.JSONRPC.FilterCap)
+	require.Equal(t, serverconfig.DefaultFilterClientCap, cfg.JSONRPC.FilterClientCap)
+	require.Equal(t, serverconfig.DefaultFilterTimeout, cfg.JSONRPC.FilterTimeout)
+	require.Equal(t, serverconfig.DefaultFilterCleanupInterval, cfg.JSONRPC.FilterCleanupInterval)
+	require.Equal(t, serverconfig.DefaultFilterRequireAuth, cfg.JSONRPC.FilterRequireAuth)
+}
+
+func TestJSONRPCConfigValidate_FilterProtectionFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(c *serverconfig.JSONRPCConfig)
+		errText string
+	}{
+		{
+			name: "negative filter-client-cap",
+			mutate: func(c *serverconfig.JSONRPCConfig) {
+				c.FilterClientCap = -1
+			},
+			errText: "filter-client-cap cannot be negative",
+		},
+		{
+			name: "zero filter-timeout",
+			mutate: func(c *serverconfig.JSONRPCConfig) {
+				c.FilterTimeout = 0
+			},
+			errText: "filter-timeout must be greater than 0",
+		},
+		{
+			name: "zero cleanup interval",
+			mutate: func(c *serverconfig.JSONRPCConfig) {
+				c.FilterCleanupInterval = 0
+			},
+			errText: "filter-cleanup-interval must be greater than 0",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := *serverconfig.DefaultJSONRPCConfig()
+			tc.mutate(&cfg)
+
+			err := cfg.Validate()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errText)
+		})
+	}
 }
 
 func TestGetConfig(t *testing.T) {
