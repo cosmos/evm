@@ -68,8 +68,8 @@ type HeightSync[Store any] struct {
 	mu sync.RWMutex
 }
 
-// NewHeightSync creates a new HeightSync starting at the given height.
-func NewHeightSync[Store any](startHeight *big.Int, reset func() *Store) *HeightSync[Store] {
+// New creates a new HeightSync starting at the given height.
+func New[Store any](startHeight *big.Int, reset func() *Store) *HeightSync[Store] {
 	return &HeightSync[Store]{
 		currentHeight: startHeight,
 		reset:         reset,

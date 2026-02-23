@@ -394,7 +394,7 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 		beats:            make(map[common.Address]time.Time),
 		all:              newLookup(),
 		rechecker:        newNopRechecker(),
-		validPendingTxs:  heightsync.NewHeightSync[TxStore](chain.CurrentBlock().Number, NewTxStore),
+		validPendingTxs:  heightsync.New[TxStore](chain.CurrentBlock().Number, NewTxStore),
 		reqResetCh:       make(chan *txpoolResetRequest),
 		reqPromoteCh:     make(chan *accountSet),
 		reqCancelResetCh: make(chan struct{}),
