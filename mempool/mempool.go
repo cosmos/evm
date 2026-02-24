@@ -14,6 +14,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	"github.com/cosmos/evm/mempool/internal/queue"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -34,7 +35,7 @@ import (
 var (
 	meter = otel.Meter("github.com/cosmos/evm/mempool")
 
-	_ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+	_ sdkmempool.ExtMempool = (*ExperimentalEVMMempool)(nil)
 )
 
 const (
@@ -79,7 +80,8 @@ type (
 		txTracker *txTracker
 
 		/** Transaction Inserting **/
-		iq *insertQueue
+		cosmosQueue *queue.Queue[sdk.Tx]
+		evmQueue    *queue.Queue[ethtypes.Transaction]
 	}
 )
 
@@ -224,8 +226,39 @@ func NewExperimentalEVMMempool(
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(txEncoder),
 		txTracker:                newTxTracker(),
-		iq:                       newInsertQueue(legacyPool, config.InsertQueueSize, logger),
 	}
+
+	// Create insert queues for evm and cosmos txs
+
+	evmQueue := queue.New(
+		func(txs []*ethtypes.Transaction) []error {
+			return txPool.Add(txs, false)
+		},
+		config.InsertQueueSize,
+		logger,
+	)
+	evmMempool.evmQueue = evmQueue
+
+	cosmosQueue := queue.New(
+		func(txs []*sdk.Tx) []error {
+			errs := make([]error, len(txs))
+			ctx, err := blockchain.GetLatestContext()
+			if err != nil {
+				for i := range txs {
+					errs[i] = err
+				}
+				return errs
+			}
+
+			for i, tx := range txs {
+				errs[i] = evmMempool.insertCosmosTx(ctx, *tx)
+			}
+			return errs
+		},
+		config.InsertQueueSize,
+		logger,
+	)
+	evmMempool.cosmosQueue = cosmosQueue
 
 	// Once we have validated that the tx is valid (and can be promoted, set it
 	// to be reaped)
@@ -332,27 +365,27 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *ExperimentalEVMMempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 
-		// we push the tx onto the insert queue so the tx will be inserted at a
-		// later point. We get back a subscription that the insert queue will
-		// use to notify the caller of any errors that occurred when inserting
-		// into the mempool.
-		sub := m.iq.Push(ethTx)
-		return sub, nil
+		// we push the tx onto the evm insert queue so the tx will be inserted
+		// at a later point. We get back a subscription that the insert queue
+		// will use to notify the caller of any errors that occurred when
+		// inserting into the mempool.
+		return m.evmQueue.Push(ethTx), nil
 	case errors.Is(err, ErrMultiMsgEthereumTransaction):
 		// there are multiple messages in this tx and one or more of them is an
 		// evm tx, this is invalid
 		return nil, err
 	default:
-		// inserting cosmos txs do not have the same insert queue behavior as
-		// evm txs, thus we synchronously wait for the insert to return	and
-		// simply return its error
-		return nil, m.insertCosmosTx(ctx, tx)
+		// we push the tx onto the cosmos insert queue so the tx will be
+		// inserted at a later point. We get back a subscription that the
+		// insert queue will use to notify the caller of any errors that
+		// occurred when inserting into the mempool.
+		return m.cosmosQueue.Push(&tx), nil
 	}
 }
 
@@ -588,7 +621,8 @@ func (m *ExperimentalEVMMempool) Close() error {
 		}
 	}
 
-	m.iq.Close()
+	m.evmQueue.Close()
+	m.cosmosQueue.Close()
 
 	if err := m.cosmosPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close cosmos pool: %w", err))
