@@ -602,10 +602,12 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		panic(err)
 	}
 	go func() {
+		bc := m.GetBlockchain()
+		currentBlock := bc.CurrentBlock()
 		for range sub.Out() {
-			m.GetBlockchain().NotifyNewBlock()
+			bc.NotifyNewBlock()
 			// Trigger cosmos pool recheck on new block (non-blocking)
-			m.cosmosPool.TriggerRecheck(m.GetBlockchain().CurrentBlock().Number)
+			m.cosmosPool.TriggerRecheck(currentBlock.Number)
 		}
 	}()
 }
