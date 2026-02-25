@@ -68,15 +68,18 @@ type HeightSync[Store any] struct {
 	mu sync.RWMutex
 }
 
-// NewHeightSync creates a new HeightSync starting at the given height.
-func NewHeightSync[Store any](startHeight *big.Int, reset func() *Store) *HeightSync[Store] {
-	return &HeightSync[Store]{
+// New creates a new HeightSync starting at the given height.
+func New[Store any](startHeight *big.Int, reset func() *Store) *HeightSync[Store] {
+	hs := &HeightSync[Store]{
 		currentHeight: startHeight,
 		reset:         reset,
 		store:         reset(),
 		heightChanged: make(chan struct{}),
 		done:          make(chan struct{}),
 	}
+	// initial height is considered immediately done
+	hs.EndCurrentHeight()
+	return hs
 }
 
 // StartNewHeight resets the HeightSync for a new height, overwriting the
@@ -84,6 +87,12 @@ func NewHeightSync[Store any](startHeight *big.Int, reset func() *Store) *Height
 func (hs *HeightSync[Store]) StartNewHeight(height *big.Int) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
+
+	// ensure that the last height that was started has ended before starting a
+	// new height
+	if !hs.isHeightEnded() {
+		panic(fmt.Errorf("height %s not ended before starting new height %s", hs.currentHeight.String(), height.String()))
+	}
 
 	// create new Store for this height
 	hs.currentHeight = new(big.Int).Set(height)
@@ -105,7 +114,25 @@ func (hs *HeightSync[Store]) StartNewHeight(height *big.Int) {
 func (hs *HeightSync[Store]) EndCurrentHeight() {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
+	if hs.isHeightEnded() {
+		panic(fmt.Errorf("height %s already ended", hs.currentHeight.String()))
+	}
 	close(hs.done)
+}
+
+// isHeightDone returns an true if the currentHeight has been ended, false
+// otherwise.
+func (hs *HeightSync[Store]) isHeightEnded() bool {
+	select {
+	case <-hs.done:
+		// reading from a closed channel will provide the zero value of the
+		// channel, done is closed if the height has ended
+		return true
+	default:
+		// were not able to get the zero value which means reading blocked and
+		// the done channel was not closed via EndCurrentHeight
+		return false
+	}
 }
 
 // GetStore returns the store at the given height. If the HeightSync has not yet

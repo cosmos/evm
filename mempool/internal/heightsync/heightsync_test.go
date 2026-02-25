@@ -36,7 +36,7 @@ func (s *testStore) get() []string {
 }
 
 func TestBasicGetAfterCompletion(t *testing.T) {
-	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+	hv := heightsync.New(big.NewInt(1), newTestValue)
 
 	hv.StartNewHeight(big.NewInt(1))
 	hv.Do(func(s *testStore) {
@@ -58,7 +58,7 @@ func TestBasicGetAfterCompletion(t *testing.T) {
 }
 
 func TestGetTimeoutBeforeHeight(t *testing.T) {
-	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+	hv := heightsync.New(big.NewInt(1), newTestValue)
 
 	// request height 3 but don't advance to it
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -70,7 +70,7 @@ func TestGetTimeoutBeforeHeight(t *testing.T) {
 
 func TestGetPartialResults(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) { //nolint:thelper
-		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+		hv := heightsync.New(big.NewInt(1), newTestValue)
 
 		// start new height but don't call EndCurrentHeight
 		hv.StartNewHeight(big.NewInt(1))
@@ -90,7 +90,7 @@ func TestGetPartialResults(t *testing.T) {
 
 func TestGetBehindByOneHeight(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) { //nolint:thelper
-		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+		hv := heightsync.New(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
 		hv.Do(func(s *testStore) { s.add("height1") })
@@ -120,7 +120,7 @@ func TestGetBehindByOneHeight(t *testing.T) {
 
 func TestGetBehindByTwoHeights(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) { //nolint:thelper
-		hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+		hv := heightsync.New(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
 		hv.Do(func(s *testStore) { s.add("height1") })
@@ -155,7 +155,7 @@ func TestGetBehindByTwoHeights(t *testing.T) {
 }
 
 func TestPanicOnOldHeight(t *testing.T) {
-	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+	hv := heightsync.New(big.NewInt(1), newTestValue)
 
 	hv.StartNewHeight(big.NewInt(1))
 	hv.EndCurrentHeight()
@@ -170,7 +170,7 @@ func TestPanicOnOldHeight(t *testing.T) {
 }
 
 func TestStartNewHeightResetsValue(t *testing.T) {
-	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+	hv := heightsync.New(big.NewInt(1), newTestValue)
 
 	hv.StartNewHeight(big.NewInt(1))
 	hv.Do(func(s *testStore) { s.add("old") })
@@ -189,7 +189,7 @@ func TestStartNewHeightResetsValue(t *testing.T) {
 }
 
 func TestConcurrentDo(t *testing.T) {
-	hv := heightsync.NewHeightSync(big.NewInt(1), newTestValue)
+	hv := heightsync.New(big.NewInt(1), newTestValue)
 
 	hv.StartNewHeight(big.NewInt(1))
 
