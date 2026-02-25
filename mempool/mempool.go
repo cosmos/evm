@@ -682,7 +682,11 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, _ [][]byte) (
 		wg             sync.WaitGroup
 	)
 
+	// using ctx.BlockHeight() - 1 since we want to get txs that have been
+	// validated at latest committed height, and ctx.BlockHeight() returns the
+	// latest uncommitted height
 	selectHeight := new(big.Int).SetInt64(sdk.UnwrapSDKContext(ctx).BlockHeight() - 1)
+
 	wg.Go(func() {
 		evmIterator = m.evmIterator(ctx, selectHeight)
 	})
