@@ -118,7 +118,6 @@ func (s *KeeperTestSuite) TestOnRecvPacket() {
 			s.Require().Equal(originalAccNumber, acc.GetAccountNumber(), "account number should not be modified")
 		}
 		if tc.expErr != nil {
-			s.Require().Error(err)
 			s.Require().Contains(err.Error(), tc.expErr.Error(), "expected error: %s, got: %s", tc.expErr.Error(), err.Error())
 		} else {
 			s.Require().NoError(err)
