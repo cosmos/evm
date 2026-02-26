@@ -1,10 +1,10 @@
 {
   "name": "cosmos-evm-contracts",
-  "version": "2.0.0",
+  "version": "0.0.1",
   "description": "A collection of smart contracts used in the development of the Cosmos EVM blockchain.",
   "devDependencies": {
     "@openzeppelin/contracts": "^5.4.0",
-    "hardhat": "^3.0.15"
+    "hardhat": "^3.1.10"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,14 +13,14 @@
     "type": "git",
     "url": "git+https://github.com/cosmos/evm.git"
   },
-  "author": "Evmos Core Team",
+  "author": "Cosmos Labs",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/cosmos/evm/issues"
   },
   "homepage": "https://github.com/cosmos/evm#readme",
   "dependencies": {
-    "@account-abstraction/contracts": "^0.6.0"
+    "@account-abstraction/contracts": "^0.8.0"
   },
   "type": "module"
 }
