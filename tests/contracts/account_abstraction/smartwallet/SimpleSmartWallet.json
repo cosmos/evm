@@ -157,5 +157,5 @@
   "deployedLinkReferences": {},
   "immutableReferences": {},
   "inputSourceName": "project/solidity/tests/contracts/account_abstraction/smartwallet/SimpleSmartWallet.sol",
-  "buildInfoId": "solc-0_8_28-97489cf46f45079eb8bac7e612b88a5c9b3a5e30"
+  "buildInfoId": "solc-0_8_28-695d5fc6db28335a0d1ee2dddc903ab8df92477c"
 }

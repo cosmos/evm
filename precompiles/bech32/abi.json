@@ -1,57 +1,45 @@
-{
-  "_format": "hh3-artifact-1",
-  "contractName": "Bech32I",
-  "sourceName": "solidity/precompiles/bech32/Bech32I.sol",
-  "abi": [
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "bech32Address",
-          "type": "string"
-        }
-      ],
-      "name": "bech32ToHex",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "addr",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "addr",
-          "type": "address"
-        },
-        {
-          "internalType": "string",
-          "name": "prefix",
-          "type": "string"
-        }
-      ],
-      "name": "hexToBech32",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "bech32Address",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {},
-  "immutableReferences": {},
-  "inputSourceName": "project/solidity/precompiles/bech32/Bech32I.sol",
-  "buildInfoId": "solc-0_8_28-4a3e9fb75514a5e3823929a19c2b687c4f4bb734"
-}
+[
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "bech32Address",
+        "type": "string"
+      }
+    ],
+    "name": "bech32ToHex",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "prefix",
+        "type": "string"
+      }
+    ],
+    "name": "hexToBech32",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "bech32Address",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
