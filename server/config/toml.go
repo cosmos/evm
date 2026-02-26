@@ -90,6 +90,15 @@ txfee-cap = {{ .JSONRPC.TxFeeCap }}
 # FilterCap sets the global cap for total number of filters that can be created
 filter-cap = {{ .JSONRPC.FilterCap }}
 
+# FilterClientCap sets the per-client cap for total number of filters that can be created.
+filter-client-cap = {{ .JSONRPC.FilterClientCap }}
+
+# FilterTimeout defines when an idle filter expires.
+filter-timeout = "{{ .JSONRPC.FilterTimeout }}"
+
+# FilterCleanupInterval defines how often expired filters are cleaned up.
+filter-cleanup-interval = "{{ .JSONRPC.FilterCleanupInterval }}"
+
 # FeeHistoryCap sets the global cap for total number of blocks that can be fetched
 feehistory-cap = {{ .JSONRPC.FeeHistoryCap }}
 
