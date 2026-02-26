@@ -18,6 +18,7 @@ import (
 type AccountKeeper interface {
 	NewAccountWithAddress(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
 	SetAccount(ctx context.Context, acc sdk.AccountI)
+	HasAccount(ctx context.Context, addr sdk.AccAddress) bool
 }
 
 // EVMKeeper defines the expected EVM keeper interface used on erc20
