@@ -51,6 +51,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
       
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -64,9 +70,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tests/evm-tools-compatibility/web3.js/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('tests/evm-tools-compatibility/web3.js/package-lock.json') }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('tests/evm-tools-compatibility/web3.js/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-pnpm-
       
       - name: Build and install evmd
         run: |
