@@ -12,6 +12,17 @@ export default {
           viaIR: true,
         },
       },
+      // This version is required to compile @account-abstraction/contracts (PackedUserOperation, IAccount use ^0.8.28).
+      {
+        version: "0.8.28",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+          viaIR: true,
+        },
+      },
       // This version is required to compile the werc9 contract.
       {
         version: "0.4.22",
