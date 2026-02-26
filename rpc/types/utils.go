@@ -19,6 +19,7 @@ import (
 	cmtrpccore "github.com/cometbft/cometbft/rpc/core/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	evmtrace "github.com/cosmos/evm/trace"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -40,15 +41,15 @@ const ExceedBlockGasLimitError = "out of gas in location: block gas meter; gasWa
 const StateDBCommitError = "failed to commit stateDB"
 
 // RawTxToEthTx returns a evm MsgEthereum transaction from raw tx bytes.
-func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEthereumTx, error) {
+func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]interfaces.IMsgEthereumTx, error) {
 	tx, err := clientCtx.TxConfig.TxDecoder()(txBz)
 	if err != nil {
 		return nil, errorsmod.Wrap(errortypes.ErrJSONUnmarshal, err.Error())
 	}
 
-	ethTxs := make([]*evmtypes.MsgEthereumTx, len(tx.GetMsgs()))
+	ethTxs := make([]interfaces.IMsgEthereumTx, len(tx.GetMsgs()))
 	for i, msg := range tx.GetMsgs() {
-		ethTx, ok := msg.(*evmtypes.MsgEthereumTx)
+		ethTx, ok := msg.(interfaces.IMsgEthereumTx)
 		if !ok {
 			return nil, fmt.Errorf("invalid message type %T, expected %T", msg, &evmtypes.MsgEthereumTx{})
 		}
@@ -162,7 +163,7 @@ func MakeHeader(
 // NewTransactionFromMsg returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func NewTransactionFromMsg(
-	msg *evmtypes.MsgEthereumTx,
+	msg interfaces.IMsgEthereumTx,
 	blockHash common.Hash,
 	blockNumber, blockTime, index uint64,
 	baseFee *big.Int,
@@ -436,7 +437,7 @@ func RPCMarshalHeader(head *ethtypes.Header, blockHash []byte) map[string]interf
 //
 // This method refers to go-ethereum v1.16.3 internal package method - RPCMarshalBlock
 // (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L929-L962)
-func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmtrpccore.ResultBlock, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, config *ethparams.ChainConfig) (map[string]interface{}, error) {
+func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmtrpccore.ResultBlock, msgs []interfaces.IMsgEthereumTx, inclTx bool, fullTx bool, config *ethparams.ChainConfig) (map[string]interface{}, error) {
 	blockHash := cmtBlock.BlockID.Hash.Bytes()
 	fields := RPCMarshalHeader(block.Header(), blockHash)
 	fields["size"] = hexutil.Uint64(block.Size())
