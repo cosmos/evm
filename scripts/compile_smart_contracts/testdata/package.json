@@ -1,6 +1,7 @@
 {
   "name": "evmos-contracts",
   "version": "2.0.0",
+  "packageManager": "pnpm@9.15.0",
   "description": "A collection of smart contracts used in the development of the Cosmos EVM blockchain.",
   "devDependencies": {
     "@openzeppelin/contracts": "^4.9.6",

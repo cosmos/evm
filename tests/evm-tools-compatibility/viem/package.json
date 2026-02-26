@@ -1,6 +1,7 @@
 {
   "name": "viem",
   "version": "1.0.0",
+  "packageManager": "pnpm@9.15.0",
   "main": "index.js",
   "scripts": {
     "test": "mocha test/viemFunctions.test.js --timeout 60000"

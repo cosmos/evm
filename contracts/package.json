@@ -1,5 +1,6 @@
 {
   "name": "cosmos-evm-contracts",
+  "packageManager": "pnpm@9.15.0",
   "version": "0.0.1",
   "description": "A collection of smart contracts used in the development of the Cosmos EVM blockchain.",
   "devDependencies": {

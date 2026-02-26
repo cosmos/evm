@@ -19,9 +19,18 @@ jobs:
         with:
           PATTERNS: |
             **/*.sol
+      - name: Setup Node.js and pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - name: Node dependencies Install
         run: |
-          cd contracts && npm i
+          cd contracts && pnpm install
           cp -r node_modules/@openzeppelin .
       - name: Run Slither Action
         uses: crytic/slither-action@v0.4.0
