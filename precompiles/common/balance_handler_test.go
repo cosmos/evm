@@ -13,7 +13,6 @@ import (
 	cmnmocks "github.com/cosmos/evm/precompiles/common/mocks"
 	testutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/types/mocks"
@@ -162,12 +161,12 @@ func TestAfterBalanceChange(t *testing.T) {
 	stateDB.AddBalance(spender, uint256.NewInt(5), tracing.BalanceChangeUnspecified)
 
 	bankKeeper := cmnmocks.NewBankKeeper(t)
-	precisebankModuleAccAddr := authtypes.NewModuleAddress(precisebanktypes.ModuleName)
+	bankModuleAccAddr := authtypes.NewModuleAddress(banktypes.ModuleName)
 	bankKeeper.Mock.On("BlockedAddr", mock.AnythingOfType("types.AccAddress")).Return(func(addr sdk.AccAddress) bool {
 		// NOTE: In principle, all blockedAddresses configured in app.go should be checked.
 		// However, for the sake of simplicity in this test, we assume a scenario where
-		// only the precisebank module account is treated as a blockedAddress.
-		return addr.Equals(precisebankModuleAccAddr)
+		// only the bank module account is treated as a blockedAddress.
+		return addr.Equals(bankModuleAccAddr)
 	})
 	bhf := cmn.NewBalanceHandlerFactory(bankKeeper)
 	bh := bhf.NewBalanceHandler()
@@ -199,12 +198,12 @@ func TestAfterBalanceChangeErrors(t *testing.T) {
 	addr := addrs[0]
 
 	bankKeeper := cmnmocks.NewBankKeeper(t)
-	precisebankModuleAccAddr := authtypes.NewModuleAddress(precisebanktypes.ModuleName)
+	bankModuleAccAddr := authtypes.NewModuleAddress(banktypes.ModuleName)
 	bankKeeper.Mock.On("BlockedAddr", mock.AnythingOfType("types.AccAddress")).Return(func(addr sdk.AccAddress) bool {
 		// NOTE: In principle, all blockedAddresses configured in app.go should be checked.
 		// However, for the sake of simplicity in this test, we assume a scenario where
-		// only the precisebank module account is treated as a blockedAddress.
-		return addr.Equals(precisebankModuleAccAddr)
+		// only the bank module account is treated as a blockedAddress.
+		return addr.Equals(bankModuleAccAddr)
 	})
 	bhf := cmn.NewBalanceHandlerFactory(bankKeeper)
 	bh := bhf.NewBalanceHandler()

@@ -24,7 +24,6 @@ import (
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -63,28 +62,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			revertContractAddr common.Address
 
 			// Account balance tracking
-			accountBalances      []*AccountBalanceInfo
-			precisebankRemainder *big.Int
+			accountBalances []*AccountBalanceInfo
 		)
 
-		// Configure deposit amounts with integer and fractional components to test
-		// precise balance handling across different decimal configurations
-		var conversionFactor *big.Int
-		switch chainId {
-		case testconstants.SixDecimalsChainID:
-			conversionFactor = big.NewInt(1e12) // For 6-decimal chains
-		case testconstants.TwelveDecimalsChainID:
-			conversionFactor = big.NewInt(1e6) // For 12-decimal chains
-		default:
-			conversionFactor = big.NewInt(1) // For 18-decimal chains
-		}
-
-		// Create deposit with 1000 integer units + fractional part
+		// Create deposit with 1000 integer units
 		depositAmount := big.NewInt(1000)
-		depositAmount = depositAmount.Mul(depositAmount, conversionFactor)                                       // 1000 integer units
-		depositFractional := new(big.Int).Div(new(big.Int).Mul(conversionFactor, big.NewInt(3)), big.NewInt(10)) // 0.3 * conversion factor as fractional
-		depositAmount = depositAmount.Add(depositAmount, depositFractional)
-
 		withdrawAmount := depositAmount
 		transferAmount := big.NewInt(10) // Start with 10 integer units
 
@@ -216,7 +198,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// Reset expected balance change of accounts
 			ResetExpectedDeltas(accountBalances)
-			precisebankRemainder = big.NewInt(0)
 		})
 
 		// JustBeforeEach takes snapshots after individual test setup
@@ -226,7 +207,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 		// AfterEach verifies balance changes
 		AfterEach(func() {
-			VerifyBalanceChanges(accountBalances, is.grpcHandler, precisebankRemainder)
+			VerifyBalanceChanges(accountBalances, is.grpcHandler)
 		})
 
 		Context("calling a specific wrapped coin method", func() {
@@ -323,7 +304,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						newUserAcc, newUserPriv := utiltx.NewAccAddressAndKey()
 						newUserBalance := sdk.Coins{sdk.Coin{
 							Denom:  evmtypes.GetEVMCoinDenom(),
-							Amount: math.NewIntFromBigInt(withdrawAmount).Quo(precisebanktypes.ConversionFactor()).SubRaw(1),
+							Amount: math.NewIntFromBigInt(withdrawAmount).SubRaw(1),
 						}}
 						err := is.network.App.GetBankKeeper().SendCoins(is.network.GetContext(), user.AccAddr, newUserAcc, newUserBalance)
 						Expect(err).ToNot(HaveOccurred(), "expected no error sending tokens")
@@ -422,17 +403,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			When("to call the deposit", func() {
 				It("it should return funds to the last sender and emit the event", func() {
 					borrow := big.NewInt(0)
-					if conversionFactor.Cmp(big.NewInt(1)) != 0 { // 18-decimal chain (conversionFactor = 1)
-						borrow = big.NewInt(1)
-					}
 
-					balanceOf(Sender).IntegerDelta = new(big.Int).Sub(new(big.Int).Neg((new(big.Int).Quo(depositAmount, conversionFactor))), borrow)
-					balanceOf(Sender).FractionalDelta = new(big.Int).Mod(new(big.Int).Sub(conversionFactor, depositFractional), conversionFactor)
+					balanceOf(Sender).IntegerDelta = new(big.Int).Sub(new(big.Int).Neg((new(big.Int).Set(depositAmount))), borrow)
 
-					balanceOf(Contract).IntegerDelta = new(big.Int).Quo(depositAmount, conversionFactor)
-					balanceOf(Contract).FractionalDelta = depositFractional
-
-					balanceOf(PrecisebankModule).IntegerDelta = borrow
+					balanceOf(Contract).IntegerDelta = new(big.Int).Set(depositAmount)
 
 					txArgs, callArgs := callsData.getTxAndCallArgs(contractCall, "depositWithRevert", false, false)
 					txArgs.Amount = depositAmount
