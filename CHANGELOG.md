@@ -21,7 +21,7 @@
 
 ### BUG FIXES
 
- [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
+- [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
 - [\#860](https://github.com/cosmos/evm/pull/860) Fix EIP-712 signature verification to use configured EVM chain ID instead of parsing cosmos chain ID string and replace legacytx.StdSignBytes with the aminojson sign mode handler.
 - [\#794](https://github.com/cosmos/evm/pull/794) Fix mempool.max-txs flag not using desired default of 0
@@ -43,6 +43,7 @@
 - [\#967](https://github.com/cosmos/evm/pull/967) Fix return value of erc20 ibcv2 middleware to properly reflect application success and middleware failure.
 - [\#992](https://github.com/cosmos/evm/pull/992) Respect the provided `gasCap` in `CallEVMWithData` instead of always used the default cap.
 - [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
+- [\#1016](https://github.com/cosmos/evm/pull/1016) Reject invalid block ranges when creating NewFilter.
 
 ## v0.5.0
 

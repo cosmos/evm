@@ -3,6 +3,7 @@ package filters
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -30,6 +31,24 @@ var (
 
 	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/eth/filters")
 )
+
+func getBlockRange(fromBlock, toBlock *big.Int) (int64, int64, error) {
+	// Convert the RPC block numbers into internal representations
+	begin := rpc.LatestBlockNumber.Int64()
+	if fromBlock != nil {
+		begin = fromBlock.Int64()
+	}
+	end := rpc.LatestBlockNumber.Int64()
+	if toBlock != nil {
+		end = toBlock.Int64()
+	}
+	// Block numbers below 0 are special cases.
+	// for more info, https://github.com/ethereum/go-ethereum/blob/v1.15.11/eth/filters/api.go#L360
+	if begin > 0 && end > 0 && begin > end {
+		return 0, 0, errInvalidBlockRange
+	}
+	return begin, end, nil
+}
 
 // FilterAPI gathers
 type FilterAPI interface {
@@ -205,6 +224,9 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
+	if _, _, err := getBlockRange(criteria.FromBlock, criteria.ToBlock); err != nil {
+		return "", err
+	}
 
 	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
 		return "", fmt.Errorf("error creating filter: max limit reached")
@@ -233,18 +255,8 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCrit
 		// Block filter requested, construct a single-shot filter
 		filter = NewBlockFilter(api.logger, api.backend, crit)
 	} else {
-		// Convert the RPC block numbers into internal representations
-		begin := rpc.LatestBlockNumber.Int64()
-		if crit.FromBlock != nil {
-			begin = crit.FromBlock.Int64()
-		}
-		end := rpc.LatestBlockNumber.Int64()
-		if crit.ToBlock != nil {
-			end = crit.ToBlock.Int64()
-		}
-		// Block numbers below 0 are special cases.
-		// for more info, https://github.com/ethereum/go-ethereum/blob/v1.15.11/eth/filters/api.go#L360
-		if begin > 0 && end > 0 && begin > end {
+		begin, end, err := getBlockRange(crit.FromBlock, crit.ToBlock)
+		if err != nil {
 			return nil, errInvalidBlockRange
 		}
 		// Construct the range filter
@@ -298,14 +310,9 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) (_ []*
 		// Block filter requested, construct a single-shot filter
 		filter = NewBlockFilter(api.logger, api.backend, f.crit)
 	} else {
-		// Convert the RPC block numbers into internal representations
-		begin := rpc.LatestBlockNumber.Int64()
-		if f.crit.FromBlock != nil {
-			begin = f.crit.FromBlock.Int64()
-		}
-		end := rpc.LatestBlockNumber.Int64()
-		if f.crit.ToBlock != nil {
-			end = f.crit.ToBlock.Int64()
+		begin, end, err := getBlockRange(f.crit.FromBlock, f.crit.ToBlock)
+		if err != nil {
+			return nil, errInvalidBlockRange
 		}
 		// Construct the range filter
 		filter = NewRangeFilter(api.logger, api.backend, begin, end, f.crit.Addresses, f.crit.Topics)
