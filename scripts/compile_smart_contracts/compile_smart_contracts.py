@@ -11,6 +11,7 @@ Usage:
 
 """
 
+import json
 import os
 import re
 import sys
@@ -269,7 +270,20 @@ def copy_compiled_contracts_back_to_source(
             print(f"-> did not find compiled JSON file for {contract.filename}")
             continue
 
-        copy(compiled_path, contract.compiled_json_path)
+        # Go precompiles expect abi.json to contain only the ABI array (go-ethereum abi.JSON).
+        if contract.compiled_json_path.name == "abi.json":
+            with open(compiled_path, encoding="utf-8") as fh:
+                artifact = json.load(fh)
+            abi_list = artifact.get("abi")
+            if abi_list is None:
+                raise ValueError(
+                    f"Artifact at {compiled_path} has no 'abi' key; cannot write {contract.compiled_json_path}"
+                )
+            contract.compiled_json_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(contract.compiled_json_path, "w", encoding="utf-8") as fh:
+                json.dump(abi_list, fh, indent=2)
+        else:
+            copy(compiled_path, contract.compiled_json_path)
 
 
 def clean_up_hardhat_project(hardhat_dir: Path):
