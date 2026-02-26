@@ -51,23 +51,19 @@ wait_for_node 10
 # Change to the test directory
 cd "$TEST_DIR"
 
-# Install npm dependencies if not already installed
-if [ ! -d "node_modules" ]; then
-	echo "Installing npm dependencies..."
-	npm install
-else
-	echo "npm dependencies already installed, skipping..."
-fi
+# Install dependencies (pnpm install is fast when already up to date; ensures pnpm layout for pnpm exec)
+echo "Installing dependencies..."
+pnpm install
 
 echo "Running hardhat compatibility tests..."
 
-# Run tests with npx hardhat test (default network)
+# Run tests with pnpm exec hardhat test (default network)
 if [ "$VERBOSE" = true ]; then
-	echo "Running: npx hardhat test"
-	npx hardhat test 2>&1 | tee /tmp/hardhat-test.log
+	echo "Running: pnpm exec hardhat test"
+	pnpm exec hardhat test 2>&1 | tee /tmp/hardhat-test.log
 else
-	echo "Running: npx hardhat test"
-	npx hardhat test 2>&1 | tee /tmp/hardhat-test.log
+	echo "Running: pnpm exec hardhat test"
+	pnpm exec hardhat test 2>&1 | tee /tmp/hardhat-test.log
 fi
 
 # Check if tests passed and no failures occurred
@@ -85,13 +81,13 @@ fi
 
 echo "Running hardhat compatibility tests with localhost network..."
 
-# Run tests with npx hardhat test --network localhost
+# Run tests with pnpm exec hardhat test --network localhost
 if [ "$VERBOSE" = true ]; then
-	echo "Running: npx hardhat test --network localhost"
-	npx hardhat test --network localhost 2>&1 | tee /tmp/hardhat-test-localhost.log
+	echo "Running: pnpm exec hardhat test --network localhost"
+	pnpm exec hardhat test --network localhost 2>&1 | tee /tmp/hardhat-test-localhost.log
 else
-	echo "Running: npx hardhat test --network localhost"
-	npx hardhat test --network localhost 2>&1 | tee /tmp/hardhat-test-localhost.log
+	echo "Running: pnpm exec hardhat test --network localhost"
+	pnpm exec hardhat test --network localhost 2>&1 | tee /tmp/hardhat-test-localhost.log
 fi
 
 # Check if tests passed and no failures occurred
