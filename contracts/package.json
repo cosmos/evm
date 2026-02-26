@@ -8,7 +8,16 @@
     "hardhat": "^3.1.10"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:precompiles": "node scripts/build-precompiles.js",
+    "compile": "hardhat compile",
+    "prepublishOnly": "pnpm run build:precompiles"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    "./*": "./dist/*"
   },
   "repository": {
     "type": "git",
