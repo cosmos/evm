@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 
 /**
@@ -37,11 +37,11 @@ contract ERC20MinterBurnerDecimals is Context, AccessControlEnumerable, ERC20Bur
     */
   constructor(string memory name, string memory symbol, uint8 decimals_)
     ERC20(name, symbol) {
-      _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+      _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
-      _setupRole(MINTER_ROLE, _msgSender());
-      _setupRole(PAUSER_ROLE, _msgSender());
-      _setupRole(BURNER_ROLE, _msgSender());
+      _grantRole(MINTER_ROLE, _msgSender());
+      _grantRole(PAUSER_ROLE, _msgSender());
+      _grantRole(BURNER_ROLE, _msgSender());
       _setupDecimals(decimals_);
   }
 
@@ -115,11 +115,7 @@ contract ERC20MinterBurnerDecimals is Context, AccessControlEnumerable, ERC20Bur
       _unpause();
   }
 
-  function _beforeTokenTransfer(
-      address from,
-      address to,
-      uint256 amount
-  ) internal virtual override(ERC20, ERC20Pausable) {
-      super._beforeTokenTransfer(from, to, amount);
+  function _update(address from, address to, uint256 value) internal virtual override(ERC20, ERC20Pausable) {
+      super._update(from, to, value);
   }
 }

@@ -3,17 +3,17 @@
 pragma solidity ^0.8.0;
 
 import "@account-abstraction/contracts/interfaces/IAccount.sol";
-import "@account-abstraction/contracts/interfaces/UserOperation.sol";
+import "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 
 contract SimpleEntryPoint {
     event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, bool success);
 
-    function handleOps(UserOperation[] calldata ops) external {
+    function handleOps(PackedUserOperation[] calldata ops) external {
         for (uint i = 0; i < ops.length; i++) {
-            UserOperation calldata op = ops[i];
+            PackedUserOperation calldata op = ops[i];
 
             bytes32 userOpHash = _getUserOpHash(op);
-            
+
             try IAccount(op.sender).validateUserOp(op, userOpHash, 0) {
                 (bool success, ) = address(op.sender).call(op.callData);
                 emit UserOperationEvent(userOpHash, op.sender, success);
@@ -23,8 +23,8 @@ contract SimpleEntryPoint {
         }
     }
 
-    function _getUserOpHash(UserOperation calldata op) internal view returns (bytes32) {
-        UserOperation memory mOp = op;
+    function _getUserOpHash(PackedUserOperation calldata op) internal view returns (bytes32) {
+        PackedUserOperation memory mOp = op;
 
         bytes32 initCodeHash = keccak256(mOp.initCode);
         bytes32 callDataHash = keccak256(mOp.callData);
@@ -38,11 +38,9 @@ contract SimpleEntryPoint {
                 mOp.nonce,
                 initCodeHash,
                 callDataHash,
-                mOp.callGasLimit,
-                mOp.verificationGasLimit,
+                mOp.accountGasLimits,
                 mOp.preVerificationGas,
-                mOp.maxFeePerGas,
-                mOp.maxPriorityFeePerGas,
+                mOp.gasFees,
                 paymasterAndDataHash,
                 entryPoint,
                 chainId

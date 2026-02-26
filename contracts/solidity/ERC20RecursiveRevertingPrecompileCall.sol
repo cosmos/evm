@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "./precompiles/distribution/DistributionI.sol" as distribution;
 import "./precompiles/staking/StakingI.sol" as staking;
@@ -121,13 +121,9 @@ contract ERC20RecursiveRevertingPrecompileCall is Context, AccessControlEnumerab
         _unpause();
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override(ERC20, ERC20Pausable) {
+    function _update(address from, address to, uint256 value) internal virtual override(ERC20, ERC20Pausable) {
         // Emit an event to track if this hook is called
-        emit BeforeTokenTransferHookCalled(from, to, amount);
+        emit BeforeTokenTransferHookCalled(from, to, value);
 
         for(uint256 i=0; i < 5; i++) {
             try ERC20RecursiveRevertingPrecompileCall(address(this)).claimRewardsAndRevert() {
@@ -138,7 +134,7 @@ contract ERC20RecursiveRevertingPrecompileCall is Context, AccessControlEnumerab
 
         }
 
-        super._beforeTokenTransfer(from, to, amount);
+        super._update(from, to, value);
     }
 
     function delegate(

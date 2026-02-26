@@ -291,10 +291,12 @@ def clean_up_hardhat_project(hardhat_dir: Path):
     if os.path.exists(cache):
         rmtree(cache)
 
+    # Only remove the copied contract tree (contracts/solidity/contracts/),
+    # not the original source dirs (eips/, precompiles/, etc.) under contracts/solidity.
     contracts_dir = hardhat_dir / SOLIDITY_SOURCE
-    for entry in contracts_dir.iterdir():
-        if entry.is_dir():
-            rmtree(entry)
+    copied_tree = contracts_dir / RELATIVE_TARGET.parts[0]
+    if copied_tree.exists() and copied_tree.is_dir():
+        rmtree(copied_tree)
 
 
 def is_relative_target(path: Path) -> bool:
