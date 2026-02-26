@@ -79,6 +79,9 @@ const (
 	// DefaultFilterCap is the default cap for total number of filters that can be created
 	DefaultFilterCap int32 = 200
 
+	// DefaultGetProofStorageKeysCap is the default cap for number of storage keys accepted by eth_getProof.
+	DefaultGetProofStorageKeysCap int32 = 100
+
 	// DefaultFeeHistoryCap is the default cap for total number of blocks that can be fetched
 	DefaultFeeHistoryCap int32 = 100
 
@@ -230,6 +233,8 @@ type JSONRPCConfig struct {
 	TxFeeCap float64 `mapstructure:"txfee-cap"`
 	// FilterCap is the global cap for total number of filters that can be created.
 	FilterCap int32 `mapstructure:"filter-cap"`
+	// GetProofStorageKeysCap defines the max number of storage keys accepted by eth_getProof.
+	GetProofStorageKeysCap int32 `mapstructure:"getproof-storage-keys-cap"`
 	// FeeHistoryCap is the global cap for total number of blocks that can be fetched
 	FeeHistoryCap int32 `mapstructure:"feehistory-cap"`
 	// Enable defines if the EVM RPC server should be enabled.
@@ -318,28 +323,29 @@ func GetDefaultWSOrigins() []string {
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default
 func DefaultJSONRPCConfig() *JSONRPCConfig {
 	return &JSONRPCConfig{
-		Enable:               false,
-		API:                  GetDefaultAPINamespaces(),
-		Address:              DefaultJSONRPCAddress,
-		WsAddress:            DefaultJSONRPCWsAddress,
-		GasCap:               DefaultGasCap,
-		AllowInsecureUnlock:  DefaultJSONRPCAllowInsecureUnlock,
-		EVMTimeout:           DefaultEVMTimeout,
-		TxFeeCap:             DefaultTxFeeCap,
-		FilterCap:            DefaultFilterCap,
-		FeeHistoryCap:        DefaultFeeHistoryCap,
-		BlockRangeCap:        DefaultBlockRangeCap,
-		LogsCap:              DefaultLogsCap,
-		HTTPTimeout:          DefaultHTTPTimeout,
-		HTTPIdleTimeout:      DefaultHTTPIdleTimeout,
-		AllowUnprotectedTxs:  DefaultAllowUnprotectedTxs,
-		BatchRequestLimit:    DefaultBatchRequestLimit,
-		BatchResponseMaxSize: DefaultBatchResponseMaxSize,
-		MaxOpenConnections:   DefaultMaxOpenConnections,
-		EnableIndexer:        false,
-		MetricsAddress:       DefaultJSONRPCMetricsAddress,
-		WSOrigins:            GetDefaultWSOrigins(),
-		EnableProfiling:      DefaultEnableProfiling,
+		Enable:                 false,
+		API:                    GetDefaultAPINamespaces(),
+		Address:                DefaultJSONRPCAddress,
+		WsAddress:              DefaultJSONRPCWsAddress,
+		GasCap:                 DefaultGasCap,
+		AllowInsecureUnlock:    DefaultJSONRPCAllowInsecureUnlock,
+		EVMTimeout:             DefaultEVMTimeout,
+		TxFeeCap:               DefaultTxFeeCap,
+		FilterCap:              DefaultFilterCap,
+		FeeHistoryCap:          DefaultFeeHistoryCap,
+		BlockRangeCap:          DefaultBlockRangeCap,
+		LogsCap:                DefaultLogsCap,
+		HTTPTimeout:            DefaultHTTPTimeout,
+		HTTPIdleTimeout:        DefaultHTTPIdleTimeout,
+		AllowUnprotectedTxs:    DefaultAllowUnprotectedTxs,
+		BatchRequestLimit:      DefaultBatchRequestLimit,
+		BatchResponseMaxSize:   DefaultBatchResponseMaxSize,
+		MaxOpenConnections:     DefaultMaxOpenConnections,
+		EnableIndexer:          false,
+		MetricsAddress:         DefaultJSONRPCMetricsAddress,
+		WSOrigins:              GetDefaultWSOrigins(),
+		EnableProfiling:        DefaultEnableProfiling,
+		GetProofStorageKeysCap: DefaultGetProofStorageKeysCap,
 	}
 }
 
@@ -351,6 +357,10 @@ func (c JSONRPCConfig) Validate() error {
 
 	if c.FilterCap < 0 {
 		return errors.New("JSON-RPC filter-cap cannot be negative")
+	}
+
+	if c.GetProofStorageKeysCap < 0 {
+		return errors.New("JSON-RPC getproof-storage-keys-cap cannot be negative")
 	}
 
 	if c.FeeHistoryCap <= 0 {
