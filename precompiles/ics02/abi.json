@@ -1,154 +1,142 @@
-{
-  "_format": "hh3-artifact-1",
-  "contractName": "ICS02I",
-  "sourceName": "solidity/precompiles/ics02/ICS02I.sol",
-  "abi": [
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "clientId",
-          "type": "string"
-        }
-      ],
-      "name": "getClientState",
-      "outputs": [
-        {
-          "internalType": "bytes",
-          "name": "",
-          "type": "bytes"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "clientId",
-          "type": "string"
-        },
-        {
-          "internalType": "bytes",
-          "name": "updateMsg",
-          "type": "bytes"
-        }
-      ],
-      "name": "updateClient",
-      "outputs": [
-        {
-          "internalType": "enum ICS02I.UpdateResult",
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "clientId",
-          "type": "string"
-        },
-        {
-          "internalType": "bytes",
-          "name": "proof",
-          "type": "bytes"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint64",
-              "name": "revisionNumber",
-              "type": "uint64"
-            },
-            {
-              "internalType": "uint64",
-              "name": "revisionHeight",
-              "type": "uint64"
-            }
-          ],
-          "internalType": "struct Height",
-          "name": "proofHeight",
-          "type": "tuple"
-        },
-        {
-          "internalType": "bytes[]",
-          "name": "path",
-          "type": "bytes[]"
-        },
-        {
-          "internalType": "bytes",
-          "name": "value",
-          "type": "bytes"
-        }
-      ],
-      "name": "verifyMembership",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "clientId",
-          "type": "string"
-        },
-        {
-          "internalType": "bytes",
-          "name": "proof",
-          "type": "bytes"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint64",
-              "name": "revisionNumber",
-              "type": "uint64"
-            },
-            {
-              "internalType": "uint64",
-              "name": "revisionHeight",
-              "type": "uint64"
-            }
-          ],
-          "internalType": "struct Height",
-          "name": "proofHeight",
-          "type": "tuple"
-        },
-        {
-          "internalType": "bytes[]",
-          "name": "path",
-          "type": "bytes[]"
-        }
-      ],
-      "name": "verifyNonMembership",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {},
-  "immutableReferences": {},
-  "inputSourceName": "project/solidity/precompiles/ics02/ICS02I.sol",
-  "buildInfoId": "solc-0_8_28-e55ad96646b3bb5046840fe24a1f6856fc44be2c"
-}
+[
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      }
+    ],
+    "name": "getClientState",
+    "outputs": [
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "updateMsg",
+        "type": "bytes"
+      }
+    ],
+    "name": "updateClient",
+    "outputs": [
+      {
+        "internalType": "enum ICS02I.UpdateResult",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "revisionNumber",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "revisionHeight",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct Height",
+        "name": "proofHeight",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "path",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes",
+        "name": "value",
+        "type": "bytes"
+      }
+    ],
+    "name": "verifyMembership",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "revisionNumber",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "revisionHeight",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct Height",
+        "name": "proofHeight",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "path",
+        "type": "bytes[]"
+      }
+    ],
+    "name": "verifyNonMembership",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

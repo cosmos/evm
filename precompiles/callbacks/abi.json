@@ -1,75 +1,63 @@
-{
-  "_format": "hh3-artifact-1",
-  "contractName": "ICallbacks",
-  "sourceName": "solidity/precompiles/callbacks/ICallbacks.sol",
-  "abi": [
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "channelId",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "portId",
-          "type": "string"
-        },
-        {
-          "internalType": "uint64",
-          "name": "sequence",
-          "type": "uint64"
-        },
-        {
-          "internalType": "bytes",
-          "name": "data",
-          "type": "bytes"
-        },
-        {
-          "internalType": "bytes",
-          "name": "acknowledgement",
-          "type": "bytes"
-        }
-      ],
-      "name": "onPacketAcknowledgement",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "channelId",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "portId",
-          "type": "string"
-        },
-        {
-          "internalType": "uint64",
-          "name": "sequence",
-          "type": "uint64"
-        },
-        {
-          "internalType": "bytes",
-          "name": "data",
-          "type": "bytes"
-        }
-      ],
-      "name": "onPacketTimeout",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {},
-  "immutableReferences": {},
-  "inputSourceName": "project/solidity/precompiles/callbacks/ICallbacks.sol",
-  "buildInfoId": "solc-0_8_28-e55ad96646b3bb5046840fe24a1f6856fc44be2c"
-}
+[
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "channelId",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "portId",
+        "type": "string"
+      },
+      {
+        "internalType": "uint64",
+        "name": "sequence",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "acknowledgement",
+        "type": "bytes"
+      }
+    ],
+    "name": "onPacketAcknowledgement",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "channelId",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "portId",
+        "type": "string"
+      },
+      {
+        "internalType": "uint64",
+        "name": "sequence",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "onPacketTimeout",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
