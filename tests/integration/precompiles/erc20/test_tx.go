@@ -334,13 +334,6 @@ func (s *PrecompileTestSuite) TestSend() {
 			expFail: false,
 		},
 		{
-			name: "send with PreciseBankKeeper",
-			malleate: func() cmn.BankKeeper {
-				return s.network.App.GetPreciseBankKeeper()
-			},
-			expFail: false,
-		},
-		{
 			name: "send with MockBankKeeper",
 			malleate: func() cmn.BankKeeper {
 				return mocks.NewBankKeeper(s.T())

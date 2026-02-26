@@ -5,9 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
+
+	"github.com/cosmos/evm/x/vm/statedb"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
-ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing
+
 // BalanceHandlerFactory is a factory struct to create BalanceHandler instances.
 type BalanceHandlerFactory struct {
 	bankKeeper BankKeeper

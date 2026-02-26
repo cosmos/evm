@@ -83,4 +83,3 @@ func (n *IntegrationNetwork) GetMintClient() minttypes.QueryClient {
 	minttypes.RegisterQueryServer(queryHelper, mintkeeper.NewQueryServerImpl(n.app.GetMintKeeper()))
 	return minttypes.NewQueryClient(queryHelper)
 }
-
