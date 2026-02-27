@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"github.com/cosmos/evm/testutil/integration/base/network"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -21,10 +20,6 @@ type Handler interface {
 	GetSpendableBalance(address sdk.AccAddress, denom string) (*banktypes.QuerySpendableBalanceByDenomResponse, error)
 	GetAllBalances(address sdk.AccAddress) (*banktypes.QueryAllBalancesResponse, error)
 	GetTotalSupply() (*banktypes.QueryTotalSupplyResponse, error)
-
-	// PreciseBank methods
-	Remainder() (*precisebanktypes.QueryRemainderResponse, error)
-	FractionalBalance(address sdk.AccAddress) (*precisebanktypes.QueryFractionalBalanceResponse, error)
 
 	// Staking methods
 	GetDelegation(delegatorAddress string, validatorAddress string) (*stakingtypes.QueryDelegationResponse, error)

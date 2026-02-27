@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -69,7 +68,7 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 	caller := contract.Caller()
 	callerAccAddress := sdk.AccAddress(caller.Bytes())
 	nativeBalance := p.BankKeeper.SpendableCoin(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
-	if nativeBalance.Amount.Mul(types.ConversionFactor()).LT(amountInt) {
+	if nativeBalance.Amount.LT(amountInt) {
 		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
 	}
 

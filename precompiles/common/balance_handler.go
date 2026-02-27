@@ -2,13 +2,10 @@ package common
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 
-	"github.com/cosmos/evm/utils"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -56,8 +53,6 @@ func (bh *BalanceHandler) BeforeBalanceChange(ctx sdk.Context) {
 // initiated by a precompile is unintentionally overwritten by balance changes from within a contract.
 
 // Typically, accounts registered as BlockedAddresses in app.go—such as module accounts—are not expected to receive coins.
-// However, in modules like precisebank, it is common to borrow and repay integer balances
-// from the module account to support fractional balance handling.
 //
 // As a result, even if a module account is marked as a BlockedAddress, a keeper-level SendCoins operation
 // can emit an x/bank event in which the module account appears as a spender or receiver.
@@ -103,32 +98,6 @@ func (bh *BalanceHandler) AfterBalanceChange(ctx sdk.Context, stateDB *statedb.S
 			}
 
 			stateDB.AddBalance(common.BytesToAddress(receiverAddr.Bytes()), amount, tracing.BalanceChangeUnspecified)
-
-		case precisebanktypes.EventTypeFractionalBalanceChange:
-			addr, err := ParseAddress(event, precisebanktypes.AttributeKeyAddress)
-			if err != nil {
-				return fmt.Errorf("failed to parse address from event %q: %w", precisebanktypes.EventTypeFractionalBalanceChange, err)
-			}
-			if bh.bankKeeper.BlockedAddr(addr) {
-				// Bypass blocked addresses
-				continue
-			}
-
-			delta, err := ParseFractionalAmount(event)
-			if err != nil {
-				return fmt.Errorf("failed to parse amount from event %q: %w", precisebanktypes.EventTypeFractionalBalanceChange, err)
-			}
-
-			deltaAbs, err := utils.Uint256FromBigInt(new(big.Int).Abs(delta))
-			if err != nil {
-				return fmt.Errorf("failed to convert delta to Uint256: %w", err)
-			}
-
-			if delta.Sign() == 1 {
-				stateDB.AddBalance(common.BytesToAddress(addr.Bytes()), deltaAbs, tracing.BalanceChangeUnspecified)
-			} else if delta.Sign() == -1 {
-				stateDB.SubBalance(common.BytesToAddress(addr.Bytes()), deltaAbs, tracing.BalanceChangeUnspecified)
-			}
 
 		default:
 			continue
