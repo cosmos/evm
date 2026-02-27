@@ -9,9 +9,9 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/evm/x/precisebank/client/cli"
-	"github.com/cosmos/evm/x/precisebank/keeper"
-	"github.com/cosmos/evm/x/precisebank/types"
+	"github.com/cosmos/evm/contrib/x/precisebank/client/cli"
+	"github.com/cosmos/evm/contrib/x/precisebank/keeper"
+	"github.com/cosmos/evm/contrib/x/precisebank/types"
 
 	"cosmossdk.io/core/appmodule"
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/hashicorp/go-metrics"
 
-	"github.com/cosmos/evm/x/precisebank/types"
+	"github.com/cosmos/evm/contrib/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"

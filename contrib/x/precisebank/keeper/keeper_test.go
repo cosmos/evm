@@ -7,9 +7,9 @@ import (
 
 	evmencoding "github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/x/precisebank/keeper"
-	"github.com/cosmos/evm/x/precisebank/types"
-	"github.com/cosmos/evm/x/precisebank/types/mocks"
+	"github.com/cosmos/evm/contrib/x/precisebank/keeper"
+	"github.com/cosmos/evm/contrib/x/precisebank/types"
+	"github.com/cosmos/evm/contrib/x/precisebank/types/mocks"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"

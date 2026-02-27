@@ -3,7 +3,7 @@ package keeper
 import (
 	"context"
 
-	"github.com/cosmos/evm/x/precisebank/types"
+	"github.com/cosmos/evm/contrib/x/precisebank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
