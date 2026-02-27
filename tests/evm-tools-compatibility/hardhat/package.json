@@ -1,6 +1,8 @@
 {
   "name": "hardhat-project",
+  "packageManager": "pnpm@9.15.0",
   "devDependencies": {
+    "ethers": "^6.0.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
     "@nomicfoundation/hardhat-ethers": "^3.0.9",

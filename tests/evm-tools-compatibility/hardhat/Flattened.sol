@@ -1,8 +1,8 @@
-// Sources flattened with hardhat v2.25.0 https://hardhat.org
+// Sources flattened with hardhat v2.28.6 https://hardhat.org
 
 // SPDX-License-Identifier: MIT AND UNLICENSED
 
-// File @openzeppelin/contracts/utils/Context.sol@v5.3.0
+// File @openzeppelin/contracts/utils/Context.sol@v5.4.0
 
 // Original license: SPDX_License_Identifier: MIT
 // OpenZeppelin Contracts (last updated v5.0.1) (utils/Context.sol)
@@ -34,7 +34,7 @@ abstract contract Context {
 }
 
 
-// File @openzeppelin/contracts/access/Ownable.sol@v5.3.0
+// File @openzeppelin/contracts/access/Ownable.sol@v5.4.0
 
 // Original license: SPDX_License_Identifier: MIT
 // OpenZeppelin Contracts (last updated v5.0.0) (access/Ownable.sol)
@@ -136,11 +136,11 @@ abstract contract Ownable is Context {
 }
 
 
-// File @openzeppelin/contracts/interfaces/draft-IERC6093.sol@v5.3.0
+// File @openzeppelin/contracts/interfaces/draft-IERC6093.sol@v5.4.0
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (interfaces/draft-IERC6093.sol)
-pragma solidity ^0.8.20;
+// OpenZeppelin Contracts (last updated v5.4.0) (interfaces/draft-IERC6093.sol)
+pragma solidity >=0.8.4;
 
 /**
  * @dev Standard ERC-20 Errors
@@ -301,12 +301,12 @@ interface IERC1155Errors {
 }
 
 
-// File @openzeppelin/contracts/token/ERC20/IERC20.sol@v5.3.0
+// File @openzeppelin/contracts/token/ERC20/IERC20.sol@v5.4.0
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (token/ERC20/IERC20.sol)
+// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC20/IERC20.sol)
 
-pragma solidity ^0.8.20;
+pragma solidity >=0.4.16;
 
 /**
  * @dev Interface of the ERC-20 standard as defined in the ERC.
@@ -384,12 +384,12 @@ interface IERC20 {
 }
 
 
-// File @openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol@v5.3.0
+// File @openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol@v5.4.0
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (token/ERC20/extensions/IERC20Metadata.sol)
+// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC20/extensions/IERC20Metadata.sol)
 
-pragma solidity ^0.8.20;
+pragma solidity >=0.6.2;
 
 /**
  * @dev Interface for the optional metadata functions from the ERC-20 standard.
@@ -412,10 +412,10 @@ interface IERC20Metadata is IERC20 {
 }
 
 
-// File @openzeppelin/contracts/token/ERC20/ERC20.sol@v5.3.0
+// File @openzeppelin/contracts/token/ERC20/ERC20.sol@v5.4.0
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.3.0) (token/ERC20/ERC20.sol)
+// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC20/ERC20.sol)
 
 pragma solidity ^0.8.20;
 
@@ -492,16 +492,12 @@ abstract contract ERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         return 18;
     }
 
-    /**
-     * @dev See {IERC20-totalSupply}.
-     */
+    /// @inheritdoc IERC20
     function totalSupply() public view virtual returns (uint256) {
         return _totalSupply;
     }
 
-    /**
-     * @dev See {IERC20-balanceOf}.
-     */
+    /// @inheritdoc IERC20
     function balanceOf(address account) public view virtual returns (uint256) {
         return _balances[account];
     }
@@ -520,9 +516,7 @@ abstract contract ERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         return true;
     }
 
-    /**
-     * @dev See {IERC20-allowance}.
-     */
+    /// @inheritdoc IERC20
     function allowance(address owner, address spender) public view virtual returns (uint256) {
         return _allowances[owner][spender];
     }
