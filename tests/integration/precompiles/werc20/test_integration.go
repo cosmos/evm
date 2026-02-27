@@ -526,11 +526,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					err = is.precompile.UnpackIntoInterface(&decimals, erc20.DecimalsMethod, ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
 
-					coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ChainID{
-						ChainID:    is.network.GetChainID(),
-						EVMChainID: is.network.GetEIP155ChainID().Uint64(),
-					}]
-					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals") //nolint:gosec // G115
+					// Without precisebank, all chains operate natively with 18 decimals
+					Expect(decimals).To(Equal(uint8(evmtypes.EighteenDecimals)), "expected 18 decimals")
 				},
 				)
 			})
