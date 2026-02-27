@@ -387,4 +387,4 @@ replace (
 
 replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20260212220946-a6184c7d834d
 
-replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260206171802-11b322099d1a
+replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk 7759c2af06edc4cba69805878b7135a7726e3bca
