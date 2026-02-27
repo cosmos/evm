@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/server"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"

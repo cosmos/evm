@@ -35,7 +35,7 @@ import (
 	evmtestutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
