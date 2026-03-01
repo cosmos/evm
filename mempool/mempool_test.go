@@ -919,7 +919,7 @@ func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys 
 		sig := signingtypes.SignatureV2{
 			PubKey:   pubKey,
 			Data:     sigData,
-			Sequence: uint64(i), //nolint:gosec // its fine.
+			Sequence: uint64(i),
 		}
 		sigs = append(sigs, sig)
 	}

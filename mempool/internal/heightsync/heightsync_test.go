@@ -69,7 +69,7 @@ func TestGetTimeoutBeforeHeight(t *testing.T) {
 }
 
 func TestGetPartialResults(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) { //nolint:thelper
+	synctest.Test(t, func(t *testing.T) {
 		hv := heightsync.New(big.NewInt(1), newTestValue)
 
 		// start new height but don't call EndCurrentHeight
@@ -89,7 +89,7 @@ func TestGetPartialResults(t *testing.T) {
 }
 
 func TestGetBehindByOneHeight(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) { //nolint:thelper
+	synctest.Test(t, func(t *testing.T) {
 		hv := heightsync.New(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
@@ -119,7 +119,7 @@ func TestGetBehindByOneHeight(t *testing.T) {
 }
 
 func TestGetBehindByTwoHeights(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) { //nolint:thelper
+	synctest.Test(t, func(t *testing.T) {
 		hv := heightsync.New(big.NewInt(1), newTestValue)
 
 		hv.StartNewHeight(big.NewInt(1))
