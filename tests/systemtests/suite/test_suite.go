@@ -8,15 +8,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 
-	"cosmossdk.io/systemtests"
-
+	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
