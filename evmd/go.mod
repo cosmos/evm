@@ -377,16 +377,10 @@ replace (
 	// use Cosmos geth fork
 	// branch: release/1.16
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
-	// Security Advisory https://github.com/advisories/GHSA-h395-qcrw-5vmq
-	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.9.1
 	// replace broken goleveldb
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	// use btree fork for bstm
 	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
-
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20260227171234-00271936093e
-
-replace cosmossdk.io/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0.0.0-20260227212600-39d4711b8970
 
 replace github.com/cosmos/cosmos-sdk/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0.0.0-20260227212600-39d4711b8970
