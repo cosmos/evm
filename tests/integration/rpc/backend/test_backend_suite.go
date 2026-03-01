@@ -222,6 +222,7 @@ func (s *TestSuite) buildEthBlock(
 			s.T().Errorf("negative gas used value: %d", gas)
 			continue
 		}
+		// #nosec G115 -- gas checked >= 0 above
 		gasUsed += uint64(gas)
 	}
 	ethHeader.GasUsed = gasUsed

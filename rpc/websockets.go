@@ -389,6 +389,7 @@ func (s *websocketsServer) tcpGetAndSendResponse(wsConn *wsConn, mb []byte) erro
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
+	// #nosec G704 -- URL is node's own rpcAddr from config, not user-controlled
 	resp, err := client.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "Could not perform request")

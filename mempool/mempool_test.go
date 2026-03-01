@@ -630,6 +630,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Experimen
 	return setupMempoolWithAnteHandler(t, nil, numAccounts)
 }
 
+//nolint:unparam // anteHandler is used in EVMMempoolConfig below
 func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
 	t.Helper()
 

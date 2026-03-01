@@ -55,6 +55,7 @@ func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce i
 	}
 
 	ethTxArgs := evmtypes.EvmTxArgs{
+		// #nosec G115 -- nonce checked >= 0 above
 		Nonce:    uint64(nonce),
 		To:       &to,
 		Amount:   big.NewInt(1000),
@@ -77,6 +78,7 @@ func (s *IntegrationTestSuite) createEVMValueTransferDynamicFeeTx(key keyring.Ke
 	}
 
 	ethTxArgs := evmtypes.EvmTxArgs{
+		// #nosec G115 -- nonce checked >= 0 above
 		Nonce:     uint64(nonce),
 		To:        &to,
 		Amount:    big.NewInt(1000),

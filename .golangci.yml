@@ -43,7 +43,6 @@ linters:
         - name: exported
         - name: if-return
         - name: increment-decrement
-        - name: var-naming
         - name: var-declaration
         - name: range
         - name: receiver-naming
@@ -121,7 +120,6 @@ formatters:
         - prefix(cosmossdk.io)
         - prefix(github.com/cosmos/cosmos-sdk)
         - prefix(github.com/CosmWasm/wasmd)
-        - prefix(github.com/cosmos/gaia)
       custom-order: true
   exclusions:
     generated: lax

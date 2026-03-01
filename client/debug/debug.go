@@ -153,6 +153,7 @@ func RawBytesCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				// #nosec G115 -- ParseInt(..., 10, 8) constrains to 0-255
 				byteArray = append(byteArray, byte(b))
 			}
 			fmt.Printf("%X\n", byteArray)

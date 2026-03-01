@@ -855,7 +855,7 @@ func FuzzSendCoins(f *testing.F) {
 	})
 }
 
-func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //nolint:revive // false positive due to file name
+func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
 		chainID testconstants.ChainID

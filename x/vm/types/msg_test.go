@@ -146,7 +146,7 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_ValidateBasic() {
 		validChainID = big.NewInt(9000)
 		zeroInt      = big.NewInt(0)
 		minusOneInt  = big.NewInt(-1)
-		//nolint:all
+
 		exp_2_255 = new(big.Int).Exp(big.NewInt(2), big.NewInt(255), nil)
 	)
 	testCases := []struct {
