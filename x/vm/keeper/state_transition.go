@@ -232,7 +232,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 	tmpCtx, commitFn := ctx.CacheContext()
 
 	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig, false, nil)
+	stateDB := statedb.New(tmpCtx, k, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, nil, true, false, cfg, txConfig, false, nil)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -335,7 +336,9 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
-func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+// Note: if you call this from a precompile context, ensure that
+// you use the existing stateDB.
+func (k *Keeper) ApplyMessage(ctx sdk.Context, stateDB *statedb.StateDB, msg core.Message, tracer *tracing.Hooks, commit, callFromPrecompile, internal bool) (*types.MsgEthereumTxResponse, error) {
 	ctx, span := ctx.StartSpan(tracer, "ApplyMessage", trace.WithAttributes(
 		attribute.Bool("commit", commit),
 		attribute.Bool("internal", internal),
@@ -348,7 +351,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *t
 	}
 
 	txConfig := statedb.NewEmptyTxConfig()
-	return k.ApplyMessageWithConfig(ctx, msg, tracingHooks, commit, cfg, txConfig, internal, nil)
+	return k.ApplyMessageWithConfig(ctx, stateDB, msg, tracer, commit, callFromPrecompile, cfg, txConfig, internal, nil)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -388,17 +391,8 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *t
 //
 // # Commit parameter
 //
-// If commit is true, the `StateDB` will be committed, otherwise discarded.
-func (k *Keeper) ApplyMessageWithConfig(
-	ctx sdk.Context,
-	msg core.Message,
-	tracingHooks *tracing.Hooks,
-	commit bool,
-	cfg *statedb.EVMConfig,
-	txConfig statedb.TxConfig,
-	internal bool,
-	overrides *rpctypes.StateOverride,
-) (_ *types.MsgEthereumTxResponse, err error) {
+// If commit is true, the `StateDB` will be committed or flushed (if called from within a precompile), otherwise discarded.
+func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateDB, msg core.Message, tracer *tracing.Hooks, commit bool, callFromPrecompile bool, cfg *statedb.EVMConfig, txConfig statedb.TxConfig, internal bool, overrides *rpctypes.StateOverride) (*types.MsgEthereumTxResponse, error) {
 	var (
 		ret   []byte // return bytes from evm execution
 		vmErr error  // vm errors do not effect consensus and are therefore not assigned to err
@@ -412,7 +406,9 @@ func (k *Keeper) ApplyMessageWithConfig(
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
-	stateDB := statedb.New(ctx, k, txConfig)
+	if stateDB == nil {
+		return nil, types.ErrNilStateDB
+	}
 	ethCfg := types.GetEthChainConfig()
 	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracingHooks, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
@@ -470,7 +466,10 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
+	// If we're in a nested precompile scenario, then we don't want to prepare the stateDB a second time.
+	if !callFromPrecompile {
+		stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
+	}
 
 	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
 	if err != nil {
@@ -546,11 +545,18 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// The dirty states in `StateDB` is either committed or discarded after return
 	if commit {
-		if err := stateDB.Commit(); err != nil {
-			return nil, errorsmod.Wrap(err, "failed to commit stateDB")
+		// In a precompile context, we never want to commit, as that will collapse the cache stack.
+		// Instead, we want to flush to the cacheCtx.
+		if callFromPrecompile {
+			if err := stateDB.FlushToCacheCtx(); err != nil {
+				return nil, errorsmod.Wrap(err, "failed to flush stateDB to cacheCtx")
+			}
+		} else {
+			if err := stateDB.Commit(); err != nil {
+				return nil, errorsmod.Wrap(err, "failed to commit stateDB")
+			}
 		}
 	}
-
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
 	// is considerably higher than GasUsed to stay more aligned with CometBFT gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085

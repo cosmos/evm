@@ -429,8 +429,8 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacket() {
 					),
 				)
 				s.Require().NoError(err)
-
-				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, nil, "mint", types.ModuleAddress, big.NewInt(10))
+				stateDB := statedb.New(ctx, s.network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, stateDB, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, false, nil, "mint", types.ModuleAddress, big.NewInt(10))
 				s.Require().NoError(err)
 
 				return transfertypes.NewFungibleTokenPacketData(pair.Denom, "10", senderAddr, "", "")
@@ -566,7 +566,8 @@ func (s *KeeperTestSuite) TestOnAcknowledgementPacket() {
 				)
 				s.Require().NoError(err)
 
-				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, nil, "mint", types.ModuleAddress, big.NewInt(100))
+				stateDB := statedb.New(ctx, s.network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, stateDB, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, false, nil, "mint", types.ModuleAddress, big.NewInt(100))
 				s.Require().NoError(err)
 
 				ack = channeltypes.NewErrorAcknowledgement(errors.New("error"))
@@ -672,7 +673,8 @@ func (s *KeeperTestSuite) TestOnTimeoutPacket() {
 				pair, _ = s.network.App.GetErc20Keeper().GetTokenPair(ctx, id)
 				s.Require().NotNil(pair)
 
-				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, nil, "mint", types.ModuleAddress, big.NewInt(100))
+				stateDB := statedb.New(ctx, s.network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, stateDB, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, false, nil, "mint", types.ModuleAddress, big.NewInt(100))
 				s.Require().NoError(err)
 
 				// Fund module account with ATOM, ERC20 coins and IBC vouchers

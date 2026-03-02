@@ -6,34 +6,32 @@
 package ibc
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
-
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/cosmos/evm/utils"
-
-	"github.com/cosmos/evm/contracts"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
-	erc20types "github.com/cosmos/evm/x/erc20/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
+	testutiltypes "github.com/cosmos/evm/testutil/types"
+	"github.com/cosmos/evm/utils"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/vm/statedb"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // Test constants
@@ -70,6 +68,7 @@ type stakingRewards struct {
 	Validator stakingtypes.Validator
 	RewardAmt sdkmath.Int
 }
+
 
 func (suite *ICS20RecursivePrecompileCallsTestSuite) prepareStakingRewards(ctx sdk.Context, stkRs ...stakingRewards) (sdk.Context, error) {
 	for _, r := range stkRs {
@@ -153,12 +152,15 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	suite.Require().NoError(err, "sending native tokens to contract should succeed")
 
 	// Mint ERC20 tokens
+	stateDB := statedb.New(suite.chainA.GetContext(), evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 	_, err = evmAppA.GetEVMKeeper().CallEVM(
 		suite.chainA.GetContext(),
+		stateDB,
 		contractData.ABI,
 		deployerAddr,
 		contractAddr,
 		true,
+		false,
 		nil,
 		"mint",
 		senderEVMAddr,
@@ -171,12 +173,15 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	vals, err := evmAppA.StakingKeeper.GetAllValidators(suite.chainA.GetContext())
 	suite.Require().NoError(err)
 
+	stateDB = statedb.New(suite.chainA.GetContext(), evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 	_, err = evmAppA.GetEVMKeeper().CallEVM(
 		ctxA,
+		stateDB,
 		contractData.ABI,
 		deployerAddr,
 		contractAddr,
 		true,
+		false,
 		nil,
 		"delegate",
 		vals[0].OperatorAddress,
@@ -232,6 +237,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
 		*evmAppA.StakingKeeper,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
+		evmAppA.Erc20Keeper,
 	)
 	bondDenom, err := evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
 	suite.Require().NoError(err)
@@ -248,6 +254,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
 		*evmAppB.StakingKeeper,
 		evmAppB.TransferKeeper,
 		evmAppB.IBCKeeper.ChannelKeeper,
+		evmAppB.Erc20Keeper,
 	)
 }
 
@@ -355,7 +362,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				suite.Require().NoError(err)
 				contractBondDenomBalance := evmAppA.BankKeeper.GetBalance(suite.chainA.GetContext(), nativeErc20.ContractAddr.Bytes(), bondDenom)
 
-				suite.Require().Equal(contractBondDenomBalance.Amount, sdkmath.NewInt(50))
+				suite.Require().Equal(sdkmath.NewInt(50), contractBondDenomBalance.Amount)
 
 				// Check distribution rewards after transfer
 				afterRewards, err := querier.DelegationRewards(suite.chainA.GetContext(), &distrtypes.QueryDelegationRewardsRequest{
@@ -441,7 +448,6 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			suite.Require().NoError(err)
 
 			eventAmount := len(res.Events)
-			fmt.Println(res.Events)
 
 			tc.postCheck(querier, vals[0].OperatorAddress, eventAmount)
 
@@ -501,6 +507,444 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(coinSentFromAToB, chainBBalance)
 		})
 	}
+}
+
+// TestContractICS20TransferWithDelegationHook tests a contract calling ICS20 transfer
+// on an ERC20 token that has a delegation in the beforeTransfer hook
+// Contract -> ICS20 Start -> ERC20 -> Delegate -> ICS20 End
+func (suite *ICS20RecursivePrecompileCallsTestSuite) TestContractICS20TransferWithDelegationHook() {
+	suite.SetupTest() // reset
+
+	pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
+	pathAToB.Setup()
+
+	senderAccount := suite.chainA.SenderAccounts[SenderIndex]
+
+	// Deploy ICS20TransferTester contract
+	testerData, err := contracts.LoadICS20TransferTester()
+	suite.Require().NoError(err)
+
+	testerDeploymentData := testutiltypes.ContractDeploymentData{
+		Contract:        testerData,
+		ConstructorArgs: []interface{}{},
+	}
+
+	testerAddr, err := DeployContract(suite.T(), suite.chainA, testerDeploymentData)
+	suite.chainA.NextBlock()
+	suite.Require().NoError(err)
+
+	// Deploy regular ERC20 token (no hooks) for dummy transfer
+	regularTokenData := contracts.ERC20MinterBurnerDecimalsContract
+
+	regularTokenDeploymentData := testutiltypes.ContractDeploymentData{
+		Contract:        regularTokenData,
+		ConstructorArgs: []interface{}{"DummyToken", "DT", uint8(18)},
+	}
+
+	regularTokenAddr, err := DeployContract(suite.T(), suite.chainA, regularTokenDeploymentData)
+	suite.chainA.NextBlock()
+	suite.Require().NoError(err)
+
+	// Deploy ERC20WithNativeTransfers contract
+	hookTokenData, err := contracts.LoadERC20WithNativeTransfers()
+	suite.Require().NoError(err)
+
+	hookTokenDeploymentData := testutiltypes.ContractDeploymentData{
+		Contract:        hookTokenData,
+		ConstructorArgs: []interface{}{"HookToken", "HT", uint8(18)},
+	}
+
+	hookTokenAddr, err := DeployContract(suite.T(), suite.chainA, hookTokenDeploymentData)
+	suite.chainA.NextBlock()
+	suite.Require().NoError(err)
+
+	evmAppA := suite.chainA.App.(*evmd.EVMD)
+	ctxA := suite.chainA.GetContext()
+
+	// Register both ERC20 contracts
+	_, err = evmAppA.Erc20Keeper.RegisterERC20(ctxA, &erc20types.MsgRegisterERC20{
+		Signer:         evmAppA.AccountKeeper.GetModuleAddress("gov").String(),
+		Erc20Addresses: []string{hookTokenAddr.Hex()},
+	})
+	suite.Require().NoError(err, "registering hook token should succeed")
+	suite.chainA.NextBlock()
+
+	// Mint tokens to tester contract using CallEVM (setup function)
+	hookTokenAmount := big.NewInt(InitialTokenAmount)
+	mintData, err := hookTokenData.ABI.Pack("mint", testerAddr, hookTokenAmount)
+	suite.Require().NoError(err)
+
+	stateDB := statedb.New(ctxA, evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	deployer := common.BytesToAddress(suite.chainA.SenderPrivKey.PubKey().Address().Bytes())
+	_, err = evmAppA.GetEVMKeeper().CallEVMWithData(ctxA, stateDB, deployer, &hookTokenAddr, mintData, true, false, nil)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	// Mint regular tokens to tester for the dummy transfer
+	regularTokenAmount := big.NewInt(1000)
+	ctxA = suite.chainA.GetContext()
+	stateDB = statedb.New(ctxA, evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	_, err = evmAppA.GetEVMKeeper().CallEVM(
+		ctxA,
+		stateDB,
+		regularTokenData.ABI,
+		deployer,
+		regularTokenAddr,
+		true,
+		false,
+		nil,
+		"mint",
+		testerAddr,
+		regularTokenAmount,
+	)
+	suite.Require().NoError(err, "mint regular tokens to tester should succeed")
+	suite.chainA.NextBlock()
+
+	// Configure hook to perform delegation
+	bondDenom, err := evmAppA.StakingKeeper.BondDenom(ctxA)
+	suite.Require().NoError(err)
+
+	vals, err := evmAppA.StakingKeeper.GetAllValidators(ctxA)
+	suite.Require().NoError(err)
+	validatorAddr := vals[0].OperatorAddress
+
+	// Fund hook token contract with native tokens for delegation using EVM transaction
+	hookTokenAddrSDK := sdk.AccAddress(hookTokenAddr.Bytes())
+	delegationAmountSDK := sdkmath.NewInt(DelegationAmount / 1_000_000_000_000) // Convert from wei to base denom
+	// Fund exact amount: delegation + 2 native transfers (1 aatom each, no rounding with 1e12 wei)
+	fundAmountAatom := delegationAmountSDK.AddRaw(2) // +2 for two 1 aatom native transfers
+
+	// Convert aatom to wei for EVM transaction: aatom * 1e12 = wei
+	fundAmountWei := new(big.Int).Mul(fundAmountAatom.BigInt(), big.NewInt(1_000_000_000_000))
+
+	// Send EVM transaction with value to fund the contract (updates both bank module and StateDB)
+	_, _, _, err = suite.chainA.SendEvmTx(
+		senderAccount,
+		0,             // senderAccIdx
+		hookTokenAddr, // to (not pointer)
+		fundAmountWei,
+		[]byte{}, // empty calldata
+		0,        // gasLimit (0 = auto)
+	)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	// Configure hook parameters
+	recipient1 := common.BytesToAddress(senderAccount.SenderAccount.GetAddress().Bytes())
+	recipient2 := recipient1
+	transferAmount := big.NewInt(1_000_000_000_000)                    // 1e12 wei = exactly 1 aatom (no rounding)
+	delegateAmount := big.NewInt(DelegationAmount / 1_000_000_000_000) // Already in base denom
+
+	configData, err := hookTokenData.ABI.Pack(
+		"configureHook",
+		recipient1,
+		recipient2,
+		transferAmount,
+		validatorAddr,
+		delegateAmount,
+		true, // enable hook
+	)
+	suite.Require().NoError(err)
+
+	// Use CallEVM for configuration (setup function)
+	ctxA = suite.chainA.GetContext()
+	stateDB = statedb.New(ctxA, evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	_, err = evmAppA.GetEVMKeeper().CallEVMWithData(ctxA, stateDB, deployer, &hookTokenAddr, configData, true, false, nil)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	// Setup transfer parameters
+	timeoutHeight := clienttypes.NewHeight(1, TimeoutHeight)
+	hookTokenDenom := "erc20:" + hookTokenAddr.Hex()
+	transferTokenAmount := sdkmath.NewIntFromBigInt(big.NewInt(InitialTokenAmount / 2))
+
+	// Get balances before
+	ctxA = suite.chainA.GetContext()
+	testerHookBalBefore := evmAppA.Erc20Keeper.BalanceOf(ctxA, hookTokenData.ABI, hookTokenAddr, testerAddr)
+	hookTokenNativeBalBefore := evmAppA.GetBankKeeper().GetBalance(ctxA, hookTokenAddrSDK, bondDenom)
+	recipientAddrSDK := senderAccount.SenderAccount.GetAddress()
+	recipientNativeBalBefore := evmAppA.GetBankKeeper().GetBalance(ctxA, recipientAddrSDK, bondDenom)
+
+	// Call scenario9_transferICS20Transfer from tester contract
+	callData, err := testerData.ABI.Pack(
+		"scenario9_transferICS20Transfer",
+		regularTokenAddr,                                 // token (regular token without hooks)
+		recipient1,                                       // recipient for dummy transfer
+		big.NewInt(100),                                  // transferAmount (dummy transfer to avoid triggering hookToken hook)
+		pathAToB.EndpointA.ChannelConfig.PortID,          // sourcePort
+		pathAToB.EndpointA.ChannelID,                     // sourceChannel
+		hookTokenDenom,                                   // denom
+		transferTokenAmount.BigInt(),                     // ics20Amount
+		suite.chainB.SenderAccount.GetAddress().String(), // ics20Receiver
+		timeoutHeight,                                    // timeoutHeight
+		uint64(0),                                        // timeoutTimestamp
+	)
+	suite.Require().NoError(err)
+
+	// Execute transaction
+	res, _, _, err := suite.chainA.SendEvmTx(senderAccount, SenderIndex, testerAddr, big.NewInt(0), callData, 0)
+	suite.Require().NoError(err)
+
+	// Get balances after
+	ctxA = suite.chainA.GetContext()
+	testerHookBalAfter := evmAppA.Erc20Keeper.BalanceOf(ctxA, hookTokenData.ABI, hookTokenAddr, testerAddr)
+	hookTokenNativeBalAfter := evmAppA.GetBankKeeper().GetBalance(ctxA, hookTokenAddrSDK, bondDenom)
+	recipientNativeBalAfter := evmAppA.GetBankKeeper().GetBalance(ctxA, recipientAddrSDK, bondDenom)
+
+	// Verify ERC20 balance changes
+	expectedERC20Delta := transferTokenAmount.BigInt()
+	actualERC20Delta := new(big.Int).Sub(testerHookBalBefore, testerHookBalAfter)
+	suite.Require().Equal(expectedERC20Delta.String(), actualERC20Delta.String(), "hook token should be transferred via ICS20")
+
+	// Verify native balance changes
+	// Hook contract should lose: delegation (1e6 aatom) + 2 native transfers (1 aatom each) = 1_000_002 aatom
+	conversionFactor := int64(1_000_000_000_000) // 1e12 wei to aatom conversion
+	expectedDelegationAatom := DelegationAmount / conversionFactor
+	expectedTransferAatom := int64(2) // 2 transfers of 1e12 wei each = 2 aatom total
+	expectedHookNativeDelta := sdkmath.NewInt(expectedDelegationAatom + expectedTransferAatom)
+	actualHookNativeDelta := hookTokenNativeBalBefore.Amount.Sub(hookTokenNativeBalAfter.Amount)
+	suite.Require().Equal(expectedHookNativeDelta.String(), actualHookNativeDelta.String(),
+		"hook token contract should lose delegation + 2 native transfers")
+
+	// Recipient should receive 2 native transfers (2 aatom)
+	expectedRecipientDelta := sdkmath.NewInt(expectedTransferAatom)
+	actualRecipientDelta := recipientNativeBalAfter.Amount.Sub(recipientNativeBalBefore.Amount)
+	suite.Require().Equal(expectedRecipientDelta.String(), actualRecipientDelta.String(),
+		"recipient should receive 2 native transfers")
+
+	// Verify delegation occurred
+	delegations, err := evmAppA.StakingKeeper.GetAllDelegatorDelegations(ctxA, hookTokenAddrSDK)
+	suite.Require().NoError(err)
+	suite.Require().Equal(1, len(delegations), "should have 1 delegation from beforeTransfer hook")
+
+	// Verify total bonded amount
+	bondedTokens, err := evmAppA.StakingKeeper.GetDelegatorBonded(ctxA, hookTokenAddrSDK)
+	suite.Require().NoError(err)
+	expectedBondedAmount := DelegationAmount / 1_000_000_000_000 // Convert wei to base denom
+	suite.Require().Equal(int64(expectedBondedAmount), bondedTokens.Int64(),
+		"bonded tokens should equal delegation amount")
+
+	// Verify event count
+	suite.Require().Equal(PreciseBankMintEventCount+PreciseBankBurnEventCount+DelegationEventCount+ICS20WithConversionEventCount+EVMEventCount, len(res.Events), "should have 41 events")
+}
+
+// TestContractICS20TransferRevertWithDelegationHook tests a contract with reverted ERC20 transfer
+// followed by ICS20 transfer on an ERC20 token that has a delegation in the beforeTransfer hook
+func (suite *ICS20RecursivePrecompileCallsTestSuite) TestContractICS20TransferRevertWithDelegationHook() {
+	suite.SetupTest() // reset
+
+	pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
+	pathAToB.Setup()
+
+	senderAccount := suite.chainA.SenderAccounts[SenderIndex]
+
+	// Deploy ICS20TransferTester contract
+	testerData, err := contracts.LoadICS20TransferTester()
+	suite.Require().NoError(err)
+
+	testerDeploymentData := testutiltypes.ContractDeploymentData{
+		Contract:        testerData,
+		ConstructorArgs: []interface{}{},
+	}
+
+	testerAddr, err := DeployContract(suite.T(), suite.chainA, testerDeploymentData)
+	suite.chainA.NextBlock()
+	suite.Require().NoError(err)
+
+	// Deploy regular ERC20 token for the first transfer (that will revert)
+	regularTokenData := contracts.ERC20MinterBurnerDecimalsContract
+
+	regularTokenDeploymentData := testutiltypes.ContractDeploymentData{
+		Contract:        regularTokenData,
+		ConstructorArgs: []interface{}{"RegularToken", "RT", uint8(18)},
+	}
+
+	regularTokenAddr, err := DeployContract(suite.T(), suite.chainA, regularTokenDeploymentData)
+	suite.chainA.NextBlock()
+	suite.Require().NoError(err)
+
+	// Deploy ERC20WithNativeTransfers contract
+	hookTokenData, err := contracts.LoadERC20WithNativeTransfers()
+	suite.Require().NoError(err)
+
+	hookTokenDeploymentData := testutiltypes.ContractDeploymentData{
+		Contract:        hookTokenData,
+		ConstructorArgs: []interface{}{"HookToken", "HT", uint8(18)},
+	}
+
+	hookTokenAddr, err := DeployContract(suite.T(), suite.chainA, hookTokenDeploymentData)
+	suite.chainA.NextBlock()
+	suite.Require().NoError(err)
+
+	evmAppA := suite.chainA.App.(*evmd.EVMD)
+	ctxA := suite.chainA.GetContext()
+
+	// Get deployer address for CallEVM
+	deployer := common.BytesToAddress(suite.chainA.SenderPrivKey.PubKey().Address().Bytes())
+
+	// Register both ERC20 contracts
+	_, err = evmAppA.Erc20Keeper.RegisterERC20(ctxA, &erc20types.MsgRegisterERC20{
+		Signer:         evmAppA.AccountKeeper.GetModuleAddress("gov").String(),
+		Erc20Addresses: []string{regularTokenAddr.Hex(), hookTokenAddr.Hex()},
+	})
+	suite.Require().NoError(err, "registering tokens should succeed")
+	suite.chainA.NextBlock()
+
+	// Mint only a small amount of regular tokens to tester using CallEVM (setup function)
+	regularTokenAmount := big.NewInt(1000)
+	mintRegularData, err := regularTokenData.ABI.Pack("mint", testerAddr, regularTokenAmount)
+	suite.Require().NoError(err)
+
+	stateDB := statedb.New(ctxA, evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	_, err = evmAppA.GetEVMKeeper().CallEVMWithData(ctxA, stateDB, deployer, &regularTokenAddr, mintRegularData, true, false, nil)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	// Mint tokens to tester contract (hook token) using CallEVM (setup function)
+	hookTokenAmount := big.NewInt(InitialTokenAmount)
+	mintHookData, err := hookTokenData.ABI.Pack("mint", testerAddr, hookTokenAmount)
+	suite.Require().NoError(err)
+
+	ctxA = suite.chainA.GetContext()
+	stateDB = statedb.New(ctxA, evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	_, err = evmAppA.GetEVMKeeper().CallEVMWithData(ctxA, stateDB, deployer, &hookTokenAddr, mintHookData, true, false, nil)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	vals, err := evmAppA.StakingKeeper.GetAllValidators(ctxA)
+	suite.Require().NoError(err)
+	validatorAddr := vals[0].OperatorAddress
+
+	// Fund hook token contract with native tokens for delegation using EVM transaction
+	hookTokenAddrSDK := sdk.AccAddress(hookTokenAddr.Bytes())
+	delegationAmountSDK := sdkmath.NewInt(DelegationAmount / 1_000_000_000_000) // Convert from wei to base denom
+	// Fund exact amount: delegation + 2 native transfers (1 aatom each, no rounding with 1e12 wei)
+	fundAmountAatom := delegationAmountSDK.AddRaw(2) // +2 for two 1 aatom native transfers
+
+	// Convert aatom to wei for EVM transaction: aatom * 1e12 = wei
+	fundAmountWei := new(big.Int).Mul(fundAmountAatom.BigInt(), big.NewInt(1_000_000_000_000))
+
+	// Send EVM transaction with value to fund the contract (updates both bank module and StateDB)
+	_, _, _, err = suite.chainA.SendEvmTx(
+		senderAccount,
+		0,             // senderAccIdx
+		hookTokenAddr, // to (not pointer)
+		fundAmountWei,
+		[]byte{}, // empty calldata
+		0,        // gasLimit (0 = auto)
+	)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	// Configure hook parameters
+	recipient1 := common.BytesToAddress(senderAccount.SenderAccount.GetAddress().Bytes())
+	recipient2 := recipient1
+	transferAmount := big.NewInt(1_000_000_000_000)                    // 1e12 wei = exactly 1 aatom (no rounding)
+	delegateAmount := big.NewInt(DelegationAmount / 1_000_000_000_000) // Already in base denom
+
+	configData, err := hookTokenData.ABI.Pack(
+		"configureHook",
+		recipient1,
+		recipient2,
+		transferAmount,
+		validatorAddr,
+		delegateAmount,
+		true, // enable hook
+	)
+	suite.Require().NoError(err)
+
+	// Use CallEVM for configuration (setup function)
+	ctxA = suite.chainA.GetContext()
+	stateDB = statedb.New(ctxA, evmAppA.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	_, err = evmAppA.GetEVMKeeper().CallEVMWithData(ctxA, stateDB, deployer, &hookTokenAddr, configData, true, false, nil)
+	suite.Require().NoError(err)
+	suite.chainA.NextBlock()
+
+	// Setup transfer parameters
+	timeoutHeight := clienttypes.NewHeight(1, TimeoutHeight)
+	hookTokenDenom := "erc20:" + hookTokenAddr.Hex()
+	transferTokenAmount := sdkmath.NewIntFromBigInt(big.NewInt(InitialTokenAmount / 2))
+
+	// Get balances before
+	ctxA = suite.chainA.GetContext()
+	bondDenom, err := evmAppA.StakingKeeper.BondDenom(ctxA)
+	suite.Require().NoError(err)
+	regularTokenBalBefore := evmAppA.Erc20Keeper.BalanceOf(ctxA, regularTokenData.ABI, regularTokenAddr, testerAddr)
+	testerHookBalBefore := evmAppA.Erc20Keeper.BalanceOf(ctxA, hookTokenData.ABI, hookTokenAddr, testerAddr)
+	hookTokenNativeBalBefore := evmAppA.GetBankKeeper().GetBalance(ctxA, hookTokenAddrSDK, bondDenom)
+	recipientAddrSDK := senderAccount.SenderAccount.GetAddress()
+	recipientNativeBalBefore := evmAppA.GetBankKeeper().GetBalance(ctxA, recipientAddrSDK, bondDenom)
+
+	// Call scenario10_transferICS20TransferRevert from tester contract
+	// First transfer will revert due to excessive amount
+	excessiveAmount := big.NewInt(1000000) // More than the minted amount
+	callData, err := testerData.ABI.Pack(
+		"scenario10_transferICS20TransferRevert",
+		regularTokenAddr,                                 // token (will revert)
+		recipient1,                                       // recipient
+		excessiveAmount,                                  // excessive transferAmount (will revert)
+		pathAToB.EndpointA.ChannelConfig.PortID,          // sourcePort
+		pathAToB.EndpointA.ChannelID,                     // sourceChannel
+		hookTokenDenom,                                   // denom
+		transferTokenAmount.BigInt(),                     // ics20Amount
+		suite.chainB.SenderAccount.GetAddress().String(), // ics20Receiver
+		timeoutHeight,                                    // timeoutHeight
+		uint64(0),                                        // timeoutTimestamp
+	)
+	suite.Require().NoError(err)
+
+	// Execute contract call
+	res, _, _, err := suite.chainA.SendEvmTx(senderAccount, SenderIndex, testerAddr, big.NewInt(0), callData, 0)
+	suite.Require().NoError(err)
+
+	// Get balances after
+	ctxA = suite.chainA.GetContext()
+	regularTokenBalAfter := evmAppA.Erc20Keeper.BalanceOf(ctxA, regularTokenData.ABI, regularTokenAddr, testerAddr)
+	testerHookBalAfter := evmAppA.Erc20Keeper.BalanceOf(ctxA, hookTokenData.ABI, hookTokenAddr, testerAddr)
+	hookTokenNativeBalAfter := evmAppA.GetBankKeeper().GetBalance(ctxA, hookTokenAddrSDK, bondDenom)
+	recipientNativeBalAfter := evmAppA.GetBankKeeper().GetBalance(ctxA, recipientAddrSDK, bondDenom)
+
+	// Verify regular token balance unchanged (transfer reverted)
+	suite.Require().Equal(regularTokenBalBefore.String(), regularTokenBalAfter.String(),
+		"regular token balance should be unchanged since transfer reverted")
+
+	// Verify hook token balance changed (ICS20 transfer succeeded)
+	expectedERC20Delta := transferTokenAmount.BigInt()
+	actualERC20Delta := new(big.Int).Sub(testerHookBalBefore, testerHookBalAfter)
+	suite.Require().Equal(expectedERC20Delta.String(), actualERC20Delta.String(),
+		"hook token should be transferred via ICS20")
+
+	// Verify native balance changes
+	// Hook contract should lose: delegation (1e6 aatom) + 2 native transfers (1 aatom each) = 1_000_002 aatom
+	conversionFactor := int64(1_000_000_000_000) // 1e12 wei to aatom conversion
+	expectedDelegationAatom := DelegationAmount / conversionFactor
+	expectedTransferAatom := int64(2) // 2 transfers of 1e12 wei each = 2 aatom total
+	expectedHookNativeDelta := sdkmath.NewInt(expectedDelegationAatom + expectedTransferAatom)
+	actualHookNativeDelta := hookTokenNativeBalBefore.Amount.Sub(hookTokenNativeBalAfter.Amount)
+	suite.Require().Equal(expectedHookNativeDelta.String(), actualHookNativeDelta.String(),
+		"hook token contract should lose delegation + 2 native transfers")
+
+	// Recipient should receive 2 native transfers (2 aatom)
+	expectedRecipientDelta := sdkmath.NewInt(expectedTransferAatom)
+	actualRecipientDelta := recipientNativeBalAfter.Amount.Sub(recipientNativeBalBefore.Amount)
+	suite.Require().Equal(expectedRecipientDelta.String(), actualRecipientDelta.String(),
+		"recipient should receive 2 native transfers")
+
+	// Verify delegation occurred (from beforeTransfer hook)
+	delegations, err := evmAppA.StakingKeeper.GetAllDelegatorDelegations(ctxA, hookTokenAddrSDK)
+	suite.Require().NoError(err)
+	suite.Require().Equal(1, len(delegations), "should have 1 delegation from beforeTransfer hook")
+
+	// Verify total bonded amount
+	bondedTokens, err := evmAppA.StakingKeeper.GetDelegatorBonded(ctxA, hookTokenAddrSDK)
+	suite.Require().NoError(err)
+	expectedBondedAmount := DelegationAmount / 1_000_000_000_000 // Convert wei to base denom
+	suite.Require().Equal(int64(expectedBondedAmount), bondedTokens.Int64(),
+		"bonded tokens should equal delegation amount")
+
+	// Verify event count
+	suite.Require().Equal(PreciseBankMintEventCount+PreciseBankBurnEventCount+DelegationEventCount+ICS20WithConversionEventCount+EVMEventCount, len(res.Events), "should have 41 events")
+
 }
 
 func TestICS20RecursivePrecompileCallsTestSuite(t *testing.T) {
