@@ -6,7 +6,7 @@ import (
 
 	evm "github.com/ethereum/go-ethereum/log"
 
-	sdk "cosmossdk.io/log"
+	sdk "cosmossdk.io/log/v2"
 )
 
 // slogAdapter bridges Geth's slog logs to the existing Cosmos SDK logger.

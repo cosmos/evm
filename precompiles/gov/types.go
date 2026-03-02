@@ -23,20 +23,20 @@ import (
 // EventVote defines the event data for the Vote transaction.
 type EventVote struct {
 	Voter      common.Address
-	ProposalId uint64 //nolint:revive
+	ProposalId uint64
 	Option     uint8
 }
 
 // EventVoteWeighted defines the event data for the VoteWeighted transaction.
 type EventVoteWeighted struct {
 	Voter      common.Address
-	ProposalId uint64 //nolint:revive
+	ProposalId uint64
 	Options    WeightedVoteOptions
 }
 
 // VotesInput defines the input for the Votes query.
 type VotesInput struct {
-	ProposalId uint64 //nolint:revive
+	ProposalId uint64
 	Pagination query.PageRequest
 }
 
@@ -53,7 +53,7 @@ type VoteOutput struct {
 
 // WeightedVote defines a struct of vote for vote split.
 type WeightedVote struct {
-	ProposalId uint64 //nolint:revive
+	ProposalId uint64
 	Voter      common.Address
 	Options    []WeightedVoteOption
 	Metadata   string
@@ -70,7 +70,7 @@ type WeightedVoteOptions []WeightedVoteOption
 
 // DepositInput defines the input for the Deposit query.
 type DepositInput struct {
-	ProposalId uint64 //nolint:revive
+	ProposalId uint64
 	Depositor  common.Address
 }
 
@@ -81,7 +81,7 @@ type DepositOutput struct {
 
 // DepositsInput defines the input for the Deposits query.
 type DepositsInput struct {
-	ProposalId uint64 //nolint:revive
+	ProposalId uint64
 	Pagination query.PageRequest
 }
 
@@ -98,7 +98,7 @@ type TallyResultOutput struct {
 
 // DepositData represents information about a deposit on a proposal
 type DepositData struct {
-	ProposalId uint64         `abi:"proposalId"` //nolint:revive
+	ProposalId uint64         `abi:"proposalId"`
 	Depositor  common.Address `abi:"depositor"`
 	Amount     []cmn.Coin     `abi:"amount"`
 }
@@ -588,7 +588,7 @@ type ProposalsOutput struct {
 
 // ProposalData represents a governance proposal
 type ProposalData struct {
-	Id               uint64          `abi:"id"` //nolint
+	Id               uint64          `abi:"id"`
 	Messages         []string        `abi:"messages"`
 	Status           uint32          `abi:"status"`
 	FinalTallyResult TallyResultData `abi:"finalTallyResult"`

@@ -6,7 +6,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/server"
 )

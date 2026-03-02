@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/store"
 	"cosmossdk.io/store/snapshots"
 	snapshottypes "cosmossdk.io/store/snapshots/types"

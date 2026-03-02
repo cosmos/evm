@@ -16,7 +16,7 @@ import (
 	"github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"cosmossdk.io/core/address"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"

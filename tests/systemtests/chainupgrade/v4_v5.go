@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
-	systest "cosmossdk.io/systemtests"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/address"
-	"github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/cosmos/evm/tests/systemtests/suite"
+
+	systest "github.com/cosmos/cosmos-sdk/testutil/systemtests"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/address"
 )
 
 const (

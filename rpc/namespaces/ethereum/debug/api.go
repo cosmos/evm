@@ -24,7 +24,7 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/server"
 )
@@ -187,7 +187,7 @@ func (a *API) BlockProfile(file string, nsec uint) error {
 
 // CpuProfile turns on CPU profiling for nsec seconds and writes
 // profile data to file.
-func (a *API) CpuProfile(file string, nsec uint) error { //nolint: revive
+func (a *API) CpuProfile(file string, nsec uint) error {
 	a.logger.Debug("debug_cpuProfile", "file", file, "nsec", nsec)
 	if !a.profilingEnabled {
 		return rpctypes.ErrProfilingDisabled

@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdkserver "github.com/cosmos/cosmos-sdk/server"

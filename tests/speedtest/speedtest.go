@@ -28,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 var (
