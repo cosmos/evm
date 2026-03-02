@@ -45,6 +45,7 @@ type Precompile struct {
 	stakingKeeper  cmn.StakingKeeper
 	transferKeeper cmn.TransferKeeper
 	channelKeeper  cmn.ChannelKeeper
+	erc20Keeper    cmn.ERC20Keeper
 }
 
 // NewPrecompile creates a new ICS-20 Precompile instance as a
@@ -54,6 +55,7 @@ func NewPrecompile(
 	stakingKeeper cmn.StakingKeeper,
 	transferKeeper cmn.TransferKeeper,
 	channelKeeper cmn.ChannelKeeper,
+	erc20Keeper cmn.ERC20Keeper,
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
@@ -67,6 +69,7 @@ func NewPrecompile(
 		transferKeeper: transferKeeper,
 		channelKeeper:  channelKeeper,
 		stakingKeeper:  stakingKeeper,
+		erc20Keeper:    erc20Keeper,
 	}
 }
 

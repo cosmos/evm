@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/ibc"
+	ics20precompile "github.com/cosmos/evm/precompiles/ics20"
 	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
@@ -23,6 +24,7 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	ibctestutil "github.com/cosmos/evm/x/ibc/callbacks/testutil"
 	callbacktypes "github.com/cosmos/evm/x/ibc/callbacks/types"
+	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -45,7 +47,8 @@ type MiddlewareTestSuite struct {
 	evmChainA *evmibctesting.TestChain
 	chainB    *evmibctesting.TestChain
 
-	path *evmibctesting.Path
+	path                *evmibctesting.Path
+	evmChainAPrecompile *ics20precompile.Precompile
 }
 
 // SetupTest initializes the coordinator and test chains before each test.
@@ -65,6 +68,80 @@ func (suite *MiddlewareTestSuite) SetupTest() {
 	// ensure the channel is found to verify proper setup
 	_, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(suite.evmChainA.GetContext(), suite.path.EndpointA.ChannelConfig.PortID, suite.path.EndpointA.ChannelID)
 	suite.Require().True(found)
+
+	// Setup ICS20 precompile for evmChainA
+	evmAppA := suite.evmChainA.App.(*evmd.EVMD)
+	suite.evmChainAPrecompile = ics20precompile.NewPrecompile(
+		evmAppA.BankKeeper,
+		*evmAppA.StakingKeeper,
+		evmAppA.TransferKeeper,
+		evmAppA.IBCKeeper.ChannelKeeper,
+		evmAppA.Erc20Keeper,
+	)
+}
+
+// transferViaPrecompile sends an IBC transfer using the ICS20 precompile.
+// This is required for native ERC20 tokens.
+func (suite *MiddlewareTestSuite) transferViaPrecompile(
+	ctx sdk.Context,
+	sourcePort, sourceChannel string,
+	token sdk.Coin,
+	sender, receiver string,
+	timeoutHeight clienttypes.Height,
+	timeoutTimestamp uint64,
+	memo string,
+) (uint64, error) {
+	evmApp := suite.evmChainA.App.(*evmd.EVMD)
+
+	// Convert sender to address type
+	senderAddr := sdk.MustAccAddressFromBech32(sender)
+	senderEthAddr := common.BytesToAddress(senderAddr)
+
+	// Create timeoutHeight struct matching the ABI
+	type Height struct {
+		RevisionNumber uint64
+		RevisionHeight uint64
+	}
+	timeoutHeightStruct := Height{
+		RevisionNumber: timeoutHeight.RevisionNumber,
+		RevisionHeight: timeoutHeight.RevisionHeight,
+	}
+
+	// Call the precompile through the EVM with correct parameter order and types
+	// ABI order: sourcePort, sourceChannel, denom, amount, sender (address), receiver, timeoutHeight (struct), timeoutTimestamp, memo
+	stateDB := statedb.New(suite.evmChainA.GetContext(), evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	res, err := evmApp.EVMKeeper.CallEVM(
+		ctx,
+		stateDB,
+		ics20precompile.ABI,
+		senderEthAddr,
+		common.HexToAddress(ics20precompile.PrecompileAddress),
+		true,
+		false,
+		nil,
+		"transfer",
+		sourcePort,
+		sourceChannel,
+		token.Denom,
+		token.Amount.BigInt(),
+		senderEthAddr,
+		receiver,
+		timeoutHeightStruct,
+		timeoutTimestamp,
+		memo,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	// Unpack the sequence from the result
+	var sequence uint64
+	err = ics20precompile.ABI.UnpackIntoInterface(&sequence, "transfer", res.Ret)
+	if err != nil {
+		return 0, err
+	}
+
+	return sequence, nil
 }
 
 func TestMiddlewareTestSuite(t *testing.T) {
@@ -617,17 +694,22 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 
-			// Transfer half the initial balance out
+			// Transfer half the initial balance out using the precompile
 			// Sender transfers 50 out (escrowed)
-			msg := transfertypes.NewMsgTransfer(
-				path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
+			_, err := suite.transferViaPrecompile(
+				evmCtx,
+				path.EndpointA.ChannelConfig.PortID,
+				path.EndpointA.ChannelID,
 				sdk.NewCoin(nativeErc20.Denom, sendAmt),
-				sender.String(), chainBAccount.String(),
-				timeoutHeight, 0, "",
+				sender.String(),
+				chainBAccount.String(),
+				timeoutHeight,
+				0,
+				"",
 			)
-
-			_, err := suite.evmChainA.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed
+			suite.evmChainA.NextBlock()
+			evmCtx = suite.evmChainA.GetContext()
 
 			// Balance after transfer should be initial balance - sendAmt
 			balAfterTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
@@ -1211,18 +1293,20 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 				ack,
 				receiver,
 			)
+			stateDB := statedb.New(suite.evmChainA.GetContext(), evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 
 			// Validate results
 			if tc.expError == "" {
 				suite.Require().NoError(err, "Expected success but got error")
-
 				// Verify callback execution by checking counter increment
 				if strings.Contains(tc.memo(), "src_callback") {
 					counterRes, err := evmApp.EVMKeeper.CallEVM(
 						ctxA,
+						stateDB,
 						contractData.ABI,
 						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
 						contractAddr,
+						false,
 						false,
 						big.NewInt(100000),
 						"getCounter",
@@ -1250,9 +1334,11 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 
 				counterRes, err := evmApp.EVMKeeper.CallEVM(
 					ctxA,
+					stateDB,
 					contractData.ABI,
 					common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
 					contractAddr,
+					false,
 					false,
 					big.NewInt(100000),
 					"getCounter",
@@ -1483,13 +1569,6 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			receiver := suite.chainB.SenderAccount.GetAddress()
 
-			// Send the native erc20 token from evmChainA to chainB.
-			msg := transfertypes.NewMsgTransfer(
-				path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
-				sdk.NewCoin(nativeErc20.Denom, sendAmt), sender.String(), receiver.String(),
-				timeoutHeight, 0, "",
-			)
-
 			escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 			// checkEscrow is a check function to ensure the native erc20 token is escrowed.
 			checkEscrow := func() {
@@ -1512,8 +1591,21 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketNativeErc20() {
 				suite.Require().Equal(nativeErc20.InitialBal.String(), erc20BalAfterIbcTransfer.String())
 			}
 
-			_, err := suite.evmChainA.SendMsgs(msg)
+			// Send the native erc20 token from evmChainA to chainB using the precompile.
+			_, err := suite.transferViaPrecompile(
+				evmCtx,
+				path.EndpointA.ChannelConfig.PortID,
+				path.EndpointA.ChannelID,
+				sdk.NewCoin(nativeErc20.Denom, sendAmt),
+				sender.String(),
+				receiver.String(),
+				timeoutHeight,
+				0,
+				"",
+			)
 			suite.Require().NoError(err) // message committed
+			suite.evmChainA.NextBlock()
+			evmCtx = suite.evmChainA.GetContext()
 			checkEscrow()
 
 			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
@@ -2012,6 +2104,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				receiver,
 			)
 			balAfterTimeout := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+			stateDB := statedb.New(suite.evmChainA.GetContext(), evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 
 			// Validate results
 			if tc.expError == "" {
@@ -2023,9 +2116,11 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				if strings.Contains(tc.memo(), "src_callback") {
 					counterRes, err := evmApp.EVMKeeper.CallEVM(
 						ctxA,
+						stateDB,
 						contractData.ABI,
 						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
 						contractAddr,
+						false,
 						false,
 						big.NewInt(100000),
 						"getCounter",
@@ -2055,9 +2150,11 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				if strings.Contains(tc.memo(), "src_callback") && strings.Contains(tc.expError, "ABCI code") {
 					counterRes, err := evmApp.EVMKeeper.CallEVM(
 						ctxA,
+						stateDB,
 						contractData.ABI,
 						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
 						contractAddr,
+						false,
 						false,
 						big.NewInt(100000),
 						"getCounter",
@@ -2130,12 +2227,6 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketNativeErc20() {
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			receiver := suite.chainB.SenderAccount.GetAddress()
 
-			msg := transfertypes.NewMsgTransfer(
-				path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
-				sdk.NewCoin(nativeErc20.Denom, sendAmt), sender.String(), receiver.String(),
-				timeoutHeight, 0, "",
-			)
-
 			escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 			// checkEscrow is a check function to ensure the native erc20 token is escrowed.
 			checkEscrow := func() {
@@ -2157,8 +2248,22 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketNativeErc20() {
 				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), erc20BalAfterIbcTransfer.String())
 			}
-			_, err := suite.evmChainA.SendMsgs(msg)
+
+			// Send the native erc20 token from evmChainA to chainB using the precompile.
+			_, err := suite.transferViaPrecompile(
+				evmCtx,
+				path.EndpointA.ChannelConfig.PortID,
+				path.EndpointA.ChannelID,
+				sdk.NewCoin(nativeErc20.Denom, sendAmt),
+				sender.String(),
+				receiver.String(),
+				timeoutHeight,
+				0,
+				"",
+			)
 			suite.Require().NoError(err) // message committed
+			suite.evmChainA.NextBlock()
+			evmCtx = suite.evmChainA.GetContext()
 			checkEscrow()
 
 			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)

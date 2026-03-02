@@ -354,8 +354,3 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 
 	return m.Params.Validate()
 }
-
-// GetSignBytes implements the LegacyMsg interface.
-func (m MsgUpdateParams) GetSignBytes() []byte {
-	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&m))
-}

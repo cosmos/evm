@@ -26,6 +26,7 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/keeper"
+	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -800,31 +801,68 @@ func (s *KeeperTestSuite) TestApplyMessage() {
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
 
-	// Generate a transfer tx message
-	sender := s.Keyring.GetKey(0)
-	recipient := s.Keyring.GetAddr(1)
-	transferArgs := types.EvmTxArgs{
-		To:     &recipient,
-		Amount: big.NewInt(100),
+	testCases := []struct {
+		name     string
+		useNilDB bool
+		expPass  bool
+		expError string
+	}{
+		{
+			name:     "success",
+			useNilDB: false,
+			expPass:  true,
+			expError: "",
+		},
+		{
+			name:     "fail with nil statedb",
+			useNilDB: true,
+			expPass:  false,
+			expError: "stateDB cannot be nil",
+		},
 	}
-	coreMsg, err := s.Factory.GenerateGethCoreMsg(
-		sender.Priv,
-		transferArgs,
-	)
-	s.Require().NoError(err)
 
-	tracer := s.Network.App.GetEVMKeeper().Tracer(
-		s.Network.GetContext(),
-		*coreMsg,
-		types.GetEthChainConfig(),
-	)
-	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(s.Network.GetContext(), *coreMsg, tracer, true, false)
-	s.Require().NoError(err)
-	s.Require().False(res.Failed())
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			// Generate a transfer tx message
+			sender := s.Keyring.GetKey(0)
+			recipient := s.Keyring.GetAddr(1)
+			transferArgs := types.EvmTxArgs{
+				To:     &recipient,
+				Amount: big.NewInt(100),
+			}
+			coreMsg, err := s.Factory.GenerateGethCoreMsg(
+				sender.Priv,
+				transferArgs,
+			)
+			s.Require().NoError(err)
 
-	// Compare gas to a transfer tx gas
-	expectedGasUsed := params.TxGas
-	s.Require().Equal(expectedGasUsed, res.GasUsed)
+			tracer := s.Network.App.GetEVMKeeper().Tracer(
+				s.Network.GetContext(),
+				*coreMsg,
+				types.GetEthChainConfig(),
+			)
+
+			var stateDB *statedb.StateDB
+			if !tc.useNilDB {
+				stateDB = statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+			}
+
+			res, err := s.Network.App.GetEVMKeeper().ApplyMessage(s.Network.GetContext(), stateDB, *coreMsg, tracer, true, false, false)
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().False(res.Failed())
+				// Compare gas to a transfer tx gas
+				expectedGasUsed := params.TxGas
+				s.Require().Equal(expectedGasUsed, res.GasUsed)
+			} else {
+				s.Require().Error(err)
+				if tc.expError != "" {
+					s.Require().Contains(err.Error(), tc.expError)
+				}
+			}
+		})
+	}
 }
 
 func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
@@ -849,6 +887,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 		getEVMParams       func() types.Params
 		getFeeMarketParams func() feemarkettypes.Params
 		overrides          *rpctypes.StateOverride
+		useNilDB           bool
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
@@ -869,6 +908,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			getEVMParams:       types.DefaultParams,
 			getFeeMarketParams: feemarkettypes.DefaultParams,
 			overrides:          nil,
+			useNilDB:           false,
 			expErr:             false,
 			expVMErr:           false,
 			expectedGasUsed:    params.TxGas,
@@ -1091,10 +1131,32 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				return params
 			},
 			overrides:       nil,
+			useNilDB:        false,
 			expErr:          true,
 			expVMErr:        false,
 			expectedGasUsed: 0,
 			postCheck:       nil,
+		},
+		{
+			name: "fail with nil statedb",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(100),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			useNilDB:           true,
+			expErr:             true,
+			expVMErr:           false,
+			expectedGasUsed:    0,
+			postCheck:          nil,
 		},
 	}
 
@@ -1125,16 +1187,12 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			)
 			s.Require().NoError(err)
 
-			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(
-				s.Network.GetContext(),
-				msg,
-				nil,
-				true,
-				config,
-				txConfig,
-				false,
-				tc.overrides,
-			)
+			var stateDB *statedb.StateDB
+			if !tc.useNilDB {
+				stateDB = statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+			}
+
+			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(s.Network.GetContext(), stateDB, msg, nil, true, false, config, txConfig, false, tc.overrides)
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -1222,13 +1280,9 @@ func (s *KeeperTestSuite) TestApplyMessageWithNegativeAmount() {
 	ctx := s.Network.GetContext()
 	balance0Before := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
 	balance1Before := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(1), "aatom")
-	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(
-		s.Network.GetContext(),
-		*coreMsg,
-		tracer,
-		true,
-		false,
-	)
+	stateDB := statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+
+	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(s.Network.GetContext(), stateDB, *coreMsg, tracer, true, false, false)
 	s.Require().Nil(res)
 	s.Require().Error(err)
 

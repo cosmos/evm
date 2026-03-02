@@ -73,11 +73,10 @@ func PrepareEIP712CosmosTx(
 		return nil, err
 	}
 
-	// using nolint:all because the staticcheck nolint is not working as expected
-	fee := legacytx.NewStdFee(txArgs.Gas, txArgs.Fees) //nolint:all
+	fee := legacytx.NewStdFee(txArgs.Gas, txArgs.Fees) //nolint:staticcheck // check against deprecated type
 
 	msgs := txArgs.Msgs
-	data := legacytx.StdSignBytes(ctx.ChainID(), accNumber, nonce, 0, fee, msgs, "")
+	data := legacytx.StdSignBytes(ctx.ChainID(), accNumber, nonce, 0, fee, msgs, "") //nolint:staticcheck // check against deprecated type
 
 	typedDataArgs := typedDataArgs{
 		chainID:        args.EVMChainID,

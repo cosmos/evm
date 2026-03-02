@@ -29,7 +29,8 @@ func createMockContext() sdk.Context {
 	return sdk.Context{}.
 		WithBlockTime(time.Now()).
 		WithBlockHeader(cmtproto.Header{AppHash: []byte("00000000000000000000000000000000")}).
-		WithBlockHeight(1)
+		WithBlockHeight(1).
+		WithEventManager(sdk.NewEventManager())
 }
 
 // TestBlockchainRaceCondition tests concurrent access to NotifyNewBlock and StateAt

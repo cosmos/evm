@@ -54,7 +54,6 @@ func (bh *BalanceHandler) BeforeBalanceChange(ctx sdk.Context) {
 // NOTES: Balance change events involving BlockedAddresses are bypassed.
 // Native balances are handled separately to prevent cases where a bank coin transfer
 // initiated by a precompile is unintentionally overwritten by balance changes from within a contract.
-
 // Typically, accounts registered as BlockedAddresses in app.go—such as module accounts—are not expected to receive coins.
 // However, in modules like precisebank, it is common to borrow and repay integer balances
 // from the module account to support fractional balance handling.
@@ -68,7 +67,14 @@ func (bh *BalanceHandler) BeforeBalanceChange(ctx sdk.Context) {
 func (bh *BalanceHandler) AfterBalanceChange(ctx sdk.Context, stateDB *statedb.StateDB) error {
 	events := ctx.EventManager().Events()
 
-	for _, event := range events[bh.prevEventsLen:] {
+	for i, event := range events[bh.prevEventsLen:] {
+		eventIdx := bh.prevEventsLen + i
+
+		// Skip events already processed by flushing before the precompile was called.
+		if stateDB.IsEventProcessed(eventIdx) {
+			continue
+		}
+
 		switch event.Type {
 		case banktypes.EventTypeCoinSpent:
 			spenderAddr, err := ParseAddress(event, banktypes.AttributeKeySpender)
@@ -131,6 +137,7 @@ func (bh *BalanceHandler) AfterBalanceChange(ctx sdk.Context, stateDB *statedb.S
 			}
 
 		default:
+			// Non-balance events are already marked as processed above
 			continue
 		}
 	}

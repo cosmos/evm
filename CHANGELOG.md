@@ -44,6 +44,8 @@
 - [\#730](https://github.com/cosmos/evm/pull/730) Fix panic if evm mempool not used.
 - [\#733](https://github.com/cosmos/evm/pull/733) Avoid rejecting tx with unsupported extension option for ExtensionOptionDynamicFeeTx.
 - [\#736](https://github.com/cosmos/evm/pull/736) Add InitEvmCoinInfo upgrade to avoid panic when denom is not registered.
+- Add `stateDB` and `callFromPrecompile` parameters to internal EVM messages.
+- Fixed an issue with events missing from final transaction result.
 
 ### IMPROVEMENTS
 

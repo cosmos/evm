@@ -11,6 +11,8 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	storetypes "cosmossdk.io/store/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -22,11 +24,22 @@ type AccountKeeper interface {
 
 // EVMKeeper defines the expected EVM keeper interface used on erc20
 type EVMKeeper interface {
-	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
-	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit bool, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
 	IsContract(ctx sdk.Context, addr common.Address) bool
+	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
+	GetCode(ctx sdk.Context, codeHash common.Hash) []byte
+	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
+	ForEachStorage(ctx sdk.Context, addr common.Address, cb func(key common.Hash, value common.Hash) bool)
+	SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error
+	DeleteState(ctx sdk.Context, addr common.Address, key common.Hash)
+	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
+	DeleteCode(ctx sdk.Context, codeHash []byte)
+	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
+	DeleteAccount(ctx sdk.Context, addr common.Address) error
+	KVStoreKeys() map[string]*storetypes.KVStoreKey
 }
 
 type ERC20Keeper interface {

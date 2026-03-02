@@ -69,17 +69,16 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 	// take a snapshot of the current state before any changes
 	// to be able to revert the changes
 	snapshot := stateDB.MultiStoreSnapshot()
-	events := ctx.EventManager().Events()
 
 	// add precompileCall entry on the stateDB journal
 	// this allows to revert the changes within an evm tx
-	if err := stateDB.AddPrecompileFn(snapshot, events); err != nil {
+	if err := stateDB.AddPrecompileFn(snapshot); err != nil {
 		return nil, err
 	}
 
 	// commit the current changes in the cache ctx
 	// to get the updated state for the precompile call
-	if err := stateDB.CommitWithCacheCtx(); err != nil {
+	if err := stateDB.FlushToCacheCtx(); err != nil {
 		return nil, err
 	}
 
