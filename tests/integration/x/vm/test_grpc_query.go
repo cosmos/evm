@@ -26,7 +26,6 @@ import (
 	"github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	types2 "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -2234,7 +2233,6 @@ func (s *KeeperTestSuite) TestBalance() {
 
 				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types2.ConversionFactor())
 				s.Require().NotEqual(balance.String(), "0")
 
 				// replace with vesting account
@@ -2281,7 +2279,6 @@ func (s *KeeperTestSuite) TestBalance() {
 
 				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types2.ConversionFactor())
 				s.Require().NotEqual(balance.String(), "0")
 
 				// replace with vesting account
