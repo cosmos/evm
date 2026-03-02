@@ -198,3 +198,13 @@ func (ec *EthClient) CodeAt(nodeID string, account *EthAccount) ([]byte, error) 
 
 	return code, nil
 }
+
+// GetTransactionReceipt queries eth_getTransactionReceipt for a given tx hash.
+func (ec *EthClient) GetTransactionReceipt(nodeID string, txHash common.Hash) (*ethtypes.Receipt, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return nil, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	return ethCli.TransactionReceipt(context.Background(), txHash)
+}

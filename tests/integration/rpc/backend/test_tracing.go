@@ -194,7 +194,7 @@ func (s *TestSuite) TestTraceTransaction() {
 			db := dbm.NewMemDB()
 			s.backend.Indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), s.backend.ClientCtx)
 
-			err := s.backend.Indexer.IndexBlock(tc.block, tc.responseBlock)
+			err := s.backend.Indexer.IndexBlock(tc.block, tc.responseBlock, nil)
 			s.Require().NoError(err)
 			txResult, err := s.backend.TraceTransaction(s.Ctx(), txHash, nil)
 

@@ -43,6 +43,17 @@ func (b *Backend) GetTransactionByHash(ctx context.Context, txHash common.Hash) 
 		return b.GetTransactionByHashPending(ctx, txHash)
 	}
 
+	// Check for pre-built eth tx (from cosmos event transformers)
+	if b.Indexer != nil {
+		if txJSON, err := b.Indexer.GetEthTx(txHash); err == nil {
+			var rpcTx rpctypes.RPCTransaction
+			if err := json.Unmarshal(txJSON, &rpcTx); err == nil {
+				return &rpcTx, nil
+			}
+			b.Logger.Debug("failed to unmarshal eth tx", "hash", txHash.Hex(), "error", err.Error())
+		}
+	}
+
 	block, err := b.CometBlockByNumber(ctx, rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		return nil, err
@@ -186,6 +197,17 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, nil
 	}
 
+	// Check for pre-built eth receipt (from cosmos event transformers)
+	if b.Indexer != nil {
+		if receiptJSON, err := b.Indexer.GetEthReceipt(hash); err == nil {
+			var receipt map[string]interface{}
+			if err := json.Unmarshal(receiptJSON, &receipt); err == nil {
+				return receipt, nil
+			}
+			b.Logger.Debug("failed to unmarshal eth receipt", "hash", hexTx, "error", err.Error())
+		}
+	}
+
 	resBlock, err := b.CometBlockByNumber(ctx, rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		b.Logger.Debug("block not found", "height", res.Height, "error", err.Error())
@@ -204,7 +226,12 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
-	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
+	ethMsg, ok := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
+	if !ok {
+		b.Logger.Debug("not an ethereum tx message", "hash", hexTx)
+		return nil, nil
+	}
+
 	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
@@ -222,7 +249,12 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, fmt.Errorf("failed to get sender: %w", err)
 	}
 
-	return rpctypes.RPCMarshalReceipt(receipts[0], ethTx, from)
+	receipt, err := rpctypes.RPCMarshalReceipt(receipts[0], ethTx, from)
+	if err != nil {
+		return nil, err
+	}
+
+	return receipt, nil
 }
 
 // GetTransactionLogs returns the transaction logs identified by hash.

@@ -74,7 +74,7 @@ func NewIndexTxCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := idxer.IndexBlock(blk, resBlk.TxResults); err != nil {
+				if err := idxer.IndexBlock(blk, resBlk.TxResults, resBlk.Events); err != nil {
 					return err
 				}
 				fmt.Println(height)

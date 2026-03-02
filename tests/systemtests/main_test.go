@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
+	"github.com/cosmos/evm/tests/systemtests/indexer"
 
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
@@ -77,4 +78,11 @@ func TestAccountAbstractionEIP7702(t *testing.T) {
  */
 func TestChainUpgrade(t *testing.T) {
 	suite.RunWithSharedSuite(t, chainupgrade.RunChainUpgrade)
+}
+
+/*
+* Indexer Tests
+ */
+func TestCosmosIndexerBankSend(t *testing.T) {
+	suite.RunWithSharedSuite(t, indexer.RunCosmosIndexerBankSend)
 }

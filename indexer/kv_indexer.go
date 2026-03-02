@@ -8,23 +8,23 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	dbm "github.com/cosmos/cosmos-db"
-	rpctypes "github.com/cosmos/evm/rpc/types"
-	servertypes "github.com/cosmos/evm/server/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log/v2"
 
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
+
+	servertypes "github.com/cosmos/evm/server/types"
 )
 
 const (
-	KeyPrefixTxHash  = 1
-	KeyPrefixTxIndex = 2
+	KeyPrefixTxHash     = 1
+	KeyPrefixTxIndex    = 2
+	KeyPrefixEthReceipt = 3
+	KeyPrefixEthTx      = 4
 
 	// TxIndexKeyLength is the length of tx-index key
 	TxIndexKeyLength = 1 + 8 + 8
@@ -34,90 +34,103 @@ var _ servertypes.EVMTxIndexer = &KVIndexer{}
 
 // KVIndexer implements a eth tx indexer on a KV db.
 type KVIndexer struct {
-	db        dbm.DB
-	logger    log.Logger
-	clientCtx client.Context
+	db           dbm.DB
+	logger       log.Logger
+	clientCtx    client.Context
+	transformers []CosmosEventTransformer
+	*ethTxIndexingContext
+}
+
+type ethTxIndexingContext struct {
+	// Block indexing state (reset at start of IndexBlock)
+	batch             dbm.Batch
+	ethTxIndex        int32
+	cumulativeGasUsed uint64
+	processedEthTx    map[common.Hash]interface{}
+}
+
+func (kv *KVIndexer) Reset() {
+	kv.ethTxIndexingContext = &ethTxIndexingContext{
+		batch:          kv.db.NewBatch(),
+		processedEthTx: make(map[common.Hash]interface{}),
+	}
+}
+
+// IsProcessed checks if an eth tx hash has already been processed.
+func (ctx *ethTxIndexingContext) IsProcessed(hash common.Hash) bool {
+	return ctx.processedEthTx[hash] != nil
+}
+
+// NextTx marks the hash as processed, advances the eth tx index, and accumulates gas.
+// Returns the current index (before increment) and updated cumulative gas.
+func (ctx *ethTxIndexingContext) NextTx(hash common.Hash, gasUsed uint64) (currentIndex int32, cumulativeGas uint64) {
+	ctx.processedEthTx[hash] = struct{}{}
+	ctx.cumulativeGasUsed += gasUsed
+	currentIndex = ctx.ethTxIndex
+	cumulativeGas = ctx.cumulativeGasUsed
+	ctx.ethTxIndex++
+	return
 }
 
 // NewKVIndexer creates the KVIndexer
 func NewKVIndexer(db dbm.DB, logger log.Logger, clientCtx client.Context) *KVIndexer {
-	return &KVIndexer{db, logger, clientCtx}
+	return &KVIndexer{
+		db:           db,
+		logger:       logger,
+		clientCtx:    clientCtx,
+		transformers: []CosmosEventTransformer{},
+	}
 }
 
-// IndexBlock index all the eth txs in a block through the following steps:
-// - Iterates over all of the Txs in Block
-// - Parses eth Tx infos from cosmos-sdk events for every TxResult
-// - Iterates over all the messages of the Tx
-// - Builds and stores a indexer.TxResult based on parsed events for every message
-func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxResult) error {
-	height := block.Height
+// RegisterTransformer registers a cosmos event transformer.
+// transformers can be registered externally by the caller.
+func (kv *KVIndexer) RegisterTransformer(t CosmosEventTransformer) {
+	kv.transformers = append(kv.transformers, t)
+}
 
-	batch := kv.db.NewBatch()
-	defer batch.Close()
-
-	// record index of valid eth tx during the iteration
-	var ethTxIndex int32
-	for txIndex, tx := range block.Txs {
-		result := txResults[txIndex]
-		if !rpctypes.TxSucessOrExpectedFailure(result) {
-			continue
-		}
-
-		tx, err := kv.clientCtx.TxConfig.TxDecoder()(tx)
-		if err != nil {
-			kv.logger.Error("Fail to decode tx", "err", err, "block", height, "txIndex", txIndex)
-			continue
-		}
-
-		if !isEthTx(tx) {
-			continue
-		}
-
-		txs, err := rpctypes.ParseTxResult(result, tx)
-		if err != nil {
-			kv.logger.Error("Fail to parse event", "err", err, "block", height, "txIndex", txIndex)
-			continue
-		}
-
-		var cumulativeGasUsed uint64
-		for msgIndex, msg := range tx.GetMsgs() {
-			ethMsg := msg.(*evmtypes.MsgEthereumTx)
-			txHash := ethMsg.Hash()
-
-			txResult := servertypes.TxResult{
-				Height:     height,
-				TxIndex:    uint32(txIndex),  //#nosec G115 -- int overflow is not a concern here
-				MsgIndex:   uint32(msgIndex), //#nosec G115 -- int overflow is not a concern here
-				EthTxIndex: ethTxIndex,
-			}
-			if result.Code != abci.CodeTypeOK {
-				// exceeds block gas limit scenario, set gas used to gas limit because that's what's charged by ante handler.
-				// some old versions don't emit any events, so workaround here directly.
-				txResult.GasUsed = ethMsg.GetGas()
-				txResult.Failed = true
-			} else {
-				parsedTx := txs.GetTxByMsgIndex(msgIndex)
-				if parsedTx == nil {
-					kv.logger.Error("msg index not found in events", "msgIndex", msgIndex)
-					continue
-				}
-				if parsedTx.EthTxIndex >= 0 && parsedTx.EthTxIndex != ethTxIndex {
-					kv.logger.Error("eth tx index don't match", "expect", ethTxIndex, "found", parsedTx.EthTxIndex)
-				}
-				txResult.GasUsed = parsedTx.GasUsed
-				txResult.Failed = parsedTx.Failed
-			}
-
-			cumulativeGasUsed += txResult.GasUsed
-			txResult.CumulativeGasUsed = cumulativeGasUsed
-			ethTxIndex++
-
-			if err := saveTxResult(kv.clientCtx.Codec, batch, txHash, &txResult); err != nil {
-				return errorsmod.Wrapf(err, "IndexBlock %d", height)
-			}
+// findTransformer returns a transformer that can handle the given event type
+func (kv *KVIndexer) findTransformer(eventType string) CosmosEventTransformer {
+	for _, t := range kv.transformers {
+		if t.CanHandle(eventType) {
+			return t
 		}
 	}
-	if err := batch.Write(); err != nil {
+	return nil
+}
+
+// IndexBlock indexes all eth txs in a block through the following steps:
+// 1. Process FinalizeBlockEvents (PreBlock, BeginBlock, EndBlock) - create synthetic txs for transformable events
+// 2. Process DeliverTx events with single loop + buffering:
+//   - Buffer cosmos events that belong to eth txs
+//   - When ethereum_tx event is seen, process it and append buffered cosmos logs
+//   - For cosmos-only txs, create synthetic txs immediately
+func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxResult, finalizeBlockEvents []abci.Event) error {
+	kv.Reset()
+	defer kv.batch.Close()
+
+	preblockEvents, beginBlockEvents, endBlockEvents := partitionFinalizeBlockEvents(finalizeBlockEvents)
+
+	// Process PreBlock events (single synthetic tx per phase)
+	if err := kv.processBlockPhaseEvents(block, BlockPhasePreBlock, preblockEvents); err != nil {
+		return err
+	}
+
+	// Process BeginBlock events (single synthetic tx per phase)
+	if err := kv.processBlockPhaseEvents(block, BlockPhaseBeginBlock, beginBlockEvents); err != nil {
+		return err
+	}
+
+	// Process DeliverTx events
+	if err := kv.processDeliverTxEvents(block, txResults); err != nil {
+		return err
+	}
+
+	// Process EndBlock events (single synthetic tx per phase)
+	if err := kv.processBlockPhaseEvents(block, BlockPhaseEndBlock, endBlockEvents); err != nil {
+		return err
+	}
+
+	if err := kv.batch.Write(); err != nil {
 		return errorsmod.Wrapf(err, "IndexBlock %d, write batch", block.Height)
 	}
 	return nil
@@ -161,6 +174,30 @@ func (kv *KVIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*serv
 	return kv.GetByTxHash(common.BytesToHash(bz))
 }
 
+// GetEthReceipt returns the stored eth receipt JSON by tx hash
+func (kv *KVIndexer) GetEthReceipt(hash common.Hash) ([]byte, error) {
+	bz, err := kv.db.Get(EthReceiptKey(hash))
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "GetEthReceipt %s", hash.Hex())
+	}
+	if len(bz) == 0 {
+		return nil, fmt.Errorf("eth receipt not found, hash: %s", hash.Hex())
+	}
+	return bz, nil
+}
+
+// GetEthTx returns the stored eth tx JSON by tx hash
+func (kv *KVIndexer) GetEthTx(hash common.Hash) ([]byte, error) {
+	bz, err := kv.db.Get(EthTxKey(hash))
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "GetEthTx %s", hash.Hex())
+	}
+	if len(bz) == 0 {
+		return nil, fmt.Errorf("eth tx not found, hash: %s", hash.Hex())
+	}
+	return bz, nil
+}
+
 // TxHashKey returns the key for db entry: `tx hash -> tx result struct`
 func TxHashKey(hash common.Hash) []byte {
 	return append([]byte{KeyPrefixTxHash}, hash.Bytes()...)
@@ -171,6 +208,16 @@ func TxIndexKey(blockNumber int64, txIndex int32) []byte {
 	bz1 := sdk.Uint64ToBigEndian(uint64(blockNumber)) //nolint:gosec // G115 // block number won't exceed uint64
 	bz2 := sdk.Uint64ToBigEndian(uint64(txIndex))     //nolint:gosec // G115 // index won't exceed uint64
 	return append(append([]byte{KeyPrefixTxIndex}, bz1...), bz2...)
+}
+
+// EthReceiptKey returns the key for db entry: `tx hash -> eth receipt JSON`
+func EthReceiptKey(hash common.Hash) []byte {
+	return append([]byte{KeyPrefixEthReceipt}, hash.Bytes()...)
+}
+
+// EthTxKey returns the key for db entry: `tx hash -> eth tx JSON`
+func EthTxKey(hash common.Hash) []byte {
+	return append([]byte{KeyPrefixEthTx}, hash.Bytes()...)
 }
 
 // LoadLastBlock returns the latest indexed block number, returns -1 if db is empty
