@@ -12,7 +12,7 @@ require (
 	cosmossdk.io/tools/confix v0.1.2
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcutil v1.1.6
-	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260224200643-e10492fb96af
+	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260227171234-00271936093e
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
 	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260226210416-7759c2af06ed
