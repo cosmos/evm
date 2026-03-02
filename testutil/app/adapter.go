@@ -9,7 +9,6 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -177,14 +176,6 @@ func (a *EvmAppAdapter) GetMintKeeper() mintkeeper.Keeper {
 	}
 	panicMissingProvider("MintKeeperProvider")
 	return mintkeeper.Keeper{}
-}
-
-func (a *EvmAppAdapter) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
-	if provider, ok := a.TestApp.(evm.PreciseBankKeeperProvider); ok {
-		return provider.GetPreciseBankKeeper()
-	}
-	panicMissingProvider("PreciseBankKeeperProvider")
-	return nil
 }
 
 func (a *EvmAppAdapter) GetFeeGrantKeeper() feegrantkeeper.Keeper {

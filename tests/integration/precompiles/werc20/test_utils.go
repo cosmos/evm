@@ -13,11 +13,9 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/keyring"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // callType constants to differentiate between
@@ -87,7 +85,6 @@ const (
 	Receiver
 	Precompile
 	Contract
-	PrecisebankModule
 )
 
 // String returns the string representation of AccountType
@@ -101,8 +98,6 @@ func (at AccountType) String() string {
 		return "precompile"
 	case Contract:
 		return "contract"
-	case PrecisebankModule:
-		return "precisebank module"
 	default:
 		return "unknown"
 	}
@@ -110,8 +105,7 @@ func (at AccountType) String() string {
 
 // BalanceSnapshot represents a snapshot of account balances for testing
 type BalanceSnapshot struct {
-	IntegerBalance    *big.Int
-	FractionalBalance *big.Int
+	IntegerBalance *big.Int
 }
 
 // AccountBalanceInfo holds balance tracking information for a test account
@@ -128,13 +122,11 @@ func InitializeAccountBalances(
 	senderAddr, receiverAddr sdk.AccAddress,
 	precompileAddr, contractAddr common.Address,
 ) []*AccountBalanceInfo {
-	precisebankModuleAddr := authtypes.NewModuleAddress(precisebanktypes.ModuleName)
 	return []*AccountBalanceInfo{
 		{AccountType: Sender, Address: senderAddr},
 		{AccountType: Receiver, Address: receiverAddr},
 		{AccountType: Precompile, Address: precompileAddr.Bytes()},
 		{AccountType: Contract, Address: contractAddr.Bytes()},
-		{AccountType: PrecisebankModule, Address: precisebankModuleAddr},
 	}
 }
 
@@ -159,17 +151,11 @@ func TakeBalanceSnapshots(accounts []*AccountBalanceInfo, grpcHandler grpc.Handl
 func VerifyBalanceChanges(
 	accounts []*AccountBalanceInfo,
 	grpcHandler grpc.Handler,
-	expectedRemainder *big.Int,
 ) {
 	for _, account := range accounts {
 		ExpectBalanceChange(account.Address, account.BeforeSnapshot,
 			account.IntegerDelta, account.FractionalDelta, account.AccountType.String(), grpcHandler)
 	}
-
-	res, err := grpcHandler.Remainder()
-	Expect(err).ToNot(HaveOccurred(), "failed to get precisebank module remainder")
-	actualRemainder := res.Remainder.Amount.BigInt()
-	Expect(actualRemainder).To(Equal(expectedRemainder))
 }
 
 // GetAccountBalance returns the AccountBalanceInfo for a given account type
@@ -190,15 +176,8 @@ func GetBalanceSnapshot(addr sdk.AccAddress, grpcHandler grpc.Handler) (*Balance
 		return nil, fmt.Errorf("failed to get integer balance: %w", err)
 	}
 
-	// Get fractional balance using the new grpcHandler method
-	fracRes, err := grpcHandler.FractionalBalance(addr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get fractional balance: %w", err)
-	}
-
 	return &BalanceSnapshot{
-		IntegerBalance:    intRes.Balance.Amount.BigInt(),
-		FractionalBalance: fracRes.FractionalBalance.Amount.BigInt(),
+		IntegerBalance: intRes.Balance.Amount.BigInt(),
 	}, nil
 }
 
@@ -215,13 +194,8 @@ func ExpectBalanceChange(
 	Expect(err).ToNot(HaveOccurred(), "failed to get balance snapshot for %s", description)
 
 	actualIntegerDelta := new(big.Int).Sub(afterSnapshot.IntegerBalance, beforeSnapshot.IntegerBalance)
-	actualFractionalDelta := new(big.Int).Sub(afterSnapshot.FractionalBalance, beforeSnapshot.FractionalBalance)
 
 	Expect(actualIntegerDelta.Cmp(expectedIntegerDelta)).To(Equal(0),
 		"integer balance delta mismatch for %s: expected %s, got %s",
 		description, expectedIntegerDelta.String(), actualIntegerDelta.String())
-
-	Expect(actualFractionalDelta.Cmp(expectedFractionalDelta)).To(Equal(0),
-		"fractional balance delta mismatch for %s: expected %s, got %s",
-		description, expectedFractionalDelta.String(), actualFractionalDelta.String())
 }
