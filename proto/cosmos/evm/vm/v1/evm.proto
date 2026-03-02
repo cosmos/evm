@@ -356,7 +356,7 @@ message EvmCoinInfo {
   string denom = 1;
   string extended_denom = 2;
   string display_denom = 3;
-  // decimals is now deprecated and will be removed in a future release. When it is removed we will assume
-  // the evm token denom is 18 decimal precision.
+  // decimals is now deprecated and will be removed in a future release. When it
+  // is removed we will assume the evm token denom is 18 decimal precision.
   uint32 decimals = 4 [ deprecated = true ];
 }
