@@ -47,20 +47,21 @@
 
 ## v0.6.0
 
+Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade instructions.
+
+### BREAKING CHANGES
+- Removed IBC Transfer wrapper. Users are now required to use the precompile to transfer ERC20 tokens.
+- Added StateDB as a parameter to internal EVM calls.
+
 ### DEPENDENCIES
-
-### BUG FIXES
-
-- Add `stateDB` and `callFromPrecompile` parameters to internal EVM messages.
-- Fixed an issue with events missing from final transaction result.
 
 ### IMPROVEMENTS
 
 ### FEATURES
 
-### STATE BREAKING
+### BUG FIXES
 
-### API-BREAKING
+## v0.5.1
 
 ## v0.5.0
 
