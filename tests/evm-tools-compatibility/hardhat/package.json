@@ -13,7 +13,7 @@
     "@types/mocha": "^10.0.10",
     "chai": "^4.5.0",
     "hardhat": "^2.23.0",
-    "hardhat-deploy": "^1.0.2",
+    "hardhat-deploy": "^2.0.1",
     "hardhat-gas-reporter": "^1.0.10",
     "solidity-coverage": "^0.8.16",
     "ts-node": "^10.9.2",
