@@ -738,13 +738,14 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 		mockVMKeeper,
 		mockFeeMarketKeeper,
 		txConfig,
-		clientCtx,
 		mempool.NewTxEncoder(txConfig),
 		mockRechecker,
 		config,
 		1000, // cosmos pool max tx
 	)
 	require.NotNil(t, mp)
+
+	mp.SetClientCtx(clientCtx)
 
 	eventBus := cmttypes.NewEventBus()
 	require.NoError(t, eventBus.Start())

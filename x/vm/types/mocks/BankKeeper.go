@@ -308,7 +308,8 @@ func (_m *BankKeeper) UncheckedSetBalance(ctx context.Context, addr types.AccAdd
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

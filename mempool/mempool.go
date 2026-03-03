@@ -126,7 +126,6 @@ func NewExperimentalEVMMempool(
 	vmKeeper VMKeeperI,
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
-	clientCtx client.Context,
 	txEncoder *TxEncoder,
 	rechecker legacypool.Rechecker,
 	config *EVMMempoolConfig,
@@ -297,16 +296,6 @@ func NewExperimentalEVMMempool(
 		evmMempool.reapList.DropEVMTx(tx)
 
 		_ = evmMempool.txTracker.RemoveTxFromPool(tx.Hash(), pool)
-	}
-
-	// Set up broadcast function
-	if config.BroadCastTxFn != nil {
-		legacyPool.BroadcastTxFn = config.BroadCastTxFn
-	} else {
-		// Create default broadcast function using clientCtx.
-		// The EVM mempool will broadcast transactions when it promotes them
-		// from queued into pending, noting their readiness to be executed.
-		legacyPool.BroadcastTxFn = evmMempool.defaultBroadcastTxFn
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -637,17 +626,6 @@ func (m *ExperimentalEVMMempool) HasEventBus() bool {
 	return m.eventBus != nil
 }
 
-// Has returns true if the transaction with the given hash is already in the mempool.
-// This checks tx pool for EVM transactions, which iterates through all pools (currently only legacypool)
-func (m *ExperimentalEVMMempool) Has(hash common.Hash) bool {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	// Check the tx pool
-	return m.txPool.Has(hash)
-}
-
-// Close unsubscribes from the CometBFT event bus and shuts down the mempool.
 func (m *ExperimentalEVMMempool) Close() error {
 	var errs []error
 	if m.eventBus != nil {

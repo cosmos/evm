@@ -234,7 +234,7 @@ func NewBackend(
 	b := &Backend{
 		ClientCtx:           clientCtx,
 		RPCClient:           rpcClient,
-		QueryClient:                 types.NewQueryClient(clientCtx),
+		QueryClient:         types.NewQueryClient(clientCtx),
 		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
 		Cfg:                 appConf,
 		AllowUnprotectedTxs: false,

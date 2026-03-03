@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -183,12 +182,6 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 		return txHash, nil
 	}
 
-	// Check if transaction is already in the mempool before broadcasting
-	// This is important for user-submitted transactions via JSON-RPC to provide proper error feedback
-	if b.Mempool != nil && b.Mempool.Has(txHash) {
-		return txHash, txpool.ErrAlreadyKnown
-	}
-
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 
 	rsp, err := syncCtx.BroadcastTx(txBytes)
@@ -197,14 +190,14 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 	}
 
 	if err != nil {
-		return b.handleSendTxError(tx, ethSigner, err)
+		return b.handleSendTxError(ctx, tx, ethSigner, err)
 	}
 
 	return txHash, nil
 }
 
 // handleSendTxError temporary workaround for check-tx backward compatibility
-func (b *Backend) handleSendTxError(tx *ethtypes.Transaction, signer ethtypes.Signer, err error) (common.Hash, error) {
+func (b *Backend) handleSendTxError(ctx context.Context, tx *ethtypes.Transaction, signer ethtypes.Signer, err error) (common.Hash, error) {
 	txHash := tx.Hash()
 
 	// Check if this is a nonce gap error that was successfully queued
@@ -220,7 +213,7 @@ func (b *Backend) handleSendTxError(tx *ethtypes.Transaction, signer ethtypes.Si
 			return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
 		}
 
-		nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
+		nonce, err := b.getAccountNonce(ctx, from, false, b.ClientCtx.Height, b.Logger)
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
 		}

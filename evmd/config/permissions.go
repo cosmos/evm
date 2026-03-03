@@ -62,7 +62,7 @@ var maccPerms = map[string][]string{
 	// Cosmos EVM modules
 	vmtypes.ModuleName:        {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName: nil,
-	erc20types.ModuleName:   {authtypes.Minter, authtypes.Burner},
+	erc20types.ModuleName:     {authtypes.Minter, authtypes.Burner},
 }
 
 // GetMaccPerms returns a copy of the module account permissions

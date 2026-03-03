@@ -1057,7 +1057,8 @@ func (_c *BankKeeper_UncheckedSetBalance_Call) RunAndReturn(run func(context.Con
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

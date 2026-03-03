@@ -117,7 +117,8 @@ func (_m *BlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) eve
 func NewBlockChain(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BlockChain {
+},
+) *BlockChain {
 	mock := &BlockChain{}
 	mock.Mock.Test(t)
 

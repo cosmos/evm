@@ -12,10 +12,8 @@ import (
 	"github.com/holiman/uint256"
 )
 
-var (
-	// txsCollected is the total amount of txs returned by Collect.
-	txsCollected = metrics.NewRegisteredMeter("legacypool/txstore/txscollected", nil)
-)
+// txsCollected is the total amount of txs returned by Collect.
+var txsCollected = metrics.NewRegisteredMeter("legacypool/txstore/txscollected", nil)
 
 // TxStore is a set of transactions at a height that can be added to or
 // removed from.
