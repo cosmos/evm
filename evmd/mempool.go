@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/rechecker"
 	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log/v2"
@@ -42,7 +43,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	}
 
 	txEncoder := evmmempool.NewTxEncoder(app.txConfig)
-	rechecker := evmmempool.NewRechecker(mempoolConfig.AnteHandler, txEncoder)
+	evmRechecker := rechecker.New(mempoolConfig.AnteHandler, txEncoder)
+	cosmosRechecker := rechecker.New(mempoolConfig.AnteHandler, txEncoder)
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
@@ -52,7 +54,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.txConfig,
 		app.clientCtx,
 		txEncoder,
-		rechecker,
+		evmRechecker,
+		cosmosRechecker,
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)

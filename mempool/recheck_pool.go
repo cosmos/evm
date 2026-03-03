@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
@@ -54,6 +55,30 @@ func init() {
 	}
 }
 
+// Rechecker defines the minimal set of methods needed to recheck cosmos
+// transactions and manage the context that the transactions are rechecked
+// against.
+type Rechecker interface {
+	// GetContext gets a branch of the current context that transactions should
+	// be rechecked against. Changes to ctx will only be persisted back to the
+	// Rechecker once the write function is invoked.
+	GetContext() (ctx sdk.Context, write func())
+
+	// RecheckCosmos performs validation of a cosmos tx against a context, and
+	// returns an updated context.
+	RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error)
+
+	// Update updates the main context returned by GetContext to be the base
+	// chain context at header.
+	Update(ctx sdk.Context, header *ethtypes.Header)
+}
+
+// LatestContextProvider provides the minimal methods needed by RecheckMempool
+// for context management during rechecks.
+type LatestContextProvider interface {
+	GetLatestContext() (sdk.Context, error)
+}
+
 // RecheckMempool wraps an ExtMempool and provides block-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
 // pattern but simplified for Cosmos mempool behavior (no reorgs, no queued/pending management).
@@ -71,9 +96,9 @@ type RecheckMempool struct {
 	// reserver coordinates address reservations with other pools (i.e. legacypool)
 	reserver *reserver.ReservationHandle
 
-	anteHandler sdk.AnteHandler
-	getCtx      func() (sdk.Context, error)
-	logger      log.Logger
+	rechecker       Rechecker
+	contextProvider LatestContextProvider
+	logger          log.Logger
 
 	// event channels
 	reqRecheckCh    chan *recheckRequest // channel that schedules rechecking.
@@ -94,15 +119,15 @@ func NewRecheckMempool(
 	logger log.Logger,
 	pool sdkmempool.ExtMempool,
 	reserver *reserver.ReservationHandle,
-	anteHandler sdk.AnteHandler,
+	rechecker Rechecker,
 	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
-	getCtx func() (sdk.Context, error),
+	contextProvider LatestContextProvider,
 ) *RecheckMempool {
 	return &RecheckMempool{
 		ExtMempool:      pool,
 		reserver:        reserver,
-		anteHandler:     anteHandler,
-		getCtx:          getCtx,
+		rechecker:       rechecker,
+		contextProvider: contextProvider,
 		logger:          logger.With(log.ModuleKey, "RecheckMempool"),
 		reqRecheckCh:    make(chan *recheckRequest),
 		recheckDoneCh:   make(chan chan struct{}),
@@ -112,8 +137,17 @@ func NewRecheckMempool(
 	}
 }
 
-// Start begins the background recheck loop.
-func (m *RecheckMempool) Start() {
+// Start begins the background recheck loop and initializes the rechecker's
+// context to the latest chain state. The initialHead is used for the first
+// Rechecker.Update call before any recheck has been triggered.
+func (m *RecheckMempool) Start(initialHead *ethtypes.Header) {
+	ctx, err := m.contextProvider.GetLatestContext()
+	if err != nil {
+		m.logger.Error("failed to initialize rechecker context", "err", err)
+	} else {
+		m.rechecker.Update(ctx, initialHead)
+	}
+
 	m.wg.Add(1)
 	go m.scheduleRecheckLoop()
 }
@@ -129,7 +163,7 @@ func (m *RecheckMempool) Close() error {
 
 // Insert adds a transaction to the pool after running the ante handler.
 // This is the main entry point for new cosmos transactions.
-func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
+func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	// Reserve addresses to prevent conflicts with EVM pool
 	addrs, err := signerAddressesFromTx(tx)
 	if err != nil {
@@ -142,16 +176,20 @@ func (m *RecheckMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, err := m.anteHandler(sdk.UnwrapSDKContext(goCtx), tx, false); err != nil {
-		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
+	// Branch from the Rechecker's internal ctx (post-recheck cache).
+	// This ctx has chain_state + all pending txs' nonce increments.
+	ctx, write := m.rechecker.GetContext()
+	if _, err := m.rechecker.RecheckCosmos(ctx, tx); err != nil {
+		_ = m.reserver.Release(addrs...) // best effort cleanup
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
 
-	if err := m.ExtMempool.Insert(goCtx, tx); err != nil {
-		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
+	if err := m.ExtMempool.Insert(ctx, tx); err != nil {
+		_ = m.reserver.Release(addrs...) // best effort cleanup
 		return err
 	}
 
+	write()
 	return nil
 }
 
@@ -201,14 +239,14 @@ func (m *RecheckMempool) CountTx() int {
 }
 
 type recheckRequest struct {
-	newHeight *big.Int
+	newHead *ethtypes.Header
 }
 
 // TriggerRecheck signals that a new block arrived and returns a channel
 // that closes when the recheck completes (or is superseded by another).
-func (m *RecheckMempool) TriggerRecheck(newHeight *big.Int) <-chan struct{} {
+func (m *RecheckMempool) TriggerRecheck(newHead *ethtypes.Header) <-chan struct{} {
 	select {
-	case m.reqRecheckCh <- &recheckRequest{newHeight: newHeight}:
+	case m.reqRecheckCh <- &recheckRequest{newHead: newHead}:
 		return <-m.recheckDoneCh
 	case <-m.recheckShutdown:
 		ch := make(chan struct{})
@@ -218,8 +256,8 @@ func (m *RecheckMempool) TriggerRecheck(newHeight *big.Int) <-chan struct{} {
 }
 
 // TriggerRecheckSync triggers a recheck and blocks until complete.
-func (m *RecheckMempool) TriggerRecheckSync(newHeight *big.Int) {
-	<-m.TriggerRecheck(newHeight)
+func (m *RecheckMempool) TriggerRecheckSync(newHead *ethtypes.Header) {
+	<-m.TriggerRecheck(newHead)
 }
 
 // RecheckedTxs returns the txs that have been rechecked for a height. The
@@ -254,7 +292,7 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 	for {
 		if curDone == nil && launchNextRun {
 			cancelCh = make(chan struct{})
-			go m.runRecheck(nextDone, recheckReq.newHeight, cancelCh)
+			go m.runRecheck(nextDone, recheckReq.newHead, cancelCh)
 
 			curDone, nextDone = nextDone, make(chan struct{})
 			launchNextRun = false
@@ -291,7 +329,7 @@ func (m *RecheckMempool) scheduleRecheckLoop() {
 // runRecheck performs the actual recheck work. It holds the write lock for the
 // entire duration, iterates through all txs, runs them through the ante handler,
 // and removes any that fail (plus dependent txs with higher sequences).
-func (m *RecheckMempool) runRecheck(done chan struct{}, height *big.Int, cancelled <-chan struct{}) {
+func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header, cancelled <-chan struct{}) {
 	defer close(done)
 	start := time.Now()
 	txsRemoved := 0
@@ -309,19 +347,24 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, height *big.Int, cancell
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.recheckedTxs.StartNewHeight(height)
+	m.recheckedTxs.StartNewHeight(newHead.Number)
 	defer m.recheckedTxs.EndCurrentHeight()
 
-	ctx, err := m.getCtx()
+	latestCtx, err := m.contextProvider.GetLatestContext()
 	if err != nil {
 		m.logger.Error("failed to get context for recheck", "err", err)
 		return
 	}
+	m.rechecker.Update(latestCtx, newHead)
 
 	failedAtSequence := make(map[string]uint64)
 	removeTxs := make([]sdk.Tx, 0)
 
-	cc, _ := ctx.CacheContext()
+	// Branch from the rechecker for iteration context. Each successful tx's
+	// state changes are committed back to the Rechecker immediately via
+	// write()
+	ctx, write := m.rechecker.GetContext()
+
 	iter := m.ExtMempool.Select(ctx, nil)
 	for iter != nil {
 		if isCancelled(cancelled) {
@@ -351,12 +394,11 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, height *big.Int, cancell
 		}
 
 		if !invalidTx {
-			txCtx, writeCache := cc.CacheContext()
-			if newCtx, err := m.anteHandler(txCtx, txn, false); err == nil {
-				writeCache()
-				cc = newCtx
-				iter = iter.Next()
+			if _, err := m.rechecker.RecheckCosmos(ctx, txn); err == nil {
+				write()
 				m.markTxRechecked(txn)
+				iter = iter.Next()
+				ctx, write = m.rechecker.GetContext()
 				continue
 			}
 		}
