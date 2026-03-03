@@ -135,7 +135,7 @@ func (s *TestSuite) TestSendTransaction() {
 				s.Require().NoError(err)
 				tc.expHash = msg.AsTransaction().Hash()
 			}
-			responseHash, err := s.backend.SendTransaction(tc.args)
+			responseHash, err := s.backend.SendTransaction(s.Ctx(), tc.args)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expHash, responseHash)

@@ -120,6 +120,9 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	initialCount := mempool.CountTx()
 	s.Require().Equal(0, initialCount, "mempool should be empty initially")
 
+	// Enforces deterministic mempool state for tests
+	evmmempool.AllowUnsafeSyncInsert = true
+
 	s.network = nw
 	s.factory = tf
 }

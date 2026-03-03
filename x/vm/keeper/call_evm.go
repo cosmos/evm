@@ -7,8 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/server/config"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -25,7 +28,14 @@ func (k Keeper) CallEVM(
 	gasCap *big.Int,
 	method string,
 	args ...any,
-) (*types.MsgEthereumTxResponse, error) {
+) (_ *types.MsgEthereumTxResponse, err error) {
+	ctx, span := ctx.StartSpan(tracer, "CallEVM", trace.WithAttributes(
+		attribute.String("from", from.Hex()),
+		attribute.String("contract", contract.Hex()),
+		attribute.String("method", method),
+		attribute.Bool("commit", commit),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	data, err := abi.Pack(method, args...)
 	if err != nil {
 		return nil, errorsmod.Wrap(
@@ -49,10 +59,31 @@ func (k Keeper) CallEVMWithData(
 	data []byte,
 	commit bool,
 	gasCap *big.Int,
-) (*types.MsgEthereumTxResponse, error) {
+) (_ *types.MsgEthereumTxResponse, err error) {
+	contractAddr := ""
+	if contract != nil {
+		contractAddr = contract.Hex()
+	}
+	ctx, span := ctx.StartSpan(tracer, "CallEVMWithData", trace.WithAttributes(
+		attribute.String("from", from.Hex()),
+		attribute.String("contract", contractAddr),
+		attribute.Bool("commit", commit),
+		attribute.Int("data_size", len(data)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
 		return nil, err
+	}
+
+	gasLimit := config.DefaultGasCap
+	if gasCap != nil && gasCap.Sign() > 0 {
+		if gasCap.BitLen() <= 64 {
+			provided := gasCap.Uint64()
+			if provided < gasLimit {
+				gasLimit = provided
+			}
+		}
 	}
 
 	msg := core.Message{
@@ -60,7 +91,7 @@ func (k Keeper) CallEVMWithData(
 		To:         contract,
 		Nonce:      nonce,
 		Value:      big.NewInt(0),
-		GasLimit:   config.DefaultGasCap,
+		GasLimit:   gasLimit,
 		GasPrice:   big.NewInt(0),
 		GasTipCap:  big.NewInt(0),
 		GasFeeCap:  big.NewInt(0),

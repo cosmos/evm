@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -143,7 +144,7 @@ func (s *TestSuite) TestBaseFee() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			baseFee, err := s.backend.BaseFee(tc.blockRes)
+			baseFee, err := s.backend.BaseFee(s.Ctx(), tc.blockRes)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -180,7 +181,7 @@ func (s *TestSuite) TestChainID() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			chainID, err := s.backend.ChainID()
+			chainID, err := s.backend.ChainID(s.Ctx())
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expChainID, chainID)
@@ -237,7 +238,7 @@ func (s *TestSuite) TestGetCoinbase() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			accAddr, err := s.backend.GetCoinbase()
+			accAddr, err := s.backend.GetCoinbase(s.Ctx())
 
 			if tc.expPass {
 				s.Require().Equal(tc.accAddr, accAddr)
@@ -277,7 +278,7 @@ func (s *TestSuite) TestSuggestGasTipCap() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			maxDelta, err := s.backend.SuggestGasTipCap(tc.baseFee)
+			maxDelta, err := s.backend.SuggestGasTipCap(s.Ctx(), tc.baseFee)
 
 			if tc.expPass {
 				s.Require().Equal(tc.expGasTipCap, maxDelta)
@@ -311,7 +312,7 @@ func (s *TestSuite) TestGlobalMinGasPrice() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			globalMinGasPrice, err := s.backend.GlobalMinGasPrice()
+			globalMinGasPrice, err := s.backend.GlobalMinGasPrice(s.Ctx())
 
 			if tc.expPass {
 				s.Require().Equal(tc.expMinGasPrice, globalMinGasPrice)
@@ -577,13 +578,14 @@ func (s *TestSuite) TestFeeHistory() {
 			called := 0
 			if len(tc.targetNewBaseFees) > 0 {
 				s.backend.ProcessBlocker = func(
+					ctx context.Context,
 					cometBlock *cmtrpctypes.ResultBlock,
 					ethBlock *map[string]interface{},
 					rewardPercentiles []float64,
 					cometBlockResult *cmtrpctypes.ResultBlockResults,
 					targetOneFeeHistory *rpc.OneFeeHistory,
 				) error {
-					err := s.backend.ProcessBlock(cometBlock, ethBlock, rewardPercentiles, cometBlockResult, targetOneFeeHistory)
+					err := s.backend.ProcessBlock(ctx, cometBlock, ethBlock, rewardPercentiles, cometBlockResult, targetOneFeeHistory)
 					s.Require().NoError(err)
 					targetOneFeeHistory.NextBaseFee = tc.targetNewBaseFees[called]
 					called++
@@ -591,7 +593,7 @@ func (s *TestSuite) TestFeeHistory() {
 				}
 			}
 
-			feeHistory, err := s.backend.FeeHistory(tc.userBlockCount, tc.latestBlock, []float64{25, 50, 75, 100})
+			feeHistory, err := s.backend.FeeHistory(s.Ctx(), tc.userBlockCount, tc.latestBlock, []float64{25, 50, 75, 100})
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(feeHistory, tc.expFeeHistory)

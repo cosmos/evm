@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"time"
@@ -15,6 +16,7 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -63,8 +65,11 @@ func (b *Backend) Accounts() ([]common.Address, error) {
 // - highestBlock:  block number of the highest block header this node has received from peers
 // - pulledStates:  number of state entries processed until now
 // - knownStates:   number of known state entries that still need to be pulled
-func (b *Backend) Syncing() (interface{}, error) {
-	status, err := b.ClientCtx.Client.Status(b.Ctx)
+func (b *Backend) Syncing(ctx context.Context) (result interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "Syncing")
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
+	status, err := b.ClientCtx.Client.Status(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -83,13 +88,15 @@ func (b *Backend) Syncing() (interface{}, error) {
 }
 
 // SetEtherbase sets the etherbase of the miner
-func (b *Backend) SetEtherbase(etherbase common.Address) bool {
+func (b *Backend) SetEtherbase(ctx context.Context, etherbase common.Address) bool {
+	ctx, span := tracer.Start(ctx, "SetEtherbase")
+	defer span.End()
 	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
 		b.Logger.Debug("account unlock with HTTP access is forbidden")
 		return false
 	}
 
-	delAddr, err := b.GetCoinbase()
+	delAddr, err := b.GetCoinbase(ctx)
 	if err != nil {
 		b.Logger.Debug("failed to get coinbase address", "error", err.Error())
 		return false
@@ -121,7 +128,7 @@ func (b *Backend) SetEtherbase(etherbase common.Address) bool {
 	denom := minGasPrices[0].Denom
 
 	delCommonAddr := common.BytesToAddress(delAddr.Bytes())
-	nonce, err := b.GetTransactionCount(delCommonAddr, rpctypes.EthPendingBlockNumber)
+	nonce, err := b.GetTransactionCount(ctx, delCommonAddr, rpctypes.EthPendingBlockNumber)
 	if err != nil {
 		b.Logger.Debug("failed to get nonce", "error", err.Error())
 		return false
@@ -154,7 +161,7 @@ func (b *Backend) SetEtherbase(etherbase common.Address) bool {
 		return false
 	}
 
-	if err := tx.Sign(b.ClientCtx.CmdContext, txFactory, keyInfo.Name, builder, false); err != nil {
+	if err := tx.Sign(ctx, txFactory, keyInfo.Name, builder, false); err != nil {
 		b.Logger.Debug("failed to sign tx", "error", err.Error())
 		return false
 	}
@@ -263,7 +270,7 @@ func (b *Backend) NewMnemonic(uid string,
 // SetGasPrice sets the minimum accepted gas price for the miner.
 // NOTE: this function accepts only integers to have the same interface than go-eth
 // to use float values, the gas prices must be configured using the configuration file
-func (b *Backend) SetGasPrice(gasPrice hexutil.Big) bool {
+func (b *Backend) SetGasPrice(ctx context.Context, gasPrice hexutil.Big) bool {
 	appConf, err := config.GetConfig(b.ClientCtx.Viper)
 	if err != nil {
 		b.Logger.Debug("could not get the server config", "error", err.Error())

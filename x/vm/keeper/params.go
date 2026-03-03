@@ -6,7 +6,10 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -15,6 +18,8 @@ import (
 
 // GetParams returns the total set of evm parameters.
 func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
+	ctx, span := ctx.StartSpan(tracer, "GetParams")
+	defer span.End()
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.KeyPrefixParams)
 	if bz == nil {
@@ -25,7 +30,13 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 }
 
 // SetParams sets the EVM params each in their individual key for better get performance
-func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
+func (k Keeper) SetParams(ctx sdk.Context, params types.Params) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "SetParams", trace.WithAttributes(
+		attribute.String("evm_denom", params.EvmDenom),
+		attribute.Int("active_precompiles_count", len(params.ActiveStaticPrecompiles)),
+		attribute.Int("extra_eips_count", len(params.ExtraEIPs)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	// NOTE: We need to sort the precompiles in order to enable searching with binary search
 	// in params.IsActivePrecompile.
 	slices.Sort(params.ActiveStaticPrecompiles)
@@ -46,7 +57,11 @@ func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 
 // EnableStaticPrecompiles appends the addresses of the given Precompiles to the list
 // of active static precompiles.
-func (k Keeper) EnableStaticPrecompiles(ctx sdk.Context, addresses ...common.Address) error {
+func (k Keeper) EnableStaticPrecompiles(ctx sdk.Context, addresses ...common.Address) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "EnableStaticPrecompiles", trace.WithAttributes(
+		attribute.Int("addresses_count", len(addresses)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	params := k.GetParams(ctx)
 	activePrecompiles := params.ActiveStaticPrecompiles
 
@@ -81,7 +96,11 @@ func appendPrecompiles(existingPrecompiles []string, addresses ...common.Address
 }
 
 // EnableEIPs enables the given EIPs in the EVM parameters.
-func (k Keeper) EnableEIPs(ctx sdk.Context, eips ...int64) error {
+func (k Keeper) EnableEIPs(ctx sdk.Context, eips ...int64) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "EnableEIPs", trace.WithAttributes(
+		attribute.Int("eips_count", len(eips)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	evmParams := k.GetParams(ctx)
 	evmParams.ExtraEIPs = append(evmParams.ExtraEIPs, eips...)
 

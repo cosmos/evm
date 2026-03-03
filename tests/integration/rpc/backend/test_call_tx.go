@@ -281,7 +281,7 @@ func (s *TestSuite) TestResend() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			hash, err := s.backend.Resend(tc.args, tc.gasPrice, tc.gasLimit)
+			hash, err := s.backend.Resend(s.Ctx(), tc.args, tc.gasPrice, tc.gasLimit)
 
 			if tc.expPass {
 				s.Require().Equal(tc.expHash, hash)
@@ -402,7 +402,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			hash, err := s.backend.SendRawTransaction(tc.rawTx())
+			hash, err := s.backend.SendRawTransaction(s.Ctx(), tc.rawTx())
 
 			if tc.expPass {
 				s.Require().Equal(tc.expHash, hash)
@@ -553,7 +553,7 @@ func (s *TestSuite) TestDoCall() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			msgEthTx, err := s.backend.DoCall(tc.callArgs, tc.blockNum, tc.overrides)
+			msgEthTx, err := s.backend.DoCall(s.Ctx(), tc.callArgs, tc.blockNum, tc.overrides)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -618,7 +618,7 @@ func (s *TestSuite) TestGasPrice() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			gasPrice, err := s.backend.GasPrice()
+			gasPrice, err := s.backend.GasPrice(s.Ctx())
 			if tc.expPass {
 				s.Require().Equal(tc.expGas, gasPrice)
 			} else {
@@ -763,7 +763,7 @@ func (s *TestSuite) TestEstimateGas() {
 
 			blockNum := rpctypes.BlockNumber(1)
 			blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNum}
-			gas, err := s.backend.EstimateGas(tc.callArgs, &blockNrOrHash, tc.overrides)
+			gas, err := s.backend.EstimateGas(s.Ctx(), tc.callArgs, &blockNrOrHash, tc.overrides)
 
 			if tc.expPass {
 				s.Require().NoError(err)

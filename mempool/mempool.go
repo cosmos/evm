@@ -40,6 +40,11 @@ var (
 	_ sdkmempool.ExtMempool = (*ExperimentalEVMMempool)(nil)
 )
 
+// AllowUnsafeSyncInsert indicates whether to perform synchronous inserts into the mempool
+// for testing purposes. When true, Insert will block until the transaction is fully processed.
+// This should be used only in tests to ensure deterministic behavior
+var AllowUnsafeSyncInsert = false
+
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
 	SubscriberName = "evm"
@@ -66,6 +71,7 @@ type (
 		/** Utils **/
 		logger        log.Logger
 		txConfig      client.TxConfig
+		clientCtx     client.Context
 		blockchain    *Blockchain
 		blockGasLimit uint64 // Block gas limit from consensus parameters
 		minTip        *uint256.Int
@@ -293,6 +299,16 @@ func NewExperimentalEVMMempool(
 		_ = evmMempool.txTracker.RemoveTxFromPool(tx.Hash(), pool)
 	}
 
+	// Set up broadcast function
+	if config.BroadCastTxFn != nil {
+		legacyPool.BroadcastTxFn = config.BroadCastTxFn
+	} else {
+		// Create default broadcast function using clientCtx.
+		// The EVM mempool will broadcast transactions when it promotes them
+		// from queued into pending, noting their readiness to be executed.
+		legacyPool.BroadcastTxFn = evmMempool.defaultBroadcastTxFn
+	}
+
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	// Start the cosmos pool recheck loop
@@ -316,6 +332,11 @@ func (m *ExperimentalEVMMempool) GetBlockchain() *Blockchain {
 // This provides direct access to the EVM-specific transaction management functionality.
 func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 	return m.txPool
+}
+
+// SetClientCtx sets the client context provider for broadcasting transactions
+func (m *ExperimentalEVMMempool) SetClientCtx(clientCtx client.Context) {
+	m.clientCtx = clientCtx
 }
 
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
@@ -614,6 +635,16 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 // HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
 func (m *ExperimentalEVMMempool) HasEventBus() bool {
 	return m.eventBus != nil
+}
+
+// Has returns true if the transaction with the given hash is already in the mempool.
+// This checks tx pool for EVM transactions, which iterates through all pools (currently only legacypool)
+func (m *ExperimentalEVMMempool) Has(hash common.Hash) bool {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	// Check the tx pool
+	return m.txPool.Has(hash)
 }
 
 // Close unsubscribes from the CometBFT event bus and shuts down the mempool.

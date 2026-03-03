@@ -1,13 +1,19 @@
 package keeper
 
 import (
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // BeginBlock emits a base fee event which will be adjusted to the evm decimals
-func (k *Keeper) BeginBlock(ctx sdk.Context) error {
+func (k *Keeper) BeginBlock(ctx sdk.Context) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "BeginBlock", trace.WithAttributes(attribute.Int64("block_num", ctx.BlockHeight())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	logger := ctx.Logger().With("begin_block", "evm")
 
 	// Base fee is already set on FeeMarket BeginBlock
@@ -35,7 +41,9 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 // EndBlock also retrieves the bloom filter value from the transient store and commits it to the
 // KVStore. The EVM end block logic doesn't update the validator set, thus it returns
 // an empty slice.
-func (k *Keeper) EndBlock(ctx sdk.Context) error {
+func (k *Keeper) EndBlock(ctx sdk.Context) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "EndBlock", trace.WithAttributes(attribute.Int64("block_num", ctx.BlockHeight())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	if k.evmMempool != nil && !k.evmMempool.HasEventBus() {
 		k.evmMempool.GetBlockchain().NotifyNewBlock()
 	}

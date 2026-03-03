@@ -76,7 +76,6 @@ func setupMockBackend(t *testing.T) *Backend {
 	mockFeeMarketQueryClient := mocks.NewFeeMarketQueryClient(t)
 	backend.QueryClient.QueryClient = mockEVMQueryClient
 	backend.QueryClient.FeeMarket = mockFeeMarketQueryClient
-	backend.Ctx = rpctypes.ContextWithHeight(1)
 
 	mockClient := backend.ClientCtx.Client.(*mocks.Client)
 	mockClient.On("Status", context.Background()).Return(&tmrpctypes.ResultStatus{
@@ -375,7 +374,7 @@ func TestCreateAccessList(t *testing.T) {
 				require.NotEqual(t, common.Address{}, args.GetFrom(), "From address should not be zero")
 			}
 
-			result, err := backend.CreateAccessList(args, blockNumOrHash, tc.overrides)
+			result, err := backend.CreateAccessList(rpctypes.NewContextWithHeight(1), args, blockNumOrHash, tc.overrides)
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -490,7 +489,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			backend.Indexer = mockIndexer
 			mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 			mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
-			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+			receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
 			require.NoError(t, err)
 			require.Len(t, receipts, 1)
 			actualTxIndex := receipts[0].TransactionIndex

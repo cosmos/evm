@@ -1,19 +1,26 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	evmtrace "github.com/cosmos/evm/trace"
 )
 
 // GetBlockByNumber returns the JSON-RPC compatible Ethereum block identified by
 // block number. Depending on fullTx it either returns the full transaction
 // objects or if false only the hashes of the transactions.
-func (b *Backend) GetHeaderByNumber(blockNum rpctypes.BlockNumber) (map[string]interface{}, error) {
-	resBlock, err := b.CometBlockByNumber(blockNum)
+func (b *Backend) GetHeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (result map[string]interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "GetHeaderByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
+	resBlock, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
 		return nil, nil
 	}
@@ -23,13 +30,13 @@ func (b *Backend) GetHeaderByNumber(blockNum rpctypes.BlockNumber) (map[string]i
 		return nil, nil
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &resBlock.Block.Height)
+	blockRes, err := b.RPCClient.BlockResults(ctx, &resBlock.Block.Height)
 	if err != nil {
 		b.Logger.Debug("failed to fetch block result from CometBFT", "height", blockNum, "error", err.Error())
 		return nil, nil
 	}
 
-	res, err := b.RPCHeaderFromCometBlock(resBlock, blockRes)
+	res, err := b.RPCHeaderFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
 		b.Logger.Debug("RPCBlockFromCometBlock failed", "height", blockNum, "error", err.Error())
 		return nil, err
@@ -40,8 +47,11 @@ func (b *Backend) GetHeaderByNumber(blockNum rpctypes.BlockNumber) (map[string]i
 
 // GetBlockByHash returns the JSON-RPC compatible Ethereum block identified by
 // hash.
-func (b *Backend) GetHeaderByHash(hash common.Hash) (map[string]interface{}, error) {
-	resBlock, err := b.CometBlockByHash(hash)
+func (b *Backend) GetHeaderByHash(ctx context.Context, hash common.Hash) (result map[string]interface{}, err error) {
+	ctx, span := tracer.Start(ctx, "GetHeaderByHash", trace.WithAttributes(attribute.String("hash", hash.Hex())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
+	resBlock, err := b.CometBlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -51,13 +61,13 @@ func (b *Backend) GetHeaderByHash(hash common.Hash) (map[string]interface{}, err
 		return nil, nil
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &resBlock.Block.Height)
+	blockRes, err := b.RPCClient.BlockResults(ctx, &resBlock.Block.Height)
 	if err != nil {
 		b.Logger.Debug("failed to fetch block result from CometBFT", "block-hash", hash.String(), "error", err.Error())
 		return nil, nil
 	}
 
-	res, err := b.RPCHeaderFromCometBlock(resBlock, blockRes)
+	res, err := b.RPCHeaderFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
 		b.Logger.Debug("RPCBlockFromCometBlock failed", "hash", hash, "error", err.Error())
 		return nil, err
@@ -67,8 +77,11 @@ func (b *Backend) GetHeaderByHash(hash common.Hash) (map[string]interface{}, err
 }
 
 // HeaderByNumber returns the block header identified by height.
-func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Header, error) {
-	resBlock, err := b.CometBlockByNumber(blockNum)
+func (b *Backend) HeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (result *ethtypes.Header, err error) {
+	ctx, span := tracer.Start(ctx, "HeaderByNumber", trace.WithAttributes(attribute.Int64("blockNum", blockNum.Int64())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
+	resBlock, err := b.CometBlockByNumber(ctx, blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +91,12 @@ func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Heade
 		return nil, nil
 	}
 
-	blockRes, err := b.CometBlockResultByNumber(&resBlock.Block.Height)
+	blockRes, err := b.CometBlockResultByNumber(ctx, &resBlock.Block.Height)
 	if err != nil {
 		return nil, fmt.Errorf("header result not found for height %d", resBlock.Block.Height)
 	}
 
-	ethBlock, err := b.EthBlockFromCometBlock(resBlock, blockRes)
+	ethBlock, err := b.EthBlockFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
@@ -92,8 +105,11 @@ func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Heade
 }
 
 // HeaderByHash returns the block header identified by hash.
-func (b *Backend) HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error) {
-	resBlock, err := b.CometBlockByHash(blockHash)
+func (b *Backend) HeaderByHash(ctx context.Context, blockHash common.Hash) (result *ethtypes.Header, err error) {
+	ctx, span := tracer.Start(ctx, "HeaderByHash", trace.WithAttributes(attribute.String("blockHash", blockHash.Hex())))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
+	resBlock, err := b.CometBlockByHash(ctx, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -103,13 +119,13 @@ func (b *Backend) HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error) 
 		return nil, nil
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &resBlock.Block.Height)
+	blockRes, err := b.RPCClient.BlockResults(ctx, &resBlock.Block.Height)
 	if err != nil {
 		b.Logger.Debug("failed to fetch block result from CometBFT", "block-hash", blockHash.String(), "error", err.Error())
 		return nil, nil
 	}
 
-	ethBlock, err := b.EthBlockFromCometBlock(resBlock, blockRes)
+	ethBlock, err := b.EthBlockFromCometBlock(ctx, resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}

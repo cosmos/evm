@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cosmos/evm/mempool"
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/server"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
 
@@ -14,9 +15,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-
-	evmmempool "github.com/cosmos/evm/mempool"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // enables abci.InsertTx & abci.ReapTxs to be used exclusively by the mempool.
@@ -112,7 +110,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempoo
 			// failed on a cosmos tx (CheckTx), invalid encoding, etc, in which
 			// case we should not retry
 			switch {
-			case errors.Is(err, mempool.ErrQueueFull):
+			case errors.Is(err, evmmempool.ErrQueueFull):
 				code = abci.CodeTypeRetry
 			default:
 				code = CodeTypeNoRetry

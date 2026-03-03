@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bufio"
+	"context"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -102,10 +103,14 @@ func (s *TestSuite) SetupTest() {
 	s.backend.Cfg.EVM.EVMChainID = ChainID.EVMChainID
 	s.backend.QueryClient.QueryClient = mocks.NewEVMQueryClient(s.T())
 	s.backend.QueryClient.FeeMarket = mocks.NewFeeMarketQueryClient(s.T())
-	s.backend.Ctx = rpctypes.ContextWithHeight(1)
 
 	// Add codec
 	s.backend.ClientCtx.Codec = encodingConfig.Codec
+}
+
+// Ctx returns a context with height set for testing
+func (s *TestSuite) Ctx() context.Context {
+	return rpctypes.NewContextWithHeight(1)
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
@@ -193,7 +198,7 @@ func (s *TestSuite) buildEthBlock(
 
 	// 1) Gas limit from consensus params
 	// if failed to query consensus params, default gasLimit is applied.
-	gasLimit, _ := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.ContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
+	gasLimit, _ := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.NewContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
 
 	// 2) Miner from provided validator
 	miner := common.BytesToAddress(validator.Bytes())
@@ -208,7 +213,7 @@ func (s *TestSuite) buildEthBlock(
 	}
 
 	// 5) Build receipts
-	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := s.backend.ReceiptsFromCometBlock(s.Ctx(), resBlock, blockRes, msgs)
 	s.Require().NoError(err)
 
 	// 6) Gas used

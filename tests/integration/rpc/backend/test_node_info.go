@@ -196,7 +196,7 @@ func (s *TestSuite) TestSyncing() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterStatus(client)
-				status, _ := client.Status(s.backend.Ctx)
+				status, _ := client.Status(s.Ctx())
 				status.SyncInfo.CatchingUp = true
 			},
 			map[string]interface{}{
@@ -212,7 +212,7 @@ func (s *TestSuite) TestSyncing() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			output, err := s.backend.Syncing()
+			output, err := s.backend.Syncing(s.Ctx())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -262,7 +262,7 @@ func (s *TestSuite) TestSetEtherbase() {
 				RegisterParams(QueryClient, &header, 1)
 				c := sdk.NewDecCoin(constants.ExampleAttoDenom, math.NewIntFromBigInt(big.NewInt(1)))
 				s.backend.Cfg.SetMinGasPrices(sdk.DecCoins{c})
-				delAddr, _ := s.backend.GetCoinbase()
+				delAddr, _ := s.backend.GetCoinbase(s.Ctx())
 				// account, _ := s.backend.ClientCtx.AccountRetriever.GetAccount(s.backend.ClientCtx, delAddr)
 				delCommonAddr := common.BytesToAddress(delAddr.Bytes())
 				request := &authtypes.QueryAccountRequest{Address: sdk.AccAddress(delCommonAddr.Bytes()).String()}
@@ -309,7 +309,7 @@ func (s *TestSuite) TestSetEtherbase() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			output := s.backend.SetEtherbase(tc.etherbase)
+			output := s.backend.SetEtherbase(s.Ctx(), tc.etherbase)
 
 			s.Require().Equal(tc.expResult, output)
 		})

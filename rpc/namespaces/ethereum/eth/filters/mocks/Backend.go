@@ -3,8 +3,11 @@
 package mocks
 
 import (
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	context "context"
+
 	common "github.com/ethereum/go-ethereum/common"
+
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -26,9 +29,9 @@ func (_m *Backend) EXPECT() *Backend_Expecter {
 	return &Backend_Expecter{mock: &_m.Mock}
 }
 
-// BlockBloomFromCometBlock provides a mock function with given fields: blockRes
-func (_m *Backend) BlockBloomFromCometBlock(blockRes *coretypes.ResultBlockResults) (types.Bloom, error) {
-	ret := _m.Called(blockRes)
+// BlockBloomFromCometBlock provides a mock function with given fields: ctx, blockRes
+func (_m *Backend) BlockBloomFromCometBlock(ctx context.Context, blockRes *coretypes.ResultBlockResults) (types.Bloom, error) {
+	ret := _m.Called(ctx, blockRes)
 
 	if len(ret) == 0 {
 		panic("no return value specified for BlockBloomFromCometBlock")
@@ -36,19 +39,19 @@ func (_m *Backend) BlockBloomFromCometBlock(blockRes *coretypes.ResultBlockResul
 
 	var r0 types.Bloom
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*coretypes.ResultBlockResults) (types.Bloom, error)); ok {
-		return rf(blockRes)
+	if rf, ok := ret.Get(0).(func(context.Context, *coretypes.ResultBlockResults) (types.Bloom, error)); ok {
+		return rf(ctx, blockRes)
 	}
-	if rf, ok := ret.Get(0).(func(*coretypes.ResultBlockResults) types.Bloom); ok {
-		r0 = rf(blockRes)
+	if rf, ok := ret.Get(0).(func(context.Context, *coretypes.ResultBlockResults) types.Bloom); ok {
+		r0 = rf(ctx, blockRes)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(types.Bloom)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*coretypes.ResultBlockResults) error); ok {
-		r1 = rf(blockRes)
+	if rf, ok := ret.Get(1).(func(context.Context, *coretypes.ResultBlockResults) error); ok {
+		r1 = rf(ctx, blockRes)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -62,14 +65,15 @@ type Backend_BlockBloomFromCometBlock_Call struct {
 }
 
 // BlockBloomFromCometBlock is a helper method to define mock.On call
+//   - ctx context.Context
 //   - blockRes *coretypes.ResultBlockResults
-func (_e *Backend_Expecter) BlockBloomFromCometBlock(blockRes interface{}) *Backend_BlockBloomFromCometBlock_Call {
-	return &Backend_BlockBloomFromCometBlock_Call{Call: _e.mock.On("BlockBloomFromCometBlock", blockRes)}
+func (_e *Backend_Expecter) BlockBloomFromCometBlock(ctx interface{}, blockRes interface{}) *Backend_BlockBloomFromCometBlock_Call {
+	return &Backend_BlockBloomFromCometBlock_Call{Call: _e.mock.On("BlockBloomFromCometBlock", ctx, blockRes)}
 }
 
-func (_c *Backend_BlockBloomFromCometBlock_Call) Run(run func(blockRes *coretypes.ResultBlockResults)) *Backend_BlockBloomFromCometBlock_Call {
+func (_c *Backend_BlockBloomFromCometBlock_Call) Run(run func(ctx context.Context, blockRes *coretypes.ResultBlockResults)) *Backend_BlockBloomFromCometBlock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*coretypes.ResultBlockResults))
+		run(args[0].(context.Context), args[1].(*coretypes.ResultBlockResults))
 	})
 	return _c
 }
@@ -79,7 +83,7 @@ func (_c *Backend_BlockBloomFromCometBlock_Call) Return(_a0 types.Bloom, _a1 err
 	return _c
 }
 
-func (_c *Backend_BlockBloomFromCometBlock_Call) RunAndReturn(run func(*coretypes.ResultBlockResults) (types.Bloom, error)) *Backend_BlockBloomFromCometBlock_Call {
+func (_c *Backend_BlockBloomFromCometBlock_Call) RunAndReturn(run func(context.Context, *coretypes.ResultBlockResults) (types.Bloom, error)) *Backend_BlockBloomFromCometBlock_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -139,9 +143,9 @@ func (_c *Backend_BloomStatus_Call) RunAndReturn(run func() (uint64, uint64)) *B
 	return _c
 }
 
-// CometBlockByHash provides a mock function with given fields: hash
-func (_m *Backend) CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error) {
-	ret := _m.Called(hash)
+// CometBlockByHash provides a mock function with given fields: ctx, hash
+func (_m *Backend) CometBlockByHash(ctx context.Context, hash common.Hash) (*coretypes.ResultBlock, error) {
+	ret := _m.Called(ctx, hash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CometBlockByHash")
@@ -149,19 +153,19 @@ func (_m *Backend) CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, e
 
 	var r0 *coretypes.ResultBlock
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Hash) (*coretypes.ResultBlock, error)); ok {
-		return rf(hash)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*coretypes.ResultBlock, error)); ok {
+		return rf(ctx, hash)
 	}
-	if rf, ok := ret.Get(0).(func(common.Hash) *coretypes.ResultBlock); ok {
-		r0 = rf(hash)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *coretypes.ResultBlock); ok {
+		r0 = rf(ctx, hash)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*coretypes.ResultBlock)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
-		r1 = rf(hash)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, hash)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -175,14 +179,15 @@ type Backend_CometBlockByHash_Call struct {
 }
 
 // CometBlockByHash is a helper method to define mock.On call
+//   - ctx context.Context
 //   - hash common.Hash
-func (_e *Backend_Expecter) CometBlockByHash(hash interface{}) *Backend_CometBlockByHash_Call {
-	return &Backend_CometBlockByHash_Call{Call: _e.mock.On("CometBlockByHash", hash)}
+func (_e *Backend_Expecter) CometBlockByHash(ctx interface{}, hash interface{}) *Backend_CometBlockByHash_Call {
+	return &Backend_CometBlockByHash_Call{Call: _e.mock.On("CometBlockByHash", ctx, hash)}
 }
 
-func (_c *Backend_CometBlockByHash_Call) Run(run func(hash common.Hash)) *Backend_CometBlockByHash_Call {
+func (_c *Backend_CometBlockByHash_Call) Run(run func(ctx context.Context, hash common.Hash)) *Backend_CometBlockByHash_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(common.Hash))
+		run(args[0].(context.Context), args[1].(common.Hash))
 	})
 	return _c
 }
@@ -192,14 +197,14 @@ func (_c *Backend_CometBlockByHash_Call) Return(_a0 *coretypes.ResultBlock, _a1 
 	return _c
 }
 
-func (_c *Backend_CometBlockByHash_Call) RunAndReturn(run func(common.Hash) (*coretypes.ResultBlock, error)) *Backend_CometBlockByHash_Call {
+func (_c *Backend_CometBlockByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*coretypes.ResultBlock, error)) *Backend_CometBlockByHash_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// CometBlockResultByNumber provides a mock function with given fields: height
-func (_m *Backend) CometBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error) {
-	ret := _m.Called(height)
+// CometBlockResultByNumber provides a mock function with given fields: ctx, height
+func (_m *Backend) CometBlockResultByNumber(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
+	ret := _m.Called(ctx, height)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CometBlockResultByNumber")
@@ -207,19 +212,19 @@ func (_m *Backend) CometBlockResultByNumber(height *int64) (*coretypes.ResultBlo
 
 	var r0 *coretypes.ResultBlockResults
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*int64) (*coretypes.ResultBlockResults, error)); ok {
-		return rf(height)
+	if rf, ok := ret.Get(0).(func(context.Context, *int64) (*coretypes.ResultBlockResults, error)); ok {
+		return rf(ctx, height)
 	}
-	if rf, ok := ret.Get(0).(func(*int64) *coretypes.ResultBlockResults); ok {
-		r0 = rf(height)
+	if rf, ok := ret.Get(0).(func(context.Context, *int64) *coretypes.ResultBlockResults); ok {
+		r0 = rf(ctx, height)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*coretypes.ResultBlockResults)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*int64) error); ok {
-		r1 = rf(height)
+	if rf, ok := ret.Get(1).(func(context.Context, *int64) error); ok {
+		r1 = rf(ctx, height)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -233,14 +238,15 @@ type Backend_CometBlockResultByNumber_Call struct {
 }
 
 // CometBlockResultByNumber is a helper method to define mock.On call
+//   - ctx context.Context
 //   - height *int64
-func (_e *Backend_Expecter) CometBlockResultByNumber(height interface{}) *Backend_CometBlockResultByNumber_Call {
-	return &Backend_CometBlockResultByNumber_Call{Call: _e.mock.On("CometBlockResultByNumber", height)}
+func (_e *Backend_Expecter) CometBlockResultByNumber(ctx interface{}, height interface{}) *Backend_CometBlockResultByNumber_Call {
+	return &Backend_CometBlockResultByNumber_Call{Call: _e.mock.On("CometBlockResultByNumber", ctx, height)}
 }
 
-func (_c *Backend_CometBlockResultByNumber_Call) Run(run func(height *int64)) *Backend_CometBlockResultByNumber_Call {
+func (_c *Backend_CometBlockResultByNumber_Call) Run(run func(ctx context.Context, height *int64)) *Backend_CometBlockResultByNumber_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*int64))
+		run(args[0].(context.Context), args[1].(*int64))
 	})
 	return _c
 }
@@ -250,14 +256,14 @@ func (_c *Backend_CometBlockResultByNumber_Call) Return(_a0 *coretypes.ResultBlo
 	return _c
 }
 
-func (_c *Backend_CometBlockResultByNumber_Call) RunAndReturn(run func(*int64) (*coretypes.ResultBlockResults, error)) *Backend_CometBlockResultByNumber_Call {
+func (_c *Backend_CometBlockResultByNumber_Call) RunAndReturn(run func(context.Context, *int64) (*coretypes.ResultBlockResults, error)) *Backend_CometBlockResultByNumber_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetBlockByNumber provides a mock function with given fields: blockNum, fullTx
-func (_m *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error) {
-	ret := _m.Called(blockNum, fullTx)
+// GetBlockByNumber provides a mock function with given fields: ctx, blockNum, fullTx
+func (_m *Backend) GetBlockByNumber(ctx context.Context, blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error) {
+	ret := _m.Called(ctx, blockNum, fullTx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetBlockByNumber")
@@ -265,19 +271,19 @@ func (_m *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) 
 
 	var r0 map[string]interface{}
 	var r1 error
-	if rf, ok := ret.Get(0).(func(rpctypes.BlockNumber, bool) (map[string]interface{}, error)); ok {
-		return rf(blockNum, fullTx)
+	if rf, ok := ret.Get(0).(func(context.Context, rpctypes.BlockNumber, bool) (map[string]interface{}, error)); ok {
+		return rf(ctx, blockNum, fullTx)
 	}
-	if rf, ok := ret.Get(0).(func(rpctypes.BlockNumber, bool) map[string]interface{}); ok {
-		r0 = rf(blockNum, fullTx)
+	if rf, ok := ret.Get(0).(func(context.Context, rpctypes.BlockNumber, bool) map[string]interface{}); ok {
+		r0 = rf(ctx, blockNum, fullTx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[string]interface{})
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(rpctypes.BlockNumber, bool) error); ok {
-		r1 = rf(blockNum, fullTx)
+	if rf, ok := ret.Get(1).(func(context.Context, rpctypes.BlockNumber, bool) error); ok {
+		r1 = rf(ctx, blockNum, fullTx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -291,15 +297,16 @@ type Backend_GetBlockByNumber_Call struct {
 }
 
 // GetBlockByNumber is a helper method to define mock.On call
+//   - ctx context.Context
 //   - blockNum rpctypes.BlockNumber
 //   - fullTx bool
-func (_e *Backend_Expecter) GetBlockByNumber(blockNum interface{}, fullTx interface{}) *Backend_GetBlockByNumber_Call {
-	return &Backend_GetBlockByNumber_Call{Call: _e.mock.On("GetBlockByNumber", blockNum, fullTx)}
+func (_e *Backend_Expecter) GetBlockByNumber(ctx interface{}, blockNum interface{}, fullTx interface{}) *Backend_GetBlockByNumber_Call {
+	return &Backend_GetBlockByNumber_Call{Call: _e.mock.On("GetBlockByNumber", ctx, blockNum, fullTx)}
 }
 
-func (_c *Backend_GetBlockByNumber_Call) Run(run func(blockNum rpctypes.BlockNumber, fullTx bool)) *Backend_GetBlockByNumber_Call {
+func (_c *Backend_GetBlockByNumber_Call) Run(run func(ctx context.Context, blockNum rpctypes.BlockNumber, fullTx bool)) *Backend_GetBlockByNumber_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(rpctypes.BlockNumber), args[1].(bool))
+		run(args[0].(context.Context), args[1].(rpctypes.BlockNumber), args[2].(bool))
 	})
 	return _c
 }
@@ -309,14 +316,14 @@ func (_c *Backend_GetBlockByNumber_Call) Return(_a0 map[string]interface{}, _a1 
 	return _c
 }
 
-func (_c *Backend_GetBlockByNumber_Call) RunAndReturn(run func(rpctypes.BlockNumber, bool) (map[string]interface{}, error)) *Backend_GetBlockByNumber_Call {
+func (_c *Backend_GetBlockByNumber_Call) RunAndReturn(run func(context.Context, rpctypes.BlockNumber, bool) (map[string]interface{}, error)) *Backend_GetBlockByNumber_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetLogs provides a mock function with given fields: blockHash
-func (_m *Backend) GetLogs(blockHash common.Hash) ([][]*types.Log, error) {
-	ret := _m.Called(blockHash)
+// GetLogs provides a mock function with given fields: ctx, blockHash
+func (_m *Backend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
+	ret := _m.Called(ctx, blockHash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLogs")
@@ -324,19 +331,19 @@ func (_m *Backend) GetLogs(blockHash common.Hash) ([][]*types.Log, error) {
 
 	var r0 [][]*types.Log
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Hash) ([][]*types.Log, error)); ok {
-		return rf(blockHash)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) ([][]*types.Log, error)); ok {
+		return rf(ctx, blockHash)
 	}
-	if rf, ok := ret.Get(0).(func(common.Hash) [][]*types.Log); ok {
-		r0 = rf(blockHash)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) [][]*types.Log); ok {
+		r0 = rf(ctx, blockHash)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([][]*types.Log)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
-		r1 = rf(blockHash)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, blockHash)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -350,14 +357,15 @@ type Backend_GetLogs_Call struct {
 }
 
 // GetLogs is a helper method to define mock.On call
+//   - ctx context.Context
 //   - blockHash common.Hash
-func (_e *Backend_Expecter) GetLogs(blockHash interface{}) *Backend_GetLogs_Call {
-	return &Backend_GetLogs_Call{Call: _e.mock.On("GetLogs", blockHash)}
+func (_e *Backend_Expecter) GetLogs(ctx interface{}, blockHash interface{}) *Backend_GetLogs_Call {
+	return &Backend_GetLogs_Call{Call: _e.mock.On("GetLogs", ctx, blockHash)}
 }
 
-func (_c *Backend_GetLogs_Call) Run(run func(blockHash common.Hash)) *Backend_GetLogs_Call {
+func (_c *Backend_GetLogs_Call) Run(run func(ctx context.Context, blockHash common.Hash)) *Backend_GetLogs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(common.Hash))
+		run(args[0].(context.Context), args[1].(common.Hash))
 	})
 	return _c
 }
@@ -367,14 +375,14 @@ func (_c *Backend_GetLogs_Call) Return(_a0 [][]*types.Log, _a1 error) *Backend_G
 	return _c
 }
 
-func (_c *Backend_GetLogs_Call) RunAndReturn(run func(common.Hash) ([][]*types.Log, error)) *Backend_GetLogs_Call {
+func (_c *Backend_GetLogs_Call) RunAndReturn(run func(context.Context, common.Hash) ([][]*types.Log, error)) *Backend_GetLogs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetLogsByHeight provides a mock function with given fields: _a0
-func (_m *Backend) GetLogsByHeight(_a0 *int64) ([][]*types.Log, error) {
-	ret := _m.Called(_a0)
+// GetLogsByHeight provides a mock function with given fields: ctx, height
+func (_m *Backend) GetLogsByHeight(ctx context.Context, height *int64) ([][]*types.Log, error) {
+	ret := _m.Called(ctx, height)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLogsByHeight")
@@ -382,19 +390,19 @@ func (_m *Backend) GetLogsByHeight(_a0 *int64) ([][]*types.Log, error) {
 
 	var r0 [][]*types.Log
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*int64) ([][]*types.Log, error)); ok {
-		return rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *int64) ([][]*types.Log, error)); ok {
+		return rf(ctx, height)
 	}
-	if rf, ok := ret.Get(0).(func(*int64) [][]*types.Log); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *int64) [][]*types.Log); ok {
+		r0 = rf(ctx, height)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([][]*types.Log)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*int64) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *int64) error); ok {
+		r1 = rf(ctx, height)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -408,14 +416,15 @@ type Backend_GetLogsByHeight_Call struct {
 }
 
 // GetLogsByHeight is a helper method to define mock.On call
-//   - _a0 *int64
-func (_e *Backend_Expecter) GetLogsByHeight(_a0 interface{}) *Backend_GetLogsByHeight_Call {
-	return &Backend_GetLogsByHeight_Call{Call: _e.mock.On("GetLogsByHeight", _a0)}
+//   - ctx context.Context
+//   - height *int64
+func (_e *Backend_Expecter) GetLogsByHeight(ctx interface{}, height interface{}) *Backend_GetLogsByHeight_Call {
+	return &Backend_GetLogsByHeight_Call{Call: _e.mock.On("GetLogsByHeight", ctx, height)}
 }
 
-func (_c *Backend_GetLogsByHeight_Call) Run(run func(_a0 *int64)) *Backend_GetLogsByHeight_Call {
+func (_c *Backend_GetLogsByHeight_Call) Run(run func(ctx context.Context, height *int64)) *Backend_GetLogsByHeight_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*int64))
+		run(args[0].(context.Context), args[1].(*int64))
 	})
 	return _c
 }
@@ -425,14 +434,14 @@ func (_c *Backend_GetLogsByHeight_Call) Return(_a0 [][]*types.Log, _a1 error) *B
 	return _c
 }
 
-func (_c *Backend_GetLogsByHeight_Call) RunAndReturn(run func(*int64) ([][]*types.Log, error)) *Backend_GetLogsByHeight_Call {
+func (_c *Backend_GetLogsByHeight_Call) RunAndReturn(run func(context.Context, *int64) ([][]*types.Log, error)) *Backend_GetLogsByHeight_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// HeaderByHash provides a mock function with given fields: blockHash
-func (_m *Backend) HeaderByHash(blockHash common.Hash) (*types.Header, error) {
-	ret := _m.Called(blockHash)
+// HeaderByHash provides a mock function with given fields: ctx, blockHash
+func (_m *Backend) HeaderByHash(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
+	ret := _m.Called(ctx, blockHash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeaderByHash")
@@ -440,19 +449,19 @@ func (_m *Backend) HeaderByHash(blockHash common.Hash) (*types.Header, error) {
 
 	var r0 *types.Header
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Hash) (*types.Header, error)); ok {
-		return rf(blockHash)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.Header, error)); ok {
+		return rf(ctx, blockHash)
 	}
-	if rf, ok := ret.Get(0).(func(common.Hash) *types.Header); ok {
-		r0 = rf(blockHash)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Header); ok {
+		r0 = rf(ctx, blockHash)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Header)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
-		r1 = rf(blockHash)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, blockHash)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -466,14 +475,15 @@ type Backend_HeaderByHash_Call struct {
 }
 
 // HeaderByHash is a helper method to define mock.On call
+//   - ctx context.Context
 //   - blockHash common.Hash
-func (_e *Backend_Expecter) HeaderByHash(blockHash interface{}) *Backend_HeaderByHash_Call {
-	return &Backend_HeaderByHash_Call{Call: _e.mock.On("HeaderByHash", blockHash)}
+func (_e *Backend_Expecter) HeaderByHash(ctx interface{}, blockHash interface{}) *Backend_HeaderByHash_Call {
+	return &Backend_HeaderByHash_Call{Call: _e.mock.On("HeaderByHash", ctx, blockHash)}
 }
 
-func (_c *Backend_HeaderByHash_Call) Run(run func(blockHash common.Hash)) *Backend_HeaderByHash_Call {
+func (_c *Backend_HeaderByHash_Call) Run(run func(ctx context.Context, blockHash common.Hash)) *Backend_HeaderByHash_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(common.Hash))
+		run(args[0].(context.Context), args[1].(common.Hash))
 	})
 	return _c
 }
@@ -483,14 +493,14 @@ func (_c *Backend_HeaderByHash_Call) Return(_a0 *types.Header, _a1 error) *Backe
 	return _c
 }
 
-func (_c *Backend_HeaderByHash_Call) RunAndReturn(run func(common.Hash) (*types.Header, error)) *Backend_HeaderByHash_Call {
+func (_c *Backend_HeaderByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.Header, error)) *Backend_HeaderByHash_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// HeaderByNumber provides a mock function with given fields: blockNum
-func (_m *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*types.Header, error) {
-	ret := _m.Called(blockNum)
+// HeaderByNumber provides a mock function with given fields: ctx, blockNum
+func (_m *Backend) HeaderByNumber(ctx context.Context, blockNum rpctypes.BlockNumber) (*types.Header, error) {
+	ret := _m.Called(ctx, blockNum)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeaderByNumber")
@@ -498,19 +508,19 @@ func (_m *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*types.Header,
 
 	var r0 *types.Header
 	var r1 error
-	if rf, ok := ret.Get(0).(func(rpctypes.BlockNumber) (*types.Header, error)); ok {
-		return rf(blockNum)
+	if rf, ok := ret.Get(0).(func(context.Context, rpctypes.BlockNumber) (*types.Header, error)); ok {
+		return rf(ctx, blockNum)
 	}
-	if rf, ok := ret.Get(0).(func(rpctypes.BlockNumber) *types.Header); ok {
-		r0 = rf(blockNum)
+	if rf, ok := ret.Get(0).(func(context.Context, rpctypes.BlockNumber) *types.Header); ok {
+		r0 = rf(ctx, blockNum)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Header)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(rpctypes.BlockNumber) error); ok {
-		r1 = rf(blockNum)
+	if rf, ok := ret.Get(1).(func(context.Context, rpctypes.BlockNumber) error); ok {
+		r1 = rf(ctx, blockNum)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -524,14 +534,15 @@ type Backend_HeaderByNumber_Call struct {
 }
 
 // HeaderByNumber is a helper method to define mock.On call
+//   - ctx context.Context
 //   - blockNum rpctypes.BlockNumber
-func (_e *Backend_Expecter) HeaderByNumber(blockNum interface{}) *Backend_HeaderByNumber_Call {
-	return &Backend_HeaderByNumber_Call{Call: _e.mock.On("HeaderByNumber", blockNum)}
+func (_e *Backend_Expecter) HeaderByNumber(ctx interface{}, blockNum interface{}) *Backend_HeaderByNumber_Call {
+	return &Backend_HeaderByNumber_Call{Call: _e.mock.On("HeaderByNumber", ctx, blockNum)}
 }
 
-func (_c *Backend_HeaderByNumber_Call) Run(run func(blockNum rpctypes.BlockNumber)) *Backend_HeaderByNumber_Call {
+func (_c *Backend_HeaderByNumber_Call) Run(run func(ctx context.Context, blockNum rpctypes.BlockNumber)) *Backend_HeaderByNumber_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(rpctypes.BlockNumber))
+		run(args[0].(context.Context), args[1].(rpctypes.BlockNumber))
 	})
 	return _c
 }
@@ -541,7 +552,7 @@ func (_c *Backend_HeaderByNumber_Call) Return(_a0 *types.Header, _a1 error) *Bac
 	return _c
 }
 
-func (_c *Backend_HeaderByNumber_Call) RunAndReturn(run func(rpctypes.BlockNumber) (*types.Header, error)) *Backend_HeaderByNumber_Call {
+func (_c *Backend_HeaderByNumber_Call) RunAndReturn(run func(context.Context, rpctypes.BlockNumber) (*types.Header, error)) *Backend_HeaderByNumber_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -686,8 +697,7 @@ func (_c *Backend_RPCLogsCap_Call) RunAndReturn(run func() int32) *Backend_RPCLo
 func NewBackend(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *Backend {
+}) *Backend {
 	mock := &Backend{}
 	mock.Mock.Test(t)
 

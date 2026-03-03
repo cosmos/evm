@@ -1,9 +1,16 @@
 name: Push to Buf Schema Registry
-# This workflow runs when a new version tag is pushed to the repository.
-# It then pushes the Protobuf files corresponding to that tag on to the
-# Buf Schema Registry at https://buf.build/cosmos/evm
+#  This workflow publishes Protobuf files to the Buf Schema Registry at
+# https://buf.build/cosmos/evm when proto files change on main or a version tag
+# is pushed.
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "proto/**"
+      - "buf.work.yaml"
+      - "buf.gen.yaml"
+      - "buf.gen.proto.yaml"
     tags:
       - "v*.*.*"
 permissions: read-all

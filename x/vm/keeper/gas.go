@@ -5,7 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/params"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -19,7 +22,12 @@ import (
 // GetEthIntrinsicGas returns the intrinsic gas cost for the transaction
 func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *params.ChainConfig,
 	isContractCreation bool,
-) (uint64, error) {
+) (_ uint64, err error) {
+	ctx, span := ctx.StartSpan(tracer, "GetEthIntrinsicGas", trace.WithAttributes(
+		attribute.Bool("is_contract_creation", isContractCreation),
+		attribute.Int("data_size", len(msg.Data)),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	height := big.NewInt(ctx.BlockHeight())
 	homestead := cfg.IsHomestead(height)
 	istanbul := cfg.IsIstanbul(height)
@@ -32,7 +40,10 @@ func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *para
 // consumed in the transaction. Additionally, the function sets the total gas consumed to the value
 // returned by the EVM execution, thus ignoring the previous intrinsic gas consumed during in the
 // AnteHandler.
-func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) error {
+func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) (err error) {
+	ctx, span := ctx.StartSpan(tracer, "RefundGas", trace.WithAttributes(attribute.Int64("leftover_gas", int64(leftoverGas)))) //nolint:gosec // G115
+	defer func() { evmtrace.EndSpanErr(span, err) }()
+
 	// Return EVM tokens for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(leftoverGas), msg.GasPrice)
 
@@ -66,6 +77,10 @@ func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64
 // 'gasUsed'
 func (k *Keeper) ResetGasMeterAndConsumeGas(ctx sdk.Context, gasUsed uint64) {
 	// reset the gas count
+	ctx, span := ctx.StartSpan(tracer, "ResetGasMeterAndConsumeGas", trace.WithAttributes(
+		attribute.Int64("gas_used", int64(gasUsed)), //nolint:gosec // G115
+	))
+	defer span.End()
 	ctx.GasMeter().RefundGas(ctx.GasMeter().GasConsumed(), "reset the gas count")
 	ctx.GasMeter().ConsumeGas(gasUsed, "apply evm transaction")
 }

@@ -115,7 +115,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			err := s.backend.Indexer.IndexBlock(block, responseDeliver)
 			s.Require().NoError(err)
 
-			rpcTx, err := s.backend.GetTransactionByHash(tc.tx.Hash())
+			rpcTx, err := s.backend.GetTransactionByHash(s.Ctx(), tc.tx.Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -175,7 +175,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTransactionByHashPending(tc.tx.Hash())
+			rpcTx, err := s.backend.GetTransactionByHashPending(s.Ctx(), tc.tx.Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -217,7 +217,7 @@ func (s *TestSuite) TestGetTxByEthHash() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTxByEthHash(tc.tx.Hash())
+			rpcTx, err := s.backend.GetTxByEthHash(s.Ctx(), tc.tx.Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -267,7 +267,7 @@ func (s *TestSuite) TestGetTransactionByBlockHashAndIndex() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTransactionByBlockHashAndIndex(tc.blockHash, 1)
+			rpcTx, err := s.backend.GetTransactionByBlockHashAndIndex(s.Ctx(), tc.blockHash, 1)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -380,7 +380,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTransactionByBlockAndIndex(tc.block, tc.idx)
+			rpcTx, err := s.backend.GetTransactionByBlockAndIndex(s.Ctx(), tc.block, tc.idx)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -445,7 +445,7 @@ func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTransactionByBlockNumberAndIndex(tc.blockNum, tc.idx)
+			rpcTx, err := s.backend.GetTransactionByBlockNumberAndIndex(s.Ctx(), tc.blockNum, tc.idx)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(rpcTx, tc.expRPCTx)
@@ -486,7 +486,7 @@ func (s *TestSuite) TestGetTransactionByTxIndex() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			txResults, err := s.backend.GetTxByTxIndex(tc.height, tc.index)
+			txResults, err := s.backend.GetTxByTxIndex(s.Ctx(), tc.height, tc.index)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -527,7 +527,7 @@ func (s *TestSuite) TestQueryCometTxIndexer() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			txResults, err := s.backend.QueryCometTxIndexer(tc.query, tc.txGetter)
+			txResults, err := s.backend.QueryCometTxIndexer(s.Ctx(), tc.query, tc.txGetter)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -685,7 +685,7 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 			err := s.backend.Indexer.IndexBlock(tc.block, tc.blockResult)
 			s.Require().NoError(err)
 
-			res, err := s.backend.GetTransactionReceipt(tc.tx.Hash())
+			res, err := s.backend.GetTransactionReceipt(s.Ctx(), tc.tx.Hash())
 			if tc.expPass {
 				s.Require().Equal(res["transactionHash"], tc.tx.Hash())
 				s.Require().Equal(res["blockNumber"], hexutil.Uint64(tc.block.Height)) //nolint: gosec // G115

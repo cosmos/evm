@@ -3,7 +3,10 @@ package keeper
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -19,7 +22,11 @@ type Precompiles struct {
 func (k *Keeper) GetPrecompileInstance(
 	ctx sdktypes.Context,
 	address common.Address,
-) (*Precompiles, bool, error) {
+) (_ *Precompiles, _ bool, err error) {
+	ctx, span := ctx.StartSpan(tracer, "GetPrecompileInstance", trace.WithAttributes(
+		attribute.String("address", address.Hex()),
+	))
+	defer func() { evmtrace.EndSpanErr(span, err) }()
 	params := k.GetParams(ctx)
 	// Get the precompile from the static precompiles
 	if precompile, found, err := k.GetStaticPrecompileInstance(&params, address); err != nil {
@@ -54,7 +61,11 @@ func (k *Keeper) GetPrecompileInstance(
 // GetPrecompilesCallHook returns a closure that can be used to instantiate the EVM with a specific
 // precompile instance.
 func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
+	return func(evm *vm.EVM, _ common.Address, recipient common.Address) (err error) {
+		ctx, span := ctx.StartSpan(tracer, "PrecompileCallHook", trace.WithAttributes(
+			attribute.String("recipient", recipient.Hex()),
+		))
+		defer func() { evmtrace.EndSpanErr(span, err) }()
 		// Check if the recipient is a precompile contract and if so, load the precompile instance
 		precompiles, found, err := k.GetPrecompileInstance(ctx, recipient)
 		if err != nil {
@@ -72,22 +83,30 @@ func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
 	}
 }
 
-// GetPrecompileRecipientCallHook returns a closure that can be used to instantiate the EVM with a specific
-// recipient from precompiles.
+// GetPrecompileRecipientCallHook returns a call hook for use with state overrides.
+// It checks active precompiles first, then only dynamic precompiles (not static ones
+// which may have been moved/disabled by state overrides).
 func (k *Keeper) GetPrecompileRecipientCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
-		// Check if the recipient is a precompile contract and if so, load the precompile instance
-		_, found, err := k.GetPrecompileInstance(ctx, recipient)
-		if err != nil {
+	return func(evm *vm.EVM, _ common.Address, recipient common.Address) (err error) {
+		ctx, span := ctx.StartSpan(tracer, "PrecompileRecipientCallHook", trace.WithAttributes(
+			attribute.String("recipient", recipient.Hex()),
+		))
+		defer func() { evmtrace.EndSpanErr(span, err) }()
+		if _, ok := evm.Precompile(recipient); ok {
+			evm.StateDB.AddAddressToAccessList(recipient)
+			return nil
+		}
+		if k.erc20Keeper == nil {
+			return nil
+		}
+		precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, recipient)
+		if err != nil || !found {
 			return err
 		}
-
-		// If the precompile instance is created, we have to update the EVM with
-		// only the recipient precompile and add it's address to the access list.
-		if found {
-			evm.StateDB.AddAddressToAccessList(recipient)
-		}
-
+		addressMap := make(map[common.Address]vm.PrecompiledContract)
+		addressMap[recipient] = precompile
+		evm.WithPrecompiles(addressMap)
+		evm.StateDB.AddAddressToAccessList(recipient)
 		return nil
 	}
 }
