@@ -193,6 +193,7 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	}
 
 	write()
+	m.markTxRechecked(tx)
 	return nil
 }
 
