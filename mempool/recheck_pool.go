@@ -68,8 +68,7 @@ type Rechecker interface {
 	// returns an updated context.
 	RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error)
 
-	// Update updates the main context returned by GetContext to be the base
-	// chain context at header.
+	// Update updates the recheckers context to be the ctx at headers height.
 	Update(ctx sdk.Context, header *ethtypes.Header)
 }
 

@@ -1,4 +1,4 @@
-package rechecker
+package mempool
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type TxConverter interface {
 // sdk context via UpdateCtx.
 //
 // NOTE: None of the recheckers functions are thread safe.
-type Rechecker struct {
+type TxRechecker struct {
 	// ctx is the context that rechecks should be run on. Updated by calling
 	// the returned function from GetContext.
 	ctx sdk.Context
@@ -32,8 +32,8 @@ type Rechecker struct {
 }
 
 // New creates a new rechecker that can recheck transactions.
-func New(anteHandler sdk.AnteHandler, txConverter TxConverter) *Rechecker {
-	return &Rechecker{
+func NewTxRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *TxRechecker {
+	return &TxRechecker{
 		anteHandler: anteHandler,
 		txConverter: txConverter,
 	}
@@ -44,7 +44,7 @@ func New(anteHandler sdk.AnteHandler, txConverter TxConverter) *Rechecker {
 // the context stored by the rechecker for future callers to use.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) GetContext() (sdk.Context, func()) {
+func (r *TxRechecker) GetContext() (sdk.Context, func()) {
 	if r.ctx.MultiStore() == nil {
 		// Context has not been initialized yet (Update hasn't been called).
 		// Return a zero context with a no-op write function.
@@ -57,7 +57,7 @@ func (r *Rechecker) GetContext() (sdk.Context, func()) {
 // context and an error that occurred while processing.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
+func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
 	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
@@ -70,7 +70,7 @@ func (r *Rechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.C
 // context and an error that occurred while processing.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
+func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
 	return r.anteHandler(ctx, tx, false)
 }
 
@@ -78,7 +78,7 @@ func (r *Rechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, erro
 // state. The caller provides the context directly.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
+func (r *TxRechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
 	ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
 	if ctx.ConsensusParams().Block == nil {
 		// set the latest blocks gas limit as the max gas in cp. this is
