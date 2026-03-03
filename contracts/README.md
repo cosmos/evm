@@ -23,7 +23,7 @@ After installation, use the following paths:
 | Path | Description |
 |------|-------------|
 | `cosmos-evm-contracts/precompiles/` | Solidity sources (`.sol`) |
-| `cosmos-evm-contracts/abi/precompiles/` | ABI-only JSON (`.json`) |
+| `cosmos-evm-contracts/abi/precompiles/` | ABI as JSON (`.json`) or typed ESM (`.js` + `.d.ts`) |
 
 Included precompiles: `bank`, `bech32`, `callbacks`, `common`, `distribution`, `erc20`, `gov`, `ics02`, `ics20`, `slashing`, `staking`, `werc20` (testdata and testutil excluded).
 
@@ -37,6 +37,27 @@ import IBankAbi from "cosmos-evm-contracts/abi/precompiles/bank/IBank.json" asse
 // or Node
 const IBankAbi = require("cosmos-evm-contracts/abi/precompiles/bank/IBank.json");
 ```
+
+### Loading ABI with TypeScript / viem (typed)
+
+Import the named ABI constant so that `functionName`, `args`, and return types are inferred:
+
+```typescript
+import { createPublicClient, http } from "viem";
+import { IBank_ABI } from "cosmos-evm-contracts/abi/precompiles/bank/IBank";
+
+const client = createPublicClient({ transport: http() });
+
+// functionName and args are type-checked and autocompleted
+const balances = await client.readContract({
+  address: "0x0000000000000000000000000000000000000804",
+  abi: IBank_ABI,
+  functionName: "balances",
+  args: ["0x..."],
+});
+```
+
+Use the same pattern for other precompiles, e.g. `DistributionI_ABI` from `abi/precompiles/distribution/DistributionI`, `StakingI_ABI` from `abi/precompiles/staking/StakingI`, etc.
 
 ### Using interfaces in Hardhat
 

@@ -2,7 +2,7 @@
 /**
  * Build precompile contracts (excluding testdata, testutil) in OpenZeppelin style:
  * - dist/precompiles/ : .sol sources
- * - dist/abi/         : ABI-only JSON per contract
+ * - dist/abi/         : ABI-only JSON + .ts (as const); tsc emits .js + .d.ts
  *
  * Run from contracts directory: pnpm run build:precompiles
  */
@@ -80,14 +80,22 @@ function buildPrecompiles() {
     if (!sourceName || !sourceName.startsWith("solidity/precompiles/")) continue;
 
     const relFromSolidity = sourceName.replace(/^solidity\//, ""); // precompiles/bank/IBank.sol
+    const contractName = relFromSolidity.replace(/\.sol$/, "").split("/").pop(); // e.g. IBank
     const solPath = join(SOLIDITY_SOURCE, relFromSolidity);
     const abiOutPath = join(DIST_ABI, relFromSolidity.replace(".sol", ".json"));
+    const abiTsOutPath = join(DIST_ABI, relFromSolidity.replace(".sol", ".ts"));
     const solOutPath = join(DIST, relFromSolidity);
 
     ensureDir(dirname(abiOutPath));
     ensureDir(dirname(solOutPath));
 
-    writeFileSync(abiOutPath, JSON.stringify(artifact.abi ?? [], null, 2), "utf8");
+    const abi = artifact.abi ?? [];
+    writeFileSync(abiOutPath, JSON.stringify(abi, null, 2), "utf8");
+    writeFileSync(
+      abiTsOutPath,
+      `export const ${contractName}_ABI = ${JSON.stringify(abi, null, 2)} as const;\n`,
+      "utf8"
+    );
     if (existsSync(solPath)) {
       cpSync(solPath, solOutPath);
       copiedSol.add(relFromSolidity);
