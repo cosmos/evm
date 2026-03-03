@@ -71,7 +71,7 @@ func (txt *txTracker) EnteredQueued(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredQueuedPoolAt = time.Now()
-	telemetry.MeasureSince(checkpoints.TrackedAt, queuedInclusionLatencyKey) //nolint:staticcheck
+	telemetry.MeasureSince(checkpoints.TrackedAt, queuedInclusionLatencyKey)
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (txt *txTracker) ExitedQueued(hash common.Hash) error {
 		// dont record the duration
 		return nil
 	}
-	telemetry.MeasureSince(checkpoints.LastEnteredQueuedPoolAt, queuedDurationKey) //nolint:staticcheck
+	telemetry.MeasureSince(checkpoints.LastEnteredQueuedPoolAt, queuedDurationKey)
 	return nil
 }
 
@@ -98,7 +98,7 @@ func (txt *txTracker) EnteredPending(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredPendingPoolAt = time.Now()
-	telemetry.MeasureSince(checkpoints.TrackedAt, pendingInclusionLatencyKey) //nolint:staticcheck
+	telemetry.MeasureSince(checkpoints.TrackedAt, pendingInclusionLatencyKey)
 	return nil
 }
 
@@ -108,7 +108,7 @@ func (txt *txTracker) ExitedPending(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	telemetry.MeasureSince(checkpoints.LastEnteredPendingPoolAt, pendingDurationKey) //nolint:staticcheck
+	telemetry.MeasureSince(checkpoints.LastEnteredPendingPoolAt, pendingDurationKey)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (txt *txTracker) IncludedInBlock(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	telemetry.MeasureSince(checkpoints.TrackedAt, chainInclusionLatencyKey) //nolint:staticcheck
+	telemetry.MeasureSince(checkpoints.TrackedAt, chainInclusionLatencyKey)
 	return nil
 }
 
