@@ -12,6 +12,7 @@
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
 - [\#968](https://github.com/cosmos/evm/pull/968) Use normal gas config in ibc transfer to prevent potential DoS attack
+- [\#1029](https://github.com/cosmos/evm/pull/1029) Mark EvmCoinInfo.Decimals field as deprecated
 
 ### FEATURES
 
