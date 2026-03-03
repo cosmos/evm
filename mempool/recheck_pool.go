@@ -178,6 +178,10 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	// Branch from the Rechecker's internal ctx (post-recheck cache).
 	// This ctx has chain_state + all pending txs' nonce increments.
 	ctx, write := m.rechecker.GetContext()
+	if ctx.IsZero() {
+		return fmt.Errorf("context not found, waiting for mempool to be initialized")
+	}
+
 	if _, err := m.rechecker.RecheckCosmos(ctx, tx); err != nil {
 		_ = m.reserver.Release(addrs...) // best effort cleanup
 		return fmt.Errorf("ante handler failed: %w", err)
