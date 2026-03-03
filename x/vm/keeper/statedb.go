@@ -13,10 +13,12 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
+	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -141,6 +143,13 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 	ctx, span := ctx.StartSpan(tracer, "SetBalance", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	// Only check blocked addresses when balance is increasing (receiving funds).
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	if amount.ToBig().Cmp(coin.Amount.BigInt()) > 0 && k.bankWrapper.BlockedAddr(cosmosAddr) {
+		return errorsmod.Wrapf(errortypes.ErrUnauthorized, "%s is not allowed to receive funds", cosmosAddr)
+	}
+
 	locked := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
 	newBalance := new(big.Int).Add(amount.ToBig(), locked.AmountOf(types.GetEVMCoinDenom()).BigInt())
 

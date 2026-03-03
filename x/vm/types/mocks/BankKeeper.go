@@ -17,6 +17,24 @@ type BankKeeper struct {
 	mock.Mock
 }
 
+// BlockedAddr provides a mock function with given fields: addr
+func (_m *BankKeeper) BlockedAddr(addr types.AccAddress) bool {
+	ret := _m.Called(addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BlockedAddr")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.AccAddress) bool); ok {
+		r0 = rf(addr)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // BurnCoins provides a mock function with given fields: ctx, moduleName, amt
 func (_m *BankKeeper) BurnCoins(ctx context.Context, moduleName string, amt types.Coins) error {
 	ret := _m.Called(ctx, moduleName, amt)
