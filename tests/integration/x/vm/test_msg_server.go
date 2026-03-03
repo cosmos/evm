@@ -121,12 +121,15 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			// Fund fee collector account
+			// Fund fee collector account's virtual balance.
+			// With virtual fee collection enabled, RefundGas uses SendCoinsFromModuleToAccountVirtual
+			// which checks the virtual (object store) balance, not the real balance.
 			ctx := s.Network.GetContext()
 			coins := sdktypes.NewCoins(sdktypes.NewCoin(types.GetEVMCoinDenom(), sdkmath.NewInt(1e18)))
 			err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", coins)
 			s.Require().NoError(err)
-			err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", coins)
+			mintAddr := authtypes.NewModuleAddress("mint")
+			err = s.Network.App.GetBankKeeper().SendCoinsFromAccountToModuleVirtual(ctx, mintAddr, authtypes.FeeCollectorName, coins)
 			s.Require().NoError(err)
 
 			// Get EthereumTx msg
