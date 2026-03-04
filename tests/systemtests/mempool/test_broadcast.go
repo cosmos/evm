@@ -29,7 +29,7 @@ import (
 func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(*TestSuite, *TestContext)
+		actions []func(*testing.T, *TestSuite, *TestContext)
 	}{
 		{
 			// Scenario 1: Basic Broadcasting and Transaction Promotion
@@ -43,8 +43,8 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			//   User -> JSON-RPC -> Mempool (pending) -> Gossip to peers
 			//   When nonce gap filled: Queued -> Promoted to pending -> Gossiped
 			name: "tx broadcast to other nodes %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
+			actions: []func(*testing.T, *TestSuite, *TestContext){
+				func(t *testing.T, s *TestSuite, ctx *TestContext) {
 					// Step 1: Send tx with nonce 0 to node0
 					// Expected: tx is added to node0's pending pool (nonce is correct)
 					signer := s.Acc(0)
@@ -73,6 +73,8 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							for !found {
 								select {
 								case <-timeoutCtx.Done():
+									// Diagnostic: dump txpool state and block height on timeout
+									s.logDiagnostics(t, nodeID, tx1.TxHash)
 									require.FailNow(t, fmt.Sprintf(
 										"transaction %s was not broadcast to %s within %s - mempool gossip may not be working",
 										tx1.TxHash, nodeID, maxWaitTime,
@@ -86,7 +88,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 									}
 
 									if slices.Contains(pendingTxs, tx1.TxHash) {
-										t.Logf("✓ Transaction %s successfully broadcast to %s", tx1.TxHash, nodeID)
+										t.Logf("Transaction %s successfully broadcast to %s", tx1.TxHash, nodeID)
 										found = true
 									}
 								}
@@ -97,7 +99,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Now set expected state and let the transaction commit normally
 					ctx.SetExpPendingTxs(tx1)
 				},
-				func(s *TestSuite, ctx *TestContext) {
+				func(t *testing.T, s *TestSuite, ctx *TestContext) {
 					// Step 3: Send tx with nonce 2 to node1 (creating a nonce gap)
 					// Current nonce is 1 (after previous tx), so nonce 2 creates a gap
 					// Expected: tx is added to node1's QUEUED pool (not pending due to gap)
@@ -122,6 +124,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					for !queuedOnNode1 {
 						select {
 						case <-timeoutCtx.Done():
+							s.logDiagnostics(t, s.Node(1), tx3.TxHash)
 							require.FailNow(t, fmt.Sprintf(
 								"transaction %s was not queued on node1 within %s",
 								tx3.TxHash, maxWaitTime,
@@ -133,7 +136,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							}
 
 							if slices.Contains(queuedTxs, tx3.TxHash) {
-								t.Logf("✓ Transaction %s is queued on node1 (as expected due to nonce gap)", tx3.TxHash)
+								t.Logf("Transaction %s is queued on node1 (as expected due to nonce gap)", tx3.TxHash)
 								queuedOnNode1 = true
 							}
 						}
@@ -181,6 +184,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							for !foundTx2 || !foundTx3 {
 								select {
 								case <-timeoutCtx2.Done():
+									s.logDiagnostics(t, nodeID, tx2.TxHash, tx3.TxHash)
 									if !foundTx2 {
 										require.FailNow(t, fmt.Sprintf(
 											"transaction %s was not broadcast to %s within %s",
@@ -200,12 +204,12 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 									}
 
 									if !foundTx2 && slices.Contains(pendingTxs, tx2.TxHash) {
-										t.Logf("✓ Transaction %s broadcast to %s", tx2.TxHash, nodeID)
+										t.Logf("Transaction %s broadcast to %s", tx2.TxHash, nodeID)
 										foundTx2 = true
 									}
 
 									if !foundTx3 && slices.Contains(pendingTxs, tx3.TxHash) {
-										t.Logf("✓ Transaction %s (promoted) broadcast to %s", tx3.TxHash, nodeID)
+										t.Logf("Transaction %s (promoted) broadcast to %s", tx3.TxHash, nodeID)
 										foundTx3 = true
 									}
 								}
@@ -227,8 +231,8 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			//   RPC Layer: Checks mempool.Has(txHash) -> returns txpool.ErrAlreadyKnown
 			//   Users get immediate error feedback (not silent failure)
 			name: "duplicate tx rejected on same node %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
+			actions: []func(*testing.T, *TestSuite, *TestContext){
+				func(t *testing.T, s *TestSuite, ctx *TestContext) {
 					// Step 1: Send tx with the current nonce to node0
 					// Expected: tx is accepted and added to pending pool
 					signer := s.Acc(0)
@@ -252,6 +256,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					for !found {
 						select {
 						case <-timeoutCtx.Done():
+							s.logDiagnostics(t, s.Node(0), tx1.TxHash)
 							require.FailNow(t, fmt.Sprintf(
 								"transaction %s was not found in node0's pending pool within %s",
 								tx1.TxHash, maxWaitTime,
@@ -274,7 +279,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					require.Error(t, err, "duplicate tx via JSON-RPC must return error")
 					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
 
-					t.Logf("✓ Duplicate transaction correctly rejected with 'already known' error")
+					t.Logf("Duplicate transaction correctly rejected with 'already known' error")
 
 					ctx.SetExpPendingTxs(tx1)
 				},
@@ -295,8 +300,8 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			// This ensures duplicate detection works regardless of how the node
 			// originally received the transaction (user submission vs gossip).
 			name: "duplicate tx rejected after gossip %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
+			actions: []func(*testing.T, *TestSuite, *TestContext){
+				func(t *testing.T, s *TestSuite, ctx *TestContext) {
 					// Step 1: Send tx with the current nonce to node0
 					// Expected: tx is accepted, added to pending, and gossiped
 					signer := s.Acc(0)
@@ -320,6 +325,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					for !found {
 						select {
 						case <-timeoutCtx.Done():
+							s.logDiagnostics(t, s.Node(1), tx1.TxHash)
 							require.FailNow(t, fmt.Sprintf(
 								"transaction %s was not broadcast to node1 within %s",
 								tx1.TxHash, maxWaitTime,
@@ -330,7 +336,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 								continue
 							}
 							if slices.Contains(pendingTxs, tx1.TxHash) {
-								t.Logf("✓ Transaction %s broadcast to node1 via gossip", tx1.TxHash)
+								t.Logf("Transaction %s broadcast to node1 via gossip", tx1.TxHash)
 								found = true
 							}
 						}
@@ -344,7 +350,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					require.Error(t, err, "duplicate tx via JSON-RPC should return error even after gossip")
 					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
 
-					t.Logf("✓ JSON-RPC correctly rejects duplicate that node already has from gossip")
+					t.Logf("JSON-RPC correctly rejects duplicate that node already has from gossip")
 
 					ctx.SetExpPendingTxs(tx1)
 				},
@@ -391,7 +397,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 
 				// Execute all test actions (broadcasting, mempool checks, etc.)
 				for _, action := range tc.actions {
-					action(s, ctx)
+					action(t, s, ctx)
 					// NOTE: We don't call AfterEachAction here because we're manually
 					// checking the mempool state in the action functions
 				}

@@ -107,6 +107,33 @@ func (c *TestContext) PromoteExpTxs(count int) {
 	c.ExpQueued = c.ExpQueued[count:]
 }
 
+// logDiagnostics logs txpool state and block heights across all nodes for debugging CI failures.
+func (s *TestSuite) logDiagnostics(t *testing.T, failedNodeID string, txHashes ...string) {
+	t.Helper()
+	t.Logf("=== DIAGNOSTIC INFO (failed node: %s) ===", failedNodeID)
+
+	for i := 0; i < s.NodesCount(); i++ {
+		nodeID := s.Node(i)
+		height := s.GetCurrentBlockHeight(t, nodeID)
+		t.Logf("[%s] block height: %d", nodeID, height)
+
+		pendingTxs, queuedTxs, err := s.TxPoolContent(nodeID, suite.TxTypeEVM, 5*time.Second)
+		if err != nil {
+			t.Logf("[%s] txpool error: %v", nodeID, err)
+			continue
+		}
+		t.Logf("[%s] pending txs (%d): %v", nodeID, len(pendingTxs), pendingTxs)
+		if len(queuedTxs) > 0 {
+			t.Logf("[%s] queued txs (%d): %v", nodeID, len(queuedTxs), queuedTxs)
+		}
+	}
+
+	for _, txHash := range txHashes {
+		t.Logf("Target tx: %s", txHash)
+	}
+	t.Logf("=== END DIAGNOSTIC INFO ===")
+}
+
 // ModifyConsensusTimeout modifies the consensus timeout_commit in the config.toml
 // for all nodes and restarts the chain with the new configuration.
 func (s *TestSuite) ModifyConsensusTimeout(t *testing.T, timeout string) {
