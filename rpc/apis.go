@@ -63,7 +63,11 @@ func init() {
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend, err := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			if err != nil {
+				ctx.Logger.Error("failed to create backend", "error", err)
+				return nil
+			}
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -106,7 +110,11 @@ func init() {
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend, err := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			if err != nil {
+				ctx.Logger.Error("failed to create backend", "error", err)
+				return nil
+			}
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
@@ -123,7 +131,11 @@ func init() {
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend, err := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			if err != nil {
+				ctx.Logger.Error("failed to create backend", "error", err)
+				return nil
+			}
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
@@ -140,7 +152,11 @@ func init() {
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend, err := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			if err != nil {
+				ctx.Logger.Error("failed to create backend", "error", err)
+				return nil
+			}
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
@@ -157,7 +173,11 @@ func init() {
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend, err := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			if err != nil {
+				ctx.Logger.Error("failed to create backend", "error", err)
+				return nil
+			}
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
