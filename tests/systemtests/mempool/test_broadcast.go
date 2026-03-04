@@ -81,6 +81,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 									pendingTxs, _, err := s.TxPoolContent(nodeID, suite.TxTypeEVM, 5*time.Second)
 									if err != nil {
 										// Retry on error
+										t.Logf("Error querying txpool content: %s", err)
 										continue
 									}
 
