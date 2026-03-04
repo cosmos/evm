@@ -369,10 +369,14 @@ func (b *Backend) SuggestGasTipCap(ctx context.Context, baseFee *big.Int) (_ *bi
 	// MaxDelta = BaseFee * (GasLimit - GasLimit / ElasticityMultiplier) / (GasLimit / ElasticityMultiplier) / Denominator
 	//          = BaseFee * (ElasticityMultiplier - 1) / Denominator
 	// ```t
-	maxDelta := baseFee.Int64() * (int64(params.Params.ElasticityMultiplier) - 1) / int64(params.Params.BaseFeeChangeDenominator) // #nosec G115
-	if maxDelta < 0 {
+	elasticity := new(big.Int).SetUint64(uint64(params.Params.ElasticityMultiplier))
+	denom := new(big.Int).SetUint64(uint64(params.Params.BaseFeeChangeDenominator))
+	maxDelta := new(big.Int).Sub(elasticity, big.NewInt(1))
+	maxDelta.Mul(maxDelta, baseFee)
+	maxDelta.Div(maxDelta, denom)
+	if maxDelta.Sign() < 0 {
 		// impossible if the parameter validation passed.
-		maxDelta = 0
+		maxDelta = big.NewInt(0)
 	}
-	return big.NewInt(maxDelta), nil
+	return maxDelta, nil
 }
