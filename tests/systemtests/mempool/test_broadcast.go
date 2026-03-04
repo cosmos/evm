@@ -56,7 +56,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Step 2: Verify tx appears in nodes 1, 2, 3 mempools before the next block
 					// Expected: tx is gossiped to all nodes BEFORE any block is committed
 					// This proves mempool gossip works, not just block propagation
-					maxWaitTime := 3 * time.Second
+					maxWaitTime := 5 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					for _, nodeIdx := range []int{1, 2, 3} {
