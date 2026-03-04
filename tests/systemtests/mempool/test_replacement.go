@@ -253,7 +253,10 @@ func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite)
 				func(s *TestSuite, ctx *TestContext) {
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(20), s.BaseFeeMultiplier(20))
 					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendCosmosTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(10), nil)
+					// Send cosmos tx to the same node so the address reserver
+					// rejects it deterministically (avoids cross-node race where
+					// the cosmos tx could be committed first, invalidating the EVM tx).
+					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					ctx.SetExpPendingTxs(tx1)
