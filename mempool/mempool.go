@@ -240,7 +240,7 @@ func NewExperimentalEVMMempool(
 
 	evmQueue := queue.New(
 		func(txs []*ethtypes.Transaction) []error {
-			return txPool.Add(txs, false)
+			return txPool.Add(txs, AllowUnsafeSyncInsert)
 		},
 		config.InsertQueueSize,
 		logger,
