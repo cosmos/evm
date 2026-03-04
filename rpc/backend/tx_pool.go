@@ -32,10 +32,15 @@ func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map
 		StatusQueued:  make(map[string]map[string]*types.RPCTransaction),
 	}
 
-	// Get current block header
+	// Get current block header (best-effort: nil is handled by NewRPCPendingTransaction).
+	// CurrentHeader can transiently fail when the EVM tx indexer has not yet
+	// indexed the latest committed block, so we fall back to a nil header
+	// rather than failing the entire call.
 	curHeader, err := b.CurrentHeader(ctx)
 	if err != nil {
-		return content, fmt.Errorf("failed to get current header: %w", err)
+		b.Logger.Debug("txpool content: failed to get current header, continuing without it", "err", err)
+		curHeader = nil
+		err = nil
 	}
 
 	// Get the global mempool instance
@@ -83,10 +88,12 @@ func (b *Backend) ContentFrom(ctx context.Context, addr common.Address) (result 
 
 	content := make(map[string]map[string]*types.RPCTransaction, 2)
 
-	// Get current block header
+	// Get current block header (best-effort: nil is handled by NewRPCPendingTransaction).
 	curHeader, err := b.CurrentHeader(ctx)
 	if err != nil {
-		return content, fmt.Errorf("failed to get current header: %w", err)
+		b.Logger.Debug("txpool content from: failed to get current header, continuing without it", "err", err)
+		curHeader = nil
+		err = nil
 	}
 
 	// Get the global mempool instance
