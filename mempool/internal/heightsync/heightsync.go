@@ -161,13 +161,14 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 		if cmp == 0 {
 			value := hs.store
 			done := hs.done
-			hs.mu.RUnlock()
 
 			// at genesis, no completion signal will arrive, so return the
 			// value immediately
 			if hs.currentHeight.Cmp(genesis) == 0 {
+				hs.mu.RUnlock()
 				return value
 			}
+			hs.mu.RUnlock()
 
 			// wait for EndCurrentHeight to signal that all operations on
 			// the value are complete, or for the context to expire
