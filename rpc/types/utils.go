@@ -70,7 +70,11 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		txHash = common.BytesToHash(header.DataHash)
 	}
 
-	time := uint64(header.Time.UTC().Unix()) //nolint:gosec // G115 // won't exceed uint64
+	unixTime := header.Time.UTC().Unix()
+	if unixTime < 0 {
+		unixTime = 0
+	}
+	time := uint64(unixTime) //nolint:gosec // G115 // clamped above
 	return &ethtypes.Header{
 		ParentHash:  common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		UncleHash:   ethtypes.EmptyUncleHash,

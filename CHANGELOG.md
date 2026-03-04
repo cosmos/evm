@@ -22,6 +22,7 @@
 
 ### BUG FIXES
 
+- [\#1039](https://github.com/cosmos/evm/issues/1039) Clamp negative timestamps to zero in EthHeaderFromComet to prevent uint64 wrapping.
  [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
 - [\#860](https://github.com/cosmos/evm/pull/860) Fix EIP-712 signature verification to use configured EVM chain ID instead of parsing cosmos chain ID string and replace legacytx.StdSignBytes with the aminojson sign mode handler.
