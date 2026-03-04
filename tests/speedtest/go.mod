@@ -5,6 +5,8 @@ go 1.25.7
 replace (
 	github.com/cosmos/evm => ../../
 	github.com/cosmos/evm/evmd => ../../evmd
+	// use local ibc-go for development
+	github.com/cosmos/ibc-go/v11 => ../../../ibc-go
 	// use Cosmos geth fork
 	// branch: release/1.16
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
@@ -102,7 +104,7 @@ require (
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.2 // indirect
 	github.com/cosmos/iavl v1.2.6 // indirect
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260227195504-dfbe36236297 // indirect
+	github.com/cosmos/ibc-go/v11 v11.0.0-20260304204640-9f835275a381 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v1.0.0 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect

@@ -16,7 +16,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260302180736-2fbcc8d5f49e
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.2
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260227195504-dfbe36236297
+	github.com/cosmos/ibc-go/v11 v11.0.0-20260304204640-9f835275a381
 	github.com/ethereum/go-ethereum v1.16.8
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
@@ -375,6 +375,8 @@ replace (
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	github.com/cosmos/evm => ../
+	// use local ibc-go for development
+	github.com/cosmos/ibc-go/v11 => ../../ibc-go
 	// use Cosmos geth fork
 	// branch: release/1.16
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1.0.20260126204437-32ededcf907f
