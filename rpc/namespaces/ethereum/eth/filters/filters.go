@@ -173,6 +173,11 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) (logs
 	}
 
 	for height := from; height <= to; height++ {
+		// Early guard: stop fetching if log limit already reached
+		if logLimit > 0 && len(logs) >= logLimit {
+			break
+		}
+
 		h := int64(height) //#nosec G115
 		blockRes, err := f.backend.CometBlockResultByNumber(ctx, &h)
 		if err != nil {
