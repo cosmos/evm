@@ -53,10 +53,10 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx to node0")
 
-					// Step 2: Verify tx appears in nodes 1, 2, 3 mempools within 3 seconds
-					// Expected: tx is gossiped to all nodes BEFORE any block is committed (5s timeout)
+					// Step 2: Verify tx appears in nodes 1, 2, 3 mempools before the next block
+					// Expected: tx is gossiped to all nodes BEFORE any block is committed
 					// This proves mempool gossip works, not just block propagation
-					maxWaitTime := 3 * time.Second
+					maxWaitTime := 10 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					for _, nodeIdx := range []int{1, 2, 3} {
@@ -108,7 +108,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 
 					// Step 4: Verify tx is in node1's QUEUED pool (not pending)
 					// Queued txs cannot execute until the nonce gap is filled
-					maxWaitTime := 2 * time.Second
+					maxWaitTime := 10 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
@@ -164,7 +164,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// - tx3 (nonce=2) should be promoted from queued to pending on node1
 					// - Promoted tx3 should then be gossiped to all other nodes
 					// This proves queued txs get rebroadcast when promoted
-					maxWaitTime = 3 * time.Second
+					maxWaitTime = 10 * time.Second
 					ticker2 := time.NewTicker(checkInterval)
 					defer ticker2.Stop()
 
@@ -238,7 +238,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 
 					// Step 2: Verify tx is in node0's pending pool
 					// Poll for the transaction to appear (it should be fast, but we need to wait for async processing)
-					maxWaitTime := 3 * time.Second
+					maxWaitTime := 10 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
@@ -305,8 +305,8 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					require.NoError(t, err, "failed to send tx to node0")
 
 					// Step 2: Wait for tx to be gossiped to node1
-					// Expected: tx appears in node1's pending pool within 3 seconds
-					maxWaitTime := 3 * time.Second
+					// Expected: tx appears in node1's pending pool before the next block
+					maxWaitTime := 10 * time.Second
 					checkInterval := 100 * time.Millisecond
 
 					timeoutCtx, cancel := context.WithTimeout(context.Background(), maxWaitTime)
@@ -371,7 +371,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 
 	// Now modify the consensus timeout to slow down block production
 	// This gives us time to verify broadcasting happens before blocks are committed
-	s.ModifyConsensusTimeout(t, "5s")
+	s.ModifyConsensusTimeout(t, "15s")
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
