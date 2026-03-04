@@ -166,3 +166,21 @@ func TestFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestGetLogs_BlockRangeExceedsLimit(t *testing.T) {
+	// Verify that requesting a block range larger than blockLimit returns an error.
+	logger := log.NewNopLogger()
+	fromBlock := int64(1)
+	toBlock := int64(200)
+
+	backend := filtermocks.NewBackend(t)
+	backend.EXPECT().HeaderByNumber(mock.Anything, rpctypes.EthLatestBlockNumber).
+		Return(&ethtypes.Header{Number: big.NewInt(toBlock)}, nil)
+
+	f := NewRangeFilter(logger, backend, fromBlock, toBlock, nil, nil)
+
+	// blockLimit=50 is smaller than the 199-block range
+	_, err := f.Logs(context.Background(), 1000, 50)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "maximum [from, to] blocks distance")
+}
