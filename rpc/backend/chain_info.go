@@ -197,6 +197,9 @@ func (b *Backend) FeeHistory(
 	if err != nil {
 		return nil, err
 	}
+	if uint64(blkNumber) > uint64(gomath.MaxInt64) {
+		return nil, fmt.Errorf("block number %d exceeds max int64", blkNumber)
+	}
 	blockNumber := int64(blkNumber) //#nosec G115
 	blockEnd := int64(lastBlock)    //#nosec G115
 
