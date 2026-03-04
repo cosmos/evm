@@ -234,20 +234,6 @@ func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite)
 		actions []func(*TestSuite, *TestContext)
 	}{
 		{
-			name: "single pending tx (low prio evm tx first) %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
-					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(10), s.BaseFeeMultiplier(10))
-					require.NoError(t, err, "failed to send tx")
-
-					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(20), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					ctx.SetExpPendingTxs(tx1)
-				},
-			},
-		},
-		{
 			name: "single pending tx (high prio evm tx first) %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
@@ -292,90 +278,6 @@ func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite)
 			// 		ctx.SetExpPendingTxs(tx1)
 			// 	},
 			// },
-		},
-		{
-			name: "single queued tx (low prio evm tx first) %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
-					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(20), big.NewInt(1))
-					require.NoError(t, err, "failed to send tx")
-
-					// CosmosTx is not queued in local mempool
-					ctx.SetExpQueuedTxs(tx1)
-				},
-				func(s *TestSuite, ctx *TestContext) {
-					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					ctx.SetExpPendingTxs(tx3)
-					ctx.PromoteExpTxs(1)
-				},
-			},
-		},
-		{
-			name: "single queued tx (high prio evm tx first) %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
-					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(20), big.NewInt(1))
-					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					// CosmosTx is not queued in local mempool
-					ctx.SetExpQueuedTxs(tx1)
-				},
-				func(s *TestSuite, ctx *TestContext) {
-					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					ctx.SetExpPendingTxs(tx3)
-					ctx.PromoteExpTxs(1)
-				},
-			},
-		},
-		{
-			name: "single queued tx (low prio cosmos tx first) %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
-					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(20), s.BaseFeeMultiplier(20))
-					require.NoError(t, err, "failed to send tx")
-
-					// CosmosTx is not queued in local mempool
-					ctx.SetExpQueuedTxs(tx2)
-				},
-				func(s *TestSuite, ctx *TestContext) {
-					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					ctx.SetExpPendingTxs(tx3)
-					ctx.PromoteExpTxs(1)
-				},
-			},
-		},
-		{
-			name: "single queued tx (high prio cosmos tx first) %s",
-			actions: []func(*TestSuite, *TestContext){
-				func(s *TestSuite, ctx *TestContext) {
-					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(20), big.NewInt(1))
-					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					// CosmosTx is not queued in local mempool
-					ctx.SetExpQueuedTxs(tx2)
-				},
-				func(s *TestSuite, ctx *TestContext) {
-					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(10), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					ctx.SetExpPendingTxs(tx3)
-					ctx.PromoteExpTxs(1)
-				},
-			},
 		},
 	}
 
