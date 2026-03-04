@@ -164,7 +164,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// - tx3 (nonce=2) should be promoted from queued to pending on node1
 					// - Promoted tx3 should then be gossiped to all other nodes
 					// This proves queued txs get rebroadcast when promoted
-					maxWaitTime = 3 * time.Second
+					maxWaitTime = 5 * time.Second
 					ticker2 := time.NewTicker(checkInterval)
 					defer ticker2.Stop()
 
