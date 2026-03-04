@@ -68,7 +68,8 @@ func setupMockBackend(t *testing.T) *Backend {
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	backend, err := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	require.NoError(t, err)
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true
@@ -501,4 +502,23 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
 		})
 	}
+}
+
+func TestNewBackend_InvalidClient(t *testing.T) {
+	ctx := server.NewDefaultContext()
+	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
+	ctx.Viper.Set("evm.evm-chain-id", constants.ExampleChainID.EVMChainID)
+
+	// clientCtx with nil Client — not a tmrpcclient.SignClient
+	clientCtx := client.Context{}.WithChainID(constants.ExampleChainID.ChainID)
+
+	_, err := NewBackend(ctx, ctx.Logger, clientCtx, false, nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid rpc client")
+}
+
+func TestNewBackend_Success(t *testing.T) {
+	backend := setupMockBackend(t)
+	require.NotNil(t, backend)
+	require.NotNil(t, backend.RPCClient)
 }
