@@ -1,7 +1,7 @@
 # cosmos-evm-contracts
 
 A collection of smart contracts for the Cosmos EVM blockchain.  
-The published package includes precompile interface sources (`.sol`) and ABIs (`.json`).
+The published package includes precompile interface sources (`.sol`) and ABIs as typed TypeScript (`.ts`).
 
 ## Installation
 
@@ -23,20 +23,11 @@ After installation, use the following paths:
 | Path | Description |
 |------|-------------|
 | `cosmos-evm-contracts/precompiles/` | Solidity sources (`.sol`) |
-| `cosmos-evm-contracts/abi/precompiles/` | ABI as JSON (`.json`) or typed ESM (`.js` + `.d.ts`) |
+| `cosmos-evm-contracts/abi/precompiles/` | ABI as typed ESM (`.ts`) |
 
 Included precompiles: `bank`, `bech32`, `callbacks`, `common`, `distribution`, `erc20`, `gov`, `ics02`, `ics20`, `slashing`, `staking`, `werc20` (testdata and testutil excluded).
 
 ## Usage
-
-### Loading ABI (ethers / viem / web3, etc.)
-
-```javascript
-import IBankAbi from "cosmos-evm-contracts/abi/precompiles/bank/IBank.json" assert { type: "json" };
-
-// or Node
-const IBankAbi = require("cosmos-evm-contracts/abi/precompiles/bank/IBank.json");
-```
 
 ### Loading ABI with TypeScript / viem (typed)
 
@@ -81,6 +72,6 @@ import "cosmos-evm-contracts/bank/IBank.sol";
 
 ### Path reference
 
-- Interface ABI: `cosmos-evm-contracts/abi/precompiles/{module}/{Interface}.json`  
-  e.g. `abi/precompiles/staking/StakingI.json`
+- Interface ABI: `cosmos-evm-contracts/abi/precompiles/{module}/{Interface}` (`.ts`)  
+  e.g. `abi/precompiles/staking/StakingI`
 - Common types: `cosmos-evm-contracts/precompiles/common/Types.sol` (structs only, no ABI)

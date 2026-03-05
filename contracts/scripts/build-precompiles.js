@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Build precompile contracts (excluding testdata, testutil) in OpenZeppelin style:
- * - dist/precompiles/ : .sol sources
- * - dist/abi/         : ABI-only JSON + .ts (as const); tsc emits .js + .d.ts
+ * Build precompile contracts (excluding testdata, testutil):
+ * - dist/precompiles/ : .sol sources only (this script)
+ * - dist/abi/         : .ts from wagmi generate
  *
- * Run from contracts directory: pnpm run build:precompiles
+ * Run from contracts: pnpm run build
  */
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, readdirSync, statSync } from "fs";
+import { mkdirSync, cpSync, existsSync, readdirSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
@@ -15,29 +15,13 @@ import { execSync } from "child_process";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = join(__dirname, "..");
 const ARTIFACTS = join(ROOT, "artifacts", "solidity", "precompiles");
-const SOLIDITY_SOURCE = join(ROOT, "solidity");
+const SOLIDITY_SOURCE = join(ROOT, "solidity", "precompiles");
 const DIST = join(ROOT, "dist");
-const DIST_ABI = join(DIST, "abi");
 
 const EXCLUDED_DIRS = ["testdata", "testutil"];
 
 function ensureDir(p) {
   if (!existsSync(p)) mkdirSync(p, { recursive: true });
-}
-
-function* walkArtifactJsons(dir) {
-  if (!existsSync(dir)) return;
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name.endsWith(".sol")) {
-        const contractName = name.replace(".sol", "");
-        const jsonPath = join(full, contractName + ".json");
-        if (existsSync(jsonPath)) yield jsonPath;
-      }
-      yield* walkArtifactJsons(full);
-    }
-  }
 }
 
 function* walkSolSources(dir, prefix = "") {
@@ -48,12 +32,13 @@ function* walkSolSources(dir, prefix = "") {
       if (EXCLUDED_DIRS.includes(name)) continue;
       yield* walkSolSources(full, join(prefix, name));
     } else if (name.endsWith(".sol")) {
-      yield join(prefix, name);
+      yield { rel: join(prefix, name), solPath: full };
     }
   }
 }
 
 function buildPrecompiles() {
+  // So that wagmi generate can run, ensure artifacts exist
   if (!existsSync(ARTIFACTS)) {
     console.log("Compiling with Hardhat...");
     execSync("pnpm exec hardhat compile", {
@@ -61,63 +46,18 @@ function buildPrecompiles() {
       stdio: "inherit",
     });
   }
-  if (!existsSync(ARTIFACTS)) {
-    console.error("No artifacts at", ARTIFACTS, "- run: pnpm exec hardhat compile");
-    process.exit(1);
-  }
 
-  ensureDir(DIST_ABI);
-
-  const copiedSol = new Set();
   let count = 0;
-
-  for (const jsonPath of walkArtifactJsons(ARTIFACTS)) {
-    const rel = jsonPath.slice(ARTIFACTS.length + 1);
-    if (EXCLUDED_DIRS.some((d) => rel.includes(d))) continue;
-
-    const artifact = JSON.parse(readFileSync(jsonPath, "utf8"));
-    const sourceName = artifact.sourceName; // e.g. "solidity/precompiles/bank/IBank.sol"
-    if (!sourceName || !sourceName.startsWith("solidity/precompiles/")) continue;
-
-    const relFromSolidity = sourceName.replace(/^solidity\//, ""); // precompiles/bank/IBank.sol
-    const contractName = relFromSolidity.replace(/\.sol$/, "").split("/").pop(); // e.g. IBank
-    const solPath = join(SOLIDITY_SOURCE, relFromSolidity);
-    const abiOutPath = join(DIST_ABI, relFromSolidity.replace(".sol", ".json"));
-    const abiTsOutPath = join(DIST_ABI, relFromSolidity.replace(".sol", ".ts"));
-    const solOutPath = join(DIST, relFromSolidity);
-
-    ensureDir(dirname(abiOutPath));
-    ensureDir(dirname(solOutPath));
-
-    const abi = artifact.abi ?? [];
-    writeFileSync(abiOutPath, JSON.stringify(abi, null, 2), "utf8");
-    writeFileSync(
-      abiTsOutPath,
-      `export const ${contractName}_ABI = ${JSON.stringify(abi, null, 2)} as const;\n`,
-      "utf8"
-    );
-    if (existsSync(solPath)) {
-      cpSync(solPath, solOutPath);
-      copiedSol.add(relFromSolidity);
-    }
-    count++;
-    console.log("  ", relFromSolidity);
-  }
-
-  // Copy .sol sources that have no artifact (e.g. common/Types.sol with only structs)
-  const precompilesSource = join(SOLIDITY_SOURCE, "precompiles");
-  for (const rel of walkSolSources(precompilesSource)) {
-    const relFromSolidity = join("precompiles", rel);
-    if (copiedSol.has(relFromSolidity)) continue;
-    const solPath = join(SOLIDITY_SOURCE, relFromSolidity);
-    const solOutPath = join(DIST, relFromSolidity);
+  for (const { rel, solPath } of walkSolSources(SOLIDITY_SOURCE)) {
+    const relFromPrecompiles = join("precompiles", rel);
+    const solOutPath = join(DIST, relFromPrecompiles);
     ensureDir(dirname(solOutPath));
     cpSync(solPath, solOutPath);
     count++;
-    console.log("  ", relFromSolidity, "(no ABI)");
+    console.log("  ", relFromPrecompiles);
   }
 
-  console.log("\nDone. Built", count, "precompile file(s) to dist/ (OpenZeppelin style).");
+  console.log("\nDone. Copied", count, ".sol file(s) to dist/precompiles/.");
 }
 
 buildPrecompiles();
