@@ -257,35 +257,10 @@ func NewExperimentalEVMMempool(
 	)
 	evmMempool.cosmosQueue = cosmosQueue
 
-	// Once we have validated that the tx is valid (and can be promoted, set it
-	// to be reaped)
-	legacyPool.OnTxPromoted = func(tx *ethtypes.Transaction) {
-		if err := evmMempool.reapList.PushEVMTx(tx); err != nil {
-			logger.Error("could not push evm tx to ReapList", "err", err)
-		}
-
-		hash := tx.Hash()
-		_ = evmMempool.txTracker.ExitedQueued(hash)
-		_ = evmMempool.txTracker.EnteredPending(hash)
-	}
-
-	legacyPool.OnTxEnqueued = func(tx *ethtypes.Transaction) {
-		_ = evmMempool.txTracker.EnteredQueued(tx.Hash())
-	}
-
-	// Once we are removing the tx, we no longer need to block it from being
-	// sent to the reaplist again and can remove from the guard
-	legacyPool.OnTxRemoved = func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
-		// tx was invalidated for some reason or was included in a block
-		// (either way it is no longer in the mempool), if this tx is in the
-		// reap list we need remove it from there (no longer need to gossip to
-		// others about the tx) + the reap guard (since we may see this tx at a
-		// later time, in which case we should gossip it again) by readding to
-		// the reap guard.
-		evmMempool.reapList.DropEVMTx(tx)
-
-		_ = evmMempool.txTracker.RemoveTxFromPool(tx.Hash(), pool)
-	}
+	// Setup tx lifecycle hooks
+	legacyPool.OnTxEnqueued = evmMempool.onEVMTxEnqueued()
+	legacyPool.OnTxPromoted = evmMempool.onEVMTxPromoted()
+	legacyPool.OnTxRemoved = evmMempool.onEVMTxRemoved()
 
 	vmKeeper.SetEvmMempool(evmMempool)
 
@@ -293,6 +268,57 @@ func NewExperimentalEVMMempool(
 	evmMempool.cosmosPool.Start(blockchain.CurrentBlock())
 
 	return evmMempool
+}
+
+// onEVMTxEnqueued defines a hook to run whenever an evm tx enters the queued pool.
+func (m *ExperimentalEVMMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
+	if !m.IsExclusive() {
+		return func(_ *ethtypes.Transaction) {}
+	}
+
+	return func(tx *ethtypes.Transaction) {
+		_ = m.txTracker.EnteredQueued(tx.Hash())
+	}
+}
+
+// onEVMTxEnqueued defines a hook to run whenever an evm tx is promoted from
+// the queued pool to the pending pool.
+func (m *ExperimentalEVMMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
+	if !m.IsExclusive() {
+		return func(_ *ethtypes.Transaction) {}
+	}
+
+	return func(tx *ethtypes.Transaction) {
+		// once we have validated that the tx is valid (and can be promoted, set it
+		// to be reaped)
+		if err := m.reapList.PushEVMTx(tx); err != nil {
+			m.logger.Error("could not push promoted evm tx to ReapList", "err", err)
+		}
+
+		hash := tx.Hash()
+		_ = m.txTracker.ExitedQueued(hash)
+		_ = m.txTracker.EnteredPending(hash)
+	}
+}
+
+// onEVMTxEnqueued defines a hook to run whenever an evm tx is removed from a
+// pool (queued or pending).
+func (m *ExperimentalEVMMempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
+	if !m.IsExclusive() {
+		return func(_ *ethtypes.Transaction, _ legacypool.PoolType) {}
+	}
+
+	return func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
+		// tx was invalidated for some reason or was included in a block
+		// (either way it is no longer in the mempool), if this tx is in the
+		// reap list we need remove it from there (no longer need to gossip to
+		// others about the tx) + the reap guard (since we may see this tx at a
+		// later time, in which case we should gossip it again) by readding to
+		// the reap guard.
+		m.reapList.DropEVMTx(tx)
+
+		_ = m.txTracker.RemoveTxFromPool(tx.Hash(), pool)
+	}
 }
 
 // IsExclusive returns true if this mempool is the ONLY mempool in the chain.
