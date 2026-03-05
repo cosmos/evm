@@ -1,7 +1,7 @@
 {
   "name": "cosmos-evm-contracts",
   "packageManager": "pnpm@9.15.0",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A collection of smart contracts used in the development of the Cosmos EVM blockchain.",
   "devDependencies": {
     "@openzeppelin/contracts": "^5.4.0",
@@ -18,6 +18,7 @@
     "README.md"
   ],
   "exports": {
+    "./*.sol": "./dist/*.sol",
     "./*": {
       "types": "./dist/*.d.ts",
       "import": "./dist/*.js",
