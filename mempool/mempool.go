@@ -155,11 +155,12 @@ func NewExperimentalEVMMempool(
 	if config.LegacyPoolConfig != nil {
 		legacyConfig = *config.LegacyPoolConfig
 	}
-	legacyPool := legacypool.New(
-		legacyConfig,
-		blockchain,
-		legacypool.WithRecheck(evmRechecker),
-	)
+
+	var legacyPoolOpts []legacypool.Option
+	if config.OperateExclusively {
+		legacyPoolOpts = append(legacyPoolOpts, legacypool.WithRecheck(evmRechecker))
+	}
+	legacyPool := legacypool.New(legacyConfig, blockchain, legacyPoolOpts...)
 
 	tracker := reserver.NewReservationTracker()
 	txPool, err := txpool.New(uint64(0), blockchain, tracker, []txpool.SubPool{legacyPool})
