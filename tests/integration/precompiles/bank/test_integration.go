@@ -1,7 +1,6 @@
 package bank
 
 import (
-	storetypes "cosmossdk.io/store/types"
 	"fmt"
 	"math/big"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -311,7 +311,6 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 					Expect(innerGasUsed.Uint64()).To(BeNumerically(">=", gasForward.Uint64()*90/100),
 						"inner OOG call should consume all forwarded gas, got %s out of %s", innerGasUsed.String(), gasForward.String())
 				})
-
 			})
 
 			Context("supplyOf query", func() {
