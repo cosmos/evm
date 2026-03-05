@@ -73,8 +73,6 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							for !found {
 								select {
 								case <-timeoutCtx.Done():
-									// Diagnostic: dump txpool state and block height on timeout
-									s.logDiagnostics(t, nodeID, tx1.TxHash)
 									require.FailNow(t, fmt.Sprintf(
 										"transaction %s was not broadcast to %s within %s - mempool gossip may not be working",
 										tx1.TxHash, nodeID, maxWaitTime,
@@ -124,7 +122,6 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					for !queuedOnNode1 {
 						select {
 						case <-timeoutCtx.Done():
-							s.logDiagnostics(t, s.Node(1), tx3.TxHash)
 							require.FailNow(t, fmt.Sprintf(
 								"transaction %s was not queued on node1 within %s",
 								tx3.TxHash, maxWaitTime,
@@ -184,7 +181,6 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 							for !foundTx2 || !foundTx3 {
 								select {
 								case <-timeoutCtx2.Done():
-									s.logDiagnostics(t, nodeID, tx2.TxHash, tx3.TxHash)
 									if !foundTx2 {
 										require.FailNow(t, fmt.Sprintf(
 											"transaction %s was not broadcast to %s within %s",
@@ -256,7 +252,6 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					for !found {
 						select {
 						case <-timeoutCtx.Done():
-							s.logDiagnostics(t, s.Node(0), tx1.TxHash)
 							require.FailNow(t, fmt.Sprintf(
 								"transaction %s was not found in node0's pending pool within %s",
 								tx1.TxHash, maxWaitTime,
@@ -325,7 +320,6 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					for !found {
 						select {
 						case <-timeoutCtx.Done():
-							s.logDiagnostics(t, s.Node(1), tx1.TxHash)
 							require.FailNow(t, fmt.Sprintf(
 								"transaction %s was not broadcast to node1 within %s",
 								tx1.TxHash, maxWaitTime,
