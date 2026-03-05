@@ -17,10 +17,6 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// enables abci.InsertTx & abci.ReapTxs to be used exclusively by the mempool.
-// @see evmmempool.ExperimentalEVMMempool.OperateExclusively
-const mempoolOperateExclusively = true
-
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
 func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.Logger) error {
 	if evmtypes.GetChainConfig() == nil {
@@ -82,7 +78,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
 		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
 		MinTip:                   server.GetMinTip(appOpts, logger),
-		OperateExclusively:       mempoolOperateExclusively,
+		OperateExclusively:       server.GetShouldOperateExclusively(appOpts, logger),
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
 		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
 	}, nil
