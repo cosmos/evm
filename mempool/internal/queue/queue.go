@@ -1,14 +1,13 @@
 package queue
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/gammazero/deque"
-
-	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 )
@@ -40,18 +39,16 @@ type Queue[Tx any] struct {
 	// rejecting new additions
 	maxSize int
 
-	logger log.Logger
-	done   chan struct{}
+	done chan struct{}
 }
 
 var ErrQueueFull = errors.New("queue full")
 
 // New creates a new queue.
-func New[Tx any](insert func(txs []*Tx) []error, maxSize int, logger log.Logger) *Queue[Tx] {
+func New[Tx any](insert func(txs []*Tx) []error, maxSize int) *Queue[Tx] {
 	iq := &Queue[Tx]{
 		insert:  insert,
 		maxSize: maxSize,
-		logger:  logger,
 		signal:  make(chan struct{}, 1),
 		done:    make(chan struct{}),
 	}
@@ -62,7 +59,7 @@ func New[Tx any](insert func(txs []*Tx) []error, maxSize int, logger log.Logger)
 
 // Push enqueues a Tx's to eventually be inserted. Returns a channel that will
 // have an error pushed to it if an error occurs inserting the Tx.
-func (iq *Queue[Tx]) Push(tx *Tx) <-chan error {
+func (iq *Queue[Tx]) Insert(_ context.Context, tx *Tx) <-chan error {
 	sub := make(chan error, 1)
 
 	if tx == nil {

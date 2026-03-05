@@ -52,6 +52,14 @@ const (
 	fallbackBlockGasLimit = 100_000_000
 )
 
+// Inserter abstracts how txs are inserted into an underlying mempool.
+type Inserter[Tx any] interface {
+	// Insert inserts a tx into a mempool, returning a channel that will be
+	// populated when an error when the tx is eventually inserted into the
+	// mempool.
+	Insert(context.Context, *Tx) <-chan error
+}
+
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
 	// It provides a single interface for transaction insertion, selection, and removal while
@@ -85,8 +93,8 @@ type (
 		txTracker *txTracker
 
 		/** Transaction Inserting **/
-		cosmosQueue *queue.Queue[sdk.Tx]
-		evmQueue    *queue.Queue[ethtypes.Transaction]
+		cosmosInserter Inserter[sdk.Tx]
+		evmInserter    Inserter[ethtypes.Transaction]
 	}
 )
 
@@ -235,33 +243,13 @@ func NewExperimentalEVMMempool(
 		txTracker:                newTxTracker(),
 	}
 
-	// Create insert queues for evm and cosmos txs
-
-	evmQueue := queue.New(
-		func(txs []*ethtypes.Transaction) []error {
-			return txPool.Add(txs, AllowUnsafeSyncInsert)
-		},
-		config.InsertQueueSize,
-		logger,
-	)
-	evmMempool.evmQueue = evmQueue
-
-	cosmosQueue := queue.New(
-		func(txs []*sdk.Tx) []error {
-			errs := make([]error, len(txs))
-			for i, tx := range txs {
-				errs[i] = evmMempool.insertCosmosTx(*tx)
-			}
-			return errs
-		},
-		config.InsertQueueSize,
-		logger,
-	)
-	evmMempool.cosmosQueue = cosmosQueue
+	// Setup how we insert tx into the mempool
+	evmMempool.evmInserter = evmMempool.newEVMInserter(config.InsertQueueSize)
+	evmMempool.cosmosInserter = evmMempool.newCosmosInserter(config.InsertQueueSize)
 
 	// Setup evm tx lifecycle hooks
 	legacyPool.OnTxEnqueued = evmMempool.onEVMTxEnqueued()
-	legacyPool.OnTxPromoted = evmMempool.onEVMTxPromoted(clientCtx, txEncoder, config.BroadCastTxFn)
+	legacyPool.OnTxPromoted = evmMempool.onEVMTxPromoted(txEncoder, config.BroadCastTxFn)
 	legacyPool.OnTxRemoved = evmMempool.onEVMTxRemoved()
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -285,14 +273,14 @@ func (m *ExperimentalEVMMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction
 
 // onEVMTxEnqueued defines a hook to run whenever an evm tx is promoted from
 // the queued pool to the pending pool.
-func (m *ExperimentalEVMMempool) onEVMTxPromoted(clientCtx client.Context, txEncoder *TxEncoder, broadcastTxFn func(txs []*ethtypes.Transaction) error) func(tx *ethtypes.Transaction) {
+func (m *ExperimentalEVMMempool) onEVMTxPromoted(txEncoder *TxEncoder, broadcastTxFn func(txs []*ethtypes.Transaction) error) func(tx *ethtypes.Transaction) {
 	if !m.IsExclusive() {
 		return func(tx *ethtypes.Transaction) {
 			var err error
 			if broadcastTxFn != nil {
 				err = broadcastTxFn(ethtypes.Transactions{tx})
 			} else {
-				err = m.broadcastEVMTransaction(clientCtx, txEncoder, tx)
+				err = m.broadcastEVMTransaction(m.clientCtx, txEncoder, tx)
 			}
 			if err != nil {
 				m.logger.Error("Failed to broadcast transactions", "err", err)
@@ -331,6 +319,53 @@ func (m *ExperimentalEVMMempool) onEVMTxRemoved() func(tx *ethtypes.Transaction,
 
 		_ = m.txTracker.RemoveTxFromPool(tx.Hash(), pool)
 	}
+}
+
+// newEVMInserter defines how txs are inserted into the underlying evm mempool
+// based on if the mempool is operating exclusively or not.
+func (m *ExperimentalEVMMempool) newEVMInserter(insertQueueSize int) Inserter[ethtypes.Transaction] {
+	if !m.IsExclusive() {
+		return &directInserter[ethtypes.Transaction]{
+			insertFn: func(_ context.Context, tx *ethtypes.Transaction) error {
+				errs := m.txPool.Add(ethtypes.Transactions{tx}, true)
+				if len(errs) > 0 && errs[0] != nil {
+					m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", tx.Hash())
+					return errs[0]
+				}
+				return nil
+			},
+		}
+	}
+
+	return queue.New(
+		func(txs []*ethtypes.Transaction) []error {
+			return m.txPool.Add(txs, false)
+		},
+		insertQueueSize,
+	)
+}
+
+// newEVMInserter defines how txs are inserted into the underlying cosmos
+// mempool based on if the mempool is operating exclusively or not.
+func (m *ExperimentalEVMMempool) newCosmosInserter(insertQueueSize int) Inserter[sdk.Tx] {
+	if !m.IsExclusive() {
+		return &directInserter[sdk.Tx]{
+			insertFn: func(ctx context.Context, tx *sdk.Tx) error {
+				return m.cosmosPool.Insert(ctx, *tx)
+			},
+		}
+	}
+
+	return queue.New(
+		func(txs []*sdk.Tx) []error {
+			errs := make([]error, len(txs))
+			for i, tx := range txs {
+				errs[i] = m.insertCosmosTx(*tx)
+			}
+			return errs
+		},
+		insertQueueSize,
+	)
 }
 
 // IsExclusive returns true if this mempool is the ONLY mempool in the chain.
@@ -405,7 +440,7 @@ func (m *ExperimentalEVMMempool) InsertAsync(ctx context.Context, tx sdk.Tx) err
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *ExperimentalEVMMempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *ExperimentalEVMMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
@@ -415,7 +450,7 @@ func (m *ExperimentalEVMMempool) insert(_ context.Context, tx sdk.Tx) (<-chan er
 		// at a later point. We get back a subscription that the insert queue
 		// will use to notify the caller of any errors that occurred when
 		// inserting into the mempool.
-		return m.evmQueue.Push(ethTx), nil
+		return m.evmInserter.Insert(ctx, ethTx), nil
 	case errors.Is(err, ErrMultiMsgEthereumTransaction):
 		// there are multiple messages in this tx and one or more of them is an
 		// evm tx, this is invalid
@@ -425,7 +460,7 @@ func (m *ExperimentalEVMMempool) insert(_ context.Context, tx sdk.Tx) (<-chan er
 		// inserted at a later point. We get back a subscription that the
 		// insert queue will use to notify the caller of any errors that
 		// occurred when inserting into the mempool.
-		return m.cosmosQueue.Push(&tx), nil
+		return m.cosmosInserter.Insert(ctx, &tx), nil
 	}
 }
 
@@ -661,9 +696,6 @@ func (m *ExperimentalEVMMempool) Close() error {
 		}
 	}
 
-	m.evmQueue.Close()
-	m.cosmosQueue.Close()
-
 	if err := m.cosmosPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close cosmos pool: %w", err))
 	}
@@ -807,4 +839,17 @@ func (m *ExperimentalEVMMempool) broadcastEVMTransaction(clientCtx client.Contex
 		return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
 	}
 	return nil
+}
+
+// directInserter is an adapter type that implements Inserter[Tx] by calling
+// insertFn synchronously and returning the error on a channel.
+type directInserter[Tx any] struct {
+	insertFn func(context.Context, *Tx) error
+}
+
+func (d *directInserter[Tx]) Insert(ctx context.Context, tx *Tx) <-chan error {
+	ch := make(chan error, 1)
+	ch <- d.insertFn(ctx, tx)
+	close(ch)
+	return ch
 }
