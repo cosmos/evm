@@ -342,19 +342,19 @@ func (_m *EVMKeeper) IsContract(ctx types.Context, address common.Address) bool 
 }
 
 // KVStoreKeys provides a mock function with no fields
-func (_m *EVMKeeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
+func (_m *EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for KVStoreKeys")
 	}
 
-	var r0 map[string]*storetypes.KVStoreKey
-	if rf, ok := ret.Get(0).(func() map[string]*storetypes.KVStoreKey); ok {
+	var r0 map[string]storetypes.StoreKey
+	if rf, ok := ret.Get(0).(func() map[string]storetypes.StoreKey); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]*storetypes.KVStoreKey)
+			r0 = ret.Get(0).(map[string]storetypes.StoreKey)
 		}
 	}
 

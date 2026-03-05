@@ -202,12 +202,12 @@ func (a *EvmAppAdapter) GetCallbackKeeper() keeper.ContractKeeper {
 	return keeper.ContractKeeper{}
 }
 
-func (a *EvmAppAdapter) GetTransferKeeper() transferkeeper.Keeper {
+func (a *EvmAppAdapter) GetTransferKeeper() *transferkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.TransferKeeperProvider); ok {
 		return provider.GetTransferKeeper()
 	}
 	panicMissingProvider("TransferKeeperProvider")
-	return transferkeeper.Keeper{}
+	return &transferkeeper.Keeper{}
 }
 
 func (a *EvmAppAdapter) SetTransferKeeper(k transferkeeper.Keeper) {

@@ -147,7 +147,7 @@ type (
 		GetStakingKeeper() *stakingkeeper.Keeper
 	}
 	TransferKeeperProvider interface {
-		GetTransferKeeper() transferkeeper.Keeper
+		GetTransferKeeper() *transferkeeper.Keeper
 	}
 	TransferKeeperSetter interface {
 		SetTransferKeeper(transferkeeper.Keeper)
