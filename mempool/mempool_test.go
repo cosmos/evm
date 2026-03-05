@@ -54,7 +54,7 @@ func TestMempool_Iterate(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-	s := setupMempoolWithAccounts(t, numAccs)
+	s := setupMempoolWithAccounts(t, false, numAccs)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
 	numTxsEach := 5
@@ -95,7 +95,7 @@ func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
@@ -138,7 +138,7 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-	s := setupMempoolWithAccounts(t, 4)
+	s := setupExclusiveMempoolWithAccounts(t, 4)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
@@ -167,7 +167,7 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, rechecker, bus, accounts := s.mp, s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -260,7 +260,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 }
 
 func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, rechecker, bus, accounts := s.mp, s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -315,7 +315,7 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 }
 
 func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, rechecker, bus, accounts := s.mp, s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -384,7 +384,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 }
 
 func TestMempool_ReapNewBlock(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, vmKeeper, txConfig, bus, accounts := s.mp, s.vmKeeper, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -445,7 +445,7 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 }
 
 func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, bus := s.mp, s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -507,7 +507,7 @@ func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
 }
 
 func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, false, 3)
 	mp, txConfig, bus := s.mp, s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -557,7 +557,7 @@ func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
 }
 
 func TestMempool_InsertSynchronous(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, bus, accounts := s.mp, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -587,7 +587,7 @@ func TestMempool_InsertSynchronous(t *testing.T) {
 }
 
 func TestMempool_InsertSynchronousReturnsError(t *testing.T) {
-	s := setupMempoolWithAccounts(t, 3)
+	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, bus, accounts := s.mp, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -631,7 +631,11 @@ type testMempool struct {
 	accounts        []testAccount
 }
 
-func setupMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
+func setupExclusiveMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
+	return setupMempoolWithAccounts(t, true, numAccounts)
+}
+
+func setupMempoolWithAccounts(t *testing.T, exclusive bool, numAccounts int) testMempool {
 	t.Helper()
 
 	// Create accounts
@@ -723,10 +727,11 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
 	legacyConfig.PriceBump = 10 // 10% price bump for replacement
 
 	config := &mempool.EVMMempoolConfig{
-		LegacyPoolConfig: &legacyConfig,
-		BlockGasLimit:    30000000,
-		MinTip:           uint256.NewInt(0),
-		InsertQueueSize:  1000,
+		LegacyPoolConfig:   &legacyConfig,
+		BlockGasLimit:      30000000,
+		MinTip:             uint256.NewInt(0),
+		InsertQueueSize:    1000,
+		OperateExclusively: exclusive,
 	}
 
 	// Create mempool

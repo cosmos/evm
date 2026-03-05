@@ -634,7 +634,7 @@ func TestMempool_Recheck(t *testing.T) {
 			transientKey := storetypes.NewTransientStoreKey("transient_test")
 			ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
 
-			s := setupMempoolWithAccounts(t, 3)
+			s := setupExclusiveMempoolWithAccounts(t, 3)
 			mp, txConfig, cosmosRechecker, accounts := s.mp, s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {

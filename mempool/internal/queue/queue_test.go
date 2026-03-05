@@ -1,14 +1,13 @@
 package queue
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	"cosmossdk.io/log/v2"
 )
 
 // mockPool is a mock that records inserted transactions and optionally
@@ -52,15 +51,14 @@ func (m *mockPool) setInsertFn(fn func([]*ethtypes.Transaction) []error) {
 
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockPool()
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Create a test transaction
 	tx := ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil)
 
 	// Push transaction
-	_ = iq.Push(tx)
+	_ = iq.Insert(context.Background(), tx)
 
 	// Wait for transaction to be processed
 	require.Eventually(t, func() bool {
@@ -74,9 +72,9 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 }
 
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
+	ctx := context.Background()
 	pool := newMockPool()
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -85,9 +83,9 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	tx3 := ethtypes.NewTransaction(3, [20]byte{0x03}, nil, 21000, nil, nil)
 
 	// Push transactions
-	_ = iq.Push(tx1)
-	_ = iq.Push(tx2)
-	_ = iq.Push(tx3)
+	_ = iq.Insert(ctx, tx1)
+	_ = iq.Insert(ctx, tx2)
+	_ = iq.Insert(ctx, tx3)
 
 	// Wait for all transactions to be processed
 	require.Eventually(t, func() bool {
@@ -104,12 +102,11 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockPool()
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Push nil transaction
-	_ = iq.Push(nil)
+	_ = iq.Insert(context.Background(), nil)
 
 	// Wait a bit to ensure nothing is processed
 	time.Sleep(100 * time.Millisecond)
@@ -120,6 +117,7 @@ func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 }
 
 func TestInsertQueue_SlowAddition(t *testing.T) {
+	ctx := context.Background()
 	pool := newMockPool()
 
 	// Make insert slow to allow queue to back up
@@ -128,13 +126,12 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 		return make([]error, len(txs))
 	})
 
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Push first transaction to start processing
 	tx1 := ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil)
-	_ = iq.Push(tx1)
+	_ = iq.Insert(ctx, tx1)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -144,12 +141,13 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 	var nonce uint64
 	for nonce = 0; nonce < 100; nonce++ {
 		tx := ethtypes.NewTransaction(nonce+2, [20]byte{byte(nonce + 2)}, nil, 21000, nil, nil)
-		_ = iq.Push(tx)
+		_ = iq.Insert(ctx, tx)
 	}
 	require.Less(t, time.Since(start), 100*time.Millisecond, "pushes should not block")
 }
 
 func TestInsertQueue_RejectsWhenFull(t *testing.T) {
+	ctx := context.Background()
 	pool := newMockPool()
 
 	// when insertFn is called, push a value onto a channel to signal that a
@@ -162,15 +160,14 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 		select {} // block forever
 	})
 
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 5, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 5)
 	defer iq.Close()
 
 	// This first tx will be immediately popped and start processing (where it
 	// blocks)
 	nonce := uint64(0)
 	tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
-	_ = iq.Push(tx)
+	_ = iq.Insert(ctx, tx)
 	nonce++
 
 	// wait for first tx to be popped and insertFn to be called and blocking
@@ -179,16 +176,16 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	// Fill the queue to capacity
 	for ; nonce <= 5; nonce++ {
 		tx := ethtypes.NewTransaction(nonce, [20]byte{byte(nonce + 1)}, nil, 21000, nil, nil)
-		_ = iq.Push(tx)
+		_ = iq.Insert(ctx, tx)
 	}
 
 	// Try to push one more transaction with error channel, queue is now at max capacity
 	tx = ethtypes.NewTransaction(100, [20]byte{0x64}, nil, 21000, nil, nil)
-	_ = iq.Push(tx)
+	_ = iq.Insert(ctx, tx)
 
 	// Push another tx into the full queue, should be rejected
 	fullTx := ethtypes.NewTransaction(101, [20]byte{0x64}, nil, 21000, nil, nil)
-	sub := iq.Push(fullTx)
+	sub := iq.Insert(ctx, fullTx)
 
 	// Verify we got the queue full error
 	select {
