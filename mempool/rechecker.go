@@ -18,7 +18,7 @@ type TxConverter interface {
 	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
 }
 
-// Rechecker runs recheckFn on pending and queued txs in the pool, given an
+// TxRechecker runs recheckFn on pending and queued txs in the pool, given an
 // sdk context via UpdateCtx.
 //
 // NOTE: None of the recheckers functions are thread safe.
@@ -31,7 +31,7 @@ type TxRechecker struct {
 	txConverter TxConverter
 }
 
-// New creates a new rechecker that can recheck transactions.
+// NewTxRechecker creates a new rechecker that can recheck transactions.
 func NewTxRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *TxRechecker {
 	return &TxRechecker{
 		anteHandler: anteHandler,
