@@ -7,12 +7,10 @@ import (
 	"io"
 	"os"
 
-	goruntime "runtime"
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
-	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
+
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
@@ -261,13 +259,13 @@ func NewExampleApp(
 	}
 
 	// enable block stm for parallel execution
-	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
-		encodingConfig.TxConfig.TxDecoder(),
-		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
-		func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
-	))
+	// bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
+	// 	encodingConfig.TxConfig.TxDecoder(),
+	// 	nonTransientKeys,
+	// 	min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+	// 	true,
+	// 	func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
+	// ))
 
 	// disable block gas meter
 	bApp.SetDisableBlockGasMeter(true)
