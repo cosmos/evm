@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	common "github.com/ethereum/go-ethereum/common"
 
 	mock "github.com/stretchr/testify/mock"
@@ -77,6 +78,34 @@ func (_m *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	}
 
 	return r0
+}
+
+// GetLatestContext provides a mock function with no fields
+func (_m *BlockChain) GetLatestContext() (sdk.Context, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLatestContext")
+	}
+
+	var r0 sdk.Context
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (sdk.Context, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() sdk.Context); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sdk.Context)
+	}
+
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // StateAt provides a mock function with given fields: root

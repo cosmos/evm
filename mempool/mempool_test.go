@@ -54,10 +54,8 @@ func TestMempool_Iterate(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-		return ctx, nil
-	}
-	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, numAccs)
+	s := setupMempoolWithAccounts(t, numAccs)
+	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
 	numTxsEach := 5
 	for i := range numAccs {
@@ -97,10 +95,8 @@ func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-		return ctx, nil
-	}
-	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
 
@@ -142,10 +138,8 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-		return ctx, nil
-	}
-	mp, _, txConfig, _, _, accounts := setupMempoolWithAnteHandler(t, anteHandler, 4)
+	s := setupMempoolWithAccounts(t, 4)
+	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
 
@@ -173,7 +167,8 @@ func TestMempool_ReserverMultiSigner(t *testing.T) {
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
 func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, rechecker, bus, accounts := s.mp, s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -206,7 +201,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 	// setup tx with nonce 1 to fail recheck. it will get kicked out of the
 	// pool and tx with nonce 2 will be demoted to queued (when tx 1 is
 	// resubmitted, it will be returned from reap again).
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		if tx.Nonce() == 1 {
 			return sdk.Context{}, errors.New("recheck failed on tx with nonce 1")
 		}
@@ -227,7 +222,7 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 
 	// setup recheck to not fail any txs again, tx 2 will not fail this but
 	// it wont be promoted since it is nonce gapped from tx 1
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		return sdk.Context{}, nil
 	})
 
@@ -265,7 +260,8 @@ func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
 }
 
 func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, rechecker, bus, accounts := s.mp, s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -279,7 +275,7 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	require.NoError(t, mp.GetTxPool().Sync())
 
 	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		return sdk.Context{}, nil
 	})
 
@@ -319,7 +315,8 @@ func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 }
 
 func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, _, txConfig, rechecker, bus, accounts := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, rechecker, bus, accounts := s.mp, s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -343,7 +340,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 
 	// setup tx with nonce 0 to fail recheck.
 	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		if tx.Nonce() == 0 {
 			return sdk.Context{}, errors.New("recheck failed on tx with nonce 0")
 		}
@@ -364,7 +361,7 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 	require.Len(t, txs, 0)
 
 	// recheck will pass for all txns again
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	rechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 		return sdk.Context{}, nil
 	})
 
@@ -387,7 +384,8 @@ func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
 }
 
 func TestMempool_ReapNewBlock(t *testing.T) {
-	mp, vmKeeper, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, vmKeeper, txConfig, bus, accounts := s.mp, s.vmKeeper, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -447,10 +445,8 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 }
 
 func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
-	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-		return ctx, nil
-	}
-	mp, _, txConfig, _, bus, _ := setupMempoolWithAnteHandler(t, anteHandler, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, bus := s.mp, s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -511,10 +507,8 @@ func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
 }
 
 func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
-	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-		return ctx, nil
-	}
-	mp, _, txConfig, _, bus, _ := setupMempoolWithAnteHandler(t, anteHandler, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, bus := s.mp, s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -563,7 +557,8 @@ func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
 }
 
 func TestMempool_InsertSynchronous(t *testing.T) {
-	mp, _, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, bus, accounts := s.mp, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -592,7 +587,8 @@ func TestMempool_InsertSynchronous(t *testing.T) {
 }
 
 func TestMempool_InsertSynchronousReturnsError(t *testing.T) {
-	mp, _, txConfig, _, bus, accounts := setupMempoolWithAccounts(t, 3)
+	s := setupMempoolWithAccounts(t, 3)
+	mp, txConfig, bus, accounts := s.mp, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
 			Height:  1,
@@ -625,13 +621,17 @@ type testAccount struct {
 	initialBalance uint64
 }
 
-func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) { //nolint:unparam // its fine.
-	t.Helper()
-	return setupMempoolWithAnteHandler(t, nil, numAccounts)
+type testMempool struct {
+	mp              *mempool.ExperimentalEVMMempool
+	vmKeeper        *mocks.VMKeeper
+	txConfig        client.TxConfig
+	evmRechecker    *MockRechecker
+	cosmosRechecker *MockRechecker
+	eventBus        *cmttypes.EventBus
+	accounts        []testAccount
 }
 
-//nolint:unparam // anteHandler is used in EVMMempoolConfig below
-func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numAccounts int) (*mempool.ExperimentalEVMMempool, *mocks.VMKeeper, client.TxConfig, *MockRechecker, *cmttypes.EventBus, []testAccount) {
+func setupMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
 	t.Helper()
 
 	// Create accounts
@@ -660,7 +660,6 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 	// Create mocks
 	mockVMKeeper := mocks.NewVMKeeper(t)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
-	mockRechecker := &MockRechecker{}
 
 	// Setup mock expectations
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
@@ -727,11 +726,12 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    30000000,
 		MinTip:           uint256.NewInt(0),
-		AnteHandler:      anteHandler,
 		InsertQueueSize:  1000,
 	}
 
 	// Create mempool
+	evmRechecker := &MockRechecker{}
+	cosmosRechecker := &MockRechecker{}
 	mp := mempool.NewExperimentalEVMMempool(
 		getCtxCallback,
 		log.NewNopLogger(),
@@ -740,7 +740,8 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 		txConfig,
 		clientCtx,
 		mempool.NewTxEncoder(txConfig),
-		mockRechecker,
+		evmRechecker,
+		cosmosRechecker,
 		config,
 		1000, // cosmos pool max tx
 	)
@@ -750,7 +751,15 @@ func setupMempoolWithAnteHandler(t *testing.T, anteHandler sdk.AnteHandler, numA
 	require.NoError(t, eventBus.Start())
 	mp.SetEventBus(eventBus)
 
-	return mp, mockVMKeeper, txConfig, mockRechecker, eventBus, accounts
+	return testMempool{
+		mp:              mp,
+		vmKeeper:        mockVMKeeper,
+		txConfig:        txConfig,
+		evmRechecker:    evmRechecker,
+		cosmosRechecker: cosmosRechecker,
+		eventBus:        eventBus,
+		accounts:        accounts,
+	}
 }
 
 func createMsgEthereumTx(
@@ -823,32 +832,56 @@ func getTxNonce(t *testing.T, txConfig client.TxConfig, txBytes []byte) uint64 {
 }
 
 type MockRechecker struct {
-	RecheckFn func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
-	lock      sync.Mutex
+	EVMRecheckFn    func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	CosmosRecheckFn func(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error)
+	ctx             sdk.Context
+	lock            sync.Mutex
 }
 
-func (mr *MockRechecker) SetRecheck(recheck func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)) {
+func (mr *MockRechecker) SetEVMRecheck(recheck func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)) {
 	mr.lock.Lock()
 	defer mr.lock.Unlock()
 
-	mr.RecheckFn = recheck
+	mr.EVMRecheckFn = recheck
+}
+
+func (mr *MockRechecker) SetCosmosRecheck(recheck func(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error)) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	mr.CosmosRecheckFn = recheck
 }
 
 func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
-	return sdk.Context{}, func() {}
+	if mr.ctx.MultiStore() == nil {
+		return sdk.Context{}, func() {}
+	}
+	return mr.ctx.CacheContext()
 }
 
-func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+func (mr *MockRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 	mr.lock.Lock()
 	defer mr.lock.Unlock()
 
-	if mr.RecheckFn != nil {
-		return mr.RecheckFn(ctx, tx)
+	if mr.EVMRecheckFn != nil {
+		return mr.EVMRecheckFn(ctx, tx)
 	}
 	return sdk.Context{}, nil
 }
 
-func (mr *MockRechecker) Update(chain legacypool.BlockChain, header *types.Header) {}
+func (mr *MockRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
+	mr.lock.Lock()
+	defer mr.lock.Unlock()
+
+	if mr.CosmosRecheckFn != nil {
+		return mr.CosmosRecheckFn(ctx, tx)
+	}
+	return ctx, nil
+}
+
+func (mr *MockRechecker) Update(ctx sdk.Context, _ *types.Header) {
+	mr.ctx = ctx
+}
 
 // createTestCosmosTx creates a real Cosmos SDK transaction with the given signer
 func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.PrivateKey, sequence uint64) sdk.Tx {
