@@ -178,7 +178,7 @@ type EVMD struct {
 
 	// IBC keepers
 	IBCKeeper      *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
-	TransferKeeper transferkeeper.Keeper
+	TransferKeeper *transferkeeper.Keeper
 	CallbackKeeper ibccallbackskeeper.ContractKeeper
 
 	// Cosmos EVM keepers
@@ -431,7 +431,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-			// register the governance hooks
+		// register the governance hooks
 		),
 	)
 
@@ -475,7 +475,7 @@ func NewExampleApp(
 			app.DistrKeeper,
 			app.BankKeeper,
 			&app.Erc20Keeper,
-			&app.TransferKeeper,
+			app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
 			app.IBCKeeper.ClientKeeper,
 			app.GovKeeper,
@@ -495,7 +495,7 @@ func NewExampleApp(
 		app.BankKeeper,
 		app.EVMKeeper,
 		app.StakingKeeper,
-		&app.TransferKeeper,
+		app.TransferKeeper,
 	)
 
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
@@ -503,7 +503,6 @@ func NewExampleApp(
 		appCodec,
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		nil,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -1051,11 +1050,11 @@ func (app *EVMD) GetCallbackKeeper() ibccallbackskeeper.ContractKeeper {
 	return app.CallbackKeeper
 }
 
-func (app *EVMD) GetTransferKeeper() transferkeeper.Keeper {
+func (app *EVMD) GetTransferKeeper() *transferkeeper.Keeper {
 	return app.TransferKeeper
 }
 
-func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
+func (app *EVMD) SetTransferKeeper(transferKeeper *transferkeeper.Keeper) {
 	app.TransferKeeper = transferKeeper
 }
 

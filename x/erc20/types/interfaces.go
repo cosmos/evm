@@ -16,7 +16,7 @@ import (
 	"github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"cosmossdk.io/core/address"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -58,7 +58,7 @@ type EVMKeeper interface {
 	DeleteState(ctx sdk.Context, addr common.Address, key common.Hash)
 	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
 	DeleteCode(ctx sdk.Context, codeHash []byte)
-	KVStoreKeys() map[string]*storetypes.KVStoreKey
+	KVStoreKeys() map[string]storetypes.StoreKey
 }
 
 type Erc20Keeper interface {

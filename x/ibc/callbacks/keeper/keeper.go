@@ -326,7 +326,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 
 	// Call the onPacketAcknowledgement function in the contract
 	// NOTE: use the cached ctx for the EVM calls.
-	res, err := k.evmKeeper.CallEVM(cachedCtx, stateDB, *abi, sender, contractAddr, true, false, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketAcknowledgement",
+	res, err := k.evmKeeper.CallEVM(cachedCtx, stateDB, callbacksabi.ABI, sender, contractAddr, true, false, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketAcknowledgement",
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData(), acknowledgement)
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
@@ -392,16 +392,6 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 		return nil
 	}
 
-	// `ProcessCallback` in IBC-Go overrides the infinite gas meter with a basic gas meter,
-	// so we need to generate a new infinite gas meter to run the EVM executions on.
-	// Skipping this causes the EVM gas estimation function to deplete all Cosmos gas.
-	// We re-add the actual EVM call gas used to the original context after the call is complete
-	// with the gas retrieved from the EVM message result.
-	cachedCtx, writeFn := ctx.CacheContext()
-	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
-		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
-	stateDB := statedb.New(cachedCtx, k.evmKeeper, statedb.NewEmptyTxConfig())
-
 	if len(cbData.Calldata) != 0 {
 		return errorsmod.Wrap(types.ErrInvalidCalldata, "timeout callback data should not contain calldata")
 	}
@@ -433,8 +423,9 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	cachedCtx, writeFn := ctx.CacheContext()
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
 		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
+	stateDB := statedb.New(cachedCtx, k.evmKeeper, statedb.NewEmptyTxConfig())
 
-	res, err := k.evmKeeper.CallEVM(ctx, stateDB, *abi, sender, contractAddr, true, false, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketTimeout",
+	res, err := k.evmKeeper.CallEVM(ctx, stateDB, callbacksabi.ABI, sender, contractAddr, true, false, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketTimeout",
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())

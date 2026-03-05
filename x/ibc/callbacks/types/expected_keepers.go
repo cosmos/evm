@@ -39,7 +39,7 @@ type EVMKeeper interface {
 	DeleteCode(ctx sdk.Context, codeHash []byte)
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
-	KVStoreKeys() map[string]*storetypes.KVStoreKey
+	KVStoreKeys() map[string]storetypes.StoreKey
 }
 
 type ERC20Keeper interface {

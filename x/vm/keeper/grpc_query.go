@@ -902,7 +902,7 @@ func (k *Keeper) traceTxWithMsg(
 	// Build EVM execution context
 	ctx = buildTraceCtx(ctx, msg.GasLimit)
 	stateDB := statedb.New(ctx, k, txConfig)
-	res, err := k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, nil)
+	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, nil)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	evmtrace "github.com/cosmos/evm/trace"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -22,7 +23,7 @@ import (
 // CallEVM performs a smart contract method call using given args.
 // Note: if you call this from a precompile context, ensure that
 // you use the existing stateDB.
-func (k Keeper) CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (*types.MsgEthereumTxResponse, error) {
+func (k Keeper) CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (_ *types.MsgEthereumTxResponse, err error) {
 	ctx, span := ctx.StartSpan(tracer, "CallEVM", trace.WithAttributes(
 		attribute.String("from", from.Hex()),
 		attribute.String("contract", contract.Hex()),
@@ -48,7 +49,7 @@ func (k Keeper) CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, 
 // CallEVMWithData performs a smart contract method call using contract data.
 // Note: if you call this from a precompile context, ensure that
 // you use the existing stateDB.
-func (k Keeper) CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (*types.MsgEthereumTxResponse, error) {
+func (k Keeper) CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (_ *types.MsgEthereumTxResponse, err error) {
 	contractAddr := ""
 	if contract != nil {
 		contractAddr = contract.Hex()
