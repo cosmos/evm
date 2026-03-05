@@ -279,7 +279,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		// Use the loop index as the correct eth tx position,
 		// matching the existing fallback in GetTransactionByHash (tx_info.go).
 		if txResult.EthTxIndex == -1 {
-			txResult.EthTxIndex = int32(i)
+			txResult.EthTxIndex = int32(i) //#nosec G115 -- checked for int overflow already
 		}
 
 		cumulatedGasUsed += txResult.GasUsed
