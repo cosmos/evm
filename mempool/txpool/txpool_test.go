@@ -67,6 +67,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	legacyChain.On("CurrentBlock").Return(&types.Header{Number: big.NewInt(0)})
 	chain.On("Config").Return(cfg)
 	legacyChain.On("StateAt", genesisHeader.Root).Return(genesisState, nil)
+	legacyChain.On("GetLatestContext").Return(sdk.Context{}, nil).Maybe()
 	chain.On("StateAt", genesisHeader.Root).Return(nil, nil)
 
 	// starting the chain(s) at genesisHeader
@@ -141,11 +142,11 @@ func (mr *BlockingRechecker) GetContext() (sdk.Context, func()) {
 	return sdk.Context{}, func() {}
 }
 
-func (mr *BlockingRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+func (mr *BlockingRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 	mr.once.Do(func() {
 		<-mr.guard
 	})
 	return sdk.Context{}, nil
 }
 
-func (mr *BlockingRechecker) Update(chain legacypool.BlockChain, header *types.Header) {}
+func (mr *BlockingRechecker) Update(ctx sdk.Context, header *types.Header) {}

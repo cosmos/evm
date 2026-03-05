@@ -76,9 +76,6 @@ type (
 		blockGasLimit uint64 // Block gas limit from consensus parameters
 		minTip        *uint256.Int
 
-		/** Verification **/
-		anteHandler sdk.AnteHandler
-
 		eventBus *cmttypes.EventBus
 
 		/** Transaction Reaping **/
@@ -127,7 +124,8 @@ func NewExperimentalEVMMempool(
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
 	txEncoder *TxEncoder,
-	rechecker legacypool.Rechecker,
+	evmRechecker legacypool.Rechecker,
+	cosmosRechecker Rechecker,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -160,7 +158,7 @@ func NewExperimentalEVMMempool(
 	legacyPool := legacypool.New(
 		legacyConfig,
 		blockchain,
-		legacypool.WithRecheck(rechecker),
+		legacypool.WithRecheck(evmRechecker),
 	)
 
 	tracker := reserver.NewReservationTracker()
@@ -214,9 +212,9 @@ func NewExperimentalEVMMempool(
 		logger,
 		cosmosPool,
 		tracker.NewHandle(-1),
-		config.AnteHandler,
+		cosmosRechecker,
 		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore),
-		blockchain.GetLatestContext,
+		blockchain,
 	)
 
 	evmMempool := &ExperimentalEVMMempool{
@@ -229,7 +227,6 @@ func NewExperimentalEVMMempool(
 		blockchain:               blockchain,
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
-		anteHandler:              config.AnteHandler,
 		operateExclusively:       config.OperateExclusively,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(txEncoder),
@@ -250,16 +247,8 @@ func NewExperimentalEVMMempool(
 	cosmosQueue := queue.New(
 		func(txs []*sdk.Tx) []error {
 			errs := make([]error, len(txs))
-			ctx, err := blockchain.GetLatestContext()
-			if err != nil {
-				for i := range txs {
-					errs[i] = err
-				}
-				return errs
-			}
-
 			for i, tx := range txs {
-				errs[i] = evmMempool.insertCosmosTx(ctx, *tx)
+				errs[i] = evmMempool.insertCosmosTx(*tx)
 			}
 			return errs
 		},
@@ -301,7 +290,7 @@ func NewExperimentalEVMMempool(
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	// Start the cosmos pool recheck loop
-	evmMempool.cosmosPool.Start()
+	evmMempool.cosmosPool.Start(blockchain.CurrentBlock())
 
 	return evmMempool
 }
@@ -404,11 +393,11 @@ func (m *ExperimentalEVMMempool) insert(_ context.Context, tx sdk.Tx) (<-chan er
 
 // insertCosmosTx inserts a cosmos tx into the cosmos mempool.
 // The RecheckMempool handles ante handler validation, address reservation, and locking internally.
-func (m *ExperimentalEVMMempool) insertCosmosTx(goCtx context.Context, tx sdk.Tx) error {
+func (m *ExperimentalEVMMempool) insertCosmosTx(tx sdk.Tx) error {
 	m.logger.Debug("inserting Cosmos transaction")
 
 	// Insert into cosmos pool (handles locking, ante handler, and address reservation internally)
-	if err := m.cosmosPool.Insert(goCtx, tx); err != nil {
+	if err := m.cosmosPool.Insert(context.Background(), tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
 		return err
 	}
@@ -616,7 +605,7 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		for range sub.Out() {
 			bc.NotifyNewBlock()
 			// Trigger cosmos pool recheck on new block (non-blocking)
-			m.cosmosPool.TriggerRecheck(bc.CurrentBlock().Number)
+			m.cosmosPool.TriggerRecheck(bc.CurrentBlock())
 		}
 	}()
 }
@@ -753,8 +742,8 @@ func (m *ExperimentalEVMMempool) TrackTx(hash common.Hash) error {
 
 // RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
 // This is primarily used for testing.
-func (m *ExperimentalEVMMempool) RecheckCosmosTxs(height *big.Int) {
-	m.cosmosPool.TriggerRecheckSync(height)
+func (m *ExperimentalEVMMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
+	m.cosmosPool.TriggerRecheckSync(newHead)
 }
 
 // StopTrackingTx stops a tx from being tracked for its tx inclusion metrics.

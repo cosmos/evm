@@ -99,6 +99,10 @@ func (bc *testBlockChain) StateAt(common.Hash) (vm.StateDB, error) {
 	return bc.statedb, nil
 }
 
+func (bc *testBlockChain) GetLatestContext() (sdk.Context, error) {
+	return sdk.Context{}, nil
+}
+
 func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
 	return bc.chainHeadFeed.Subscribe(ch)
 }
@@ -3058,7 +3062,7 @@ func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
 	return sdk.Context{}, func() {}
 }
 
-func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+func (mr *MockRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 	mr.lock.Lock()
 	defer mr.lock.Unlock()
 
@@ -3068,4 +3072,4 @@ func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Co
 	return sdk.Context{}, nil
 }
 
-func (mr *MockRechecker) Update(chain BlockChain, header *types.Header) {}
+func (mr *MockRechecker) Update(_ sdk.Context, _ *types.Header) {}
