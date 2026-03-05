@@ -97,6 +97,7 @@ type EVMMempoolConfig struct {
 	LegacyPoolConfig *legacypool.Config
 	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
 	AnteHandler      sdk.AnteHandler
+	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
 	// Block gas limit from consensus parameters
 	BlockGasLimit uint64
 	MinTip        *uint256.Int
@@ -258,9 +259,9 @@ func NewExperimentalEVMMempool(
 	)
 	evmMempool.cosmosQueue = cosmosQueue
 
-	// Setup tx lifecycle hooks
+	// Setup evm tx lifecycle hooks
 	legacyPool.OnTxEnqueued = evmMempool.onEVMTxEnqueued()
-	legacyPool.OnTxPromoted = evmMempool.onEVMTxPromoted()
+	legacyPool.OnTxPromoted = evmMempool.onEVMTxPromoted(clientCtx, txEncoder, config.BroadCastTxFn)
 	legacyPool.OnTxRemoved = evmMempool.onEVMTxRemoved()
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -284,9 +285,19 @@ func (m *ExperimentalEVMMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction
 
 // onEVMTxEnqueued defines a hook to run whenever an evm tx is promoted from
 // the queued pool to the pending pool.
-func (m *ExperimentalEVMMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
+func (m *ExperimentalEVMMempool) onEVMTxPromoted(clientCtx client.Context, txEncoder *TxEncoder, broadcastTxFn func(txs []*ethtypes.Transaction) error) func(tx *ethtypes.Transaction) {
 	if !m.IsExclusive() {
-		return func(_ *ethtypes.Transaction) {}
+		return func(tx *ethtypes.Transaction) {
+			var err error
+			if broadcastTxFn != nil {
+				err = broadcastTxFn(ethtypes.Transactions{tx})
+			} else {
+				err = m.broadcastEVMTransaction(clientCtx, txEncoder, tx)
+			}
+			if err != nil {
+				m.logger.Error("Failed to broadcast transactions", "err", err)
+			}
+		}
 	}
 
 	return func(tx *ethtypes.Transaction) {
@@ -778,4 +789,22 @@ func (m *ExperimentalEVMMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 // i.e. received an error from Insert.
 func (m *ExperimentalEVMMempool) StopTrackingTx(hash common.Hash) {
 	m.txTracker.RemoveTx(hash)
+}
+
+// broadcastEVMTransaction converts an Ethereum transaction to Cosmos SDK format and broadcasts them.
+// This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
+// using the provided client context. It handles encoding and error reporting for each transaction.
+func (m *ExperimentalEVMMempool) broadcastEVMTransaction(clientCtx client.Context, txEncoder *TxEncoder, ethTx *ethtypes.Transaction) error {
+	txBytes, err := txEncoder.EVMTx(ethTx)
+	if err != nil {
+		return fmt.Errorf("failed to encode evm tx to sdk representation: %w", err)
+	}
+	res, err := clientCtx.BroadcastTxSync(txBytes)
+	if err != nil {
+		return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
+	}
+	if res.Code != 0 {
+		return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
+	}
+	return nil
 }
