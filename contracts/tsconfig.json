@@ -8,5 +8,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["wagmi.config.ts"]
+  "include": ["wagmi.config.ts", "tsdown.config.ts"]
 }

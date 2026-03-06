@@ -1,17 +1,35 @@
 /// <reference types="node" />
 /**
- * Wagmi CLI config: generate one .ts file per precompile from Hardhat artifacts.
- * Precompile list from scripts/get-precompiles.js (same logic as build-precompiles).
- * Run: pnpm run build:precompiles (script then wagmi generate).
+ * Wagmi CLI: generates one .ts file per precompile from Hardhat artifacts.
+ * Scans source (solidity/precompiles) for targets so config is never empty even before compile.
+ * Run: pnpm run build:precompiles
  */
+import { readdirSync, statSync, existsSync } from "fs";
 import { join } from "path";
-import { getPrecompiles } from "./scripts/get-precompiles.js";
 import { defineConfig } from "@wagmi/cli";
 import { hardhat } from "@wagmi/cli/plugins";
 
-// Wagmi runs with cwd = config dir (contracts/)
 const root = process.cwd();
-const PRECOMPILES = getPrecompiles(join(root, "artifacts", "solidity", "precompiles"));
+const PRECOMPILES_SRC = join(root, "solidity", "precompiles");
+const EXCLUDED_DIRS = ["testdata", "testutil"];
+
+function* walkPrecompileSources(
+  dir: string,
+  prefix = ""
+): Generator<{ module: string; contract: string }> {
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) {
+      if (EXCLUDED_DIRS.includes(name)) continue;
+      yield* walkPrecompileSources(full, join(prefix, name));
+    } else if (name.endsWith(".sol")) {
+      yield { module: prefix, contract: name.replace(".sol", "") };
+    }
+  }
+}
+
+const precompiles = [...walkPrecompileSources(PRECOMPILES_SRC)];
 
 const hardhatBase = {
   project: ".",
@@ -20,12 +38,12 @@ const hardhatBase = {
 };
 
 export default defineConfig(
-  PRECOMPILES.map(({ module, contract }) => ({
-    out: `dist/abi/precompiles/${module}/${contract}.ts`,
+  precompiles.map(({ module, contract }) => ({
+    out: join("dist", "abi", "precompiles", module, `${contract}.ts`).replace(/\\/g, "/"),
     plugins: [
       hardhat({
         ...hardhatBase,
-        include: [`solidity/precompiles/${module}/${contract}.sol/*.json`],
+        include: [join("solidity", "precompiles", module, `${contract}.sol`, "*.json").replace(/\\/g, "/")],
       }),
     ],
   }))

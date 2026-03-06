@@ -1,7 +1,7 @@
 {
   "name": "cosmos-evm-contracts",
   "packageManager": "pnpm@9.15.0",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "A collection of smart contracts used in the development of the Cosmos EVM blockchain.",
   "devDependencies": {
     "@openzeppelin/contracts": "^5.4.0",
@@ -12,7 +12,7 @@
     "typescript": "^5.0.0"
   },
   "scripts": {
-    "build:precompiles": "node scripts/build-precompiles.js && wagmi generate && tsdown",
+    "build:precompiles": "wagmi generate && tsdown",
     "prepublishOnly": "pnpm run build:precompiles"
   },
   "files": [
