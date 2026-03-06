@@ -52,6 +52,9 @@ func newMockRechecker(ctx sdk.Context, anteHandler sdk.AnteHandler) *mockRecheck
 }
 
 func (m *mockRechecker) GetContext() (sdk.Context, func()) {
+	if m.ctx.MultiStore() == nil {
+		return sdk.Context{}, func() {}
+	}
 	return m.ctx.CacheContext()
 }
 
@@ -69,8 +72,9 @@ func (m *mockRechecker) Update(ctx sdk.Context, _ *ethtypes.Header) {
 
 // mockContextProvider implements ContextProvider for unit tests.
 type mockContextProvider struct {
-	ctx    sdk.Context
-	ctxErr error
+	ctx          sdk.Context
+	getContextFn func() (sdk.Context, error)
+	ctxErr       error
 }
 
 func newMockContextProvider(ctx sdk.Context) *mockContextProvider {
@@ -80,6 +84,9 @@ func newMockContextProvider(ctx sdk.Context) *mockContextProvider {
 func (m *mockContextProvider) GetLatestContext() (sdk.Context, error) {
 	if m.ctxErr != nil {
 		return sdk.Context{}, m.ctxErr
+	}
+	if m.getContextFn != nil {
+		return m.getContextFn()
 	}
 	ctx, _ := m.ctx.CacheContext()
 	return ctx, nil
@@ -886,6 +893,26 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 	}
 
 	<-recheckDone
+}
+
+func TestRecheckMempool_RecheckerNoContextOnInsert(t *testing.T) {
+	acc := newRecheckTestAccount(t)
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	pool := &recheckMockPool{}
+
+	// context provided has a valid context ready
+	ctx := newRecheckTestContext()
+	bc := newMockContextProvider(ctx)
+	// rechecker does not have a valid context
+	rc := newMockRechecker(sdk.Context{}, noopAnteHandler)
+
+	recheckedTxs := newTestRecheckedTxs()
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+
+	tx := newRecheckTestTx(t, acc.key)
+	require.NoError(t, mp.Insert(ctx, tx))
+	require.Equal(t, 1, mp.CountTx())
 }
 
 // ----------------------------------------------------------------------------
