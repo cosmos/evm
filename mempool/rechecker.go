@@ -79,9 +79,9 @@ func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, er
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
-	ctx, _ = ctx.CacheContext()
-	ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
-	if ctx.ConsensusParams().Block == nil {
+	cached, _ := ctx.CacheContext()
+	cached = cached.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
+	if cached.ConsensusParams().Block == nil {
 		// set the latest blocks gas limit as the max gas in cp. this is
 		// necessary to validate each tx's gas wanted
 		maxGas, err := utils.SafeInt64(header.GasLimit)
@@ -89,7 +89,7 @@ func (r *TxRechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
 			panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
 		}
 		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
-		ctx = ctx.WithConsensusParams(cp)
+		cached = cached.WithConsensusParams(cp)
 	}
-	r.ctx = ctx
+	r.ctx = cached
 }
