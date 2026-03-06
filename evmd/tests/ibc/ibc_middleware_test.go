@@ -115,7 +115,7 @@ func (suite *MiddlewareTestSuite) transferViaPrecompile(
 		stateDB,
 		ics20precompile.ABI,
 		senderEthAddr,
-		common.HexToAddress(ics20precompile.PrecompileAddress),
+		common.HexToAddress(evmtypes.ICS20PrecompileAddress),
 		true,
 		false,
 		nil,

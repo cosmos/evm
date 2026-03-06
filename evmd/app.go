@@ -453,6 +453,18 @@ func NewExampleApp(
 		keys[feemarkettypes.StoreKey],
 	)
 
+	// instantiate IBC transfer keeper before the EVM keeper so precompiles receive a non-nil reference
+	app.TransferKeeper = transferkeeper.NewKeeper(
+		appCodec,
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
+		app.IBCKeeper.ChannelKeeper,
+		app.MsgServiceRouter(),
+		app.AccountKeeper,
+		app.BankKeeper,
+		authAddr,
+	)
+
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 
@@ -496,18 +508,6 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.StakingKeeper,
 		app.TransferKeeper,
-	)
-
-	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
-	app.TransferKeeper = transferkeeper.NewKeeper(
-		appCodec,
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.IBCKeeper.ChannelKeeper,
-		app.MsgServiceRouter(),
-		app.AccountKeeper,
-		app.BankKeeper,
-		authAddr,
 	)
 
 	/*

@@ -210,7 +210,7 @@ func (a *EvmAppAdapter) GetTransferKeeper() *transferkeeper.Keeper {
 	return &transferkeeper.Keeper{}
 }
 
-func (a *EvmAppAdapter) SetTransferKeeper(k transferkeeper.Keeper) {
+func (a *EvmAppAdapter) SetTransferKeeper(k *transferkeeper.Keeper) {
 	if setter, ok := a.TestApp.(evm.TransferKeeperSetter); ok {
 		setter.SetTransferKeeper(k)
 		return

@@ -36,7 +36,7 @@ contract SequentialOperationsTester {
         emit OperationCompleted("transfer1", true);
 
         // 2. Staking delegate - convert from wei (18 decimals) to base denom (6 decimals)
-        uint256 delegateAmountBaseDenom = delegateAmount / 1e12;
+        uint256 delegateAmountBaseDenom = delegateAmount;
         STAKING_CONTRACT.delegate(
             address(this),
             validatorAddr,
@@ -73,7 +73,7 @@ contract SequentialOperationsTester {
         emit OperationCompleted("transfer1", true);
 
         // 2. Try to delegate (will revert, catch it)
-        uint256 delegateAmountBaseDenom = delegateAmount / 1e12;
+        uint256 delegateAmountBaseDenom = delegateAmount;
         try STAKING_CONTRACT.delegate(
             address(this),
             validatorAddr,
@@ -109,7 +109,7 @@ contract SequentialOperationsTester {
         emit OperationCompleted("native_transfer1", true);
 
         // 2. Staking delegate - convert from wei (18 decimals) to base denom (6 decimals)
-        uint256 delegateAmountBaseDenom = delegateAmount / 1e12;
+        uint256 delegateAmountBaseDenom = delegateAmount;
         STAKING_CONTRACT.delegate(
             address(this),
             validatorAddr,
@@ -140,7 +140,7 @@ contract SequentialOperationsTester {
         emit OperationCompleted("native_transfer1", true);
 
         // 2. Try to delegate - convert from wei (18 decimals) to base denom (6 decimals)
-        uint256 delegateAmountBaseDenom = delegateAmount / 1e12;
+        uint256 delegateAmountBaseDenom = delegateAmount;
         try STAKING_CONTRACT.delegate(
             address(this),
             validatorAddr,

@@ -150,7 +150,7 @@ type (
 		GetTransferKeeper() *transferkeeper.Keeper
 	}
 	TransferKeeperSetter interface {
-		SetTransferKeeper(transferkeeper.Keeper)
+		SetTransferKeeper(*transferkeeper.Keeper)
 	}
 )
 

@@ -22,11 +22,11 @@ import (
 
 // Test constants
 const (
-	AutoFlushInitialTokenAmount  int64 = 1_000_000_000_000_000_000 // 1 token with 18 decimals
-	AutoFlushDelegationAmount    int64 = 100_000_000_000_000_000   // 0.1 token for delegation
-	AutoFlushTransferAmount      int64 = 50_000_000_000_000_000    // 0.05 token for transfers
-	AutoFlushNativeAmount        int64 = 1_000_000_000_000_000_000 // 1 native token (larger to avoid fractional issues)
-	AutoFlushSenderIndex               = 1
+	AutoFlushInitialTokenAmount int64 = 1_000_000_000_000_000_000 // 1 token with 18 decimals
+	AutoFlushDelegationAmount   int64 = 100_000_000_000_000_000   // 0.1 token for delegation
+	AutoFlushTransferAmount     int64 = 50_000_000_000_000_000    // 0.05 token for transfers
+	AutoFlushNativeAmount       int64 = 1_000_000_000_000_000_000 // 1 native token (larger to avoid fractional issues)
+	AutoFlushSenderIndex              = 1
 )
 
 // Test suite for auto-flush behavior with various operation combinations
@@ -132,13 +132,12 @@ func (suite *AutoFlushTestSuite) countEvents(ctx sdk.Context) int {
 	return len(ctx.EventManager().Events())
 }
 
-
 // Helper: Check balances and events
 func (suite *AutoFlushTestSuite) verifyState(
 	label string,
 	expectedEventCount int,
 	expectedBalances map[common.Address]map[common.Address]*big.Int, // tokenAddr -> holderAddr -> balance
-	expectedNativeBalances map[string]sdkmath.Int,                   // bech32 address -> balance
+	expectedNativeBalances map[string]sdkmath.Int, // bech32 address -> balance
 	expectedAccountsCreated int,
 ) {
 	evmApp := suite.chain.App.(*evmd.EVMD)
@@ -265,7 +264,7 @@ func (suite *AutoFlushTestSuite) TestScenario1_TransferDelegateTransfer() {
 	suite.Require().Equal(len(delegations), 1, "should have at 1 delegation")
 	bondedTokens, err := evmApp.StakingKeeper.GetDelegatorBonded(suite.chain.GetContext(), contractAddrSDK)
 	suite.Require().NoError(err)
-	suite.Require().Equal(AutoFlushDelegationAmount/1_000_000_000_000, bondedTokens.Int64())
+	suite.Require().Equal(AutoFlushDelegationAmount, bondedTokens.Int64())
 
 	suite.Require().Equal(DelegationEventCount+EVMEventCount, len(res.Events)) // 8 events, no gas token transfer
 }
@@ -383,7 +382,7 @@ func (suite *AutoFlushTestSuite) TestScenario3_NativeTransferDelegateNativeTrans
 	// Fund contract via bank module for all operations (both native transfers and delegation)
 	// Convert from wei (18 decimals) to aatom (6 decimals) by dividing by 1e12
 	totalAmountWei := AutoFlushNativeAmount*2 + AutoFlushDelegationAmount
-	totalAmountAatom := sdkmath.NewInt(int64(totalAmountWei / 1_000_000_000_000))
+	totalAmountAatom := sdkmath.NewInt(totalAmountWei)
 	suite.fundContractNative(contractAddrSDK, totalAmountAatom)
 
 	// Get recipient and validator
@@ -425,22 +424,16 @@ func (suite *AutoFlushTestSuite) TestScenario3_NativeTransferDelegateNativeTrans
 	contractBalAfter := evmApp.GetBankKeeper().GetBalance(ctx, contractAddrSDK, bondDenom)
 	recipientBalAfter := evmApp.GetBankKeeper().GetBalance(ctx, recipientAddrSDK, bondDenom)
 
-	// Bank balances are in Cosmos units (6 decimals), EVM amounts are in wei (18 decimals)
-	// Conversion: 1e18 wei = 1e6 aatom (divide by 1e12)
-	conversionFactor := sdkmath.NewInt(1_000_000_000_000) // 1e12
-
 	// Verify balances - contract should lose 2x native transfer + delegation (in bank units)
 	expectedContractDeltaWei := sdkmath.NewInt(AutoFlushNativeAmount*2 + AutoFlushDelegationAmount)
-	expectedContractDelta := expectedContractDeltaWei.Quo(conversionFactor)
 	actualContractDelta := contractBalBefore.Amount.Sub(contractBalAfter.Amount)
 
 	// Verify recipient received 2x native amount (in bank units)
 	expectedRecipientDeltaWei := sdkmath.NewInt(AutoFlushNativeAmount * 2)
-	expectedRecipientDelta := expectedRecipientDeltaWei.Quo(conversionFactor)
 	actualRecipientDelta := recipientBalAfter.Amount.Sub(recipientBalBefore.Amount)
 
-	suite.Require().Equal(expectedContractDelta.String(), actualContractDelta.String(), "contract balance delta mismatch")
-	suite.Require().Equal(expectedRecipientDelta.String(), actualRecipientDelta.String(), "recipient should receive 2x native amount")
+	suite.Require().Equal(expectedContractDeltaWei.String(), actualContractDelta.String(), "contract balance delta mismatch")
+	suite.Require().Equal(expectedRecipientDeltaWei.String(), actualRecipientDelta.String(), "recipient should receive 2x native amount")
 
 	// Verify delegation occurred
 	delegations, err := evmApp.StakingKeeper.GetAllDelegatorDelegations(ctx, contractAddrSDK)
@@ -448,9 +441,9 @@ func (suite *AutoFlushTestSuite) TestScenario3_NativeTransferDelegateNativeTrans
 	suite.Require().Equal(len(delegations), 1, "should have 1 delegation")
 	bondedTokens, err := evmApp.StakingKeeper.GetDelegatorBonded(suite.chain.GetContext(), contractAddrSDK)
 	suite.Require().NoError(err)
-	suite.Require().Equal(AutoFlushDelegationAmount/conversionFactor.Int64(), bondedTokens.Int64())
+	suite.Require().Equal(AutoFlushDelegationAmount, bondedTokens.Int64())
 
-	suite.Require().Equal(PreciseBankMintEventCount+PreciseBankBurnEventCount+DelegationEventCount+PreciseBankMintEventCount+PreciseBankBurnEventCount+EVMEventCount, len(res.Events))
+	suite.Require().Equal(DelegationEventCount+EVMEventCount, len(res.Events))
 }
 
 // Scenario 4: Native transfer -> Delegate (reverted & caught) -> Native transfer
@@ -529,21 +522,17 @@ func (suite *AutoFlushTestSuite) TestScenario4_NativeTransferDelegateRevertNativ
 	recipientBalAfter := evmApp.GetBankKeeper().GetBalance(ctx, recipientAddrSDK, bondDenom)
 
 	// Bank balances are in Cosmos units (6 decimals), EVM amounts are in wei (18 decimals)
-	// Conversion: 1e18 wei = 1e6 aatom (divide by 1e12)
-	conversionFactor := sdkmath.NewInt(1_000_000_000_000) // 1e12
 
 	// Verify balances - contract should lose only 2x native transfer (delegation reverted, in bank units)
 	expectedContractDeltaWei := sdkmath.NewInt(AutoFlushNativeAmount * 2)
-	expectedContractDelta := expectedContractDeltaWei.Quo(conversionFactor)
 	actualContractDelta := contractBalBefore.Amount.Sub(contractBalAfter.Amount)
 
 	// Verify recipient received 2x native amount (in bank units)
 	expectedRecipientDeltaWei := sdkmath.NewInt(AutoFlushNativeAmount * 2)
-	expectedRecipientDelta := expectedRecipientDeltaWei.Quo(conversionFactor)
 	actualRecipientDelta := recipientBalAfter.Amount.Sub(recipientBalBefore.Amount)
 
-	suite.Require().Equal(expectedContractDelta.String(), actualContractDelta.String(), "contract balance delta mismatch")
-	suite.Require().Equal(expectedRecipientDelta.String(), actualRecipientDelta.String(), "recipient should receive 2x native amount")
+	suite.Require().Equal(expectedContractDeltaWei.String(), actualContractDelta.String(), "contract balance delta mismatch")
+	suite.Require().Equal(expectedRecipientDeltaWei.String(), actualRecipientDelta.String(), "recipient should receive 2x native amount")
 
 	// Verify NO delegation occurred (it was reverted)
 	delegations, err := evmApp.StakingKeeper.GetAllDelegatorDelegations(ctx, contractAddrSDK)
@@ -553,7 +542,7 @@ func (suite *AutoFlushTestSuite) TestScenario4_NativeTransferDelegateRevertNativ
 	suite.Require().NoError(err)
 	suite.Require().Equal(int64(0), bondedTokens.Int64())
 
-	suite.Require().Equal(PreciseBankBurnEventCount+PreciseBankBurnEventCount+EVMEventCount, len(res.Events)) // no delegation in middle, so we bundle the two events transfer events into one
+	suite.Require().Equal(EVMEventCount, len(res.Events)) // no delegation in middle, so we bundle the two events transfer events into one
 }
 
 // Scenario 5: Delegate -> Create Contract -> Delegate
@@ -616,9 +605,9 @@ func (suite *AutoFlushTestSuite) TestScenario5_DelegateCreateDelegate() {
 	suite.Require().Equal(1, len(delegations), "should have 1 delegation")
 	bondedTokens, err := evmApp.StakingKeeper.GetDelegatorBonded(suite.chain.GetContext(), contractAddrSDK)
 	suite.Require().NoError(err)
-	suite.Require().Equal(AutoFlushDelegationAmount*2/1_000_000_000_000, bondedTokens.Int64())
+	suite.Require().Equal(AutoFlushDelegationAmount*2, bondedTokens.Int64())
 
-	suite.Require().Equal(PreciseBankMintEventCount+PreciseBankBurnEventCount+DelegationEventCount+PreciseBankMintEventCount+PreciseBankBurnEventCount+DelegationEventCount+WithdrawalNoTokensEventCount+EVMEventCount, len(res.Events))
+	suite.Require().Equal(DelegationEventCount+DelegationEventCount+WithdrawalNoTokensEventCount+EVMEventCount, len(res.Events))
 }
 
 // Scenario 6: Delegate -> Create Contract (reverted & caught) -> Delegate
@@ -645,7 +634,7 @@ func (suite *AutoFlushTestSuite) TestScenario6_DelegateCreateRevertDelegate() {
 
 	// Fund contract for delegations via bank module
 	delegationAmountAatom := sdkmath.NewInt(int64(AutoFlushDelegationAmount * 2))
-	suite.fundContractNative(contractAddrSDK, delegationAmountAatom.QuoRaw(1_000_000_000_000))
+	suite.fundContractNative(contractAddrSDK, delegationAmountAatom)
 
 	// Get validator
 	senderAccount := suite.chain.SenderAccounts[AutoFlushSenderIndex]
@@ -681,7 +670,7 @@ func (suite *AutoFlushTestSuite) TestScenario6_DelegateCreateRevertDelegate() {
 	suite.Require().Equal(1, len(delegations), "should have 1 delegation")
 	bondedTokens, err := evmApp.StakingKeeper.GetDelegatorBonded(suite.chain.GetContext(), contractAddrSDK)
 	suite.Require().NoError(err)
-	suite.Require().Equal(AutoFlushDelegationAmount*2/1_000_000_000_000, bondedTokens.Int64())
+	suite.Require().Equal(AutoFlushDelegationAmount*2, bondedTokens.Int64())
 
 	suite.Require().Equal(DelegationEventCount+DelegationEventCount+WithdrawalNoTokensEventCount+EVMEventCount, len(res.Events))
 }
@@ -761,7 +750,7 @@ func (suite *AutoFlushTestSuite) TestScenario7_CreateRevertDelegateCreateRevert(
 	suite.Require().Equal(1, len(delegations), "should have 1 delegation")
 	bondedTokens, err := evmApp.StakingKeeper.GetDelegatorBonded(suite.chain.GetContext(), contractAddrSDK)
 	suite.Require().NoError(err)
-	suite.Require().Equal(AutoFlushDelegationAmount/1_000_000_000_000, bondedTokens.Int64())
+	suite.Require().Equal(AutoFlushDelegationAmount, bondedTokens.Int64())
 
 	suite.Require().Equal(DelegationEventCount+EVMEventCount, len(res.Events))
 }
@@ -823,7 +812,7 @@ func (suite *AutoFlushTestSuite) TestScenario8_CreateDelegateRevertSend() {
 	suite.Require().NoError(err)
 	suite.Require().Equal(0, len(delegations), "should have no delegations since it reverted")
 
-	suite.Require().Equal(PreciseBankMintEventCount+PreciseBankBurnEventCount+EVMEventCount, len(res.Events))
+	suite.Require().Equal(EVMEventCount, len(res.Events))
 }
 
 // Scenario 9: Create+Revert (caught) -> Delegate -> Create+Success
@@ -849,7 +838,7 @@ func (suite *AutoFlushTestSuite) TestScenario9_CreateRevertDelegateCreateSuccess
 	senderAccount := suite.chain.SenderAccounts[AutoFlushSenderIndex]
 
 	// Fund contract for delegation via bank module
-	delegationAmountAatom := sdkmath.NewInt(int64(AutoFlushDelegationAmount / 1_000_000_000_000))
+	delegationAmountAatom := sdkmath.NewInt(int64(AutoFlushDelegationAmount))
 	suite.fundContractNative(contractAddrSDK, delegationAmountAatom)
 
 	// Fund contract with EVM balance for contract creations
@@ -909,7 +898,7 @@ func (suite *AutoFlushTestSuite) TestScenario9_CreateRevertDelegateCreateSuccess
 	suite.Require().Equal(1, len(delegations), "should have 1 delegation")
 	bondedTokens, err := evmApp.StakingKeeper.GetDelegatorBonded(suite.chain.GetContext(), contractAddrSDK)
 	suite.Require().NoError(err)
-	suite.Require().Equal(AutoFlushDelegationAmount/1_000_000_000_000, bondedTokens.Int64())
+	suite.Require().Equal(AutoFlushDelegationAmount, bondedTokens.Int64())
 
 	// Check created contracts count
 	stateDB := testutil.NewStateDB(ctx, evmApp.EVMKeeper)
@@ -959,9 +948,9 @@ func (suite *AutoFlushTestSuite) TestScenario9_CreateRevertDelegateCreateSuccess
 	// Check main contract's bank balance decreased by delegation + created contract value
 	contractBalAfter := evmApp.GetBankKeeper().GetBalance(ctx, contractAddrSDK, bondDenom)
 	// Delta = delegation amount + successful creation value (reverted creation returns the value)
-	expectedDelta := sdkmath.NewInt((AutoFlushDelegationAmount + successCreationValue.Int64()) / 1_000_000_000_000)
+	expectedDelta := sdkmath.NewInt((AutoFlushDelegationAmount + successCreationValue.Int64()))
 	actualDelta := contractBalBefore.Amount.Sub(contractBalAfter.Amount)
 	suite.Require().Equal(expectedDelta.String(), actualDelta.String(), "bank balance should decrease by delegation + creation value")
 
-	suite.Require().Equal(DelegationEventCount+PreciseBankMintEventCount+PreciseBankBurnEventCount+EVMEventCount, len(res.Events))
+	suite.Require().Equal(DelegationEventCount+EVMEventCount, len(res.Events))
 }
