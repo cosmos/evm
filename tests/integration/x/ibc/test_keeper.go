@@ -42,8 +42,6 @@ type KeeperTestSuite struct {
 	otherDenom string
 }
 
-var timeoutHeight = clienttypes.NewHeight(1000, 1000)
-
 func NewKeeperTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *KeeperTestSuite {
 	return &KeeperTestSuite{
 		create:  create,

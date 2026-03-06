@@ -144,8 +144,9 @@ type (
 		slot    *common.Hash
 	}
 	precompileCallChange struct {
-		snapshot int
-		events   sdk.Events
+		snapshot                int
+		prevEvents              sdk.Events
+		prevProcessedEventCount int
 	}
 	createContractChange struct {
 		account *common.Address
@@ -180,7 +181,13 @@ func (ch createContractChange) Dirtied() *common.Address {
 func (pc precompileCallChange) Revert(s *StateDB) {
 	// rollback multi store from cache ctx to the previous
 	// state stored in the snapshot
-	s.RevertMultiStore(pc.snapshot, pc.events)
+	s.RevertMultiStore(pc.snapshot)
+
+	// Restore events to the state before this precompile call
+	s.cacheCtx.EventManager().OverrideEvents(pc.prevEvents)
+
+	// Restore processed events counter
+	s.processedEventsCount = pc.prevProcessedEventCount
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {

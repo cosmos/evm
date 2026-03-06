@@ -32,6 +32,7 @@ const (
 	codeErrABIPack
 	codeErrABIUnpack
 	codeErrInvalidPreinstall
+	codeErrNilStateDB
 )
 
 var (
@@ -94,6 +95,9 @@ var (
 
 	// RevertSelector is selector of ErrExecutionReverted
 	RevertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
+
+	// ErrNilStateDB
+	ErrNilStateDB = errorsmod.Register(ModuleName, codeErrNilStateDB, "stateDB cannot be nil")
 )
 
 // RevertReasonBytes converts a message to ABI-encoded revert bytes.

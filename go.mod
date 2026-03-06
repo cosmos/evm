@@ -6,6 +6,7 @@ require (
 	cosmossdk.io/api v1.0.0
 	cosmossdk.io/core v1.1.0
 	cosmossdk.io/errors v1.1.0
+	cosmossdk.io/log v1.4.0
 	cosmossdk.io/log/v2 v2.0.1
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/store v1.10.0-rc.2.0.20260217205615-0d33c2463b76

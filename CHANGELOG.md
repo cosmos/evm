@@ -45,6 +45,24 @@
 - [\#992](https://github.com/cosmos/evm/pull/992) Respect the provided `gasCap` in `CallEVMWithData` instead of always used the default cap.
 - [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
 
+## v0.6.0
+
+Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade instructions.
+
+### BREAKING CHANGES
+- Removed IBC Transfer wrapper. Users are now required to use the precompile to transfer ERC20 tokens.
+- Added StateDB as a parameter to internal EVM calls.
+
+### DEPENDENCIES
+
+### IMPROVEMENTS
+
+### FEATURES
+
+### BUG FIXES
+
+## v0.5.1
+
 ## v0.5.0
 
 ### DEPENDENCIES
