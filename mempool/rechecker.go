@@ -46,11 +46,17 @@ func NewTxRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *TxRec
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) GetContext() (sdk.Context, func()) {
 	if r.ctx.MultiStore() == nil {
-		// Context has not been initialized yet (Update hasn't been called).
-		// Return a zero context with a no-op write function.
 		return sdk.Context{}, func() {}
 	}
-	return r.ctx.CacheContext()
+
+	// CacheContext behavior, but dont emit events back to parent manager,
+	// rechecking doesnt care about event and we will race on this if we do
+	cms := r.ctx.MultiStore().CacheMultiStore()
+	cc := r.ctx.WithMultiStore(cms).WithEventManager(sdk.NewEventManager())
+	write := func() {
+		cms.Write()
+	}
+	return cc, write
 }
 
 // RecheckEVM revalidates an EVM transaction against a context. It returns an updated
@@ -81,6 +87,7 @@ func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, er
 func (r *TxRechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
 	cached, _ := ctx.CacheContext()
 	cached = cached.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
+	cached = cached.WithGasMeter(storetypes.NewInfiniteGasMeter())
 	if cached.ConsensusParams().Block == nil {
 		// set the latest blocks gas limit as the max gas in cp. this is
 		// necessary to validate each tx's gas wanted
