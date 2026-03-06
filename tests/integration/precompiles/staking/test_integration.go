@@ -694,9 +694,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					logCheckArgs := passCheck.
 						WithExpEvents(staking.EventTypeCancelUnbondingDelegation)
 
+					cancelTxArgs := txArgs
+					cancelTxArgs.GasLimit = 200_000
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs,
+						cancelTxArgs,
 						callArgs,
 						logCheckArgs,
 					)

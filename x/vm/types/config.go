@@ -47,7 +47,7 @@ func (ec *EVMConfigurator) ResetTestConfig() {
 
 // GetEthChainConfig returns the `chainConfig` used in the EVM (geth type).
 func GetEthChainConfig() *geth.ChainConfig {
-	return chainConfig.EthereumConfig(nil)
+	return gethChainConfig
 }
 
 // GetChainConfig returns the `chainConfig`.
@@ -69,7 +69,11 @@ func SetChainConfig(cc *ChainConfig) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
+
 	chainConfig = config
+
+	gethChainConfig = nil
+	gethChainConfig = config.EthereumConfig(nil)
 
 	return nil
 }

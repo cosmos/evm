@@ -231,6 +231,8 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
 	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
 	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
+	cmd.Flags().Duration(srvflags.EVMMempoolPendingTxProposalTimeout, cosmosevmserverconfig.DefaultMempoolConfig().PendingTxProposalTimeout, "the maximum amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal")
+	cmd.Flags().Int(srvflags.EVMMempoolInsertQueueSize, cosmosevmserverconfig.DefaultMempoolConfig().InsertQueueSize, "the maximum number of transactions that can be in the insert queue at once")
 
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")
@@ -271,6 +273,13 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 	if err != nil {
 		return err
 	}
+
+	SetEVMLogger(
+		NewSlogFromCosmosLogger(
+			svrCtx.Logger.With("module", "evm"),
+			svrCtx.Config.LogLevel,
+		),
+	)
 
 	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
 	defer func() {
@@ -385,6 +394,13 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		logger.Error("invalid server config", "error", err.Error())
 		return err
 	}
+
+	SetEVMLogger(
+		NewSlogFromCosmosLogger(
+			svrCtx.Logger.With("module", "evm"),
+			svrCtx.Config.LogLevel,
+		),
+	)
 
 	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
 	defer func() {
@@ -537,9 +553,14 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool))
+		mp, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool)
+		if !ok {
+			return fmt.Errorf("json-rpc server requires ExperimentalEVMMempool")
+		}
+
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, mp)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to start json-rpc server: %w", err)
 		}
 	}
 
@@ -578,11 +599,11 @@ func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	)
 }
 
-func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) { //nolint:staticcheck // TODO: fix
-	if !cfg.Telemetry.Enabled { //nolint:staticcheck // TODO: fix
+func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) {
+	if !cfg.Telemetry.Enabled {
 		return nil, nil
 	}
-	return telemetry.New(cfg.Telemetry) //nolint:staticcheck // TODO: fix
+	return telemetry.New(cfg.Telemetry)
 }
 
 // wrapCPUProfile runs callback in a goroutine, then wait for quit signals.
@@ -641,7 +662,7 @@ func startAPIServer(
 	svrCfg serverconfig.Config,
 	app types.Application,
 	grpcSrv *grpc.Server,
-	metrics *telemetry.Metrics, //nolint:staticcheck // TODO: fix
+	metrics *telemetry.Metrics,
 	gethMetricsAddress string,
 ) {
 	if !svrCfg.API.Enable {
@@ -651,8 +672,8 @@ func startAPIServer(
 	apiSrv := api.New(clientCtx, svrCtx.Logger.With("server", "api"), grpcSrv)
 	app.RegisterAPIRoutes(apiSrv, svrCfg.API)
 
-	if svrCfg.Telemetry.Enabled { //nolint:staticcheck // TODO: fix
-		apiSrv.SetTelemetry(metrics) //nolint:staticcheck // TODO: fix
+	if svrCfg.Telemetry.Enabled {
+		apiSrv.SetTelemetry(metrics)
 		g.Go(func() error {
 			return evmmetrics.StartGethMetricServer(ctx, svrCtx.Logger.With("server", "geth_metrics"), gethMetricsAddress)
 		})

@@ -60,11 +60,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 // that the signer address matches the one defined on the message.
 // The function set the field from of the given message equal to the sender
 // computed from the signature of the Ethereum transaction.
-func SignatureVerification(
-	msg *evmtypes.MsgEthereumTx,
-	ethTx *ethtypes.Transaction,
-	signer ethtypes.Signer,
-) error {
+func SignatureVerification(msg *evmtypes.MsgEthereumTx, _ *ethtypes.Transaction, signer ethtypes.Signer) error {
 	if err := msg.VerifySender(signer); err != nil {
 		return errorsmod.Wrapf(errortypes.ErrorInvalidSigner, "signature verification failed: %s", err.Error())
 	}

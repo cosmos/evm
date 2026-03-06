@@ -48,10 +48,18 @@ func (k Keeper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderA
 	return k.bk.SendCoinsFromAccountToModuleVirtual(ctx, senderAddr, recipientModule, amt)
 }
 
+func (k Keeper) UncheckedSetBalance(ctx context.Context, addr sdk.AccAddress, amt sdk.Coin) error {
+	return k.bk.UncheckedSetBalance(ctx, addr, amt)
+}
+
 func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool) {
 	k.bk.IterateTotalSupply(ctx, cb)
 }
 
 func (k Keeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
 	return k.bk.GetSupply(ctx, denom)
+}
+
+func (k Keeper) LockedCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return k.bk.LockedCoins(ctx, addr)
 }

@@ -13,12 +13,13 @@ import (
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
 	chainutil "github.com/cosmos/evm/testutil"
-	"github.com/cosmos/evm/testutil/constants"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
 
@@ -86,7 +87,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				val, _ := s.network.App.GetStakingKeeper().GetValidator(ctx, valAddr)
-				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18)))
+				coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
 				input, err := s.precompile.Pack(
@@ -109,7 +110,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				caller := common.BytesToAddress(valAddr)
 
 				commAmt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
-				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(constants.ExampleAttoDenom, commAmt)}
+				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(testconstants.ExampleAttoDenom, commAmt)}
 				// set outstanding rewards
 				s.Require().NoError(s.network.App.GetDistrKeeper().SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{Rewards: valCommission}))
 				// set commission
@@ -189,7 +190,7 @@ func (s *PrecompileTestSuite) TestRun() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  testconstants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
@@ -209,7 +210,7 @@ func (s *PrecompileTestSuite) TestRun() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  testconstants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 						{
@@ -312,7 +313,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				val, _ := s.network.App.GetStakingKeeper().GetValidator(ctx, valAddr)
-				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18)))
+				coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
 				input, err := s.precompile.Pack(
@@ -334,7 +335,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				caller := common.BytesToAddress(valAddr)
 
 				commAmt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
-				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(constants.ExampleAttoDenom, commAmt)}
+				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(testconstants.ExampleAttoDenom, commAmt)}
 				// set outstanding rewards
 				s.Require().NoError(s.network.App.GetDistrKeeper().SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{Rewards: valCommission}))
 				// set commission
@@ -411,7 +412,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  testconstants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
@@ -430,7 +431,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  testconstants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 						{
@@ -462,6 +463,16 @@ func (s *PrecompileTestSuite) TestCMS() {
 				HistoricalStores: nil,
 			}
 			ctx = ctx.WithMultiStore(cms)
+
+			// With virtual fee collection enabled, RefundGas uses virtual balance.
+			// Move the fee collector's real coins into its virtual balance.
+			feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+			feeCoins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1e18)))
+			err := s.network.App.GetBankKeeper().SendCoinsFromAccountToModuleVirtual(
+				ctx, feeCollectorAddr, authtypes.FeeCollectorName, feeCoins,
+			)
+			s.Require().NoError(err, "failed to fund fee collector virtual balance")
+
 			baseFee := s.network.App.GetEVMKeeper().GetBaseFee(ctx)
 
 			// malleate testcase

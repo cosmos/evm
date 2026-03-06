@@ -71,7 +71,7 @@ func (s *KeeperTestSuite) TestContextSetConsensusParams() {
 
 	// evm should query the max gas from consensus keeper, yielding the number set above.
 	vm := s.Network.App.GetEVMKeeper().NewEVM(queryContext, *msg, cfg, nil, s.Network.GetStateDB())
-	//nolint:gosec
+
 	s.Require().Equal(vm.Context.GasLimit, uint64(maxGas))
 
 	// if we explicitly set the consensus params in context, like when Cosmos builds a transaction context,
@@ -435,6 +435,14 @@ func (s *KeeperTestSuite) TestRefundGas() {
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
 	txFactory := factory.New(unitNetwork, grpcHandler)
 
+	// With virtual fee collection enabled, RefundGas uses virtual balance.
+	// Move the fee collector's real coins into its virtual balance.
+	feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+	err := unitNetwork.App.GetBankKeeper().SendCoinsFromAccountToModuleVirtual(
+		unitNetwork.GetContext(), feeCollectorAddr, authtypes.FeeCollectorName, coins,
+	)
+	s.Require().NoError(err)
+
 	sender := Keyring.GetKey(0)
 	recipient := Keyring.GetAddr(1)
 
@@ -615,6 +623,13 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 	err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
 	s.Require().NoError(err)
 	err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	s.Require().NoError(err)
+	// With virtual fee collection enabled, RefundGas uses virtual balance.
+	// Move the fee collector's real coins into its virtual balance.
+	feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+	err = s.Network.App.GetBankKeeper().SendCoinsFromAccountToModuleVirtual(
+		ctx, feeCollectorAddr, authtypes.FeeCollectorName, sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))),
+	)
 	s.Require().NoError(err)
 	testCases := []struct {
 		name       string

@@ -316,6 +316,7 @@ func printCreate(cmd *cobra.Command, k *keyring.Record, showMnemonic bool, mnemo
 
 		// print mnemonic unless requested not to.
 		if showMnemonic {
+			// #nosec G705 -- CLI output to stderr, not HTML
 			if _, err := fmt.Fprintf(cmd.ErrOrStderr(),
 				"\n**Important** write this mnemonic phrase in a safe place.\nIt is the only way to recover your account if you ever forget your password.\n\n%s\n\n", //nolint:lll
 				mnemonic); err != nil {

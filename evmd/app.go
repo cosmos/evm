@@ -7,9 +7,13 @@ import (
 	"io"
 	"os"
 
-	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
-	"github.com/ethereum/go-ethereum/common"
+	goruntime "runtime"
+
 	"github.com/spf13/cast"
+
+	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
+	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
+	"github.com/ethereum/go-ethereum/common"
 
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
@@ -212,6 +216,12 @@ func NewExampleApp(
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
 
+	// enable optimistic execution
+	baseAppOptions = append(
+		baseAppOptions,
+		baseapp.SetOptimisticExecution(),
+	)
+
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
@@ -244,6 +254,18 @@ func NewExampleApp(
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
+
+	// enable block stm for parallel execution
+	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		nonTransientKeys,
+		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		true,
+		func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
+	))
+
+	// disable block gas meter
+	bApp.SetDisableBlockGasMeter(true)
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -462,6 +484,9 @@ func NewExampleApp(
 			appCodec,
 		),
 	)
+
+	// enable virtual fee collection
+	app.EVMKeeper.EnableVirtualFeeCollection()
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],

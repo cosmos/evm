@@ -205,7 +205,7 @@ benchmark:
 ###                                Linting                                  ###
 ###############################################################################
 golangci_lint_cmd=golangci-lint
-golangci_version=v2.8.0
+golangci_version=v2.10.1
 
 lint: lint-go lint-python lint-contracts
 
@@ -372,7 +372,7 @@ test-rpc-compat:
 test-rpc-compat-stop:
 	cd tests/jsonrpc && docker compose down
 
-.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop mocks
 
 test-system: build-v05 build
 	mkdir -p ./tests/systemtests/binaries/

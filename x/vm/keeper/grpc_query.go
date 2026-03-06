@@ -350,7 +350,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		// Query block gas limit
 		params := ctx.ConsensusParams()
 		if params.Block != nil && params.Block.MaxGas > 0 {
-			hi = uint64(params.Block.MaxGas) //nolint:gosec // G115 // won't exceed uint64
+			hi = uint64(params.Block.MaxGas)
 		} else {
 			hi = req.GasCap
 		}
@@ -595,7 +595,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 		}
 		msg.GasLimit = min(msg.GasLimit, maxPredecessorGas)
 		txConfig.TxHash = ethTx.Hash()
-		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
+		txConfig.TxIndex = uint(i)
 
 		ctx = buildTraceCtx(ctx, msg.GasLimit)
 		// we ignore the error here. this endpoint, ideally, is called internally from the ETH backend, which will call this query
@@ -686,7 +686,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		result := types.TxTraceResult{}
 		ethTx := tx.AsTransaction()
 		txConfig.TxHash = ethTx.Hash()
-		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
+		txConfig.TxIndex = uint(i)
 		traceResult, err := k.traceTx(ctx, cfg, txConfig, signer, ethTx, req.TraceConfig, true)
 		if err != nil {
 			result.Error = err.Error()

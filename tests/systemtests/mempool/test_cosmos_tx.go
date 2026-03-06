@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/suite"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 // RunCosmosTxsCompatibility tests that cosmos txs are still functional and interacting with the mempool properly.

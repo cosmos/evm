@@ -1,6 +1,7 @@
 package evmd
 
 import (
+	"errors"
 	"fmt"
 
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -9,10 +10,16 @@ import (
 
 	"cosmossdk.io/log/v2"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
+
+// enables abci.InsertTx & abci.ReapTxs to be used exclusively by the mempool.
+// @see evmmempool.ExperimentalEVMMempool.OperateExclusively
+const mempoolOperateExclusively = true
 
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
 func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.Logger) error {
@@ -32,12 +39,17 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return fmt.Errorf("failed to get mempool config: %w", err)
 	}
 
+	txEncoder := evmmempool.NewTxEncoder(app.txConfig)
+	rechecker := evmmempool.NewRechecker(mempoolConfig.AnteHandler, txEncoder)
+
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
 		logger,
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.txConfig,
+		txEncoder,
+		rechecker,
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)
@@ -45,8 +57,11 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	app.SetMempool(evmMempool)
 	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
 	app.SetCheckTxHandler(checkTxHandler)
+	app.SetInsertTxHandler(app.NewInsertTxHandler(evmMempool))
+	app.SetReapTxsHandler(app.NewReapTxsHandler(evmMempool))
 
-	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+	txVerifier := NewNoCheckProposalTxVerifier(app.BaseApp)
+	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, txVerifier)
 	abciProposalHandler.SetSignerExtractionAdapter(
 		evmmempool.NewEthSignerExtractionAdapter(
 			sdkmempool.NewDefaultSignerExtractionAdapter(),
@@ -61,9 +76,56 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 // and overrides it with values from appOpts if they exist and are non-zero.
 func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
 	return &evmmempool.EVMMempoolConfig{
-		AnteHandler:      app.GetAnteHandler(),
-		LegacyPoolConfig: server.GetLegacyPoolConfig(appOpts, logger),
-		BlockGasLimit:    server.GetBlockGasLimit(appOpts, logger),
-		MinTip:           server.GetMinTip(appOpts, logger),
+		AnteHandler:              app.GetAnteHandler(),
+		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
+		MinTip:                   server.GetMinTip(appOpts, logger),
+		OperateExclusively:       mempoolOperateExclusively,
+		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
+		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
 	}, nil
+}
+
+const (
+	CodeTypeNoRetry = 1
+)
+
+func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.InsertTxHandler {
+	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
+		txBytes := req.GetTx()
+
+		tx, err := app.TxDecode(txBytes)
+		if err != nil {
+			return nil, fmt.Errorf("decoding tx: %w", err)
+		}
+
+		ctx := app.GetContextForCheckTx(txBytes)
+
+		code := abci.CodeTypeOK
+		if err := evmMempool.InsertAsync(ctx, tx); err != nil {
+			// since we are using InsertAsync here, the only errors that will
+			// be returned are via the InsertQueue if it is full (for EVM txs),
+			// in which case we should retry, or some level of validation
+			// failed on a cosmos tx (CheckTx), invalid encoding, etc, in which
+			// case we should not retry
+			switch {
+			case errors.Is(err, evmmempool.ErrQueueFull):
+				code = abci.CodeTypeRetry
+			default:
+				code = CodeTypeNoRetry
+			}
+		}
+		return &abci.ResponseInsertTx{Code: code}, nil
+	}
+}
+
+func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.ExperimentalEVMMempool) sdk.ReapTxsHandler {
+	return func(req *abci.RequestReapTxs) (*abci.ResponseReapTxs, error) {
+		maxBytes, maxGas := req.GetMaxBytes(), req.GetMaxGas()
+		txs, err := evmMempool.ReapNewValidTxs(maxBytes, maxGas)
+		if err != nil {
+			return nil, fmt.Errorf("reaping new valid txs from evm mempool with %d max bytes and %d max gas: %w", maxBytes, maxGas, err)
+		}
+		return &abci.ResponseReapTxs{Txs: txs}, nil
+	}
 }

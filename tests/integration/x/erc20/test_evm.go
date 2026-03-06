@@ -265,6 +265,7 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 		data[31] = 32
 
 		// Length (32 bytes)
+		// #nosec G115 -- textLen bounded by paddedLen
 		data[63] = byte(textLen)
 
 		// String data (padded to 32-byte boundary)
