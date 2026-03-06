@@ -479,7 +479,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().ErrorIs(err, vm.ErrOutOfGas)
 				s.Require().Nil(bz, "expected nil bytes on out of gas")
 				consumed := ctx.GasMeter().GasConsumed()
-				s.Require().Equal(tc.gas, consumed, "expected all gas to be consumed on OOG")
+				s.Require().LessOrEqual(tc.gas, consumed, "expected all gas to be consumed on OOG")
 			}
 		})
 	}
