@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -1526,8 +1527,7 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.pendingNonces = newNoncer(statedb)
 	ctx, err := pool.chain.GetLatestContext()
 	if err != nil {
-		log.Error("Failed to get latest context for rechecker", "err", err)
-		return
+		panic(fmt.Errorf("failed to get latest context for rechecker: %w", err))
 	}
 	pool.rechecker.Update(ctx, newHead)
 	pool.validPendingTxs.StartNewHeight(newHead.Number)
