@@ -467,15 +467,16 @@ func (s *PrecompileTestSuite) TestRun() {
 			bz, err := s.precompile.Run(evm, contract, tc.readOnly)
 
 			// Check results
-			if tc.expPass {
+			switch {
+			case tc.expPass:
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(bz, "expected returned bytes not to be nil")
-			} else if tc.expRevert {
+			case tc.expRevert:
 				s.Require().ErrorIs(err, vm.ErrExecutionReverted)
 				s.Require().NotNil(bz, "expected revert reason bytes")
 				revertErr := evmtypes.NewExecErrorWithReason(bz)
 				s.Require().ErrorContains(revertErr, tc.errContains)
-			} else {
+			default:
 				s.Require().ErrorIs(err, vm.ErrOutOfGas)
 				s.Require().Nil(bz, "expected nil bytes on out of gas")
 				consumed := ctx.GasMeter().GasConsumed()
