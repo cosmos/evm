@@ -11,6 +11,7 @@ Usage:
 
 """
 
+import json
 import os
 import re
 import sys
@@ -229,11 +230,11 @@ def compile_contracts_in_dir(target_dir: Path):
     if not os.path.exists("hardhat.config.js"):
         raise ValueError("compilation can only work in a HardHat setup")
 
-    install_failed = os.system("npm install")
+    install_failed = os.system("pnpm install")
     if install_failed:
-        raise ValueError("Failed to install npm packages.")
+        raise ValueError("Failed to install pnpm packages.")
 
-    compilation_failed = os.system("npx hardhat compile")
+    compilation_failed = os.system("pnpm exec hardhat compile")
     if compilation_failed:
         raise ValueError("Failed to compile Solidity contracts.")
 
@@ -269,7 +270,20 @@ def copy_compiled_contracts_back_to_source(
             print(f"-> did not find compiled JSON file for {contract.filename}")
             continue
 
-        copy(compiled_path, contract.compiled_json_path)
+        # Go precompiles expect abi.json to contain only the ABI array (go-ethereum abi.JSON).
+        if contract.compiled_json_path.name == "abi.json":
+            with open(compiled_path, encoding="utf-8") as fh:
+                artifact = json.load(fh)
+            abi_list = artifact.get("abi")
+            if abi_list is None:
+                raise ValueError(
+                    f"Artifact at {compiled_path} has no 'abi' key; cannot write {contract.compiled_json_path}"
+                )
+            contract.compiled_json_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(contract.compiled_json_path, "w", encoding="utf-8") as fh:
+                json.dump(abi_list, fh, indent=2)
+        else:
+            copy(compiled_path, contract.compiled_json_path)
 
 
 def clean_up_hardhat_project(hardhat_dir: Path):
