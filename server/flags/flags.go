@@ -83,9 +83,6 @@ const (
 	EVMMempoolInsertQueueSize          = "evm.mempool.insert-queue-size"
 )
 
-// IAVLXEnable (experimental) enables the IAVLX storage engine.
-const IAVLXEnable = "iavlx-enable"
-
 // TLS flags
 const (
 	TLSCertPath = "tls.certificate-path"

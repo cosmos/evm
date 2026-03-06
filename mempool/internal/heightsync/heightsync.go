@@ -64,7 +64,7 @@ type HeightSync[Store any] struct {
 	done chan struct{}
 
 	// mu protects all of the above fields; it does not protect internal
-	// fields of the value V itself
+	// fields of the Store itself
 	mu sync.RWMutex
 }
 
