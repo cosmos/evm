@@ -76,6 +76,7 @@ type Rechecker interface {
 // for context management during rechecks.
 type LatestContextProvider interface {
 	GetLatestContext() (sdk.Context, error)
+	CurrentBlock() *ethtypes.Header
 }
 
 // RecheckMempool wraps an ExtMempool and provides block-driven rechecking
@@ -179,7 +180,16 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	// This ctx has chain_state + all pending txs' nonce increments.
 	ctx, write := m.rechecker.GetContext()
 	if ctx.IsZero() {
-		return fmt.Errorf("context not found, waiting for mempool to be initialized")
+		m.logger.Warn("no context found in rechecker on insert, updating to latest")
+		// if this happens, we have not rechecked any txs yet, so this is safe
+		// to update
+		newCtx, err := m.contextProvider.GetLatestContext()
+		if err != nil {
+			return fmt.Errorf("fetching latest context since rechecker has none: %w", err)
+		}
+
+		m.rechecker.Update(newCtx, m.contextProvider.CurrentBlock())
+		ctx, write = m.rechecker.GetContext()
 	}
 
 	if _, err := m.rechecker.RecheckCosmos(ctx, tx); err != nil {

@@ -85,6 +85,10 @@ func (m *mockContextProvider) GetLatestContext() (sdk.Context, error) {
 	return ctx, nil
 }
 
+func (m *mockContextProvider) CurrentBlock() *ethtypes.Header {
+	return &ethtypes.Header{Number: big.NewInt(10)}
+}
+
 // testHeader creates a minimal header for testing with the given height.
 func testHeader(height int64) *ethtypes.Header {
 	return &ethtypes.Header{
