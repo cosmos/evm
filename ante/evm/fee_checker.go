@@ -92,7 +92,7 @@ func FeeChecker(
 	}
 
 	feeCoins := feeTx.GetFee()
-	feeAmtDec := sdkmath.LegacyNewDecFromInt(feeCoins.AmountOfNoDenomValidation(denom)) //nolint:staticcheck // TODO: fix
+	feeAmtDec := sdkmath.LegacyNewDecFromInt(feeCoins.AmountOf(denom))
 
 	feeCap := feeAmtDec.QuoInt(gas)
 	if feeCap.LT(baseFee) {

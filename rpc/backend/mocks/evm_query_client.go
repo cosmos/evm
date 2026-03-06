@@ -1140,7 +1140,8 @@ func (_c *EVMQueryClient_ValidatorAccount_Call) RunAndReturn(run func(context.Co
 func NewEVMQueryClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *EVMQueryClient {
+},
+) *EVMQueryClient {
 	mock := &EVMQueryClient{}
 	mock.Mock.Test(t)
 

@@ -81,7 +81,6 @@ func NewEVMMempoolIterator(
 	logger log.Logger,
 	txConfig client.TxConfig,
 	bondDenom string,
-	chainID *big.Int,
 	blockchain *Blockchain,
 ) mempool.Iterator {
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
@@ -99,8 +98,8 @@ func NewEVMMempoolIterator(
 		logger:           logger,
 		txConfig:         txConfig,
 		bondDenom:        bondDenom,
-		chainID:          chainID,
-		ethSigner:        ethtypes.LatestSignerForChainID(chainID),
+		chainID:          blockchain.Config().ChainID,
+		ethSigner:        ethtypes.LatestSignerForChainID(blockchain.Config().ChainID),
 		baseFee:          currentBaseFee(blockchain),
 	}
 
