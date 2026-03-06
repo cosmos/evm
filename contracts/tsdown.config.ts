@@ -1,0 +1,15 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig({
+  entry: ["./dist/abi/**/*.ts", "!./dist/abi/**/*.d.ts"],
+  format: ["esm", "cjs"],
+  outDir: "dist/abi/precompiles",
+  dts: true,
+  unbundle: true,
+  clean: false,
+  outExtensions: ({ format }) => ({
+    js: format === 'cjs' ? '.cjs' : '.js',
+    dts: '.d.ts',
+  }),
+  platform: 'neutral',
+});
