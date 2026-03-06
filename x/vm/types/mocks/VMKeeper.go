@@ -37,7 +37,8 @@ func (_m *VMKeeper) GetEvmCoinInfo(ctx types.Context) vmtypes.EvmCoinInfo {
 func NewVMKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *VMKeeper {
+},
+) *VMKeeper {
 	mock := &VMKeeper{}
 	mock.Mock.Test(t)
 

@@ -107,6 +107,32 @@ func (c *TestContext) PromoteExpTxs(count int) {
 	c.ExpQueued = c.ExpQueued[count:]
 }
 
+// ModifyCometMempool modifies the mempool type in the config.toml
+// for all nodes and restarts the chain with the new configuration.
+func (s *TestSuite) ModifyCometMempool(t *testing.T, mempoolType string) {
+	t.Helper()
+
+	// Stop the chain if running
+	if s.ChainStarted {
+		s.ResetChain(t)
+	}
+
+	// Modify config.toml for each node
+	for i := 0; i < s.NodesCount(); i++ {
+		nodeDir := s.NodeDir(i)
+		configPath := filepath.Join(nodeDir, "config", "config.toml")
+
+		err := editToml(configPath, func(doc *tomledit.Document) {
+			setValue(doc, mempoolType, "mempool", "type")
+		})
+		require.NoError(t, err, "failed to modify config.toml for node %d", i)
+	}
+
+	// Restart the chain with modified config
+	s.StartChain(t, suite.DefaultNodeArgs()...)
+	s.AwaitNBlocks(t, 2)
+}
+
 // ModifyConsensusTimeout modifies the consensus timeout_commit in the config.toml
 // for all nodes and restarts the chain with the new configuration.
 func (s *TestSuite) ModifyConsensusTimeout(t *testing.T, timeout string) {

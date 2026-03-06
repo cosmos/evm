@@ -21,6 +21,7 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -757,6 +758,16 @@ func (s *PrecompileTestSuite) TestCMS() {
 				HistoricalStores: nil,
 			}
 			ctx = ctx.WithMultiStore(cms)
+
+			// With virtual fee collection enabled, RefundGas uses virtual balance.
+			// Move the fee collector's real coins into its virtual balance.
+			feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+			feeCoins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(InitialTestBalance)))
+			err := s.network.App.GetBankKeeper().SendCoinsFromAccountToModuleVirtual(
+				ctx, feeCollectorAddr, authtypes.FeeCollectorName, feeCoins,
+			)
+			s.Require().NoError(err, "failed to fund fee collector virtual balance")
+
 			baseFee := s.network.App.GetEVMKeeper().GetBaseFee(ctx)
 
 			delegator := s.keyring.GetKey(0)

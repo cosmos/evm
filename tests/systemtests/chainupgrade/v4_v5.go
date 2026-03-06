@@ -7,17 +7,18 @@ import (
 	"testing"
 	"time"
 
-	systest "cosmossdk.io/systemtests"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/address"
-	"github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/cosmos/evm/tests/systemtests/suite"
+
+	systest "github.com/cosmos/cosmos-sdk/testutil/systemtests"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/address"
 )
 
 const (
-	upgradeHeight int64 = 12
+	upgradeHeight int64 = 22
 	upgradeName         = "v0.5.0-to-v0.6.0" // must match UpgradeName in evmd/upgrades.go
 )
 
@@ -38,9 +39,9 @@ func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	currentInitializer := sut.TestnetInitializer()
 
 	legacyBinary := systest.WorkDir + "/binaries/v0.5/evmd"
-	sut.SetExecBinary(legacyBinary)
-	sut.SetTestnetInitializer(systest.InitializerWithBinary(legacyBinary, sut))
-	sut.SetupChain()
+	systest.Sut.SetExecBinary(legacyBinary)
+	systest.Sut.SetTestnetInitializer(systest.InitializerWithBinary(legacyBinary, systest.Sut))
+	systest.Sut.SetupChain()
 
 	votingPeriod := 5 * time.Second // enough time to vote
 	sut.ModifyGenesisJSON(t, systest.SetGovVotingPeriod(t, votingPeriod))

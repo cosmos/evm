@@ -25,16 +25,14 @@ func TestMsgsTestSuite(t *testing.T) {
 }
 
 func (suite *MsgsTestSuite) TestMsgConvertERC20Getters() {
-	msgInvalid := types.MsgConvertERC20{}
 	msg := types.NewMsgConvertERC20(
 		math.NewInt(100),
-		sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
+		utiltx.GenerateAddress().Bytes(),
 		utiltx.GenerateAddress(),
 		utiltx.GenerateAddress(),
 	)
 	suite.Require().Equal(types.RouterKey, msg.Route())
 	suite.Require().Equal(types.TypeMsgConvertERC20, msg.Type())
-	suite.Require().NotNil(msgInvalid.GetSignBytes())
 }
 
 func (suite *MsgsTestSuite) TestMsgConvertERC20New() {
@@ -132,18 +130,16 @@ func (suite *MsgsTestSuite) TestMsgConvertERC20() {
 }
 
 func (suite *MsgsTestSuite) TestMsgConvertCoinGetters() {
-	msgInvalid := types.MsgConvertCoin{}
 	msg := types.NewMsgConvertCoin(
 		sdk.NewCoin(
 			"atest",
 			math.NewInt(100),
 		),
 		utiltx.GenerateAddress(),
-		sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
+		utiltx.GenerateAddress().Bytes(),
 	)
 	suite.Require().Equal(types.RouterKey, msg.Route())
 	suite.Require().Equal(types.TypeMsgConvertCoin, msg.Type())
-	suite.Require().NotNil(msgInvalid.GetSignBytes())
 }
 
 func (suite *MsgsTestSuite) TestNewMsgConvertCoin() {

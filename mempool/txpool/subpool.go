@@ -17,9 +17,11 @@
 package txpool
 
 import (
+	"context"
 	"math/big"
 	"time"
 
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -74,7 +76,7 @@ type LazyResolver interface {
 // a very specific call site in mind and each one can be evaluated very cheaply
 // by the pool implementations. Only add new ones that satisfy those constraints.
 type PendingFilter struct {
-	MinTip  *uint256.Int // Minimum miner tip required to include a transaction
+	MinTip  *uint256.Int // Minimum allowed miner tip for transactions
 	BaseFee *uint256.Int // Minimum 1559 basefee needed to include a transaction
 	BlobFee *uint256.Int // Minimum 4844 blobfee needed to include a blob transaction
 
@@ -87,6 +89,9 @@ type TxMetadata struct {
 	Type uint8  // The type of the transaction
 	Size uint64 // The length of the 'rlp encoding' of a transaction
 }
+
+// RemovalReason is a string describing why a tx is being removed.
+type RemovalReason string
 
 // SubPool represents a specialized transaction pool that lives on its own (e.g.
 // blob pool). Since independent of how many specialized pools we have, they do
@@ -105,7 +110,7 @@ type SubPool interface {
 	// These should not be passed as a constructor argument - nor should the pools
 	// start by themselves - in order to keep multiple Subpools in lockstep with
 	// one another.
-	Init(gasTip uint64, head *types.Header, reserver Reserver) error
+	Init(gasTip uint64, head *types.Header, reserver reserver.Reserver) error
 
 	// Close terminates any background processing threads and releases any held
 	// resources.
@@ -114,6 +119,11 @@ type SubPool interface {
 	// Reset retrieves the current state of the blockchain and ensures the content
 	// of the transaction pool is valid with regard to the chain state.
 	Reset(oldHead, newHead *types.Header)
+
+	// CancelReset signals the subpool to stop processing its current reset
+	// request since a new block arrived and the work it is doing to reset at
+	// the current height will be invalidated.
+	CancelReset()
 
 	// SetGasTip updates the minimum price required by the subpool for a new
 	// transaction, and drops all transactions below this threshold.
@@ -154,7 +164,7 @@ type SubPool interface {
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(filter PendingFilter) map[common.Address][]*LazyTransaction
+	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions
@@ -185,5 +195,5 @@ type SubPool interface {
 	Clear()
 
 	// RemoveTx removes a tracked transaction from the pool
-	RemoveTx(hash common.Hash, outofbound bool, unreserve bool) int
+	RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int
 }
