@@ -132,6 +132,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		gas         uint64
 		readOnly    bool
 		expPass     bool
+		expRevert   bool // true if error returns ABI-encoded revert reason bytes (not OOG)
 		errContains string
 	}{
 		{
@@ -147,6 +148,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				return input
 			},
 			8000,
+			false,
 			false,
 			false,
 			"out of gas",
@@ -166,6 +168,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -183,6 +186,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -201,6 +205,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"failed to redelegate tokens",
 		},
 		{
@@ -241,6 +246,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -257,6 +263,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -275,6 +282,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -313,6 +321,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -329,6 +338,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			true,
 			true,
+			false,
 			"",
 		},
 		{
@@ -367,6 +377,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			true,
 			true,
+			false,
 			"",
 		},
 		{
@@ -384,6 +395,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			21295, // use enough gas to avoid out of gas error
 			true,
 			false,
+			true,
 			"write protection",
 		},
 		{
@@ -394,6 +406,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			21295, // use enough gas to avoid out of gas error
 			false,
 			false,
+			true,
 			"no method with id",
 		},
 	}
@@ -457,14 +470,16 @@ func (s *PrecompileTestSuite) TestRun() {
 			if tc.expPass {
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(bz, "expected returned bytes not to be nil")
+			} else if tc.expRevert {
+				s.Require().ErrorIs(err, vm.ErrExecutionReverted)
+				s.Require().NotNil(bz, "expected revert reason bytes")
+				revertErr := evmtypes.NewExecErrorWithReason(bz)
+				s.Require().ErrorContains(revertErr, tc.errContains)
 			} else {
-				s.Require().Error(err, "expected error to be returned when running the precompile")
-				s.Require().NotNil(bz, "expected returned bytes to be nil")
-				execRevertErr := evmtypes.NewExecErrorWithReason(bz)
-				s.Require().ErrorContains(execRevertErr, tc.errContains)
+				s.Require().ErrorIs(err, vm.ErrOutOfGas)
+				s.Require().Nil(bz, "expected nil bytes on out of gas")
 				consumed := ctx.GasMeter().GasConsumed()
-				// LessThanOrEqual because the gas is consumed before the error is returned
-				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+				s.Require().LessOrEqual(tc.gas, consumed, "expected all gas to be consumed on OOG")
 			}
 		})
 	}
