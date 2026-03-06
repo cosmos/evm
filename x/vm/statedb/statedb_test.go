@@ -241,9 +241,9 @@ func (suite *StateDBTestSuite) TestDBError() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-		db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
-		tc.malleate(db)
-		suite.Require().Error(db.Commit())
+			db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
+			tc.malleate(db)
+			suite.Require().Error(db.Commit())
 		})
 	}
 }

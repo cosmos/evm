@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	evmtrace "github.com/cosmos/evm/trace"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -12,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cosmos/evm/server/config"
+	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
