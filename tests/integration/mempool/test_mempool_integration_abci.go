@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
@@ -184,7 +185,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			mpool := s.network.App.GetMempool()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(s.network.GetContext().BlockHeight()))
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -203,7 +204,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			ctx := s.network.GetContext()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(ctx.BlockHeight()))
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
@@ -404,7 +405,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			mpool := s.network.App.GetMempool()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(s.network.GetContext().BlockHeight()))
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -421,7 +422,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			ctx := s.network.GetContext()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(ctx.BlockHeight()))
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 

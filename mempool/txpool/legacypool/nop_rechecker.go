@@ -11,7 +11,7 @@ func newNopRechecker() nopRechecker {
 	return nopRechecker{}
 }
 
-func (nr nopRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+func (nr nopRechecker) RecheckEVM(_ sdk.Context, _ *types.Transaction) (sdk.Context, error) {
 	return sdk.Context{}, nil
 }
 
@@ -19,5 +19,5 @@ func (nr nopRechecker) GetContext() (sdk.Context, func()) {
 	return sdk.Context{}, func() {}
 }
 
-func (nr nopRechecker) Update(chain BlockChain, header *types.Header) {
+func (nr nopRechecker) Update(_ sdk.Context, _ *types.Header) {
 }

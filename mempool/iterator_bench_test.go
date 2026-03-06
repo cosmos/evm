@@ -193,7 +193,8 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 
 	mockVMKeeper := mocks.NewVMKeeper(b)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(b)
-	mockRechecker := &MockRechecker{}
+	mockEVMRechecker := &MockRechecker{}
+	mockCosmosRechecker := &MockRechecker{}
 
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
@@ -276,7 +277,8 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		mockFeeMarketKeeper,
 		txConfig,
 		evmmempool.NewTxEncoder(txConfig),
-		mockRechecker,
+		mockEVMRechecker,
+		mockCosmosRechecker,
 		config,
 		0, // cosmosPoolMaxTx (0 = unlimited)
 	)
