@@ -24,11 +24,9 @@ type EthReceiptData struct {
 	Status    uint64 // 1=success, 0=fail
 	Logs      []*ethtypes.Log
 
-	// Signature fields (optional, from cosmos tx signature)
-	// If nil, defaults to 0
-	V *big.Int
-	R *big.Int
-	S *big.Int
+	// Optional fields
+	Input   []byte // tx input data (default: empty)
+	V, R, S *big.Int
 }
 
 // NewEthReceiptData creates a new EthReceiptData with required fields.
@@ -49,6 +47,20 @@ func NewEthReceiptData(
 		Status:    status,
 		Logs:      logs,
 	}
+}
+
+// WithInput sets the tx input data and returns the receiver for chaining.
+func (d *EthReceiptData) WithInput(input []byte) *EthReceiptData {
+	d.Input = input
+	return d
+}
+
+// WithSignature sets the V, R, S signature values and returns the receiver for chaining.
+func (d *EthReceiptData) WithSignature(v, r, s *big.Int) *EthReceiptData {
+	d.V = v
+	d.R = r
+	d.S = s
+	return d
 }
 
 // getReceipt creates an ethtypes.Receipt from EthReceiptData
@@ -100,6 +112,11 @@ func (d *EthReceiptData) getRPCTransaction(blockHash common.Hash, blockNumber in
 		s = d.S
 	}
 
+	input := d.Input
+	if input == nil {
+		input = []byte{}
+	}
+
 	return &rpctypes.RPCTransaction{
 		BlockHash:        &blockHash,
 		BlockNumber:      &blockNum,
@@ -107,7 +124,7 @@ func (d *EthReceiptData) getRPCTransaction(blockHash common.Hash, blockNumber in
 		Gas:              hexutil.Uint64(d.GasUsed),
 		GasPrice:         (*hexutil.Big)(big.NewInt(0)),
 		Hash:             d.EthTxHash,
-		Input:            []byte{},
+		Input:            input,
 		Nonce:            0,
 		To:               d.To,
 		TransactionIndex: &txIdx,

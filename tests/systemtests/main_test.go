@@ -86,3 +86,7 @@ func TestChainUpgrade(t *testing.T) {
 func TestCosmosIndexerBankSend(t *testing.T) {
 	suite.RunWithSharedSuite(t, indexer.RunCosmosIndexerBankSend)
 }
+
+func TestCosmosIndexerUnbondingComplete(t *testing.T) {
+	suite.RunWithSharedSuite(t, indexer.RunCosmosIndexerUnbondingComplete)
+}

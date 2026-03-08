@@ -26,6 +26,7 @@ import (
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	evmencoding "github.com/cosmos/evm/encoding"
 )
@@ -115,6 +116,70 @@ func (c *CosmosClient) BankSend(nodeID string, account *CosmosAccount, from, to 
 
 	// This debug string is useful for transactions that don't yield an error until after they're broadcasted to the chain
 	fmt.Printf("DEBUG: CosmosClient BankSend: %s\n", resp.String())
+
+	return resp, nil
+}
+
+// Delegate sends a staking delegate transaction to delegate tokens to a validator.
+func (c *CosmosClient) Delegate(
+	nodeID string,
+	account *CosmosAccount,
+	delegator sdk.AccAddress,
+	validator sdk.ValAddress,
+	amount sdkmath.Int,
+	nonce uint64,
+	gasPrice *big.Int,
+) (*sdk.TxResponse, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
+	privKey := account.PrivKey
+	accountNumber := account.AccountNumber
+
+	msg := stakingtypes.NewMsgDelegate(delegator.String(), validator.String(), sdk.NewCoin("stake", amount))
+
+	txBytes, err := c.signMsgsV2(privKey, accountNumber, nonce, gasPrice, msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign delegate tx msg: %v", err)
+	}
+
+	resp, err := c.ClientCtx.BroadcastTx(txBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to broadcast delegate tx: %v", err)
+	}
+
+	fmt.Printf("DEBUG: CosmosClient Delegate: %s\n", resp.String())
+
+	return resp, nil
+}
+
+// Undelegate sends a staking undelegate transaction to unbond tokens from a validator.
+func (c *CosmosClient) Undelegate(
+	nodeID string,
+	account *CosmosAccount,
+	delegator sdk.AccAddress,
+	validator sdk.ValAddress,
+	amount sdkmath.Int,
+	nonce uint64,
+	gasPrice *big.Int,
+) (*sdk.TxResponse, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
+	privKey := account.PrivKey
+	accountNumber := account.AccountNumber
+
+	msg := stakingtypes.NewMsgUndelegate(delegator.String(), validator.String(), sdk.NewCoin("stake", amount))
+
+	txBytes, err := c.signMsgsV2(privKey, accountNumber, nonce, gasPrice, msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign undelegate tx msg: %v", err)
+	}
+
+	resp, err := c.ClientCtx.BroadcastTx(txBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to broadcast undelegate tx: %v", err)
+	}
+
+	fmt.Printf("DEBUG: CosmosClient Undelegate: %s\n", resp.String())
 
 	return resp, nil
 }
@@ -221,6 +286,10 @@ func newClientContext(config *Config) (*client.Context, error) {
 	banktypes.RegisterLegacyAminoCodec(encodingConfig.Amino)
 	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 
+	// Register staking module types for delegate/undelegate transactions
+	stakingtypes.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	stakingtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+
 	// Create client context
 	clientCtx := client.Context{
 		BroadcastMode:     flags.BroadcastSync,
@@ -265,8 +334,8 @@ func (c *CosmosClient) signMsgsV2(privKey cryptotypes.PrivKey, accountNumber, se
 		return nil, fmt.Errorf("failed to set empty signatures: %v", err)
 	}
 
-	txBuilder.SetGasLimit(150_000)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("atest", sdkmath.NewIntFromBigInt(gasPrice).MulRaw(150_001))))
+	txBuilder.SetGasLimit(250_000)
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("atest", sdkmath.NewIntFromBigInt(gasPrice).MulRaw(250_001))))
 
 	sigV2, err := clienttx.SignWithPrivKey(
 		context.Background(),

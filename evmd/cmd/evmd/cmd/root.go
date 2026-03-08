@@ -189,6 +189,11 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 			// Using a placeholder token address - in production, use the actual wrapped token address
 			tokenAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
 			idx.RegisterTransformer(evmdindexer.NewBankTransferTransformer(tokenAddress))
+
+			// Register staking unbonding transformer for indexing complete_unbonding events from BeginBlock
+			// Using the staking precompile address
+			stakingPrecompileAddress := common.HexToAddress("0x0000000000000000000000000000000000000800")
+			idx.RegisterTransformer(evmdindexer.NewStakingUnbondingTransformer(stakingPrecompileAddress))
 		})
 	cosmosevmserver.AddCommands(
 		rootCmd,

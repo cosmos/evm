@@ -19,6 +19,9 @@ import (
 // ERC20 Transfer event signature: Transfer(address,address,uint256)
 var TransferEventSignature = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
 
+// ERC20 transfer function selector: transfer(address,uint256)
+var TransferFunctionSelector = crypto.Keccak256([]byte("transfer(address,uint256)"))[:4]
+
 // BankTransferTransformer transforms bank coin_spent and coin_received events
 // into ERC20-style Transfer logs.
 type BankTransferTransformer struct {
@@ -67,6 +70,7 @@ func (t *BankTransferTransformer) Transform(
 	}
 
 	log := t.createTransferLog(from, to, amount, ethTxHash, height)
+	input := buildTransferInput(to, amount)
 
 	return indexer.NewEthReceiptData(
 		ethTxHash,
@@ -76,7 +80,7 @@ func (t *BankTransferTransformer) Transform(
 		21000,
 		1,
 		[]*ethtypes.Log{log},
-	), nil
+	).WithInput(input), nil
 }
 
 func (t *BankTransferTransformer) parseCoinSpentEvent(event abci.Event) (common.Address, *big.Int, error) {
@@ -186,4 +190,13 @@ func parseAmount(amountStr string) (*big.Int, error) {
 		return big.NewInt(0), nil
 	}
 	return coins[0].Amount.BigInt(), nil
+}
+
+// buildTransferInput builds ERC20 transfer(address,uint256) calldata.
+func buildTransferInput(to common.Address, amount *big.Int) []byte {
+	input := make([]byte, 4+32+32)
+	copy(input[:4], TransferFunctionSelector)
+	copy(input[4:36], common.LeftPadBytes(to.Bytes(), 32))
+	copy(input[36:68], common.LeftPadBytes(amount.Bytes(), 32))
+	return input
 }

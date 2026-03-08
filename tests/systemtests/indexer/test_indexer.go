@@ -114,7 +114,37 @@ func RunCosmosIndexerBankSend(t *testing.T, base *suite.BaseTestSuite) {
 	// Verify sender is consistent in coin_spent events
 	require.Equal(t, receipt.Logs[0].Topics[1], receipt.Logs[2].Topics[1], "Sender should be same in both coin_spent events")
 
-	t.Logf("Successfully verified synthetic ERC20 Transfer receipt with 4 merged logs for cosmos bank send")
+	// Verify transaction fields via eth_getTransactionByHash
+	tx, err := s.EthClient.GetTransactionByHash(s.Node(0), syntheticTxHash)
+	require.NoError(t, err, "Failed to get transaction by hash")
+	require.NotNil(t, tx, "Transaction should not be nil")
+
+	// Verify tx hash matches
+	require.Equal(t, syntheticTxHash, tx.Hash, "Transaction hash should match")
+
+	// Verify block info is present
+	require.NotNil(t, tx.BlockHash, "BlockHash should not be nil")
+	require.NotNil(t, tx.BlockNumber, "BlockNumber should not be nil")
+	require.NotNil(t, tx.TransactionIndex, "TransactionIndex should not be nil")
+	t.Logf("Transaction: blockHash=%s, blockNumber=%s, txIndex=%s",
+		tx.BlockHash.Hex(), *tx.BlockNumber, *tx.TransactionIndex)
+
+	// Verify To field points to token contract (non-nil for transfer)
+	require.NotNil(t, tx.To, "To should not be nil for transfer transaction")
+	t.Logf("Transaction To: %s", tx.To.Hex())
+
+	// Verify Gas is set
+	require.NotEmpty(t, tx.Gas, "Gas should not be empty")
+	t.Logf("Transaction Gas: %s", tx.Gas)
+
+	// Verify input has correct format: selector (4 bytes) + to (32 bytes) + amount (32 bytes)
+	// ERC20 transfer(address,uint256) function selector
+	transferSelector := crypto.Keccak256([]byte("transfer(address,uint256)"))[:4]
+	require.GreaterOrEqual(t, len(tx.Input), 68, "Input should be at least 68 bytes (4 + 32 + 32)")
+	require.Equal(t, transferSelector, []byte(tx.Input[:4]), "Input should start with transfer function selector")
+	t.Logf("Transaction input: 0x%s", common.Bytes2Hex(tx.Input))
+
+	t.Logf("Successfully verified synthetic ERC20 Transfer receipt and transaction for cosmos bank send")
 }
 
 // generateSyntheticTxHash generates the expected synthetic eth tx hash

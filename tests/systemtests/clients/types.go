@@ -25,5 +25,18 @@ type TxPoolResult struct {
 }
 
 type EthRPCTransaction struct {
-	Hash common.Hash `json:"hash"`
+	Hash             common.Hash    `json:"hash"`
+	BlockHash        *common.Hash   `json:"blockHash"`
+	BlockNumber      *string        `json:"blockNumber"`
+	From             common.Address `json:"from"`
+	To               *common.Address `json:"to"`
+	Gas              string         `json:"gas"`
+	GasPrice         string         `json:"gasPrice"`
+	Input            []byte         `json:"input"`
+	Nonce            string         `json:"nonce"`
+	TransactionIndex *string        `json:"transactionIndex"`
+	Value            string         `json:"value"`
+	V                string         `json:"v"`
+	R                string         `json:"r"`
+	S                string         `json:"s"`
 }

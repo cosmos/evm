@@ -208,3 +208,29 @@ func (ec *EthClient) GetTransactionReceipt(nodeID string, txHash common.Hash) (*
 
 	return ethCli.TransactionReceipt(context.Background(), txHash)
 }
+
+// GetBlockByNumber queries eth_getBlockByNumber for a given block number.
+func (ec *EthClient) GetBlockByNumber(nodeID string, number *big.Int) (*ethtypes.Block, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return nil, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	return ethCli.BlockByNumber(context.Background(), number)
+}
+
+// GetTransactionByHash queries eth_getTransactionByHash for a given tx hash.
+func (ec *EthClient) GetTransactionByHash(nodeID string, txHash common.Hash) (*EthRPCTransaction, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return nil, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	var result EthRPCTransaction
+	err := ethCli.Client().CallContext(context.Background(), &result, "eth_getTransactionByHash", txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

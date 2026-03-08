@@ -57,3 +57,57 @@ func (s *TestSuite) WaitForCommit(nodeID string, txHash string, timeout ...int) 
 	}
 	return s.BaseTestSuite.WaitForCommit(nodeID, txHash, basesuite.TxTypeCosmos, duration)
 }
+
+// SendCosmosDelegate sends a staking delegate transaction.
+func (s *TestSuite) SendCosmosDelegate(
+	t *testing.T,
+	nodeID string,
+	accID string,
+	validator sdk.ValAddress,
+	amount *big.Int,
+	gasPrice *big.Int,
+) (string, error) {
+	cosmosAccount := s.CosmosAccount(accID)
+
+	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients[nodeID])
+	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAccount.AccAddress)
+	if err != nil {
+		return "", fmt.Errorf("failed to query account: %w", err)
+	}
+
+	nonce := account.GetSequence()
+
+	resp, err := s.CosmosClient.Delegate(nodeID, cosmosAccount, cosmosAccount.AccAddress, validator, sdkmath.NewIntFromBigInt(amount), nonce, gasPrice)
+	if err != nil {
+		return "", fmt.Errorf("failed to send cosmos delegate: %w", err)
+	}
+
+	return resp.TxHash, nil
+}
+
+// SendCosmosUndelegate sends a staking undelegate transaction.
+func (s *TestSuite) SendCosmosUndelegate(
+	t *testing.T,
+	nodeID string,
+	accID string,
+	validator sdk.ValAddress,
+	amount *big.Int,
+	gasPrice *big.Int,
+) (string, error) {
+	cosmosAccount := s.CosmosAccount(accID)
+
+	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients[nodeID])
+	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAccount.AccAddress)
+	if err != nil {
+		return "", fmt.Errorf("failed to query account: %w", err)
+	}
+
+	nonce := account.GetSequence()
+
+	resp, err := s.CosmosClient.Undelegate(nodeID, cosmosAccount, cosmosAccount.AccAddress, validator, sdkmath.NewIntFromBigInt(amount), nonce, gasPrice)
+	if err != nil {
+		return "", fmt.Errorf("failed to send cosmos undelegate: %w", err)
+	}
+
+	return resp.TxHash, nil
+}
