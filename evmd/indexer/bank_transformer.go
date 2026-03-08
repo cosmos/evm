@@ -40,12 +40,12 @@ func (t *BankTransferTransformer) CanHandle(eventType string) bool {
 	return eventType == banktypes.EventTypeCoinSpent || eventType == banktypes.EventTypeCoinReceived
 }
 
-// Transform converts a bank event to EthReceiptData with ERC20 Transfer log.
+// Transform converts a bank event to TransformedTxData with ERC20 Transfer log.
 func (t *BankTransferTransformer) Transform(
 	event abci.Event,
 	height int64,
 	ethTxHash common.Hash,
-) (*indexer.EthReceiptData, error) {
+) (*indexer.TransformedTxData, error) {
 	var from, to common.Address
 	var amount *big.Int
 	var err error
@@ -72,7 +72,7 @@ func (t *BankTransferTransformer) Transform(
 	log := t.createTransferLog(from, to, amount, ethTxHash, height)
 	input := buildTransferInput(to, amount)
 
-	return indexer.NewEthReceiptData(
+	return indexer.NewTransformedTxData(
 		ethTxHash,
 		from,
 		&to,

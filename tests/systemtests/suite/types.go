@@ -9,6 +9,7 @@ const (
 	NodeArgsApiEnable                  = "--api.enable=true"
 	NodeArgsJsonrpcApi                 = "--json-rpc.api=eth,txpool,personal,net,debug,web3"
 	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
+	NodeArgsJsonrpcEnableIndexer       = "--json-rpc.enable-indexer=true"
 	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
 	NodeArgsMaxTxs                     = "--mempool.max-txs=0"
 )
@@ -44,6 +45,7 @@ func DefaultNodeArgs() []string {
 		NodeArgsEVMChainID,
 		NodeArgsApiEnable,
 		NodeArgsJsonrpcAllowUnprotectedTxs,
+		NodeArgsJsonrpcEnableIndexer,
 		NodeArgsMinimumGasPrice,
 		NodeArgsMaxTxs,
 	}

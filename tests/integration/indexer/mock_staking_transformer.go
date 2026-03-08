@@ -46,12 +46,12 @@ func (t *StakingDelegateTransformer) CanHandle(eventType string) bool {
 	return eventType == EventTypeDelegate
 }
 
-// Transform converts a delegate event to EthReceiptData with Delegate log.
+// Transform converts a delegate event to TransformedTxData with Delegate log.
 func (t *StakingDelegateTransformer) Transform(
 	event abci.Event,
 	height int64,
 	ethTxHash common.Hash,
-) (*indexer.EthReceiptData, error) {
+) (*indexer.TransformedTxData, error) {
 	delegator, validator, amount, err := t.parseDelegateEvent(event)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (t *StakingDelegateTransformer) Transform(
 
 	log := t.createDelegateLog(delegator, validator, amount, ethTxHash, height)
 
-	return indexer.NewEthReceiptData(
+	return indexer.NewTransformedTxData(
 		ethTxHash,
 		delegator,
 		&t.stakingPrecompileAddress,

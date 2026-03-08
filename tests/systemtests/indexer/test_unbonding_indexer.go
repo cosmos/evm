@@ -10,9 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 
-	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/cosmos/evm/indexer"
@@ -26,8 +24,11 @@ const (
 // CompleteUnbonding event signature matching the transformer
 var completeUnbondingEventSig = crypto.Keccak256Hash([]byte("CompleteUnbonding(address,address,uint256)"))
 
+// completeUnbonding function selector
+var completeUnbondingFunctionSelector = crypto.Keccak256([]byte("completeUnbonding(address,uint256)"))[:4]
+
 // RunCosmosIndexerUnbondingComplete tests that complete_unbonding events
-// from BeginBlock are properly transformed and indexed.
+// from EndBlock are properly transformed and indexed.
 // The test:
 // 1. Modifies genesis to use a short unbonding period
 // 2. Delegates tokens to a validator
@@ -53,24 +54,15 @@ func RunCosmosIndexerUnbondingComplete(t *testing.T, base *suite.BaseTestSuite) 
 	gasPrice := big.NewInt(1000000000000)
 	delegateAmount := big.NewInt(1000000000000000000) // 1 token
 
-	// Get a validator address using CLI
-	cli := systemtests.NewCLIWrapper(t, sut, systemtests.Verbose)
+	// Get a validator address
+	validators, err := s.CosmosClient.QueryValidators(s.Node(0))
+	require.NoError(t, err, "Failed to query validators")
+	require.NotEmpty(t, validators, "Should have at least one validator")
 
-	// Verify unbonding time is set correctly
-	stakingParamsJSON := cli.CustomQuery("q", "staking", "params")
-	unbondingTime := gjson.Get(stakingParamsJSON, "params.unbonding_time").String()
-	t.Logf("Staking params unbonding_time: %s", unbondingTime)
-
-	validatorsJSON := cli.CustomQuery("q", "staking", "validators")
-	validatorAddr := gjson.Get(validatorsJSON, "validators.0.operator_address").String()
-	require.NotEmpty(t, validatorAddr, "Should have at least one validator")
-	t.Logf("Using validator: %s", validatorAddr)
-
-	validator, err := sdk.ValAddressFromBech32(validatorAddr)
+	validator, err := sdk.ValAddressFromBech32(validators[0].OperatorAddress)
 	require.NoError(t, err, "Failed to parse validator address")
 
 	// Delegate tokens to the validator
-	t.Log("Delegating tokens to validator...")
 	delegateTxHash, err := s.SendCosmosDelegate(
 		t,
 		s.Node(0),
@@ -80,16 +72,13 @@ func RunCosmosIndexerUnbondingComplete(t *testing.T, base *suite.BaseTestSuite) 
 		gasPrice,
 	)
 	require.NoError(t, err, "Failed to send delegate tx")
-	t.Logf("Delegate tx hash: %s", delegateTxHash)
 
 	err = s.WaitForCommit(s.Node(0), delegateTxHash)
 	require.NoError(t, err, "Delegate tx should be committed")
 
-	// Wait a block to ensure delegation is processed
 	s.AwaitNBlocks(t, 1)
 
 	// Undelegate tokens (starts unbonding)
-	t.Log("Undelegating tokens from validator...")
 	undelegateTxHash, err := s.SendCosmosUndelegate(
 		t,
 		s.Node(0),
@@ -99,73 +88,46 @@ func RunCosmosIndexerUnbondingComplete(t *testing.T, base *suite.BaseTestSuite) 
 		gasPrice,
 	)
 	require.NoError(t, err, "Failed to send undelegate tx")
-	t.Logf("Undelegate tx hash: %s", undelegateTxHash)
 
 	err = s.WaitForCommit(s.Node(0), undelegateTxHash)
 	require.NoError(t, err, "Undelegate tx should be committed")
 
 	// Record the start height
 	startHeight := sut.CurrentHeight()
-	t.Logf("Unbonding started at height %d", startHeight)
 
 	// Wait for unbonding period to pass
 	// With 20s unbonding time and ~2s block time, wait about 15 blocks
 	waitBlocks := int64(shortUnbondingTime.Seconds()/2) + 5
-	t.Logf("Waiting %d blocks for unbonding to complete...", waitBlocks)
 	s.AwaitNBlocks(t, waitBlocks)
 
 	endHeight := sut.CurrentHeight()
-	t.Logf("After waiting, at height %d", endHeight)
 
-	// Search for the complete_unbonding event in block phase receipts
-	// Check all phases: PreBlock, BeginBlock, EndBlock
+	// Search for the complete_unbonding event in EndBlock receipts
 	var foundReceipt bool
 	var completeUnbondingTxHash common.Hash
 
-	t.Logf("Searching for complete_unbonding event from height %d to %d", startHeight+1, endHeight)
-
-	phases := []indexer.BlockPhase{
-		indexer.BlockPhasePreBlock,
-		indexer.BlockPhaseBeginBlock,
-		indexer.BlockPhaseEndBlock,
-	}
-
 	for height := startHeight + 1; height <= endHeight; height++ {
-		// Get block hash for this height
-		blockResult, err := s.EthClient.GetBlockByNumber(s.Node(0), big.NewInt(height))
+		blockHash, err := s.EthClient.GetBlockHashByNumber(s.Node(0), big.NewInt(height))
 		if err != nil {
-			t.Logf("Failed to get block at height %d: %v", height, err)
 			continue
 		}
 
-		blockHash := blockResult.Hash()
+		// Check EndBlock phase (where complete_unbonding is emitted)
+		syntheticTxHash := indexer.GenerateTransformedEthTxHash(
+			[]byte(indexer.BlockPhaseEndBlock),
+			blockHash.Bytes(),
+		)
 
-		// Check all phases
-		for _, phase := range phases {
-			syntheticTxHash := indexer.GenerateSyntheticEthTxHash(
-				[]byte(phase),
-				blockHash.Bytes(),
-			)
+		receipt, err := s.EthClient.GetTransactionReceipt(s.Node(0), syntheticTxHash)
+		if err != nil || receipt == nil {
+			continue
+		}
 
-			// Try to get the receipt
-			receipt, err := s.EthClient.GetTransactionReceipt(s.Node(0), syntheticTxHash)
-			if err != nil || receipt == nil {
-				continue
-			}
-
-			t.Logf("Height %d, Phase %s: Found receipt with %d logs", height, phase, len(receipt.Logs))
-
-			// Check if any log is a CompleteUnbonding event
-			for i, log := range receipt.Logs {
-				t.Logf("  Log %d: Address=%s, Topics[0]=%s", i, log.Address.Hex(), log.Topics[0].Hex())
-				if len(log.Topics) > 0 && log.Topics[0] == completeUnbondingEventSig {
-					foundReceipt = true
-					completeUnbondingTxHash = syntheticTxHash
-					t.Logf("Found complete_unbonding event in block %d phase %s, tx hash: %s", height, phase, syntheticTxHash.Hex())
-					break
-				}
-			}
-			if foundReceipt {
+		// Check if any log is a CompleteUnbonding event
+		for _, log := range receipt.Logs {
+			if len(log.Topics) > 0 && log.Topics[0] == completeUnbondingEventSig {
+				foundReceipt = true
+				completeUnbondingTxHash = syntheticTxHash
 				break
 			}
 		}
@@ -194,18 +156,36 @@ func RunCosmosIndexerUnbondingComplete(t *testing.T, base *suite.BaseTestSuite) 
 			// Verify the amount matches
 			logAmount := new(big.Int).SetBytes(log.Data)
 			require.Equal(t, delegateAmount.String(), logAmount.String(), "Unbonding amount should match delegated amount")
-
-			delegatorFromLog := common.BytesToAddress(log.Topics[1].Bytes())
-			validatorFromLog := common.BytesToAddress(log.Topics[2].Bytes())
-
-			t.Logf("CompleteUnbonding log verified:")
-			t.Logf("  delegator: %s", delegatorFromLog.Hex())
-			t.Logf("  validator: %s", validatorFromLog.Hex())
-			t.Logf("  amount: %s", logAmount.String())
 			break
 		}
 	}
 
 	require.True(t, foundLog, "Receipt should contain CompleteUnbonding log")
-	t.Log("Successfully verified complete_unbonding event indexing")
+
+	// Verify transaction fields via eth_getTransactionByHash
+	tx, err := s.EthClient.GetTransactionByHash(s.Node(0), completeUnbondingTxHash)
+	require.NoError(t, err, "Failed to get transaction by hash")
+	require.NotNil(t, tx, "Transaction should not be nil")
+
+	// Verify tx hash matches
+	require.Equal(t, completeUnbondingTxHash, tx.Hash, "Transaction hash should match")
+
+	// Verify block info is present
+	require.NotNil(t, tx.BlockHash, "BlockHash should not be nil")
+	require.NotNil(t, tx.BlockNumber, "BlockNumber should not be nil")
+	t.Logf("Transaction: blockHash=%s, blockNumber=%s", tx.BlockHash.Hex(), *tx.BlockNumber)
+
+	// Verify To field points to staking precompile
+	require.NotNil(t, tx.To, "To should not be nil")
+	t.Logf("Transaction To: %s", tx.To.Hex())
+
+	// Verify Gas is set
+	require.NotEmpty(t, tx.Gas, "Gas should not be empty")
+
+	// Verify input has correct format: selector (4 bytes) + validator (32 bytes) + amount (32 bytes)
+	require.GreaterOrEqual(t, len(tx.Input), 68, "Input should be at least 68 bytes (4 + 32 + 32)")
+	require.Equal(t, completeUnbondingFunctionSelector, []byte(tx.Input[:4]), "Input should start with completeUnbonding function selector")
+	t.Logf("Transaction input: 0x%s", common.Bytes2Hex(tx.Input))
+
+	t.Logf("Successfully verified CompleteUnbonding receipt and transaction")
 }

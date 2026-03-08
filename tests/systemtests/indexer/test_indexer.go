@@ -16,7 +16,7 @@ import (
 )
 
 // RunCosmosIndexerBankSend tests that a cosmos bank send transaction
-// is indexed and can be queried via eth_getTransactionReceipt with synthetic ERC20 logs.
+// is indexed and can be queried via eth_getTransactionReceipt with transformed ERC20 logs.
 // All events from the same cosmos tx are merged into a single receipt with multiple logs.
 // A bank send generates 4 logs:
 //   - coin_spent (transfer amount): sender -> zero
@@ -54,13 +54,13 @@ func RunCosmosIndexerBankSend(t *testing.T, base *suite.BaseTestSuite) {
 	// Wait for one more block to ensure indexing is complete
 	s.AwaitNBlocks(t, 1)
 
-	// Generate synthetic eth tx hash from cosmos tx hash
-	// All events from the same cosmos tx share the same synthetic eth tx hash
-	syntheticTxHash := generateSyntheticTxHash(t, cosmosTxHash)
-	t.Logf("Synthetic eth tx hash: %s", syntheticTxHash.Hex())
+	// Generate transformed eth tx hash from cosmos tx hash
+	// All events from the same cosmos tx share the same transformed eth tx hash
+	transformedTxHash := generateTransformedTxHash(t, cosmosTxHash)
+	t.Logf("Transformed eth tx hash: %s", transformedTxHash.Hex())
 
 	// Query the transaction receipt
-	receipt, err := s.EthClient.GetTransactionReceipt(s.Node(0), syntheticTxHash)
+	receipt, err := s.EthClient.GetTransactionReceipt(s.Node(0), transformedTxHash)
 	require.NoError(t, err, "Failed to get transaction receipt")
 	require.NotNil(t, receipt, "Receipt should not be nil")
 
@@ -115,12 +115,12 @@ func RunCosmosIndexerBankSend(t *testing.T, base *suite.BaseTestSuite) {
 	require.Equal(t, receipt.Logs[0].Topics[1], receipt.Logs[2].Topics[1], "Sender should be same in both coin_spent events")
 
 	// Verify transaction fields via eth_getTransactionByHash
-	tx, err := s.EthClient.GetTransactionByHash(s.Node(0), syntheticTxHash)
+	tx, err := s.EthClient.GetTransactionByHash(s.Node(0), transformedTxHash)
 	require.NoError(t, err, "Failed to get transaction by hash")
 	require.NotNil(t, tx, "Transaction should not be nil")
 
 	// Verify tx hash matches
-	require.Equal(t, syntheticTxHash, tx.Hash, "Transaction hash should match")
+	require.Equal(t, transformedTxHash, tx.Hash, "Transaction hash should match")
 
 	// Verify block info is present
 	require.NotNil(t, tx.BlockHash, "BlockHash should not be nil")
@@ -144,12 +144,12 @@ func RunCosmosIndexerBankSend(t *testing.T, base *suite.BaseTestSuite) {
 	require.Equal(t, transferSelector, []byte(tx.Input[:4]), "Input should start with transfer function selector")
 	t.Logf("Transaction input: 0x%s", common.Bytes2Hex(tx.Input))
 
-	t.Logf("Successfully verified synthetic ERC20 Transfer receipt and transaction for cosmos bank send")
+	t.Logf("Successfully verified transformed ERC20 Transfer receipt and transaction for cosmos bank send")
 }
 
-// generateSyntheticTxHash generates the expected synthetic eth tx hash
+// generateTransformedTxHash generates the expected transformed eth tx hash
 // using the same algorithm as indexer.GenerateEthTxHash
-func generateSyntheticTxHash(t *testing.T, cosmosTxHashHex string) common.Hash {
+func generateTransformedTxHash(t *testing.T, cosmosTxHashHex string) common.Hash {
 	// Remove 0x prefix if present
 	hashHex := strings.TrimPrefix(cosmosTxHashHex, "0x")
 

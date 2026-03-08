@@ -54,7 +54,7 @@ func (info *ethTx) Failed() bool {
 //  2. For successful txs, iterate events with buffering:
 //     - Buffer cosmos events until ethereum_tx event arrives (ethereum tx events will be last of all events in a tx)
 //     - On ethereum_tx: process eth tx with buffered cosmos logs merged
-//     - Cosmos-only txs: create synthetic tx from all buffered events
+//     - Cosmos-only txs: create transformed tx from all buffered events
 func (kv *KVIndexer) processDeliverTxEvents(
 	block *cmttypes.Block,
 	txResults []*abci.ExecTxResult,
@@ -96,7 +96,7 @@ func (kv *KVIndexer) processDeliverTxEvents(
 
 		// 2. Process successful tx events:
 		//    - eth txs: buffer cosmos events, merge into eth receipt on ethereum_tx if it can be transformed
-		//    - cosmos-only txs: create synthetic tx with merged logs
+		//    - cosmos-only txs: create transformed tx with merged logs
 		var pendingCosmosEvents []abci.Event
 
 		for _, event := range result.Events {
@@ -155,14 +155,14 @@ func (kv *KVIndexer) parseEthTx(tx sdk.Tx, result *abci.ExecTxResult, txIndex in
 	}
 }
 
-// processBlockPhaseEvents processes all events in a block phase as a single synthetic tx.
+// processBlockPhaseEvents processes all events in a block phase as a single transformed tx.
 // All transformable events in the phase are combined into one receipt with multiple logs.
 func (kv *KVIndexer) processBlockPhaseEvents(
 	block *cmttypes.Block,
 	phase BlockPhase,
 	events []abci.Event,
 ) error {
-	ethTxHash := GenerateSyntheticEthTxHash([]byte(phase), block.Hash())
+	ethTxHash := GenerateTransformedEthTxHash([]byte(phase), block.Hash())
 	blockHash := common.BytesToHash(block.Hash())
 	ethLogs, totalGasUsed := kv.trasformToEthLogs(events, block.Height, 0, ethTxHash, blockHash)
 	if len(ethLogs) == 0 {
@@ -170,7 +170,7 @@ func (kv *KVIndexer) processBlockPhaseEvents(
 	}
 
 	ethTxIndex, cumulativeGas := kv.NextTx(ethTxHash, totalGasUsed)
-	return kv.saveSyntheticTx(block, ethTxHash, ethLogs, totalGasUsed, ethTxIndex, cumulativeGas)
+	return kv.saveTransformedTx(block, ethTxHash, ethLogs, totalGasUsed, ethTxIndex, cumulativeGas)
 }
 
 // processEthereumTx handles ethereum_tx events and optionally appends cosmos event logs.
@@ -267,7 +267,7 @@ func (kv *KVIndexer) processCosmosEvents(
 	cosmosTxHash []byte,
 	events []abci.Event,
 ) error {
-	ethTxHash := GenerateSyntheticEthTxHash(cosmosTxHash)
+	ethTxHash := GenerateTransformedEthTxHash(cosmosTxHash)
 	blockHash := common.BytesToHash(block.Hash())
 	ethLogs, gasUsed := kv.trasformToEthLogs(events, block.Height, 0, ethTxHash, blockHash)
 	if len(ethLogs) == 0 {
@@ -275,7 +275,7 @@ func (kv *KVIndexer) processCosmosEvents(
 	}
 
 	ethTxIndex, cumulativeGas := kv.NextTx(ethTxHash, gasUsed)
-	return kv.saveSyntheticTx(block, ethTxHash, ethLogs, gasUsed, ethTxIndex, cumulativeGas)
+	return kv.saveTransformedTx(block, ethTxHash, ethLogs, gasUsed, ethTxIndex, cumulativeGas)
 }
 
 // trasformToEthLogs transforms events into logs with proper indexing and block/tx fields.
@@ -312,10 +312,10 @@ func (kv *KVIndexer) trasformToEthLogs(
 	return logs, totalGasUsed
 }
 
-// saveSyntheticTx saves a synthetic transaction with its receipt and tx data.
+// saveTransformedTx saves a transformed transaction with its receipt and tx data.
 // This is shared by processBlockPhaseEvents and processCosmosEvents.
 // Log fields (TxHash, BlockHash, BlockNumber) are already set by trasformToEthLogs.
-func (kv *KVIndexer) saveSyntheticTx(
+func (kv *KVIndexer) saveTransformedTx(
 	block *cmttypes.Block,
 	ethTxHash common.Hash,
 	logs []*ethtypes.Log,
@@ -336,8 +336,8 @@ func (kv *KVIndexer) saveSyntheticTx(
 		return errorsmod.Wrapf(err, "save tx result")
 	}
 
-	// Create EthReceiptData
-	ethData := &EthReceiptData{
+	// Create TransformedTxData
+	ethData := &TransformedTxData{
 		EthTxHash: ethTxHash,
 		From:      common.Address{},
 		To:        nil,

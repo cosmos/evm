@@ -12,10 +12,10 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 )
 
-// EthReceiptData represents the transformed EVM receipt/tx data from cosmos events.
+// TransformedTxData represents the transformed EVM receipt/tx data from cosmos events.
 // The transformer populates this struct, which then determines the content of
 // GetEthReceipt and GetEthTx responses for synthetic cosmos transactions.
-type EthReceiptData struct {
+type TransformedTxData struct {
 	EthTxHash common.Hash
 	From      common.Address
 	To        *common.Address
@@ -29,16 +29,16 @@ type EthReceiptData struct {
 	V, R, S *big.Int
 }
 
-// NewEthReceiptData creates a new EthReceiptData with required fields.
-func NewEthReceiptData(
+// NewTransformedTxData creates a new TransformedTxData with required fields.
+func NewTransformedTxData(
 	ethTxHash common.Hash,
 	from common.Address,
 	to *common.Address,
 	value *big.Int,
 	gasUsed, status uint64,
 	logs []*ethtypes.Log,
-) *EthReceiptData {
-	return &EthReceiptData{
+) *TransformedTxData {
+	return &TransformedTxData{
 		EthTxHash: ethTxHash,
 		From:      from,
 		To:        to,
@@ -50,21 +50,21 @@ func NewEthReceiptData(
 }
 
 // WithInput sets the tx input data and returns the receiver for chaining.
-func (d *EthReceiptData) WithInput(input []byte) *EthReceiptData {
+func (d *TransformedTxData) WithInput(input []byte) *TransformedTxData {
 	d.Input = input
 	return d
 }
 
 // WithSignature sets the V, R, S signature values and returns the receiver for chaining.
-func (d *EthReceiptData) WithSignature(v, r, s *big.Int) *EthReceiptData {
+func (d *TransformedTxData) WithSignature(v, r, s *big.Int) *TransformedTxData {
 	d.V = v
 	d.R = r
 	d.S = s
 	return d
 }
 
-// getReceipt creates an ethtypes.Receipt from EthReceiptData
-func (d *EthReceiptData) getReceipt(blockHash common.Hash, blockNumber int64, txIndex uint) *ethtypes.Receipt {
+// getReceipt creates an ethtypes.Receipt from TransformedTxData
+func (d *TransformedTxData) getReceipt(blockHash common.Hash, blockNumber int64, txIndex uint) *ethtypes.Receipt {
 	logs := d.Logs
 	if logs == nil {
 		logs = []*ethtypes.Log{}
@@ -88,8 +88,8 @@ func (d *EthReceiptData) getReceipt(blockHash common.Hash, blockNumber int64, tx
 	}
 }
 
-// getRPCTransaction creates an rpctypes.RPCTransaction from EthReceiptData
-func (d *EthReceiptData) getRPCTransaction(blockHash common.Hash, blockNumber int64, txIndex uint) *rpctypes.RPCTransaction {
+// getRPCTransaction creates an rpctypes.RPCTransaction from TransformedTxData
+func (d *TransformedTxData) getRPCTransaction(blockHash common.Hash, blockNumber int64, txIndex uint) *rpctypes.RPCTransaction {
 	blockNum := hexutil.Big(*big.NewInt(blockNumber))
 	txIdx := hexutil.Uint64(txIndex)
 
@@ -136,22 +136,22 @@ func (d *EthReceiptData) getRPCTransaction(blockHash common.Hash, blockNumber in
 	}
 }
 
-// buildMarshaledReceipt builds the eth receipt JSON from EthReceiptData
-func (d *EthReceiptData) buildMarshaledReceipt(block *cmttypes.Block, ethTxIndex int32) ([]byte, error) {
+// buildMarshaledReceipt builds the eth receipt JSON from TransformedTxData
+func (d *TransformedTxData) buildMarshaledReceipt(block *cmttypes.Block, ethTxIndex int32) ([]byte, error) {
 	blockHash := common.BytesToHash(block.Hash())
 	receipt := d.getReceipt(blockHash, block.Height, uint(ethTxIndex)) //#nosec G115
 	return json.Marshal(receipt)
 }
 
-// buildMarshaledTx builds the eth tx JSON from EthReceiptData
-func (d *EthReceiptData) buildMarshaledTx(block *cmttypes.Block, ethTxIndex int32) ([]byte, error) {
+// buildMarshaledTx builds the eth tx JSON from TransformedTxData
+func (d *TransformedTxData) buildMarshaledTx(block *cmttypes.Block, ethTxIndex int32) ([]byte, error) {
 	blockHash := common.BytesToHash(block.Hash())
 	rpcTx := d.getRPCTransaction(blockHash, block.Height, uint(ethTxIndex)) //#nosec G115
 	return json.Marshal(rpcTx)
 }
 
 // UpdateEthLogs sets block/tx fields on each log and returns the next log index.
-func (d *EthReceiptData) UpdateEthLogs(baseIndex uint, txHash, blockHash common.Hash, height int64) uint {
+func (d *TransformedTxData) UpdateEthLogs(baseIndex uint, txHash, blockHash common.Hash, height int64) uint {
 	for i, log := range d.Logs {
 		log.Index = baseIndex + uint(i)
 		log.TxHash = txHash

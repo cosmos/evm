@@ -17,7 +17,7 @@ import (
 	intindexer "github.com/cosmos/evm/tests/integration/indexer"
 )
 
-func (s *TestSuite) TestGetSyntheticTransactionByHash() {
+func (s *TestSuite) TestGetTransformedTransactionByHash() {
 	tokenAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	validReceiverAddr := sdk.AccAddress(common.HexToAddress("0x1234567890123456789012345678901234567890").Bytes())
 
@@ -26,7 +26,7 @@ func (s *TestSuite) TestGetSyntheticTransactionByHash() {
 		registerMock     func()
 		finalizeEvents   []abci.Event
 		expPass          bool
-		expSyntheticAddr common.Address
+		expTransformedAddr common.Address
 	}{
 		{
 			name:         "success - synthetic tx from coin_received event",
@@ -41,7 +41,7 @@ func (s *TestSuite) TestGetSyntheticTransactionByHash() {
 				},
 			},
 			expPass:          true,
-			expSyntheticAddr: tokenAddress,
+			expTransformedAddr: tokenAddress,
 		},
 	}
 
@@ -67,7 +67,7 @@ func (s *TestSuite) TestGetSyntheticTransactionByHash() {
 			s.Require().NoError(err)
 
 			// FinalizeBlockEvents use phase + blockHash for synthetic tx hash
-			syntheticEthHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+			syntheticEthHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
 			txResult, err := idxer.GetByTxHash(syntheticEthHash)
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -81,7 +81,7 @@ func (s *TestSuite) TestGetSyntheticTransactionByHash() {
 	}
 }
 
-func (s *TestSuite) TestGetSyntheticTransactionReceipt() {
+func (s *TestSuite) TestGetTransformedTransactionReceipt() {
 	tokenAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	validReceiverAddr := sdk.AccAddress(common.HexToAddress("0x1234567890123456789012345678901234567890").Bytes())
 
@@ -141,7 +141,7 @@ func (s *TestSuite) TestGetSyntheticTransactionReceipt() {
 				s.Require().NotNil(res)
 
 				// Use phase-based hash for receipt lookup
-				receiptJSON, err := idxer.GetEthReceipt(indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash()))
+				receiptJSON, err := idxer.GetEthReceipt(indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash()))
 				if err == nil && receiptJSON != nil {
 					s.Require().NotEmpty(receiptJSON)
 				}
@@ -152,7 +152,7 @@ func (s *TestSuite) TestGetSyntheticTransactionReceipt() {
 	}
 }
 
-func (s *TestSuite) TestGetSyntheticStakingDelegateTransaction() {
+func (s *TestSuite) TestGetTransformedStakingDelegateTransaction() {
 	stakingPrecompileAddr := common.HexToAddress("0x0000000000000000000000000000000000000800")
 	validDelegatorAddr := sdk.AccAddress(common.HexToAddress("0x1234567890123456789012345678901234567890").Bytes())
 	validValidatorAddr := sdk.ValAddress(common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd").Bytes())
@@ -214,9 +214,9 @@ func (s *TestSuite) TestGetSyntheticStakingDelegateTransaction() {
 	}
 }
 
-// TestMultipleSyntheticEventsInPhase tests that multiple events in the same phase
+// TestMultipleTransformedEventsInPhase tests that multiple events in the same phase
 // are bundled into a single synthetic tx with multiple logs.
-func (s *TestSuite) TestMultipleSyntheticEventsInPhase() {
+func (s *TestSuite) TestMultipleTransformedEventsInPhase() {
 	tokenAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	stakingPrecompileAddr := common.HexToAddress("0x0000000000000000000000000000000000000800")
 
@@ -282,7 +282,7 @@ func (s *TestSuite) TestMultipleSyntheticEventsInPhase() {
 	s.Require().Error(err, "should not have tx at index 1")
 
 	// Verify receipt has 3 logs (one from each event)
-	ethTxHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	ethTxHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
 	receiptJSON, err := idxer.GetEthReceipt(ethTxHash)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(receiptJSON)

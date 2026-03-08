@@ -69,7 +69,7 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 		height     int64
 		eventIndex int
 		expErr     bool
-		validate   func(*testing.T, *indexer.EthReceiptData)
+		validate   func(*testing.T, *indexer.TransformedTxData)
 	}{
 		{
 			name: "success - coin_spent event",
@@ -80,11 +80,11 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: sdk.AttributeKeyAmount, Value: "1000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash123")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash123")),
 			height:       100,
 			eventIndex:   0,
 			expErr:       false,
-			validate: func(t *testing.T, data *indexer.EthReceiptData) {
+			validate: func(t *testing.T, data *indexer.TransformedTxData) {
 				require.NotNil(t, data)
 				require.Equal(t, uint64(1), data.Status)
 				require.Equal(t, uint64(21000), data.GasUsed)
@@ -104,11 +104,11 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: sdk.AttributeKeyAmount, Value: "2000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash456")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash456")),
 			height:       200,
 			eventIndex:   1,
 			expErr:       false,
-			validate: func(t *testing.T, data *indexer.EthReceiptData) {
+			validate: func(t *testing.T, data *indexer.TransformedTxData) {
 				require.NotNil(t, data)
 				require.Equal(t, uint64(1), data.Status)
 				require.Len(t, data.Logs, 1)
@@ -123,7 +123,7 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: sdk.AttributeKeyAmount, Value: "1000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash789")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash789")),
 			height:       100,
 			eventIndex:   0,
 			expErr:       true,
@@ -136,7 +136,7 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: sdk.AttributeKeyAmount, Value: "1000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash789")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash789")),
 			height:       100,
 			eventIndex:   0,
 			expErr:       true,
@@ -149,7 +149,7 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: banktypes.AttributeKeySpender, Value: validSpenderAddr.String()},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash789")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash789")),
 			height:       100,
 			eventIndex:   0,
 			expErr:       true,
@@ -163,7 +163,7 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: sdk.AttributeKeyAmount, Value: "1000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash789")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash789")),
 			height:       100,
 			eventIndex:   0,
 			expErr:       true,
@@ -176,7 +176,7 @@ func TestBankTransferTransformerTransform(t *testing.T, _ network.CreateEvmApp, 
 					{Key: "key", Value: "value"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash789")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash789")),
 			height:       100,
 			eventIndex:   0,
 			expErr:       true,
@@ -214,7 +214,7 @@ func TestBankTransferTransformerDeterministicHash(t *testing.T, _ network.Create
 		},
 	}
 
-	ethTxHash := indexer.GenerateSyntheticEthTxHash([]byte("deterministic_hash_test"))
+	ethTxHash := indexer.GenerateTransformedEthTxHash([]byte("deterministic_hash_test"))
 	height := int64(100)
 
 	result1, err := transformer.Transform(event, height, ethTxHash)
@@ -227,7 +227,7 @@ func TestBankTransferTransformerDeterministicHash(t *testing.T, _ network.Create
 	require.Equal(t, result1.EthTxHash, result2.EthTxHash)
 
 	// Different ethTxHash produces different result
-	differentEthTxHash := indexer.GenerateSyntheticEthTxHash([]byte("different_hash_test"))
+	differentEthTxHash := indexer.GenerateTransformedEthTxHash([]byte("different_hash_test"))
 	result3, err := transformer.Transform(event, height, differentEthTxHash)
 	require.NoError(t, err)
 

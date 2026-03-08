@@ -272,6 +272,20 @@ func (c *CosmosClient) GetBalance(nodeID string, address sdk.AccAddress, denom s
 	return res.Balance.Amount.BigInt(), nil
 }
 
+// QueryValidators retrieves the list of validators.
+func (c *CosmosClient) QueryValidators(nodeID string) ([]stakingtypes.Validator, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
+	queryClient := stakingtypes.NewQueryClient(c.ClientCtx)
+
+	res, err := queryClient.Validators(context.Background(), &stakingtypes.QueryValidatorsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query validators: %w", err)
+	}
+
+	return res.Validators, nil
+}
+
 // newClientContext creates a new client context for the Cosmos SDK.
 func newClientContext(config *Config) (*client.Context, error) {
 	// Use the encoding config setup which properly initializes EIP-712

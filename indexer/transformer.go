@@ -23,12 +23,12 @@ type CosmosEventTransformer interface {
 
 	// Transform converts a cosmos event into EVM receipt/tx data.
 	// ethTxHash is provided by the caller to ensure consistency.
-	Transform(event abci.Event, height int64, ethTxHash common.Hash) (*EthReceiptData, error)
+	Transform(event abci.Event, height int64, ethTxHash common.Hash) (*TransformedTxData, error)
 }
 
-// GenerateSyntheticEthTxHash generates a deterministic eth tx hash by concatenating and hashing inputs.
+// GenerateTransformedEthTxHash generates a deterministic eth tx hash by concatenating and hashing inputs.
 // Used for cosmos txs (cosmosTxHash) and block phases (phase + blockHash).
-func GenerateSyntheticEthTxHash(data ...[]byte) common.Hash {
+func GenerateTransformedEthTxHash(data ...[]byte) common.Hash {
 	var combined []byte
 	for _, d := range data {
 		combined = append(combined, d...)

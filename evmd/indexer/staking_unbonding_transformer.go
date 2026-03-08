@@ -21,6 +21,9 @@ import (
 // Parameters: delegator (indexed), validator (indexed), amount
 var CompleteUnbondingEventSignature = crypto.Keccak256Hash([]byte("CompleteUnbonding(address,address,uint256)"))
 
+// completeUnbonding function selector: completeUnbonding(address,uint256)
+var completeUnbondingFunctionSelector = crypto.Keccak256([]byte("completeUnbonding(address,uint256)"))[:4]
+
 // StakingUnbondingTransformer transforms staking complete_unbonding events
 // into EVM-compatible CompleteUnbonding logs.
 // These events are emitted in BeginBlock when unbonding delegations mature.
@@ -40,20 +43,21 @@ func (t *StakingUnbondingTransformer) CanHandle(eventType string) bool {
 	return eventType == stakingtypes.EventTypeCompleteUnbonding
 }
 
-// Transform converts a complete_unbonding event to EthReceiptData with CompleteUnbonding log.
+// Transform converts a complete_unbonding event to TransformedTxData with CompleteUnbonding log.
 func (t *StakingUnbondingTransformer) Transform(
 	event abci.Event,
 	height int64,
 	ethTxHash common.Hash,
-) (*indexer.EthReceiptData, error) {
+) (*indexer.TransformedTxData, error) {
 	delegator, validator, amount, err := t.parseCompleteUnbondingEvent(event)
 	if err != nil {
 		return nil, err
 	}
 
 	log := t.createCompleteUnbondingLog(delegator, validator, amount, ethTxHash, height)
+	input := buildCompleteUnbondingInput(validator, amount)
 
-	return indexer.NewEthReceiptData(
+	return indexer.NewTransformedTxData(
 		ethTxHash,
 		delegator,
 		&t.stakingPrecompileAddress,
@@ -61,7 +65,7 @@ func (t *StakingUnbondingTransformer) Transform(
 		30000,
 		1,
 		[]*ethtypes.Log{log},
-	), nil
+	).WithInput(input), nil
 }
 
 func (t *StakingUnbondingTransformer) parseCompleteUnbondingEvent(event abci.Event) (common.Address, common.Address, *big.Int, error) {
@@ -136,4 +140,13 @@ func parseValidatorAddress(bech32Addr string) (common.Address, error) {
 		return common.Address{}, err
 	}
 	return common.BytesToAddress(valAddr.Bytes()), nil
+}
+
+// buildCompleteUnbondingInput builds completeUnbonding(address,uint256) calldata.
+func buildCompleteUnbondingInput(validator common.Address, amount *big.Int) []byte {
+	input := make([]byte, 4+32+32)
+	copy(input[:4], completeUnbondingFunctionSelector)
+	copy(input[4:36], common.LeftPadBytes(validator.Bytes(), 32))
+	copy(input[36:68], common.LeftPadBytes(amount.Bytes(), 32))
+	return input
 }

@@ -67,7 +67,7 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 		ethTxHash common.Hash
 		height    int64
 		expErr    bool
-		validate  func(*testing.T, *indexer.EthReceiptData)
+		validate  func(*testing.T, *indexer.TransformedTxData)
 	}{
 		{
 			name: "success - valid delegate event",
@@ -79,10 +79,10 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 					{Key: sdk.AttributeKeyAmount, Value: "5000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("delegate_txhash")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("delegate_txhash")),
 			height:       150,
 						expErr:       false,
-			validate: func(t *testing.T, data *indexer.EthReceiptData) {
+			validate: func(t *testing.T, data *indexer.TransformedTxData) {
 				require.NotNil(t, data)
 				require.Equal(t, uint64(1), data.Status)
 				require.Equal(t, uint64(50000), data.GasUsed)
@@ -104,7 +104,7 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 					{Key: sdk.AttributeKeyAmount, Value: "5000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash")),
 			height:       100,
 						expErr:       true,
 		},
@@ -117,7 +117,7 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 					{Key: sdk.AttributeKeyAmount, Value: "5000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash")),
 			height:       100,
 						expErr:       true,
 		},
@@ -130,7 +130,7 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 					{Key: AttributeKeyValidator, Value: validValidatorAddr.String()},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash")),
 			height:       100,
 						expErr:       true,
 		},
@@ -144,7 +144,7 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 					{Key: sdk.AttributeKeyAmount, Value: "5000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash")),
 			height:       100,
 						expErr:       true,
 		},
@@ -158,7 +158,7 @@ func TestStakingDelegateTransformerTransform(t *testing.T, _ network.CreateEvmAp
 					{Key: sdk.AttributeKeyAmount, Value: "5000stake"},
 				},
 			},
-			ethTxHash: indexer.GenerateSyntheticEthTxHash([]byte("txhash")),
+			ethTxHash: indexer.GenerateTransformedEthTxHash([]byte("txhash")),
 			height:       100,
 						expErr:       true,
 		},
@@ -197,7 +197,7 @@ func TestStakingDelegateTransformerDeterministicHash(t *testing.T, _ network.Cre
 		},
 	}
 
-	ethTxHash := indexer.GenerateSyntheticEthTxHash([]byte("deterministic_delegate_test"))
+	ethTxHash := indexer.GenerateTransformedEthTxHash([]byte("deterministic_delegate_test"))
 	height := int64(200)
 
 	// Same eth tx hash should produce same result
@@ -210,7 +210,7 @@ func TestStakingDelegateTransformerDeterministicHash(t *testing.T, _ network.Cre
 	require.Equal(t, result1.EthTxHash, result2.EthTxHash)
 
 	// Different eth tx hash should produce different result
-	differentEthTxHash := indexer.GenerateSyntheticEthTxHash([]byte("different_delegate_test"))
+	differentEthTxHash := indexer.GenerateTransformedEthTxHash([]byte("different_delegate_test"))
 	result3, err := transformer.Transform(event, height, differentEthTxHash)
 	require.NoError(t, err)
 

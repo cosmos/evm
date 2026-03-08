@@ -115,7 +115,7 @@ func TestTransformerCosmosEventOnly(t *testing.T, create network.CreateEvmApp, o
 			}
 
 			// Verify receipt has expected number of logs
-			ethTxHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+			ethTxHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
 			receiptJSON, err := idxer.GetEthReceipt(ethTxHash)
 			require.NoError(t, err)
 
@@ -276,7 +276,7 @@ func TestTransformerMultipleTransformers(t *testing.T, create network.CreateEvmA
 	require.Error(t, err, "should not have tx at index 1")
 
 	// Verify receipt has 2 logs (one from each transformer)
-	ethTxHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	ethTxHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
 	receiptJSON, err := idxer.GetEthReceipt(ethTxHash)
 	require.NoError(t, err)
 
@@ -351,7 +351,7 @@ func TestTransformerLogIndexOrdering(t *testing.T, create network.CreateEvmApp, 
 	require.Error(t, err, "should not have tx at index 1")
 
 	// Verify receipt has 3 logs with sequential indices
-	ethTxHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	ethTxHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
 	receiptJSON, err := idxer.GetEthReceipt(ethTxHash)
 	require.NoError(t, err)
 
@@ -433,9 +433,9 @@ func TestTransformerMultiplePhases(t *testing.T, create network.CreateEvmApp, op
 	require.Error(t, err, "should not have tx at index 3")
 
 	// Verify each phase has correct receipt with different hash
-	preBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
-	beginBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
-	endBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
+	preBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	beginBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
+	endBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
 
 	// All hashes should be different
 	require.NotEqual(t, preBlockHash, beginBlockHash)
@@ -510,9 +510,9 @@ func TestTransformerPhaseEthTxIndexOrdering(t *testing.T, create network.CreateE
 	require.NoError(t, err)
 
 	// Verify EthTxIndex ordering: PreBlock=0, BeginBlock=1, EndBlock=2
-	preBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
-	beginBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
-	endBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
+	preBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	beginBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
+	endBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
 
 	preBlockResult, err := idxer.GetByTxHash(preBlockHash)
 	require.NoError(t, err)
@@ -599,17 +599,17 @@ func TestTransformerEmptyPhaseSkipped(t *testing.T, create network.CreateEvmApp,
 	require.Error(t, err, "should not have tx at index 2")
 
 	// Verify PreBlock receipt exists
-	preBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	preBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
 	_, err = idxer.GetEthReceipt(preBlockHash)
 	require.NoError(t, err)
 
 	// Verify BeginBlock receipt does NOT exist
-	beginBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
+	beginBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
 	_, err = idxer.GetEthReceipt(beginBlockHash)
 	require.Error(t, err, "BeginBlock should not have receipt")
 
 	// Verify EndBlock receipt exists
-	endBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
+	endBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
 	_, err = idxer.GetEthReceipt(endBlockHash)
 	require.NoError(t, err)
 }
@@ -715,7 +715,7 @@ func TestTransformerMixedPhasesAndDeliverTx(t *testing.T, create network.CreateE
 	// EndBlock: 4
 
 	// Verify BeginBlock has EthTxIndex = 0
-	beginBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
+	beginBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
 	beginBlockResult, err := idxer.GetByTxHash(beginBlockHash)
 	require.NoError(t, err)
 	require.Equal(t, int32(0), beginBlockResult.EthTxIndex, "BeginBlock should have EthTxIndex 0")
@@ -729,7 +729,7 @@ func TestTransformerMixedPhasesAndDeliverTx(t *testing.T, create network.CreateE
 	}
 
 	// Verify EndBlock has EthTxIndex = 4
-	endBlockHash := indexer.GenerateSyntheticEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
+	endBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
 	endBlockResult, err := idxer.GetByTxHash(endBlockHash)
 	require.NoError(t, err)
 	require.Equal(t, int32(4), endBlockResult.EthTxIndex, "EndBlock should have EthTxIndex 4")
