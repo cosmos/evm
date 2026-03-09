@@ -661,8 +661,56 @@ func (pool *LegacyPool) Rechecked(ctx context.Context, height *big.Int, filter t
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
 func (pool *LegacyPool) Pending(ctx context.Context, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	// TODO: IMPLEMENT ME
-	panic("unimplemented")
+	// If only blob transactions are requested, this pool is unsuitable as it
+	// contains none, don't even bother.
+	if filter.OnlyBlobTxs {
+		return nil
+	}
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
+	var (
+		minTipBig  *big.Int
+		baseFeeBig *big.Int
+	)
+	if filter.MinTip != nil {
+		minTipBig = filter.MinTip.ToBig()
+	}
+	if filter.BaseFee != nil {
+		baseFeeBig = filter.BaseFee.ToBig()
+	}
+	pending := make(map[common.Address][]*txpool.LazyTransaction, len(pool.pending))
+	for addr, list := range pool.pending {
+		txs := list.Flatten()
+
+		// If the miner requests tip enforcement, cap the lists now
+		if minTipBig != nil {
+			for i, tx := range txs {
+				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
+					txs = txs[:i]
+					break
+				}
+			}
+		}
+		if len(txs) > 0 {
+			lazies := make([]*txpool.LazyTransaction, len(txs))
+			for i := 0; i < len(txs); i++ {
+				lazies[i] = &txpool.LazyTransaction{
+					Pool:      pool,
+					Hash:      txs[i].Hash(),
+					Tx:        txs[i],
+					Time:      txs[i].Time(),
+					GasFeeCap: uint256.MustFromBig(txs[i].GasFeeCap()),
+					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
+					Gas:       txs[i].Gas(),
+					BlobGas:   txs[i].BlobGas(),
+				}
+			}
+			pending[addr] = lazies
+		}
+	}
+	return pending
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
