@@ -745,3 +745,95 @@ func TestTransformerMixedPhasesAndDeliverTx(t *testing.T, create network.CreateE
 	_, err = idxer.GetByBlockAndIndex(1, 5)
 	require.Error(t, err, "should not have tx at index 5")
 }
+
+// TestTransformerCumulativeGasUsed tests that CumulativeGasUsed is correctly
+// accumulated across multiple synthetic txs in a block per Ethereum spec.
+func TestTransformerCumulativeGasUsed(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
+	nw := network.New(create, options...)
+	encodingConfig := nw.GetEncodingConfig()
+	clientCtx := client.Context{}.WithTxConfig(encodingConfig.TxConfig).WithCodec(encodingConfig.Codec)
+
+	tokenAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
+	validReceiverAddr := sdk.AccAddress(common.HexToAddress("0x1234567890123456789012345678901234567890").Bytes())
+
+	db := dbm.NewMemDB()
+	idxer := indexer.NewKVIndexer(db, log.NewNopLogger(), clientCtx)
+
+	bankTransformer := NewBankTransferTransformer(tokenAddress)
+	idxer.RegisterTransformer(bankTransformer)
+
+	block := &cmttypes.Block{
+		Header: cmttypes.Header{Height: 1},
+		Data:   cmttypes.Data{Txs: []cmttypes.Tx{}},
+	}
+
+	// Events in 3 different phases - each phase creates a synthetic tx with GasUsed=21000
+	finalizeEvents := []abci.Event{
+		// PreBlock event
+		{
+			Type: banktypes.EventTypeCoinReceived,
+			Attributes: []abci.EventAttribute{
+				{Key: banktypes.AttributeKeyReceiver, Value: validReceiverAddr.String()},
+				{Key: sdk.AttributeKeyAmount, Value: "100stake"},
+			},
+		},
+		// BeginBlock event
+		{
+			Type: banktypes.EventTypeCoinReceived,
+			Attributes: []abci.EventAttribute{
+				{Key: banktypes.AttributeKeyReceiver, Value: validReceiverAddr.String()},
+				{Key: sdk.AttributeKeyAmount, Value: "200stake"},
+				{Key: "mode", Value: "BeginBlock"},
+			},
+		},
+		// EndBlock event
+		{
+			Type: banktypes.EventTypeCoinReceived,
+			Attributes: []abci.EventAttribute{
+				{Key: banktypes.AttributeKeyReceiver, Value: validReceiverAddr.String()},
+				{Key: sdk.AttributeKeyAmount, Value: "300stake"},
+				{Key: "mode", Value: "EndBlock"},
+			},
+		},
+	}
+
+	err := idxer.IndexBlock(block, []*abci.ExecTxResult{}, finalizeEvents)
+	require.NoError(t, err)
+
+	// Each phase's transformer returns GasUsed=21000
+	// Expected CumulativeGasUsed:
+	// - PreBlock (tx 0): 21000
+	// - BeginBlock (tx 1): 42000
+	// - EndBlock (tx 2): 63000
+
+	preBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhasePreBlock), block.Hash())
+	beginBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseBeginBlock), block.Hash())
+	endBlockHash := indexer.GenerateTransformedEthTxHash([]byte(indexer.BlockPhaseEndBlock), block.Hash())
+
+	// Verify PreBlock receipt CumulativeGasUsed
+	preBlockReceiptJSON, err := idxer.GetEthReceipt(preBlockHash)
+	require.NoError(t, err)
+	var preBlockReceipt ethtypes.Receipt
+	err = json.Unmarshal(preBlockReceiptJSON, &preBlockReceipt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(21000), preBlockReceipt.GasUsed, "PreBlock GasUsed should be 21000")
+	require.Equal(t, uint64(21000), preBlockReceipt.CumulativeGasUsed, "PreBlock CumulativeGasUsed should be 21000")
+
+	// Verify BeginBlock receipt CumulativeGasUsed
+	beginBlockReceiptJSON, err := idxer.GetEthReceipt(beginBlockHash)
+	require.NoError(t, err)
+	var beginBlockReceipt ethtypes.Receipt
+	err = json.Unmarshal(beginBlockReceiptJSON, &beginBlockReceipt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(21000), beginBlockReceipt.GasUsed, "BeginBlock GasUsed should be 21000")
+	require.Equal(t, uint64(42000), beginBlockReceipt.CumulativeGasUsed, "BeginBlock CumulativeGasUsed should be 42000")
+
+	// Verify EndBlock receipt CumulativeGasUsed
+	endBlockReceiptJSON, err := idxer.GetEthReceipt(endBlockHash)
+	require.NoError(t, err)
+	var endBlockReceipt ethtypes.Receipt
+	err = json.Unmarshal(endBlockReceiptJSON, &endBlockReceipt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(21000), endBlockReceipt.GasUsed, "EndBlock GasUsed should be 21000")
+	require.Equal(t, uint64(63000), endBlockReceipt.CumulativeGasUsed, "EndBlock CumulativeGasUsed should be 63000")
+}

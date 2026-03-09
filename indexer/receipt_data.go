@@ -25,8 +25,9 @@ type TransformedTxData struct {
 	Logs      []*ethtypes.Log
 
 	// Optional fields
-	Input   []byte // tx input data (default: empty)
-	V, R, S *big.Int
+	Input             []byte // tx input data (default: empty)
+	CumulativeGasUsed uint64 // running total of gas used in block (set by indexer)
+	V, R, S           *big.Int
 }
 
 // NewTransformedTxData creates a new TransformedTxData with required fields.
@@ -76,7 +77,7 @@ func (d *TransformedTxData) getReceipt(blockHash common.Hash, blockNumber int64,
 	return &ethtypes.Receipt{
 		Type:              0,
 		Status:            d.Status,
-		CumulativeGasUsed: d.GasUsed,
+		CumulativeGasUsed: d.CumulativeGasUsed,
 		Bloom:             bloom,
 		Logs:              logs,
 		TxHash:            d.EthTxHash,

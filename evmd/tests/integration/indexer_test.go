@@ -71,4 +71,7 @@ func TestTransformer(t *testing.T) {
 	t.Run("MixedPhasesAndDeliverTx", func(t *testing.T) {
 		indexer.TestTransformerMixedPhasesAndDeliverTx(t, create)
 	})
+	t.Run("CumulativeGasUsed", func(t *testing.T) {
+		indexer.TestTransformerCumulativeGasUsed(t, create)
+	})
 }

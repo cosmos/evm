@@ -338,13 +338,14 @@ func (kv *KVIndexer) saveTransformedTx(
 
 	// Create TransformedTxData
 	ethData := &TransformedTxData{
-		EthTxHash: ethTxHash,
-		From:      common.Address{},
-		To:        nil,
-		Value:     big.NewInt(0),
-		GasUsed:   gasUsed,
-		Status:    1, // success
-		Logs:      logs,
+		EthTxHash:         ethTxHash,
+		From:              common.Address{},
+		To:                nil,
+		Value:             big.NewInt(0),
+		GasUsed:           gasUsed,
+		CumulativeGasUsed: cumulativeGas,
+		Status:            1, // success
+		Logs:              logs,
 	}
 
 	// Save receipt
