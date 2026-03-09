@@ -311,7 +311,7 @@ func (m *KrakatoaMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *KrakatoaMempool) insert(ctx context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *KrakatoaMempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
@@ -607,13 +607,6 @@ func (m *KrakatoaMempool) TrackTx(hash common.Hash) error {
 // This is primarily used for testing.
 func (m *KrakatoaMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckedCosmosPool.TriggerRecheckSync(newHead)
-}
-
-// StopTrackingTx stops a tx from being tracked for its tx inclusion metrics.
-// This should only be used if a tx has not yet been included in the mempool,
-// i.e. received an error from Insert.
-func (m *KrakatoaMempool) StopTrackingTx(hash common.Hash) {
-	m.txTracker.RemoveTx(hash)
 }
 
 // broadcastEVMTransaction converts an Ethereum transaction to Cosmos SDK format and broadcasts them.
