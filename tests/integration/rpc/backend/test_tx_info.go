@@ -20,7 +20,7 @@ import (
 	cosmosevmtypes "github.com/cosmos/evm/server/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 )
 

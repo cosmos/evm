@@ -162,7 +162,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 			},
 			{
 				Denom:    types.DefaultEVMDisplayDenom,
-				Exponent: 6,
+				Exponent: 18,
 				Aliases:  nil,
 			},
 		},
@@ -440,6 +440,7 @@ func (chain *TestChain) SendEvmTx(
 
 	res, err := app.FinalizeBlock(&req)
 	require.NoError(chain.TB, err)
+	res.TxResults = types.PatchTxResponses(res.TxResults)
 
 	chain.commitBlock(res)
 
@@ -508,6 +509,7 @@ func (chain *TestChain) SendMsgsWithSender(sender SenderAccount, msgs ...sdk.Msg
 	if err != nil {
 		return nil, err
 	}
+	resp.TxResults = types.PatchTxResponses(resp.TxResults)
 
 	chain.commitBlock(resp)
 

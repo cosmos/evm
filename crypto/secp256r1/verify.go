@@ -40,7 +40,7 @@ func Verify(hash []byte, r, s, x, y *big.Int) bool {
 // newECDSAPublicKey creates an ECDSA P256 public key from the given coordinates
 func newECDSAPublicKey(x, y *big.Int) *ecdsa.PublicKey {
 	// Check if the given coordinates are valid and in the reference point (infinity)
-	if x == nil || y == nil || x.Sign() == 0 && y.Sign() == 0 || !elliptic.P256().IsOnCurve(x, y) {
+	if x == nil || y == nil || x.Sign() == 0 && y.Sign() == 0 || !elliptic.P256().IsOnCurve(x, y) { //nolint:staticcheck // SA1019: legacy key validation
 		return nil
 	}
 

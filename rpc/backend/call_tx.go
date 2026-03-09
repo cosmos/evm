@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -158,50 +157,79 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
-	txHash := ethereumTx.AsTransaction().Hash()
+	txHash := tx.Hash()
 
-	// Check if transaction is already in the mempool before broadcasting
-	// This is important for user-submitted transactions via JSON-RPC to provide proper error feedback
-	if b.Mempool != nil && b.Mempool.Has(txHash) {
-		return txHash, txpool.ErrAlreadyKnown
+	// publish tx directly to app-side mempool, avoiding broadcasting to
+	// consensus layer.
+	if b.UseAppMempool {
+		// track the tx for tx inclusion timing metrics of local txs
+		if err := b.Mempool.TrackTx(txHash); err != nil {
+			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
+		}
+
+		// we are directly calling into the mempool rather than the ABCI
+		// handler for InsertTx, since the ABCI handler obfuscates the error's
+		// returned via codes, and we would like to have the full error to
+		// return to clients.
+		err := b.Mempool.Insert(b.Application.GetContextForCheckTx(txBytes), cosmosTx)
+		if err != nil {
+			// no need for special error handling like in the broadcast tx case
+			// since this is coming directly from the evm mempool insert.
+			b.Mempool.StopTrackingTx(txHash)
+			return common.Hash{}, err
+		}
+
+		return txHash, nil
 	}
 
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
+
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
+
 	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			return txHash, nil
-		}
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
-			from, err := ethSigner.Sender(tx)
-			if err != nil {
-				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
-			}
-			nonce, err := b.getAccountNonce(ctx, from, false, b.ClientCtx.Height, b.Logger)
-			if err != nil {
-				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
-			}
-
-			// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
-			if tx.Nonce() < nonce {
-				return common.Hash{}, err
-			}
-
-			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
-			return txHash, nil
-		}
-
-		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
+		return b.handleSendTxError(ctx, tx, ethSigner, err)
 	}
 
 	return txHash, nil
+}
+
+// handleSendTxError temporary workaround for check-tx backward compatibility
+func (b *Backend) handleSendTxError(ctx context.Context, tx *ethtypes.Transaction, signer ethtypes.Signer, err error) (common.Hash, error) {
+	txHash := tx.Hash()
+
+	// Check if this is a nonce gap error that was successfully queued
+	if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
+		// Transaction was successfully queued due to nonce gap, return success to client
+		b.Logger.Debug("Transaction queued due to nonce gap", "hash", txHash.Hex())
+		return txHash, nil
+	}
+
+	if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
+		from, err := signer.Sender(tx)
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
+		}
+
+		nonce, err := b.getAccountNonce(ctx, from, false, b.ClientCtx.Height, b.Logger)
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
+		}
+
+		// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
+		if tx.Nonce() < nonce {
+			return common.Hash{}, err
+		}
+
+		// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
+		return txHash, nil
+	}
+
+	b.Logger.Error("Failed to broadcast tx", "error", err.Error())
+
+	return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 }
 
 // SetTxDefaults populates tx message with default values in case they are not

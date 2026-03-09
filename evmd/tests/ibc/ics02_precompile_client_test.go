@@ -59,7 +59,7 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		calldata  []byte
+		calldata       []byte
 		expClientState []byte
 		expErr         bool
 	)
@@ -238,8 +238,8 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 
 				misbehaviour := &ibctm.Misbehaviour{
 					ClientId: clientID,
-					Header1: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
-					Header2: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header1:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header2:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
 				}
 
 				anyMisbehavior, err := clienttypes.PackClientMessage(misbehaviour)
@@ -895,6 +895,120 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			s.Require().Equal(expResult, res)
 		})
 	}
+}
+
+func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreezeAttack() {
+	clientID := ibctesting.FirstClientID
+	evmAppA := s.chainA.App.(*evmd.EVMD)
+
+	// ---------------------------------------------------------------
+	// Step 1: Record the current trusted height (the client's latest
+	// consensus state) and the trusted validators at that height.
+	// ---------------------------------------------------------------
+	trustedHeight := evmAppA.IBCKeeper.ClientKeeper.GetClientLatestHeight(
+		s.chainA.GetContext(), clientID,
+	)
+	trustedVals, ok := s.chainB.TrustedValidators[trustedHeight.RevisionHeight]
+	s.Require().True(ok, "must have trusted validators at the client's latest height")
+
+	// ---------------------------------------------------------------
+	// Step 2: Create Header 1 at height H (= trustedHeight + 1).
+	// This is a perfectly legitimate header from chainB, signed by
+	// chainB's current validator set.
+	// ---------------------------------------------------------------
+	heightH := int64(trustedHeight.RevisionHeight) + 1
+	timeH := s.chainB.ProposedHeader.Time.Add(1 * time.Minute)
+
+	header1 := s.chainB.CreateTMClientHeader(
+		s.chainB.ChainID,
+		heightH,
+		clienttypes.Height(trustedHeight),
+		timeH,
+		s.chainB.Vals,
+		s.chainB.NextVals,
+		trustedVals,
+		s.chainB.Signers,
+	)
+
+	// ---------------------------------------------------------------
+	// Step 3: Create Header 2 at height H+1 (higher than Header 1)
+	// with a later timestamp (normal BFT monotonic time).
+	// Both headers reference the same trustedHeight.
+	// ---------------------------------------------------------------
+	heightH1 := heightH + 1
+	timeH1 := timeH.Add(1 * time.Minute) // later time for higher height (normal)
+
+	header2 := s.chainB.CreateTMClientHeader(
+		s.chainB.ChainID,
+		heightH1,
+		clienttypes.Height(trustedHeight),
+		timeH1,
+		s.chainB.Vals,
+		s.chainB.NextVals,
+		trustedVals,
+		s.chainB.Signers,
+	)
+
+	// ---------------------------------------------------------------
+	// Step 4: Build the Misbehaviour with REVERSED ordering.
+	//
+	// Header1 = header at height H   (LOWER)
+	// Header2 = header at height H+1 (HIGHER)
+	//
+	// ValidateBasic() requires Header1.Height >= Header2.Height.
+	// Here Header1.Height < Header2.Height -- invalid ordering.
+	// ---------------------------------------------------------------
+	misbehaviour := &ibctm.Misbehaviour{
+		ClientId: clientID,
+		Header1:  header1, // height H   (lower)
+		Header2:  header2, // height H+1 (higher)
+	}
+
+	// ---------------------------------------------------------------
+	// Step 5: Serialize the misbehaviour as protobuf Any and marshal
+	// to bytes, exactly as the precompile will receive it.
+	// ---------------------------------------------------------------
+	anyMisbehaviour, err := clienttypes.PackClientMessage(misbehaviour)
+	s.Require().NoError(err)
+
+	updateBz, err := anyMisbehaviour.Marshal()
+	s.Require().NoError(err)
+
+	// ABI-encode the precompile call
+	calldata, err := s.chainAPrecompile.Pack(
+		ics02.UpdateClientMethod, clientID, updateBz,
+	)
+	s.Require().NoError(err)
+
+	// ---------------------------------------------------------------
+	// Step 6: Submit via an EVM transaction to the ICS02 precompile.
+	// The precompile deserializes the bytes and calls
+	// keeper.UpdateClient WITHOUT calling ValidateBasic().
+	// ---------------------------------------------------------------
+	senderIdx := 1
+	senderAccount := s.chainA.SenderAccounts[senderIdx]
+
+	_, _, _, err = s.chainA.SendEvmTx(
+		senderAccount, senderIdx,
+		s.chainAPrecompile.Address(),
+		big.NewInt(0),
+		calldata,
+		200_000,
+	)
+
+	// ---------------------------------------------------------------
+	// Step 7: Assert the attack failed.
+	// ---------------------------------------------------------------
+	s.Require().Error(err, "ValidateBasic error should be returned by precompile")
+
+	// ---------------------------------------------------------------
+	// Step 8: Assert the client is still active (not frozen).
+	// ---------------------------------------------------------------
+	status := evmAppA.IBCKeeper.ClientKeeper.GetClientStatus(
+		s.chainA.GetContext(), clientID,
+	)
+	s.Require().Equal(ibcexported.Active, status,
+		"client must be active after the failed attack")
 }
 
 func TestICS02ClientTestSuite(t *testing.T) {

@@ -107,6 +107,12 @@ func (k EVMKeeper) DeleteAccount(_ sdk.Context, addr common.Address) error {
 		return errors.New("mock db error")
 	}
 	old := k.accounts[addr]
+	if !types.IsEmptyCodeHash(old.account.CodeHash) {
+		code := k.codes[common.BytesToHash(old.account.CodeHash)]
+		if len(code) == 0 {
+			return errors.New("only smart contracts can be self-destructed")
+		}
+	}
 	delete(k.accounts, addr)
 	if !types.IsEmptyCodeHash(old.account.CodeHash) {
 		delete(k.codes, common.BytesToHash(old.account.CodeHash))

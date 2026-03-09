@@ -291,7 +291,8 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 	txConfig := statedb.NewEmptyTxConfig()
 
 	// pass false to not commit StateDB
-	res, err := k.ApplyMessageWithConfig(ctx, *msg, nil, false, cfg, txConfig, false, overrides)
+	stateDB := statedb.New(ctx, &k, txConfig)
+	res, err := k.ApplyMessageWithConfig(ctx, stateDB, *msg, nil, false, false, cfg, txConfig, false, overrides)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -338,7 +339,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
-		lo     uint64
+		lo     = ethparams.TxGas - 1
 		hi     uint64
 		gasCap uint64
 	)
@@ -350,7 +351,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		// Query block gas limit
 		params := ctx.ConsensusParams()
 		if params.Block != nil && params.Block.MaxGas > 0 {
-			hi = uint64(params.Block.MaxGas) //nolint:gosec // G115 // won't exceed uint64
+			hi = uint64(params.Block.MaxGas)
 		} else {
 			hi = req.GasCap
 		}
@@ -440,9 +441,9 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			// resetting the gasMeter after increasing the sequence to have an accurate gas estimation on EVM extensions transactions
 			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit)
 		}
-		// pass "commit" as false to avoid committing StateDB
-		// pass "internal" as true to avoid applying feemarketParams.MinGasMultiplier for gas estimation.
-		rsp, err = k.ApplyMessageWithConfig(tmpCtx, *msg, nil, false, cfg, txConfig, true, overrides)
+		// pass false to not commit StateDB
+		stateDB := statedb.New(tmpCtx, &k, txConfig)
+		rsp, err = k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, nil, false, false, cfg, txConfig, false, overrides)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -492,12 +493,6 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		// If no larger allowance is available, fail fast
 		return nil, fmt.Errorf("gas required exceeds allowance (%d)", hi)
 	}
-	// For almost any transaction, the gas consumed by the unconstrained execution
-	// above lower-bounds the gas limit required for it to succeed. One exception
-	// is those that explicitly check gas remaining in order to execute within a
-	// given limit, but we probably don't want to return the lowest possible gas
-	// limit for these cases anyway.
-	lo = result.GasUsed - 1
 
 	// There's a fairly high chance for the transaction to execute successfully
 	// with gasLimit set to the first execution's usedGas + gasRefund. Explicitly
@@ -602,12 +597,13 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 		}
 		msg.GasLimit = min(msg.GasLimit, maxPredecessorGas)
 		txConfig.TxHash = ethTx.Hash()
-		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
+		txConfig.TxIndex = uint(i)
 
 		ctx = buildTraceCtx(ctx, msg.GasLimit)
 		// we ignore the error here. this endpoint, ideally, is called internally from the ETH backend, which will call this query
 		// using all previous txs in the trace transaction's block. some of those _could_ be invalid transactions.
-		rsp, _ := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig, false, nil)
+		stateDB := statedb.New(ctx, &k, txConfig)
+		rsp, _ := k.ApplyMessageWithConfig(ctx, stateDB, *msg, nil, true, false, cfg, txConfig, false, nil)
 		if rsp != nil {
 			ctx.GasMeter().ConsumeGas(rsp.GasUsed, "evm predecessor tx")
 		}
@@ -693,7 +689,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		result := types.TxTraceResult{}
 		ethTx := tx.AsTransaction()
 		txConfig.TxHash = ethTx.Hash()
-		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
+		txConfig.TxIndex = uint(i)
 		traceResult, err := k.traceTx(ctx, cfg, txConfig, signer, ethTx, req.TraceConfig, true)
 		if err != nil {
 			result.Error = err.Error()
@@ -905,7 +901,8 @@ func (k *Keeper) traceTxWithMsg(
 
 	// Build EVM execution context
 	ctx = buildTraceCtx(ctx, msg.GasLimit)
-	_, err = k.ApplyMessageWithConfig(ctx, *msg, tracer.Hooks, commitMessage, cfg, txConfig, false, nil)
+	stateDB := statedb.New(ctx, k, txConfig)
+	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, nil)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

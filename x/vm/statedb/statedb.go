@@ -34,7 +34,6 @@ import (
 type revision struct {
 	id           int
 	journalIndex int
-	events       sdk.Events
 }
 
 var _ vm.StateDB = &StateDB{}
@@ -80,6 +79,12 @@ type StateDB struct {
 
 	// The count of calls to precompiles
 	precompileCallsCounter uint8
+
+	// processedEventsCount tracks how many events have been
+	// processed by BalanceHandler. Events are processed sequentially starting
+	// from index 0. Event counter tracks events to avoid having them reprocessed.
+	// On revert, this counter is rewound to the snapshot's event count.
+	processedEventsCount int
 }
 
 func (s *StateDB) CreateContract(address common.Address) {
@@ -142,20 +147,19 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			delete(s.stateObjects, obj.address)
 		}
 	}
-	// Invalidate journal because reverting across transactions is not allowed.
-	s.clearJournalAndRefund()
 }
 
 // New creates a new state from a given trie.
 func New(ctx sdk.Context, keeper Keeper, txConfig TxConfig) *StateDB {
 	return &StateDB{
-		keeper:           keeper,
-		ctx:              ctx,
-		stateObjects:     make(map[common.Address]*stateObject),
-		journal:          newJournal(),
-		accessList:       newAccessList(),
-		transientStorage: newTransientStorage(),
-		txConfig:         txConfig,
+		keeper:               keeper,
+		ctx:                  ctx,
+		stateObjects:         make(map[common.Address]*stateObject),
+		journal:              newJournal(),
+		accessList:           newAccessList(),
+		transientStorage:     newTransientStorage(),
+		txConfig:             txConfig,
+		processedEventsCount: len(ctx.EventManager().Events()),
 	}
 }
 
@@ -186,12 +190,8 @@ func (s *StateDB) MultiStoreSnapshot() int {
 	return s.snapshotter.Snapshot()
 }
 
-func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
+func (s *StateDB) RevertMultiStore(snapshot int) {
 	s.snapshotter.RevertToSnapshot(snapshot)
-	s.writeCache = func() {
-		s.ctx.EventManager().EmitEvents(events)
-		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
-	}
 }
 
 // cache creates the stateDB cache context
@@ -210,7 +210,8 @@ func (s *StateDB) cache() error {
 	s.snapshotter = snapshotStore
 	s.cacheCtx = s.cacheCtx.WithMultiStore(snapshotStore)
 	s.writeCache = func() {
-		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
+		eventsToEmit := s.cacheCtx.EventManager().Events()
+		s.ctx.EventManager().EmitEvents(eventsToEmit)
 		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}
 
@@ -333,25 +334,6 @@ func (s *StateDB) GetStateAndCommittedState(addr common.Address, hash common.Has
 	return common.Hash{}, common.Hash{}
 }
 
-// SetStateOverride installs the provided storage value as part of the base state used by simulations.
-func (s *StateDB) SetStateOverride(addr common.Address, key, value common.Hash) {
-	stateObject := s.getOrNewStateObject(addr)
-	if stateObject != nil {
-		stateObject.SetStateOverride(key, value)
-	}
-}
-
-func (s *StateDB) clearJournalAndRefund() {
-	if s.journal == nil {
-		s.journal = newJournal()
-	} else {
-		s.journal.reset()
-	}
-	s.validRevisions = nil
-	s.nextRevisionID = 0
-	s.refund = 0
-}
-
 // GetRefund returns the current value of the refund counter.
 func (s *StateDB) GetRefund() uint64 {
 	return s.refund
@@ -454,16 +436,37 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // AddPrecompileFn adds a precompileCall journal entry
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
-func (s *StateDB) AddPrecompileFn(snapshot int, events sdk.Events) error {
+func (s *StateDB) AddPrecompileFn(snapshot int) error {
+	// Capture events before the precompile call
+	prevEvents := s.cacheCtx.EventManager().Events()
+
 	s.journal.append(precompileCallChange{
-		snapshot: snapshot,
-		events:   events,
+		snapshot:                snapshot,
+		prevEvents:              prevEvents,
+		prevProcessedEventCount: s.processedEventsCount,
 	})
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
 		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
 	}
 	return nil
+}
+
+// MarkEventProcessed records that the event at the given index
+// has been seen by BalanceHandler. Events must be marked sequentially.
+func (s *StateDB) MarkEventProcessed(idx int) {
+	// Events must be processed sequentially - idx should equal current count
+	if idx != s.processedEventsCount {
+		panic(fmt.Sprintf("balance events must be processed sequentially: expected %d, got %d",
+			s.processedEventsCount, idx))
+	}
+	s.processedEventsCount++
+}
+
+// IsEventProcessed reports whether the event at idx has already been
+// seen by a previous AfterBalanceChange invocation.
+func (s *StateDB) IsEventProcessed(idx int) bool {
+	return idx < s.processedEventsCount
 }
 
 // AddBalance adds amount to the account associated with addr.
@@ -685,7 +688,7 @@ func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addre
 func (s *StateDB) Snapshot() int {
 	id := s.nextRevisionID
 	s.nextRevisionID++
-	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length(), s.ctx.EventManager().Events()})
+	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
 	return id
 }
 
@@ -700,12 +703,8 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 	}
 	snapshot := s.validRevisions[idx].journalIndex
 
-	// revert back to snapshotted events
-	eventManager := sdk.NewEventManager()
-	eventManager.EmitEvents(s.validRevisions[idx].events)
-	s.ctx = s.ctx.WithEventManager(eventManager)
-
 	// Replay the journal to undo changes and remove invalidated snapshots
+	// Event restoration is handled by precompileCallChange.Revert()
 	s.journal.Revert(s, snapshot)
 	s.validRevisions = s.validRevisions[:idx]
 }
@@ -718,22 +717,38 @@ func (s *StateDB) Commit() error {
 	if s.writeCache != nil {
 		s.writeCache()
 	}
-	return s.commitWithCtx(s.ctx, false)
+	return s.commitWithCtx(s.ctx)
 }
 
-// CommitWithCacheCtx writes the dirty states to keeper using the cacheCtx.
+// FlushToCacheCtx writes the dirty states to keeper using the cacheCtx.
 // This function is used before any precompile call to make sure the cacheCtx
 // is updated with the latest changes within the tx (StateDB's journal entries).
-func (s *StateDB) CommitWithCacheCtx() error {
-	return s.commitWithCtx(s.cacheCtx, true)
+func (s *StateDB) FlushToCacheCtx() error {
+	if err := s.commitWithCtx(s.cacheCtx); err != nil {
+		return err
+	}
+
+	// Set counter to event count - all flushed events (from mint/burn during commit) are now accounted for.
+	// This prevents the balance handler from re-adding already flushed events.
+	s.processedEventsCount = len(s.cacheCtx.EventManager().Events())
+
+	return nil
 }
 
 // commitWithCtx writes the dirty states to keeper
 // using the provided context
-func (s *StateDB) commitWithCtx(ctx sdk.Context, keepDirty bool) error {
+func (s *StateDB) commitWithCtx(ctx sdk.Context) error {
 	for _, addr := range s.journal.sortedDirties() {
 		obj := s.stateObjects[addr]
 		if obj.selfDestructed {
+			// For EIP-6780 same-tx self-destruct: persist code+account first so DeleteAccount's
+			// IsContract check can verify it, then immediately delete everything
+			if obj.code != nil && obj.dirtyCode && len(obj.code) > 0 {
+				s.keeper.SetCode(ctx, obj.CodeHash(), obj.code)
+				if err := s.keeper.SetAccount(ctx, obj.Address(), obj.account); err != nil {
+					return errorsmod.Wrap(err, "failed to set account before delete")
+				}
+			}
 			if err := s.keeper.DeleteAccount(ctx, obj.Address()); err != nil {
 				return errorsmod.Wrapf(err, "failed to delete account %s", obj.Address())
 			}
@@ -755,32 +770,6 @@ func (s *StateDB) commitWithCtx(ctx sdk.Context, keepDirty bool) error {
 					s.keeper.DeleteState(ctx, obj.Address(), key)
 				} else {
 					s.keeper.SetState(ctx, obj.Address(), key, valueBytes)
-				}
-
-				// Track the persisted value as the new baseline so later writes compare
-				// against the most recently flushed state. In go-ethereum the same happens
-				// during commitStorage: originStorage follows the latest flush and act as
-				// the reference for future dirty detection. The actual revert path still
-				// consults the journal's origvalue, so keeping this cache in sync during
-				// cacheCtx flushes is safe even if a precompile subsequently reverts.
-				if obj.originStorage == nil {
-					obj.originStorage = make(Storage)
-				}
-				if len(valueBytes) == 0 {
-					delete(obj.originStorage, key)
-				} else {
-					obj.originStorage[key] = obj.dirtyStorage[key]
-				}
-				// Only the final Commit against the root context should clear dirtyStorage.
-				// During precompile execution we pass keepDirty=true so that the slots remain
-				// marked dirty after cacheCtx flushes, letting the outer transaction still
-				// persist those writes (or revert them via the journal) once execution finishes.
-				//
-				// This is essential after SetState started syncing originStorage: the cacheCtx
-				// flush must leave the dirty slots intact so the final Commit() can push the
-				// same updates into the keeper context.
-				if !keepDirty {
-					delete(obj.dirtyStorage, key)
 				}
 			}
 		}

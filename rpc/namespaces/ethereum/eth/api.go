@@ -17,7 +17,7 @@ import (
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 var tracer = otel.Tracer("evm/rpc/namespaces/ethereum/eth")
@@ -403,7 +403,7 @@ func (e *PublicAPI) MaxPriorityFeePerGas() (_ *hexutil.Big, err error) {
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (e *PublicAPI) ChainId() (_ *hexutil.Big, err error) { //nolint
+func (e *PublicAPI) ChainId() (_ *hexutil.Big, err error) {
 	ctx, span := tracer.Start(context.Background(), "eth_chainId")
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	e.logger.Debug("eth_chainId")

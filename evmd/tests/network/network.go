@@ -17,8 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/evm/utils"
-
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -34,8 +32,9 @@ import (
 	"github.com/cosmos/evm/server/config"
 	evmtestutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/utils"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 

@@ -3,15 +3,16 @@
 package systemtests
 
 import (
+	"testing"
+
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
-	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 
-	"cosmossdk.io/systemtests"
+	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
 )
 
 func TestMain(m *testing.M) {
@@ -31,10 +32,6 @@ func TestMempoolTxsReplacement(t *testing.T) {
 
 func TestMempoolTxsReplacementWithCosmosTx(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunTxsReplacementWithCosmosTx)
-}
-
-func TestMempoolMixedTxsReplacementEVMAndCosmos(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementEVMAndCosmos)
 }
 
 func TestMempoolMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {

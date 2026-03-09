@@ -2349,7 +2349,8 @@ func (_c *Client_Validators_Call) RunAndReturn(run func(context.Context, *int64,
 func NewClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *Client {
+},
+) *Client {
 	mock := &Client{}
 	mock.Mock.Test(t)
 

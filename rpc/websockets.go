@@ -27,7 +27,7 @@ import (
 	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/server/config"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client"
 )
@@ -389,6 +389,7 @@ func (s *websocketsServer) tcpGetAndSendResponse(wsConn *wsConn, mb []byte) erro
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
+	// #nosec G704 -- URL is node's own rpcAddr from config, not user-controlled
 	resp, err := client.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "Could not perform request")

@@ -2,11 +2,13 @@ package ante
 
 import (
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	antetypes "github.com/cosmos/evm/ante/types"
+	"github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/gogoproto/proto"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
 	errorsmod "cosmossdk.io/errors"
 	storetypes "cosmossdk.io/store/types"
-	txsigning "cosmossdk.io/x/tx/signing"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,6 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	txsigning "github.com/cosmos/cosmos-sdk/x/tx/signing"
 )
 
 // HandlerOptions defines the list of module keepers required to run the Cosmos EVM
@@ -72,6 +75,8 @@ func (options HandlerOptions) Validate() error {
 // transaction-level processing (e.g. fee payment, signature verification) before
 // being passed onto it's respective handler.
 func NewAnteHandler(options HandlerOptions) sdk.AnteHandler {
+	extensionOptionsEthereumTx := "/" + proto.MessageName(&types.ExtensionOptionsEthereumTx{})
+	extensionOptionsDynamicFeeTx := "/" + proto.MessageName(&antetypes.ExtensionOptionDynamicFeeTx{})
 	return func(
 		ctx sdk.Context, tx sdk.Tx, sim bool,
 	) (newCtx sdk.Context, err error) {
@@ -82,10 +87,10 @@ func NewAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			opts := txWithExtensions.GetExtensionOptions()
 			if len(opts) > 0 {
 				switch typeURL := opts[0].GetTypeUrl(); typeURL {
-				case "/cosmos.evm.vm.v1.ExtensionOptionsEthereumTx":
+				case extensionOptionsEthereumTx:
 					// handle as *evmtypes.MsgEthereumTx
 					anteHandler = newMonoEVMAnteHandler(ctx, options)
-				case "/cosmos.evm.ante.v1.ExtensionOptionDynamicFeeTx":
+				case extensionOptionsDynamicFeeTx:
 					// cosmos-sdk tx with dynamic fee extension
 					anteHandler = newCosmosAnteHandler(ctx, options)
 				default:

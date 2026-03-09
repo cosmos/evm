@@ -10,11 +10,11 @@ import (
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/vm/statedb"
 
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 var (
@@ -24,45 +24,6 @@ var (
 	logApprovalSig     = []byte("Approval(address,address,uint256)")
 	logApprovalSigHash = crypto.Keccak256Hash(logApprovalSig)
 )
-
-// DeployERC20Contract creates and deploys an ERC20 contract on the EVM with the
-// erc20 module account as owner.
-func (k Keeper) DeployERC20Contract(
-	ctx sdk.Context,
-	coinMetadata banktypes.Metadata,
-) (common.Address, error) {
-	decimals := uint8(0)
-	if len(coinMetadata.DenomUnits) > 0 {
-		decimalsIdx := len(coinMetadata.DenomUnits) - 1
-		decimals = uint8(coinMetadata.DenomUnits[decimalsIdx].Exponent) //#nosec G115 // exponent will not exceed uint8
-	}
-	ctorArgs, err := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack(
-		"",
-		coinMetadata.Name,
-		coinMetadata.Symbol,
-		decimals,
-	)
-	if err != nil {
-		return common.Address{}, errorsmod.Wrapf(types.ErrABIPack, "coin metadata is invalid %s: %s", coinMetadata.Name, err.Error())
-	}
-
-	data := make([]byte, len(contracts.ERC20MinterBurnerDecimalsContract.Bin)+len(ctorArgs))
-	copy(data[:len(contracts.ERC20MinterBurnerDecimalsContract.Bin)], contracts.ERC20MinterBurnerDecimalsContract.Bin)
-	copy(data[len(contracts.ERC20MinterBurnerDecimalsContract.Bin):], ctorArgs)
-
-	nonce, err := k.accountKeeper.GetSequence(ctx, types.ModuleAddress.Bytes())
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	contractAddr := crypto.CreateAddress(types.ModuleAddress, nonce)
-	_, err = k.evmKeeper.CallEVMWithData(ctx, types.ModuleAddress, nil, data, true, nil)
-	if err != nil {
-		return common.Address{}, errorsmod.Wrapf(err, "failed to deploy contract for %s", coinMetadata.Name)
-	}
-
-	return contractAddr, nil
-}
 
 // QueryERC20 returns the data of a deployed ERC20 contract
 func (k Keeper) QueryERC20(
@@ -84,7 +45,9 @@ func (k Keeper) QueryERC20(
 	}
 
 	// Decimals - standard uint8, no fallback needed
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, nil, "decimals")
+	stateDB := statedb.New(ctx, k.evmKeeper, statedb.NewEmptyTxConfig())
+	// Okay to assume we're not calling from a precompile, as queries will just revert state changes.
+	res, err := k.evmKeeper.CallEVM(ctx, stateDB, erc20, types.ModuleAddress, contract, false, false, nil, "decimals")
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
@@ -107,7 +70,9 @@ func (k Keeper) queryERC20String(
 	method string,
 ) (string, error) {
 	// 1) Call into the EVM
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, nil, method)
+	stateDB := statedb.New(ctx, k.evmKeeper, statedb.NewEmptyTxConfig())
+	// Okay to assume we're not calling from a precompile, as queries will just revert state changes.
+	res, err := k.evmKeeper.CallEVM(ctx, stateDB, erc20, types.ModuleAddress, contract, false, false, nil, method)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +105,9 @@ func (k Keeper) BalanceOf(
 	abi abi.ABI,
 	contract, account common.Address,
 ) *big.Int {
-	res, err := k.evmKeeper.CallEVM(ctx, abi, types.ModuleAddress, contract, false, nil, "balanceOf", account)
+	stateDB := statedb.New(ctx, k.evmKeeper, statedb.NewEmptyTxConfig())
+	// Okay to assume we're not calling from a precompile, as queries will just revert state changes.
+	res, err := k.evmKeeper.CallEVM(ctx, stateDB, abi, types.ModuleAddress, contract, false, false, nil, "balanceOf", account)
 	if err != nil {
 		return nil
 	}

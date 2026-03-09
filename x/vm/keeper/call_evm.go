@@ -12,6 +12,7 @@ import (
 
 	"github.com/cosmos/evm/server/config"
 	evmtrace "github.com/cosmos/evm/trace"
+	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -20,15 +21,9 @@ import (
 )
 
 // CallEVM performs a smart contract method call using given args.
-func (k Keeper) CallEVM(
-	ctx sdk.Context,
-	abi abi.ABI,
-	from, contract common.Address,
-	commit bool,
-	gasCap *big.Int,
-	method string,
-	args ...any,
-) (_ *types.MsgEthereumTxResponse, err error) {
+// Note: if you call this from a precompile context, ensure that
+// you use the existing stateDB.
+func (k Keeper) CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (_ *types.MsgEthereumTxResponse, err error) {
 	ctx, span := ctx.StartSpan(tracer, "CallEVM", trace.WithAttributes(
 		attribute.String("from", from.Hex()),
 		attribute.String("contract", contract.Hex()),
@@ -44,7 +39,7 @@ func (k Keeper) CallEVM(
 		)
 	}
 
-	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit, gasCap)
+	resp, err := k.CallEVMWithData(ctx, stateDB, from, &contract, data, commit, callFromPrecompile, gasCap)
 	if err != nil {
 		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
@@ -52,14 +47,9 @@ func (k Keeper) CallEVM(
 }
 
 // CallEVMWithData performs a smart contract method call using contract data.
-func (k Keeper) CallEVMWithData(
-	ctx sdk.Context,
-	from common.Address,
-	contract *common.Address,
-	data []byte,
-	commit bool,
-	gasCap *big.Int,
-) (_ *types.MsgEthereumTxResponse, err error) {
+// Note: if you call this from a precompile context, ensure that
+// you use the existing stateDB.
+func (k Keeper) CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (_ *types.MsgEthereumTxResponse, err error) {
 	contractAddr := ""
 	if contract != nil {
 		contractAddr = contract.Hex()
@@ -76,12 +66,22 @@ func (k Keeper) CallEVMWithData(
 		return nil, err
 	}
 
+	gasLimit := config.DefaultGasCap
+	if gasCap != nil && gasCap.Sign() > 0 {
+		if gasCap.BitLen() <= 64 {
+			provided := gasCap.Uint64()
+			if provided < gasLimit {
+				gasLimit = provided
+			}
+		}
+	}
+
 	msg := core.Message{
 		From:       from,
 		To:         contract,
 		Nonce:      nonce,
 		Value:      big.NewInt(0),
-		GasLimit:   config.DefaultGasCap,
+		GasLimit:   gasLimit,
 		GasPrice:   big.NewInt(0),
 		GasTipCap:  big.NewInt(0),
 		GasFeeCap:  big.NewInt(0),
@@ -89,7 +89,7 @@ func (k Keeper) CallEVMWithData(
 		AccessList: ethtypes.AccessList{},
 	}
 
-	res, err := k.ApplyMessage(ctx, msg, nil, commit, true)
+	res, err := k.ApplyMessage(ctx, stateDB, msg, nil, commit, callFromPrecompile, true)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client"
 )

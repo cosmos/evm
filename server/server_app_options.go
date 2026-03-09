@@ -3,6 +3,7 @@ package server
 import (
 	"math"
 	"path/filepath"
+	"time"
 
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
@@ -10,7 +11,7 @@ import (
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
@@ -142,6 +143,24 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	}
 
 	return &legacyConfig
+}
+
+func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	if appOpts == nil {
+		logger.Error("app options is nil, using pending tx proposal timeout of 0 (unlimited)")
+		return 0
+	}
+
+	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
+}
+
+func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) int {
+	if appOpts == nil {
+		logger.Error("app options is nil, using insert queue size of 5000")
+		return 5000
+	}
+
+	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

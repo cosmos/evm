@@ -18,7 +18,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkerrors "cosmossdk.io/errors"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	sdktypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -83,7 +83,7 @@ func (b *Blockchain) Config() *params.ChainConfig {
 // including block height, timestamp, gas limits, and base fee (if London fork is active).
 // Returns a zero header as placeholder if the context is not yet available.
 func (b *Blockchain) CurrentBlock() *types.Header {
-	ctx, err := b.GetLatestContext()
+	ctx, err := b.newLatestContext()
 	if err != nil {
 		return b.zeroHeader
 	}

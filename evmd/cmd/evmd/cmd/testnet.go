@@ -9,12 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cosmos/evm/evmd/config"
-
-	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
-	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
-	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -23,8 +17,16 @@ import (
 	tmtime "github.com/cometbft/cometbft/types/time"
 
 	dbm "github.com/cosmos/cosmos-db"
+	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/config"
+	customnetwork "github.com/cosmos/evm/evmd/tests/network"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -47,10 +49,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
-	customnetwork "github.com/cosmos/evm/evmd/tests/network"
-	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 var (

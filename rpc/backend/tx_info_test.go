@@ -65,10 +65,9 @@ func setupMockBackend(t *testing.T) *Backend {
 		WithClient(mocks.NewClient(t)).
 		WithCodec(encodingConfig.Codec)
 
-	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	backend := NewBackend(ctx, clientCtx, idxer, nil, WithLogger(ctx.Logger))
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true

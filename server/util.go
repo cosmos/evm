@@ -13,7 +13,7 @@ import (
 
 	"github.com/cosmos/evm/server/config"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/types"

@@ -96,9 +96,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	if len(msgs) != 1 {
 		return ctx, errorsmod.Wrapf(errortypes.ErrInvalidRequest, "expected 1 message, got %d", len(msgs))
 	}
-	msgIndex := 0
 
-	ethMsg, ethTx, err := evmtypes.UnpackEthMsg(msgs[msgIndex])
+	ethMsg, ethTx, err := evmtypes.UnpackEthMsg(msgs[0])
 	if err != nil {
 		return ctx, err
 	}
@@ -155,19 +154,12 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 4. validate msg contents
-	if err := ValidateMsg(
-		decUtils.EvmParams,
-		ethTx,
-	); err != nil {
+	if err := ValidateMsg(decUtils.EvmParams, ethTx); err != nil {
 		return ctx, err
 	}
 
 	// 5. signature verification
-	if err := SignatureVerification(
-		ethMsg,
-		ethTx,
-		decUtils.Signer,
-	); err != nil {
+	if err := SignatureVerification(ethMsg, ethTx, decUtils.Signer); err != nil {
 		return ctx, err
 	}
 

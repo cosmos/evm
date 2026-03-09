@@ -9,25 +9,39 @@ import (
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 func (s *KeeperTestSuite) TestCallEVM() {
 	wcosmosEVMContract := common.HexToAddress(testconstants.WEVMOSContractMainnet)
 	testCases := []struct {
-		name    string
-		method  string
-		expPass bool
+		name     string
+		method   string
+		stateDB  *statedb.StateDB
+		expPass  bool
+		expError string
 	}{
 		{
 			"unknown method",
 			"",
+			nil,
 			false,
+			"",
 		},
 		{
 			"pass",
 			"balanceOf",
+			nil,
 			true,
+			"",
+		},
+		{
+			"fail with nil statedb",
+			"balanceOf",
+			nil,
+			false,
+			"stateDB cannot be nil",
 		},
 	}
 	for _, tc := range testCases {
@@ -35,12 +49,23 @@ func (s *KeeperTestSuite) TestCallEVM() {
 
 		erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
 		account := utiltx.GenerateAddress()
-		res, err := s.Network.App.GetEVMKeeper().CallEVM(s.Network.GetContext(), erc20, types.ModuleAddress, wcosmosEVMContract, false, nil, tc.method, account)
+
+		var stateDB *statedb.StateDB
+		if tc.stateDB == nil && tc.name != "fail with nil statedb" {
+			stateDB = statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+		} else {
+			stateDB = tc.stateDB
+		}
+
+		res, err := s.Network.App.GetEVMKeeper().CallEVM(s.Network.GetContext(), stateDB, erc20, types.ModuleAddress, wcosmosEVMContract, false, false, nil, tc.method, account)
 		if tc.expPass {
 			s.Require().IsTypef(&evmtypes.MsgEthereumTxResponse{}, res, tc.name)
 			s.Require().NoError(err)
 		} else {
 			s.Require().Error(err)
+			if tc.expError != "" {
+				s.Require().Contains(err.Error(), tc.expError)
+			}
 		}
 	}
 }
@@ -53,64 +78,88 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 		from     common.Address
 		malleate func() []byte
 		deploy   bool
+		useNilDB bool
 		expPass  bool
+		expError string
 	}{
 		{
-			"pass with unknown method",
-			types.ModuleAddress,
-			func() []byte {
+			name: "pass with unknown method",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
 				account := utiltx.GenerateAddress()
 				data, _ := erc20.Pack("", account)
 				return data
 			},
-			false,
-			true,
+			deploy:   false,
+			useNilDB: false,
+			expPass:  true,
+			expError: "",
 		},
 		{
-			"pass",
-			types.ModuleAddress,
-			func() []byte {
+			name: "pass",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
 				account := utiltx.GenerateAddress()
 				data, _ := erc20.Pack("balanceOf", account)
 				return data
 			},
-			false,
-			true,
+			deploy:   false,
+			useNilDB: false,
+			expPass:  true,
+			expError: "",
 		},
 		{
-			"pass with empty data",
-			types.ModuleAddress,
-			func() []byte {
+			name: "pass with empty data",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
 				return []byte{}
 			},
-			false,
-			true,
+			deploy:   false,
+			useNilDB: false,
+			expPass:  true,
+			expError: "",
 		},
-
 		{
-			"fail empty sender",
-			common.Address{},
-			func() []byte {
+			name: "fail empty sender",
+			from: common.Address{},
+			malleate: func() []byte {
 				return []byte{}
 			},
-			false,
-			false,
+			deploy:   false,
+			useNilDB: false,
+			expPass:  false,
+			expError: "",
 		},
 		{
-			"deploy",
-			types.ModuleAddress,
-			func() []byte {
+			name: "fail with nil statedb",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
+				account := utiltx.GenerateAddress()
+				data, _ := erc20.Pack("balanceOf", account)
+				return data
+			},
+			deploy:   false,
+			useNilDB: true,
+			expPass:  false,
+			expError: "stateDB cannot be nil",
+		},
+		{
+			name: "deploy",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
 				ctorArgs, _ := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack("", "test", "test", uint8(18))
 				data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
 				return data
 			},
-			true,
-			true,
+			deploy:   true,
+			useNilDB: false,
+			expPass:  true,
+			expError: "",
 		},
 		{
-			"fail deploy",
-			types.ModuleAddress,
-			func() []byte {
+			name: "fail deploy",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
 				params := s.Network.App.GetEVMKeeper().GetParams(s.Network.GetContext())
 				params.AccessControl.Create = evmtypes.AccessControlType{
 					AccessType: evmtypes.AccessTypeRestricted,
@@ -120,8 +169,23 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
 				return data
 			},
-			true,
-			false,
+			deploy:   true,
+			useNilDB: false,
+			expPass:  false,
+			expError: "",
+		},
+		{
+			name: "fail deploy with nil statedb",
+			from: types.ModuleAddress,
+			malleate: func() []byte {
+				ctorArgs, _ := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack("", "test", "test", uint8(18))
+				data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
+				return data
+			},
+			deploy:   true,
+			useNilDB: true,
+			expPass:  false,
+			expError: "stateDB cannot be nil",
 		},
 	}
 
@@ -133,10 +197,15 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 			var res *evmtypes.MsgEthereumTxResponse
 			var err error
 
+			var stateDB *statedb.StateDB
+			if !tc.useNilDB {
+				stateDB = statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+			}
+
 			if tc.deploy {
-				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), tc.from, nil, data, true, nil)
+				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), stateDB, tc.from, nil, data, true, false, nil)
 			} else {
-				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), tc.from, &wcosmosEVMContract, data, false, nil)
+				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), stateDB, tc.from, &wcosmosEVMContract, data, false, false, nil)
 			}
 
 			if tc.expPass {
@@ -144,6 +213,9 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				s.Require().NoError(err)
 			} else {
 				s.Require().Error(err)
+				if tc.expError != "" {
+					s.Require().Contains(err.Error(), tc.expError)
+				}
 			}
 		})
 	}

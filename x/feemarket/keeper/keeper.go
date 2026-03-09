@@ -3,7 +3,7 @@ package keeper
 import (
 	"github.com/cosmos/evm/x/feemarket/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"

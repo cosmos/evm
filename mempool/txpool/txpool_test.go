@@ -3,9 +3,12 @@ package txpool_test
 import (
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	legacypool_mocks "github.com/cosmos/evm/mempool/txpool/legacypool/mocks"
@@ -61,8 +64,10 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	// called during legacypool initialization
 	cfg := &params.ChainConfig{ChainID: nil}
 	legacyChain.On("Config").Return(cfg)
+	legacyChain.On("CurrentBlock").Return(&types.Header{Number: big.NewInt(0)})
 	chain.On("Config").Return(cfg)
 	legacyChain.On("StateAt", genesisHeader.Root).Return(genesisState, nil)
+	legacyChain.On("GetLatestContext").Return(sdk.Context{}, nil).Maybe()
 	chain.On("StateAt", genesisHeader.Root).Return(nil, nil)
 
 	// starting the chain(s) at genesisHeader
@@ -79,7 +84,8 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetNonce", mock.Anything).Return(uint64(1))
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
-	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain)
+	recheckGuard := make(chan struct{})
+	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain, legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
@@ -91,21 +97,15 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 		waitForSubscription <- struct{}{}
 	}).Return(event.NewSubscription(func(c <-chan struct{}) error { return nil }))
 
-	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool})
+	tracker := reserver.NewReservationTracker()
+	pool, err := txpool.New(gasTip, chain, tracker, []txpool.SubPool{legacyPool})
 	require.NoError(t, err)
 	defer pool.Close()
 
 	// wait for newHeadCh to be initialized
 	<-waitForSubscription
 
-	// override broadcast fn to wait until we advance the chain a few blocks
-	broadcastGuard := make(chan struct{})
-	legacyPool.BroadcastTxFn = func(txs []*types.Transaction) error {
-		<-broadcastGuard
-		return nil
-	}
-
-	// add tx1 to the pool so that the blocking broadcast fn will be called,
+	// add tx1 to the pool so that the blocking recheck fn will be called,
 	// simulating a slow runReorg
 	tx1, _ := types.SignTx(types.NewTransaction(1, common.Address{}, big.NewInt(100), 100_000, big.NewInt(int64(gasTip)+1), nil), signer, key)
 	errs := pool.Add([]*types.Transaction{tx1}, false)
@@ -113,7 +113,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// broadcast fn is now blocking, waiting for broadcastGuard
+	// recheck fn is now blocking, waiting for recheckGuard
 
 	// during this time, we will simulate advancing the chain multiple times by
 	// sending headers on the newHeadCh
@@ -121,20 +121,32 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	newHeadCh <- core.ChainHeadEvent{Header: height2Header}
 	newHeadCh <- core.ChainHeadEvent{Header: height3Header}
 
-	// now that we have advanced the headers, unblock the broadcast fn
-	broadcastGuard <- struct{}{}
+	// now that we have advanced the headers, unblock the recheck fn
+	recheckGuard <- struct{}{}
 
 	// a runReorg call will now be scheduled with oldHead=genesis and
 	// newHead=height3
 
 	time.Sleep(500 * time.Millisecond)
 
-	// push another tx to make sure that runReorg was processed with the above
-	// headers
-	legacyPool.BroadcastTxFn = func(txs []*types.Transaction) error { return nil }
-	tx2, _ := types.SignTx(types.NewTransaction(2, common.Address{}, big.NewInt(100), 100_000, big.NewInt(int64(gasTip)+1), nil), signer, key)
-	errs = pool.Add([]*types.Transaction{tx2}, false)
-	for _, err := range errs {
-		require.NoError(t, err)
-	}
+	// sync the pool to make sure that runReorg has processed the above headers
+	require.NoError(t, pool.Sync())
 }
+
+type BlockingRechecker struct {
+	guard chan struct{}
+	once  sync.Once
+}
+
+func (mr *BlockingRechecker) GetContext() (sdk.Context, func()) {
+	return sdk.Context{}, func() {}
+}
+
+func (mr *BlockingRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+	mr.once.Do(func() {
+		<-mr.guard
+	})
+	return sdk.Context{}, nil
+}
+
+func (mr *BlockingRechecker) Update(ctx sdk.Context, header *types.Header) {}

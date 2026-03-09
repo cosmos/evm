@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -128,11 +129,11 @@ func newEthMsgTx(
 		templateDynamicFeeTx.Nonce = nonce
 
 		if data != nil {
-			templateAccessListTx.Data = data
+			templateDynamicFeeTx.Data = data
 		} else {
-			templateAccessListTx.Data = []byte{}
+			templateDynamicFeeTx.Data = []byte{}
 		}
-		templateAccessListTx.AccessList = accessList
+		templateDynamicFeeTx.AccessList = accessList
 		ethTx = ethtypes.NewTx(templateDynamicFeeTx)
 		baseFee = big.NewInt(3)
 	case ethtypes.SetCodeTxType:
@@ -165,7 +166,7 @@ func newNativeMessage(
 	txType byte,
 	data []byte,
 	accessList ethtypes.AccessList,
-	authorizationList []ethtypes.SetCodeAuthorization, //nolint:unparam
+	authorizationList []ethtypes.SetCodeAuthorization,
 ) (*core.Message, error) {
 	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList, authorizationList)
 	if err != nil {
@@ -287,8 +288,10 @@ func BenchmarkApplyMessage(b *testing.B) {
 		)
 		require.NoError(b, err)
 
+		stateDB := statedb.New(suite.Network.GetContext(), suite.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+
 		b.StartTimer()
-		resp, err := suite.Network.App.GetEVMKeeper().ApplyMessage(suite.Network.GetContext(), *m, nil, true, false)
+		resp, err := suite.Network.App.GetEVMKeeper().ApplyMessage(suite.Network.GetContext(), stateDB, *m, nil, true, false, false)
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -314,15 +317,17 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 			addr,
 			krSigner,
 			signer,
-			ethtypes.AccessListTxType,
+			ethtypes.LegacyTxType,
 			nil,
 			nil,
 			nil,
 		)
 		require.NoError(b, err)
 
+		stateDB := statedb.New(suite.Network.GetContext(), suite.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+
 		b.StartTimer()
-		resp, err := suite.Network.App.GetEVMKeeper().ApplyMessage(suite.Network.GetContext(), *m, nil, true, false)
+		resp, err := suite.Network.App.GetEVMKeeper().ApplyMessage(suite.Network.GetContext(), stateDB, *m, nil, true, false, false)
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -355,8 +360,10 @@ func BenchmarkApplyMessageWithDynamicFeeTx(b *testing.B) {
 		)
 		require.NoError(b, err)
 
+		stateDB := statedb.New(suite.Network.GetContext(), suite.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+
 		b.StartTimer()
-		resp, err := suite.Network.App.GetEVMKeeper().ApplyMessage(suite.Network.GetContext(), *m, nil, true, false)
+		resp, err := suite.Network.App.GetEVMKeeper().ApplyMessage(suite.Network.GetContext(), stateDB, *m, nil, true, false, false)
 		b.StopTimer()
 
 		require.NoError(b, err)

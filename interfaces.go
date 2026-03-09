@@ -6,15 +6,12 @@ import (
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	storetypes "cosmossdk.io/store/types"
-	evidencekeeper "cosmossdk.io/x/evidence/keeper"
-	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -28,6 +25,8 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	evidencekeeper "github.com/cosmos/cosmos-sdk/x/evidence/keeper"
+	feegrantkeeper "github.com/cosmos/cosmos-sdk/x/feegrant/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
@@ -76,7 +75,6 @@ type EvmApp interface { //nolint:revive
 	MempoolProvider
 	MintKeeperProvider
 	MsgServiceRouterProvider
-	PreciseBankKeeperProvider
 	SlashingKeeperProvider
 	TransferKeeperProvider
 	TransferKeeperSetter
@@ -142,9 +140,6 @@ type (
 	MsgServiceRouterProvider interface {
 		MsgServiceRouter() *baseapp.MsgServiceRouter
 	}
-	PreciseBankKeeperProvider interface {
-		GetPreciseBankKeeper() *precisebankkeeper.Keeper
-	}
 	SlashingKeeperProvider interface {
 		GetSlashingKeeper() slashingkeeper.Keeper
 	}
@@ -152,10 +147,10 @@ type (
 		GetStakingKeeper() *stakingkeeper.Keeper
 	}
 	TransferKeeperProvider interface {
-		GetTransferKeeper() transferkeeper.Keeper
+		GetTransferKeeper() *transferkeeper.Keeper
 	}
 	TransferKeeperSetter interface {
-		SetTransferKeeper(transferkeeper.Keeper)
+		SetTransferKeeper(*transferkeeper.Keeper)
 	}
 )
 
@@ -189,7 +184,6 @@ type (
 		AccountKeeperProvider
 		BankKeeperProvider
 		Erc20KeeperProvider
-		PreciseBankKeeperProvider
 		TransferKeeperProvider
 	}
 	GovPrecompileApp interface {
@@ -236,7 +230,6 @@ type (
 		FeeMarketKeeperProvider
 		GovKeeperProvider
 		MintKeeperProvider
-		PreciseBankKeeperProvider
 		SlashingKeeperProvider
 		EvidenceKeeperProvider
 	}
