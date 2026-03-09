@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -59,7 +58,7 @@ func New[Tx any](insert func(txs []*Tx) []error, maxSize int) *Queue[Tx] {
 
 // Push enqueues a Tx's to eventually be inserted. Returns a channel that will
 // have an error pushed to it if an error occurs inserting the Tx.
-func (iq *Queue[Tx]) Insert(_ context.Context, tx *Tx) <-chan error {
+func (iq *Queue[Tx]) Push(tx *Tx) <-chan error {
 	sub := make(chan error, 1)
 
 	if tx == nil {

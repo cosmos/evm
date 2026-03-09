@@ -383,15 +383,30 @@ func (p *TxPool) Add(txs []*types.Transaction, sync bool) []error {
 	return errs
 }
 
-// Pending retrieves all currently processable transactions, grouped by origin
+// Pending retrieves all currently pending transactions, grouped by origin
 // account and sorted by nonce.
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (p *TxPool) Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction {
+func (p *TxPool) Pending(ctx context.Context, filter PendingFilter) map[common.Address][]*LazyTransaction {
 	txs := make(map[common.Address][]*LazyTransaction)
 	for _, subpool := range p.Subpools {
-		for addr, set := range subpool.Pending(ctx, height, filter) {
+		for addr, set := range subpool.Pending(ctx, filter) {
+			txs[addr] = set
+		}
+	}
+	return txs
+}
+
+// Rechecked retrieves all currently rechecked transactions, grouped by origin
+// account and sorted by nonce.
+//
+// The transactions can also be pre-filtered by the dynamic fee components to
+// reduce allocations and load on downstream subsystems.
+func (p *TxPool) Rechecked(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction {
+	txs := make(map[common.Address][]*LazyTransaction)
+	for _, subpool := range p.Subpools {
+		for addr, set := range subpool.Rechecked(ctx, height, filter) {
 			txs[addr] = set
 		}
 	}

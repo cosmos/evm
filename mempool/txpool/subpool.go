@@ -159,12 +159,19 @@ type SubPool interface {
 	// to a later point to batch multiple ones together.
 	Add(txs []*types.Transaction, sync bool) []error
 
-	// Pending retrieves all currently processable transactions, grouped by origin
+	// Pending retrieves all currently pending transactions, grouped by origin
 	// account and sorted by nonce.
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
+	Pending(ctx context.Context, filter PendingFilter) map[common.Address][]*LazyTransaction
+
+	// Rechecked retrieves all currently rechecked transactions, grouped by origin
+	// account and sorted by nonce.
+	//
+	// The transactions can also be pre-filtered by the dynamic fee components to
+	// reduce allocations and load on downstream subsystems.
+	Rechecked(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions

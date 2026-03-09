@@ -642,17 +642,27 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 	return pending, queued
 }
 
-// Pending retrieves all currently processable transactions, grouped by origin
+// Rechecked retrieves all currently rechecked transactions, grouped by origin
 // account and sorted by nonce.
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (pool *LegacyPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+func (pool *LegacyPool) Rechecked(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
 	txStore := pool.validPendingTxs.GetStore(ctx, height)
 	if txStore == nil {
 		return nil
 	}
 	return txStore.Txs(filter)
+}
+
+// Pending retrieves all currently processable transactions, grouped by origin
+// account and sorted by nonce.
+//
+// The transactions can also be pre-filtered by the dynamic fee components to
+// reduce allocations and load on downstream subsystems.
+func (pool *LegacyPool) Pending(ctx context.Context, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+	// TODO: IMPLEMENT ME
+	panic("unimplemented")
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
