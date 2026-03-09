@@ -30,6 +30,8 @@ import (
 
 var _ sdkmempool.ExtMempool = (*KrakatoaMempool)(nil)
 
+// KrakatoaMempoolConfig extends the EVMMempoolConfig to have Krakatoa specific
+// configuration options.
 type KrakatoaMempoolConfig struct {
 	EVMMempoolConfig
 	// PendingTxProposalTimeout is the max amount of time to allocate to
@@ -41,6 +43,10 @@ type KrakatoaMempoolConfig struct {
 	InsertQueueSize int
 }
 
+// KrakatoaMempool is an application side mempool implementation that operates
+// in conjunction with the CometBFT 'app' configuration. The KrakatoaMempool
+// handles application side rechecking of txs and supports ABCI methods
+// InesrtTx and ReapTxs.
 type KrakatoaMempool struct {
 	/** Keepers **/
 	vmKeeper VMKeeperI
@@ -48,7 +54,7 @@ type KrakatoaMempool struct {
 	/** Mempools **/
 	txPool                   *txpool.TxPool
 	legacyTxPool             *legacypool.LegacyPool
-	recheckedCosmosPool      *RecheckMempool
+	recheckCosmosPool        *RecheckMempool
 	operateExclusively       bool
 	pendingTxProposalTimeout time.Duration
 
@@ -157,7 +163,7 @@ func NewKrakatoaMempool(
 		vmKeeper:                 vmKeeper,
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
-		recheckedCosmosPool:      recheckPool,
+		recheckCosmosPool:        recheckPool,
 		logger:                   logger,
 		txConfig:                 txConfig,
 		blockchain:               blockchain,
@@ -181,7 +187,12 @@ func NewKrakatoaMempool(
 		func(txs []*sdk.Tx) []error {
 			errs := make([]error, len(txs))
 			for i, tx := range txs {
-				errs[i] = recheckPool.Insert(context.Background(), *tx)
+				// NOTE: cosmos txs must be added to the reap list directly
+				// after insert, since recheck runs on insert, if insert
+				// completes successfully, then we know they are valid and
+				// should be added to the reap list, we do not need to wait
+				// until the next blocks recheck.
+				errs[i] = krakatoaMempool.insertAndReapCosmosTx(*tx)
 			}
 			return errs
 		},
@@ -195,7 +206,7 @@ func NewKrakatoaMempool(
 	vmKeeper.SetEvmMempool(krakatoaMempool)
 
 	// Start the cosmos pool recheck loop
-	krakatoaMempool.recheckedCosmosPool.Start(blockchain.CurrentBlock())
+	krakatoaMempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
 
 	return krakatoaMempool
 }
@@ -341,7 +352,7 @@ func (m *KrakatoaMempool) insertAndReapCosmosTx(tx sdk.Tx) error {
 	m.logger.Debug("inserting Cosmos transaction")
 
 	// Insert into cosmos pool (handles locking, ante handler, and address reservation internally)
-	if err := m.recheckedCosmosPool.Insert(context.Background(), tx); err != nil {
+	if err := m.recheckCosmosPool.Insert(context.Background(), tx); err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
 		return err
 	}
@@ -404,7 +415,7 @@ func (m *KrakatoaMempool) buildIterator(ctx context.Context, txs [][]byte) sdkme
 // This provides a combined count across all mempool types.
 func (m *KrakatoaMempool) CountTx() int {
 	pending, _ := m.txPool.Stats()
-	return m.recheckedCosmosPool.CountTx() + pending
+	return m.recheckCosmosPool.CountTx() + pending
 }
 
 // Remove fallbacks for RemoveWithReason
@@ -454,7 +465,7 @@ func (m *KrakatoaMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason 
 	m.logger.Debug("Removing Cosmos transaction")
 
 	// Remove from cosmos pool (handles address reservation release internally)
-	err := sdkmempool.RemoveWithReason(ctx, m.recheckedCosmosPool, tx, reason)
+	err := sdkmempool.RemoveWithReason(ctx, m.recheckCosmosPool, tx, reason)
 	if err != nil {
 		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
 		return err
@@ -503,7 +514,7 @@ func (m *KrakatoaMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		for range sub.Out() {
 			bc.NotifyNewBlock()
 			// Trigger cosmos pool recheck on new block (non-blocking)
-			m.recheckedCosmosPool.TriggerRecheck(bc.CurrentBlock())
+			m.recheckCosmosPool.TriggerRecheck(bc.CurrentBlock())
 		}
 	}()
 }
@@ -521,7 +532,7 @@ func (m *KrakatoaMempool) Close() error {
 		}
 	}
 
-	if err := m.recheckedCosmosPool.Close(); err != nil {
+	if err := m.recheckCosmosPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close cosmos pool: %w", err))
 	}
 
@@ -595,7 +606,7 @@ func (m *KrakatoaMempool) cosmosIterator(ctx context.Context, height *big.Int) s
 		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
 		defer cancel()
 	}
-	return m.recheckedCosmosPool.RecheckedTxs(ctx, height)
+	return m.recheckCosmosPool.RecheckedTxs(ctx, height)
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.
@@ -606,5 +617,5 @@ func (m *KrakatoaMempool) TrackTx(hash common.Hash) error {
 // RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
 // This is primarily used for testing.
 func (m *KrakatoaMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
-	m.recheckedCosmosPool.TriggerRecheckSync(newHead)
+	m.recheckCosmosPool.TriggerRecheckSync(newHead)
 }
