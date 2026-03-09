@@ -94,7 +94,7 @@ func TestMempool_Iterate(t *testing.T) {
 func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	ctx := testutil.DefaultContext(storeKey, transientKey)
 	s := setupExclusiveMempoolWithAccounts(t, 3)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
@@ -137,7 +137,7 @@ func TestMempool_Reserver(t *testing.T) {
 func TestMempool_ReserverMultiSigner(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	ctx := testutil.DefaultContext(storeKey, transientKey)
 	s := setupExclusiveMempoolWithAccounts(t, 4)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
@@ -632,10 +632,11 @@ type testMempool struct {
 }
 
 func setupExclusiveMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
+	t.Helper()
 	return setupMempoolWithAccounts(t, true, numAccounts)
 }
 
-func setupMempoolWithAccounts(t *testing.T, exclusive bool, numAccounts int) testMempool {
+func setupMempoolWithAccounts(t *testing.T, isExclusive bool, numAccounts int) testMempool { //nolint:unparam
 	t.Helper()
 
 	// Create accounts
@@ -731,7 +732,7 @@ func setupMempoolWithAccounts(t *testing.T, exclusive bool, numAccounts int) tes
 		BlockGasLimit:      30000000,
 		MinTip:             uint256.NewInt(0),
 		InsertQueueSize:    1000,
-		OperateExclusively: exclusive,
+		OperateExclusively: isExclusive,
 	}
 
 	// Create mempool

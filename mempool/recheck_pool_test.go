@@ -632,7 +632,7 @@ func TestMempool_Recheck(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			storeKey := storetypes.NewKVStoreKey("test")
 			transientKey := storetypes.NewTransientStoreKey("transient_test")
-			ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+			ctx := testutil.DefaultContext(storeKey, transientKey)
 
 			s := setupExclusiveMempoolWithAccounts(t, 3)
 			mp, txConfig, cosmosRechecker, accounts := s.mp, s.txConfig, s.cosmosRechecker, s.accounts
