@@ -165,7 +165,7 @@ func NewKrakatoaMempool(
 		minTip:                   config.MinTip,
 		operateExclusively:       true,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 NewReapList(txEncoder),
+		reapList:                 NewReapList(NewTxEncoder(txConfig)),
 		txTracker:                newTxTracker(),
 	}
 
@@ -189,7 +189,7 @@ func NewKrakatoaMempool(
 	)
 
 	legacyPool.OnTxEnqueued = krakatoaMempool.onEVMTxEnqueued()
-	legacyPool.OnTxPromoted = krakatoaMempool.onEVMTxPromoted(txEncoder)
+	legacyPool.OnTxPromoted = krakatoaMempool.onEVMTxPromoted()
 	legacyPool.OnTxRemoved = krakatoaMempool.onEVMTxRemoved()
 
 	vmKeeper.SetEvmMempool(krakatoaMempool)
@@ -209,7 +209,7 @@ func (m *KrakatoaMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
 
 // onEVMTxEnqueued defines a hook to run whenever an evm tx is promoted from
 // the queued pool to the pending pool.
-func (m *KrakatoaMempool) onEVMTxPromoted(txEncoder *TxEncoder) func(tx *ethtypes.Transaction) {
+func (m *KrakatoaMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
 	return func(tx *ethtypes.Transaction) {
 		// once we have validated that the tx is valid (and can be promoted, set it
 		// to be reaped)
@@ -607,22 +607,4 @@ func (m *KrakatoaMempool) TrackTx(hash common.Hash) error {
 // This is primarily used for testing.
 func (m *KrakatoaMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckedCosmosPool.TriggerRecheckSync(newHead)
-}
-
-// broadcastEVMTransaction converts an Ethereum transaction to Cosmos SDK format and broadcasts them.
-// This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
-// using the provided client context. It handles encoding and error reporting for each transaction.
-func (m *KrakatoaMempool) broadcastEVMTransaction(clientCtx client.Context, txEncoder *TxEncoder, ethTx *ethtypes.Transaction) error {
-	txBytes, err := txEncoder.EVMTx(ethTx)
-	if err != nil {
-		return fmt.Errorf("failed to encode evm tx to sdk representation: %w", err)
-	}
-	res, err := clientCtx.BroadcastTxSync(txBytes)
-	if err != nil {
-		return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
-	}
-	if res.Code != 0 {
-		return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
-	}
-	return nil
 }

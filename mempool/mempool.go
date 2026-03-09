@@ -98,7 +98,6 @@ func NewExperimentalEVMMempool(
 	vmKeeper VMKeeperI,
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
-	txEncoder *TxEncoder,
 	config *EVMMempoolConfig,
 	cosmosPoolMaxTx int,
 ) *ExperimentalEVMMempool {
@@ -187,6 +186,8 @@ func NewExperimentalEVMMempool(
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 	}
+
+	legacyPool.OnTxPromoted = evmMempool.onEVMTxPromoted(config.BroadCastTxFn)
 
 	vmKeeper.SetEvmMempool(evmMempool)
 
@@ -534,19 +535,47 @@ func (m *ExperimentalEVMMempool) evmIterator(ctx context.Context) *miner.Transac
 	return miner.NewTransactionsByPriceAndNonce(nil, evmPendingTxs, baseFee)
 }
 
+func (m *ExperimentalEVMMempool) onEVMTxPromoted(broadcastTxFn func(txs []*ethtypes.Transaction) error) func(tx *ethtypes.Transaction) {
+	if broadcastTxFn != nil {
+		return func(tx *ethtypes.Transaction) {
+			if err := broadcastTxFn(ethtypes.Transactions{tx}); err != nil {
+				m.logger.Error("Failed to broadcast transaction", "err", err, "tx_hash", tx.Hash())
+			}
+		}
+	}
+
+	return func(tx *ethtypes.Transaction) {
+		if err := m.broadcastEVMTransaction(m.clientCtx, tx); err != nil {
+			m.logger.Error("Failed to broadcast transaction", "err", err, "tx_hash", tx.Hash())
+		}
+	}
+}
+
 // broadcastEVMTransaction converts an Ethereum transaction to Cosmos SDK format and broadcasts them.
 // This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
 // using the provided client context. It handles encoding and error reporting for each transaction.
-func (m *ExperimentalEVMMempool) broadcastEVMTransaction(clientCtx client.Context, txEncoder *TxEncoder, ethTx *ethtypes.Transaction) error {
-	txBytes, err := txEncoder.EVMTx(ethTx)
-	if err != nil {
-		return fmt.Errorf("failed to encode evm tx to sdk representation: %w", err)
+func (m *ExperimentalEVMMempool) broadcastEVMTransaction(clientCtx client.Context, ethTx *ethtypes.Transaction) error {
+	msg := &evmtypes.MsgEthereumTx{}
+	ethSigner := ethtypes.LatestSigner(evmtypes.GetEthChainConfig())
+	if err := msg.FromSignedEthereumTx(ethTx, ethSigner); err != nil {
+		return fmt.Errorf("failed to convert ethereum transaction: %w", err)
 	}
+
+	cosmosTx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), evmtypes.GetEVMCoinDenom())
+	if err != nil {
+		return fmt.Errorf("failed to build cosmos tx: %w", err)
+	}
+
+	txBytes, err := clientCtx.TxConfig.TxEncoder()(cosmosTx)
+	if err != nil {
+		return fmt.Errorf("failed to encode transaction: %w", err)
+	}
+
 	res, err := clientCtx.BroadcastTxSync(txBytes)
 	if err != nil {
 		return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
 	}
-	if res.Code != 0 {
+	if res.Code != 0 && res.Code != 19 && res.RawLog != "already known" {
 		return fmt.Errorf("transaction %s rejected by mempool: code=%d, log=%s", ethTx.Hash().Hex(), res.Code, res.RawLog)
 	}
 	return nil
