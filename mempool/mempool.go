@@ -114,7 +114,7 @@ type EVMMempoolConfig struct {
 	// handling of transactions via ABCI.InsertTx & ABCI.ReapTxs.
 	OperateExclusively bool
 	// PendingTxProposalTimeout is the max amount of time to allocate to
-	// fetching (or watiing to fetch) pending txs from the evm mempool.
+	// fetching (or waiting to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
 	// InsertQueueSize is how many txs can be stored in the insert queue
 	// pending insertion into the mempool. Note the insert queue is only used
