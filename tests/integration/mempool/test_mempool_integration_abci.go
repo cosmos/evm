@@ -5,9 +5,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
+
+	evmmempool "github.com/cosmos/evm/mempool"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
@@ -82,8 +85,8 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 		{
 			name: "mixed EVM and Cosmos transactions with equal effective tips",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+				// Cosmos with same effective tip (use different key to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(9), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
 
 				// Create transactions with equal effective tips (assuming base fee = 0)
 				// EVM: 1000 aatom/gas effective tip
@@ -93,7 +96,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx}
+				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
@@ -102,8 +105,8 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 		{
 			name: "mixed transactions with EVM having higher effective tip",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				// Create Cosmos transaction with lower gas price
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
+				// Create Cosmos transaction with lower gas price (use different key to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(9), big.NewInt(2000000000)) // 2 gaatom/gas
 
 				// Create EVM transaction with higher gas price
 				evmTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000), big.NewInt(5000000000)) // 5 gaatom/gas
@@ -112,7 +115,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx}
+				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
@@ -124,14 +127,14 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				// Create EVM transaction with lower gas price
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2000 aatom/gas
 
-				// Create Cosmos transaction with higher gas price
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5000 aatom/gas
+				// Create Cosmos transaction with higher gas price (use different key to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(9), big.NewInt(5000000000)) // 5000 aatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{evmTx, cosmosTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx}
+				expectedTxs := []sdk.Tx{cosmosTx, evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
@@ -177,20 +180,33 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			err := s.checkTxs(txs)
 			s.Require().NoError(err)
 
+			// Refresh the cached latestCtx and trigger cosmos recheck so
+			// cosmos txs are available via Select/PrepareProposal.
+			mpool := s.network.App.GetMempool()
+			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
+				evmMp.GetBlockchain().NotifyNewBlock()
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			}
+
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
 			_, err = s.network.FinalizeBlock()
 			s.Require().NoError(err)
 
-			// Call PrepareProposal to selcet transactions from mempool and make proposal
+			// Call PrepareProposal for the next block (H+1) after recheck at height H.
+			// This mirrors production where PrepareProposal is for the next block.
 			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
 				MaxTxBytes: 1_000_000,
-				Height:     1,
+				Height:     s.network.GetContext().BlockHeight() + 1,
 			})
 			s.Require().NoError(err)
 
 			// Check whether expected transactions are included and returned as pending state in mempool
-			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
+				evmMp.GetBlockchain().NotifyNewBlock()
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			}
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
 				actualTxHash := s.getTxHash(iterator.Tx())
 				s.Require().Equal(txHash, actualTxHash)
@@ -198,7 +214,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				iterator = iterator.Next()
 			}
 
-			// Check whether expected transactions are selcted by PrepareProposal
+			// Check whether expected transactions are selected by PrepareProposal
 			txHashes := make([]string, 0)
 			for _, txBytes := range prepareProposalRes.Txs {
 				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
@@ -384,19 +400,31 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			err := s.checkTxs(txs)
 			s.Require().NoError(err)
 
+			// Refresh the cached latestCtx and trigger cosmos recheck so
+			// HeightSync is at the correct height for Select/PrepareProposal.
+			mpool := s.network.App.GetMempool()
+			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
+				evmMp.GetBlockchain().NotifyNewBlock()
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			}
+
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
 			_, err = s.network.FinalizeBlock()
 			s.Require().NoError(err)
 
-			// Call PrepareProposal to selcet transactions from mempool and make proposal
+			// Call PrepareProposal for the next block (H+1) after recheck at height H.
 			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
 				MaxTxBytes: 1_000_000,
-				Height:     1,
+				Height:     s.network.GetContext().BlockHeight() + 1,
 			})
 			s.Require().NoError(err)
 
-			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
+				evmMp.GetBlockchain().NotifyNewBlock()
+				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			}
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			for _, txHash := range expTxHashes {
@@ -407,7 +435,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			}
 			tc.verifyFunc(mpool)
 
-			// Check whether expected transactions are selcted by PrepareProposal
+			// Check whether expected transactions are selected by PrepareProposal
 			txHashes := make([]string, 0)
 			for _, txBytes := range prepareProposalRes.Txs {
 				txHash := hex.EncodeToString(tmhash.Sum(txBytes))

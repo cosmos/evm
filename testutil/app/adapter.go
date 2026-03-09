@@ -8,9 +8,8 @@ import (
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -179,14 +178,6 @@ func (a *EvmAppAdapter) GetMintKeeper() mintkeeper.Keeper {
 	return mintkeeper.Keeper{}
 }
 
-func (a *EvmAppAdapter) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
-	if provider, ok := a.TestApp.(evm.PreciseBankKeeperProvider); ok {
-		return provider.GetPreciseBankKeeper()
-	}
-	panicMissingProvider("PreciseBankKeeperProvider")
-	return nil
-}
-
 func (a *EvmAppAdapter) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.FeeGrantKeeperProvider); ok {
 		return provider.GetFeeGrantKeeper()
@@ -211,15 +202,15 @@ func (a *EvmAppAdapter) GetCallbackKeeper() keeper.ContractKeeper {
 	return keeper.ContractKeeper{}
 }
 
-func (a *EvmAppAdapter) GetTransferKeeper() transferkeeper.Keeper {
+func (a *EvmAppAdapter) GetTransferKeeper() *transferkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.TransferKeeperProvider); ok {
 		return provider.GetTransferKeeper()
 	}
 	panicMissingProvider("TransferKeeperProvider")
-	return transferkeeper.Keeper{}
+	return &transferkeeper.Keeper{}
 }
 
-func (a *EvmAppAdapter) SetTransferKeeper(k transferkeeper.Keeper) {
+func (a *EvmAppAdapter) SetTransferKeeper(k *transferkeeper.Keeper) {
 	if setter, ok := a.TestApp.(evm.TransferKeeperSetter); ok {
 		setter.SetTransferKeeper(k)
 		return

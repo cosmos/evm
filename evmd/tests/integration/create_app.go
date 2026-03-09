@@ -95,7 +95,9 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 
 func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64) simutils.AppOptionsMap {
 	return simutils.AppOptionsMap{
-		flags.FlagHome:      home,
-		srvflags.EVMChainID: evmChainID,
+		flags.FlagHome:                            home,
+		srvflags.EVMChainID:                       evmChainID,
+		srvflags.EVMMempoolInsertQueueSize:        5000,
+		srvflags.EVMMempoolPendingTxProposalTimeout: "250ms",
 	}
 }

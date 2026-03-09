@@ -17,6 +17,7 @@ import (
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/log/v2"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -41,16 +42,23 @@ type EVMKeeper interface {
 	GetParams(ctx sdk.Context) evmtypes.Params
 	GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) *statedb.Account
 	EstimateGasInternal(c context.Context, req *evmtypes.EthCallRequest, fromType evmtypes.CallType) (*evmtypes.EstimateGasResponse, error)
-	ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit, internal bool) (*evmtypes.MsgEthereumTxResponse, error)
+	ApplyMessage(ctx sdk.Context, stateDB *statedb.StateDB, msg core.Message, tracer *tracing.Hooks, commit, callFromPrecompile, internal bool) (*evmtypes.MsgEthereumTxResponse, error)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
 	IsAvailableStaticPrecompile(params *evmtypes.Params, address common.Address) bool
-	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...any) (*evmtypes.MsgEthereumTxResponse, error)
-	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetCode(ctx sdk.Context, hash common.Hash) []byte
 	SetCode(ctx sdk.Context, hash []byte, bytecode []byte)
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
 	IsContract(ctx sdk.Context, address common.Address) bool
+	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
+	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
+	ForEachStorage(ctx sdk.Context, addr common.Address, cb func(key, value common.Hash) bool)
+	DeleteState(ctx sdk.Context, addr common.Address, key common.Hash)
+	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
+	DeleteCode(ctx sdk.Context, codeHash []byte)
+	KVStoreKeys() map[string]storetypes.StoreKey
 }
 
 type Erc20Keeper interface {

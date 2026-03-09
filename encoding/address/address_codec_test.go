@@ -8,8 +8,6 @@ import (
 
 	evmaddress "github.com/cosmos/evm/encoding/address"
 
-	"cosmossdk.io/core/address"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
@@ -118,7 +116,7 @@ func TestBytesToString(t *testing.T) {
 	addrBz := common.HexToAddress(hex).Bytes() // 20 bytes
 
 	// Helper codec (used only where we want to derive bytes from the bech32 string)
-	var cdc address.Codec
+	cdc := evmaddress.NewEvmCodec("cosmos")
 
 	type tc struct {
 		name   string

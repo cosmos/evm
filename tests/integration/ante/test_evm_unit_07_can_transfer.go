@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -76,7 +75,6 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 
 				balance, ok := math.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types.ConversionFactor())
 
 				// replace with vesting account
 				ctx := unitNetwork.GetContext()
@@ -110,7 +108,6 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 
 				balance, ok := math.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types.ConversionFactor())
 
 				// replace with vesting account
 				ctx := unitNetwork.GetContext()

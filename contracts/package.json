@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "A collection of smart contracts used in the development of the Cosmos EVM blockchain.",
   "devDependencies": {
-    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts": "^4.9.6",
     "hardhat": "^3.0.15"
   },
   "scripts": {
@@ -19,8 +19,8 @@
     "url": "https://github.com/cosmos/evm/issues"
   },
   "homepage": "https://github.com/cosmos/evm#readme",
+  "type": "module",
   "dependencies": {
     "@account-abstraction/contracts": "^0.6.0"
-  },
-  "type": "module"
+  }
 }

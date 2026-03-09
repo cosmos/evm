@@ -2,15 +2,11 @@ package common
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/utils"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -48,18 +44,4 @@ func ParseAmount(event sdk.Event) (*uint256.Int, error) {
 		return nil, fmt.Errorf("failed to convert coin amount to Uint256: %w", err)
 	}
 	return amount, nil
-}
-
-func ParseFractionalAmount(event sdk.Event) (*big.Int, error) {
-	deltaAttr, ok := event.GetAttribute(precisebanktypes.AttributeKeyDelta)
-	if !ok {
-		return nil, fmt.Errorf("event %q missing attribute %q", precisebanktypes.EventTypeFractionalBalanceChange, sdk.AttributeKeyAmount)
-	}
-
-	delta, ok := sdkmath.NewIntFromString(deltaAttr.Value)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse coins from %q", deltaAttr.Value)
-	}
-
-	return delta.BigInt(), nil
 }
