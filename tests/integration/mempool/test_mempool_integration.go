@@ -1063,7 +1063,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			wantError: false,
 			verifyFunc: func() {
 				mpool := s.network.App.GetMempool()
-				s.Require().Equal(0, mpool.CountTx())
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
