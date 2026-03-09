@@ -1,6 +1,9 @@
 package indexer
 
 import (
+	"bytes"
+	"encoding/binary"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -26,12 +29,14 @@ type CosmosEventTransformer interface {
 	Transform(event abci.Event, height int64, ethTxHash common.Hash) (*TransformedTxData, error)
 }
 
-// GenerateTransformedEthTxHash generates a deterministic eth tx hash by concatenating and hashing inputs.
+// GenerateTransformedEthTxHash generates a deterministic eth tx hash by length-prefixing and hashing inputs.
 // Used for cosmos txs (cosmosTxHash) and block phases (phase + blockHash).
+// Length-prefixing prevents hash collisions from different input groupings.
 func GenerateTransformedEthTxHash(data ...[]byte) common.Hash {
-	var combined []byte
+	var buf bytes.Buffer
 	for _, d := range data {
-		combined = append(combined, d...)
+		_ = binary.Write(&buf, binary.BigEndian, uint32(len(d)))
+		buf.Write(d)
 	}
-	return crypto.Keccak256Hash(combined)
+	return crypto.Keccak256Hash(buf.Bytes())
 }
