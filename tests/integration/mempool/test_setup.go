@@ -113,7 +113,6 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 
 	// Enforces deterministic mempool state for tests
 	evmmempool.AllowUnsafeSyncInsert = true
-
 }
 
 // TrySetupMempool sets up the ExperimentalEVMMempool or ExclusiveMempool, if

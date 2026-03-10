@@ -8,14 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"cosmossdk.io/log/v2"
-	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
+
 	cmttypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/telemetry"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/queue"
 	"github.com/cosmos/evm/mempool/miner"
@@ -23,9 +21,15 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
-	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/holiman/uint256"
+
+	"cosmossdk.io/log/v2"
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/telemetry"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 var _ sdkmempool.ExtMempool = (*KrakatoaMempool)(nil)

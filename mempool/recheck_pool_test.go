@@ -630,10 +630,6 @@ func TestKrakatoaMempool_Recheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			storeKey := storetypes.NewKVStoreKey("test")
-			transientKey := storetypes.NewTransientStoreKey("transient_test")
-			ctx := testutil.DefaultContext(storeKey, transientKey)
-
 			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
 			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
@@ -645,7 +641,7 @@ func TestKrakatoaMempool_Recheck(t *testing.T) {
 
 			for _, tx := range tc.insertTxs {
 				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
-				require.NoError(t, mp.Insert(ctx, cosmosTx))
+				require.NoError(t, mp.Insert(context.Background(), cosmosTx))
 			}
 
 			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")

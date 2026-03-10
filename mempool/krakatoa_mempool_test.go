@@ -10,17 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	"github.com/cosmos/cosmos-sdk/testutil"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
-	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/mempool"
@@ -30,18 +29,20 @@ import (
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/holiman/uint256"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/log/v2"
+	storetypes "cosmossdk.io/store/types"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/testutil"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
+	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func TestKrakatoaMempool_Reserver(t *testing.T) {
-	storeKey := storetypes.NewKVStoreKey("test")
-	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey)
 	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
 	txConfig, accounts := s.txConfig, s.accounts
 
@@ -49,42 +50,39 @@ func TestKrakatoaMempool_Reserver(t *testing.T) {
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err := mp.Insert(ctx, ethTx)
+	err := mp.Insert(context.Background(), ethTx)
 	require.NoError(t, err)
 
 	// insert cosmos tx from acount0, should error
 	cosmosTx := createTestCosmosTx(t, txConfig, accountKey, 0)
-	err = mp.Insert(ctx, cosmosTx)
+	err = mp.Insert(context.Background(), cosmosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
 	// remove the eth tx
-	err = mp.RemoveWithReason(ctx, ethTx, mempooltypes.RemoveReason{Error: errors.New("some error")})
+	err = mp.RemoveWithReason(context.Background(), ethTx, mempooltypes.RemoveReason{Error: errors.New("some error")})
 	require.NoError(t, err)
 
 	// pool should be clear
 	require.Equal(t, 0, mp.CountTx())
 
 	// should be able to insert the cosmos tx now
-	err = mp.Insert(ctx, cosmosTx)
+	err = mp.Insert(context.Background(), cosmosTx)
 	require.NoError(t, err)
 
 	// should be able to send another tx from the same account to the same pool.
 	cosmosTx2 := createTestCosmosTx(t, txConfig, accountKey, 1)
-	err = mp.Insert(ctx, cosmosTx2)
+	err = mp.Insert(context.Background(), cosmosTx2)
 	require.NoError(t, err)
 
 	// there should be 2 txs at this point
 	require.Equal(t, 2, mp.CountTx())
 
 	// eth tx should now fail.
-	err = mp.Insert(ctx, ethTx)
+	err = mp.Insert(context.Background(), ethTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 
 func TestKrakatoaMempool_ReserverMultiSigner(t *testing.T) {
-	storeKey := storetypes.NewKVStoreKey("test")
-	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey)
 	mp, s := setupKrakatoaMempoolWithAccounts(t, 4)
 	txConfig, accounts := s.txConfig, s.accounts
 
@@ -92,22 +90,22 @@ func TestKrakatoaMempool_ReserverMultiSigner(t *testing.T) {
 
 	// insert eth tx from account0
 	ethTx := createMsgEthereumTx(t, txConfig, accountKey, 0, big.NewInt(1e8))
-	err := mp.Insert(ctx, ethTx)
+	err := mp.Insert(context.Background(), ethTx)
 	require.NoError(t, err)
 
 	// inserting accounts 1 & 2 should be fine.
 	cosmosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[1].key, accounts[2].key)
-	err = mp.Insert(ctx, cosmosTx)
+	err = mp.Insert(context.Background(), cosmosTx)
 	require.NoError(t, err)
 
 	// submitting account1 key should fail, since it was part of the signer group in the cosmos tx.
 	ethTx2 := createMsgEthereumTx(t, txConfig, accounts[1].key, 1, big.NewInt(1e8))
-	err = mp.Insert(ctx, ethTx2)
+	err = mp.Insert(context.Background(), ethTx2)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 
 	// account 0 already has ethTx in pool, should fail.
 	comsosTx := createTestMultiSignerCosmosTx(t, txConfig, accounts[3].key, accounts[0].key)
-	err = mp.Insert(ctx, comsosTx)
+	err = mp.Insert(context.Background(), comsosTx)
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 

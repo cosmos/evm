@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -33,6 +31,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 // BackendI implements the Cosmos and EVM backend.
@@ -179,8 +178,8 @@ type ProcessBlocker func(
 	targetOneFeeHistory *types.OneFeeHistory,
 ) error
 
-// BackendMempool is a mempool that can be used for the rpc backend.
-type BackendMempool interface {
+// Mempool is a mempool that can be used for the rpc backend.
+type Mempool interface {
 	sdkmempool.Mempool
 
 	// GetTxPool returns the mempools underlying evm txpool.
@@ -199,7 +198,7 @@ type Backend struct {
 	UseAppMempool       bool
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
-	Mempool             BackendMempool
+	Mempool             Mempool
 }
 
 // Opt is a function type that configures the backend.
@@ -226,7 +225,7 @@ func NewBackend(
 	ctx *server.Context,
 	clientCtx client.Context,
 	indexer servertypes.EVMTxIndexer,
-	mempool BackendMempool,
+	mempool Mempool,
 	opts ...Opt,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
