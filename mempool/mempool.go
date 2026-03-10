@@ -356,14 +356,13 @@ func (m *ExperimentalEVMMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx
 	case err != nil:
 		m.logger.Debug("Removing Cosmos transaction")
 
-		// Remove from cosmos pool (handles address reservation release internally)
-		err := sdkmempool.RemoveWithReason(ctx, m.cosmosPool, tx, reason)
-		if err != nil {
+		if err := sdkmempool.RemoveWithReason(ctx, m.cosmosPool, tx, reason); err != nil {
 			m.logger.Error("Failed to remove Cosmos transaction", "error", err)
 			return err
 		}
 
 		m.logger.Debug("Cosmos transaction removed successfully")
+		return nil
 	}
 
 	hash := msgEthereumTx.Hash()
