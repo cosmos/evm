@@ -452,7 +452,7 @@ func (api *pubSubAPI) subscribe(wsConn *wsConn, subID rpc.ID, params []any) (con
 	}
 }
 
-func (api *pubSubAPI) subscribeNewHeads(wsConn *wsConn, subID rpc.ID) (context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // cancel is returned to the caller for subscription cleanup
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel returned to caller for subscription cleanup
 	//nolint: errcheck
 	go api.events.HeaderStream().Subscribe(ctx, func(headers []stream.RPCHeader, _ int) error {
