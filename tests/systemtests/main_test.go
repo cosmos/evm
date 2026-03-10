@@ -15,12 +15,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
 )
 
-var (
-	exclusiveMempoolNodeArgs = append(
-		suite.DefaultNodeArgs(),
-	)
-)
-
 func TestMain(m *testing.M) {
 	systemtests.RunTests(m)
 }

@@ -168,10 +168,10 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 	}
 
 	if s.IsExclusiveMempool() {
+		fmt.Println("setting up app mempool")
 		s.ModifyCometMempool(t, "app")
 	}
 	if cfg.timeoutCommit > time.Duration(0) {
-		s.ModifyConsensusTimeout(t, cfg.timeoutCommit.String())
 	}
 
 	if s.ChainStarted && slices.Equal(cfg.nodeStartArgs, s.currentNodeArgs) {
