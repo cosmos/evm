@@ -183,9 +183,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// cosmos txs are available via Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -202,9 +202,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
@@ -403,9 +403,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// HeightSync is at the correct height for Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -420,9 +420,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			s.Require().NoError(err)
 
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 

@@ -30,12 +30,11 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	txEncoder := evmmempool.NewTxEncoder(app.txConfig)
-
 	if server.GetShouldOperateExclusively(appOpts, logger) {
 		logger.Info("app-side mempool is operating exclusively, setting up Krakatoa mempool")
 
 		krakatoaConfig := app.createKrakatoaMempoolConfig(appOpts, logger)
+		txEncoder := evmmempool.NewTxEncoder(app.txConfig)
 		evmRechecker := evmmempool.NewTxRechecker(krakatoaConfig.AnteHandler, txEncoder)
 		cosmosRechecker := evmmempool.NewTxRechecker(krakatoaConfig.AnteHandler, txEncoder)
 
@@ -45,7 +44,6 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 			app.EVMKeeper,
 			app.FeeMarketKeeper,
 			app.txConfig,
-			txEncoder,
 			evmRechecker,
 			cosmosRechecker,
 			krakatoaConfig,

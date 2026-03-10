@@ -326,9 +326,9 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -451,9 +451,9 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -857,9 +857,9 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -977,9 +977,9 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			// cosmos txs are available via SelectBy (mirrors production flow
 			// where recheck happens after a new block notification).
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				kMp.GetBlockchain().NotifyNewBlock()
+				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 
 			// Track filter function calls to ensure we don't have infinite loops
