@@ -176,8 +176,8 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
@@ -396,8 +396,8 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
@@ -450,6 +450,11 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 // 1. Committed transactions are not in the mempool after block finalization
 // 2. New transactions with nonces lower than current nonce fail at mempool level
 func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() {
+	if s.IsExclusiveMempool() {
+		s.T().Log("mempool is exclusive and does not configure checktx, skipping 'TestCheckTxHandlerForCommittedAndLowerNonceTxs' test")
+		return
+	}
+
 	testCases := []struct {
 		name       string
 		setupTxs   func() []sdk.Tx
@@ -518,8 +523,8 @@ func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() 
 
 			txs := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Finalize block with txs and Commit state
