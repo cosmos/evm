@@ -328,7 +328,7 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			ctx := s.network.GetContext()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(ctx.BlockHeight()))
+				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -453,7 +453,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			ctx := s.network.GetContext()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(ctx.BlockHeight()))
+				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -859,7 +859,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			ctx := s.network.GetContext()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(ctx.BlockHeight()))
+				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -979,7 +979,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			ctx := s.network.GetContext()
 			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
 				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(big.NewInt(ctx.BlockHeight()))
+				evmMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
 			}
 
 			// Track filter function calls to ensure we don't have infinite loops

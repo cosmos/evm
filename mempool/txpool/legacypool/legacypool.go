@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -210,6 +211,9 @@ type BlockChain interface {
 
 	// StateAt returns a state database for a given root hash (generally the head).
 	StateAt(root common.Hash) (vm.StateDB, error)
+
+	// GetLatestContext returns the latest SDK context for the chain.
+	GetLatestContext() (sdk.Context, error)
 }
 
 // Rechecker defines the minimal set of methods needed to recheck transactions
@@ -220,13 +224,13 @@ type Rechecker interface {
 	// Reckecker once the write function is invoked.
 	GetContext() (ctx sdk.Context, write func())
 
-	// Recheck performs validation of a tx against a context, and returns an
-	// updated context.
-	Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
+	// RecheckEVM performs validation of an EVM tx against a context, and
+	// returns an updated context.
+	RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error)
 
 	// Update updates the main context returned by GetContext to be the base
-	// chain context at header.
-	Update(chain BlockChain, header *types.Header)
+	// chain context at header. The caller provides the SDK context directly.
+	Update(ctx sdk.Context, header *types.Header)
 }
 
 // Config are the configuration parameters of the transaction pool.
@@ -1521,7 +1525,11 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
-	pool.rechecker.Update(pool.chain, newHead)
+	ctx, err := pool.chain.GetLatestContext()
+	if err != nil {
+		panic(fmt.Errorf("failed to get latest context for rechecker: %w", err))
+	}
+	pool.rechecker.Update(ctx, newHead)
 	pool.validPendingTxs.StartNewHeight(newHead.Number)
 
 	// Inject any transactions discarded due to reorgs
@@ -1590,7 +1598,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		// possible.
 		recheckStart := time.Now()
 		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.Recheck(ctx, tx)
+			newCtx, err := pool.rechecker.RecheckEVM(ctx, tx)
 			if !newCtx.IsZero() {
 				ctx = newCtx
 			}
@@ -1829,7 +1837,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		recheckStart := time.Now()
 		ctx, write := pool.rechecker.GetContext()
 		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.Recheck(ctx, tx)
+			newCtx, err := pool.rechecker.RecheckEVM(ctx, tx)
 			if !newCtx.IsZero() {
 				ctx = newCtx
 			}

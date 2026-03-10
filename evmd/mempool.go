@@ -40,7 +40,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	}
 
 	txEncoder := evmmempool.NewTxEncoder(app.txConfig)
-	rechecker := evmmempool.NewRechecker(mempoolConfig.AnteHandler, txEncoder)
+	evmRechecker := evmmempool.NewTxRechecker(mempoolConfig.AnteHandler, txEncoder)
+	cosmosRechecker := evmmempool.NewTxRechecker(mempoolConfig.AnteHandler, txEncoder)
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
@@ -49,7 +50,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.FeeMarketKeeper,
 		app.txConfig,
 		txEncoder,
-		rechecker,
+		evmRechecker,
+		cosmosRechecker,
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)
