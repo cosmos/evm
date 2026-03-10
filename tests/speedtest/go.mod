@@ -13,7 +13,7 @@ replace (
 require (
 	cosmossdk.io/log/v2 v2.0.1
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310180626-72ea9fe77986
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310184229-2b030f595528
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/evm/evmd v0.0.0-20251112193856-d450ea1d6bd0
 	github.com/ethereum/go-ethereum v1.16.8
