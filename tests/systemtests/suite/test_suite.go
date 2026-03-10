@@ -41,17 +41,18 @@ type BaseTestSuite struct {
 	accountsByID map[string]*TestAccount
 
 	// Chain management
-	chainMu         sync.Mutex
-	currentNodeArgs []string
+	chainMu           sync.Mutex
+	currentNodeArgs   []string
+	currentNodeConfig TestSetupConfig
 
 	// Most recently retrieved base fee
 	baseFee *big.Int
 
 	// Extra node start args on top of default
-	NodeStartArgs []string
+	nodeStartArgs []string
 }
 
-func NewBaseTestSuite(t *testing.T, nodeStartArgs ...string) *BaseTestSuite {
+func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
 	ethClient, ethAccounts, err := clients.NewEthClient()
 	require.NoError(t, err)
 
@@ -88,7 +89,6 @@ func NewBaseTestSuite(t *testing.T, nodeStartArgs ...string) *BaseTestSuite {
 		CosmosClient:    cosmosClient,
 		accounts:        accounts,
 		accountsByID:    accountsByID,
-		NodeStartArgs:   nodeStartArgs,
 	}
 	return suite
 }
@@ -98,11 +98,11 @@ var (
 	sharedSuite     *BaseTestSuite
 )
 
-func GetSharedSuite(t *testing.T, nodeStartArgs ...string) *BaseTestSuite {
+func GetSharedSuite(t *testing.T) *BaseTestSuite {
 	t.Helper()
 
 	sharedSuiteOnce.Do(func() {
-		sharedSuite = NewBaseTestSuite(t, nodeStartArgs...)
+		sharedSuite = NewBaseTestSuite(t)
 	})
 
 	return sharedSuite
@@ -111,7 +111,13 @@ func GetSharedSuite(t *testing.T, nodeStartArgs ...string) *BaseTestSuite {
 // RunWithSharedSuite retrieves the shared suite instance and executes the provided test function.
 func RunWithSharedSuite(t *testing.T, fn func(*testing.T, *BaseTestSuite), nodeStartArgs ...string) {
 	t.Helper()
-	fn(t, GetSharedSuite(t, nodeStartArgs...))
+	suite := GetSharedSuite(t)
+	suite.SetNodeStartArgs(nodeStartArgs...)
+	fn(t, suite)
+}
+
+func (suite *BaseTestSuite) SetNodeStartArgs(nodeStartArgs ...string) {
+	suite.nodeStartArgs = nodeStartArgs
 }
 
 // TestAccount aggregates account metadata usable across both Ethereum and Cosmos flows.
@@ -129,17 +135,14 @@ type TestAccount struct {
 }
 
 type TestSetupConfig struct {
-	nodeStartArgs []string
 	timeoutCommit time.Duration
 }
 
-type TestSetupConfigOption func(*TestSetupConfig)
-
-func WithNodeStartArgs(args ...string) TestSetupConfigOption {
-	return func(tsc *TestSetupConfig) {
-		tsc.nodeStartArgs = args
-	}
+func (tc TestSetupConfig) Equals(other TestSetupConfig) bool {
+	return tc.timeoutCommit == other.timeoutCommit
 }
+
+type TestSetupConfigOption func(*TestSetupConfig)
 
 func WithTimeoutCommit(tc time.Duration) TestSetupConfigOption {
 	return func(tsc *TestSetupConfig) {
@@ -156,8 +159,8 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 		opt(&cfg)
 	}
 
-	if len(cfg.nodeStartArgs) == 0 {
-		cfg.nodeStartArgs = DefaultNodeArgs()
+	if len(s.nodeStartArgs) == 0 {
+		s.nodeStartArgs = DefaultNodeArgs()
 	}
 
 	s.LockChain()
@@ -165,16 +168,10 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 
 	if !s.ChainStarted {
 		s.currentNodeArgs = nil
+		s.currentNodeConfig = TestSetupConfig{}
 	}
 
-	if s.IsExclusiveMempool() {
-		fmt.Println("setting up app mempool")
-		s.ModifyCometMempool(t, "app")
-	}
-	if cfg.timeoutCommit > time.Duration(0) {
-	}
-
-	if s.ChainStarted && slices.Equal(cfg.nodeStartArgs, s.currentNodeArgs) {
+	if s.ChainStarted && slices.Equal(s.nodeStartArgs, s.currentNodeArgs) && s.currentNodeConfig == cfg {
 		// Chain already running with desired configuration; nothing to do.
 		return
 	}
@@ -183,14 +180,24 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 		s.ResetChain(t)
 	}
 
-	s.StartChain(t, cfg.nodeStartArgs...)
-	s.currentNodeArgs = append([]string(nil), cfg.nodeStartArgs...)
+	if s.IsExclusiveMempool() {
+		s.ModifyCometMempool(t, "app")
+	} else {
+		s.ModifyCometMempool(t, "flood")
+	}
+
+	if cfg.timeoutCommit > time.Duration(0) {
+		s.ModifyConsensusTimeout(t, cfg.timeoutCommit.String())
+	}
+
+	s.StartChain(t, s.nodeStartArgs...)
+	s.currentNodeConfig = cfg
 	s.AwaitNBlocks(t, 2)
 }
 
 // IsExclusiveMempool returns true if the node was started with the operate-exclusively flag
 func (s *BaseTestSuite) IsExclusiveMempool() bool {
-	return strings.Contains(strings.Join(s.NodeStartArgs, " "), "operate-exclusively")
+	return strings.Contains(strings.Join(s.nodeStartArgs, " "), "operate-exclusively")
 }
 
 // LockChain acquires exclusive control over the underlying chain lifecycle.
