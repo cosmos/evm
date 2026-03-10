@@ -79,6 +79,14 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 		app.SetCheckTxHandler(evmmempool.NewCheckTxHandler(evmMempool))
 
+		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+		abciProposalHandler.SetSignerExtractionAdapter(
+			evmmempool.NewEthSignerExtractionAdapter(
+				sdkmempool.NewDefaultSignerExtractionAdapter(),
+			),
+		)
+		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+
 		app.EVMMempool = evmMempool
 		app.SetMempool(evmMempool)
 	}

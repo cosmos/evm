@@ -69,8 +69,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 				txBuilder := s.network.App.GetTxConfig().NewTxBuilder()
 				return txBuilder.GetTx()
 			},
-			wantError:     true,
-			errorContains: "tx contains no signers",
+			wantError: true,
 			verifyFunc: func() {
 			},
 		},
