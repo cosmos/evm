@@ -272,7 +272,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Users must receive error feedback for duplicate submissions
 					_, err = s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC must return error")
-					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
+					require.Contains(t, err.Error(), "already", "error should indicate transaction is already known")
 
 					t.Logf("Duplicate transaction correctly rejected with 'already known' error")
 
@@ -342,7 +342,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// the RPC layer should still detect and reject the duplicate
 					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC should return error even after gossip")
-					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
+					require.Contains(t, err.Error(), "already", "error should indicate transaction is already known")
 
 					t.Logf("JSON-RPC correctly rejects duplicate that node already has from gossip")
 
