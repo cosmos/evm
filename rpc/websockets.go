@@ -452,8 +452,8 @@ func (api *pubSubAPI) subscribe(wsConn *wsConn, subID rpc.ID, params []any) (con
 	}
 }
 
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // cancel is returned to the caller for subscription cleanup
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel returned to caller for subscription cleanup
+func (api *pubSubAPI) subscribeNewHeads(wsConn *wsConn, subID rpc.ID) (context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 // cancel returned to caller for subscription cleanup
 	//nolint: errcheck
 	go api.events.HeaderStream().Subscribe(ctx, func(headers []stream.RPCHeader, _ int) error {
 		for _, header := range headers {
@@ -591,7 +591,7 @@ func (api *pubSubAPI) subscribeLogs(wsConn *wsConn, subID rpc.ID, extra any) (co
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel returned to caller for subscription cleanup
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 // cancel returned to caller for subscription cleanup
 	//nolint: errcheck
 	go api.events.LogStream().Subscribe(ctx, func(txLogs []*ethtypes.Log, _ int) error {
 		logs := rpcfilters.FilterLogs(txLogs, crit.FromBlock, crit.ToBlock, crit.Addresses, crit.Topics)
@@ -628,7 +628,7 @@ func (api *pubSubAPI) subscribeLogs(wsConn *wsConn, subID rpc.ID, extra any) (co
 }
 
 func (api *pubSubAPI) subscribePendingTransactions(wsConn *wsConn, subID rpc.ID) (context.CancelFunc, error) {
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel returned to caller for subscription cleanup
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 // cancel returned to caller for subscription cleanup
 	//nolint: errcheck
 	go api.events.PendingTxStream().Subscribe(ctx, func(items []common.Hash, _ int) error {
 		for _, hash := range items {
