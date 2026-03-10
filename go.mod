@@ -1,6 +1,6 @@
 module github.com/cosmos/evm
 
-go 1.25.7
+go 1.25.8
 
 require (
 	cosmossdk.io/api v1.0.0
@@ -8,14 +8,14 @@ require (
 	cosmossdk.io/errors v1.1.0
 	cosmossdk.io/log/v2 v2.0.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20260217205615-0d33c2463b76
+	cosmossdk.io/store v1.10.0-rc.2.0.20260310041431-5a03cdfa49e1
 	cosmossdk.io/tools/confix v0.1.2
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260305191742-d939d1e7c932
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260305184348-d80b9372049f
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310041431-5a03cdfa49e1
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260227195504-dfbe36236297
@@ -81,7 +81,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.55.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.55.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/RoaringBitmap/roaring/v2 v2.14.4 // indirect
+	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.4 // indirect
