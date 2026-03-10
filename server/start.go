@@ -554,9 +554,9 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		mp, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool)
+		mp, ok := evmApp.GetMempool().(PossiblyExclusiveMempool)
 		if !ok {
-			return fmt.Errorf("json-rpc server requires ExperimentalEVMMempool")
+			return fmt.Errorf("json-rpc server requires PossiblyExclusiveMempool")
 		}
 
 		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, mp)

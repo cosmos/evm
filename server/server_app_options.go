@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
 	"time"
@@ -151,7 +152,9 @@ func GetShouldOperateExclusively(appOpts servertypes.AppOptions, logger log.Logg
 		return false
 	}
 
-	return cast.ToBool(appOpts.Get(srvflags.EVMMempoolOperateExclusively))
+	should := cast.ToBool(appOpts.Get(srvflags.EVMMempoolOperateExclusively))
+	fmt.Println("should operate exclusively?", should)
+	return should
 }
 
 func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {

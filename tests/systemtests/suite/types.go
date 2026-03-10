@@ -12,9 +12,9 @@ const (
 	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
 	NodeArgsMaxTxs                     = "--mempool.max-txs=0"
 
-	NodeArgOperateExclusively       = "evm.mempool.operate-exclusively=true"
-	NodeArgPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout=200ms"
-	NodeArgInsertQueueSize          = "evm.mempool.insert-queue-size=1000"
+	NodeArgOperateExclusively       = "--evm.mempool.operate-exclusively=true"
+	NodeArgPendingTxProposalTimeout = "--evm.mempool.pending-tx-proposal-timeout=200ms"
+	NodeArgInsertQueueSize          = "--evm.mempool.insert-queue-size=1000"
 )
 
 // TestOptions defines the options for a test case.
