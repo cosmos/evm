@@ -4,10 +4,16 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/creachadair/tomledit"
+	"github.com/creachadair/tomledit/parser"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -40,9 +46,12 @@ type BaseTestSuite struct {
 
 	// Most recently retrieved base fee
 	baseFee *big.Int
+
+	// Extra node start args on top of default
+	NodeStartArgs []string
 }
 
-func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
+func NewBaseTestSuite(t *testing.T, nodeStartArgs ...string) *BaseTestSuite {
 	ethClient, ethAccounts, err := clients.NewEthClient()
 	require.NoError(t, err)
 
@@ -79,6 +88,7 @@ func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
 		CosmosClient:    cosmosClient,
 		accounts:        accounts,
 		accountsByID:    accountsByID,
+		NodeStartArgs:   nodeStartArgs,
 	}
 	return suite
 }
@@ -88,20 +98,20 @@ var (
 	sharedSuite     *BaseTestSuite
 )
 
-func GetSharedSuite(t *testing.T) *BaseTestSuite {
+func GetSharedSuite(t *testing.T, nodeStartArgs ...string) *BaseTestSuite {
 	t.Helper()
 
 	sharedSuiteOnce.Do(func() {
-		sharedSuite = NewBaseTestSuite(t)
+		sharedSuite = NewBaseTestSuite(t, nodeStartArgs...)
 	})
 
 	return sharedSuite
 }
 
 // RunWithSharedSuite retrieves the shared suite instance and executes the provided test function.
-func RunWithSharedSuite(t *testing.T, fn func(*testing.T, *BaseTestSuite)) {
+func RunWithSharedSuite(t *testing.T, fn func(*testing.T, *BaseTestSuite), nodeStartArgs ...string) {
 	t.Helper()
-	fn(t, GetSharedSuite(t))
+	fn(t, GetSharedSuite(t, nodeStartArgs...))
 }
 
 // TestAccount aggregates account metadata usable across both Ethereum and Cosmos flows.
@@ -118,12 +128,36 @@ type TestAccount struct {
 	Cosmos *clients.CosmosAccount
 }
 
+type TestSetupConfig struct {
+	nodeStartArgs []string
+	timeoutCommit time.Duration
+}
+
+type TestSetupConfigOption func(*TestSetupConfig)
+
+func WithNodeStartArgs(args ...string) TestSetupConfigOption {
+	return func(tsc *TestSetupConfig) {
+		tsc.nodeStartArgs = args
+	}
+}
+
+func WithTimeoutCommit(tc time.Duration) TestSetupConfigOption {
+	return func(tsc *TestSetupConfig) {
+		tsc.timeoutCommit = tc
+	}
+}
+
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
-func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 	t.Helper()
 
-	if len(nodeStartArgs) == 0 {
-		nodeStartArgs = DefaultNodeArgs()
+	var cfg TestSetupConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	if len(cfg.nodeStartArgs) == 0 {
+		cfg.nodeStartArgs = DefaultNodeArgs()
 	}
 
 	s.LockChain()
@@ -133,7 +167,14 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 		s.currentNodeArgs = nil
 	}
 
-	if s.ChainStarted && slices.Equal(nodeStartArgs, s.currentNodeArgs) {
+	if s.IsExclusiveMempool() {
+		s.ModifyCometMempool(t, "app")
+	}
+	if cfg.timeoutCommit > time.Duration(0) {
+		s.ModifyConsensusTimeout(t, cfg.timeoutCommit.String())
+	}
+
+	if s.ChainStarted && slices.Equal(cfg.nodeStartArgs, s.currentNodeArgs) {
 		// Chain already running with desired configuration; nothing to do.
 		return
 	}
@@ -142,9 +183,14 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 		s.ResetChain(t)
 	}
 
-	s.StartChain(t, nodeStartArgs...)
-	s.currentNodeArgs = append([]string(nil), nodeStartArgs...)
+	s.StartChain(t, cfg.nodeStartArgs...)
+	s.currentNodeArgs = append([]string(nil), cfg.nodeStartArgs...)
 	s.AwaitNBlocks(t, 2)
+}
+
+// IsExclusiveMempool returns true if the node was started with the operate-exclusively flag
+func (s *BaseTestSuite) IsExclusiveMempool() bool {
+	return strings.Contains(strings.Join(s.NodeStartArgs, " "), "operate-exclusively")
 }
 
 // LockChain acquires exclusive control over the underlying chain lifecycle.
@@ -155,4 +201,74 @@ func (s *BaseTestSuite) LockChain() {
 // UnlockChain releases the chain lifecycle lock.
 func (s *BaseTestSuite) UnlockChain() {
 	s.chainMu.Unlock()
+}
+
+// ModifyCometMempool modifies the mempool type in the config.toml
+func (s *BaseTestSuite) ModifyCometMempool(t *testing.T, mempoolType string) {
+	t.Helper()
+
+	// Modify config.toml for each node
+	for i := 0; i < s.NodesCount(); i++ {
+		nodeDir := s.NodeDir(i)
+		configPath := filepath.Join(nodeDir, "config", "config.toml")
+
+		err := editToml(configPath, func(doc *tomledit.Document) {
+			setValue(doc, mempoolType, "mempool", "type")
+		})
+		require.NoError(t, err, "failed to modify config.toml for node %d", i)
+	}
+}
+
+// ModifyConsensusTimeout modifies the consensus timeout_commit in the config.toml
+// for all nodes and restarts the chain with the new configuration.
+func (s *BaseTestSuite) ModifyConsensusTimeout(t *testing.T, timeout string) {
+	t.Helper()
+
+	// Modify config.toml for each node
+	for i := 0; i < s.NodesCount(); i++ {
+		nodeDir := s.NodeDir(i)
+		configPath := filepath.Join(nodeDir, "config", "config.toml")
+
+		err := editToml(configPath, func(doc *tomledit.Document) {
+			setValue(doc, timeout, "consensus", "timeout_commit")
+		})
+		require.NoError(t, err, "failed to modify config.toml for node %d", i)
+	}
+}
+
+// editToml is a helper to edit TOML files
+func editToml(filename string, f func(doc *tomledit.Document)) error {
+	tomlFile, err := os.OpenFile(filename, os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer tomlFile.Close()
+
+	doc, err := tomledit.Parse(tomlFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse toml: %w", err)
+	}
+
+	f(doc)
+
+	if _, err := tomlFile.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to seek: %w", err)
+	}
+	if err := tomlFile.Truncate(0); err != nil {
+		return fmt.Errorf("failed to truncate: %w", err)
+	}
+	if err := tomledit.Format(tomlFile, doc); err != nil {
+		return fmt.Errorf("failed to format: %w", err)
+	}
+
+	return nil
+}
+
+// setValue sets a value in a TOML document
+func setValue(doc *tomledit.Document, newVal string, xpath ...string) {
+	e := doc.First(xpath...)
+	if e == nil {
+		panic(fmt.Sprintf("not found: %v", xpath))
+	}
+	e.Value = parser.MustValue(fmt.Sprintf("%q", newVal))
 }

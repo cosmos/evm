@@ -368,15 +368,10 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 	s := NewTestSuite(base)
 
 	// First, setup the chain with default configuration
-	s.SetupTest(t)
-
-	// Configure the chain for broadcast testing:
-	// 1. Set mempool type to "app" so CometBFT uses AppMempool/AppReactor for gossip.
-	//    Without this, the default "flood" reactor doesn't gossip txs that bypass
-	//    CometBFT's CListMempool (which happens when UseAppMempool=true).
-	// 2. Slow down block production to give time to verify gossip before blocks commit.
-	s.ModifyCometMempool(t, "app")
-	s.ModifyConsensusTimeout(t, "5s")
+	//
+	// Slow down block production to give time to verify gossip before blocks
+	// commit.
+	s.SetupTestWithTimeoutCommit(t, 5*time.Second)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
