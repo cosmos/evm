@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/apphash"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
 
@@ -77,4 +78,8 @@ func TestAccountAbstractionEIP7702(t *testing.T) {
  */
 func TestChainUpgrade(t *testing.T) {
 	suite.RunWithSharedSuite(t, chainupgrade.RunChainUpgrade)
+}
+
+func TestLiveHotSendsAppHash(t *testing.T) {
+	suite.RunWithSharedSuite(t, apphash.RunLiveHotSendsAppHash)
 }
