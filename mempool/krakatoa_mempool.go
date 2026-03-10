@@ -85,7 +85,6 @@ func NewKrakatoaMempool(
 	vmKeeper VMKeeperI,
 	feeMarketKeeper FeeMarketKeeperI,
 	txConfig client.TxConfig,
-	txEncoder *TxEncoder,
 	evmRechecker legacypool.Rechecker,
 	cosmosRechecker Rechecker,
 	config *KrakatoaMempoolConfig,

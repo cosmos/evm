@@ -393,7 +393,6 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason 
 // removeCosmosTx removes a cosmos tx from the mempool.
 // The RecheckMempool handles locking internally.
 func (m *ExperimentalEVMMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
-
 	return nil
 }
 
@@ -505,7 +504,6 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 
 	wg.Go(func() {
 		cosmosIterator = m.cosmosPool.Select(ctx, txs)
-
 	})
 
 	wg.Wait()

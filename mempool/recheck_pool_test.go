@@ -509,7 +509,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 // Integration
 // ----------------------------------------------------------------------------
 
-func TestMempool_Recheck(t *testing.T) {
+func TestKrakatoaMempool_Recheck(t *testing.T) {
 	type accountTx struct {
 		account int
 		nonce   uint64
@@ -634,8 +634,8 @@ func TestMempool_Recheck(t *testing.T) {
 			transientKey := storetypes.NewTransientStoreKey("transient_test")
 			ctx := testutil.DefaultContext(storeKey, transientKey)
 
-			s := setupExclusiveMempoolWithAccounts(t, 3)
-			mp, txConfig, cosmosRechecker, accounts := s.mp, s.txConfig, s.cosmosRechecker, s.accounts
+			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {
 				pubKeyBytes := crypto.CompressPubkey(&accounts[accountIdx].key.PublicKey)
