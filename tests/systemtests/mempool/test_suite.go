@@ -23,15 +23,11 @@ func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
 }
 
 func (s *TestSuite) SetupTest(t *testing.T) {
-	s.BaseTestSuite.SetupTest(t, suite.WithNodeStartArgs(s.NodeStartArgs...))
+	s.BaseTestSuite.SetupTest(t)
 }
 
 func (s *TestSuite) SetupTestWithTimeoutCommit(t *testing.T, tc time.Duration) {
-	s.BaseTestSuite.SetupTest(
-		t,
-		suite.WithNodeStartArgs(s.NodeStartArgs...),
-		suite.WithTimeoutCommit(tc),
-	)
+	s.BaseTestSuite.SetupTest(t, suite.WithTimeoutCommit(tc))
 }
 
 // GetCurrentBlockHeight returns the current block height from the specified node
