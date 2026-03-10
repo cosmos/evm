@@ -1,11 +1,11 @@
 module github.com/cosmos/evm/tests/systemtests
 
-go 1.25.7
+go 1.25.8
 
 require (
 	cosmossdk.io/math v1.5.3
 	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260305191742-d939d1e7c932
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260305184348-d80b9372049f
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310180626-72ea9fe77986
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/creachadair/tomledit v0.0.29
 	github.com/ethereum/go-ethereum v1.16.8
@@ -32,7 +32,7 @@ require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/RoaringBitmap/roaring/v2 v2.14.4 // indirect
+	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

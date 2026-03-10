@@ -1,6 +1,6 @@
 module github.com/cosmos/evm/tests/speedtest
 
-go 1.25.7
+go 1.25.8
 
 replace (
 	github.com/cosmos/evm => ../../
@@ -13,7 +13,7 @@ replace (
 require (
 	cosmossdk.io/log/v2 v2.0.1
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260305184348-d80b9372049f
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310180626-72ea9fe77986
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/evm/evmd v0.0.0-20251112193856-d450ea1d6bd0
 	github.com/ethereum/go-ethereum v1.16.8
@@ -47,7 +47,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.55.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.55.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/RoaringBitmap/roaring/v2 v2.14.4 // indirect
+	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.4 // indirect
