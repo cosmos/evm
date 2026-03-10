@@ -183,11 +183,15 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 	if s.IsExclusiveMempool() {
 		s.ModifyCometMempool(t, "app")
 	} else {
+		// if not set, default to flood mempool
 		s.ModifyCometMempool(t, "flood")
 	}
 
 	if cfg.timeoutCommit > time.Duration(0) {
 		s.ModifyConsensusTimeout(t, cfg.timeoutCommit.String())
+	} else {
+		// if not set, default to 2s
+		s.ModifyConsensusTimeout(t, time.Duration(2*time.Second).String())
 	}
 
 	s.StartChain(t, s.nodeStartArgs...)
