@@ -8,14 +8,14 @@ require (
 	cosmossdk.io/errors v1.1.0
 	cosmossdk.io/log/v2 v2.0.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20260310041431-5a03cdfa49e1
+	cosmossdk.io/store v1.10.0-rc.2.0.20260310145908-2f5da728baed
 	cosmossdk.io/tools/confix v0.1.2
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcutil v1.1.6
-	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260305191742-d939d1e7c932
+	github.com/cometbft/cometbft v0.39.0-beta.2.0.20260309202733-cd5c4370839e
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310041431-5a03cdfa49e1
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260310145908-2f5da728baed
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260227195504-dfbe36236297
