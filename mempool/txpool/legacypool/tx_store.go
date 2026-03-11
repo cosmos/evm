@@ -106,6 +106,7 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 			continue
 		}
 		toAdd = append(toAdd, tx)
+		t.lookup[tx.Hash()] = struct{}{}
 	}
 
 	if existing, ok := t.txs[addr]; ok {
@@ -122,24 +123,31 @@ func (t *TxStore) AddTx(addr common.Address, tx *types.Transaction) {
 
 // RemoveTx removes a tx for an address from the current set.
 func (t *TxStore) RemoveTx(addr common.Address, tx *types.Transaction) {
+	t.RemoveTxsFromNonce(addr, tx.Nonce())
+}
+
+// RemoveTxsFromNonce removes all txs for addr whose nonce is >= minNonce.
+func (t *TxStore) RemoveTxsFromNonce(addr common.Address, minNonce uint64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
-	defer delete(t.lookup, tx.Hash())
 
 	txs, ok := t.txs[addr]
 	if !ok {
 		return
 	}
 
-	// Find and remove the tx by nonce
-	nonce := tx.Nonce()
-	for i := 0; i < len(txs); i++ {
-		if txs[i].Nonce() == nonce {
-			// Swap with last element and truncate
-			txs[i] = txs[len(txs)-1]
-			t.txs[addr] = txs[:len(txs)-1]
-			return
+	next := txs[:0]
+	for _, existing := range txs {
+		if existing.Nonce() >= minNonce {
+			delete(t.lookup, existing.Hash())
+			continue
 		}
+		next = append(next, existing)
 	}
+
+	if len(next) == 0 {
+		delete(t.txs, addr)
+		return
+	}
+	t.txs[addr] = next
 }

@@ -1037,6 +1037,39 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 	require.Equal(t, 3, mp.CountTx())
 }
 
+func TestRecheckMempool_InsertReplacementInvalidatesRecheckedSuffix(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	pool := &recheckMockPool{}
+	bc := newMockContextProvider(ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
+	recheckedTxs := newTestRecheckedTxs()
+
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	tx4 := newRecheckTestTxWithNonce(t, key, 4)
+	tx5 := newRecheckTestTxWithNonce(t, key, 5)
+	tx6 := newRecheckTestTxWithNonce(t, key, 6)
+
+	recheckedTxs.Do(func(store *mempool.CosmosTxStore) {
+		store.AddTx(tx4)
+		store.AddTx(tx5)
+		store.AddTx(tx6)
+	})
+
+	replacement := newRecheckTestTxWithNonce(t, key, 4)
+	require.NoError(t, mp.Insert(ctx, replacement))
+
+	iter := mp.RecheckedTxs(context.Background(), big.NewInt(0))
+	rechecked := collectIteratorTxs(iter)
+	require.Empty(t, rechecked)
+	require.Equal(t, 1, mp.CountTx())
+}
+
 // newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.
 func newRecheckTestTx(t *testing.T, key *ecdsa.PrivateKey) sdk.Tx {
 	t.Helper()

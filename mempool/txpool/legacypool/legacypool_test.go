@@ -42,6 +42,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -331,6 +332,26 @@ func validateEvents(events chan core.NewTxsEvent, count int) error {
 		// really nothing gets injected.
 	}
 	return nil
+}
+
+func TestMarkTxRemovedInvalidatesPendingSuffix(t *testing.T) {
+	pool, _, key := setupPool()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+
+	pool.validPendingTxs.Do(func(store *TxStore) {
+		store.AddTx(addr, tx4)
+		store.AddTx(addr, tx5)
+		store.AddTx(addr, tx6)
+	})
+
+	pool.markTxRemoved(addr, tx4, Pending)
+
+	pending := pool.Pending(context.Background(), big.NewInt(0), txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
 }
 
 func deriveSender(tx *types.Transaction) (common.Address, error) {

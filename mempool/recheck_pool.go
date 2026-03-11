@@ -203,7 +203,7 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	}
 
 	write()
-	m.markTxRechecked(tx)
+	m.markTxInserted(tx)
 	return nil
 }
 
@@ -450,6 +450,18 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 // markTxRechecked adds a tx into the height synced cosmos tx store
 func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AddTx(txn) })
+}
+
+// markTxInserted conservatively updates the current-height snapshot for live inserts.
+// If the inserted tx overlaps an already snapshotted signer/nonce prefix, the affected
+// suffix is dropped and rebuilt by the next recheck instead of being replaced in place.
+func (m *RecheckMempool) markTxInserted(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) {
+		if store.InvalidateFrom(txn) > 0 {
+			return
+		}
+		store.AddTx(txn)
+	})
 }
 
 type signerSequence struct {
