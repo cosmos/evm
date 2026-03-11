@@ -5,6 +5,7 @@ import (
 	"sort"
 	"sync"
 
+	"cosmossdk.io/log/v2"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -23,14 +24,19 @@ type TxStore struct {
 	// lookup provides a fast lookup to determine if a tx is in the set or not
 	lookup map[common.Hash]struct{}
 
-	mu sync.RWMutex
+	total uint64
+
+	logger log.Logger
+	mu     sync.RWMutex
 }
 
 // NewTxStore creates a new TxStore.
-func NewTxStore() *TxStore {
+func NewTxStore(logger log.Logger) *TxStore {
 	return &TxStore{
 		txs:    make(map[common.Address]types.Transactions),
+		total:  0,
 		lookup: make(map[common.Hash]struct{}),
+		logger: logger.With("txstore", "evm"),
 	}
 }
 
@@ -91,6 +97,7 @@ func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.
 		}
 	}
 
+	t.logger.Info("collected txs from evm tx store", "total_in_store", t.total, "num_selected", numSelected)
 	txsCollected.Mark(int64(numSelected))
 	return pending
 }
@@ -113,6 +120,7 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 	} else {
 		t.txs[addr] = toAdd
 	}
+	t.total += uint64(len(toAdd))
 }
 
 // AddTx adds a single tx to the store.
@@ -139,6 +147,7 @@ func (t *TxStore) RemoveTx(addr common.Address, tx *types.Transaction) {
 			// Swap with last element and truncate
 			txs[i] = txs[len(txs)-1]
 			t.txs[addr] = txs[:len(txs)-1]
+			t.total -= 1
 			return
 		}
 	}
