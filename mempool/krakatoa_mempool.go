@@ -221,7 +221,7 @@ func (m *KrakatoaMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
 	}
 }
 
-// onEVMTxEnqueued defines a hook to run whenever an evm tx is promoted from
+// onEVMTxPromoted defines a hook to run whenever an evm tx is promoted from
 // the queued pool to the pending pool.
 func (m *KrakatoaMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
 	return func(tx *ethtypes.Transaction) {
@@ -237,7 +237,7 @@ func (m *KrakatoaMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
 	}
 }
 
-// onEVMTxEnqueued defines a hook to run whenever an evm tx is removed from a
+// onEVMTxRemoved defines a hook to run whenever an evm tx is removed from a
 // pool (queued or pending).
 func (m *KrakatoaMempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
 	return func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
