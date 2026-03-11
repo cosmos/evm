@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/log/v2"
 	reserver2 "github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -97,6 +98,10 @@ func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block
 
 func (bc *testBlockChain) StateAt(common.Hash) (vm.StateDB, error) {
 	return bc.statedb, nil
+}
+
+func (bc *testBlockChain) GetLatestContext() (sdk.Context, error) {
+	return sdk.Context{}, nil
 }
 
 func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
@@ -244,7 +249,7 @@ func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecke
 
 	key, _ := crypto.GenerateKey()
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, blockchain, WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, WithRecheck(rechecker))
 	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
 		panic(err)
 	}
@@ -377,7 +382,7 @@ func TestStateChangeDuringReset(t *testing.T) {
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -794,7 +799,7 @@ func TestPostponing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1004,7 +1009,7 @@ func TestQueueGlobalLimiting(t *testing.T) {
 	config.NoLocals = true
 	config.GlobalQueue = config.AccountQueue*3 - 1 // reduce the queue limits to shorten test time (-1 to make it non divisible)
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1056,7 +1061,7 @@ func TestQueueTimeLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.Lifetime = time.Second
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1217,7 +1222,7 @@ func TestPendingGlobalLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = config.AccountSlots * 10
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1316,7 +1321,7 @@ func TestCapClearsFromAll(t *testing.T) {
 	config.AccountQueue = 2
 	config.GlobalSlots = 8
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1349,7 +1354,7 @@ func TestPendingMinimumAllowance(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = 1
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1393,7 +1398,7 @@ func TestRepricing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1498,7 +1503,7 @@ func TestMinGasPriceEnforced(t *testing.T) {
 
 	txPoolConfig := DefaultConfig
 	txPoolConfig.NoLocals = true
-	pool := New(txPoolConfig, blockchain)
+	pool := New(txPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(txPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1647,7 +1652,7 @@ func TestUnderpricing(t *testing.T) {
 	config.GlobalSlots = 2
 	config.GlobalQueue = 2
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1737,7 +1742,7 @@ func TestStableUnderpricing(t *testing.T) {
 	config.GlobalSlots = 128
 	config.GlobalQueue = 0
 
-	pool := New(config, blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1940,7 +1945,7 @@ func TestDeduplication(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2007,7 +2012,7 @@ func TestReplacement(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2199,7 +2204,7 @@ func TestStatusCheck(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2272,7 +2277,7 @@ func TestSetCodeTransactions(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2570,7 +2575,7 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2629,7 +2634,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
 	err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	if err != nil {
 		t.Fatalf("failed to init pool: %v", err)
@@ -3058,7 +3063,7 @@ func (mr *MockRechecker) GetContext() (sdk.Context, func()) {
 	return sdk.Context{}, func() {}
 }
 
-func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+func (mr *MockRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 	mr.lock.Lock()
 	defer mr.lock.Unlock()
 
@@ -3068,4 +3073,4 @@ func (mr *MockRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Co
 	return sdk.Context{}, nil
 }
 
-func (mr *MockRechecker) Update(chain BlockChain, header *types.Header) {}
+func (mr *MockRechecker) Update(_ sdk.Context, _ *types.Header) {}

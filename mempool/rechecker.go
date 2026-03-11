@@ -7,7 +7,6 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/utils"
 
 	storetypes "cosmossdk.io/store/types"
@@ -19,11 +18,11 @@ type TxConverter interface {
 	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
 }
 
-// Rechecker runs recheckFn on pending and queued txs in the pool, given an
+// TxRechecker runs recheckFn on pending and queued txs in the pool, given an
 // sdk context via UpdateCtx.
 //
 // NOTE: None of the recheckers functions are thread safe.
-type Rechecker struct {
+type TxRechecker struct {
 	// ctx is the context that rechecks should be run on. Updated by calling
 	// the returned function from GetContext.
 	ctx sdk.Context
@@ -32,9 +31,9 @@ type Rechecker struct {
 	txConverter TxConverter
 }
 
-// NewRechecker creates a new rechecker that can recheck transactions.
-func NewRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *Rechecker {
-	return &Rechecker{
+// NewTxRechecker creates a new rechecker that can recheck transactions.
+func NewTxRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *TxRechecker {
+	return &TxRechecker{
 		anteHandler: anteHandler,
 		txConverter: txConverter,
 	}
@@ -45,15 +44,26 @@ func NewRechecker(anteHandler sdk.AnteHandler, txConverter TxConverter) *Recheck
 // the context stored by the rechecker for future callers to use.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) GetContext() (sdk.Context, func()) {
-	return r.ctx.CacheContext()
+func (r *TxRechecker) GetContext() (sdk.Context, func()) {
+	if r.ctx.MultiStore() == nil {
+		return sdk.Context{}, func() {}
+	}
+
+	// CacheContext behavior, but dont emit events back to parent manager,
+	// rechecking doesnt care about event and we will race on this if we do
+	cms := r.ctx.MultiStore().CacheMultiStore()
+	cc := r.ctx.WithMultiStore(cms).WithEventManager(sdk.NewEventManager())
+	write := func() {
+		cms.Write()
+	}
+	return cc, write
 }
 
-// Recheck revalidates a transaction against a context. It returns an updated
+// RecheckEVM revalidates an EVM transaction against a context. It returns an updated
 // context and an error that occurred while processing.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) Recheck(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
+func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
 	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
@@ -62,23 +72,23 @@ func (r *Rechecker) Recheck(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Cont
 	return r.anteHandler(ctx, cosmosTx, false)
 }
 
-// Update updates the base context for rechecks based on the latest chain
-// state.
+// RecheckCosmos revalidates a Cosmos transaction against a context. It returns an updated
+// context and an error that occurred while processing.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
-func (r *Rechecker) Update(chain legacypool.BlockChain, header *ethtypes.Header) {
-	bc, ok := chain.(*Blockchain)
-	if !ok {
-		panic("expected type *Blockchain for implementation of legacypool.BlockChain")
-	}
+func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
+	return r.anteHandler(ctx, tx, false)
+}
 
-	ctx, err := bc.GetLatestContext()
-	if err != nil {
-		panic(fmt.Errorf("could not get latest context on blockchain: %w", err))
-	}
-
-	ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
-	if ctx.ConsensusParams().Block == nil {
+// Update updates the base context for rechecks based on the latest chain
+// state. The caller provides the context directly.
+//
+// NOTE: This function is not thread safe with itself or any other Rechecker functions.
+func (r *TxRechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
+	cached, _ := ctx.CacheContext()
+	cached = cached.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
+	cached = cached.WithGasMeter(storetypes.NewInfiniteGasMeter())
+	if cached.ConsensusParams().Block == nil {
 		// set the latest blocks gas limit as the max gas in cp. this is
 		// necessary to validate each tx's gas wanted
 		maxGas, err := utils.SafeInt64(header.GasLimit)
@@ -86,7 +96,7 @@ func (r *Rechecker) Update(chain legacypool.BlockChain, header *ethtypes.Header)
 			panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))
 		}
 		cp := cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}}
-		ctx = ctx.WithConsensusParams(cp)
+		cached = cached.WithConsensusParams(cp)
 	}
-	r.ctx = ctx
+	r.ctx = cached
 }

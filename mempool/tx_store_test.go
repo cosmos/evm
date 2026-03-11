@@ -8,6 +8,8 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 
+	"cosmossdk.io/log/v2"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -26,7 +28,7 @@ func newMockTx(id int) sdk.Tx {
 }
 
 func TestCosmosTxStoreAddAndGet(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx1 := newMockTx(1)
 	tx2 := newMockTx(2)
@@ -41,7 +43,7 @@ func TestCosmosTxStoreAddAndGet(t *testing.T) {
 }
 
 func TestCosmosTxStoreDedup(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx := newMockTx(1)
 
@@ -53,7 +55,7 @@ func TestCosmosTxStoreDedup(t *testing.T) {
 }
 
 func TestCosmosTxStoreIterator(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx1 := newMockTx(1)
 	tx2 := newMockTx(2)
@@ -74,12 +76,12 @@ func TestCosmosTxStoreIterator(t *testing.T) {
 }
 
 func TestCosmosTxStoreIteratorEmpty(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 	require.Nil(t, store.Iterator())
 }
 
 func TestCosmosTxStoreIteratorSnapshotIsolation(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx1 := newMockTx(1)
 	tx2 := newMockTx(2)

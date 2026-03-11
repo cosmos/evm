@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/log/v2"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -67,6 +68,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	legacyChain.On("CurrentBlock").Return(&types.Header{Number: big.NewInt(0)})
 	chain.On("Config").Return(cfg)
 	legacyChain.On("StateAt", genesisHeader.Root).Return(genesisState, nil)
+	legacyChain.On("GetLatestContext").Return(sdk.Context{}, nil).Maybe()
 	chain.On("StateAt", genesisHeader.Root).Return(nil, nil)
 
 	// starting the chain(s) at genesisHeader
@@ -84,7 +86,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
 	recheckGuard := make(chan struct{})
-	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain, legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
+	legacyPool := legacypool.New(legacypool.DefaultConfig, log.NewNopLogger(), legacyChain, legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
@@ -141,11 +143,11 @@ func (mr *BlockingRechecker) GetContext() (sdk.Context, func()) {
 	return sdk.Context{}, func() {}
 }
 
-func (mr *BlockingRechecker) Recheck(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+func (mr *BlockingRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
 	mr.once.Do(func() {
 		<-mr.guard
 	})
 	return sdk.Context{}, nil
 }
 
-func (mr *BlockingRechecker) Update(chain legacypool.BlockChain, header *types.Header) {}
+func (mr *BlockingRechecker) Update(ctx sdk.Context, header *types.Header) {}
