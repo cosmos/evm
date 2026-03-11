@@ -171,7 +171,6 @@ func NewKrakatoaMempool(
 		blockchain:               blockchain,
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
-		operateExclusively:       true,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(NewTxEncoder(txConfig)),
 		txTracker:                newTxTracker(),
