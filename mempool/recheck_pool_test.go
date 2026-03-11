@@ -1037,7 +1037,7 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 	require.Equal(t, 3, mp.CountTx())
 }
 
-func TestRecheckMempool_InsertReplacementInvalidatesRecheckedSuffix(t *testing.T) {
+func TestRecheckMempool_InsertReplacementInvalidatesRechecked(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
@@ -1047,6 +1047,10 @@ func TestRecheckMempool_InsertReplacementInvalidatesRecheckedSuffix(t *testing.T
 	recheckedTxs := newTestRecheckedTxs()
 
 	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp.Start(testHeader(0))
+	t.Cleanup(func() {
+		require.NoError(t, mp.Close())
+	})
 
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1068,6 +1072,54 @@ func TestRecheckMempool_InsertReplacementInvalidatesRecheckedSuffix(t *testing.T
 	rechecked := collectIteratorTxs(iter)
 	require.Empty(t, rechecked)
 	require.Equal(t, 1, mp.CountTx())
+}
+
+func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	pool := &recheckMockPool{}
+	bc := newMockContextProvider(ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
+	recheckedTxs := newTestRecheckedTxs()
+
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp.Start(testHeader(0))
+	t.Cleanup(func() {
+		require.NoError(t, mp.Close())
+	})
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	tx4 := newRecheckTestTxWithNonce(t, key, 4)
+	tx5 := newRecheckTestTxWithNonce(t, key, 5)
+	tx6 := newRecheckTestTxWithNonce(t, key, 6)
+	replacement := newRecheckTestTxWithNonce(t, key, 4)
+
+	pool.txs = []sdk.Tx{tx4, tx5, tx6}
+	recheckedTxs.Do(func(store *mempool.CosmosTxStore) {
+		store.AddTx(tx4)
+		store.AddTx(tx5)
+		store.AddTx(tx6)
+	})
+
+	require.NoError(t, mp.Insert(ctx, replacement))
+
+	iter := mp.RecheckedTxs(context.Background(), big.NewInt(0))
+	rechecked := collectIteratorTxs(iter)
+	require.Empty(t, rechecked)
+
+	// Rebuild the live mempool into the order a priority mempool would expose
+	pool.mu.Lock()
+	pool.txs = []sdk.Tx{replacement, tx5, tx6}
+	pool.mu.Unlock()
+
+	mp.TriggerRecheckSync(testHeader(1))
+
+	iter = mp.RecheckedTxs(context.Background(), big.NewInt(1))
+	rechecked = collectIteratorTxs(iter)
+	require.Equal(t, []sdk.Tx{replacement, tx5, tx6}, rechecked)
 }
 
 // newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.

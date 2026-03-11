@@ -30,19 +30,16 @@ func NewCosmosTxStore() *CosmosTxStore {
 	}
 }
 
-// AddTx adds a single tx to the store. Duplicate txs (by pointer identity)
-// are ignored. Transactions with the same signer/nonce tuple overwrite the
-// existing entry to mirror the SDK PriorityNonceMempool replacement model.
+// AddTx adds a single tx to the store while constructing a validated snapshot.
+// Duplicate txs (by pointer identity) are ignored. A signer/nonce collision is
+// a programming error: validated snapshots must never be edited in place.
 func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if key, ok := cosmosTxKey(tx); ok {
-		if idx, exists := s.keys[key]; exists {
-			delete(s.index, s.txs[idx])
-			s.txs[idx] = tx
-			s.index[tx] = idx
-			return
+		if _, exists := s.keys[key]; exists {
+			panic(fmt.Sprintf("duplicate cosmos tx snapshot entry for signer/nonce key %q", key))
 		}
 		s.keys[key] = len(s.txs)
 	}
@@ -70,7 +67,6 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	nextTxs := make([]sdk.Tx, 0, len(s.txs))
 	for _, existing := range s.txs {
 		if invalidatesCosmosTx(existing, thresholds) {
-			delete(s.index, existing)
 			removed++
 			continue
 		}
@@ -104,6 +100,8 @@ func cosmosTxKey(tx sdk.Tx) (string, bool) {
 	return b.String(), true
 }
 
+// cosmosTxNonceMap extracts the signers from the transaction
+// and returns a signer -> nonce map.
 func cosmosTxNonceMap(tx sdk.Tx) (map[string]uint64, bool) {
 	signerSeqs, err := extractSignerSequences(tx)
 	if err != nil || len(signerSeqs) == 0 {
