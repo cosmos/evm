@@ -452,9 +452,9 @@ func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AddTx(txn) })
 }
 
-// markTxInserted conservatively updates the current-height snapshot for live inserts.
-// If the inserted tx overlaps an already snapshotted signer/nonce prefix, the affected
-// suffix is dropped and rebuilt by the next recheck instead of being replaced in place.
+// markTxInserted conservatively updates the current height snapshot for live inserts.
+// If the inserted tx replaces an existing tx, any other txs from the same sender with
+// a higher nonce is dropped and rebuilt by the next recheck.
 func (m *RecheckMempool) markTxInserted(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) {
 		if store.InvalidateFrom(txn) > 0 {

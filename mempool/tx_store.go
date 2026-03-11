@@ -15,9 +15,8 @@ import (
 type CosmosTxStore struct {
 	txs []sdk.Tx
 
-	// index tracks pointer-identity dedupe for txs that cannot be keyed.
-	index map[sdk.Tx]int
-	keys  map[string]int
+	// index tracks pointer-identity dedupe for txs that cannot be keyed. // TODO: is this useful? do we ever expect the cosmosTxKey fn to fail?
+	keys map[string]int
 
 	mu sync.RWMutex
 }
@@ -25,14 +24,11 @@ type CosmosTxStore struct {
 // NewCosmosTxStore creates a new CosmosTxStore.
 func NewCosmosTxStore() *CosmosTxStore {
 	return &CosmosTxStore{
-		index: make(map[sdk.Tx]int),
-		keys:  make(map[string]int),
+		keys: make(map[string]int),
 	}
 }
 
 // AddTx adds a single tx to the store while constructing a validated snapshot.
-// Duplicate txs (by pointer identity) are ignored. A signer/nonce collision is
-// a programming error: validated snapshots must never be edited in place.
 func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -44,25 +40,31 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 		s.keys[key] = len(s.txs)
 	}
 
-	if _, exists := s.index[tx]; exists {
-		return
-	}
-	s.index[tx] = len(s.txs)
 	s.txs = append(s.txs, tx)
 }
 
 // InvalidateFrom removes any stored tx that depends on the supplied tx's signer/nonces.
 // It is used for live mempool replacements: once a tx at nonce N changes, any stored tx
-// for the same signer(s) with nonce >= N is no longer known-valid for proposal building.
+// for the same signer(s) with nonce >= N can no longer be considered valid for proposal building.
 func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// first check if this tx is already here. If it isn't; no need to do anything. It's a fresh insert.
+	// If it is, we need to do the work of invaliding any txs from the same sender with a higher nonce.
+	if txKey, ok := cosmosTxKey(tx); ok {
+		if _, exists := s.keys[txKey]; !exists {
+			return 0
+		}
+	}
+
+	// nonce thresholds for each signer.
 	thresholds, ok := cosmosTxNonceMap(tx)
 	if !ok {
 		return 0
 	}
 
+	// rebuild the txs list, skipping txs that are invalidated.
 	removed := 0
 	nextTxs := make([]sdk.Tx, 0, len(s.txs))
 	for _, existing := range s.txs {
@@ -77,6 +79,7 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 		return 0
 	}
 
+	// TODO: this isn't really the most optimal way to do this..
 	s.reindex(nextTxs)
 	return removed
 }
@@ -148,10 +151,8 @@ func invalidatesCosmosTx(tx sdk.Tx, thresholds map[string]uint64) bool {
 
 func (s *CosmosTxStore) reindex(txs []sdk.Tx) {
 	s.txs = txs
-	s.index = make(map[sdk.Tx]int, len(txs))
 	s.keys = make(map[string]int, len(txs))
 	for i, tx := range txs {
-		s.index[tx] = i
 		if key, ok := cosmosTxKey(tx); ok {
 			s.keys[key] = i
 		}

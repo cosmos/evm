@@ -52,9 +52,11 @@ func (m *keyedMockTx) GetMsgsV2() ([]protov2.Message, error) { return nil, nil }
 func (m *keyedMockTx) GetSigners() ([][]byte, error) {
 	return [][]byte{m.pubKey.Address().Bytes()}, nil
 }
+
 func (m *keyedMockTx) GetPubKeys() ([]cryptotypes.PubKey, error) {
 	return []cryptotypes.PubKey{m.pubKey}, nil
 }
+
 func (m *keyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
 	return []signingtypes.SignatureV2{{
 		PubKey:   m.pubKey,
