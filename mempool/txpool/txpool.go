@@ -520,6 +520,13 @@ func (p *TxPool) Sync() error {
 	}
 }
 
+// Reset synchronously resets each subpool at a given state.
+func (p *TxPool) Reset(oldHead, newHead *types.Header) {
+	for _, subPool := range p.Subpools {
+		subPool.Reset(oldHead, newHead)
+	}
+}
+
 // Clear removes all tracked txs from the Subpools.
 //
 // Note, this method invokes Sync() and is only used for testing, because it is

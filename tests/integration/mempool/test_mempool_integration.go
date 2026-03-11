@@ -326,8 +326,9 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -451,8 +452,9 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -857,8 +859,9 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
@@ -977,8 +980,9 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			// where recheck happens after a new block notification).
 			ctx := s.network.GetContext()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&ethtypes.Header{Number: big.NewInt(ctx.BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Track filter function calls to ensure we don't have infinite loops

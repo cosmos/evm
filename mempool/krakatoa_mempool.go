@@ -617,8 +617,14 @@ func (m *KrakatoaMempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
 }
 
+// RecheckEVMTxs triggers a synchronous recheck of evm transactions.
+// This should only be used for testing.
+func (m *KrakatoaMempool) RecheckEVMTxs(newHead *ethtypes.Header) {
+	m.txPool.Reset(nil, newHead)
+}
+
 // RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
-// This is primarily used for testing.
+// This should only used for testing.
 func (m *KrakatoaMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckCosmosPool.TriggerRecheckSync(newHead)
 }

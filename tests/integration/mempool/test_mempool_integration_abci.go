@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
@@ -184,8 +183,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			// cosmos txs are available via Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -203,8 +203,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			// Check whether expected transactions are included and returned as pending state in mempool
 			ctx := s.network.GetContext()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
@@ -404,8 +405,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			// HeightSync is at the correct height for Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -421,8 +423,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			ctx := s.network.GetContext()
 			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
-				kMp.GetBlockchain().NotifyNewBlock()
-				kMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 
