@@ -16,6 +16,8 @@ Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade
 
 ### BUG FIXES
 
+- Align precompile gas calculation with expected EVM gas semantics.
+
 ## v0.5.1
 
 ### DEPENDENCIES
