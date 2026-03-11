@@ -244,7 +244,7 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 		return err
 	default:
 		// Insert into cosmos pool for non-EVM transactions
-		m.logger.Debug("inserting Cosmos transaction", "error", err)
+		m.logger.Debug("inserting Cosmos transaction")
 		if err = m.cosmosPool.Insert(goCtx, tx); err != nil {
 			m.logger.Error("failed to insert Cosmos transaction", "error", err)
 			return err

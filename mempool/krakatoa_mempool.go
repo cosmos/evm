@@ -59,7 +59,6 @@ type KrakatoaMempool struct {
 	txPool                   *txpool.TxPool
 	legacyTxPool             *legacypool.LegacyPool
 	recheckCosmosPool        *RecheckMempool
-	operateExclusively       bool
 	pendingTxProposalTimeout time.Duration
 
 	/** Utils **/
