@@ -15,11 +15,10 @@ import (
 
 func TestCometBlockResultByNumber_NilHeightErrorPath(t *testing.T) {
 	testCases := []struct {
-		name        string
-		height      *int64
-		rpcErr      error
-		expectPanic bool
-		expectErr   bool
+		name      string
+		height    *int64
+		rpcErr    error
+		expectErr bool
 	}{
 		{
 			name:      "nil height, BlockResults succeeds",
