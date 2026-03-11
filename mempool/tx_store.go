@@ -3,6 +3,8 @@ package mempool
 import (
 	"sync"
 
+	"cosmossdk.io/log/v2"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
@@ -19,7 +21,7 @@ type CosmosTxStore struct {
 }
 
 // NewCosmosTxStore creates a new CosmosTxStore.
-func NewCosmosTxStore() *CosmosTxStore {
+func NewCosmosTxStore(_ log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
 		index: make(map[sdk.Tx]int),
 	}
