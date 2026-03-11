@@ -1,6 +1,8 @@
 package mempool
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,6 +16,7 @@ type CosmosTxStore struct {
 
 	// index maps a tx to its position in the txs slice for fast removal
 	index map[sdk.Tx]int
+	keys  map[string]int
 
 	mu sync.RWMutex
 }
@@ -22,20 +25,53 @@ type CosmosTxStore struct {
 func NewCosmosTxStore() *CosmosTxStore {
 	return &CosmosTxStore{
 		index: make(map[sdk.Tx]int),
+		keys:  make(map[string]int),
 	}
 }
 
 // AddTx adds a single tx to the store. Duplicate txs (by pointer identity)
-// are ignored.
+// are ignored. Transactions with the same signer/nonce tuple overwrite the
+// existing entry to mirror the SDK PriorityNonceMempool replacement model.
 func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if key, ok := cosmosTxKey(tx); ok {
+		if idx, exists := s.keys[key]; exists {
+			delete(s.index, s.txs[idx])
+			s.txs[idx] = tx
+			s.index[tx] = idx
+			return
+		}
+		s.keys[key] = len(s.txs)
+	}
 
 	if _, exists := s.index[tx]; exists {
 		return
 	}
 	s.index[tx] = len(s.txs)
 	s.txs = append(s.txs, tx)
+}
+
+func cosmosTxKey(tx sdk.Tx) (string, bool) {
+	signerSeqs, err := extractSignerSequences(tx)
+	if err != nil || len(signerSeqs) == 0 {
+		return "", false
+	}
+
+	var b strings.Builder
+	for i, sig := range signerSeqs {
+		if i > 0 {
+			b.WriteByte('|')
+		}
+		nonce, err := sdkmempool.ChooseNonce(sig.seq, tx)
+		if err != nil {
+			return "", false
+		}
+		fmt.Fprintf(&b, "%s/%d", sig.account, nonce)
+	}
+
+	return b.String(), true
 }
 
 // Txs returns a copy of the current set of txs in the store.

@@ -57,7 +57,7 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	)
 	app.EVMMempool = evmMempool
 	app.SetMempool(evmMempool)
-	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
+	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool, app.Trace(), server.GetCheckTxTimeout(appOpts, logger))
 	app.SetCheckTxHandler(checkTxHandler)
 	app.SetInsertTxHandler(app.NewInsertTxHandler(evmMempool))
 	app.SetReapTxsHandler(app.NewReapTxsHandler(evmMempool))

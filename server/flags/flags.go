@@ -79,9 +79,13 @@ const (
 	EVMMempoolAccountQueue             = "evm.mempool.account-queue"
 	EVMMempoolGlobalQueue              = "evm.mempool.global-queue"
 	EVMMempoolLifetime                 = "evm.mempool.lifetime"
+	EVMMempoolCheckTxTimeout           = "evm.mempool.check-tx-timeout"
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
 	EVMMempoolInsertQueueSize          = "evm.mempool.insert-queue-size"
 )
+
+// IAVLXEnable (experimental) enables the IAVLX storage engine.
+const IAVLXEnable = "iavlx-enable"
 
 // TLS flags
 const (

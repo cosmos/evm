@@ -131,6 +131,10 @@ var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 type Config struct {
 	config.Config `mapstructure:",squash"`
 
+	// UseIAVLX enables the IAVLX storage engine.
+	// todo: move to appropriate place?
+	UseIAVLX bool `mapstructure:"use-iavlx"`
+
 	EVM     EVMConfig     `mapstructure:"evm"`
 	JSONRPC JSONRPCConfig `mapstructure:"json-rpc"`
 	TLS     TLSConfig     `mapstructure:"tls"`
@@ -171,6 +175,9 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
+	// CheckTxTimeout is the maximum amount of time to wait for an async mempool
+	// insert result while serving CheckTx (0 disables the timeout)
+	CheckTxTimeout time.Duration `mapstructure:"check-tx-timeout"`
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
@@ -189,6 +196,7 @@ func DefaultMempoolConfig() MempoolConfig {
 		AccountQueue:             64,                     // 64 non-executable transaction slots per account
 		GlobalQueue:              1024,                   // 1024 global non-executable slots
 		Lifetime:                 3 * time.Hour,          // 3 hour lifetime for queued transactions
+		CheckTxTimeout:           30 * time.Second,       // 30 seconds to wait for CheckTx insert results
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
 	}
@@ -216,6 +224,9 @@ func (c MempoolConfig) Validate() error {
 	}
 	if c.Lifetime < 1 {
 		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
+	}
+	if c.CheckTxTimeout < 0 {
+		return fmt.Errorf("check tx timeout must be non-negative, got %s", c.CheckTxTimeout)
 	}
 	if c.InsertQueueSize < 1 {
 		return fmt.Errorf("insert queue size must be at least 1, got %d", c.InsertQueueSize)
@@ -460,11 +471,6 @@ func GetConfig(v *viper.Viper) (Config, error) {
 	if err := v.Unmarshal(conf); err != nil {
 		return Config{}, fmt.Errorf("error extracting app config: %w", err)
 	}
-	sdkConf, err := config.GetConfig(v)
-	if err != nil {
-		return Config{}, err
-	}
-	conf.GRPC.HistoricalGRPCAddressBlockRange = sdkConf.GRPC.HistoricalGRPCAddressBlockRange
 	return *conf, nil
 }
 

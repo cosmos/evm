@@ -7,8 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	serverconfig "github.com/cosmos/evm/server/config"
+	srvflags "github.com/cosmos/evm/server/flags"
 
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
@@ -226,6 +230,62 @@ func TestGetMinGasPrices(t *testing.T) {
 
 			result := GetMinGasPrices(appOpts, logger)
 			require.Equal(t, tc.expected, result, "GetMinGasPrices returned unexpected value")
+		})
+	}
+}
+
+func TestGetCheckTxTimeout(t *testing.T) {
+	t.Parallel()
+
+	defaultTimeout := serverconfig.DefaultMempoolConfig().CheckTxTimeout
+
+	tests := []struct {
+		name     string
+		setupFn  func() servertypes.AppOptions
+		expected time.Duration
+	}{
+		{
+			name: "missing option uses default",
+			setupFn: func() servertypes.AppOptions {
+				return newMockAppOptions()
+			},
+			expected: defaultTimeout,
+		},
+		{
+			name: "configured timeout is returned",
+			setupFn: func() servertypes.AppOptions {
+				opts := newMockAppOptions()
+				opts.Set(srvflags.EVMMempoolCheckTxTimeout, "12s")
+				return opts
+			},
+			expected: 12 * time.Second,
+		},
+		{
+			name: "zero timeout disables waiting limit",
+			setupFn: func() servertypes.AppOptions {
+				opts := newMockAppOptions()
+				opts.Set(srvflags.EVMMempoolCheckTxTimeout, "0s")
+				return opts
+			},
+			expected: 0,
+		},
+		{
+			name: "negative timeout falls back to default",
+			setupFn: func() servertypes.AppOptions {
+				opts := newMockAppOptions()
+				opts.Set(srvflags.EVMMempoolCheckTxTimeout, "-1s")
+				return opts
+			},
+			expected: defaultTimeout,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := GetCheckTxTimeout(tc.setupFn(), log.NewNopLogger())
+			require.Equal(t, tc.expected, result)
 		})
 	}
 }
