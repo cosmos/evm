@@ -455,7 +455,10 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
-		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+		type EventBusser interface {
+			SetEventBus(eventBus *cmttypes.EventBus)
+		}
+		if m, ok := evmApp.GetMempool().(EventBusser); ok && m != nil {
 			m.SetEventBus(bftNode.EventBus())
 		}
 		defer func() {
