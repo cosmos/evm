@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"cosmossdk.io/log/v2"
 	"github.com/ethereum/go-ethereum/metrics"
+
+	"cosmossdk.io/log/v2"
 )
 
 var (

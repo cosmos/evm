@@ -1192,7 +1192,7 @@ func noopAnteHandler(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
 
 // newTestRecheckedTxs creates a HeightSync[CosmosTxStore] for testing, starting at height 0.
 func newTestRecheckedTxs() *heightsync.HeightSync[mempool.CosmosTxStore] {
-	return heightsync.New(big.NewInt(0), mempool.NewCosmosTxStore)
+	return heightsync.New(big.NewInt(0), mempool.NewCosmosTxStore, log.NewNopLogger())
 }
 
 // collectIteratorTxs drains an sdkmempool.Iterator into a slice.

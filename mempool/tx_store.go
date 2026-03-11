@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"cosmossdk.io/log/v2"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
