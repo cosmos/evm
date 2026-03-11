@@ -19,11 +19,6 @@ func NewCheckTxHandler(mempool *ExperimentalEVMMempool, debug bool, timeout time
 		panic("invalid timeout CheckTxHandler timeout value")
 	}
 	return func(_ types.RunTx, request *abci.RequestCheckTx) (*abci.ResponseCheckTx, error) {
-		// TODO: do we even do recheck anymore?
-		if request.Type == abci.CheckTxType_Recheck {
-			return &abci.ResponseCheckTx{Code: abci.CodeTypeOK}, nil
-		}
-
 		tx, err := mempool.txConfig.TxDecoder()(request.Tx)
 		if err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(err, 0, 0, nil, debug), nil
