@@ -669,48 +669,55 @@ func (pool *LegacyPool) Pending(ctx context.Context, filter txpool.PendingFilter
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
+	// Convert the new uint256.Int types to the old big.Int ones used by the
+	// legacy pool
 	var (
-		minTipBig  *big.Int
-		baseFeeBig *big.Int
+		minTip  *big.Int
+		baseFee *big.Int
 	)
 	if filter.MinTip != nil {
-		minTipBig = filter.MinTip.ToBig()
+		minTip = filter.MinTip.ToBig()
 	}
 	if filter.BaseFee != nil {
-		baseFeeBig = filter.BaseFee.ToBig()
+		baseFee = filter.BaseFee.ToBig()
 	}
+
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(pool.pending))
 	for addr, list := range pool.pending {
-		txs := list.Flatten()
-
-		// If the miner requests tip enforcement, cap the lists now
-		if minTipBig != nil {
-			for i, tx := range txs {
-				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
-					txs = txs[:i]
-					break
-				}
-			}
-		}
-		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i := 0; i < len(txs); i++ {
-				lazies[i] = &txpool.LazyTransaction{
-					Pool:      pool,
-					Hash:      txs[i].Hash(),
-					Tx:        txs[i],
-					Time:      txs[i].Time(),
-					GasFeeCap: uint256.MustFromBig(txs[i].GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
-					Gas:       txs[i].Gas(),
-					BlobGas:   txs[i].BlobGas(),
-				}
-			}
+		if lazies := filterAndWrapTxs(list.Flatten(), minTip, baseFee); len(lazies) > 0 {
 			pending[addr] = lazies
 		}
 	}
 	return pending
+}
+
+// filterAndWrapTxs applies tip filtering to txs and wraps the survivors into
+// LazyTransactions.
+func filterAndWrapTxs(txs []*types.Transaction, minTip, baseFee *big.Int) []*txpool.LazyTransaction {
+	if minTip != nil {
+		for i, tx := range txs {
+			if tx.EffectiveGasTipIntCmp(minTip, baseFee) < 0 {
+				txs = txs[:i]
+				break
+			}
+		}
+	}
+	if len(txs) == 0 {
+		return nil
+	}
+	lazies := make([]*txpool.LazyTransaction, len(txs))
+	for i, tx := range txs {
+		lazies[i] = &txpool.LazyTransaction{
+			Hash:      tx.Hash(),
+			Tx:        tx,
+			Time:      tx.Time(),
+			GasFeeCap: uint256.MustFromBig(tx.GasFeeCap()),
+			GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
+			Gas:       tx.Gas(),
+			BlobGas:   tx.BlobGas(),
+		}
+	}
+	return lazies
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
