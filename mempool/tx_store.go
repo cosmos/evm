@@ -15,7 +15,7 @@ import (
 type CosmosTxStore struct {
 	txs []sdk.Tx
 
-	// index tracks pointer-identity dedupe for txs that cannot be keyed. // TODO: is this useful? do we ever expect the cosmosTxKey fn to fail?
+	// keys is a map of <signer/nonce> -> index to txs slice.
 	keys map[string]int
 
 	mu sync.RWMutex
