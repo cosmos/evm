@@ -120,6 +120,12 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 	} else {
 		t.txs[addr] = toAdd
 	}
+
+	// mark the txs in the lookup
+	for _, tx := range toAdd {
+		t.lookup[tx.Hash()] = struct{}{}
+	}
+
 	t.total += uint64(len(toAdd))
 }
 
