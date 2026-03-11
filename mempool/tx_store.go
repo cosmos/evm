@@ -79,7 +79,7 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 		return 0
 	}
 
-	// TODO: this isn't really the most optimal way to do this..
+	// TODO: this isn't really the most optimal way to do this. but maybe fine for now
 	s.reindex(nextTxs)
 	return removed
 }
