@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/metrics"
+
+	"cosmossdk.io/log/v2"
 )
 
 var (
@@ -26,6 +28,10 @@ var (
 	// hsDuration is the total time callers of Get spend from invocation to
 	// return.
 	hsDuration = metrics.NewRegisteredTimer("height_sync/duration", nil)
+
+	// hsHeights it the total number of heights progressed through on the
+	// height sync
+	hsHeights = metrics.NewRegisteredMeter("height_sync/heights", nil)
 )
 
 // HeightSync synchronizes access to a per-height tx store for mempool
@@ -50,7 +56,7 @@ type HeightSync[Store any] struct {
 	currentHeight *big.Int
 
 	// reset is a function that returns a new store, called at every new height
-	reset func() *Store
+	reset func(logger log.Logger) *Store
 
 	// store is the current Store that operations are happening on via Do and will
 	// be returned via Get until a new height is started via StartNewHeight
@@ -66,16 +72,19 @@ type HeightSync[Store any] struct {
 	// mu protects all of the above fields; it does not protect internal
 	// fields of the Store itself
 	mu sync.RWMutex
+
+	logger log.Logger
 }
 
 // New creates a new HeightSync starting at the given height.
-func New[Store any](startHeight *big.Int, reset func() *Store) *HeightSync[Store] {
+func New[Store any](startHeight *big.Int, reset func(logger log.Logger) *Store, logger log.Logger) *HeightSync[Store] {
 	hs := &HeightSync[Store]{
 		currentHeight: startHeight,
 		reset:         reset,
-		store:         reset(),
+		store:         reset(logger),
 		heightChanged: make(chan struct{}),
 		done:          make(chan struct{}),
+		logger:        logger,
 	}
 	// initial height is considered immediately done
 	hs.EndCurrentHeight()
@@ -96,7 +105,7 @@ func (hs *HeightSync[Store]) StartNewHeight(height *big.Int) {
 
 	// create new Store for this height
 	hs.currentHeight = new(big.Int).Set(height)
-	hs.store = hs.reset()
+	hs.store = hs.reset(hs.logger)
 
 	// close old channel and create new one to wake up consumers
 	oldChan := hs.heightChanged
@@ -117,6 +126,7 @@ func (hs *HeightSync[Store]) EndCurrentHeight() {
 	if hs.isHeightEnded() {
 		panic(fmt.Errorf("height %s already ended", hs.currentHeight.String()))
 	}
+	hsHeights.Mark(1)
 	close(hs.done)
 }
 

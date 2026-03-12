@@ -30,6 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	cosmoslog "cosmossdk.io/log/v2"
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
@@ -383,7 +384,7 @@ func WithRecheck(rechecker Rechecker) Option {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
+func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Option) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -398,7 +399,7 @@ func New(config Config, chain BlockChain, opts ...Option) *LegacyPool {
 		beats:            make(map[common.Address]time.Time),
 		all:              newLookup(),
 		rechecker:        newNopRechecker(),
-		validPendingTxs:  heightsync.New(chain.CurrentBlock().Number, NewTxStore),
+		validPendingTxs:  heightsync.New(chain.CurrentBlock().Number, NewTxStore, logger.With("pool", "legacypool")),
 		reqResetCh:       make(chan *txpoolResetRequest),
 		reqPromoteCh:     make(chan *accountSet),
 		reqCancelResetCh: make(chan struct{}),

@@ -109,7 +109,7 @@ func NewKrakatoaMempool(
 	if config.LegacyPoolConfig != nil {
 		legacyConfig = *config.LegacyPoolConfig
 	}
-	legacyPool := legacypool.New(legacyConfig, blockchain, legacypool.WithRecheck(evmRechecker))
+	legacyPool := legacypool.New(legacyConfig, logger, blockchain, legacypool.WithRecheck(evmRechecker))
 
 	tracker := reserver.NewReservationTracker()
 	txPool, err := txpool.New(uint64(0), blockchain, tracker, []txpool.SubPool{legacyPool})
@@ -157,7 +157,7 @@ func NewKrakatoaMempool(
 		cosmosPool,
 		tracker.NewHandle(-1),
 		cosmosRechecker,
-		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore),
+		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger),
 		blockchain,
 	)
 
