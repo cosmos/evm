@@ -2,7 +2,6 @@ package mempool
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -27,9 +26,6 @@ func NewCheckTxHandler(mempool *ExperimentalEVMMempool, debug bool, timeout time
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		if err := mempool.Insert(ctx, tx); err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				err = ctx.Err()
-			}
 			return sdkerrors.ResponseCheckTxWithEvents(err, 0, 0, nil, debug), nil
 		}
 		return &abci.ResponseCheckTx{Code: abci.CodeTypeOK}, nil
