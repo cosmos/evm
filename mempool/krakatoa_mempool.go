@@ -157,7 +157,7 @@ func NewKrakatoaMempool(
 		cosmosPool,
 		tracker.NewHandle(-1),
 		cosmosRechecker,
-		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger),
+		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "recheckpool")),
 		blockchain,
 	)
 

@@ -189,8 +189,18 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 			// the value are complete, or for the context to expire
 			select {
 			case <-done:
+				hs.logger.Info(
+					"height successfully completed all operations",
+					"target_height", height.String(),
+					"current_height", hs.currentHeight.String(),
+				)
 				hsComplete.Mark(1)
 			case <-ctx.Done():
+				hs.logger.Info(
+					"timeout waiting at target height complete operations",
+					"target_height", height.String(),
+					"current_height", hs.currentHeight.String(),
+				)
 				hsTimeout.Mark(1)
 			}
 			return value
