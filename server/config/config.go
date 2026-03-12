@@ -172,7 +172,7 @@ type MempoolConfig struct {
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
 	// CheckTxTimeout is the maximum amount of time to wait for an async mempool
-	// insert result while serving CheckTx (0 disables the timeout)
+	// insert result while serving CheckTx (defaults to 30s)
 	CheckTxTimeout time.Duration `mapstructure:"check-tx-timeout"`
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal

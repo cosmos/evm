@@ -52,7 +52,7 @@ global-queue = {{ .EVM.Mempool.GlobalQueue }}
 # Lifetime is the maximum amount of time non-executable transaction are queued
 lifetime = "{{ .EVM.Mempool.Lifetime }}"
 
-# CheckTxTimeout is the maximum amount of time to wait for async mempool admission during CheckTx (0 disables the timeout)
+# CheckTxTimeout is the maximum amount of time to wait for async mempool admission during CheckTx (default: 30s, must be nonzero)
 check-tx-timeout = "{{ .EVM.Mempool.CheckTxTimeout }}"
 
 # PendingTxProposalTimeout is the amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal
