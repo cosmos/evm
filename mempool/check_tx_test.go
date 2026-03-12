@@ -6,6 +6,7 @@ import (
 	"time"
 
 	ethcore "github.com/ethereum/go-ethereum/core"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -337,7 +338,7 @@ func (s *CheckTxHandlerTestSuite) TestRecheckIsNoOp() {
 	mp := setupMempoolWithAccounts(s.T(), 1)
 	handler := mempool.NewCheckTxHandler(mp.mp, false, time.Minute)
 
-	res := s.submitCheckTx(handler, []byte("not-a-real-tx"), abci.CheckTxType_Recheck)
-	s.Equal(abci.CodeTypeOK, res.Code)
-	s.Equal(0, mp.mp.CountTx())
+	require.Panics(s.T(), func() {
+		s.submitCheckTx(handler, []byte("not-a-real-tx"), abci.CheckTxType_Recheck)
+	})
 }

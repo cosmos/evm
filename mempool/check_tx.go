@@ -18,6 +18,9 @@ func NewCheckTxHandler(mempool *ExperimentalEVMMempool, debug bool, timeout time
 		panic("invalid timeout CheckTxHandler timeout value")
 	}
 	return func(_ types.RunTx, request *abci.RequestCheckTx) (*abci.ResponseCheckTx, error) {
+		if request.GetType() == abci.CheckTxType_Recheck {
+			panic("checkTx does not support recheck")
+		}
 		tx, err := mempool.txConfig.TxDecoder()(request.Tx)
 		if err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(err, 0, 0, nil, debug), nil
