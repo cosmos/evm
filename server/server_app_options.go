@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cast"
 
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	serverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
 
 	"cosmossdk.io/log/v2"
@@ -152,6 +153,27 @@ func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logg
 	}
 
 	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolPendingTxProposalTimeout))
+}
+
+func GetCheckTxTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	defaultTimeout := serverconfig.DefaultMempoolConfig().CheckTxTimeout
+	if appOpts == nil {
+		logger.Error("app options is nil, using default check tx timeout", "timeout", defaultTimeout)
+		return defaultTimeout
+	}
+
+	value := appOpts.Get(srvflags.EVMMempoolCheckTxTimeout)
+	if value == nil {
+		return defaultTimeout
+	}
+
+	timeout := cast.ToDuration(value)
+	if timeout < 0 {
+		logger.Error("invalid check tx timeout in app options, using default", "timeout", timeout, "default", defaultTimeout)
+		return defaultTimeout
+	}
+
+	return timeout
 }
 
 func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger) int {

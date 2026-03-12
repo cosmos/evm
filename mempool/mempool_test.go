@@ -53,7 +53,7 @@ func TestMempool_Iterate(t *testing.T) {
 	numAccs := 20
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	ctx := testutil.DefaultContext(storeKey, transientKey)
 	s := setupMempoolWithAccounts(t, numAccs)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
@@ -94,7 +94,7 @@ func TestMempool_Iterate(t *testing.T) {
 func TestMempool_Reserver(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	ctx := testutil.DefaultContext(storeKey, transientKey)
 	s := setupMempoolWithAccounts(t, 3)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
@@ -137,7 +137,7 @@ func TestMempool_Reserver(t *testing.T) {
 func TestMempool_ReserverMultiSigner(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	transientKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
+	ctx := testutil.DefaultContext(storeKey, transientKey)
 	s := setupMempoolWithAccounts(t, 4)
 	mp, txConfig, accounts := s.mp, s.txConfig, s.accounts
 
@@ -633,16 +633,35 @@ type testMempool struct {
 
 func setupMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
 	t.Helper()
+	return setupMempool(t, numAccounts, nil, 1000)
+}
+
+func setupMempoolWithAccountNonces(t *testing.T, initialNonces []uint64) testMempool {
+	t.Helper()
+	return setupMempool(t, len(initialNonces), initialNonces, 1000)
+}
+
+func setupMempoolWithInsertQueueSize(t *testing.T, numAccounts int, insertQueueSize int) testMempool {
+	t.Helper()
+	return setupMempool(t, numAccounts, nil, insertQueueSize)
+}
+
+func setupMempool(t *testing.T, numAccounts int, initialNonces []uint64, insertQueueSize int) testMempool { //nolint:unparam // false positive
+	t.Helper()
 
 	// Create accounts
 	accounts := make([]testAccount, numAccounts)
 	for i := range numAccounts {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
+		var nonce uint64
+		if len(initialNonces) > i {
+			nonce = initialNonces[i]
+		}
 		accounts[i] = testAccount{
 			key:            key,
 			address:        crypto.PubkeyToAddress(key.PublicKey),
-			nonce:          0,
+			nonce:          nonce,
 			initialBalance: 100000000000100,
 		}
 	}
@@ -708,6 +727,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
 	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
 	// Register vm types so MsgEthereumTx can be decoded
 	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	txConfig := encodingConfig.TxConfig
 
 	// Create client context
@@ -726,7 +746,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) testMempool {
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    30000000,
 		MinTip:           uint256.NewInt(0),
-		InsertQueueSize:  1000,
+		InsertQueueSize:  insertQueueSize,
 	}
 
 	// Create mempool
@@ -887,6 +907,11 @@ func (mr *MockRechecker) Update(ctx sdk.Context, _ *types.Header) {
 // createTestCosmosTx creates a real Cosmos SDK transaction with the given signer
 func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.PrivateKey, sequence uint64) sdk.Tx {
 	t.Helper()
+	return createTestCosmosTxWithFee(t, txConfig, key, sequence, 1000000)
+}
+
+func createTestCosmosTxWithFee(t *testing.T, txConfig client.TxConfig, key *ecdsa.PrivateKey, sequence uint64, feeAmount int64) sdk.Tx {
+	t.Helper()
 
 	pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
 	pubKey := &ethsecp256k1.PubKey{Key: pubKeyBytes}
@@ -905,7 +930,7 @@ func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.Priva
 	require.NoError(t, err)
 
 	txBuilder.SetGasLimit(100000)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("aevmos", 1000000)))
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("aevmos", feeAmount)))
 
 	// Set signature with pubkey (unsigned but has signer info)
 	sigData := &signingtypes.SingleSignatureData{
@@ -926,6 +951,11 @@ func createTestCosmosTx(t *testing.T, txConfig client.TxConfig, key *ecdsa.Priva
 // createTestMultiSignerCosmosTx creates a Cosmos SDK transaction with multiple signers.
 // Each key produces one MsgSend from that signer.
 func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys ...*ecdsa.PrivateKey) sdk.Tx {
+	t.Helper()
+	return createTestMultiSignerCosmosTxWithFee(t, txConfig, 1000000, keys...)
+}
+
+func createTestMultiSignerCosmosTxWithFee(t *testing.T, txConfig client.TxConfig, feeAmount int64, keys ...*ecdsa.PrivateKey) sdk.Tx {
 	t.Helper()
 	require.NotEmpty(t, keys, "must provide at least one key")
 
@@ -964,7 +994,7 @@ func createTestMultiSignerCosmosTx(t *testing.T, txConfig client.TxConfig, keys 
 	require.NoError(t, err)
 
 	txBuilder.SetGasLimit(100000 * uint64(len(keys)))
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("aevmos", 1000000)))
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("aevmos", feeAmount)))
 
 	err = txBuilder.SetSignatures(sigs...)
 	require.NoError(t, err)
