@@ -117,3 +117,86 @@ func (suite *KeeperTestSuite) TestAddPreinstalls() {
 		})
 	}
 }
+func (suite *KeeperTestSuite) TestEnableEIPs() {
+	// Use valid EIPs from the error message: [1153 1344 1884 2200 2929 3198 3529 3855 3860 4762 5656 6780 7702 7939]
+	testCases := []struct {
+		name           string
+		initialEIPs    []int64
+		eipsToAdd      []int64
+		expectedEIPs   []int64
+		expectError    bool
+	}{
+		{
+			name:         "add EIPs to empty list",
+			initialEIPs:  []int64{},
+			eipsToAdd:    []int64{2929, 1884, 1344},
+			expectedEIPs: []int64{1344, 1884, 2929}, // should be sorted
+			expectError:  false,
+		},
+		{
+			name:         "add EIPs to existing list",
+			initialEIPs:  []int64{3198, 1153},
+			eipsToAdd:    []int64{2929, 1884},
+			expectedEIPs: []int64{1153, 1884, 2929, 3198}, // should be sorted
+			expectError:  false,
+		},
+		{
+			name:         "add single EIP",
+			initialEIPs:  []int64{3198},
+			eipsToAdd:    []int64{2929},
+			expectedEIPs: []int64{2929, 3198}, // should be sorted
+			expectError:  false,
+		},
+		{
+			name:         "add duplicate EIPs should fail",
+			initialEIPs:  []int64{3198},
+			eipsToAdd:    []int64{3198, 2929},
+			expectedEIPs: []int64{3198}, // should remain unchanged due to error
+			expectError:  true,
+		},
+		{
+			name:         "add EIPs in reverse order",
+			initialEIPs:  []int64{},
+			eipsToAdd:    []int64{7939, 3529, 1153},
+			expectedEIPs: []int64{1153, 3529, 7939}, // should be sorted
+			expectError:  false,
+		},
+		{
+			name:         "add no EIPs",
+			initialEIPs:  []int64{3198},
+			eipsToAdd:    []int64{},
+			expectedEIPs: []int64{3198}, // should remain unchanged
+			expectError:  false,
+		},
+		{
+			name:         "add invalid EIP should fail",
+			initialEIPs:  []int64{3198},
+			eipsToAdd:    []int64{1559}, // 1559 is not in the valid list
+			expectedEIPs: []int64{3198}, // should remain unchanged
+			expectError:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			// Set initial parameters with initial EIPs
+			initialParams := vmtypes.DefaultParams()
+			initialParams.ExtraEIPs = tc.initialEIPs
+			err := suite.vmKeeper.SetParams(suite.ctx, initialParams)
+			suite.Require().NoError(err)
+
+			// Call EnableEIPs
+			err = suite.vmKeeper.EnableEIPs(suite.ctx, tc.eipsToAdd...)
+
+			if tc.expectError {
+				suite.Require().Error(err)
+			} else {
+				suite.Require().NoError(err)
+
+				// Verify the EIPs were added and sorted correctly
+				params := suite.vmKeeper.GetParams(suite.ctx)
+				suite.Require().Equal(tc.expectedEIPs, params.ExtraEIPs, "EIPs should match expected values and be sorted")
+			}
+		})
+	}
+}
