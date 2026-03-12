@@ -35,6 +35,7 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 
 	if key, ok := cosmosTxKey(tx); ok {
 		if _, exists := s.keys[key]; exists {
+			// this should never happen. panicking for safety
 			panic(fmt.Sprintf("duplicate cosmos tx snapshot entry for signer/nonce key %q", key))
 		}
 		s.keys[key] = len(s.txs)
@@ -91,12 +92,10 @@ func cosmosTxKey(tx sdk.Tx) (string, bool) {
 	}
 
 	var b strings.Builder
-	first := true
-	for _, sig := range sortedSignerNonces(nonceMap) {
-		if !first {
+	for i, sig := range sortedSignerNonces(nonceMap) {
+		if i > 0 {
 			b.WriteByte('|')
 		}
-		first = false
 		fmt.Fprintf(&b, "%s/%d", sig.account, sig.seq)
 	}
 

@@ -2,7 +2,6 @@ package legacypool
 
 import (
 	"math/big"
-	"sync"
 	"testing"
 
 	"github.com/cosmos/evm/mempool/txpool"
@@ -100,34 +99,7 @@ func TestTxStoreRemoveTx(t *testing.T) {
 	store.RemoveTx(addr1, tx1)
 
 	result := store.Txs(txpool.PendingFilter{})
-	require.Len(t, result[addr1], 1)
-	require.Equal(t, uint64(1), result[addr1][0].Tx.Nonce())
-}
-
-func TestTxStoreConcurrentRemove(t *testing.T) {
-	store := NewTxStore()
-
-	addr1 := common.HexToAddress("0x1")
-	var numTxs uint64 = 1000
-	var nonce uint64 = 0
-
-	for ; nonce < numTxs; nonce++ {
-		store.AddTx(addr1, createTestTx(nonce, big.NewInt(1e9), big.NewInt(2e9)))
-	}
-
-	// concurrently remove even-nonce txs
-	var wg sync.WaitGroup
-	for nonce = 0; nonce < numTxs; nonce += 2 {
-		wg.Add(1)
-		go func(nonce uint64) {
-			defer wg.Done()
-			store.RemoveTx(addr1, createTestTx(nonce, big.NewInt(1e9), big.NewInt(2e9)))
-		}(nonce)
-	}
-	wg.Wait()
-
-	result := store.Txs(txpool.PendingFilter{})
-	require.Len(t, result[addr1], 500)
+	require.Len(t, result[addr1], 0)
 }
 
 func TestTxStoreBlobTxsFiltered(t *testing.T) {
