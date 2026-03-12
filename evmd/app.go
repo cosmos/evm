@@ -1,6 +1,7 @@
 package evmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -146,6 +147,19 @@ var (
 	_ cosmosevmserver.Application = (*EVMD)(nil)
 	_ ibctesting.TestingApp       = (*EVMD)(nil)
 )
+
+type customRunner struct {
+	*txnrunner.STMRunner
+}
+
+func (r *customRunner) Run(ctx context.Context, ms storetypes.MultiStore, txs [][]byte, deliverTx sdk.DeliverTxFunc) ([]*abci.ExecTxResult, error) {
+	results, err := r.STMRunner.Run(ctx, ms, txs, deliverTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return evmtypes.PatchTxResponses(results), nil
+}
 
 // EVMD extends an ABCI application, but with most of its parameters exported.
 type EVMD struct {
@@ -773,16 +787,17 @@ func NewExampleApp(
 	}
 
 	// enable block stm for parallel execution
-	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
-		txDecoder,
-		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
-		func(ms storetypes.MultiStore) string {
-			return app.EVMKeeper.GetParams(sdk.NewContext(ms, cmtproto.Header{}, false, log.NewNopLogger())).EvmDenom
-		},
-	),
-	)
+	bApp.SetBlockSTMTxRunner(&customRunner{
+		STMRunner: txnrunner.NewSTMRunner(
+			txDecoder,
+			nonTransientKeys,
+			min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+			true,
+			func(ms storetypes.MultiStore) string {
+				return app.EVMKeeper.GetParams(sdk.NewContext(ms, cmtproto.Header{}, false, log.NewNopLogger())).EvmDenom
+			},
+		),
+	})
 
 	return app
 }
