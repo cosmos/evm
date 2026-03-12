@@ -151,13 +151,16 @@ func (t *TxStore) RemoveTxsFromNonce(addr common.Address, minNonce uint64) {
 	}
 
 	next := txs[:0]
+	numRemoved := 0
 	for _, existing := range txs {
 		if existing.Nonce() >= minNonce {
 			delete(t.lookup, existing.Hash())
+			numRemoved++
 			continue
 		}
 		next = append(next, existing)
 	}
+	t.total -= uint64(numRemoved)
 
 	if len(next) == 0 {
 		delete(t.txs, addr)
