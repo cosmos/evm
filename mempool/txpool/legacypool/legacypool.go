@@ -1645,6 +1645,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		totalReady          int
 		capDuration         time.Duration
 		totalCapped         int
+		totalAccounts       int
 	)
 	defer func() {
 		if reset != nil {
@@ -1662,6 +1663,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 				"total_capped", totalCapped,
 				"check_ready_duration", readyDuration.String(),
 				"total_ready", totalReady,
+				"total_accounts", totalAccounts,
 			)
 		}
 	}()
@@ -1684,6 +1686,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		if list == nil {
 			continue // Just in case someone calls with a non existing account
 		}
+		totalAccounts++
 
 		// Drop all transactions that are deemed too old (low nonce)
 		forwardStart := time.Now()
@@ -1931,6 +1934,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		totalCostly         int
 		recheckDuration     time.Duration
 		totalInvalid        int
+		totalAccounts       int
 	)
 	defer func() {
 		if reset != nil {
@@ -1945,6 +1949,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 				"total_costly", totalCostly,
 				"drop_recheck_duration", recheckDuration.String(),
 				"total_invalid", totalInvalid,
+				"total_accounts", totalAccounts,
 			)
 		}
 	}()
@@ -1957,15 +1962,16 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
+		totalAccounts++
 		if isReorgCancelled(reset, cancelled) {
 			pendingDemotedCancelled.Mark(1)
 			return
 		}
 
+		forwardStart := time.Now()
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)
-		forwardStart := time.Now()
 		olds := list.Forward(nonce)
 		for _, tx := range olds {
 			hash := tx.Hash()
