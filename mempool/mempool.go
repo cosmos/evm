@@ -157,6 +157,7 @@ func NewExperimentalEVMMempool(
 	}
 	legacyPool := legacypool.New(
 		legacyConfig,
+		logger,
 		blockchain,
 		legacypool.WithRecheck(evmRechecker),
 	)
@@ -213,7 +214,7 @@ func NewExperimentalEVMMempool(
 		cosmosPool,
 		tracker.NewHandle(-1),
 		cosmosRechecker,
-		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore),
+		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "recheckpool")),
 		blockchain,
 	)
 
