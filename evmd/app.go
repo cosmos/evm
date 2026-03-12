@@ -61,6 +61,7 @@ import (
 	"cosmossdk.io/client/v2/autocli"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log/v2"
+	"cosmossdk.io/store/rootmulti"
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -842,7 +843,32 @@ func (app *EVMD) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
 }
 
 func (app *EVMD) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.ResponseFinalizeBlock, err error) {
-	return app.BaseApp.FinalizeBlock(req)
+	res, err = app.BaseApp.FinalizeBlock(req)
+	if res != nil {
+		app.logPerStoreHashes(req.Height, res.AppHash)
+	}
+	return res, err
+}
+
+// logPerStoreHashes logs the working hash of each IAVL store after FinalizeBlock.
+// This is used to diagnose which module's state diverges between nodes.
+func (app *EVMD) logPerStoreHashes(height int64, appHash []byte) {
+	rms, ok := app.CommitMultiStore().(*rootmulti.Store)
+	if !ok {
+		return
+	}
+	for name, key := range rms.StoreKeysByName() {
+		if _, ok := key.(*storetypes.KVStoreKey); !ok {
+			continue
+		}
+		store := rms.GetCommitKVStore(key)
+		if store == nil || store.GetStoreType() != storetypes.StoreTypeIAVL {
+			continue
+		}
+		hash := store.WorkingHash()
+		fmt.Fprintf(os.Stderr, "STORE_HASH height=%d store=%s hash=%X\n", height, name, hash)
+	}
+	fmt.Fprintf(os.Stderr, "APP_HASH height=%d hash=%X\n", height, appHash)
 }
 
 func (app *EVMD) Configurator() module.Configurator {

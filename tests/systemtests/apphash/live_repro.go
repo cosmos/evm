@@ -29,11 +29,11 @@ import (
 const (
 	liveReproEnv          = "EVM_RUN_LIVE_APPHASH_REPRO"
 	liveReproDenom        = "atest"
-	liveReproBatches      = 300
-	liveReproTxsPerSender = 12
-	liveReproSenderCount  = 100
-	liveReproFundAmount   = 1_000_000_000_000_000_000 // 1 ETH per sender
-	liveReproBlockWait    = 45 * time.Second
+	liveReproBatches      = 5000
+	liveReproTxsPerSender = 3   // keep batch small: 3 × 50 = 150 txs, fits in ~1/3 block
+	liveReproSenderCount  = 50  // fewer senders, but more sustained pressure
+	liveReproFundAmount   = 10_000_000_000_000_000_000 // 10 ETH per sender — enough for thousands of txs
+	liveReproBlockWait    = 30 * time.Second
 )
 
 // ephemeralSender is a locally-generated account used to maximise mempool contention.
@@ -60,20 +60,48 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 		return state
 	})
 
-	// Increase EVM mempool limits so 100 senders × 12 txs don't hit the cap.
+	// Patch per-node config files before starting the chain.
 	for i := 0; i < 4; i++ {
-		appToml := filepath.Join(systest.WorkDir, fmt.Sprintf("testnet/node%d/evmd/config/app.toml", i))
+		nodeDir := fmt.Sprintf("testnet/node%d/evmd/config", i)
+
+		// Increase EVM mempool limits so 100 senders × 12 txs don't hit the cap.
+		appToml := filepath.Join(systest.WorkDir, nodeDir, "app.toml")
 		data, err := os.ReadFile(appToml)
-		require.NoErrorf(t, err, "reading app.toml for node%d at %s", i, appToml)
+		require.NoErrorf(t, err, "reading app.toml for node%d", i)
 		s := string(data)
 		s = strings.Replace(s, "global-slots = 5120", "global-slots = 50000", 1)
 		s = strings.Replace(s, "global-queue = 1024", "global-queue = 10000", 1)
 		require.NoError(t, os.WriteFile(appToml, []byte(s), 0o600))
-		t.Logf("patched app.toml for node%d: global-slots=50000 global-queue=10000", i)
+
+		// Fast block times — maximize race windows between mempool and FinalizeBlock.
+		configToml := filepath.Join(systest.WorkDir, nodeDir, "config.toml")
+		data, err = os.ReadFile(configToml)
+		require.NoErrorf(t, err, "reading config.toml for node%d", i)
+		s = string(data)
+		s = strings.Replace(s, `timeout_commit = "2.7s"`, `timeout_commit = "500ms"`, 1)
+		require.NoError(t, os.WriteFile(configToml, []byte(s), 0o600))
+
+		t.Logf("patched node%d: global-slots=50000 global-queue=10000 timeout_commit=500ms", i)
 	}
 
 	base.StartChain(t, nodeArgs...)
 	base.UnlockChain()
+
+	// Always save node outputs to /tmp before test cleanup.
+	t.Cleanup(func() {
+		saveDir := "/tmp/apphash_node_outputs"
+		os.MkdirAll(saveDir, 0o700)
+		for _, nodeID := range base.Nodes() {
+			src := filepath.Join(systest.WorkDir, "testnet", nodeID+".out")
+			data, err := os.ReadFile(src)
+			if err == nil {
+				dst := filepath.Join(saveDir, nodeID+".out")
+				os.WriteFile(dst, data, 0o600)
+				t.Logf("saved %s (%d bytes) to %s", nodeID, len(data), dst)
+			}
+		}
+	})
+
 	base.AwaitNBlocks(t, 2)
 
 	lastCommonHeight, statusByNode := waitForCommonHeight(t, base, 2, liveReproBlockWait)
@@ -101,14 +129,17 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 	nonces := make(map[string]uint64, len(senders)) // all start at 0
 
 	nodes := base.Nodes()
+	// Send only to RPC nodes (skip node0 which is the validator).
+	// This matches the real-world pattern where only RPCs receive txs directly.
+	rpcNodes := nodes[1:]
 	for batch := 0; batch < liveReproBatches; batch++ {
 		var batchSent, batchSkipped int
 		for i := 0; i < liveReproTxsPerSender; i++ {
 			for si, sender := range senders {
 				nonce := nonces[sender.id]
 				tx := ethtypes.NewTransaction(nonce, recipient, big.NewInt(100), 21_000, gasPrice, nil)
-				// Round-robin across all nodes to stress p2p propagation.
-				targetNode := nodes[si%len(nodes)]
+				// Round-robin across RPC nodes only.
+				targetNode := rpcNodes[si%len(rpcNodes)]
 				_, err := base.EthClient.SendRawTransaction(targetNode, sender.acc, tx)
 				if err != nil {
 					// Pool full or underpriced — skip this tx, don't advance nonce.
@@ -124,15 +155,22 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 		newCommonHeight, statusByNode := waitForCommonHeight(t, base, targetHeight, liveReproBlockWait)
 		lastCommonHeight = newCommonHeight
 
-		if mismatch := firstAppHashMismatch(statusByNode); mismatch != "" {
+		// With fast block times, nodes may advance past the common height.
+		// Compare apphashes at the actual common height via block headers.
+		if mismatch := checkAppHashAtHeight(t, base, newCommonHeight); mismatch != "" {
 			diag := dumpDiagnostics(t, base, newCommonHeight)
 			t.Fatalf("apphash mismatch at height=%d: %s\n%s", newCommonHeight, mismatch, diag)
 		}
 
-		heights := collectHeights(statusByNode)
-		if !allEqual(heights) {
-			diag := dumpDiagnostics(t, base, newCommonHeight)
-			t.Fatalf("height divergence after batch=%d statuses=%s\n%s", batch, formatStatuses(statusByNode), diag)
+		// Also check node logs for consensus failure (nodes may have halted).
+		for _, nodeID := range base.Nodes() {
+			logPath := filepath.Join(systest.WorkDir, "testnet", nodeID+".out")
+			data, err := os.ReadFile(logPath)
+			if err == nil && strings.Contains(string(data), "CONSENSUS FAILURE") {
+				diag := dumpDiagnostics(t, base, newCommonHeight)
+				t.Fatalf("CONSENSUS FAILURE detected on %s at batch=%d height=%d\nlog: %s\n%s",
+					nodeID, batch, newCommonHeight, string(data), diag)
+			}
 		}
 
 		if batch%10 == 0 {
@@ -313,6 +351,56 @@ func firstAppHashMismatch(statuses map[string]nodeStatus) string {
 		}
 		if baseline.AppHash != status.AppHash {
 			return formatStatuses(statuses)
+		}
+	}
+	return ""
+}
+
+// checkAppHashAtHeight queries block H+1 from each node to compare the apphash
+// that resulted from executing block H. This avoids false positives from nodes
+// being at different heights when status is polled.
+func checkAppHashAtHeight(t *testing.T, base *suite.BaseTestSuite, height int64) string {
+	t.Helper()
+	// Block N+1's header contains the AppHash computed after executing block N.
+	queryHeight := height + 1
+
+	// Retry briefly — some nodes may lag by a block with fast commit times.
+	var hashes map[string]string
+	for attempt := 0; attempt < 10; attempt++ {
+		hashes = make(map[string]string, len(base.Nodes()))
+		allOK := true
+		for _, nodeID := range base.Nodes() {
+			rpcCli := base.CosmosClient.RpcClients[nodeID]
+			block, err := rpcCli.Block(context.Background(), &queryHeight)
+			if err != nil {
+				allOK = false
+				break
+			}
+			hashes[nodeID] = strings.ToUpper(hex.EncodeToString(block.Block.AppHash))
+		}
+		if allOK {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if len(hashes) != len(base.Nodes()) {
+		// Could not get block from all nodes — skip this check.
+		return ""
+	}
+
+	var baseline string
+	for _, nodeID := range base.Nodes() {
+		h := hashes[nodeID]
+		if baseline == "" {
+			baseline = h
+			continue
+		}
+		if h != baseline {
+			parts := make([]string, 0, len(hashes))
+			for _, nid := range base.Nodes() {
+				parts = append(parts, fmt.Sprintf("%s[h=%d app=%s]", nid, height, hashes[nid]))
+			}
+			return strings.Join(parts, " ")
 		}
 	}
 	return ""

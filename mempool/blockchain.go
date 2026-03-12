@@ -219,6 +219,9 @@ func (b *Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	cacheCtx, _ := ctx.CacheContext()
 	// Use an infinite gas meter to avoid tracking gas for read-only state queries
 	cacheCtx = cacheCtx.WithGasMeter(sdktypes.NewInfiniteGasMeter())
+	// Isolate the EventManager to prevent data races with FinalizeBlock's EventManager.
+	// The shared EventManager on latestCtx is the source of a known race condition.
+	cacheCtx = cacheCtx.WithEventManager(sdk.NewEventManager())
 
 	appHash := cacheCtx.BlockHeader().AppHash
 	stateDB := statedb.New(cacheCtx, b.vmKeeper, statedb.NewEmptyTxConfig())
