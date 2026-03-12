@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -195,9 +195,7 @@ func GetIBCDenomAddress(denom string) (common.Address, error) {
 
 // SortSlice sorts a slice of any ordered type.
 func SortSlice[T cmp.Ordered](slice []T) {
-	sort.Slice(slice, func(i, j int) bool {
-		return slice[i] < slice[j]
-	})
+	slices.Sort(slice)
 }
 
 func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
