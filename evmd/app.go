@@ -867,6 +867,7 @@ func (app *EVMD) logPerStoreHashes(height int64, appHash []byte) {
 		}
 		hash := store.WorkingHash()
 		fmt.Fprintf(os.Stderr, "STORE_HASH height=%d store=%s hash=%X\n", height, name, hash)
+
 	}
 	fmt.Fprintf(os.Stderr, "APP_HASH height=%d hash=%X\n", height, appHash)
 }

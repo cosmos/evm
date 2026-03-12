@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -213,6 +214,13 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 		attribute.String("hash", tx.Hash().String()),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
+	fmt.Fprintf(os.Stderr, "APPLY_TX height=%d txIdx=%d hash=%s from=%s nonce=%d\n",
+		ctx.BlockHeight(), ctx.TxIndex(), tx.Hash().Hex(),
+		func() string {
+			signer := ethtypes.LatestSignerForChainID(tx.ChainId())
+			from, _ := ethtypes.Sender(signer, tx)
+			return from.Hex()
+		}(), tx.Nonce())
 	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")

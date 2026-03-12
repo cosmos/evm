@@ -3,6 +3,7 @@ package statedb
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"sort"
 
@@ -738,7 +739,13 @@ func (s *StateDB) FlushToCacheCtx() error {
 // commitWithCtx writes the dirty states to keeper
 // using the provided context
 func (s *StateDB) commitWithCtx(ctx sdk.Context) error {
-	for _, addr := range s.journal.sortedDirties() {
+	dirties := s.journal.sortedDirties()
+	for i, addr := range dirties {
+		fmt.Fprintf(os.Stderr, "STATEDB_COMMIT height=%d txIdx=%d dirty=%d/%d addr=%s balance=%s nonce=%d\n",
+			ctx.BlockHeight(), ctx.TxIndex(), i, len(dirties), addr.Hex(),
+			s.stateObjects[addr].account.Balance.String(), s.stateObjects[addr].account.Nonce)
+	}
+	for _, addr := range dirties {
 		obj := s.stateObjects[addr]
 		if obj.selfDestructed {
 			// For EIP-6780 same-tx self-destruct: persist code+account first so DeleteAccount's

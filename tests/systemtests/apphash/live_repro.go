@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -158,6 +159,7 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 		// With fast block times, nodes may advance past the common height.
 		// Compare apphashes at the actual common height via block headers.
 		if mismatch := checkAppHashAtHeight(t, base, newCommonHeight); mismatch != "" {
+			exportGenesisOnDivergence(t, base, newCommonHeight)
 			diag := dumpDiagnostics(t, base, newCommonHeight)
 			t.Fatalf("apphash mismatch at height=%d: %s\n%s", newCommonHeight, mismatch, diag)
 		}
@@ -167,6 +169,7 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 			logPath := filepath.Join(systest.WorkDir, "testnet", nodeID+".out")
 			data, err := os.ReadFile(logPath)
 			if err == nil && strings.Contains(string(data), "CONSENSUS FAILURE") {
+				exportGenesisOnDivergence(t, base, newCommonHeight)
 				diag := dumpDiagnostics(t, base, newCommonHeight)
 				t.Fatalf("CONSENSUS FAILURE detected on %s at batch=%d height=%d\nlog: %s\n%s",
 					nodeID, batch, newCommonHeight, string(data), diag)
@@ -632,4 +635,34 @@ func sortedNodeIDs(statuses map[string]nodeStatus) []string {
 	}
 	slices.Sort(nodeIDs)
 	return nodeIDs
+}
+
+// exportGenesisOnDivergence exports genesis state from each node at height-1
+// (the last committed height before divergence) and saves to /tmp/apphash_node_outputs/.
+func exportGenesisOnDivergence(t *testing.T, base *suite.BaseTestSuite, divergeHeight int64) {
+	t.Helper()
+	saveDir := "/tmp/apphash_node_outputs"
+	os.MkdirAll(saveDir, 0o700)
+
+	exportHeight := divergeHeight - 1
+	binary := base.ExecBinary()
+
+	for i := 0; i < 4; i++ {
+		nodeHome := filepath.Join(systest.WorkDir, "testnet", fmt.Sprintf("node%d", i), "evmd")
+		outFile := filepath.Join(saveDir, fmt.Sprintf("node%d_genesis_h%d.json", i, exportHeight))
+
+		cmd := exec.Command(binary, "export",
+			"--home", nodeHome,
+			"--height", fmt.Sprintf("%d", exportHeight),
+			"--modules-to-export", "bank",
+			"--output-document", outFile,
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Logf("export node%d height=%d failed: %v\n%s", i, exportHeight, err, string(out))
+		} else {
+			info, _ := os.Stat(outFile)
+			t.Logf("exported node%d height=%d -> %s (%d bytes)", i, exportHeight, outFile, info.Size())
+		}
+	}
 }
