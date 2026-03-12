@@ -366,6 +366,9 @@ type LegacyPool struct {
 	OnTxRemoved func(tx *types.Transaction, pool PoolType)
 	// OnTxRemoved is called when a tx is added to the queued pool
 	OnTxEnqueued func(tx *types.Transaction)
+
+	// logger is a cosmos sdk logger
+	logger cosmoslog.Logger
 }
 
 type txpoolResetRequest struct {
@@ -407,6 +410,7 @@ func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Optio
 		reorgDoneCh:      make(chan chan struct{}),
 		reorgShutdownCh:  make(chan struct{}),
 		initDoneCh:       make(chan struct{}),
+		logger:           logger,
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -1622,6 +1626,46 @@ func isReorgCancelled(reset *txpoolResetRequest, cancelled chan struct{}) bool {
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled chan struct{}, reset *txpoolResetRequest) []*types.Transaction {
+	if reset != nil {
+		pool.logger.Info(
+			"checking for promotion of queued txs due to reset",
+			"total_queued", queuedGauge.Snapshot().Value(),
+		)
+	}
+
+	start := time.Now()
+	var (
+		dropForwardDuration time.Duration
+		totalOld            int
+		dropCostDuration    time.Duration
+		totalCostly         int
+		recheckDuration     time.Duration
+		totalInvalid        int
+		readyDuration       time.Duration
+		totalReady          int
+		capDuration         time.Duration
+		totalCapped         int
+	)
+	defer func() {
+		if reset != nil {
+			pool.logger.Info(
+				"done checking for promotion of queued txs due to reset",
+				"total_queued", queuedGauge.Snapshot().Value(),
+				"total_duration", time.Since(start).String(),
+				"drop_forward_duration", dropForwardDuration.String(),
+				"total_old", totalOld,
+				"drop_cost_duration", dropCostDuration.String(),
+				"total_costly", totalCostly,
+				"drop_recheck_duration", recheckDuration.String(),
+				"total_invalid", totalInvalid,
+				"drop_cap_duration", capDuration.String(),
+				"total_capped", totalCapped,
+				"check_ready_duration", readyDuration.String(),
+				"total_ready", totalReady,
+			)
+		}
+	}()
+
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
@@ -1632,6 +1676,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 	gasLimit := pool.currentHead.Load().GasLimit
 	for _, addr := range accounts {
 		if isReorgCancelled(reset, cancelled) {
+			pool.logger.Warn("promoting queued txs cancelled!")
 			queuedPromotedCancelled.Mark(1)
 			return promoted
 		}
@@ -1639,14 +1684,19 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		if list == nil {
 			continue // Just in case someone calls with a non existing account
 		}
+
 		// Drop all transactions that are deemed too old (low nonce)
+		forwardStart := time.Now()
 		forwards := list.Forward(pool.currentState.GetNonce(addr))
 		for _, tx := range forwards {
 			pool.all.Remove(tx.Hash())
 			pool.markTxRemoved(addr, tx, Queue)
 			queueRemovalMetric(RemovalReasonOld).Mark(1)
 		}
+		dropForwardDuration += time.Since(forwardStart)
+		totalOld += len(forwards)
 		log.Trace("Removed old queued transactions", "count", len(forwards))
+
 		// Drop all transactions that are too costly (low balance or out of gas)
 		costDrops, _ := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range costDrops {
@@ -1656,6 +1706,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(costDrops))
 		queuedNofundsMeter.Mark(int64(len(costDrops)))
+		totalCostly += len(costDrops)
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1682,8 +1733,11 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		log.Trace("Removed queued transactions that failed recheck", "count", len(recheckDrops))
 		queuedRecheckDropMeter.Mark(int64(len(recheckDrops)))
 		queuedRecheckDurationTimer.UpdateSince(recheckStart)
+		recheckDuration += time.Since(recheckStart)
+		totalInvalid += len(recheckDrops)
 
 		// Gather all executable transactions and promote them
+		readyStart := time.Now()
 		listLen := list.Len()
 		readies := list.Ready(pool.pendingNonces.get(addr))
 		queuedNonReadies.Mark(int64(listLen - len(readies)))
@@ -1695,8 +1749,11 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		}
 		log.Trace("Promoted queued transactions", "count", len(promoted))
 		queuedGauge.Dec(int64(len(readies)))
+		readyDuration += time.Since(readyStart)
+		totalReady += len(readies)
 
 		// Drop all transactions over the allowed limit
+		capStart := time.Now()
 		caps := list.Cap(int(pool.config.AccountQueue))
 		for _, tx := range caps {
 			hash := tx.Hash()
@@ -1706,6 +1763,8 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 			log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 		}
 		queuedRateLimitMeter.Mark(int64(len(caps)))
+		capDuration += time.Since(capStart)
+		totalCapped += len(caps)
 
 		// Mark all the items dropped as removed
 		totalDropped := len(forwards) + len(costDrops) + len(recheckDrops) + len(caps)
@@ -1864,6 +1923,37 @@ func (pool *LegacyPool) truncateQueue() {
 func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpoolResetRequest) {
 	defer func(t0 time.Time) { demoteTimer.UpdateSince(t0) }(time.Now())
 
+	start := time.Now()
+	var (
+		dropForwardDuration time.Duration
+		totalOld            int
+		dropCostDuration    time.Duration
+		totalCostly         int
+		recheckDuration     time.Duration
+		totalInvalid        int
+	)
+	defer func() {
+		if reset != nil {
+			pool.logger.Info(
+				"done checking for demotion of non executable pending txs",
+				"total_pending", pendingGauge.Snapshot().Value(),
+				"total_queued", queuedGauge.Snapshot().Value(),
+				"total_duration", time.Since(start).String(),
+				"drop_forward_duration", dropForwardDuration.String(),
+				"total_old", totalOld,
+				"drop_cost_duration", dropCostDuration.String(),
+				"total_costly", totalCostly,
+				"drop_recheck_duration", recheckDuration.String(),
+				"total_invalid", totalInvalid,
+			)
+		}
+	}()
+
+	pool.logger.Info(
+		"checking for demotion of non executable pending txs",
+		"total_pending", pendingGauge.Snapshot().Value(),
+	)
+
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
@@ -1875,6 +1965,7 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)
+		forwardStart := time.Now()
 		olds := list.Forward(nonce)
 		for _, tx := range olds {
 			hash := tx.Hash()
@@ -1883,7 +1974,11 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			log.Trace("Removed old pending transaction", "hash", hash)
 			pendingRemovalMetric(RemovalReasonOld).Mark(1)
 		}
+		dropForwardDuration += time.Since(forwardStart)
+		totalOld += len(olds)
+
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
+		costStart := time.Now()
 		drops, costInvalids := list.CostFilter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range drops {
 			hash := tx.Hash()
@@ -1894,6 +1989,8 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
 		pendingDemotedCostly.Mark(int64(len(costInvalids)))
+		dropCostDuration += time.Since(costStart)
+		totalCostly += len(drops)
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
@@ -1923,6 +2020,8 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		pendingRecheckDropMeter.Mark(int64(len(recheckDrops)))
 		pendingDemotedRecheck.Mark(int64(len(recheckInvalids)))
 		pendingRecheckDurationTimer.UpdateSince(recheckStart)
+		recheckDuration += time.Since(recheckStart)
+		totalInvalid += len(recheckDrops)
 
 		invalids := append(costInvalids, recheckInvalids...)
 		for _, tx := range invalids {
@@ -2237,9 +2336,13 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // includes the tx in the next valid pending txs set, i.e. to be included in
 // the next block, if selected by the application.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
+	// add tx to valid pending txs set since it has been validated as
+	// executable
 	pool.validPendingTxs.Do(func(store *TxStore) {
 		store.AddTx(addr, tx)
 	})
+
+	// call external callback if supplied
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}
@@ -2251,6 +2354,10 @@ func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transactio
 // checked for validity yet via the Rechecker, thus we should wait until that
 // happens before adding them to the valid pending txs set.
 func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transaction) {
+	// NOTE: not updating pendingTotal since we have removed 1 and added 1 to
+	// pending, so no change.
+
+	// call external callback if supplied
 	if pool.OnTxPromoted != nil {
 		pool.OnTxPromoted(tx)
 	}
@@ -2258,13 +2365,16 @@ func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transactio
 
 // markTxRemoved calls the OnTxRemoved callback if it has been supplied.
 func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction, p PoolType) {
-	if p == Pending {
+	switch p {
+	case Pending:
 		defer func(t0 time.Time) { pendingRemoveCBTimer.UpdateSince(t0) }(time.Now())
 
 		pool.validPendingTxs.Do(func(store *TxStore) {
 			store.RemoveTx(addr, tx)
 		})
+	case Queue:
 	}
+
 	if pool.OnTxRemoved != nil {
 		pool.OnTxRemoved(tx, p)
 	}

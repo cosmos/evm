@@ -178,6 +178,11 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 				hs.mu.RUnlock()
 				return value
 			}
+			hs.logger.Info(
+				"height sync reached target height",
+				"target_height", height.String(),
+				"current_height", hs.currentHeight.String(),
+			)
 			hs.mu.RUnlock()
 
 			// wait for EndCurrentHeight to signal that all operations on
@@ -195,6 +200,11 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 		// current height, so we must wait for the height to advance to the
 		// callers target height
 		heightChangedChan := hs.heightChanged
+		hs.logger.Info(
+			"height sync behind target height",
+			"target_height", height.String(),
+			"current_height", hs.currentHeight.String(),
+		)
 		hs.mu.RUnlock()
 
 		hsHeightBehind.Mark(1)
@@ -205,6 +215,11 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 			// height changed, loop back to check if we've reached target
 			continue
 		case <-ctx.Done():
+			hs.logger.Warn(
+				"timeout waiting for height sync to reach target height",
+				"target_height", height.String(),
+				"current_height", hs.currentHeight.String(),
+			)
 			// caller is done waiting, but we still do not have a Store at the
 			// correct height to return, return nil instead
 			hsTimeout.Mark(1)
