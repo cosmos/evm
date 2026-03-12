@@ -37,8 +37,10 @@ type keyedMockTx struct {
 	sequence uint64
 }
 
-var _ sdk.Tx = (*keyedMockTx)(nil)
-var _ authsigning.SigVerifiableTx = (*keyedMockTx)(nil)
+var (
+	_ sdk.Tx                      = (*keyedMockTx)(nil)
+	_ authsigning.SigVerifiableTx = (*keyedMockTx)(nil)
+)
 
 func newKeyedMockTx(t *testing.T, sequence uint64) sdk.Tx {
 	t.Helper()
