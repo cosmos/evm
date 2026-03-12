@@ -88,6 +88,31 @@ func TestTxStoreSortedByNonce(t *testing.T) {
 	}
 }
 
+// TestTxStoreRetainsPreviousTxs tests that if you remove a middle nonce, the earlier nonce txs stay retained.
+func TestTxStoreRetainsPreviousTxs(t *testing.T) {
+	store := NewTxStore(log.NewNopLogger())
+
+	addr1 := common.HexToAddress("0x1")
+
+	tx1 := createTestTx(0, big.NewInt(1e9), big.NewInt(2e9))
+	tx2 := createTestTx(1, big.NewInt(1e9), big.NewInt(2e9))
+	tx3 := createTestTx(2, big.NewInt(1e9), big.NewInt(2e9))
+	tx4 := createTestTx(3, big.NewInt(1e9), big.NewInt(2e9))
+	tx5 := createTestTx(4, big.NewInt(1e9), big.NewInt(2e9))
+	txs := []*types.Transaction{tx1, tx2, tx3, tx4, tx5}
+	for _, tx := range txs {
+		store.AddTx(addr1, tx)
+	}
+
+	store.RemoveTx(addr1, tx4)
+
+	result := store.Txs(txpool.PendingFilter{})
+	require.Len(t, result[addr1], 3) // should just have 0,1,2.
+	for i, tx := range result[addr1] {
+		require.Equal(t, uint64(i), tx.Tx.Nonce())
+	}
+}
+
 func TestTxStoreRemoveTx(t *testing.T) {
 	store := NewTxStore(log.NewNopLogger())
 

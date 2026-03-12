@@ -160,8 +160,11 @@ func (t *TxStore) RemoveTxsFromNonce(addr common.Address, minNonce uint64) {
 		}
 		next = append(next, existing)
 	}
-	t.total -= uint64(numRemoved)
 
+	// memory reclaim
+	clear(txs[len(next):])
+
+	t.total -= uint64(numRemoved)
 	if len(next) == 0 {
 		delete(t.txs, addr)
 		return
