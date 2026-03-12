@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"cosmossdk.io/log/v2"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,7 +28,7 @@ func createTestTx(nonce uint64, gasTipCap *big.Int, gasFeeCap *big.Int) *types.T
 }
 
 func TestTxStoreAddAndGet(t *testing.T) {
-	store := NewTxStore()
+	store := NewTxStore(log.NewNopLogger())
 
 	addr1 := common.HexToAddress("0x1")
 	addr2 := common.HexToAddress("0x2")
@@ -46,7 +47,7 @@ func TestTxStoreAddAndGet(t *testing.T) {
 }
 
 func TestTxStoreMinTipFilter(t *testing.T) {
-	store := NewTxStore()
+	store := NewTxStore(log.NewNopLogger())
 
 	addr1 := common.HexToAddress("0x1")
 
@@ -70,7 +71,7 @@ func TestTxStoreMinTipFilter(t *testing.T) {
 }
 
 func TestTxStoreSortedByNonce(t *testing.T) {
-	store := NewTxStore()
+	store := NewTxStore(log.NewNopLogger())
 
 	addr1 := common.HexToAddress("0x1")
 
@@ -88,7 +89,7 @@ func TestTxStoreSortedByNonce(t *testing.T) {
 }
 
 func TestTxStoreRemoveTx(t *testing.T) {
-	store := NewTxStore()
+	store := NewTxStore(log.NewNopLogger())
 
 	addr1 := common.HexToAddress("0x1")
 	tx1 := createTestTx(0, big.NewInt(1e9), big.NewInt(2e9))
@@ -103,7 +104,7 @@ func TestTxStoreRemoveTx(t *testing.T) {
 }
 
 func TestTxStoreBlobTxsFiltered(t *testing.T) {
-	store := NewTxStore()
+	store := NewTxStore(log.NewNopLogger())
 
 	addr1 := common.HexToAddress("0x1")
 	store.AddTx(addr1, createTestTx(0, big.NewInt(1e9), big.NewInt(2e9)))

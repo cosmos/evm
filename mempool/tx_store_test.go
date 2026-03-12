@@ -10,9 +10,12 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/gogoproto/proto"
 
+	"cosmossdk.io/log/v2"
+
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 // mockTx is a minimal sdk.Tx implementation for testing.
@@ -33,6 +36,9 @@ type keyedMockTx struct {
 	pubKey   cryptotypes.PubKey
 	sequence uint64
 }
+
+var _ sdk.Tx = (*keyedMockTx)(nil)
+var _ authsigning.SigVerifiableTx = (*keyedMockTx)(nil)
 
 func newKeyedMockTx(t *testing.T, sequence uint64) sdk.Tx {
 	t.Helper()
@@ -65,7 +71,7 @@ func (m *keyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
 }
 
 func TestCosmosTxStoreAddAndGet(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx1 := newMockTx(1)
 	tx2 := newMockTx(2)
@@ -80,9 +86,9 @@ func TestCosmosTxStoreAddAndGet(t *testing.T) {
 }
 
 func TestCosmosTxStoreDedup(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
-	tx := newMockTx(1)
+	tx := newKeyedMockTx(t, 1)
 
 	store.AddTx(tx)
 	store.AddTx(tx)
@@ -92,7 +98,7 @@ func TestCosmosTxStoreDedup(t *testing.T) {
 }
 
 func TestCosmosTxStoreIterator(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx1 := newMockTx(1)
 	tx2 := newMockTx(2)
@@ -113,27 +119,12 @@ func TestCosmosTxStoreIterator(t *testing.T) {
 }
 
 func TestCosmosTxStoreIteratorEmpty(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 	require.Nil(t, store.Iterator())
 }
 
-func TestCosmosTxStorePanicsOnSignerNonceCollision(t *testing.T) {
-	store := NewCosmosTxStore()
-
-	tx1 := newKeyedMockTx(t, 7)
-	tx2 := newKeyedMockTx(t, 7)
-
-	// make the second tx use the same signer as the first while still being a distinct object
-	tx2.(*keyedMockTx).pubKey = tx1.(*keyedMockTx).pubKey
-
-	store.AddTx(tx1)
-	require.Panics(t, func() {
-		store.AddTx(tx2)
-	})
-}
-
 func TestCosmosTxStoreIteratorSnapshotIsolation(t *testing.T) {
-	store := NewCosmosTxStore()
+	store := NewCosmosTxStore(log.NewNopLogger())
 
 	tx1 := newMockTx(1)
 	tx2 := newMockTx(2)

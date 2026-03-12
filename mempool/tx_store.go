@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 
+	"cosmossdk.io/log/v2"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
@@ -16,15 +18,17 @@ type CosmosTxStore struct {
 	txs []sdk.Tx
 
 	// keys is a map of <signer/nonce> -> index to txs slice.
-	keys map[string]int
+	keys   map[string]int
+	logger log.Logger
 
 	mu sync.RWMutex
 }
 
 // NewCosmosTxStore creates a new CosmosTxStore.
-func NewCosmosTxStore() *CosmosTxStore {
+func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
-		keys: make(map[string]int),
+		logger: l,
+		keys:   make(map[string]int),
 	}
 }
 
@@ -36,7 +40,8 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	if key, ok := cosmosTxKey(tx); ok {
 		if _, exists := s.keys[key]; exists {
 			// this should never happen. panicking for safety
-			panic(fmt.Sprintf("duplicate cosmos tx snapshot entry for signer/nonce key %q", key))
+			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", key)
+			return
 		}
 		s.keys[key] = len(s.txs)
 	}
