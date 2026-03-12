@@ -83,3 +83,7 @@ func TestChainUpgrade(t *testing.T) {
 func TestLiveHotSendsAppHash(t *testing.T) {
 	suite.RunWithSharedSuite(t, apphash.RunLiveHotSendsAppHash)
 }
+
+func TestLiveBankSendsAppHash(t *testing.T) {
+	suite.RunWithSharedSuite(t, apphash.RunLiveBankSendsAppHash)
+}

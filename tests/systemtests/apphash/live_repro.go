@@ -623,32 +623,73 @@ func sortedNodeIDs(statuses map[string]nodeStatus) []string {
 	return nodeIDs
 }
 
-// exportGenesisOnDivergence exports genesis state from each node at height-1
-// (the last committed height before divergence) and saves to /tmp/apphash_node_outputs/.
+// exportGenesisOnDivergence exports genesis state from each node at both
+// divergeHeight-1 (last common) and divergeHeight (divergent), and also
+// dumps the block's transactions at divergeHeight.
 func exportGenesisOnDivergence(t *testing.T, base *suite.BaseTestSuite, divergeHeight int64) {
 	t.Helper()
 	saveDir := "/tmp/apphash_node_outputs"
 	os.MkdirAll(saveDir, 0o700)
 
-	exportHeight := divergeHeight - 1
 	binary := base.ExecBinary()
 
-	for i := 0; i < 4; i++ {
-		nodeHome := filepath.Join(systest.WorkDir, "testnet", fmt.Sprintf("node%d", i), "evmd")
-		outFile := filepath.Join(saveDir, fmt.Sprintf("node%d_genesis_h%d.json", i, exportHeight))
+	// Export genesis at both height-1 and height for each node.
+	for _, h := range []int64{divergeHeight - 1, divergeHeight} {
+		for i := 0; i < 4; i++ {
+			nodeHome := filepath.Join(systest.WorkDir, "testnet", fmt.Sprintf("node%d", i), "evmd")
+			outFile := filepath.Join(saveDir, fmt.Sprintf("node%d_bank_h%d.json", i, h))
 
-		cmd := exec.Command(binary, "export",
-			"--home", nodeHome,
-			"--height", fmt.Sprintf("%d", exportHeight),
-			"--modules-to-export", "bank",
-			"--output-document", outFile,
-		)
-		out, err := cmd.CombinedOutput()
+			cmd := exec.Command(binary, "export",
+				"--home", nodeHome,
+				"--height", fmt.Sprintf("%d", h),
+				"--modules-to-export", "bank",
+				"--output-document", outFile,
+			)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Logf("export node%d height=%d failed: %v\n%s", i, h, err, string(out))
+			} else {
+				info, _ := os.Stat(outFile)
+				t.Logf("exported node%d height=%d -> %s (%d bytes)", i, h, outFile, info.Size())
+			}
+		}
+	}
+
+	// Dump the block's transactions at the divergence height from each node.
+	for i := 0; i < 4; i++ {
+		cli := base.EthClient.Clients[base.Node(i)]
+		block, err := cli.BlockByNumber(context.Background(), big.NewInt(divergeHeight))
 		if err != nil {
-			t.Logf("export node%d height=%d failed: %v\n%s", i, exportHeight, err, string(out))
-		} else {
-			info, _ := os.Stat(outFile)
-			t.Logf("exported node%d height=%d -> %s (%d bytes)", i, exportHeight, outFile, info.Size())
+			t.Logf("node%d: failed to get block at height %d: %v", i, divergeHeight, err)
+			continue
+		}
+		txFile := filepath.Join(saveDir, fmt.Sprintf("node%d_txs_h%d.txt", i, divergeHeight))
+		var lines []string
+		lines = append(lines, fmt.Sprintf("block=%d txCount=%d hash=%s", block.NumberU64(), len(block.Transactions()), block.Hash().Hex()))
+		for j, tx := range block.Transactions() {
+			from := ""
+			signer := ethtypes.LatestSignerForChainID(tx.ChainId())
+			if sender, err := ethtypes.Sender(signer, tx); err == nil {
+				from = sender.Hex()
+			}
+			to := ""
+			if tx.To() != nil {
+				to = tx.To().Hex()
+			}
+			lines = append(lines, fmt.Sprintf("  tx[%d] hash=%s from=%s to=%s nonce=%d value=%s", j, tx.Hash().Hex(), from, to, tx.Nonce(), tx.Value().String()))
+		}
+		os.WriteFile(txFile, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+		t.Logf("node%d: dumped %d txs at height %d -> %s", i, len(block.Transactions()), divergeHeight, txFile)
+	}
+
+	// Also save node output files.
+	for _, nodeID := range base.Nodes() {
+		src := filepath.Join(systest.WorkDir, "testnet", nodeID+".out")
+		data, err := os.ReadFile(src)
+		if err == nil {
+			dst := filepath.Join(saveDir, nodeID+".out")
+			os.WriteFile(dst, data, 0o600)
+			t.Logf("saved %s (%d bytes) to %s", nodeID, len(data), dst)
 		}
 	}
 }
