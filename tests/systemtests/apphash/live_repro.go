@@ -31,8 +31,8 @@ const (
 	liveReproEnv          = "EVM_RUN_LIVE_APPHASH_REPRO"
 	liveReproDenom        = "atest"
 	liveReproBatches      = 5000
-	liveReproTxsPerSender = 3   // keep batch small: 3 × 50 = 150 txs, fits in ~1/3 block
-	liveReproSenderCount  = 50  // fewer senders, but more sustained pressure
+	liveReproTxsPerSender = 3                          // keep batch small: 3 × 50 = 150 txs, fits in ~1/3 block
+	liveReproSenderCount  = 50                         // fewer senders, but more sustained pressure
 	liveReproFundAmount   = 10_000_000_000_000_000_000 // 10 ETH per sender — enough for thousands of txs
 	liveReproBlockWait    = 30 * time.Second
 )
@@ -89,20 +89,6 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 	base.UnlockChain()
 
 	// Always save node outputs to /tmp before test cleanup.
-	t.Cleanup(func() {
-		saveDir := "/tmp/apphash_node_outputs"
-		os.MkdirAll(saveDir, 0o700)
-		for _, nodeID := range base.Nodes() {
-			src := filepath.Join(systest.WorkDir, "testnet", nodeID+".out")
-			data, err := os.ReadFile(src)
-			if err == nil {
-				dst := filepath.Join(saveDir, nodeID+".out")
-				os.WriteFile(dst, data, 0o600)
-				t.Logf("saved %s (%d bytes) to %s", nodeID, len(data), dst)
-			}
-		}
-	})
-
 	base.AwaitNBlocks(t, 2)
 
 	lastCommonHeight, statusByNode := waitForCommonHeight(t, base, 2, liveReproBlockWait)
