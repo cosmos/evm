@@ -72,6 +72,9 @@ func RunLiveHotSendsAppHash(t *testing.T, base *suite.BaseTestSuite) {
 		s := string(data)
 		s = strings.Replace(s, "global-slots = 5120", "global-slots = 50000", 1)
 		s = strings.Replace(s, "global-queue = 1024", "global-queue = 10000", 1)
+		if os.Getenv("EVM_DISABLE_INTERBLOCK_CACHE") == "1" {
+			s = strings.Replace(s, "inter-block-cache = true", "inter-block-cache = false", 1)
+		}
 		require.NoError(t, os.WriteFile(appToml, []byte(s), 0o600))
 
 		// Fast block times — maximize race windows between mempool and FinalizeBlock.

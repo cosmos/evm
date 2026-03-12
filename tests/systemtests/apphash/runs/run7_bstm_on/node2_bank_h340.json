@@ -1,0 +1,699 @@
+{
+  "app_name": "\u003cappd\u003e",
+  "app_version": "",
+  "genesis_time": "2026-03-12T18:19:54.324495Z",
+  "chain_id": "local-4221",
+  "initial_height": 341,
+  "app_hash": null,
+  "app_state": {
+    "bank": {
+      "params": {
+        "send_enabled": [],
+        "default_send_enabled": true
+      },
+      "balances": [
+        {
+          "address": "cosmos1pqsw7lf5kmupzffur8z42lgt8m6qnc7f0yqgy0",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1p5v85alxpkvthtk0kfergtn5r5r5h5k426685r",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1p5kyvn9vwwvt467wxsvumeth2xluj38hj29dr5",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1phn89v38wparn7cuh28ysea7qm35tx9fa4q3rs",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "1000000000000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "400000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1pa7ku74wtg89w7kzpcn3gsv4a5euvg5ld8tzu4",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1yrp23vktp2sfwg63lc87hcldz2pwtxhul5enfv",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1yx529rnza3h6klvhwt3kggnea0jaghu0u2l2yp",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1yt7yzt42f4xst6wxh2f39gana2jyrhtqjpgay9",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1y3t46lf42pghdhvzfefjwf8n0ev9fq60j22eyd",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos19rp04h0ejzysvz9e9tevqnf74ecgllcfd3jq2u",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "1000000000000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "400000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos19r6e7len3l4f5hj0dw59nw829lrjd2rc0xwwrz",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos19ysr8vl83tt77gzqvh3wljt2zgfsqw8zncma52",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos193nr38cun8c04tlqha646rjq2kw5cun2ute0r8",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos18p27xlz0ts75g66sd65ann72j5tn6e2v3yh79y",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1gzsvk8rruqn2sx64acfsskrwy8hvrmafzhvvr0",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "839966400000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "500000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1g27kfe20qmgygr9g2n8hw80xjj65hxtu4ldhvv",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "1000000000000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "400000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1gtgpwklkxefxe9l86jvcjuplazujj4n0vhzx04",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1gaxu6xpfu8czys2vm9c06u8gd6vch8p8e727wp",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1f942q3kep4yex22kgxq2zp89c3ttzq7msr6fn5",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1fx944mzagwdhx0wz7k9tfztc8g3lkfk6pzezqh",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "1000000000000004709400"
+            },
+            {
+              "denom": "stake",
+              "amount": "500000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
+          "coins": [
+            {
+              "denom": "stake",
+              "amount": "400000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos123yzslpt02p97undv2yg7kce0j4uhemae3wev6",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos127dmznnh8vvq77drp7nvkvavarfswjgyyw8t06",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1tum7s4klwdaa6y3lu6sz0da763khva2tu7jy2s",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1vu4zgknj70j89czayn3j5rxwzv0ansuyatcray",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1dveaveprjry8krytva9detu46qulmc4k4euqet",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1wjpjxzx86qv7cwcwk0fd30etufp84rge0xl8yl",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1weu2xsx9favj8gz2dt2ed3699v90y46x8rjuf4",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1sr80uuk53r3m25y95zdsgqgfjxszgh0a2pnqfu",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1stdpe8apy257klgzggtshqapacv7dkuw7unvpe",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1jggepetd5zsc0avsn9gyzq7p4wjmnnpnrprelr",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1jv65s3grqf6v6jl3dp4t6c9t9rk99cd88lyufl",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "98599200000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "28013011211918399"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1jhn27xm9sk7dv84wlcy7qcku36jkq44qlrcpjd",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1jcltmuhplrdcwp7stlr4hlhlhgd4htqhnu0t2g",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "829964300000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "500000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1npr66qp0llc6vkw6m0lppjmjzed32c0239vppt",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1nrxha5s43czkwmzgl89gglcqgp0u68ew5v2uq0",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1ndwsgnaj3ly38xrffh0y8t3rkysve92ahzvscp",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1naql093xup08r4x5n3w33a0lmyj0vf5fzmjhgh",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos15tmsj3rcwrypc55w4ecc4sw2tauyqmtm9wuwj4",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos148j92asnp54mjfwhe0tjzha3eg27rm8qkrevvl",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos14j779nn2cpea58zfk0ly2673wnspv7c8rjhrdd",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1kq8s9cf2ce3jdlfz9mwf6095ykynlls586zjm8",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1krc6ses6sszvs409rhtsj5s8dh2f5mrlnprhes",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1k78cdqzx30wdzc4wx4l326sy695vcxeag2l4ay",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1hxpqtphses7w2jkzazx06yf2hwav8l0x9264xt",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1cdm5k86vsqaky06p8jr6wtn7yn026y605tk3lj",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1celsf6yum6nvclyw0k7xe70eq3py9ha6rv0anc",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "1000000000000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "400000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1cml96vmptgw99syqrrz8az79xer2pcgp95srxm",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "829964300000000000000"
+            },
+            {
+              "denom": "stake",
+              "amount": "500000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1epk43t5rsa92xxgad8xqz8lkv3fl5wwfv5207f",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1ex3dtk9tntc580dwwnj4vnhmyufwqw5tfpkyuk",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1esql6wt84zxsffd4u8mw970jfgauxfmed924n4",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1e4y0wjry59xmjfs7djq3cpa9nr4xpvqsz4rzya",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1mgefmtu9kcetjelwk2q6twd6r95v9cjg4m6awx",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1mk8cwatmzlpczhfyjxzmefrdncr64dgxcdrv36",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1muvcrdpv6ruh7fhs3tt4e8llttma2mctc70aj8",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1u0had2wqkhgnr928xa4n3tlm4nulq8erg5ae0w",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1us8qgwl4q9pujugkdnzmlrmqa9k0vjmn8d0ymq",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1u6ms2ckqdelzf64xken0t2mscmc3t57498t53q",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        },
+        {
+          "address": "cosmos1ac542eush9ws8kf9pl4tzlj98ak5fe2g6ycy90",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8009199999999905200"
+            }
+          ]
+        },
+        {
+          "address": "cosmos17xpfvakm2amg962yls6f84z3kell8c5lserqta",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "403200000000000000"
+            }
+          ]
+        },
+        {
+          "address": "cosmos17m7208admk7hzz55mmhct37fn5enf2zp89545l",
+          "coins": [
+            {
+              "denom": "atest",
+              "amount": "8028099999999906100"
+            }
+          ]
+        }
+      ],
+      "supply": [
+        {
+          "denom": "atest",
+          "amount": "8000000000000000000000"
+        },
+        {
+          "denom": "stake",
+          "amount": "4000028013011211918399"
+        }
+      ],
+      "denom_metadata": [
+        {
+          "description": "Native 18-decimal denom metadata for Cosmos EVM chain",
+          "denom_units": [
+            {
+              "denom": "atest",
+              "exponent": 0,
+              "aliases": []
+            },
+            {
+              "denom": "test",
+              "exponent": 18,
+              "aliases": []
+            }
+          ],
+          "base": "atest",
+          "display": "test",
+          "name": "Cosmos EVM",
+          "symbol": "ATOM",
+          "uri": "",
+          "uri_hash": ""
+        }
+      ],
+      "send_enabled": []
+    }
+  },
+  "consensus": {
+    "validators": [
+      {
+        "address": "A08DC03840C2F18D98AF912F2AD2EFA898F06810",
+        "pub_key": {
+          "type": "tendermint/PubKeyEd25519",
+          "value": "NwLMtH4feZqr1Gy1rv4n27agm4HjfobL2++9XEiXKiw="
+        },
+        "power": "100",
+        "name": "node0"
+      },
+      {
+        "address": "7FE53F2B76AA2860CDE1968DD91BDA6CE617A4A6",
+        "pub_key": {
+          "type": "tendermint/PubKeyEd25519",
+          "value": "Eevl+YEwF8mEk4nI3cCsn/cJQUKaCtHZF8yrZM9FvLI="
+        },
+        "power": "100",
+        "name": "node1"
+      },
+      {
+        "address": "39DE2179C72BA5BB918F0485E1E819BFB85A9BC9",
+        "pub_key": {
+          "type": "tendermint/PubKeyEd25519",
+          "value": "jd/aCRl9MPDLVtNGTrOAFsSIgizQHBDXlA84YJmtvBM="
+        },
+        "power": "100",
+        "name": "node2"
+      },
+      {
+        "address": "CC79CD7FA47D267A2347BDD947705EAE0E7A5BAF",
+        "pub_key": {
+          "type": "tendermint/PubKeyEd25519",
+          "value": "US1wjfo7b9XgG5Zkz6U8PXKFlm6UZJ7ZsXAywzDAsyQ="
+        },
+        "power": "100",
+        "name": "node3"
+      }
+    ],
+    "params": {
+      "block": {
+        "max_bytes": "22020096",
+        "max_gas": "10000000"
+      },
+      "evidence": {
+        "max_age_num_blocks": "100000",
+        "max_age_duration": "172800000000000",
+        "max_bytes": "1048576"
+      },
+      "validator": {
+        "pub_key_types": [
+          "ed25519"
+        ]
+      },
+      "version": {
+        "app": "0"
+      },
+      "abci": {
+        "vote_extensions_enable_height": "0"
+      }
+    }
+  }
+}

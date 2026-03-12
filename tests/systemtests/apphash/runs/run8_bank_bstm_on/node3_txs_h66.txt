@@ -1,0 +1,1 @@
+block=66 txCount=0 hash=0x3e0af9a0e62be7c7654599ddc468f65812a66a2f728a0baf2ca69e73f5302496

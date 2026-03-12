@@ -21,6 +21,12 @@ import (
 // @see evmmempool.ExperimentalEVMMempool.OperateExclusively
 const mempoolOperateExclusively = true
 
+// disableExperimentalMempool controls whether the experimental EVM mempool
+// handlers (CheckTx, InsertTx, ReapTxs, PrepareProposal) are installed.
+// When true, the mempool object is still created (required by JSON-RPC) but
+// CometBFT uses its default mempool behavior for tx ordering and block building.
+const disableExperimentalMempool = false
+
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
 func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.Logger) error {
 	if evmtypes.GetChainConfig() == nil {
@@ -57,19 +63,22 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	)
 	app.EVMMempool = evmMempool
 	app.SetMempool(evmMempool)
-	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
-	app.SetCheckTxHandler(checkTxHandler)
-	app.SetInsertTxHandler(app.NewInsertTxHandler(evmMempool))
-	app.SetReapTxsHandler(app.NewReapTxsHandler(evmMempool))
 
-	txVerifier := NewNoCheckProposalTxVerifier(app.BaseApp)
-	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, txVerifier)
-	abciProposalHandler.SetSignerExtractionAdapter(
-		evmmempool.NewEthSignerExtractionAdapter(
-			sdkmempool.NewDefaultSignerExtractionAdapter(),
-		),
-	)
-	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	if !disableExperimentalMempool {
+		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
+		app.SetCheckTxHandler(checkTxHandler)
+		app.SetInsertTxHandler(app.NewInsertTxHandler(evmMempool))
+		app.SetReapTxsHandler(app.NewReapTxsHandler(evmMempool))
+
+		txVerifier := NewNoCheckProposalTxVerifier(app.BaseApp)
+		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, txVerifier)
+		abciProposalHandler.SetSignerExtractionAdapter(
+			evmmempool.NewEthSignerExtractionAdapter(
+				sdkmempool.NewDefaultSignerExtractionAdapter(),
+			),
+		)
+		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	}
 
 	return nil
 }
@@ -82,7 +91,7 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
 		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
 		MinTip:                   server.GetMinTip(appOpts, logger),
-		OperateExclusively:       mempoolOperateExclusively,
+		OperateExclusively:       mempoolOperateExclusively && !disableExperimentalMempool,
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
 		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
 	}, nil
