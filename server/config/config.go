@@ -221,8 +221,8 @@ func (c MempoolConfig) Validate() error {
 	if c.Lifetime < 1 {
 		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
 	}
-	if c.CheckTxTimeout < 0 {
-		return fmt.Errorf("check tx timeout must be non-negative, got %s", c.CheckTxTimeout)
+	if c.CheckTxTimeout <= 0 {
+		return fmt.Errorf("check tx timeout must be non-zero, got %s", c.CheckTxTimeout)
 	}
 	if c.InsertQueueSize < 1 {
 		return fmt.Errorf("insert queue size must be at least 1, got %d", c.InsertQueueSize)
