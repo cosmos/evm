@@ -275,6 +275,13 @@ func (b *Backend) ReceiptsFromCometBlock(
 			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
 		}
 
+		// Resolve -1 sentinel: indexer hasn't assigned EthTxIndex yet.
+		// Use the loop index as the correct eth tx position,
+		// matching the existing fallback in GetTransactionByHash (tx_info.go).
+		if txResult.EthTxIndex == -1 {
+			txResult.EthTxIndex = int32(i) //#nosec G115 -- checked for int overflow already
+		}
+
 		cumulatedGasUsed += txResult.GasUsed
 
 		var effectiveGasPrice *big.Int
