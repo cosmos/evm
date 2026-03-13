@@ -49,6 +49,10 @@ func newKeyedMockTx(t *testing.T, sequence uint64) sdk.Tx {
 	require.NoError(t, err)
 
 	pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
+	return newKeyedMockTxWithPubKey(pubKeyBytes, sequence)
+}
+
+func newKeyedMockTxWithPubKey(pubKeyBytes []byte, sequence uint64) sdk.Tx {
 	return &keyedMockTx{
 		pubKey:   &ethsecp256k1.PubKey{Key: pubKeyBytes},
 		sequence: sequence,
@@ -146,4 +150,41 @@ func TestCosmosTxStoreIteratorSnapshotIsolation(t *testing.T) {
 		count++
 	}
 	require.Equal(t, 2, count)
+}
+
+func TestCosmosTxStoreInvalidateFromUsesStoredNonceMap(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
+	tx1 := newKeyedMockTxWithPubKey(pubKeyBytes, 1)
+	tx2 := newKeyedMockTxWithPubKey(pubKeyBytes, 2)
+	tx3 := newKeyedMockTxWithPubKey(pubKeyBytes, 3)
+
+	store.AddTx(tx1)
+	store.AddTx(tx2)
+	store.AddTx(tx3)
+
+	removed := store.InvalidateFrom(tx2)
+	require.Equal(t, 2, removed)
+	require.Equal(t, []sdk.Tx{tx1}, store.Txs())
+}
+
+func TestCosmosTxStoreInvalidateFromFreshTxNoOp(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
+	tx1 := newKeyedMockTxWithPubKey(pubKeyBytes, 1)
+	tx2 := newKeyedMockTxWithPubKey(pubKeyBytes, 2)
+
+	store.AddTx(tx1)
+
+	removed := store.InvalidateFrom(tx2)
+	require.Zero(t, removed)
+	require.Equal(t, []sdk.Tx{tx1}, store.Txs())
 }

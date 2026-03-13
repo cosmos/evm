@@ -15,13 +15,19 @@ import (
 // CosmosTxStore is a set of cosmos transactions that can be added to or
 // removed from.
 type CosmosTxStore struct {
-	txs []sdk.Tx
+	txs []cosmosTxWithMetadata
 
 	// keys is a map of <signer/nonce> -> index to txs slice.
 	keys   map[string]int
 	logger log.Logger
 
 	mu sync.RWMutex
+}
+
+type cosmosTxWithMetadata struct {
+	tx       sdk.Tx
+	nonceMap map[string]uint64
+	key      string
 }
 
 // NewCosmosTxStore creates a new CosmosTxStore.
@@ -37,16 +43,17 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if key, ok := cosmosTxKey(tx); ok {
-		if _, exists := s.keys[key]; exists {
+	storedTx := newCosmosTxWithMetadata(tx)
+	if storedTx.key != "" {
+		if _, exists := s.keys[storedTx.key]; exists {
 			// this should never happen. panicking for safety
-			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", key)
+			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", storedTx.key)
 			return
 		}
-		s.keys[key] = len(s.txs)
+		s.keys[storedTx.key] = len(s.txs)
 	}
 
-	s.txs = append(s.txs, tx)
+	s.txs = append(s.txs, storedTx)
 }
 
 // InvalidateFrom removes any stored tx that depends on the supplied tx's signer/nonces.
@@ -56,25 +63,26 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	storedTx := newCosmosTxWithMetadata(tx)
+
 	// first check if this tx is already here. If it isn't; no need to do anything. It's a fresh insert.
 	// If it is, we need to do the work of invaliding any txs from the same sender with a higher nonce.
-	if txKey, ok := cosmosTxKey(tx); ok {
-		if _, exists := s.keys[txKey]; !exists {
+	if storedTx.key != "" {
+		if _, exists := s.keys[storedTx.key]; !exists {
 			return 0
 		}
 	}
 
 	// nonce thresholds for each signer.
-	thresholds, ok := cosmosTxNonceMap(tx)
-	if !ok {
+	if len(storedTx.nonceMap) == 0 {
 		return 0
 	}
 
 	// rebuild the txs list, skipping txs that are invalidated.
 	removed := 0
-	nextTxs := make([]sdk.Tx, 0, len(s.txs))
+	nextTxs := make([]cosmosTxWithMetadata, 0, len(s.txs))
 	for _, existing := range s.txs {
-		if invalidatesCosmosTx(existing, thresholds) {
+		if invalidatesCosmosTx(existing, storedTx.nonceMap) {
 			removed++
 			continue
 		}
@@ -90,12 +98,20 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	return removed
 }
 
-func cosmosTxKey(tx sdk.Tx) (string, bool) {
+func newCosmosTxWithMetadata(tx sdk.Tx) cosmosTxWithMetadata {
+	storedTx := cosmosTxWithMetadata{tx: tx}
+
 	nonceMap, ok := cosmosTxNonceMap(tx)
 	if !ok {
-		return "", false
+		return storedTx
 	}
 
+	storedTx.nonceMap = nonceMap
+	storedTx.key = cosmosTxKey(nonceMap)
+	return storedTx
+}
+
+func cosmosTxKey(nonceMap map[string]uint64) string {
 	var b strings.Builder
 	for i, sig := range sortedSignerNonces(nonceMap) {
 		if i > 0 {
@@ -104,7 +120,7 @@ func cosmosTxKey(tx sdk.Tx) (string, bool) {
 		fmt.Fprintf(&b, "%s/%d", sig.account, sig.seq)
 	}
 
-	return b.String(), true
+	return b.String()
 }
 
 // cosmosTxNonceMap extracts the signers from the transaction
@@ -138,14 +154,13 @@ func sortedSignerNonces(nonceMap map[string]uint64) []signerSequence {
 	return signerSeqs
 }
 
-func invalidatesCosmosTx(tx sdk.Tx, thresholds map[string]uint64) bool {
-	nonceMap, ok := cosmosTxNonceMap(tx)
-	if !ok {
+func invalidatesCosmosTx(tx cosmosTxWithMetadata, thresholds map[string]uint64) bool {
+	if len(tx.nonceMap) == 0 {
 		return false
 	}
 
 	for account, threshold := range thresholds {
-		nonce, exists := nonceMap[account]
+		nonce, exists := tx.nonceMap[account]
 		if exists && nonce >= threshold {
 			return true
 		}
@@ -153,12 +168,12 @@ func invalidatesCosmosTx(tx sdk.Tx, thresholds map[string]uint64) bool {
 	return false
 }
 
-func (s *CosmosTxStore) reindex(txs []sdk.Tx) {
+func (s *CosmosTxStore) reindex(txs []cosmosTxWithMetadata) {
 	s.txs = txs
 	s.keys = make(map[string]int, len(txs))
 	for i, tx := range txs {
-		if key, ok := cosmosTxKey(tx); ok {
-			s.keys[key] = i
+		if tx.key != "" {
+			s.keys[tx.key] = i
 		}
 	}
 }
@@ -167,7 +182,12 @@ func (s *CosmosTxStore) reindex(txs []sdk.Tx) {
 func (s *CosmosTxStore) Txs() []sdk.Tx {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return append([]sdk.Tx(nil), s.txs...)
+
+	txs := make([]sdk.Tx, len(s.txs))
+	for i, tx := range s.txs {
+		txs[i] = tx.tx
+	}
+	return txs
 }
 
 // Iterator returns an sdkmempool.Iterator over the txs in the store.
@@ -180,7 +200,10 @@ func (s *CosmosTxStore) Iterator() sdkmempool.Iterator {
 	}
 
 	// copy the slice so the iterator is not affected by concurrent mutations
-	txs := append([]sdk.Tx(nil), s.txs...)
+	txs := make([]sdk.Tx, len(s.txs))
+	for i, tx := range s.txs {
+		txs[i] = tx.tx
+	}
 	return &cosmosTxIterator{txs: txs}
 }
 
