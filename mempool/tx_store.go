@@ -3,6 +3,7 @@ package mempool
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -15,26 +16,25 @@ import (
 // CosmosTxStore is a set of cosmos transactions that can be added to or
 // removed from.
 type CosmosTxStore struct {
-	txs []cosmosTxWithMetadata
-
-	// keys is a map of <signer/nonce> -> index to txs slice.
-	keys   map[string]int
-	logger log.Logger
-
-	mu sync.RWMutex
+	txs         map[string][]cosmosTxWithMetadata
+	nextUnkeyed uint64
+	logger      log.Logger
+	mu          sync.RWMutex
 }
 
 type cosmosTxWithMetadata struct {
-	tx       sdk.Tx
-	nonceMap map[string]uint64
-	key      string
+	tx        sdk.Tx
+	nonceMap  map[string]uint64
+	nonceSum  uint64
+	signerKey string
+	txKey     string
 }
 
 // NewCosmosTxStore creates a new CosmosTxStore.
 func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
+		txs:    make(map[string][]cosmosTxWithMetadata),
 		logger: l,
-		keys:   make(map[string]int),
 	}
 }
 
@@ -44,16 +44,25 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	defer s.mu.Unlock()
 
 	storedTx := newCosmosTxWithMetadata(tx)
-	if storedTx.key != "" {
-		if _, exists := s.keys[storedTx.key]; exists {
-			// this should never happen. panicking for safety
-			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", storedTx.key)
-			return
-		}
-		s.keys[storedTx.key] = len(s.txs)
+	if storedTx.signerKey == "" {
+		storedTx.signerKey = unkeyedSignerKey
+	}
+	if storedTx.txKey == "" {
+		storedTx.txKey = s.newUnkeyedStoreKey()
 	}
 
-	s.txs = append(s.txs, storedTx)
+	bucket := s.txs[storedTx.signerKey]
+	for _, existing := range bucket {
+		if existing.txKey == storedTx.txKey {
+			// this should never happen. panicking for safety
+			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", storedTx.txKey)
+			return
+		}
+	}
+
+	bucket = append(bucket, storedTx)
+	slices.SortFunc(bucket, compareCosmosTxWithMetadata)
+	s.txs[storedTx.signerKey] = bucket
 }
 
 // InvalidateFrom removes any stored tx that depends on the supplied tx's signer/nonces.
@@ -67,34 +76,36 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 
 	// first check if this tx is already here. If it isn't; no need to do anything. It's a fresh insert.
 	// If it is, we need to do the work of invaliding any txs from the same sender with a higher nonce.
-	if storedTx.key != "" {
-		if _, exists := s.keys[storedTx.key]; !exists {
-			return 0
-		}
-	}
-
 	// nonce thresholds for each signer.
-	if len(storedTx.nonceMap) == 0 {
+	if len(storedTx.nonceMap) == 0 || storedTx.signerKey == "" || storedTx.txKey == "" {
 		return 0
 	}
 
-	// rebuild the txs list, skipping txs that are invalidated.
+	bucket, exists := s.txs[storedTx.signerKey]
+	if !exists {
+		return 0
+	}
+	if !containsCosmosTx(bucket, storedTx.txKey) {
+		return 0
+	}
+
 	removed := 0
-	nextTxs := make([]cosmosTxWithMetadata, 0, len(s.txs))
-	for _, existing := range s.txs {
+	next := bucket[:0]
+	for _, existing := range bucket {
 		if invalidatesCosmosTx(existing, storedTx.nonceMap) {
 			removed++
 			continue
 		}
-		nextTxs = append(nextTxs, existing)
+		next = append(next, existing)
 	}
 
-	if removed == 0 {
-		return 0
+	clear(bucket[len(next):])
+	if len(next) == 0 {
+		delete(s.txs, storedTx.signerKey)
+		return removed
 	}
+	s.txs[storedTx.signerKey] = next
 
-	// TODO: this isn't really the most optimal way to do this. but maybe fine for now
-	s.reindex(nextTxs)
 	return removed
 }
 
@@ -107,8 +118,24 @@ func newCosmosTxWithMetadata(tx sdk.Tx) cosmosTxWithMetadata {
 	}
 
 	storedTx.nonceMap = nonceMap
-	storedTx.key = cosmosTxKey(nonceMap)
+	storedTx.nonceSum = cosmosTxNonceSum(nonceMap)
+	storedTx.signerKey = cosmosTxSignerSetKey(nonceMap)
+	storedTx.txKey = cosmosTxKey(nonceMap)
 	return storedTx
+}
+
+const unkeyedSignerKey = "unkeyed"
+
+func cosmosTxSignerSetKey(nonceMap map[string]uint64) string {
+	var b strings.Builder
+	for i, sig := range sortedSignerNonces(nonceMap) {
+		if i > 0 {
+			b.WriteByte('|')
+		}
+		b.WriteString(sig.account)
+	}
+
+	return b.String()
 }
 
 func cosmosTxKey(nonceMap map[string]uint64) string {
@@ -117,10 +144,18 @@ func cosmosTxKey(nonceMap map[string]uint64) string {
 		if i > 0 {
 			b.WriteByte('|')
 		}
-		fmt.Fprintf(&b, "%s/%d", sig.account, sig.seq)
+		fmt.Fprintf(&b, "%s/%020d", sig.account, sig.seq)
 	}
 
 	return b.String()
+}
+
+func cosmosTxNonceSum(nonceMap map[string]uint64) uint64 {
+	var total uint64
+	for _, nonce := range nonceMap {
+		total += nonce
+	}
+	return total
 }
 
 // cosmosTxNonceMap extracts the signers from the transaction
@@ -168,14 +203,46 @@ func invalidatesCosmosTx(tx cosmosTxWithMetadata, thresholds map[string]uint64) 
 	return false
 }
 
-func (s *CosmosTxStore) reindex(txs []cosmosTxWithMetadata) {
-	s.txs = txs
-	s.keys = make(map[string]int, len(txs))
-	for i, tx := range txs {
-		if tx.key != "" {
-			s.keys[tx.key] = i
+func compareCosmosTxWithMetadata(a, b cosmosTxWithMetadata) int {
+	if a.nonceSum < b.nonceSum {
+		return -1
+	}
+	if a.nonceSum > b.nonceSum {
+		return 1
+	}
+	return strings.Compare(a.txKey, b.txKey)
+}
+
+func containsCosmosTx(bucket []cosmosTxWithMetadata, txKey string) bool {
+	for _, tx := range bucket {
+		if tx.txKey == txKey {
+			return true
 		}
 	}
+	return false
+}
+
+func (s *CosmosTxStore) newUnkeyedStoreKey() string {
+	storeKey := "unkeyed/" + strconv.FormatUint(s.nextUnkeyed, 10)
+	s.nextUnkeyed++
+	return storeKey
+}
+
+func (s *CosmosTxStore) snapshotTxs() []sdk.Tx {
+	signerKeys := make([]string, 0, len(s.txs))
+	for signerKey := range s.txs {
+		signerKeys = append(signerKeys, signerKey)
+	}
+	slices.Sort(signerKeys)
+
+	txs := make([]sdk.Tx, 0)
+	for _, signerKey := range signerKeys {
+		bucket := s.txs[signerKey]
+		for _, tx := range bucket {
+			txs = append(txs, tx.tx)
+		}
+	}
+	return txs
 }
 
 // Txs returns a copy of the current set of txs in the store.
@@ -183,11 +250,7 @@ func (s *CosmosTxStore) Txs() []sdk.Tx {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	txs := make([]sdk.Tx, len(s.txs))
-	for i, tx := range s.txs {
-		txs[i] = tx.tx
-	}
-	return txs
+	return s.snapshotTxs()
 }
 
 // Iterator returns an sdkmempool.Iterator over the txs in the store.
@@ -200,18 +263,19 @@ func (s *CosmosTxStore) Iterator() sdkmempool.Iterator {
 	}
 
 	// copy the slice so the iterator is not affected by concurrent mutations
-	txs := make([]sdk.Tx, len(s.txs))
-	for i, tx := range s.txs {
-		txs[i] = tx.tx
-	}
-	return &cosmosTxIterator{txs: txs}
+	return &cosmosTxIterator{txs: s.snapshotTxs()}
 }
 
 // Len returns the number of txs in the store.
 func (s *CosmosTxStore) Len() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.txs)
+
+	var total int
+	for _, bucket := range s.txs {
+		total += len(bucket)
+	}
+	return total
 }
 
 // cosmosTxIterator implements sdkmempool.Iterator over a slice of cosmos txs.

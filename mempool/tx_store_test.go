@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -37,9 +38,16 @@ type keyedMockTx struct {
 	sequence uint64
 }
 
+type multiKeyedMockTx struct {
+	pubKeys   []cryptotypes.PubKey
+	sequences []uint64
+}
+
 var (
 	_ sdk.Tx                      = (*keyedMockTx)(nil)
 	_ authsigning.SigVerifiableTx = (*keyedMockTx)(nil)
+	_ sdk.Tx                      = (*multiKeyedMockTx)(nil)
+	_ authsigning.SigVerifiableTx = (*multiKeyedMockTx)(nil)
 )
 
 func newKeyedMockTx(t *testing.T, sequence uint64) sdk.Tx {
@@ -74,6 +82,43 @@ func (m *keyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
 		PubKey:   m.pubKey,
 		Sequence: m.sequence,
 	}}, nil
+}
+
+func newMultiKeyedMockTx(pubKeyBytes [][]byte, sequences []uint64) sdk.Tx {
+	pubKeys := make([]cryptotypes.PubKey, 0, len(pubKeyBytes))
+	for _, pubKey := range pubKeyBytes {
+		pubKeys = append(pubKeys, &ethsecp256k1.PubKey{Key: pubKey})
+	}
+
+	return &multiKeyedMockTx{
+		pubKeys:   pubKeys,
+		sequences: sequences,
+	}
+}
+
+func (m *multiKeyedMockTx) GetMsgs() []proto.Message              { return nil }
+func (m *multiKeyedMockTx) GetMsgsV2() ([]protov2.Message, error) { return nil, nil }
+func (m *multiKeyedMockTx) GetSigners() ([][]byte, error) {
+	signers := make([][]byte, 0, len(m.pubKeys))
+	for _, pubKey := range m.pubKeys {
+		signers = append(signers, pubKey.Address().Bytes())
+	}
+	return signers, nil
+}
+
+func (m *multiKeyedMockTx) GetPubKeys() ([]cryptotypes.PubKey, error) {
+	return m.pubKeys, nil
+}
+
+func (m *multiKeyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
+	sigs := make([]signingtypes.SignatureV2, 0, len(m.pubKeys))
+	for i, pubKey := range m.pubKeys {
+		sigs = append(sigs, signingtypes.SignatureV2{
+			PubKey:   pubKey,
+			Sequence: m.sequences[i],
+		})
+	}
+	return sigs, nil
 }
 
 func TestCosmosTxStoreAddAndGet(t *testing.T) {
@@ -152,6 +197,24 @@ func TestCosmosTxStoreIteratorSnapshotIsolation(t *testing.T) {
 	require.Equal(t, 2, count)
 }
 
+func TestCosmosTxStoreOrdersBucketByNonceSum(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	pubKeyBytes := crypto.CompressPubkey(&key.PublicKey)
+	tx3 := newKeyedMockTxWithPubKey(pubKeyBytes, 3)
+	tx1 := newKeyedMockTxWithPubKey(pubKeyBytes, 1)
+	tx2 := newKeyedMockTxWithPubKey(pubKeyBytes, 2)
+
+	store.AddTx(tx3)
+	store.AddTx(tx1)
+	store.AddTx(tx2)
+
+	require.Equal(t, []sdk.Tx{tx1, tx2, tx3}, store.Txs())
+}
+
 func TestCosmosTxStoreInvalidateFromUsesStoredNonceMap(t *testing.T) {
 	store := NewCosmosTxStore(log.NewNopLogger())
 
@@ -187,4 +250,34 @@ func TestCosmosTxStoreInvalidateFromFreshTxNoOp(t *testing.T) {
 	removed := store.InvalidateFrom(tx2)
 	require.Zero(t, removed)
 	require.Equal(t, []sdk.Tx{tx1}, store.Txs())
+}
+
+func TestCosmosTxStoreInvalidateFromDoesNotCrossSignerBuckets(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	bobKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	aliceKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	bobPubKey := crypto.CompressPubkey(&bobKey.PublicKey)
+	alicePubKey := crypto.CompressPubkey(&aliceKey.PublicKey)
+
+	bobTx4 := newKeyedMockTxWithPubKey(bobPubKey, 4)
+	bobTx5 := newKeyedMockTxWithPubKey(bobPubKey, 5)
+	multiTx7 := newMultiKeyedMockTx([][]byte{alicePubKey, bobPubKey}, []uint64{7, 7})
+	multiTx8 := newMultiKeyedMockTx([][]byte{alicePubKey, bobPubKey}, []uint64{8, 8})
+
+	store.AddTx(bobTx4)
+	store.AddTx(bobTx5)
+	store.AddTx(multiTx7)
+	store.AddTx(multiTx8)
+
+	removed := store.InvalidateFrom(bobTx5)
+	require.Equal(t, 1, removed)
+
+	txs := store.Txs()
+	require.Len(t, txs, 3)
+	require.ElementsMatch(t, []sdk.Tx{bobTx4, multiTx7, multiTx8}, txs)
+	require.Less(t, slices.Index(txs, multiTx7), slices.Index(txs, multiTx8))
 }
