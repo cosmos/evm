@@ -3,7 +3,6 @@ package keeper
 import (
 	"fmt"
 	"slices"
-	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel/attribute"
@@ -104,9 +103,7 @@ func (k Keeper) EnableEIPs(ctx sdk.Context, eips ...int64) (err error) {
 	evmParams := k.GetParams(ctx)
 	evmParams.ExtraEIPs = append(evmParams.ExtraEIPs, eips...)
 
-	sort.Slice(evmParams.ExtraEIPs, func(i, j int) bool {
-		return evmParams.ExtraEIPs[i] < evmParams.ExtraEIPs[j]
-	})
+	slices.Sort(evmParams.ExtraEIPs)
 
 	return k.SetParams(ctx, evmParams)
 }
