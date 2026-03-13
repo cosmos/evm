@@ -43,6 +43,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -332,6 +333,56 @@ func validateEvents(events chan core.NewTxsEvent, count int) error {
 		// really nothing gets injected.
 	}
 	return nil
+}
+
+// TestMarkTxRemovedInvalidatesPending tests that when you have txs with nonces 4,5,6, and you submit a replacement for 4,
+// txs 5 and 6 need to be revalidated.
+func TestMarkTxRemovedInvalidatesPending(t *testing.T) {
+	pool, _, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+	replacement := pricedTransaction(4, 100000, big.NewInt(2), key)
+
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+	testSetNonce(pool, addr, 4)
+	pool.chain.(*testBlockChain).statedb.SetNonce(addr, 4, tracing.NonceChangeUnspecified)
+
+	pool.all.Add(tx4)
+	pool.priced.Put(tx4)
+	pool.promoteTx(addr, tx4.Hash(), tx4)
+
+	pool.all.Add(tx5)
+	pool.priced.Put(tx5)
+	pool.promoteTx(addr, tx5.Hash(), tx5)
+
+	pool.all.Add(tx6)
+	pool.priced.Put(tx6)
+	pool.promoteTx(addr, tx6.Hash(), tx6)
+
+	pending := pool.Pending(context.Background(), big.NewInt(0), txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3) // at this point, should have txs 4,5,6.
+
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	pending = pool.Pending(context.Background(), big.NewInt(0), txpool.PendingFilter{})
+	require.Empty(t, pending[addr]) // now should have nothing, since tx 4 is now a new tx, and 5,6 depended on 4.
+
+	pool.Reset(nil, nil) // recheck
+
+	pending = pool.Pending(context.Background(), pool.chain.CurrentBlock().Number, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3)
+	require.Equal(t, []uint64{4, 5, 6}, []uint64{
+		pending[addr][0].Resolve().Nonce(),
+		pending[addr][1].Resolve().Nonce(),
+		pending[addr][2].Resolve().Nonce(),
+	})
+	require.Equal(t, replacement.Hash(), pending[addr][0].Resolve().Hash())
 }
 
 func deriveSender(tx *types.Transaction) (common.Address, error) {
