@@ -119,16 +119,14 @@ func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.Transaction
 		// handler for InsertTx, since the ABCI handler obfuscates the error's
 		// returned via codes, and we would like to have the full error to
 		// return to clients.
-		err := b.Mempool.Insert(b.Application.GetContextForCheckTx(txBytes), tx)
+		err := b.Mempool.Insert(ctx, tx)
 		if err != nil {
 			// no need for special error handling like in the broadcast tx case
 			// since this is coming directly from the evm mempool insert.
 			return common.Hash{}, err
 		}
 
-		if err := b.Mempool.TrackTx(txHash); err != nil {
-			b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
-		}
+		b.TrackTxIfSupported(txHash)
 		return txHash, nil
 	}
 

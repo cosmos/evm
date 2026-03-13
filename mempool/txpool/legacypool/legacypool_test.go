@@ -2934,7 +2934,7 @@ func TestResetCancellation(t *testing.T) {
 	}
 }
 
-func TestPendingFutureHeight(t *testing.T) {
+func TestRecheckedFutureHeight(t *testing.T) {
 	t.Parallel()
 
 	pool, _, _ := setupPool()
@@ -2943,7 +2943,7 @@ func TestPendingFutureHeight(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	result := pool.Pending(ctx, big.NewInt(999), txpool.PendingFilter{})
+	result := pool.Rechecked(ctx, big.NewInt(999), txpool.PendingFilter{})
 	if result != nil {
 		t.Fatalf("expected nil from Pending when HeightSync times out, got %v", result)
 	}

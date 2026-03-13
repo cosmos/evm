@@ -185,7 +185,7 @@ type EVMD struct {
 	FeeMarketKeeper feemarketkeeper.Keeper
 	EVMKeeper       *evmkeeper.Keeper
 	Erc20Keeper     erc20keeper.Keeper
-	EVMMempool      *evmmempool.ExperimentalEVMMempool
+	EVMMempool      sdkmempool.ExtMempool
 
 	// the module manager
 	ModuleManager      *module.Manager

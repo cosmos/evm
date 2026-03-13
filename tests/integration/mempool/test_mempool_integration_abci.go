@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
@@ -176,16 +175,17 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// cosmos txs are available via Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -202,9 +202,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
@@ -396,16 +397,17 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// HeightSync is at the correct height for Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -420,9 +422,10 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			s.Require().NoError(err)
 
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 
@@ -450,6 +453,11 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 // 1. Committed transactions are not in the mempool after block finalization
 // 2. New transactions with nonces lower than current nonce fail at mempool level
 func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() {
+	if s.IsExclusiveMempool() {
+		s.T().Log("mempool is exclusive and does not configure checktx, skipping 'TestCheckTxHandlerForCommittedAndLowerNonceTxs' test")
+		return
+	}
+
 	testCases := []struct {
 		name       string
 		setupTxs   func() []sdk.Tx
@@ -518,8 +526,8 @@ func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() 
 
 			txs := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Finalize block with txs and Commit state
