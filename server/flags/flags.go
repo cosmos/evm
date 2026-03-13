@@ -79,6 +79,7 @@ const (
 	EVMMempoolAccountQueue             = "evm.mempool.account-queue"
 	EVMMempoolGlobalQueue              = "evm.mempool.global-queue"
 	EVMMempoolLifetime                 = "evm.mempool.lifetime"
+	EVMMempoolOperateExclusively       = "evm.mempool.operate-exclusively"
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
 	EVMMempoolInsertQueueSize          = "evm.mempool.insert-queue-size"
 )

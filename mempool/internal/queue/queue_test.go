@@ -7,8 +7,6 @@ import (
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	"cosmossdk.io/log/v2"
 )
 
 // mockPool is a mock that records inserted transactions and optionally
@@ -52,8 +50,7 @@ func (m *mockPool) setInsertFn(fn func([]*ethtypes.Transaction) []error) {
 
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockPool()
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Create a test transaction
@@ -75,8 +72,7 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	pool := newMockPool()
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -104,8 +100,7 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockPool()
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Push nil transaction
@@ -128,8 +123,7 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 		return make([]error, len(txs))
 	})
 
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 1000, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 1000)
 	defer iq.Close()
 
 	// Push first transaction to start processing
@@ -162,8 +156,7 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 		select {} // block forever
 	})
 
-	logger := log.NewNopLogger()
-	iq := New[ethtypes.Transaction](pool.insert, 5, logger)
+	iq := New[ethtypes.Transaction](pool.insert, 5)
 	defer iq.Close()
 
 	// This first tx will be immediately popped and start processing (where it

@@ -509,7 +509,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 // Integration
 // ----------------------------------------------------------------------------
 
-func TestMempool_Recheck(t *testing.T) {
+func TestKrakatoaMempool_Recheck(t *testing.T) {
 	type accountTx struct {
 		account int
 		nonce   uint64
@@ -630,12 +630,8 @@ func TestMempool_Recheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			storeKey := storetypes.NewKVStoreKey("test")
-			transientKey := storetypes.NewTransientStoreKey("transient_test")
-			ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-
-			s := setupMempoolWithAccounts(t, 3)
-			mp, txConfig, cosmosRechecker, accounts := s.mp, s.txConfig, s.cosmosRechecker, s.accounts
+			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {
 				pubKeyBytes := crypto.CompressPubkey(&accounts[accountIdx].key.PublicKey)
@@ -645,7 +641,7 @@ func TestMempool_Recheck(t *testing.T) {
 
 			for _, tx := range tc.insertTxs {
 				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
-				require.NoError(t, mp.Insert(ctx, cosmosTx))
+				require.NoError(t, mp.Insert(context.Background(), cosmosTx))
 			}
 
 			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")

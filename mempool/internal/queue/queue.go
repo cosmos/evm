@@ -8,8 +8,6 @@ import (
 
 	"github.com/gammazero/deque"
 
-	"cosmossdk.io/log/v2"
-
 	"github.com/cosmos/cosmos-sdk/telemetry"
 )
 
@@ -40,18 +38,16 @@ type Queue[Tx any] struct {
 	// rejecting new additions
 	maxSize int
 
-	logger log.Logger
-	done   chan struct{}
+	done chan struct{}
 }
 
 var ErrQueueFull = errors.New("queue full")
 
 // New creates a new queue.
-func New[Tx any](insert func(txs []*Tx) []error, maxSize int, logger log.Logger) *Queue[Tx] {
+func New[Tx any](insert func(txs []*Tx) []error, maxSize int) *Queue[Tx] {
 	iq := &Queue[Tx]{
 		insert:  insert,
 		maxSize: maxSize,
-		logger:  logger,
 		signal:  make(chan struct{}, 1),
 		done:    make(chan struct{}),
 	}

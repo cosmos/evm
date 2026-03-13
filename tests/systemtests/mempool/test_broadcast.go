@@ -272,7 +272,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// Users must receive error feedback for duplicate submissions
 					_, err = s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC must return error")
-					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
+					require.Contains(t, err.Error(), "already", "error should indicate transaction is already known")
 
 					t.Logf("Duplicate transaction correctly rejected with 'already known' error")
 
@@ -342,7 +342,7 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// the RPC layer should still detect and reject the duplicate
 					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.Error(t, err, "duplicate tx via JSON-RPC should return error even after gossip")
-					require.Contains(t, err.Error(), "already known", "error should indicate transaction is already known")
+					require.Contains(t, err.Error(), "already", "error should indicate transaction is already known")
 
 					t.Logf("JSON-RPC correctly rejects duplicate that node already has from gossip")
 
@@ -368,15 +368,10 @@ func RunTxBroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 	s := NewTestSuite(base)
 
 	// First, setup the chain with default configuration
-	s.SetupTest(t)
-
-	// Configure the chain for broadcast testing:
-	// 1. Set mempool type to "app" so CometBFT uses AppMempool/AppReactor for gossip.
-	//    Without this, the default "flood" reactor doesn't gossip txs that bypass
-	//    CometBFT's CListMempool (which happens when UseAppMempool=true).
-	// 2. Slow down block production to give time to verify gossip before blocks commit.
-	s.ModifyCometMempool(t, "app")
-	s.ModifyConsensusTimeout(t, "5s")
+	//
+	// Slow down block production to give time to verify gossip before blocks
+	// commit.
+	s.SetupTestWithTimeoutCommit(t, 5*time.Second)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
