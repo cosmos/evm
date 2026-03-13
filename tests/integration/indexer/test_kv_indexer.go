@@ -161,7 +161,7 @@ func TestKVIndexer(t *testing.T, create network.CreateEvmApp, options ...network
 			db := dbm.NewMemDB()
 			idxer := indexer.NewKVIndexer(db, log.NewNopLogger(), clientCtx)
 
-			err = idxer.IndexBlock(tc.block, tc.blockResult)
+			err = idxer.IndexBlock(tc.block, tc.blockResult, nil)
 			require.NoError(t, err)
 			if !tc.expSuccess {
 				first, err := idxer.FirstIndexedBlock()

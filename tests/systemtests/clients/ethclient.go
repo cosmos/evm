@@ -198,3 +198,62 @@ func (ec *EthClient) CodeAt(nodeID string, account *EthAccount) ([]byte, error) 
 
 	return code, nil
 }
+
+// GetTransactionReceipt queries eth_getTransactionReceipt for a given tx hash.
+func (ec *EthClient) GetTransactionReceipt(nodeID string, txHash common.Hash) (*ethtypes.Receipt, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return nil, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	return ethCli.TransactionReceipt(context.Background(), txHash)
+}
+
+// GetBlockByNumber queries eth_getBlockByNumber for a given block number.
+func (ec *EthClient) GetBlockByNumber(nodeID string, number *big.Int) (*ethtypes.Block, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return nil, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	return ethCli.BlockByNumber(context.Background(), number)
+}
+
+// GetBlockHashByNumber queries eth_getBlockByNumber and returns the block hash from the JSON response.
+// This returns the CometBFT block hash, not the computed Ethereum header hash.
+func (ec *EthClient) GetBlockHashByNumber(nodeID string, number *big.Int) (common.Hash, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return common.Hash{}, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	var result struct {
+		Hash common.Hash `json:"hash"`
+	}
+
+	blockNumArg := "latest"
+	if number != nil {
+		blockNumArg = fmt.Sprintf("0x%x", number)
+	}
+	err := ethCli.Client().CallContext(context.Background(), &result, "eth_getBlockByNumber", blockNumArg, false)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return result.Hash, nil
+}
+
+// GetTransactionByHash queries eth_getTransactionByHash for a given tx hash.
+func (ec *EthClient) GetTransactionByHash(nodeID string, txHash common.Hash) (*EthRPCTransaction, error) {
+	ethCli := ec.Clients[nodeID]
+	if ethCli == nil {
+		return nil, fmt.Errorf("eth client not found for node %s", nodeID)
+	}
+
+	var result EthRPCTransaction
+	err := ethCli.Client().CallContext(context.Background(), &result, "eth_getTransactionByHash", txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

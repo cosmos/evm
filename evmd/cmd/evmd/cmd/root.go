@@ -12,12 +12,16 @@ import (
 	cmtcfg "github.com/cometbft/cometbft/config"
 	cmtcli "github.com/cometbft/cometbft/libs/cli"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdebug "github.com/cosmos/evm/client/debug"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/config"
+	evmdindexer "github.com/cosmos/evm/evmd/indexer"
+	"github.com/cosmos/evm/indexer"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/utils"
@@ -179,9 +183,21 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 	)
 
 	// add Cosmos EVM' flavored TM commands to start server, etc.
+	startOpts := cosmosevmserver.NewDefaultStartOptions(newApp, defaultNodeHome).
+		WithIndexerSetup(func(idx *indexer.KVIndexer) {
+			// Register bank transfer transformer for indexing cosmos bank events as ERC20 Transfer logs
+			// Using a placeholder token address - in production, use the actual wrapped token address
+			tokenAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
+			idx.RegisterTransformer(evmdindexer.NewBankTransferTransformer(tokenAddress))
+
+			// Register staking unbonding transformer for indexing complete_unbonding events from BeginBlock
+			// Using the staking precompile address
+			stakingPrecompileAddress := common.HexToAddress("0x0000000000000000000000000000000000000800")
+			idx.RegisterTransformer(evmdindexer.NewStakingUnbondingTransformer(stakingPrecompileAddress))
+		})
 	cosmosevmserver.AddCommands(
 		rootCmd,
-		cosmosevmserver.NewDefaultStartOptions(newApp, defaultNodeHome),
+		startOpts,
 		appExport,
 		addModuleInitFlags,
 	)

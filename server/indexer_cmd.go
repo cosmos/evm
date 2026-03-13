@@ -16,7 +16,9 @@ import (
 )
 
 // NewIndexTxCmd creates a new Cobra command to index historical Ethereum transactions.
-func NewIndexTxCmd() *cobra.Command {
+// The optional indexerSetup function is called after creating the indexer to register
+// cosmos event transformers, ensuring historical re-indexing captures all transformed events.
+func NewIndexTxCmd(indexerSetup func(*indexer.KVIndexer)) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "index-eth-tx [backward|forward]",
 		Short: "Index historical eth txs",
@@ -50,6 +52,11 @@ func NewIndexTxCmd() *cobra.Command {
 			}
 			idxer := indexer.NewKVIndexer(idxDB, logger.With("module", "evmindex"), clientCtx)
 
+			// Register cosmos event transformers if setup function is provided
+			if indexerSetup != nil {
+				indexerSetup(idxer)
+			}
+
 			// open local CometBFT db, because the local rpc won't be available.
 			tmdb, err := cmtconfig.DefaultDBProvider(&cmtconfig.DBContext{ID: "blockstore", Config: cfg})
 			if err != nil {
@@ -74,7 +81,7 @@ func NewIndexTxCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := idxer.IndexBlock(blk, resBlk.TxResults); err != nil {
+				if err := idxer.IndexBlock(blk, resBlk.TxResults, resBlk.Events); err != nil {
 					return err
 				}
 				fmt.Println(height)

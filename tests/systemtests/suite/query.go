@@ -96,7 +96,7 @@ func (s *BaseTestSuite) waitForCosmosCommmit(
 	}
 
 	if result.TxResult.Code != 0 {
-		return fmt.Errorf("tx(%s) is committed but failed: %v", result.Hash.String(), err)
+		return fmt.Errorf("tx(%s) is committed but failed (code=%d): %s", result.Hash.String(), result.TxResult.Code, result.TxResult.Log)
 	}
 
 	return nil

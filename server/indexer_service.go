@@ -115,7 +115,7 @@ func (eis *EVMIndexerService) OnStart() error {
 				eis.Logger.Error("failed to fetch block result", "height", i, "err", blockErr)
 				break
 			}
-			if err := eis.txIdxr.IndexBlock(block.Block, blockResult.TxsResults); err != nil {
+			if err := eis.txIdxr.IndexBlock(block.Block, blockResult.TxsResults, blockResult.FinalizeBlockEvents); err != nil {
 				eis.Logger.Error("failed to index block", "height", i, "err", err)
 			}
 			lastBlock = blockResult.Height
