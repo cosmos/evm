@@ -17,6 +17,33 @@ func TestDefaultConfig(t *testing.T) {
 	require.False(t, cfg.JSONRPC.Enable)
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
+	require.Equal(t, serverconfig.DefaultGetProofStorageKeysCap, cfg.JSONRPC.GetProofStorageKeysCap)
+}
+
+func TestJSONRPCConfigValidate_GetProofStorageKeysCap(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(c *serverconfig.JSONRPCConfig)
+		errText string
+	}{
+		{
+			name: "negative getproof storage keys cap",
+			mutate: func(c *serverconfig.JSONRPCConfig) {
+				c.GetProofStorageKeysCap = -1
+			},
+			errText: "getproof-storage-keys-cap cannot be negative",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := *serverconfig.DefaultJSONRPCConfig()
+			tc.mutate(&cfg)
+			err := cfg.Validate()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errText)
+		})
+	}
 }
 
 func TestGetConfig(t *testing.T) {
