@@ -557,14 +557,21 @@ func (m *KrakatoaMempool) getIterators(ctx context.Context, _ [][]byte) (evm *mi
 	// using ctx.BlockHeight() - 1 since we want to get txs that have been
 	// validated at latest committed height, and ctx.BlockHeight() returns the
 	// latest uncommitted height
-	selectHeight := new(big.Int).SetInt64(sdk.UnwrapSDKContext(ctx).BlockHeight() - 1)
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+	selectHeight := new(big.Int).SetInt64(sdkctx.BlockHeight() - 1)
+
+	// Keeper reads consume gas on the SDK context. Fetch these inputs once
+	// before starting goroutines so we do not race on the shared gas meters.
+	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
+	bondDenom := m.vmKeeper.GetEvmCoinInfo(sdkctx).Denom
+	cosmosBaseFee := currentBaseFee(m.blockchain)
 
 	wg.Go(func() {
-		evmIterator = m.evmIterator(ctx, selectHeight)
+		evmIterator = m.evmIterator(ctx, selectHeight, baseFee)
 	})
 
 	wg.Go(func() {
-		cosmosIterator = m.cosmosIterator(ctx, selectHeight)
+		cosmosIterator = m.cosmosIterator(ctx, selectHeight, bondDenom, cosmosBaseFee)
 	})
 
 	wg.Wait()
@@ -574,9 +581,7 @@ func (m *KrakatoaMempool) getIterators(ctx context.Context, _ [][]byte) (evm *mi
 
 // evmIterator returns an iterator over the current valid txs in the evm
 // mempool at height.
-func (m *KrakatoaMempool) evmIterator(ctx context.Context, height *big.Int) *miner.TransactionsByPriceAndNonce {
-	sdkctx := sdk.UnwrapSDKContext(ctx)
-	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
+func (m *KrakatoaMempool) evmIterator(ctx context.Context, height *big.Int, baseFee *big.Int) *miner.TransactionsByPriceAndNonce {
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)
@@ -601,13 +606,18 @@ func (m *KrakatoaMempool) evmIterator(ctx context.Context, height *big.Int) *min
 
 // cosmosIterator returns an iterator over the current valid txs in the cosmos
 // mempool at height.
-func (m *KrakatoaMempool) cosmosIterator(ctx context.Context, height *big.Int) sdkmempool.Iterator {
+func (m *KrakatoaMempool) cosmosIterator(
+	ctx context.Context,
+	height *big.Int,
+	bondDenom string,
+	baseFee *uint256.Int,
+) sdkmempool.Iterator {
 	if m.pendingTxProposalTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
 		defer cancel()
 	}
-	return m.recheckCosmosPool.OrderedRecheckedTxs(ctx, height, m.vmKeeper.GetEvmCoinInfo(sdk.UnwrapSDKContext(ctx)).Denom, currentBaseFee(m.blockchain))
+	return m.recheckCosmosPool.OrderedRecheckedTxs(ctx, height, bondDenom, baseFee)
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.
