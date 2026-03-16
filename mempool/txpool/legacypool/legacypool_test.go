@@ -363,26 +363,82 @@ func TestMarkTxRemovedInvalidatesPending(t *testing.T) {
 	pool.priced.Put(tx6)
 	pool.promoteTx(addr, tx6.Hash(), tx6)
 
-	pending := pool.Pending(context.Background(), big.NewInt(0), txpool.PendingFilter{})
+	height := pool.chain.CurrentBlock().Number
+
+	pending := pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
 	require.Len(t, pending[addr], 3) // at this point, should have txs 4,5,6.
 
 	replaced, err := pool.add(replacement)
 	require.NoError(t, err)
 	require.True(t, replaced)
 
-	pending = pool.Pending(context.Background(), big.NewInt(0), txpool.PendingFilter{})
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
 	require.Empty(t, pending[addr]) // now should have nothing, since tx 4 is now a new tx, and 5,6 depended on 4.
 
 	pool.Reset(nil, nil) // recheck
 
-	pending = pool.Pending(context.Background(), pool.chain.CurrentBlock().Number, txpool.PendingFilter{})
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
 	require.Len(t, pending[addr], 3)
 	require.Equal(t, []uint64{4, 5, 6}, []uint64{
-		pending[addr][0].Resolve().Nonce(),
-		pending[addr][1].Resolve().Nonce(),
-		pending[addr][2].Resolve().Nonce(),
+		pending[addr][0].Tx.Nonce(),
+		pending[addr][1].Tx.Nonce(),
+		pending[addr][2].Tx.Nonce(),
 	})
-	require.Equal(t, replacement.Hash(), pending[addr][0].Resolve().Hash())
+	require.Equal(t, replacement.Hash(), pending[addr][0].Tx.Hash())
+}
+
+// TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck tests that if a
+// replacement tx for nonce 4 later fails recheck, the entire 4,5,6 chain stays
+// absent from the rechecked pending snapshot.
+func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
+	pool, rechecker, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+	replacement := pricedTransaction(4, 100000, big.NewInt(2), key)
+
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+	testSetNonce(pool, addr, 4)
+	pool.chain.(*testBlockChain).statedb.SetNonce(addr, 4, tracing.NonceChangeUnspecified)
+
+	pool.all.Add(tx4)
+	pool.priced.Put(tx4)
+	pool.promoteTx(addr, tx4.Hash(), tx4)
+
+	pool.all.Add(tx5)
+	pool.priced.Put(tx5)
+	pool.promoteTx(addr, tx5.Hash(), tx5)
+
+	pool.all.Add(tx6)
+	pool.priced.Put(tx6)
+	pool.promoteTx(addr, tx6.Hash(), tx6)
+
+	height := pool.chain.CurrentBlock().Number
+
+	pending := pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3)
+
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
+
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Hash() == replacement.Hash() {
+			return sdk.Context{}, errors.New("replacement failed recheck")
+		}
+		return sdk.Context{}, nil
+	})
+
+	pool.Reset(nil, nil)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
 }
 
 func deriveSender(tx *types.Transaction) (common.Address, error) {
