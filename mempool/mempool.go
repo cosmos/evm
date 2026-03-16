@@ -733,7 +733,7 @@ func (m *ExperimentalEVMMempool) cosmosIterator(ctx context.Context, height *big
 		ctx, cancel = context.WithTimeout(ctx, m.pendingTxProposalTimeout)
 		defer cancel()
 	}
-	return m.cosmosPool.RecheckedTxs(ctx, height)
+	return m.cosmosPool.OrderedRecheckedTxs(ctx, height, m.vmKeeper.GetEvmCoinInfo(sdk.UnwrapSDKContext(ctx)).Denom, currentBaseFee(m.blockchain))
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.

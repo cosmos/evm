@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
@@ -286,6 +287,22 @@ func (m *RecheckMempool) RecheckedTxs(ctx context.Context, height *big.Int) sdkm
 		return nil
 	}
 	return txStore.Iterator()
+}
+
+// OrderedRecheckedTxs returns the rechecked tx snapshot for a height using
+// fee-priority ordering across signer buckets while still honoring nonce order
+// within each bucket.
+func (m *RecheckMempool) OrderedRecheckedTxs(
+	ctx context.Context,
+	height *big.Int,
+	bondDenom string,
+	baseFee *uint256.Int,
+) sdkmempool.Iterator {
+	txStore := m.recheckedTxs.GetStore(ctx, height)
+	if txStore == nil {
+		return nil
+	}
+	return txStore.OrderedIterator(bondDenom, baseFee)
 }
 
 // scheduleRecheckLoop is the main event loop that coordinates recheck execution.

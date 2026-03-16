@@ -43,11 +43,21 @@ type multiKeyedMockTx struct {
 	sequences []uint64
 }
 
+type feeKeyedMockTx struct {
+	pubKey   cryptotypes.PubKey
+	sequence uint64
+	gas      uint64
+	fee      sdk.Coins
+}
+
 var (
 	_ sdk.Tx                      = (*keyedMockTx)(nil)
 	_ authsigning.SigVerifiableTx = (*keyedMockTx)(nil)
 	_ sdk.Tx                      = (*multiKeyedMockTx)(nil)
 	_ authsigning.SigVerifiableTx = (*multiKeyedMockTx)(nil)
+	_ sdk.Tx                      = (*feeKeyedMockTx)(nil)
+	_ authsigning.SigVerifiableTx = (*feeKeyedMockTx)(nil)
+	_ sdk.FeeTx                   = (*feeKeyedMockTx)(nil)
 )
 
 func newKeyedMockTx(t *testing.T, sequence uint64) sdk.Tx {
@@ -119,6 +129,52 @@ func (m *multiKeyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error)
 		})
 	}
 	return sigs, nil
+}
+
+const feeKeyedMockTxDenom = "atest"
+
+func newFeeKeyedMockTxWithPubKey(pubKeyBytes []byte, sequence uint64, gasPrice int64) sdk.Tx {
+	const gas uint64 = 100_000
+
+	return &feeKeyedMockTx{
+		pubKey:   &ethsecp256k1.PubKey{Key: pubKeyBytes},
+		sequence: sequence,
+		gas:      gas,
+		fee:      sdk.NewCoins(sdk.NewInt64Coin(feeKeyedMockTxDenom, gasPrice*int64(gas))),
+	}
+}
+
+func (m *feeKeyedMockTx) GetMsgs() []proto.Message              { return nil }
+func (m *feeKeyedMockTx) GetMsgsV2() ([]protov2.Message, error) { return nil, nil }
+func (m *feeKeyedMockTx) GetSigners() ([][]byte, error) {
+	return [][]byte{m.pubKey.Address().Bytes()}, nil
+}
+
+func (m *feeKeyedMockTx) GetPubKeys() ([]cryptotypes.PubKey, error) {
+	return []cryptotypes.PubKey{m.pubKey}, nil
+}
+
+func (m *feeKeyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
+	return []signingtypes.SignatureV2{{
+		PubKey:   m.pubKey,
+		Sequence: m.sequence,
+	}}, nil
+}
+
+func (m *feeKeyedMockTx) GetGas() uint64 {
+	return m.gas
+}
+
+func (m *feeKeyedMockTx) GetFee() sdk.Coins {
+	return m.fee
+}
+
+func (m *feeKeyedMockTx) FeePayer() []byte {
+	return m.pubKey.Address().Bytes()
+}
+
+func (m *feeKeyedMockTx) FeeGranter() []byte {
+	return nil
 }
 
 func TestCosmosTxStoreAddAndGet(t *testing.T) {
@@ -213,6 +269,30 @@ func TestCosmosTxStoreOrdersBucketByNonceSum(t *testing.T) {
 	store.AddTx(tx2)
 
 	require.Equal(t, []sdk.Tx{tx1, tx2, tx3}, store.Txs())
+}
+
+func TestCosmosTxStoreOrderedIteratorByPriceAndNonce(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	keyA, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	keyB, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	txA0 := newFeeKeyedMockTxWithPubKey(crypto.CompressPubkey(&keyA.PublicKey), 0, 1)
+	txA1 := newFeeKeyedMockTxWithPubKey(crypto.CompressPubkey(&keyA.PublicKey), 1, 100)
+	txB0 := newFeeKeyedMockTxWithPubKey(crypto.CompressPubkey(&keyB.PublicKey), 0, 5)
+
+	store.AddTx(txA0)
+	store.AddTx(txA1)
+	store.AddTx(txB0)
+
+	iter := store.OrderedIterator(feeKeyedMockTxDenom, nil)
+	var txs []sdk.Tx
+	for ; iter != nil; iter = iter.Next() {
+		txs = append(txs, iter.Tx())
+	}
+	require.Equal(t, []sdk.Tx{txB0, txA0, txA1}, txs)
 }
 
 func TestCosmosTxStoreInvalidateFromUsesStoredNonceMap(t *testing.T) {

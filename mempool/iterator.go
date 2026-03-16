@@ -12,7 +12,6 @@ import (
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
-	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -265,35 +264,7 @@ func (i *EVMMempoolIterator) peekCosmos() (sdk.Tx, *uint256.Int) {
 // extractCosmosEffectiveTip extracts the effective gas tip from a Cosmos transaction
 // This aligns with EVM transaction prioritization by calculating: gas_price - base_fee
 func (i *EVMMempoolIterator) extractCosmosEffectiveTip(tx sdk.Tx) *uint256.Int {
-	feeTx, ok := tx.(sdk.FeeTx)
-	if !ok {
-		return nil
-	}
-
-	bondDenomFeeAmount := math.ZeroInt()
-	fees := feeTx.GetFee()
-	for _, coin := range fees {
-		if coin.Denom == i.bondDenom {
-			bondDenomFeeAmount = coin.Amount
-		}
-	}
-
-	// Calculate gas price: fee_amount / gas_limit
-	gasPrice, overflow := uint256.FromBig(bondDenomFeeAmount.Quo(math.NewIntFromUint64(feeTx.GetGas())).BigInt())
-	if overflow {
-		return nil
-	}
-
-	// Subtract base fee if available
-	if i.baseFee == nil {
-		return gasPrice
-	}
-
-	if gasPrice.Cmp(i.baseFee) < 0 {
-		return uint256.NewInt(0)
-	}
-
-	return new(uint256.Int).Sub(gasPrice, i.baseFee)
+	return extractCosmosEffectiveTip(tx, i.bondDenom, i.baseFee)
 }
 
 // convertEVMToSDKTx converts an Ethereum transaction to a Cosmos SDK transaction.
