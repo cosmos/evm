@@ -387,12 +387,15 @@ func TestMarkTxRemovedInvalidatesPending(t *testing.T) {
 	require.Equal(t, replacement.Hash(), pending[addr][0].Tx.Hash())
 }
 
-// TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck tests that if a
-// replacement tx for nonce 4 later fails recheck, the entire 4,5,6 chain stays
-// absent from the rechecked pending snapshot.
+// TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck tests that when a
+// replacement for nonce 4 later fails recheck, the rechecked pending snapshot
+// stays empty and the higher nonces are demoted back to queue.
 func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
 	pool, rechecker, key := setupPool()
 	defer pool.Close()
+
+	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
+	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
@@ -439,6 +442,23 @@ func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
 
 	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
 	require.Empty(t, pending[addr])
+
+	pool.mu.RLock()
+	require.Nil(t, pool.pending[addr])
+	require.NotNil(t, pool.queue[addr])
+	require.Len(t, pool.queue[addr].Flatten(), 2)
+	require.Equal(t, []uint64{5, 6}, []uint64{
+		pool.queue[addr].Flatten()[0].Nonce(),
+		pool.queue[addr].Flatten()[1].Nonce(),
+	})
+	require.Nil(t, pool.all.Get(replacement.Hash()))
+
+	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
+	require.Equal(t, int64(1), dropped)
+
+	invalidated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
+	require.Equal(t, int64(2), invalidated)
+	pool.mu.RUnlock()
 }
 
 func deriveSender(tx *types.Transaction) (common.Address, error) {
@@ -2796,6 +2816,8 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, key := setupPool()
 	defer pool.Close()
 
+	initialDropped := queuedRecheckDropMeter.Snapshot().Count()
+
 	// Create transactions with sequential nonces
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
@@ -2856,9 +2878,9 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	if pool.all.Get(tx2.Hash()) == nil {
 		t.Errorf("tx2 should still be in the all lookup")
 	}
-	dropped := queuedRecheckDropMeter.Snapshot().Count()
+	dropped := queuedRecheckDropMeter.Snapshot().Count() - initialDropped
 	if dropped != 1 {
-		t.Error("1 queued recheck drops should have been recorded by meter, got", dropped)
+		t.Error("1 queued recheck drops should have been recorded by meter delta, got", dropped)
 	}
 	pool.mu.RUnlock()
 }
@@ -2869,6 +2891,9 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, _ := setupPool()
 	defer pool.Close()
+
+	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
+	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
 
 	// Create transactions with sequential nonces
 	key1, _ := crypto.GenerateKey()
@@ -2948,17 +2973,17 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 
 	// tx10 and tx22 got dropped
-	dropped := pendingRecheckDropMeter.Snapshot().Count()
+	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
 	if dropped != 2 {
-		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
+		t.Error("2 pending recheck drops should have been recorded by meter delta, got", dropped)
 	}
 
 	// tx11 and tx12 were invalidated since a tx from the same sender with a
 	// lower nonce was just dropped, they need to be validated again before
 	// being moved to pending, so they are back in queued
-	invaliated := pendingDemotedRecheck.Snapshot().Count()
+	invaliated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
 	if invaliated != 2 {
-		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
+		t.Error("2 pending recheck invalidate should have been recorded by meter delta, got", invaliated)
 	}
 	pool.mu.RUnlock()
 }
