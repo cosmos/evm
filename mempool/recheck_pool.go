@@ -464,7 +464,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	txsRemoved = len(removeTxs)
 }
 
-// markTxRechecked adds a tx into the height synced cosmos tx store
+// markTxRechecked adds a tx into the height synced cosmos tx store.
 func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AddTx(txn) })
 }
