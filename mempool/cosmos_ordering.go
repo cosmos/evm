@@ -132,7 +132,7 @@ func (s *CosmosTxStore) OrderedIterator(bondDenom string, baseFee *uint256.Int) 
 
 	snapshot := make(map[string][]cosmosTxWithMetadata, len(s.txs))
 	for signerKey, bucket := range s.txs {
-		snapshot[signerKey] = append([]cosmosTxWithMetadata(nil), bucket...)
+		snapshot[signerKey] = append([]cosmosTxWithMetadata(nil), bucket.txs...)
 	}
 
 	return NewCosmosTransactionsByPriceAndNonce(snapshot, bondDenom, baseFee)

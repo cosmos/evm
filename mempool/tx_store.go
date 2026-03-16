@@ -16,10 +16,15 @@ import (
 // CosmosTxStore is a set of cosmos transactions that can be added to or
 // removed from.
 type CosmosTxStore struct {
-	txs         map[string][]cosmosTxWithMetadata
+	txs         map[string]cosmosTxBucket
 	nextUnkeyed uint64
 	logger      log.Logger
 	mu          sync.RWMutex
+}
+
+type cosmosTxBucket struct {
+	txs     []cosmosTxWithMetadata
+	signers map[string]struct{}
 }
 
 type cosmosTxWithMetadata struct {
@@ -33,7 +38,7 @@ type cosmosTxWithMetadata struct {
 // NewCosmosTxStore creates a new CosmosTxStore.
 func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
-		txs:    make(map[string][]cosmosTxWithMetadata),
+		txs:    make(map[string]cosmosTxBucket),
 		logger: l,
 	}
 }
@@ -52,7 +57,7 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	}
 
 	bucket := s.txs[storedTx.signerKey]
-	for _, existing := range bucket {
+	for _, existing := range bucket.txs {
 		if existing.txKey == storedTx.txKey {
 			// this should never happen. panicking for safety
 			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", storedTx.txKey)
@@ -60,8 +65,11 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 		}
 	}
 
-	bucket = append(bucket, storedTx)
-	slices.SortFunc(bucket, compareCosmosTxWithMetadata)
+	if bucket.signers == nil {
+		bucket.signers = signerSetFromNonceMap(storedTx.nonceMap)
+	}
+	bucket.txs = append(bucket.txs, storedTx)
+	slices.SortFunc(bucket.txs, compareCosmosTxWithMetadata)
 	s.txs[storedTx.signerKey] = bucket
 }
 
@@ -85,26 +93,33 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	if !exists {
 		return 0
 	}
-	if !containsCosmosTx(bucket, storedTx.txKey) {
+	if !containsCosmosTx(bucket.txs, storedTx.txKey) {
 		return 0
 	}
 
 	removed := 0
-	next := bucket[:0]
-	for _, existing := range bucket {
-		if invalidatesCosmosTx(existing, storedTx.nonceMap) {
-			removed++
+	for signerKey, existingBucket := range s.txs {
+		if !bucketContainsAnySigner(existingBucket, storedTx.nonceMap) {
 			continue
 		}
-		next = append(next, existing)
-	}
 
-	clear(bucket[len(next):])
-	if len(next) == 0 {
-		delete(s.txs, storedTx.signerKey)
-		return removed
+		next := existingBucket.txs[:0]
+		for _, existing := range existingBucket.txs {
+			if invalidatesCosmosTx(existing, storedTx.nonceMap) {
+				removed++
+				continue
+			}
+			next = append(next, existing)
+		}
+
+		clear(existingBucket.txs[len(next):])
+		if len(next) == 0 {
+			delete(s.txs, signerKey)
+			continue
+		}
+		existingBucket.txs = next
+		s.txs[signerKey] = existingBucket
 	}
-	s.txs[storedTx.signerKey] = next
 
 	return removed
 }
@@ -203,6 +218,23 @@ func invalidatesCosmosTx(tx cosmosTxWithMetadata, thresholds map[string]uint64) 
 	return false
 }
 
+func signerSetFromNonceMap(nonceMap map[string]uint64) map[string]struct{} {
+	signers := make(map[string]struct{}, len(nonceMap))
+	for signer := range nonceMap {
+		signers[signer] = struct{}{}
+	}
+	return signers
+}
+
+func bucketContainsAnySigner(bucket cosmosTxBucket, thresholds map[string]uint64) bool {
+	for signer := range thresholds {
+		if _, ok := bucket.signers[signer]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func compareCosmosTxWithMetadata(a, b cosmosTxWithMetadata) int {
 	if a.nonceSum < b.nonceSum {
 		return -1
@@ -238,7 +270,7 @@ func (s *CosmosTxStore) snapshotTxs() []sdk.Tx {
 	txs := make([]sdk.Tx, 0)
 	for _, signerKey := range signerKeys {
 		bucket := s.txs[signerKey]
-		for _, tx := range bucket {
+		for _, tx := range bucket.txs {
 			txs = append(txs, tx.tx)
 		}
 	}
@@ -273,7 +305,7 @@ func (s *CosmosTxStore) Len() int {
 
 	var total int
 	for _, bucket := range s.txs {
-		total += len(bucket)
+		total += len(bucket.txs)
 	}
 	return total
 }

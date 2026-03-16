@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -332,7 +331,7 @@ func TestCosmosTxStoreInvalidateFromFreshTxNoOp(t *testing.T) {
 	require.Equal(t, []sdk.Tx{tx1}, store.Txs())
 }
 
-func TestCosmosTxStoreInvalidateFromDoesNotCrossSignerBuckets(t *testing.T) {
+func TestCosmosTxStoreInvalidateFromCrossesSignerBuckets(t *testing.T) {
 	store := NewCosmosTxStore(log.NewNopLogger())
 
 	bobKey, err := crypto.GenerateKey()
@@ -354,10 +353,8 @@ func TestCosmosTxStoreInvalidateFromDoesNotCrossSignerBuckets(t *testing.T) {
 	store.AddTx(multiTx8)
 
 	removed := store.InvalidateFrom(bobTx5)
-	require.Equal(t, 1, removed)
+	require.Equal(t, 3, removed)
 
 	txs := store.Txs()
-	require.Len(t, txs, 3)
-	require.ElementsMatch(t, []sdk.Tx{bobTx4, multiTx7, multiTx8}, txs)
-	require.Less(t, slices.Index(txs, multiTx7), slices.Index(txs, multiTx8))
+	require.Equal(t, []sdk.Tx{bobTx4}, txs)
 }
