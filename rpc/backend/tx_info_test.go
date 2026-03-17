@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"path/filepath"
 	"testing"
@@ -429,7 +430,7 @@ func (m *MockIndexer) LastIndexedBlock() (int64, error) {
 	return 0, nil
 }
 
-func (m *MockIndexer) IndexBlock(block *tmtypes.Block, txResults []*abcitypes.ExecTxResult) error {
+func (m *MockIndexer) IndexBlock(block *tmtypes.Block, txResults []*abcitypes.ExecTxResult, finalizeBlockEvents []abcitypes.Event) error {
 	return nil
 }
 
@@ -442,6 +443,14 @@ func (m *MockIndexer) GetByTxHash(hash common.Hash) (*servertypes.TxResult, erro
 
 func (m *MockIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*servertypes.TxResult, error) {
 	return nil, nil
+}
+
+func (m *MockIndexer) GetEthReceipt(hash common.Hash) ([]byte, error) {
+	return nil, errors.New("not found")
+}
+
+func (m *MockIndexer) GetEthTx(hash common.Hash) ([]byte, error) {
+	return nil, errors.New("not found")
 }
 
 func TestReceiptsFromCometBlock(t *testing.T) {

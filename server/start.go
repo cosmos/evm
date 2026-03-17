@@ -67,6 +67,9 @@ type StartOptions struct {
 	AppCreator      types.AppCreator
 	DefaultNodeHome string
 	DBOpener        DBOpener
+	// IndexerSetup is called after the indexer is created to allow
+	// registering custom transformers for cosmos event indexing.
+	IndexerSetup func(*indexer.KVIndexer)
 }
 
 // NewDefaultStartOptions use the default db opener provided in tm-db.
@@ -78,6 +81,13 @@ func NewDefaultStartOptions(appCreator AppCreator, defaultNodeHome string) Start
 		DefaultNodeHome: defaultNodeHome,
 		DBOpener:        cosmosevmserverconfig.OpenDB,
 	}
+}
+
+// WithIndexerSetup returns a copy of StartOptions with the IndexerSetup function set.
+// The setup function is called after the indexer is created to register transformers.
+func (opts StartOptions) WithIndexerSetup(setup func(*indexer.KVIndexer)) StartOptions {
+	opts.IndexerSetup = setup
+	return opts
 }
 
 // StartCmd runs the service passed in, either stand-alone or in-process with
@@ -504,7 +514,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		}
 
 		idxLogger := svrCtx.Logger.With("indexer", "evm")
-		idxer = indexer.NewKVIndexer(idxDB, idxLogger, clientCtx)
+		kvIndexer := indexer.NewKVIndexer(idxDB, idxLogger, clientCtx)
+		if opts.IndexerSetup != nil {
+			opts.IndexerSetup(kvIndexer)
+		}
+		idxer = kvIndexer
 		indexerService := NewEVMIndexerService(idxer, clientCtx.Client.(rpcclient.Client))
 		indexerService.SetLogger(servercmtlog.CometLoggerWrapper{Logger: idxLogger})
 

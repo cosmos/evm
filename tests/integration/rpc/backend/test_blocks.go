@@ -201,7 +201,7 @@ func (s *TestSuite) TestGetBlockByNumber() {
 					}},
 				}
 				// Index the block so GetTxByEthHash can find the tx when building receipts
-				_ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				_ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults, nil)
 				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -326,7 +326,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 				blockRes = RegisterBlockResults(client, height)
 				RegisterConsensusParams(client, height)
 
-				err := s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				err := s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults, nil)
 				s.Require().NoError(err)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -362,7 +362,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 					}},
 				}
 				// Index the block so GetTxByEthHash can find the tx when building receipts
-				err = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				err = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults, nil)
 				s.Require().NoError(err)
 
 				// blockRes = RegisterBlockResults(client, height)
@@ -1121,7 +1121,7 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			tc.registerMock(math.NewIntFromBigInt(tc.baseFee), tc.validator, tc.height)
 
 			if len(tc.resBlock.Block.Txs) > 0 && len(tc.blockRes.TxsResults) > 0 {
-				err := s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults)
+				err := s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults, nil)
 				s.Require().NoError(err)
 			}
 			block, err := s.backend.RPCBlockFromCometBlock(s.Ctx(), tc.resBlock, tc.blockRes, tc.fullTx)
@@ -1331,7 +1331,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
 					}},
 				}
-				_ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				_ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults, nil)
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1409,7 +1409,7 @@ func (s *TestSuite) TestHeaderByHash() {
 						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
 					}},
 				}
-				s.Require().NoError(s.backend.Indexer.IndexBlock(block, blockRes.TxsResults))
+				s.Require().NoError(s.backend.Indexer.IndexBlock(block, blockRes.TxsResults, nil))
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFeeError(QueryClient)
@@ -1426,7 +1426,7 @@ func (s *TestSuite) TestHeaderByHash() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				resBlock = RegisterBlockByHash(client, hash, nil)
 				blockRes = RegisterBlockResults(client, height)
-				s.Require().NoError(s.backend.Indexer.IndexBlock(block, blockRes.TxsResults))
+				s.Require().NoError(s.backend.Indexer.IndexBlock(block, blockRes.TxsResults, nil))
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1453,7 +1453,7 @@ func (s *TestSuite) TestHeaderByHash() {
 						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
 					}},
 				}
-				s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults))
+				s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults, nil))
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1553,7 +1553,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
 					}},
 				}
-				s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults))
+				s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults, nil))
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterConsensusParams(client, height)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1678,7 +1678,7 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
 					}},
 				}
-				s.Require().NoError(s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults))
+				s.Require().NoError(s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults, nil))
 			}
 
 			ethBlock, err := s.backend.EthBlockFromCometBlock(s.Ctx(), tc.resBlock, tc.blockRes)

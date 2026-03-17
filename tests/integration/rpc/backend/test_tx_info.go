@@ -112,7 +112,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 
 			db := dbm.NewMemDB()
 			s.backend.Indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), s.backend.ClientCtx)
-			err := s.backend.Indexer.IndexBlock(block, responseDeliver)
+			err := s.backend.Indexer.IndexBlock(block, responseDeliver, nil)
 			s.Require().NoError(err)
 
 			rpcTx, err := s.backend.GetTransactionByHash(s.Ctx(), tc.tx.Hash())
@@ -350,7 +350,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.backend.Indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), s.backend.ClientCtx)
 				txBz := s.signAndEncodeEthTx(msgEthTx)
 				block := &types.Block{Header: types.Header{Height: 1, ChainID: "test"}, Data: types.Data{Txs: []types.Tx{txBz}}}
-				err := s.backend.Indexer.IndexBlock(block, defaultExecTxResult)
+				err := s.backend.Indexer.IndexBlock(block, defaultExecTxResult, nil)
 				s.Require().NoError(err)
 				RegisterBlockResults(client, 1)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
@@ -682,7 +682,7 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 
 			db := dbm.NewMemDB()
 			s.backend.Indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), s.backend.ClientCtx)
-			err := s.backend.Indexer.IndexBlock(tc.block, tc.blockResult)
+			err := s.backend.Indexer.IndexBlock(tc.block, tc.blockResult, nil)
 			s.Require().NoError(err)
 
 			res, err := s.backend.GetTransactionReceipt(s.Ctx(), tc.tx.Hash())
