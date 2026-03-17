@@ -80,8 +80,6 @@ func (p RestrictedPermissionPolicy) CanCreate(_, caller common.Address) bool {
 
 type callerFn = func(caller common.Address) bool
 
-type addressSet map[common.Address]struct{}
-
 func getCanCreateFn(accessControl *AccessControl, signer common.Address) callerFn {
 	addresses := accessControl.Create.AccessControlList
 
@@ -95,6 +93,10 @@ func getCanCreateFn(accessControl *AccessControl, signer common.Address) callerF
 	}
 	return func(_ common.Address) bool { return false }
 }
+
+// addressSet is used for quickly checking inclusion of an address in both permissionedCheckFn and permissionlessCheckFn.
+// Previous iterations of cosmos/evm used string equality checks, which made the checks case-sensitive.
+type addressSet map[common.Address]struct{}
 
 func newAddressSet(addresses []string) addressSet {
 	set := make(addressSet, len(addresses))
