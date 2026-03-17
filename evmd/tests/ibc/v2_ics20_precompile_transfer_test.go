@@ -22,8 +22,8 @@ import (
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 

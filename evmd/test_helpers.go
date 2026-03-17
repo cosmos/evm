@@ -16,7 +16,7 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"

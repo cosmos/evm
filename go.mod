@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/api v1.0.0
 	cosmossdk.io/core v1.1.0
 	cosmossdk.io/errors v1.1.0
-	cosmossdk.io/log/v2 v2.0.2-0.20260311135820-ea452a1660fd
+	cosmossdk.io/log/v2 v2.0.2-0.20260311165803-2c527014f3ee
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/store v1.10.0-rc.2.0.20260311135820-ea452a1660fd
 	cosmossdk.io/tools/confix v0.1.2
@@ -18,7 +18,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260311165803-2c527014f3ee
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.2
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260311202420-1b48494ae021
+	github.com/cosmos/ibc-go/v11 v11.0.0-20260311172126-d2ebd83ffd5f
 	github.com/cosmos/ledger-cosmos-go v1.0.0
 	github.com/creachadair/tomledit v0.0.29
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -385,8 +385,6 @@ replace (
 	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
 
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20260227171234-00271936093e
-
 retract v0.4.0
 
 replace cosmossdk.io/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0.0.0-20260227212600-39d4711b8970
@@ -394,5 +392,3 @@ replace cosmossdk.io/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0
 replace github.com/cosmos/cosmos-sdk/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0.0.0-20260227212600-39d4711b8970
 
 replace cosmossdk.io/x/evidence => github.com/cosmos/cosmos-sdk/x/evidence v0.2.0-rc.2.0.20250429200042-9c736b26bf0c
-
-replace cosmossdk.io/log/v2 => github.com/cosmos/cosmos-sdk/log/v2 v2.0.2-0.20260302180736-2fbcc8d5f49e
