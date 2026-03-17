@@ -6,8 +6,8 @@
   "scripts": {
     "get-contracts": "mkdir -p ./contracts/cosmos && rsync -avm --include='*/' --exclude='**/ERC20Minter_OpenZeppelinV5.sol' --exclude='**/WEVMOS.sol' --exclude='**/ERC20NoMetadata.sol' --include='*.sol' --exclude='*' ../../../../precompiles/ ./contracts/cosmos/",
     "clean-contracts": "rm -rf ./contracts/cosmos/*",
-    "test-ganache": "yarn hardhat test",
-    "test-cosmos": "yarn get-contracts && yarn hardhat test --network cosmos && yarn clean-contracts"
+    "test-ganache": "pnpm exec hardhat test",
+    "test-cosmos": "pnpm run get-contracts && pnpm exec hardhat test --network cosmos && pnpm run clean-contracts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.2",

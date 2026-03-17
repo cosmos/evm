@@ -1,6 +1,9 @@
 # Compiled contracts
 artifacts/
 
+# Precompiles build output (OpenZeppelin-style dist)
+dist/
+
 # Cached files
 cache/
 
