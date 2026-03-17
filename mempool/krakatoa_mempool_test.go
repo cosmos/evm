@@ -353,7 +353,11 @@ func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
 	// wait for another reset to make sure the pool processes the above
 	// txns into pending
 	require.NoError(t, mp.GetTxPool().Sync())
-	require.Equal(t, 3, mp.CountTx())
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+	require.Eventually(t, func() bool {
+		pending, queued := legacyPool.ContentFrom(accounts[0].address)
+		return len(pending) == 3 && len(queued) == 0 && mp.CountTx() == 3
+	}, time.Second, 10*time.Millisecond)
 
 	// simulate comet calling removeTx, a new height being published, and
 	// our accounts nonce increments to 1, so tx 0 will be invalidated
@@ -375,8 +379,10 @@ func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
 	// sync the pool to make sure the above happens, tx0 should be dropped
 	// from the pool and the reap list
 	require.NoError(t, mp.GetTxPool().Sync())
-
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+	require.Eventually(t, func() bool {
+		pending, queued := legacyPool.ContentFrom(accounts[0].address)
+		return len(pending) == 2 && len(queued) == 0
+	}, time.Second, 10*time.Millisecond)
 	pending, queued := legacyPool.ContentFrom(accounts[0].address)
 	require.Len(t, pending, 2)
 	require.Len(t, queued, 0)

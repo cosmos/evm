@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -492,8 +493,13 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 		wg             sync.WaitGroup
 	)
 
+	sdkctx := sdk.UnwrapSDKContext(ctx)
+	// Keeper reads consume gas on the SDK context. Fetch these inputs once
+	// before starting goroutines so we do not race on the shared gas meters.
+	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
+
 	wg.Go(func() {
-		evmIterator = m.evmIterator(ctx)
+		evmIterator = m.evmIterator(ctx, baseFee)
 	})
 
 	wg.Go(func() {
@@ -507,9 +513,7 @@ func (m *ExperimentalEVMMempool) getIterators(ctx context.Context, txs [][]byte)
 
 // evmIterator returns an iterator over the current valid txs in the evm
 // mempool at height.
-func (m *ExperimentalEVMMempool) evmIterator(ctx context.Context) *miner.TransactionsByPriceAndNonce {
-	sdkctx := sdk.UnwrapSDKContext(ctx)
-	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
+func (m *ExperimentalEVMMempool) evmIterator(ctx context.Context, baseFee *big.Int) *miner.TransactionsByPriceAndNonce {
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)

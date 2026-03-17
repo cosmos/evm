@@ -43,6 +43,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -332,6 +333,132 @@ func validateEvents(events chan core.NewTxsEvent, count int) error {
 		// really nothing gets injected.
 	}
 	return nil
+}
+
+// TestMarkTxRemovedInvalidatesPending tests that when you have txs with nonces 4,5,6, and you submit a replacement for 4,
+// txs 5 and 6 need to be revalidated.
+func TestMarkTxRemovedInvalidatesPending(t *testing.T) {
+	pool, _, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+	replacement := pricedTransaction(4, 100000, big.NewInt(2), key)
+
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+	testSetNonce(pool, addr, 4)
+	pool.chain.(*testBlockChain).statedb.SetNonce(addr, 4, tracing.NonceChangeUnspecified)
+
+	pool.all.Add(tx4)
+	pool.priced.Put(tx4)
+	pool.promoteTx(addr, tx4.Hash(), tx4)
+
+	pool.all.Add(tx5)
+	pool.priced.Put(tx5)
+	pool.promoteTx(addr, tx5.Hash(), tx5)
+
+	pool.all.Add(tx6)
+	pool.priced.Put(tx6)
+	pool.promoteTx(addr, tx6.Hash(), tx6)
+
+	height := pool.chain.CurrentBlock().Number
+
+	pending := pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3) // at this point, should have txs 4,5,6.
+
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr]) // now should have nothing, since tx 4 is now a new tx, and 5,6 depended on 4.
+
+	pool.Reset(nil, nil) // recheck
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3)
+	require.Equal(t, []uint64{4, 5, 6}, []uint64{
+		pending[addr][0].Tx.Nonce(),
+		pending[addr][1].Tx.Nonce(),
+		pending[addr][2].Tx.Nonce(),
+	})
+	require.Equal(t, replacement.Hash(), pending[addr][0].Tx.Hash())
+}
+
+// TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck tests that when a
+// replacement for nonce 4 later fails recheck, the rechecked pending snapshot
+// stays empty and the higher nonces are demoted back to queue.
+func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
+	pool, rechecker, key := setupPool()
+	defer pool.Close()
+
+	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
+	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+	replacement := pricedTransaction(4, 100000, big.NewInt(2), key)
+
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+	testSetNonce(pool, addr, 4)
+	pool.chain.(*testBlockChain).statedb.SetNonce(addr, 4, tracing.NonceChangeUnspecified)
+
+	pool.all.Add(tx4)
+	pool.priced.Put(tx4)
+	pool.promoteTx(addr, tx4.Hash(), tx4)
+
+	pool.all.Add(tx5)
+	pool.priced.Put(tx5)
+	pool.promoteTx(addr, tx5.Hash(), tx5)
+
+	pool.all.Add(tx6)
+	pool.priced.Put(tx6)
+	pool.promoteTx(addr, tx6.Hash(), tx6)
+
+	height := pool.chain.CurrentBlock().Number
+
+	pending := pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3)
+
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
+
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Hash() == replacement.Hash() {
+			return sdk.Context{}, errors.New("replacement failed recheck")
+		}
+		return sdk.Context{}, nil
+	})
+
+	pool.Reset(nil, nil)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
+
+	pool.mu.RLock()
+	require.Nil(t, pool.pending[addr])
+	require.NotNil(t, pool.queue[addr])
+	require.Len(t, pool.queue[addr].Flatten(), 2)
+	require.Equal(t, []uint64{5, 6}, []uint64{
+		pool.queue[addr].Flatten()[0].Nonce(),
+		pool.queue[addr].Flatten()[1].Nonce(),
+	})
+	require.Nil(t, pool.all.Get(replacement.Hash()))
+
+	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
+	require.Equal(t, int64(1), dropped)
+
+	invalidated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
+	require.Equal(t, int64(2), invalidated)
+	pool.mu.RUnlock()
 }
 
 func deriveSender(tx *types.Transaction) (common.Address, error) {
@@ -2689,6 +2816,8 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, key := setupPool()
 	defer pool.Close()
 
+	initialDropped := queuedRecheckDropMeter.Snapshot().Count()
+
 	// Create transactions with sequential nonces
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
@@ -2749,9 +2878,9 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	if pool.all.Get(tx2.Hash()) == nil {
 		t.Errorf("tx2 should still be in the all lookup")
 	}
-	dropped := queuedRecheckDropMeter.Snapshot().Count()
+	dropped := queuedRecheckDropMeter.Snapshot().Count() - initialDropped
 	if dropped != 1 {
-		t.Error("1 queued recheck drops should have been recorded by meter, got", dropped)
+		t.Error("1 queued recheck drops should have been recorded by meter delta, got", dropped)
 	}
 	pool.mu.RUnlock()
 }
@@ -2762,6 +2891,9 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, _ := setupPool()
 	defer pool.Close()
+
+	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
+	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
 
 	// Create transactions with sequential nonces
 	key1, _ := crypto.GenerateKey()
@@ -2841,17 +2973,17 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 
 	// tx10 and tx22 got dropped
-	dropped := pendingRecheckDropMeter.Snapshot().Count()
+	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
 	if dropped != 2 {
-		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
+		t.Error("2 pending recheck drops should have been recorded by meter delta, got", dropped)
 	}
 
 	// tx11 and tx12 were invalidated since a tx from the same sender with a
 	// lower nonce was just dropped, they need to be validated again before
 	// being moved to pending, so they are back in queued
-	invaliated := pendingDemotedRecheck.Snapshot().Count()
+	invaliated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
 	if invaliated != 2 {
-		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
+		t.Error("2 pending recheck invalidate should have been recorded by meter delta, got", invaliated)
 	}
 	pool.mu.RUnlock()
 }
