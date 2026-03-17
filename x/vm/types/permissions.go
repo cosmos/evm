@@ -138,9 +138,9 @@ func getCanCallFn(accessControl *AccessControl, signer common.Address) callerFn 
 // within the addresses slice.
 func permissionlessCheckFn(addresses []string, signer common.Address) callerFn {
 	blockedAddresses := newAddressSet(addresses)
-	isSignerBlocked := !blockedAddresses.contains(signer)
+	isSignerAllowed := !blockedAddresses.contains(signer)
 	return func(caller common.Address) bool {
-		return isSignerBlocked && !blockedAddresses.contains(caller)
+		return isSignerAllowed && !blockedAddresses.contains(caller)
 	}
 }
 
