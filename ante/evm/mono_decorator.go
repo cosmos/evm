@@ -159,8 +159,18 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 5. signature verification
-	if err := SignatureVerification(ethMsg, ethTx, decUtils.Signer); err != nil {
-		return ctx, err
+	if v, ok := ctx.GetIncarnationCache(EthSigVerificationResultCacheKey); ok {
+		if v != nil {
+			if cachedErr, ok := v.(error); ok {
+				return ctx, cachedErr
+			}
+		}
+	} else {
+		err = SignatureVerification(ethMsg, ethTx, decUtils.Signer)
+		ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, err)
+		if err != nil {
+			return ctx, err
+		}
 	}
 
 	from := ethMsg.GetFrom()

@@ -14,6 +14,8 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
+const EthSigVerificationResultCacheKey = "ante:EthSigVerificationResult"
+
 // EthSigVerificationDecorator validates an ethereum signatures
 type EthSigVerificationDecorator struct {
 	evmKeeper anteinterfaces.EVMKeeper
@@ -32,6 +34,15 @@ func NewEthSigVerificationDecorator(ek anteinterfaces.EVMKeeper) EthSigVerificat
 // Failure in RecheckTx will prevent tx to be included into block, especially when CheckTx succeed, in which case user
 // won't see the error message.
 func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
+	if v, ok := ctx.GetIncarnationCache(EthSigVerificationResultCacheKey); ok {
+		if v != nil {
+			if cachedErr, ok := v.(error); ok {
+				return ctx, cachedErr
+			}
+		}
+		return next(ctx, tx, simulate)
+	}
+
 	ethCfg := evmtypes.GetEthChainConfig()
 	blockNum := big.NewInt(ctx.BlockHeight())
 	signer := ethtypes.MakeSigner(ethCfg, blockNum, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
@@ -44,14 +55,19 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 	for _, msg := range msgs {
 		msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
 		if !ok {
-			return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
+			err = errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
+			ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, err)
+			return ctx, err
 		}
 
-		err := SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer)
+		err = SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer)
 		if err != nil {
+			ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, err)
 			return ctx, err
 		}
 	}
+
+	ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, nil)
 
 	return next(ctx, tx, simulate)
 }
