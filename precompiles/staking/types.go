@@ -300,14 +300,14 @@ func NewMsgRedelegate(args []interface{}, denom string, addrCdc address.Codec) (
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorSrcAddress, ok := args[1].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "validatorSrcAddress", "string", args[1])
+	validatorSrcAddress, err := parseValidatorAddress(args[1], "validatorSrcAddress")
+	if err != nil {
+		return nil, common.Address{}, err
 	}
 
-	validatorDstAddress, ok := args[2].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "validatorDstAddress", "string", args[2])
+	validatorDstAddress, err := parseValidatorAddress(args[2], "validatorDstAddress")
+	if err != nil {
+		return nil, common.Address{}, err
 	}
 
 	amount, ok := args[3].(*big.Int)
@@ -344,9 +344,9 @@ func NewMsgCancelUnbondingDelegation(args []interface{}, denom string, addrCdc a
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	validatorAddress, err := parseValidatorAddress(args[1], "validatorAddress")
+	if err != nil {
+		return nil, common.Address{}, err
 	}
 
 	amount, ok := args[2].(*big.Int)
@@ -388,9 +388,9 @@ func NewDelegationRequest(args []interface{}, addrCdc address.Codec) (*stakingty
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	validatorAddress, err := parseValidatorAddress(args[1], "validatorAddress")
+	if err != nil {
+		return nil, err
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
@@ -454,9 +454,9 @@ func NewRedelegationRequest(args []interface{}) (*RedelegationRequest, error) {
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorSrcAddress, ok := args[1].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorSrcAddress", "string", args[1])
+	validatorSrcAddress, err := parseValidatorAddress(args[1], "validatorSrcAddress")
+	if err != nil {
+		return nil, err
 	}
 
 	validatorSrcAddr, err := sdk.ValAddressFromBech32(validatorSrcAddress)
@@ -464,9 +464,9 @@ func NewRedelegationRequest(args []interface{}) (*RedelegationRequest, error) {
 		return nil, err
 	}
 
-	validatorDstAddress, ok := args[2].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorDstAddress", "string", args[2])
+	validatorDstAddress, err := parseValidatorAddress(args[2], "validatorDstAddress")
+	if err != nil {
+		return nil, err
 	}
 
 	validatorDstAddr, err := sdk.ValAddressFromBech32(validatorDstAddress)
@@ -493,9 +493,32 @@ func NewRedelegationsRequest(method *abi.Method, args []interface{}, addrCdc add
 	// corresponding redelegations according to the addresses specified
 	// however, cannot pass all as empty strings, need to provide at least
 	// the delegator address or the source validator address
-	var input RedelegationsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to RedelegationsInput struct: %s", err)
+	delegatorAddrArg, ok := args[0].(common.Address)
+	if !ok {
+		return nil, fmt.Errorf(cmn.ErrInvalidType, "delegatorAddress", "address", args[0])
+	}
+	
+	srcValidatorAddress, err := parseValidatorAddress(args[1], "srcValidatorAddress")
+	if err != nil {
+		return nil, err
+	}
+	
+	dstValidatorAddress, err := parseValidatorAddress(args[2], "dstValidatorAddress")
+	if err != nil {
+		return nil, err
+	}
+	
+	var pageRequest query.PageRequest
+	// unpack args[3] into query.PageRequest
+	if err := method.Inputs[3].Type.Copy(&pageRequest, args[3]); err != nil {
+		return nil, fmt.Errorf("error while unpacking args to PageRequest struct: %s", err)
+	}
+
+	input := RedelegationsInput{
+		DelegatorAddress:    delegatorAddrArg,
+		SrcValidatorAddress: srcValidatorAddress,
+		DstValidatorAddress: dstValidatorAddress,
+		PageRequest:         pageRequest,
 	}
 
 	var (
@@ -831,9 +854,9 @@ func NewUnbondingDelegationRequest(args []interface{}, addrCdc address.Codec) (*
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	validatorAddress, err := parseValidatorAddress(args[1], "validatorAddress")
+	if err != nil {
+		return nil, err
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
@@ -857,9 +880,9 @@ func checkDelegationUndelegationArgs(args []interface{}) (common.Address, string
 		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	validatorAddress, err := parseValidatorAddress(args[1], "validatorAddress")
+	if err != nil {
+		return common.Address{}, "", nil, err
 	}
 
 	amount, ok := args[2].(*big.Int)
@@ -877,4 +900,19 @@ func FormatConsensusPubkey(consensusPubkey *codectypes.Any) string {
 		return base64.StdEncoding.EncodeToString(ed25519pk.Bytes())
 	}
 	return consensusPubkey.String()
+}
+
+// parseValidatorAddress parses a generic input (string or hex address) to string
+func parseValidatorAddress(arg interface{}, argName string) (string, error) {
+	switch val := arg.(type) {
+	case string:
+		return val, nil
+	case common.Address:
+		if val != (common.Address{}) {
+			return sdk.ValAddress(val.Bytes()).String(), nil
+		}
+		return "", nil
+	default:
+		return "", fmt.Errorf(cmn.ErrInvalidType, argName, "string or address", arg)
+	}
 }
