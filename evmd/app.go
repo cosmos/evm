@@ -253,14 +253,13 @@ func NewExampleApp(
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
-	preEstimate := cast.ToBool(appOpts.Get(srvflags.EVMBlockSTMPreEstimate))
 
 	// enable block stm for parallel execution
 	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
 		encodingConfig.TxConfig.TxDecoder(),
 		nonTransientKeys,
 		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		preEstimate,
+		true,
 		func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
 	))
 
