@@ -19,6 +19,9 @@ max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 # EnablePreimageRecording enables tracking of SHA3 preimages in the VM
 cache-preimage = {{ .EVM.EnablePreimageRecording }}
 
+# BlockSTMPreEstimate is the flag to enable pre-estimation for block-stm execution.
+block-stm-pre-estimate = {{ .EVM.BlockSTMPreEstimate }}
+
 # EVMChainID is the EIP-155 compatible replay protection chain ID. This is separate from the Cosmos chain ID.
 evm-chain-id = {{ .EVM.EVMChainID }}
 
