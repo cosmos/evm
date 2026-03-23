@@ -58,6 +58,9 @@ const (
 	// DefaultEnablePreimageRecording is the default value for EnablePreimageRecording
 	DefaultEnablePreimageRecording = false
 
+	// DefaultEVMBlockSTMPreEstimate controls whether block-stm disables pre-estimation by default.
+	DefaultEVMBlockSTMPreEstimate = false
+
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
@@ -145,6 +148,8 @@ type EVMConfig struct {
 	MaxTxGasWanted uint64 `mapstructure:"max-tx-gas-wanted"`
 	// Enables tracking of SHA3 preimages in the VM
 	EnablePreimageRecording bool `mapstructure:"cache-preimage"`
+	// BlockSTMPreEstimate enables pre-estimation for block-stm execution.
+	BlockSTMPreEstimate bool `mapstructure:"block-stm-pre-estimate"`
 	// EVMChainID defines the EIP-155 replay-protection chain ID.
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 	// MinTip defines the minimum priority fee for the mempool
@@ -295,6 +300,7 @@ func DefaultEVMConfig() *EVMConfig {
 		MaxTxGasWanted:          DefaultMaxTxGasWanted,
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
+		BlockSTMPreEstimate:     DefaultEVMBlockSTMPreEstimate,
 		MinTip:                  DefaultEVMMinTip,
 		GethMetricsAddress:      DefaultGethMetricsAddress,
 		Mempool:                 DefaultMempoolConfig(),
