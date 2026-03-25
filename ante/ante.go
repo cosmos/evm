@@ -5,7 +5,7 @@ import (
 	antetypes "github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
 
 	errorsmod "cosmossdk.io/errors"
 	storetypes "cosmossdk.io/store/types"

@@ -31,6 +31,7 @@ contracts/@openzeppelin/*
 
 # Build files
 evmd/build/
+evmd/evmd
 
 build/
 

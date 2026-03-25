@@ -11,7 +11,7 @@ replace (
 )
 
 require (
-	cosmossdk.io/log/v2 v2.0.2-0.20260311135820-ea452a1660fd
+	cosmossdk.io/log/v2 v2.0.2-0.20260311165803-2c527014f3ee
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260311165803-2c527014f3ee
 	github.com/cosmos/evm v0.2.0
@@ -102,7 +102,7 @@ require (
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.2 // indirect
 	github.com/cosmos/iavl v1.2.6 // indirect
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260311202420-1b48494ae021 // indirect
+	github.com/cosmos/ibc-go/v11 v11.0.0-20260311172126-d2ebd83ffd5f // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v1.0.0 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
