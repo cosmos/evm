@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
+	"github.com/cosmos/evm/tests/systemtests/logindex"
 
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
@@ -101,6 +102,13 @@ func TestEIP712MultipleBankSends(t *testing.T) {
  */
 func TestAccountAbstractionEIP7702(t *testing.T) {
 	suite.RunWithSharedSuite(t, accountabstraction.RunEIP7702)
+}
+
+/*
+* Log Index Tests
+ */
+func TestLogIndexBlockGlobal(t *testing.T) {
+	suite.RunWithSharedSuite(t, logindex.RunLogIndexBlockGlobal)
 }
 
 /*
