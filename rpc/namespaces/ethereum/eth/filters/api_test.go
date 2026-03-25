@@ -1,6 +1,8 @@
 package filters
 
 import (
+	"context"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -9,6 +11,45 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
+
+func TestInvalidBlockRange(t *testing.T) {
+	invalidCriteria := filters.FilterCriteria{
+		FromBlock: big.NewInt(0x20),
+		ToBlock:   big.NewInt(0x10),
+	}
+	t.Run("NewFilter", func(t *testing.T) {
+		api := &PublicFilterAPI{
+			filters: make(map[rpc.ID]*filter),
+		}
+		id, err := api.NewFilter(invalidCriteria)
+		require.Equal(t, rpc.ID(""), id)
+		require.Error(t, err)
+		require.Len(t, api.filters, 0)
+		require.ErrorIs(t, err, errInvalidBlockRange)
+	})
+
+	t.Run("GetFilterLogs", func(t *testing.T) {
+		id := rpc.NewID()
+		api := &PublicFilterAPI{
+			filters: map[rpc.ID]*filter{
+				id: {
+					typ:  filters.LogsSubscription,
+					crit: invalidCriteria,
+				},
+			},
+		}
+		logs, err := api.GetFilterLogs(context.Background(), id)
+		require.Nil(t, logs)
+		require.ErrorIs(t, err, errInvalidBlockRange)
+	})
+
+	t.Run("GetLogs", func(t *testing.T) {
+		api := &PublicFilterAPI{}
+		logs, err := api.GetLogs(context.Background(), invalidCriteria)
+		require.Nil(t, logs)
+		require.ErrorIs(t, err, errInvalidBlockRange)
+	})
+}
 
 func TestTimeoutLoop_PanicOnNilCancel(t *testing.T) {
 	api := &PublicFilterAPI{
