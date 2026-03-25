@@ -235,6 +235,40 @@ func (s *TestSuite) TestGetProof() {
 	}
 }
 
+func (s *TestSuite) TestGetProofStorageKeysCapValidation() {
+	blockNr := rpctypes.NewBlockNumber(big.NewInt(4))
+	blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNr}
+	testCases := []struct {
+		name      string
+		cap       int32
+		keys      []string
+		errSubstr string
+	}{
+		{
+			name:      "fails when storage keys exceed cap",
+			cap:       2,
+			keys:      []string{"0x0", "0x1", "0x2"},
+			errSubstr: "too many storage keys requested",
+		},
+		{
+			name:      "fails when getproof is disabled",
+			cap:       0,
+			keys:      []string{"0x0"},
+			errSubstr: "eth_getProof is disabled",
+		},
+	}
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			s.backend.Cfg.JSONRPC.GetProofStorageKeysCap = tc.cap
+			address := utiltx.GenerateAddress()
+			_, err := s.backend.GetProof(s.Ctx(), address, tc.keys, blockNrOrHash)
+			s.Require().Error(err)
+			s.Require().Contains(err.Error(), tc.errSubstr)
+		})
+	}
+}
+
 func (s *TestSuite) TestGetStorageAt() {
 	blockNr := rpctypes.NewBlockNumber(big.NewInt(1))
 
