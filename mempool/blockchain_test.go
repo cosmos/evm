@@ -45,7 +45,7 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	logger := log.NewNopLogger()
 
 	// Create mock keepers using generated mocks
-	mockVMKeeper := mocks.NewVMKeeper(t)
+	mockVMKeeper := mocks.NewVMKeeperI(t)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
 
 	ethCfg := vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)

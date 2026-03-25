@@ -148,12 +148,6 @@ func (txt *txTracker) RemoveTxFromPool(hash common.Hash, pool legacypool.PoolTyp
 	return nil
 }
 
-// RemoveTx removes a tx from the tx tracker and does not record any metrics as
-// it exits the tracker.
-func (txt *txTracker) RemoveTx(hash common.Hash) {
-	txt.removeTx(hash)
-}
-
 // removeTx removes a tx by hash.
 func (txt *txTracker) removeTx(hash common.Hash) {
 	txt.lock.Lock()
