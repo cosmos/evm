@@ -147,6 +147,10 @@ func (s *RPCStream) start(
 		}
 	}()
 
+	// track cumulative log index across txs within the same block
+	var lastBlockHeight int64
+	var cumulatedLogIndex uint
+
 	for {
 		select {
 		case ev, ok := <-chBlocks:
@@ -192,6 +196,18 @@ func (s *RPCStream) start(
 			if err != nil {
 				s.logger.Error("fail to decode evm tx response", "error", err.Error())
 				continue
+			}
+
+			// reset cumulative log index on new block
+			if dataTx.Height != lastBlockHeight {
+				lastBlockHeight = dataTx.Height
+				cumulatedLogIndex = 0
+			}
+
+			// reassign log indices to be block-global per Ethereum spec
+			for _, log := range txLogs {
+				log.Index = cumulatedLogIndex
+				cumulatedLogIndex++
 			}
 
 			s.logStream.Add(txLogs...)

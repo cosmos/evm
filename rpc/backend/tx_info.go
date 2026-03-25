@@ -252,6 +252,16 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 	if err != nil {
 		return nil, err
 	}
+	// compute cumulative log index offset from prior txs in the block
+	cumulatedLogIndex := uint(0)
+	for ti := int64(0); ti < int64(res.TxIndex); ti++ {
+		priorLogs, err := evmtypes.DecodeTxLogs(resBlockResult.TxsResults[ti].Data, height)
+		if err != nil {
+			continue
+		}
+		cumulatedLogIndex += uint(len(priorLogs))
+	}
+
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
 	logs, err := evmtypes.DecodeMsgLogs(
@@ -261,6 +271,12 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 	)
 	if err != nil {
 		b.Logger.Debug("failed to parse tx logs", "error", err.Error())
+	}
+
+	// reassign log indices to be block-global per Ethereum spec
+	for _, log := range logs {
+		log.Index = cumulatedLogIndex
+		cumulatedLogIndex++
 	}
 
 	return logs, nil

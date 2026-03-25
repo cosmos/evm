@@ -319,10 +319,16 @@ func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*eth
 		return nil, err
 	}
 	blockLogs := [][]*ethtypes.Log{}
+	cumulatedLogIndex := uint(0)
 	for _, txResult := range blockRes.TxsResults {
 		logs, err := evmtypes.DecodeTxLogs(txResult.Data, height)
 		if err != nil {
 			return nil, err
+		}
+		// reassign log indices to be block-global per Ethereum spec
+		for _, log := range logs {
+			log.Index = cumulatedLogIndex
+			cumulatedLogIndex++
 		}
 		blockLogs = append(blockLogs, logs)
 	}
