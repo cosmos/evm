@@ -67,6 +67,9 @@ const (
 const (
 	EVMTracer                  = "evm.tracer"
 	EVMMaxTxGasWanted          = "evm.max-tx-gas-wanted"
+	EVMBlockExecutor           = "evm.block-executor"
+	EVMBlockSTMWorkers         = "evm.block-stm-workers"
+	EVMBlockSTMPreEstimate     = "evm.block-stm-pre-estimate"
 	EVMEnablePreimageRecording = "evm.cache-preimage"
 	EVMChainID                 = "evm.evm-chain-id"
 	EVMMinTip                  = "evm.min-tip"

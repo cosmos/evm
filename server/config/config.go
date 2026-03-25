@@ -58,6 +58,16 @@ const (
 	// DefaultEnablePreimageRecording is the default value for EnablePreimageRecording
 	DefaultEnablePreimageRecording = false
 
+	// DefaultEVMBlockExecutor is the default transaction executor for block execution.
+	DefaultEVMBlockExecutor = BlockExecutorBlockSTM
+
+	// DefaultEVMBlockSTMWorkers is the default worker count for block-stm execution.
+	// 0 means auto-detect based on CPU in the app wiring.
+	DefaultEVMBlockSTMWorkers = 0
+
+	// DefaultEVMBlockSTMPreEstimate controls whether block-stm disables pre-estimation by default.
+	DefaultEVMBlockSTMPreEstimate = false
+
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
@@ -126,6 +136,13 @@ const (
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 
+const (
+	BlockExecutorSequential = "sequential"
+	BlockExecutorBlockSTM   = "block-stm"
+)
+
+var blockExecutors = []string{BlockExecutorSequential, BlockExecutorBlockSTM}
+
 // Config defines the server's top level configuration. It includes the default app config
 // from the SDK as well as the EVM configuration to enable the JSON-RPC APIs.
 type Config struct {
@@ -143,8 +160,15 @@ type EVMConfig struct {
 	Tracer string `mapstructure:"tracer"`
 	// MaxTxGasWanted defines the gas wanted for each eth tx returned in ante handler in check tx mode.
 	MaxTxGasWanted uint64 `mapstructure:"max-tx-gas-wanted"`
+	// BlockExecutor selects the block transaction execution strategy.
+	BlockExecutor string `mapstructure:"block-executor"`
+	// BlockSTMWorkers is the worker count for block-stm execution.
+	// 0 means auto-detect based on CPU in the app wiring.
+	BlockSTMWorkers int `mapstructure:"block-stm-workers"`
 	// Enables tracking of SHA3 preimages in the VM
 	EnablePreimageRecording bool `mapstructure:"cache-preimage"`
+	// BlockSTMPreEstimate enables pre-estimation for block-stm execution.
+	BlockSTMPreEstimate bool `mapstructure:"block-stm-pre-estimate"`
 	// EVMChainID defines the EIP-155 replay-protection chain ID.
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 	// MinTip defines the minimum priority fee for the mempool
@@ -293,8 +317,11 @@ func DefaultEVMConfig() *EVMConfig {
 	return &EVMConfig{
 		Tracer:                  DefaultEVMTracer,
 		MaxTxGasWanted:          DefaultMaxTxGasWanted,
+		BlockExecutor:           DefaultEVMBlockExecutor,
+		BlockSTMWorkers:         DefaultEVMBlockSTMWorkers,
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
+		BlockSTMPreEstimate:     DefaultEVMBlockSTMPreEstimate,
 		MinTip:                  DefaultEVMMinTip,
 		GethMetricsAddress:      DefaultGethMetricsAddress,
 		Mempool:                 DefaultMempoolConfig(),
@@ -305,6 +332,14 @@ func DefaultEVMConfig() *EVMConfig {
 func (c EVMConfig) Validate() error {
 	if c.Tracer != "" && !strings.StringInSlice(c.Tracer, evmTracers) {
 		return fmt.Errorf("invalid tracer type %s, available types: %v", c.Tracer, evmTracers)
+	}
+
+	if !strings.StringInSlice(c.BlockExecutor, blockExecutors) {
+		return fmt.Errorf("invalid block executor %q, available types: %v", c.BlockExecutor, blockExecutors)
+	}
+
+	if c.BlockSTMWorkers < 0 {
+		return fmt.Errorf("invalid block-stm-workers %d: must be >= 0", c.BlockSTMWorkers)
 	}
 
 	if _, err := netip.ParseAddrPort(c.GethMetricsAddress); err != nil {

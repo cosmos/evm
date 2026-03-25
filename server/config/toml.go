@@ -16,8 +16,17 @@ tracer = "{{ .EVM.Tracer }}"
 # MaxTxGasWanted defines the gas wanted for each eth tx returned in ante handler in check tx mode.
 max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 
+# BlockExecutor sets block execution mode: "block-stm" or "sequential".
+block-executor = "{{ .EVM.BlockExecutor }}"
+
+# BlockSTMWorkers sets the number of workers for block-stm execution (0 = auto).
+block-stm-workers = {{ .EVM.BlockSTMWorkers }}
+
 # EnablePreimageRecording enables tracking of SHA3 preimages in the VM
 cache-preimage = {{ .EVM.EnablePreimageRecording }}
+
+# BlockSTMPreEstimate is the flag to enable pre-estimation for block-stm execution.
+block-stm-pre-estimate = {{ .EVM.BlockSTMPreEstimate }}
 
 # EVMChainID is the EIP-155 compatible replay protection chain ID. This is separate from the Cosmos chain ID.
 evm-chain-id = {{ .EVM.EVMChainID }}
