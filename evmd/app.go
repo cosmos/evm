@@ -1,6 +1,7 @@
 package evmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,17 +10,16 @@ import (
 
 	goruntime "runtime"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
-	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
 	"github.com/ethereum/go-ethereum/common"
-
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
@@ -64,6 +64,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -147,6 +148,19 @@ var (
 	_ ibctesting.TestingApp       = (*EVMD)(nil)
 )
 
+type customRunner struct {
+	*txnrunner.STMRunner
+}
+
+func (r *customRunner) Run(ctx context.Context, ms storetypes.MultiStore, txs [][]byte, deliverTx sdk.DeliverTxFunc) ([]*abci.ExecTxResult, error) {
+	results, err := r.STMRunner.Run(ctx, ms, txs, deliverTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return evmtypes.PatchTxResponses(results), nil
+}
+
 // EVMD extends an ABCI application, but with most of its parameters exported.
 type EVMD struct {
 	*baseapp.BaseApp
@@ -214,6 +228,7 @@ func NewExampleApp(
 	legacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
+	txDecoder := encodingConfig.TxConfig.TxDecoder()
 
 	// enable optimistic execution
 	baseAppOptions = append(
@@ -226,7 +241,7 @@ func NewExampleApp(
 		logger,
 		db,
 		// use transaction decoder to support the sdk.Tx interface instead of sdk.StdTx
-		encodingConfig.TxConfig.TxDecoder(),
+		txDecoder,
 		baseAppOptions...,
 	)
 	bApp.SetCommitMultiStoreTracer(traceStore)
@@ -253,15 +268,6 @@ func NewExampleApp(
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
-
-	// enable block stm for parallel execution
-	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
-		encodingConfig.TxConfig.TxDecoder(),
-		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
-		func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
-	))
 
 	// disable block gas meter
 	bApp.SetDisableBlockGasMeter(true)
@@ -779,6 +785,19 @@ func NewExampleApp(
 			os.Exit(1)
 		}
 	}
+
+	// enable block stm for parallel execution
+	bApp.SetBlockSTMTxRunner(&customRunner{
+		STMRunner: txnrunner.NewSTMRunner(
+			txDecoder,
+			nonTransientKeys,
+			min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+			true,
+			func(ms storetypes.MultiStore) string {
+				return app.EVMKeeper.GetParams(sdk.NewContext(ms, cmtproto.Header{}, false, log.NewNopLogger())).EvmDenom
+			},
+		),
+	})
 
 	return app
 }
