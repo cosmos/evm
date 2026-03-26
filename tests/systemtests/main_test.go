@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/logindex"
-
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 

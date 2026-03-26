@@ -25,7 +25,6 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	servertypes "github.com/cosmos/evm/server/types"
 	evmtrace "github.com/cosmos/evm/trace"
-	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -210,6 +209,10 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
 
+	// fix log indices to be block-global per Ethereum spec
+	offset := countPriorBlockLogs(blockRes.TxsResults, res.TxIndex, blockRes.Height)
+	assignBlockGlobalLogIndices(receipts[0].Logs, offset)
+
 	var signer ethtypes.Signer
 	ethTx := ethMsg.AsTransaction()
 	if ethTx.Protected() {
@@ -248,36 +251,21 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 		b.Logger.Debug("block result not found", "number", res.Height, "error", err.Error())
 		return nil, nil
 	}
-	height, err := utils.SafeUint64(resBlockResult.Height)
-	if err != nil {
-		return nil, err
-	}
-	// compute cumulative log index offset from prior txs in the block
-	cumulatedLogIndex := uint(0)
-	for ti := int64(0); ti < int64(res.TxIndex); ti++ {
-		priorLogs, err := evmtypes.DecodeTxLogs(resBlockResult.TxsResults[ti].Data, height)
-		if err != nil {
-			continue
-		}
-		cumulatedLogIndex += uint(len(priorLogs))
-	}
+	offset := countPriorBlockLogs(resBlockResult.TxsResults, res.TxIndex, resBlockResult.Height)
 
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
 	logs, err := evmtypes.DecodeMsgLogs(
 		resBlockResult.TxsResults[res.TxIndex].Data,
 		index,
-		height,
+		uint64(resBlockResult.Height), // #nosec G115 -- block heights are always positive
 	)
 	if err != nil {
 		b.Logger.Debug("failed to parse tx logs", "error", err.Error())
 	}
 
-	// reassign log indices to be block-global per Ethereum spec
-	for _, log := range logs {
-		log.Index = cumulatedLogIndex
-		cumulatedLogIndex++
-	}
+	// fix log indices to be block-global per Ethereum spec
+	assignBlockGlobalLogIndices(logs, offset)
 
 	return logs, nil
 }

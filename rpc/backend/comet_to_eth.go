@@ -310,10 +310,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		// reassign log indices to be block-global per Ethereum spec.
 		// statedb assigns per-tx indices starting at 0 for Block STM compatibility,
 		// so we apply the cumulative offset here at the RPC layer.
-		for _, log := range logs {
-			log.Index = cumulatedLogIndex
-			cumulatedLogIndex++
-		}
+		cumulatedLogIndex = assignBlockGlobalLogIndices(logs, cumulatedLogIndex)
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
 
