@@ -319,14 +319,44 @@ func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*eth
 		return nil, err
 	}
 	blockLogs := [][]*ethtypes.Log{}
+	cumulatedLogIndex := uint(0)
 	for _, txResult := range blockRes.TxsResults {
 		logs, err := evmtypes.DecodeTxLogs(txResult.Data, height)
 		if err != nil {
 			return nil, err
 		}
+		// reassign log indices to be block-global per Ethereum spec
+		cumulatedLogIndex = assignBlockGlobalLogIndices(logs, cumulatedLogIndex)
 		blockLogs = append(blockLogs, logs)
 	}
 	return blockLogs, nil
+}
+
+// countPriorBlockLogs returns the total number of EVM logs in all Cosmos txs
+// before txIndex within the given block results. This offset is needed to
+// produce block-global log indices per the Ethereum JSON-RPC spec.
+// TODO: store latest N blocks logindex for optimization
+func countPriorBlockLogs(txsResults []*abci.ExecTxResult, txIndex uint32, blockHeight int64) uint {
+	height := uint64(blockHeight) // #nosec G115 -- block heights are always positive
+	startIdx := uint(0)
+	for i := uint32(0); i < txIndex; i++ {
+		logs, err := evmtypes.DecodeTxLogs(txsResults[i].Data, height)
+		if err != nil {
+			continue
+		}
+		startIdx += uint(len(logs))
+	}
+	return startIdx
+}
+
+// assignBlockGlobalLogIndices sets block-global log indices on the given logs
+// starting from startIndex. Returns the next available index.
+func assignBlockGlobalLogIndices(logs []*ethtypes.Log, startIdx uint) uint {
+	for _, log := range logs {
+		log.Index = startIdx
+		startIdx++
+	}
+	return startIdx
 }
 
 // GetHexProofs returns list of hex data of proof op

@@ -501,3 +501,77 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 		})
 	}
 }
+
+// TestReceiptsLogIndexBlockGlobal verifies that log indices in receipts are
+// block-global (cumulative across transactions) per the Ethereum JSON-RPC spec,
+// not per-transaction starting at 0.
+func TestReceiptsLogIndexBlockGlobal(t *testing.T) {
+	backend := setupMockBackend(t)
+	height := int64(200)
+	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
+
+	addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	topic := common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
+
+	// build two tx responses, each with 2 logs (per-tx indices 0, 1)
+	makeTxResponse := func(hash string) *evmtypes.MsgEthereumTxResponse {
+		return &evmtypes.MsgEthereumTxResponse{
+			Hash: hash,
+			Logs: []*evmtypes.Log{
+				{Address: addr.String(), Topics: []string{topic.String()}, Index: 0},
+				{Address: addr.String(), Topics: []string{topic.String()}, Index: 1},
+			},
+		}
+	}
+
+	msg0 := buildMsgEthereumTx(t)
+	msg1 := buildMsgEthereumTx(t)
+
+	encodeTxResult := func(resp *evmtypes.MsgEthereumTxResponse) []byte {
+		anyData := codectypes.UnsafePackAny(resp)
+		txMsgData := &sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyData}}
+		data, err := encodingConfig.Codec.Marshal(txMsgData)
+		require.NoError(t, err)
+		return data
+	}
+
+	tx0Data := encodeTxResult(makeTxResponse(msg0.Hash().Hex()))
+	tx1Data := encodeTxResult(makeTxResponse(msg1.Hash().Hex()))
+
+	resBlock := &tmrpctypes.ResultBlock{
+		Block: &tmtypes.Block{Header: tmtypes.Header{Height: height}},
+	}
+	blockRes := &tmrpctypes.ResultBlockResults{
+		Height: height,
+		TxsResults: []*abcitypes.ExecTxResult{
+			{Code: 0, Data: tx0Data},
+			{Code: 0, Data: tx1Data},
+		},
+	}
+
+	mockIndexer := &MockIndexer{
+		txResults: map[common.Hash]*servertypes.TxResult{
+			msg0.Hash(): {Height: height, TxIndex: 0, EthTxIndex: 0, MsgIndex: 0},
+			msg1.Hash(): {Height: height, TxIndex: 1, EthTxIndex: 1, MsgIndex: 0},
+		},
+	}
+	backend.Indexer = mockIndexer
+
+	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
+
+	msgs := []*evmtypes.MsgEthereumTx{msg0, msg1}
+	receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
+	require.NoError(t, err)
+	require.Len(t, receipts, 2)
+
+	// tx0 logs should have block-global indices 0, 1
+	require.Len(t, receipts[0].Logs, 2)
+	require.Equal(t, uint(0), receipts[0].Logs[0].Index)
+	require.Equal(t, uint(1), receipts[0].Logs[1].Index)
+
+	// tx1 logs should have block-global indices 2, 3 (not 0, 1)
+	require.Len(t, receipts[1].Logs, 2)
+	require.Equal(t, uint(2), receipts[1].Logs[0].Index)
+	require.Equal(t, uint(3), receipts[1].Logs[1].Index)
+}

@@ -269,6 +269,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
+	cumulatedLogIndex := uint(0)
 	for i, ethMsg := range msgs {
 		txResult, err := b.GetTxByEthHash(ctx, ethMsg.Hash())
 		if err != nil {
@@ -305,6 +306,11 @@ func (b *Backend) ReceiptsFromCometBlock(
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
 		}
+
+		// reassign log indices to be block-global per Ethereum spec.
+		// statedb assigns per-tx indices starting at 0 for Block STM compatibility,
+		// so we apply the cumulative offset here at the RPC layer.
+		cumulatedLogIndex = assignBlockGlobalLogIndices(logs, cumulatedLogIndex)
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
 
