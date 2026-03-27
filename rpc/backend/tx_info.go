@@ -210,8 +210,8 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 	}
 
 	// fix log indices to be block-global per Ethereum spec
-	offset := countPriorBlockLogs(blockRes.TxsResults, res.TxIndex, blockRes.Height)
-	assignBlockGlobalLogIndices(receipts[0].Logs, offset)
+	startIdx := countPriorBlockLogs(blockRes.TxsResults, res.TxIndex, blockRes.Height)
+	assignBlockGlobalLogIndices(receipts[0].Logs, startIdx)
 
 	var signer ethtypes.Signer
 	ethTx := ethMsg.AsTransaction()
@@ -251,7 +251,7 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 		b.Logger.Debug("block result not found", "number", res.Height, "error", err.Error())
 		return nil, nil
 	}
-	offset := countPriorBlockLogs(resBlockResult.TxsResults, res.TxIndex, resBlockResult.Height)
+	startIdx := countPriorBlockLogs(resBlockResult.TxsResults, res.TxIndex, resBlockResult.Height)
 
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
@@ -265,7 +265,7 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 	}
 
 	// fix log indices to be block-global per Ethereum spec
-	assignBlockGlobalLogIndices(logs, offset)
+	assignBlockGlobalLogIndices(logs, startIdx)
 
 	return logs, nil
 }
