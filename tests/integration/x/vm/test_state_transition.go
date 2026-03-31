@@ -923,11 +923,18 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 	testAddr := utiltx.GenerateAddress()
 	balance := (*hexutil.Big)(big.NewInt(1000000000000000000))
 	nonce := hexutil.Uint64(0)
+	movedStaticPrecompileAddr := utiltx.GenerateAddress()
 
 	overrides := rpctypes.StateOverride{
 		testAddr: rpctypes.OverrideAccount{
 			Balance: &balance,
 			Nonce:   &nonce,
+		},
+	}
+
+	staticPrecompileMoveOverrides := rpctypes.StateOverride{
+		common.HexToAddress(types.DistributionPrecompileAddress): rpctypes.OverrideAccount{
+			MovePrecompileTo: &movedStaticPrecompileAddr,
 		},
 	}
 
@@ -1100,6 +1107,29 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			getEVMParams:       types.DefaultParams,
 			getFeeMarketParams: feemarkettypes.DefaultParams,
 			overrides:          &rpctypes.StateOverride{},
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "success - move cosmos static precompile with state overrides",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(100),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams: func() types.Params {
+				params := types.DefaultParams()
+				params.ActiveStaticPrecompiles = append([]string(nil), types.AvailableStaticPrecompiles...)
+				return params
+			},
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &staticPrecompileMoveOverrides,
 			expErr:             false,
 			expVMErr:           false,
 			expectedGasUsed:    params.TxGas,
