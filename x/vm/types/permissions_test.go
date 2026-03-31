@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -211,11 +212,44 @@ func (suite *UnitTestSuite) TestAccessControl() {
 			caller:    keyring.GetAddr(0),
 			recipient: keyring.GetAddr(0),
 		},
+		{
+			name: "should block lowercase access control list entries with permissionless policy",
+			getAccessControl: func() types.AccessControl {
+				p := types.DefaultParams().AccessControl
+				p.Create.AccessType = types.AccessTypePermissionless
+				p.Create.AccessControlList = []string{strings.ToLower(keyring.GetAddr(0).String())}
+				p.Call.AccessType = types.AccessTypePermissionless
+				p.Call.AccessControlList = []string{strings.ToLower(keyring.GetAddr(0).String())}
+				return p
+			},
+			canCall:   false,
+			canCreate: false,
+			signer:    keyring.GetAddr(0),
+			caller:    keyring.GetAddr(0),
+			recipient: keyring.GetAddr(0),
+		},
+		{
+			name: "should allow lowercase access control list entries with permissioned policy",
+			getAccessControl: func() types.AccessControl {
+				p := types.DefaultParams().AccessControl
+				p.Create.AccessType = types.AccessTypePermissioned
+				p.Create.AccessControlList = []string{strings.ToLower(keyring.GetAddr(0).String())}
+				p.Call.AccessType = types.AccessTypePermissioned
+				p.Call.AccessControlList = []string{strings.ToLower(keyring.GetAddr(0).String())}
+				return p
+			},
+			canCall:   true,
+			canCreate: true,
+			signer:    keyring.GetAddr(0),
+			caller:    keyring.GetAddr(0),
+			recipient: keyring.GetAddr(0),
+		},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			accessControl := tc.getAccessControl()
+			suite.Require().NoError(accessControl.Validate())
 			permissionPolicy := types.NewRestrictedPermissionPolicy(
 				&accessControl,
 				tc.signer,
