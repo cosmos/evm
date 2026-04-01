@@ -29,7 +29,6 @@ import (
 	evmmempool "github.com/cosmos/evm/mempool"
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	cosmosevmserver "github.com/cosmos/evm/server"
-	srvconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
@@ -255,18 +254,18 @@ func NewExampleApp(
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 
-	workers := cast.ToInt(appOpts.Get(srvflags.EVMBlockSTMWorkers))
+	workers := cast.ToInt(appOpts.Get(sdkserver.FlagBlockSTMWorkers))
 	if workers <= 0 {
 		workers = min(goruntime.GOMAXPROCS(0), goruntime.NumCPU())
 	}
-	preEstimate := cast.ToBool(appOpts.Get(srvflags.EVMBlockSTMPreEstimate))
-	executor := cast.ToString(appOpts.Get(srvflags.EVMBlockExecutor))
+	preEstimate := cast.ToBool(appOpts.Get(sdkserver.FlagBlockSTMPreEstimate))
+	executor := cast.ToString(appOpts.Get(sdkserver.FlagBlockExecutor))
 	if executor == "" {
-		executor = srvconfig.DefaultEVMBlockExecutor
+		executor = config.DefaultBlockExecutor
 	}
 
 	switch executor {
-	case srvconfig.BlockExecutorBlockSTM:
+	case config.BlockExecutorBlockSTM:
 		bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
 			encodingConfig.TxConfig.TxDecoder(),
 			nonTransientKeys,
@@ -274,7 +273,7 @@ func NewExampleApp(
 			preEstimate,
 			func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
 		))
-	case srvconfig.BlockExecutorSequential:
+	case config.BlockExecutorSequential:
 		// Use BaseApp's default sequential execution.
 	default:
 		panic(fmt.Errorf("unknown EVM block executor: %s", executor))
