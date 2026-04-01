@@ -134,6 +134,10 @@ func (k EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return result
 }
 
+func (k EVMKeeper) TransientStoreKeys() map[string]*storetypes.TransientStoreKey {
+	return nil
+}
+
 func (k EVMKeeper) GetCodeHash(_ sdk.Context, _ common.Address) common.Hash {
 	return common.Hash{}
 }
