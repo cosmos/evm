@@ -28,10 +28,11 @@ func NewStore(cms storetypes.MultiStore, keys map[string]storetypes.StoreKey) *S
 	}
 
 	for _, key := range s.storeKeys {
-		if _, ok := key.(*storetypes.KVStoreKey); ok {
+		switch key.(type) {
+		case *storetypes.KVStoreKey, *storetypes.TransientStoreKey:
 			store := cms.GetKVStore(key)
 			s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheWrap))
-		} else {
+		default:
 			store := cms.GetObjKVStore(key)
 			s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheWrap))
 		}

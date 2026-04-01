@@ -39,4 +39,5 @@ type Keeper interface {
 	// Getter for injected Store keys
 	// It is used for StateDB.snapshotter creation
 	KVStoreKeys() map[string]storetypes.StoreKey
+	TransientStoreKeys() map[string]*storetypes.TransientStoreKey
 }

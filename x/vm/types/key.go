@@ -19,6 +19,10 @@ const (
 	// during the Commit phase.
 	ObjectKey = "object:" + ModuleName
 
+	// TransientKey is the key to access the EVM transient store, that is reset
+	// on every block.
+	TransientKey = "transient:" + ModuleName
+
 	// RouterKey uses module name for routing
 	RouterKey = ModuleName
 )

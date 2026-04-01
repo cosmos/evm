@@ -50,6 +50,9 @@ type Keeper struct {
 	// Store Keys for modules wired to app
 	storeKeys map[string]storetypes.StoreKey
 
+	// Transient Store Keys for modules wired to app
+	transientStoreKeys map[string]*storetypes.TransientStoreKey
+
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
 
@@ -93,6 +96,7 @@ func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey, objectKey storetypes.StoreKey,
 	keys []storetypes.StoreKey,
+	tkeys map[string]*storetypes.TransientStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
@@ -128,18 +132,19 @@ func NewKeeper(
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
-		cdc:              cdc,
-		authority:        authority,
-		accountKeeper:    ak,
-		bankWrapper:      bankWrapper,
-		stakingKeeper:    sk,
-		feeMarketWrapper: feeMarketWrapper,
-		storeKey:         storeKey,
-		objectKey:        objectKey,
-		tracer:           tracer,
-		consensusKeeper:  consensusKeeper,
-		erc20Keeper:      erc20Keeper,
-		storeKeys:        storeKeys,
+		cdc:                cdc,
+		authority:          authority,
+		accountKeeper:      ak,
+		bankWrapper:        bankWrapper,
+		stakingKeeper:      sk,
+		feeMarketWrapper:   feeMarketWrapper,
+		storeKey:           storeKey,
+		objectKey:          objectKey,
+		tracer:             tracer,
+		consensusKeeper:    consensusKeeper,
+		erc20Keeper:        erc20Keeper,
+		storeKeys:          storeKeys,
+		transientStoreKeys: tkeys,
 	}
 }
 
@@ -409,6 +414,11 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 // KVStoreKeys returns KVStore keys injected to keeper
 func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
+}
+
+// TransientStoreKeys returns transient store keys injected to keeper
+func (k Keeper) TransientStoreKeys() map[string]*storetypes.TransientStoreKey {
+	return k.transientStoreKeys
 }
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.

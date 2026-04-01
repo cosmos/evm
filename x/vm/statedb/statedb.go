@@ -240,6 +240,11 @@ func (s *StateDB) cache() error {
 	cms := s.cacheCtx.MultiStore()
 	storeKeys := s.keeper.KVStoreKeys()
 
+	// Merge transient store keys into storeKeys map
+	for name, tkey := range s.keeper.TransientStoreKeys() {
+		storeKeys[name] = tkey
+	}
+
 	// Create and set snapshot store to stateDB
 	snapshotStore := snapshotmulti.NewStore(cms, storeKeys)
 	s.snapshotter = snapshotStore

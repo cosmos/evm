@@ -243,6 +243,7 @@ func NewExampleApp(
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey,
 	)
 	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
+	tKeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey)
 
 	var nonTransientKeys []storetypes.StoreKey
 	for _, k := range keys {
@@ -460,7 +461,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], oKeys[evmtypes.ObjectKey], nonTransientKeys,
+		appCodec, keys[evmtypes.StoreKey], oKeys[evmtypes.ObjectKey], nonTransientKeys, tKeys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.BankKeeper,
