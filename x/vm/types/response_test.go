@@ -1,16 +1,21 @@
 package types_test
 
 import (
+	"fmt"
+	"math/big"
 	"strconv"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/gogoproto/proto"
+	protov2 "google.golang.org/protobuf/proto"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	proto "github.com/cosmos/gogoproto/proto"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -183,7 +188,7 @@ func TestPatchTxResponses(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := evmtypes.PatchTxResponses(tc.input)
+			result := evmtypes.PatchTxResponses(tc.input, nil, nil)
 			tc.validate(t, result)
 		})
 	}
@@ -192,7 +197,7 @@ func TestPatchTxResponses(t *testing.T) {
 func TestPatchTxResponses_EventAttributes(t *testing.T) {
 	txHash := common.BytesToHash([]byte("test_hash"))
 	input := []*abci.ExecTxResult{createEthTxResult(t, txHash.Hex(), 0, 0)}
-	result := evmtypes.PatchTxResponses(input)
+	result := evmtypes.PatchTxResponses(input, nil, nil)
 
 	require.Len(t, result, 1)
 	require.Len(t, result[0].Events, 1)
@@ -211,7 +216,7 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 		createEthTxResult(t, "hash2", 3, 0), // Logs 2, 3, 4
 		createEthTxResult(t, "hash3", 1, 0), // Log 5
 	}
-	result := evmtypes.PatchTxResponses(input)
+	result := evmtypes.PatchTxResponses(input, nil, nil)
 	expectedLogIndexes := [][]uint64{
 		{0, 1},
 		{2, 3, 4},
@@ -227,5 +232,124 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 		eventTxIndex, err := strconv.ParseUint(result[txIdx].Events[0].Attributes[1].Value, 10, 64)
 		require.NoError(t, err)
 		require.Equal(t, uint64(txIdx), eventTxIndex) //#nosec G115
+	}
+}
+
+// mockTx implements sdk.Tx for testing PatchTxResponses expected-failure path.
+type mockTx struct {
+	msgs []sdk.Msg
+}
+
+func (m mockTx) GetMsgs() []sdk.Msg                    { return m.msgs }
+func (m mockTx) GetMsgsV2() ([]protov2.Message, error) { return nil, nil }
+
+// createTestEthMsg creates a MsgEthereumTx for testing and returns the msg and its hash.
+func createTestEthMsg(to common.Address) (*evmtypes.MsgEthereumTx, common.Hash) {
+	msg := evmtypes.NewTx(&evmtypes.EvmTxArgs{
+		Nonce:    0,
+		To:       &to,
+		Amount:   big.NewInt(0),
+		GasLimit: 21000,
+		GasPrice: big.NewInt(1),
+		ChainID:  big.NewInt(1),
+	})
+	return msg, msg.AsTransaction().Hash()
+}
+
+// mockTxDecoder returns a TxDecoder that maps raw tx bytes to pre-built mock txs.
+func mockTxDecoder(mapping map[string]sdk.Tx) sdk.TxDecoder {
+	return func(rawTx []byte) (sdk.Tx, error) {
+		if tx, ok := mapping[string(rawTx)]; ok {
+			return tx, nil
+		}
+		return nil, fmt.Errorf("unknown tx")
+	}
+}
+
+func TestPatchTxResponses_ExpectedFailure(t *testing.T) {
+	to := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	ethMsg, expectedHash := createTestEthMsg(to)
+	rawTx := []byte("expected-failure-tx")
+	txDecoder := mockTxDecoder(map[string]sdk.Tx{
+		string(rawTx): mockTx{msgs: []sdk.Msg{ethMsg}},
+	})
+
+	testCases := []struct {
+		name     string
+		input    []*abci.ExecTxResult
+		rawTxs   [][]byte
+		decoder  sdk.TxDecoder
+		validate func(t *testing.T, result []*abci.ExecTxResult)
+	}{
+		{
+			name:    "ExceedBlockGasLimit gets events and correct txIndex",
+			input:   []*abci.ExecTxResult{{Code: 11, Log: evmtypes.ExceedBlockGasLimitError}},
+			rawTxs:  [][]byte{rawTx},
+			decoder: txDecoder,
+			validate: func(t *testing.T, result []*abci.ExecTxResult) {
+				t.Helper()
+				requireEventTxIndex(t, result[0], "0")
+				require.Equal(t, expectedHash.Hex(), result[0].Events[0].Attributes[0].Value)
+			},
+		},
+		{
+			name:    "StateDBCommitError gets events and correct txIndex",
+			input:   []*abci.ExecTxResult{{Code: 11, Log: evmtypes.StateDBCommitError}},
+			rawTxs:  [][]byte{rawTx},
+			decoder: txDecoder,
+			validate: func(t *testing.T, result []*abci.ExecTxResult) {
+				t.Helper()
+				requireEventTxIndex(t, result[0], "0")
+				require.Equal(t, expectedHash.Hex(), result[0].Events[0].Attributes[0].Value)
+			},
+		},
+		{
+			name: "mixed success then expected-failure keeps txIndex aligned",
+			input: []*abci.ExecTxResult{
+				createEthTxResult(t, "hash1", 1, 0),
+				{Code: 11, Log: evmtypes.ExceedBlockGasLimitError},
+				createEthTxResult(t, "hash3", 1, 0),
+			},
+			rawTxs:  [][]byte{nil, rawTx, nil},
+			decoder: txDecoder,
+			validate: func(t *testing.T, result []*abci.ExecTxResult) {
+				t.Helper()
+				requireEventTxIndex(t, result[0], "0")
+				requireEventTxIndex(t, result[1], "1")
+				require.Equal(t, expectedHash.Hex(), result[1].Events[0].Attributes[0].Value)
+				requireEventTxIndex(t, result[2], "2") // not 1 since we count expected failure tx
+			},
+		},
+		{
+			name: "true failure is skipped and does not increment txIndex",
+			input: []*abci.ExecTxResult{
+				{Code: 11, Log: "some other error"},
+				createEthTxResult(t, "hash1", 1, 0),
+			},
+			rawTxs:  [][]byte{rawTx, nil},
+			decoder: txDecoder,
+			validate: func(t *testing.T, result []*abci.ExecTxResult) {
+				t.Helper()
+				require.Empty(t, result[0].Events)
+				requireEventTxIndex(t, result[1], "0")
+			},
+		},
+		{
+			name:    "nil txDecoder is safe",
+			input:   []*abci.ExecTxResult{{Code: 11, Log: evmtypes.ExceedBlockGasLimitError}},
+			rawTxs:  [][]byte{rawTx},
+			decoder: nil,
+			validate: func(t *testing.T, result []*abci.ExecTxResult) {
+				t.Helper()
+				require.Empty(t, result[0].Events)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := evmtypes.PatchTxResponses(tc.input, tc.rawTxs, tc.decoder)
+			tc.validate(t, result)
+		})
 	}
 }

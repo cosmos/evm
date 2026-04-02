@@ -31,13 +31,10 @@ import (
 )
 
 // ExceedBlockGasLimitError defines the error message when tx execution exceeds the block gas limit.
-// The tx fee is deducted in ante handler, so it shouldn't be ignored in JSON-RPC API.
-const ExceedBlockGasLimitError = "out of gas in location: block gas meter; gasWanted:"
+const ExceedBlockGasLimitError = evmtypes.ExceedBlockGasLimitError
 
-// StateDBCommitError defines the error message when commit after executing EVM transaction, for example
-// transfer native token to a distribution module account 0x93354845030274cD4bf1686Abd60AB28EC52e1a7 using an evm type transaction
-// note: the transfer amount cannot be set to 0, otherwise this problem will not be triggered
-const StateDBCommitError = "failed to commit stateDB"
+// StateDBCommitError defines the error message when commit after executing EVM transaction.
+const StateDBCommitError = evmtypes.StateDBCommitError
 
 // RawTxToEthTx returns a evm MsgEthereum transaction from raw tx bytes.
 func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEthereumTx, error) {
