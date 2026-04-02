@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/gogoproto/proto"
-
 	abci "github.com/cometbft/cometbft/abci/types"
+
+	"github.com/cosmos/gogoproto/proto"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"

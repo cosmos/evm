@@ -6,16 +6,14 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/cosmos/gogoproto/proto"
-	protov2 "google.golang.org/protobuf/proto"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+	protov2 "google.golang.org/protobuf/proto"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/gogoproto/proto"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
