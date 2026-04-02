@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/holiman/uint256"
 )
 
 // txsCollected is the total amount of txs returned by Collect.
@@ -68,30 +67,7 @@ func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.
 	for addr, txs := range t.txs {
 		sort.Sort(types.TxByNonce(txs))
 
-		// Filter by minimum tip if configured
-		if minTipBig != nil {
-			for i, tx := range txs {
-				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
-					txs = txs[:i]
-					break
-				}
-			}
-		}
-
-		// Convert to lazy transactions
-		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i, tx := range txs {
-				lazies[i] = &txpool.LazyTransaction{
-					Hash:      tx.Hash(),
-					Tx:        tx,
-					Time:      tx.Time(),
-					GasFeeCap: uint256.MustFromBig(tx.GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
-					Gas:       tx.Gas(),
-					BlobGas:   tx.BlobGas(),
-				}
-			}
+		if lazies := filterAndWrapTxs(txs, minTipBig, baseFeeBig); len(lazies) > 0 {
 			numSelected += len(lazies)
 			pending[addr] = lazies
 		}
@@ -113,6 +89,7 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 			continue
 		}
 		toAdd = append(toAdd, tx)
+		t.lookup[tx.Hash()] = struct{}{}
 	}
 
 	if existing, ok := t.txs[addr]; ok {
@@ -136,25 +113,37 @@ func (t *TxStore) AddTx(addr common.Address, tx *types.Transaction) {
 
 // RemoveTx removes a tx for an address from the current set.
 func (t *TxStore) RemoveTx(addr common.Address, tx *types.Transaction) {
+	t.RemoveTxsFromNonce(addr, tx.Nonce())
+}
+
+// RemoveTxsFromNonce removes all txs for addr whose nonce is >= minNonce.
+func (t *TxStore) RemoveTxsFromNonce(addr common.Address, minNonce uint64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
-	defer delete(t.lookup, tx.Hash())
 
 	txs, ok := t.txs[addr]
 	if !ok {
 		return
 	}
 
-	// Find and remove the tx by nonce
-	nonce := tx.Nonce()
-	for i := 0; i < len(txs); i++ {
-		if txs[i].Nonce() == nonce {
-			// Swap with last element and truncate
-			txs[i] = txs[len(txs)-1]
-			t.txs[addr] = txs[:len(txs)-1]
-			t.total -= 1
-			return
+	next := txs[:0]
+	numRemoved := 0
+	for _, existing := range txs {
+		if existing.Nonce() >= minNonce {
+			delete(t.lookup, existing.Hash())
+			numRemoved++
+			continue
 		}
+		next = append(next, existing)
 	}
+
+	// memory reclaim
+	clear(txs[len(next):])
+
+	t.total -= uint64(numRemoved)
+	if len(next) == 0 {
+		delete(t.txs, addr)
+		return
+	}
+	t.txs[addr] = next
 }

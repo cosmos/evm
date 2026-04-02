@@ -43,11 +43,42 @@ func TestMempoolTxBroadcasting(t *testing.T) {
 }
 
 func TestMinimumGasPricesZero(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero)
+	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero, suite.MinimumGasPriceZeroArgs()...)
 }
 
 func TestMempoolCosmosTxsCompatibility(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility)
+}
+
+/*
+* Exclusive Mempool Tests
+ */
+func TestExclusiveMempoolTxsOrdering(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxsOrdering, suite.ExlcusiveMempoolArgs()...)
+}
+
+func TestExclusiveMempoolTxsReplacement(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxsReplacement, suite.ExlcusiveMempoolArgs()...)
+}
+
+func TestExclusiveMempoolTxsReplacementWithCosmosTx(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxsReplacementWithCosmosTx, suite.ExlcusiveMempoolArgs()...)
+}
+
+func TestExclusiveMempoolMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementLegacyAndDynamicFee, suite.ExlcusiveMempoolMinGasPriceZeroArgs()...)
+}
+
+func TestExclusiveMempoolTxBroadcasting(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunTxBroadcasting, suite.ExlcusiveMempoolArgs()...)
+}
+
+func TestExclusiveMempoolMinimumGasPricesZero(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero, suite.ExlcusiveMempoolArgs()...)
+}
+
+func TestExclusiveMempoolCosmosTxsCompatibility(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility, suite.ExlcusiveMempoolArgs()...)
 }
 
 // /*

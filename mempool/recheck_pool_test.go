@@ -23,6 +23,7 @@ import (
 	"github.com/cosmos/evm/mempool/reserver"
 
 	"cosmossdk.io/log/v2"
+	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -509,7 +510,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 // Integration
 // ----------------------------------------------------------------------------
 
-func TestMempool_Recheck(t *testing.T) {
+func TestKrakatoaMempool_Recheck(t *testing.T) {
 	type accountTx struct {
 		account int
 		nonce   uint64
@@ -630,12 +631,8 @@ func TestMempool_Recheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			storeKey := storetypes.NewKVStoreKey("test")
-			transientKey := storetypes.NewTransientStoreKey("transient_test")
-			ctx := testutil.DefaultContext(storeKey, transientKey) //nolint:staticcheck // false positive.
-
-			s := setupMempoolWithAccounts(t, 3)
-			mp, txConfig, cosmosRechecker, accounts := s.mp, s.txConfig, s.cosmosRechecker, s.accounts
+			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {
 				pubKeyBytes := crypto.CompressPubkey(&accounts[accountIdx].key.PublicKey)
@@ -645,7 +642,7 @@ func TestMempool_Recheck(t *testing.T) {
 
 			for _, tx := range tc.insertTxs {
 				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
-				require.NoError(t, mp.Insert(ctx, cosmosTx))
+				require.NoError(t, mp.Insert(context.Background(), cosmosTx))
 			}
 
 			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")
@@ -924,6 +921,16 @@ func newRecheckTestTxWithNonce(t *testing.T, key *ecdsa.PrivateKey, nonce uint64
 	return &recheckTestTx{key: key, sequence: nonce}
 }
 
+func newRecheckTestTxWithGasPrice(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gasPrice int64) sdk.Tx {
+	t.Helper()
+	return &recheckTestTx{
+		key:      key,
+		sequence: nonce,
+		gas:      100_000,
+		fee:      sdk.NewCoins(sdk.NewInt64Coin(recheckTestFeeDenom, gasPrice*100_000)),
+	}
+}
+
 // newNonceTrackingAnteHandler returns an ante handler that enforces sequential
 // nonce ordering per account. Nonces are tracked in a map keyed by signer
 // address — each successful call increments the expected nonce.
@@ -1037,6 +1044,110 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 	require.Equal(t, 3, mp.CountTx())
 }
 
+func TestRecheckMempool_InsertReplacementInvalidatesRechecked(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	pool := &recheckMockPool{}
+	bc := newMockContextProvider(ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
+	recheckedTxs := newTestRecheckedTxs()
+
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp.Start(testHeader(0))
+	t.Cleanup(func() {
+		require.NoError(t, mp.Close())
+	})
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	tx4 := newRecheckTestTxWithNonce(t, key, 4)
+	tx5 := newRecheckTestTxWithNonce(t, key, 5)
+	tx6 := newRecheckTestTxWithNonce(t, key, 6)
+
+	recheckedTxs.Do(func(store *mempool.CosmosTxStore) {
+		store.AddTx(tx4)
+		store.AddTx(tx5)
+		store.AddTx(tx6)
+	})
+
+	replacement := newRecheckTestTxWithNonce(t, key, 4)
+	require.NoError(t, mp.Insert(ctx, replacement))
+
+	iter := mp.RecheckedTxs(context.Background(), big.NewInt(0))
+	rechecked := collectIteratorTxs(iter)
+	require.Empty(t, rechecked)
+	require.Equal(t, 1, mp.CountTx())
+}
+
+func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	pool := sdkmempool.NewPriorityMempool(sdkmempool.PriorityNonceMempoolConfig[sdkmath.Int]{
+		TxPriority: sdkmempool.TxPriority[sdkmath.Int]{
+			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) sdkmath.Int {
+				_ = sdk.UnwrapSDKContext(goCtx)
+				cosmosTxFee, ok := tx.(sdk.FeeTx)
+				if !ok {
+					return sdkmath.ZeroInt()
+				}
+				found, coin := cosmosTxFee.GetFee().Find(recheckTestFeeDenom)
+				if !found {
+					return sdkmath.ZeroInt()
+				}
+
+				gasPrice := coin.Amount.Quo(sdkmath.NewIntFromUint64(cosmosTxFee.GetGas()))
+				return gasPrice
+			},
+			Compare: func(a, b sdkmath.Int) int {
+				return a.BigInt().Cmp(b.BigInt())
+			},
+			MinValue: sdkmath.ZeroInt(),
+		},
+		TxReplacement: func(op, np sdkmath.Int, _ sdk.Tx, _ sdk.Tx) bool {
+			return np.GT(op)
+		},
+	})
+	bc := newMockContextProvider(ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
+	recheckedTxs := newTestRecheckedTxs()
+
+	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp.Start(testHeader(0))
+	t.Cleanup(func() {
+		require.NoError(t, mp.Close())
+	})
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	tx3 := newRecheckTestTxWithGasPrice(t, key, 3, 1)
+	tx4 := newRecheckTestTxWithGasPrice(t, key, 4, 1)
+	tx5 := newRecheckTestTxWithGasPrice(t, key, 5, 1)
+	tx6 := newRecheckTestTxWithGasPrice(t, key, 6, 1)
+	replacement := newRecheckTestTxWithGasPrice(t, key, 4, 2)
+
+	for _, tx := range []sdk.Tx{tx3, tx4, tx5, tx6} {
+		require.NoError(t, mp.Insert(ctx, tx))
+	}
+
+	// insert the replacement, which should invalidate the other txs in the pool with greater nonce.
+	require.NoError(t, mp.Insert(ctx, replacement))
+
+	iter := mp.RecheckedTxs(context.Background(), big.NewInt(0))
+	rechecked := collectIteratorTxs(iter)
+	require.Len(t, rechecked, 1)
+	require.Equal(t, tx3, rechecked[0])
+
+	mp.TriggerRecheckSync(testHeader(1))
+
+	iter = mp.RecheckedTxs(context.Background(), big.NewInt(1))
+	rechecked = collectIteratorTxs(iter)
+	require.Equal(t, []sdk.Tx{tx3, replacement, tx5, tx6}, rechecked)
+}
+
 // newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.
 func newRecheckTestTx(t *testing.T, key *ecdsa.PrivateKey) sdk.Tx {
 	t.Helper()
@@ -1047,12 +1158,42 @@ func newRecheckTestTx(t *testing.T, key *ecdsa.PrivateKey) sdk.Tx {
 type recheckTestTx struct {
 	key      *ecdsa.PrivateKey
 	sequence uint64
+	gas      uint64
+	fee      sdk.Coins
 }
+
+const recheckTestFeeDenom = "atest"
 
 func (m *recheckTestTx) GetMsgs() []sdk.Msg { return nil }
 
 func (m *recheckTestTx) GetMsgsV2() ([]proto.Message, error) {
 	return nil, nil
+}
+
+func (m *recheckTestTx) GetGas() uint64 {
+	if m.gas == 0 {
+		return 100_000
+	}
+	return m.gas
+}
+
+func (m *recheckTestTx) GetFee() sdk.Coins {
+	if len(m.fee) == 0 {
+		return sdk.NewCoins(sdk.NewInt64Coin(recheckTestFeeDenom, 100_000))
+	}
+	return m.fee
+}
+
+func (m *recheckTestTx) FeePayer() []byte {
+	signers, err := m.GetSigners()
+	if err != nil || len(signers) == 0 {
+		return nil
+	}
+	return signers[0]
+}
+
+func (m *recheckTestTx) FeeGranter() []byte {
+	return nil
 }
 
 func (m *recheckTestTx) GetSigners() ([][]byte, error) {

@@ -191,15 +191,13 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).
 		Configure() // ignore if already configured
 
-	mockVMKeeper := mocks.NewVMKeeper(b)
-	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(b)
-	mockEVMRechecker := &MockRechecker{}
-	mockCosmosRechecker := &MockRechecker{}
-
+	mockVMKeeper := mocks.NewVMKeeperI(b)
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
-	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10_000_000)).Maybe()
 	mockVMKeeper.On("GetEvmCoinInfo", mock.Anything).Return(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Maybe()
+
+	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(b)
+	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10_000_000)).Maybe()
 
 	// Register each account with proper balance
 	for _, acc := range evmAccounts {
@@ -276,9 +274,6 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		mockVMKeeper,
 		mockFeeMarketKeeper,
 		txConfig,
-		evmmempool.NewTxEncoder(txConfig),
-		mockEVMRechecker,
-		mockCosmosRechecker,
 		config,
 		0, // cosmosPoolMaxTx (0 = unlimited)
 	)

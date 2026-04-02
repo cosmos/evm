@@ -45,6 +45,8 @@ type Config struct {
 	otherCoinDenoms   []string
 	preFundedAccounts []sdktypes.AccAddress
 	balances          []banktypes.Balance
+
+	exclusiveMempool bool
 }
 
 type CustomGenesisState map[string]interface{}
@@ -211,5 +213,13 @@ func WithConsensusParams(params *cmtproto.ConsensusParams) ConfigOption {
 		if params != nil {
 			cfg.customConsensusParams = params
 		}
+	}
+}
+
+// WithExclusiveMempool informs the app that it is running as the only mempool
+// in the application and it must manage rechecks.
+func WithExclusiveMempool() ConfigOption {
+	return func(cfg *Config) {
+		cfg.exclusiveMempool = true
 	}
 }
