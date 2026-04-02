@@ -552,7 +552,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 			}
 		} else {
 			if err := stateDB.Commit(); err != nil {
-				return nil, errorsmod.Wrap(err, "failed to commit stateDB")
+				return nil, errorsmod.Wrap(err, types.StateDBCommitError)
 			}
 		}
 	}
