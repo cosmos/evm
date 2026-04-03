@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity >=0.8.17;
+pragma solidity ^0.8.20;
 
-import "../IERC20Metadata.sol" as erc20Precompile;
+import "../ERC20I.sol" as erc20Precompile;
 
 /// @title ERC20TestCaller
 /// @author Erric
-/// @dev This contract is used to test external contract calls to the ERC20 precompile.
+/// @dev This contract is used to test external contract calls to the ERC20I precompile.
 contract ERC20TestCaller {
-    erc20Precompile.IERC20Metadata public token;
+    erc20Precompile.ERC20I public token;
     uint256 public counter;
 
     constructor(address tokenAddress) {
-        token = erc20Precompile.IERC20Metadata(tokenAddress);
+        token = erc20Precompile.ERC20I(tokenAddress);
         counter = 0;
     }
 
