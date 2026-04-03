@@ -1,7 +1,6 @@
 package ics02
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -9,12 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-
-	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -44,24 +42,20 @@ func (p *Precompile) UpdateClient(
 	}
 
 	if host.ClientIdentifierValidator(clientID) != nil {
-		return nil, errorsmod.Wrapf(
-			clienttypes.ErrInvalidClient,
-			"invalid client ID: %s",
-			clientID,
-		)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrInvalidClientID, clientID)
 	}
 
 	clientMsg, err := clienttypes.UnmarshalClientMessage(p.cdc, updateBz)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UpdateClientMethod, err.Error())
 	}
 
 	if err := clientMsg.ValidateBasic(); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UpdateClientMethod, err.Error())
 	}
 
 	if err := p.clientKeeper.UpdateClient(ctx, clientID, clientMsg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UpdateClientMethod, err.Error())
 	}
 
 	if p.clientKeeper.GetClientStatus(ctx, clientID) == ibcexported.Frozen {
@@ -85,26 +79,22 @@ func (p *Precompile) VerifyMembership(
 	}
 
 	if host.ClientIdentifierValidator(clientID) != nil {
-		return nil, errorsmod.Wrapf(
-			clienttypes.ErrInvalidClient,
-			"invalid client ID: %s",
-			clientID,
-		)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrInvalidClientID, clientID)
 	}
 
 	path := commitmenttypesv2.NewMerklePath(pathBz...)
 
 	if err := p.clientKeeper.VerifyMembership(ctx, clientID, proofHeight, 0, 0, proof, path, value); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VerifyMembershipMethod, err.Error())
 	}
 
 	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VerifyMembershipMethod, err.Error())
 	}
 	// Convert nanoseconds to seconds without overflow.
 	if timestampNano > math.MaxInt64 {
-		return nil, fmt.Errorf("timestamp in nanoseconds exceeds int64 max value")
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VerifyMembershipMethod, "timestamp in nanoseconds exceeds int64 max value")
 	}
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
@@ -125,26 +115,22 @@ func (p *Precompile) VerifyNonMembership(
 	}
 
 	if host.ClientIdentifierValidator(clientID) != nil {
-		return nil, errorsmod.Wrapf(
-			clienttypes.ErrInvalidClient,
-			"invalid client ID: %s",
-			clientID,
-		)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrInvalidClientID, clientID)
 	}
 
 	path := commitmenttypesv2.NewMerklePath(pathBz...)
 
 	if err := p.clientKeeper.VerifyNonMembership(ctx, clientID, proofHeight, 0, 0, proof, path); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VerifyNonMembershipMethod, err.Error())
 	}
 
 	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VerifyNonMembershipMethod, err.Error())
 	}
 	// Convert nanoseconds to seconds without overflow.
 	if timestampNano > math.MaxInt64 {
-		return nil, fmt.Errorf("timestamp in nanoseconds exceeds int64 max value")
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VerifyNonMembershipMethod, "timestamp in nanoseconds exceeds int64 max value")
 	}
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 

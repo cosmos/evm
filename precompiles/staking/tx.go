@@ -1,16 +1,15 @@
 package staking
 
 import (
-	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	cmn "github.com/cosmos/evm/precompiles/common"
 )
 
 const (
@@ -42,7 +41,7 @@ func (p Precompile) CreateValidator(
 ) ([]byte, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
 	}
 	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom, p.addrCdc)
 	if err != nil {
@@ -67,16 +66,16 @@ func (p Precompile) CreateValidator(
 	_, delegated := ethtypes.ParseDelegation(code)
 	if len(code) > 0 && !delegated {
 		// call by contract method
-		return nil, errors.New(ErrCannotCallFromContract)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrCannotCallFromContract, msgSender, big.NewInt(int64(len(code))), delegated)
 	}
 
 	if msgSender != validatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, validatorHexAddr)
 	}
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.CreateValidator(ctx, msg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, CreateValidatorMethod, err.Error())
 	}
 
 	// Here we don't add journal entries here because calls from
@@ -84,7 +83,7 @@ func (p Precompile) CreateValidator(
 
 	// Emit the event for the create validator transaction
 	if err = p.EmitCreateValidatorEvent(ctx, stateDB, msg, validatorHexAddr); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, CreateValidatorMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
@@ -119,21 +118,21 @@ func (p Precompile) EditValidator(
 	_, delegated := ethtypes.ParseDelegation(code)
 	if len(code) > 0 && !delegated {
 		// call by contract method
-		return nil, errors.New(ErrCannotCallFromContract)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrCannotCallFromContract, msgSender, big.NewInt(int64(len(code))), delegated)
 	}
 
 	if msgSender != validatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, validatorHexAddr)
 	}
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.EditValidator(ctx, msg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, EditValidatorMethod, err.Error())
 	}
 
 	// Emit the event for the edit validator transaction
 	if err = p.EmitEditValidatorEvent(ctx, stateDB, msg, validatorHexAddr); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, EditValidatorMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
@@ -149,7 +148,7 @@ func (p *Precompile) Delegate(
 ) ([]byte, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
 	}
 	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
@@ -169,17 +168,17 @@ func (p *Precompile) Delegate(
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorHexAddr)
 	}
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.Delegate(ctx, msg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, DelegateMethod, err.Error())
 	}
 
 	// Emit the event for the delegate transaction
 	if err = p.EmitDelegateEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, DelegateMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
@@ -196,7 +195,7 @@ func (p Precompile) Undelegate(
 ) ([]byte, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
 	}
 	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
@@ -216,18 +215,18 @@ func (p Precompile) Undelegate(
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorHexAddr)
 	}
 
 	// Execute the transaction using the message server
 	res, err := p.stakingMsgServer.Undelegate(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UndelegateMethod, err.Error())
 	}
 
 	// Emit the event for the undelegate transaction
 	if err = p.EmitUnbondEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, UndelegateMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.CompletionTime.UTC().Unix())
@@ -245,7 +244,7 @@ func (p Precompile) Redelegate(
 ) ([]byte, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
 	}
 	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
@@ -266,16 +265,16 @@ func (p Precompile) Redelegate(
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorHexAddr)
 	}
 
 	res, err := p.stakingMsgServer.BeginRedelegate(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, RedelegateMethod, err.Error())
 	}
 
 	if err = p.EmitRedelegateEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, RedelegateMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.CompletionTime.UTC().Unix())
@@ -293,7 +292,7 @@ func (p Precompile) CancelUnbondingDelegation(
 ) ([]byte, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
 	}
 	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom, p.addrCdc)
 	if err != nil {
@@ -314,15 +313,15 @@ func (p Precompile) CancelUnbondingDelegation(
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorHexAddr)
 	}
 
 	if _, err = p.stakingMsgServer.CancelUnbondingDelegation(ctx, msg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, CancelUnbondingDelegationMethod, err.Error())
 	}
 
 	if err = p.EmitCancelUnbondingDelegationEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, CancelUnbondingDelegationMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)

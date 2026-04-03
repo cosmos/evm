@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -41,7 +42,7 @@ func (p Precompile) Denom(
 		if strings.Contains(err.Error(), ErrDenomNotFound) {
 			return method.Outputs.Pack(transfertypes.Denom{})
 		}
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, DenomMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(*res.Denom)
@@ -61,7 +62,7 @@ func (p Precompile) Denoms(
 
 	res, err := p.transferKeeper.Denoms(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, DenomsMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.Denoms, res.Pagination)
@@ -85,7 +86,7 @@ func (p Precompile) DenomHash(
 		if strings.Contains(err.Error(), ErrDenomNotFound) {
 			return method.Outputs.Pack("")
 		}
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, DenomHashMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.Hash)

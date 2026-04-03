@@ -7,7 +7,6 @@ package bank
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -131,7 +130,7 @@ func (p Precompile) Execute(ctx sdk.Context, contract *vm.Contract, readOnly boo
 	case SupplyOfMethod:
 		bz, err = p.SupplyOf(ctx, method, args)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, method.Name)
 	}
 
 	return bz, err

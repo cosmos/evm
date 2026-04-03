@@ -36,8 +36,6 @@ var (
 // ConvertErrToERC20Error is a helper function which maps errors raised by the Cosmos SDK stack
 // to the corresponding errors which are raised by an ERC20 contract.
 //
-// TODO: Create the full RevertError types instead of just the standard error type.
-//
 // TODO: Return ERC-6093 compliant errors.
 func ConvertErrToERC20Error(err error) error {
 	switch {

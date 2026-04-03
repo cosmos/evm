@@ -197,7 +197,7 @@ func (p *Precompile) HandleMethod(
 	case AllowanceMethod:
 		bz, err = p.Allowance(ctx, contract, stateDB, method, args)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, method.Name)
 	}
 
 	return bz, err
