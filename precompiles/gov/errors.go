@@ -27,4 +27,23 @@ const (
 	ErrInvalidDepositor = "invalid depositor address: %s"
 	// ErrInvalidDeposits invalid deposits.
 	ErrInvalidDeposits = "invalid deposits %s "
+
+	// SolidityErrGovInputInvalid is defined in IGov.sol.
+	SolidityErrGovInputInvalid = "GovInputInvalid"
+	// SolidityErrInvalidProposalJSON is defined in IGov.sol.
+	SolidityErrInvalidProposalJSON = "InvalidProposalJSON"
+	// SolidityErrInvalidOption is defined in IGov.sol.
+	SolidityErrInvalidOption = "InvalidOption"
+	// SolidityErrInvalidMetadata is defined in IGov.sol.
+	SolidityErrInvalidMetadata = "InvalidMetadata"
+	// SolidityErrVotesInputUnpackFailed is defined in IGov.sol.
+	SolidityErrVotesInputUnpackFailed = "VotesInputUnpackFailed"
+	// SolidityErrDepositsInputUnpackFailed is defined in IGov.sol.
+	SolidityErrDepositsInputUnpackFailed = "DepositsInputUnpackFailed"
+	// SolidityErrProposalsInputUnpackFailed is defined in IGov.sol.
+	SolidityErrProposalsInputUnpackFailed = "ProposalsInputUnpackFailed"
+	// SolidityErrWeightedVoteOptionsUnpackFailed is defined in IGov.sol.
+	SolidityErrWeightedVoteOptionsUnpackFailed = "WeightedVoteOptionsUnpackFailed"
+	// SolidityErrInvalidProposalID is defined in IGov.sol.
+	SolidityErrInvalidProposalID = "InvalidProposalID"
 )

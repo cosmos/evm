@@ -29,7 +29,22 @@ struct Hop {
 /// @title ICS20 Transfer Precompiled Contract
 /// @dev The interface through which solidity contracts will interact with IBC Transfer (ICS20)
 /// @custom:address 0x0000000000000000000000000000000000000802
-interface ICS20I {
+interface ICS20I is IPrecompile {
+    /// @notice Invalid ICS-20 source port argument.
+    error InvalidSourcePort(string callMethod, string reason);
+    /// @notice Invalid ICS-20 source channel (channel ID / client ID) argument.
+    error InvalidSourceChannel(string callMethod, string reason);
+    /// @notice Invalid ICS-20 receiver argument.
+    error InvalidReceiver(string callMethod, string reason);
+    /// @notice Invalid ICS-20 timeout timestamp argument.
+    error InvalidTimeoutTimestamp(string callMethod, string reason);
+    /// @notice Invalid ICS-20 memo argument.
+    error InvalidMemo(string callMethod, string reason);
+    /// @notice Invalid denom hash argument.
+    error InvalidHash(string callMethod, string reason);
+    /// @notice Invalid denom trace argument.
+    error InvalidTrace(string callMethod, string reason);
+
     /// @dev Emitted when an ICS-20 transfer is executed.
     /// @param sender The address of the sender.
     /// @param receiver The address of the receiver.

@@ -4,6 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -42,12 +44,12 @@ func (p *Precompile) GetVotes(
 
 	res, err := p.govQuerier.Votes(ctx, queryVotesReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetVotesMethod, err.Error())
 	}
 
 	output, err := new(VotesOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetVotesMethod, err.Error())
 	}
 	return method.Outputs.Pack(output.Votes, output.PageResponse)
 }
@@ -66,12 +68,12 @@ func (p *Precompile) GetVote(
 
 	res, err := p.govQuerier.Vote(ctx, queryVotesReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetVoteMethod, err.Error())
 	}
 
 	output, err := new(VoteOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetVoteMethod, err.Error())
 	}
 	return method.Outputs.Pack(output.Vote)
 }
@@ -90,12 +92,12 @@ func (p *Precompile) GetDeposit(
 
 	res, err := p.govQuerier.Deposit(ctx, queryDepositReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetDepositMethod, err.Error())
 	}
 
 	output, err := new(DepositOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetDepositMethod, err.Error())
 	}
 	return method.Outputs.Pack(output.Deposit)
 }
@@ -114,12 +116,12 @@ func (p *Precompile) GetDeposits(
 
 	res, err := p.govQuerier.Deposits(ctx, queryDepositsReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetDepositsMethod, err.Error())
 	}
 
 	output, err := new(DepositsOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetDepositsMethod, err.Error())
 	}
 	return method.Outputs.Pack(output.Deposits, output.PageResponse)
 }
@@ -138,7 +140,7 @@ func (p *Precompile) GetTallyResult(
 
 	res, err := p.govQuerier.TallyResult(ctx, queryTallyResultReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetTallyResultMethod, err.Error())
 	}
 
 	output := new(TallyResultOutput).FromResponse(res)
@@ -159,12 +161,12 @@ func (p *Precompile) GetProposal(
 
 	res, err := p.govQuerier.Proposal(ctx, queryProposalReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetProposalMethod, err.Error())
 	}
 
 	output, err := new(ProposalOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetProposalMethod, err.Error())
 	}
 	return method.Outputs.Pack(output.Proposal)
 }
@@ -183,12 +185,12 @@ func (p *Precompile) GetProposals(
 
 	res, err := p.govQuerier.Proposals(ctx, queryProposalsReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetProposalsMethod, err.Error())
 	}
 
 	output, err := new(ProposalsOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetProposalsMethod, err.Error())
 	}
 	return method.Outputs.Pack(output.Proposals, output.PageResponse)
 }
@@ -207,7 +209,7 @@ func (p *Precompile) GetParams(
 
 	res, err := p.govQuerier.Params(ctx, queryParamsReq)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetParamsMethod, err.Error())
 	}
 
 	output := new(ParamsOutput).FromResponse(res)
@@ -228,7 +230,7 @@ func (p *Precompile) GetConstitution(
 
 	res, err := p.govQuerier.Constitution(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetConstitutionMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.Constitution)

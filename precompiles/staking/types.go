@@ -3,7 +3,6 @@ package staking
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -107,58 +106,58 @@ type Commission = struct {
 // on the given arguments before populating the message.
 func NewMsgCreateValidator(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgCreateValidator, common.Address, error) {
 	if len(args) != 6 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 6, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(6), big.NewInt(int64(len(args))))
 	}
 
 	description, ok := args[0].(Description)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDescription, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidDescription, fmt.Sprintf("%v", args[0]))
 	}
 
 	commission, ok := args[1].(Commission)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidCommission, args[1])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidCommission, fmt.Sprintf("%v", args[1]))
 	}
 
 	minSelfDelegation, ok := args[2].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	validatorAddress, ok := args[3].(common.Address)
 	if !ok || validatorAddress == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidValidator, args[3])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[3]))
 	}
 
 	// use cli `evmd comet show-validator` get pubkey
 	pubkeyBase64Str, ok := args[4].(string)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "pubkey", "string", args[4])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[4]))
 	}
 	pubkeyBytes, err := base64.StdEncoding.DecodeString(pubkeyBase64Str)
 	if err != nil {
-		return nil, common.Address{}, err
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidPubkey, fmt.Sprintf("%v", err))
 	}
 
 	// more details see https://github.com/cosmos/cosmos-sdk/pull/18506
 	if len(pubkeyBytes) != ed25519.PubKeySize {
-		return nil, common.Address{}, fmt.Errorf("consensus pubkey len is invalid, got: %d, expected: %d", len(pubkeyBytes), ed25519.PubKeySize)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidPubkeySize, big.NewInt(int64(len(pubkeyBytes))), big.NewInt(ed25519.PubKeySize))
 	}
 
 	var ed25519pk cryptotypes.PubKey = &ed25519.PubKey{Key: pubkeyBytes}
 	pubkey, err := codectypes.NewAnyWithValue(ed25519pk)
 	if err != nil {
-		return nil, common.Address{}, err
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidPubkey, fmt.Sprintf("%v", err))
 	}
 
 	value, ok := args[5].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[5])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[5]))
 	}
 
 	delegatorAddr, err := addrCdc.BytesToString(validatorAddress.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &stakingtypes.MsgCreateValidator{
 		Description: stakingtypes.Description{
@@ -187,22 +186,22 @@ func NewMsgCreateValidator(args []interface{}, denom string, addrCdc address.Cod
 // on the given arguments before populating the message.
 func NewMsgEditValidator(args []interface{}) (*stakingtypes.MsgEditValidator, common.Address, error) {
 	if len(args) != 4 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(int64(len(args))))
 	}
 
 	description, ok := args[0].(Description)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDescription, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidDescription, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorHexAddr, ok := args[1].(common.Address)
 	if !ok || validatorHexAddr == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidValidator, args[1])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	commissionRateBigInt, ok := args[2].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "commissionRate", &big.Int{}, args[2])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	// The default value of a variable declared using a pointer is nil, indicating that the user does not want to modify its value.
@@ -215,7 +214,7 @@ func NewMsgEditValidator(args []interface{}) (*stakingtypes.MsgEditValidator, co
 
 	minSelfDelegationBigInt, ok := args[3].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "minSelfDelegation", &big.Int{}, args[3])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[3]))
 	}
 
 	var minSelfDelegation *math.Int
@@ -250,7 +249,7 @@ func NewMsgDelegate(args []interface{}, denom string, addrCdc address.Codec) (*s
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &stakingtypes.MsgDelegate{
 		DelegatorAddress: delegatorAddrStr,
@@ -274,7 +273,7 @@ func NewMsgUndelegate(args []interface{}, denom string, addrCdc address.Codec) (
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &stakingtypes.MsgUndelegate{
 		DelegatorAddress: delegatorAddrStr,
@@ -292,32 +291,32 @@ func NewMsgUndelegate(args []interface{}, denom string, addrCdc address.Codec) (
 // on the given arguments before populating the message.
 func NewMsgRedelegate(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgBeginRedelegate, common.Address, error) {
 	if len(args) != 4 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddr, ok := args[0].(common.Address)
 	if !ok || delegatorAddr == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
-	validatorSrcAddress, ok := args[1].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "validatorSrcAddress", "string", args[1])
+	validatorSrcAddress, _ := args[1].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorSrcAddress); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	validatorDstAddress, ok := args[2].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "validatorDstAddress", "string", args[2])
+	if _, err := sdk.ValAddressFromBech32(validatorDstAddress); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[2]))
 	}
 
 	amount, ok := args[3].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[3])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[3]))
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &stakingtypes.MsgBeginRedelegate{
 		DelegatorAddress:    delegatorAddrStr,
@@ -336,32 +335,32 @@ func NewMsgRedelegate(args []interface{}, denom string, addrCdc address.Codec) (
 // on the given arguments before populating the message.
 func NewMsgCancelUnbondingDelegation(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgCancelUnbondingDelegation, common.Address, error) {
 	if len(args) != 4 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddr, ok := args[0].(common.Address)
 	if !ok || delegatorAddr == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	amount, ok := args[2].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	creationHeight, ok := args[3].(*big.Int)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf("invalid creation height")
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, fmt.Sprintf("%v", args[3]))
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &stakingtypes.MsgCancelUnbondingDelegation{
 		DelegatorAddress: delegatorAddrStr,
@@ -380,22 +379,22 @@ func NewMsgCancelUnbondingDelegation(args []interface{}, denom string, addrCdc a
 // on the given arguments before populating the request.
 func NewDelegationRequest(args []interface{}, addrCdc address.Codec) (*stakingtypes.QueryDelegationRequest, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddr, ok := args[0].(common.Address)
 	if !ok || delegatorAddr == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	return &stakingtypes.QueryDelegationRequest{
 		DelegatorAddr: delegatorAddrStr,
@@ -407,12 +406,12 @@ func NewDelegationRequest(args []interface{}, addrCdc address.Codec) (*stakingty
 // on the given arguments before populating the request.
 func NewValidatorRequest(args []interface{}) (*stakingtypes.QueryValidatorRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	validatorHexAddr, ok := args[0].(common.Address)
 	if !ok || validatorHexAddr == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidValidator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorAddress := sdk.ValAddress(validatorHexAddr.Bytes()).String()
@@ -424,7 +423,7 @@ func NewValidatorRequest(args []interface{}) (*stakingtypes.QueryValidatorReques
 // on the given arguments before populating the request.
 func NewValidatorsRequest(method *abi.Method, args []interface{}) (*stakingtypes.QueryValidatorsRequest, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	var input ValidatorsInput
@@ -446,32 +445,26 @@ func NewValidatorsRequest(method *abi.Method, args []interface{}) (*stakingtypes
 // on the given arguments before populating the request.
 func NewRedelegationRequest(args []interface{}) (*RedelegationRequest, error) {
 	if len(args) != 3 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddr, ok := args[0].(common.Address)
 	if !ok || delegatorAddr == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
-	validatorSrcAddress, ok := args[1].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorSrcAddress", "string", args[1])
+	validatorSrcAddress, _ := args[1].(string)
+	var validatorSrcAddr sdk.ValAddress
+	var err error
+	if validatorSrcAddr, err = sdk.ValAddressFromBech32(validatorSrcAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
-	validatorSrcAddr, err := sdk.ValAddressFromBech32(validatorSrcAddress)
-	if err != nil {
-		return nil, err
-	}
+	var validatorDstAddr sdk.ValAddress
 
 	validatorDstAddress, ok := args[2].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorDstAddress", "string", args[2])
-	}
-
-	validatorDstAddr, err := sdk.ValAddressFromBech32(validatorDstAddress)
-	if err != nil {
-		return nil, err
+	if validatorDstAddr, err = sdk.ValAddressFromBech32(validatorDstAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[2]))
 	}
 
 	return &RedelegationRequest{
@@ -485,7 +478,7 @@ func NewRedelegationRequest(args []interface{}) (*RedelegationRequest, error) {
 // on the given arguments before populating the request.
 func NewRedelegationsRequest(method *abi.Method, args []interface{}, addrCdc address.Codec) (*stakingtypes.QueryRedelegationsRequest, error) {
 	if len(args) != 4 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(int64(len(args))))
 	}
 
 	// delAddr, srcValAddr & dstValAddr
@@ -495,7 +488,7 @@ func NewRedelegationsRequest(method *abi.Method, args []interface{}, addrCdc add
 	// the delegator address or the source validator address
 	var input RedelegationsInput
 	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to RedelegationsInput struct: %s", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrRedelegationsInputUnpackFailed, err.Error())
 	}
 
 	var (
@@ -508,13 +501,15 @@ func NewRedelegationsRequest(method *abi.Method, args []interface{}, addrCdc add
 		var err error
 		delegatorAddr, err = addrCdc.BytesToString(input.DelegatorAddress.Bytes())
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+			return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 		}
 	}
 
-	if delegatorAddr == "" && input.SrcValidatorAddress == "" && input.DstValidatorAddress == "" ||
-		delegatorAddr == "" && input.SrcValidatorAddress == "" && input.DstValidatorAddress != "" {
-		return nil, errors.New("invalid query. Need to specify at least a source validator address or delegator address")
+	if delegatorAddr == "" && input.SrcValidatorAddress == "" && input.DstValidatorAddress == "" {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "all filter addresses empty")
+	}
+	if delegatorAddr == "" && input.SrcValidatorAddress == "" && input.DstValidatorAddress != "" {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "destination validator set without delegator or source validator")
 	}
 
 	return &stakingtypes.QueryRedelegationsRequest{
@@ -823,22 +818,22 @@ func (ro *RedelegationsOutput) Pack(args abi.Arguments) ([]byte, error) {
 // on the given arguments before populating the request.
 func NewUnbondingDelegationRequest(args []interface{}, addrCdc address.Codec) (*stakingtypes.QueryUnbondingDelegationRequest, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddr, ok := args[0].(common.Address)
 	if !ok || delegatorAddr == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
-	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	validatorAddress, _ := args[1].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", delegatorAddr.String()))
 	}
 	return &stakingtypes.QueryUnbondingDelegationRequest{
 		DelegatorAddr: delegatorAddrStr,
@@ -849,22 +844,22 @@ func NewUnbondingDelegationRequest(args []interface{}, addrCdc address.Codec) (*
 // checkDelegationUndelegationArgs checks the arguments for the delegation and undelegation functions.
 func checkDelegationUndelegationArgs(args []interface{}) (common.Address, string, *big.Int, error) {
 	if len(args) != 3 {
-		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
+		return common.Address{}, "", nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddr, ok := args[0].(common.Address)
 	if !ok || delegatorAddr == (common.Address{}) {
-		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return common.Address{}, "", nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
-	validatorAddress, ok := args[1].(string)
-	if !ok {
-		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
+	validatorAddress, _ := args[1].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return common.Address{}, "", nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	amount, ok := args[2].(*big.Int)
 	if !ok {
-		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
+		return common.Address{}, "", nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	return delegatorAddr, validatorAddress, amount, nil

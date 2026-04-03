@@ -2,6 +2,7 @@ package slashing
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -45,17 +46,17 @@ type SigningInfosInput struct {
 // ParseSigningInfoArgs parses the arguments for the signing info query
 func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashingtypes.QuerySigningInfoRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	hexAddr, ok := args[0].(common.Address)
 	if !ok || hexAddr == (common.Address{}) {
-		return nil, fmt.Errorf("invalid consensus address")
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	consAddr, err := consCodec.BytesToString(hexAddr.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert consensus address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 
 	return &slashingtypes.QuerySigningInfoRequest{
@@ -66,12 +67,12 @@ func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashin
 // ParseSigningInfosArgs parses the arguments for the signing infos query
 func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtypes.QuerySigningInfosRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	var input SigningInfosInput
 	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to SigningInfosInput: %s", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrSlashingInputInvalid, GetSigningInfosMethod, err.Error())
 	}
 
 	return &slashingtypes.QuerySigningInfosRequest{
@@ -82,7 +83,7 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) (*SigningInfoOutput, error) {
 	consAddr, err := types.ConsAddressFromBech32(res.ValSigningInfo.Address)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing consensus address: %w", err)
+		return nil, err
 	}
 
 	sio.SigningInfo = SigningInfo{
@@ -101,7 +102,7 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 	for i, info := range res.Info {
 		consAddr, err := types.ConsAddressFromBech32(info.Address)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing consensus address: %w", err)
+			return nil, err
 		}
 		sio.SigningInfos[i] = SigningInfo{
 			ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),

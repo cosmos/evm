@@ -52,12 +52,12 @@ func (p Precompile) Delegation(
 		if strings.Contains(err.Error(), fmt.Sprintf(ErrNoDelegationFound, req.DelegatorAddr, req.ValidatorAddr)) {
 			bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 			if err != nil {
-				return nil, err
+				return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
 			}
 			return method.Outputs.Pack(big.NewInt(0), cmn.Coin{Denom: bondDenom, Amount: big.NewInt(0)})
 		}
 
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DelegationMethod, err.Error())
 	}
 
 	out := new(DelegationOutput).FromResponse(res)
@@ -85,7 +85,7 @@ func (p Precompile) UnbondingDelegation(
 		if strings.Contains(err.Error(), expError) {
 			return method.Outputs.Pack(UnbondingDelegationResponse{})
 		}
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, UnbondingDelegationMethod, err.Error())
 	}
 
 	out := new(UnbondingDelegationOutput).FromResponse(res)
@@ -112,7 +112,7 @@ func (p Precompile) Validator(
 		if strings.Contains(err.Error(), expError) {
 			return method.Outputs.Pack(DefaultValidatorInfo())
 		}
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ValidatorMethod, err.Error())
 	}
 
 	validatorInfo := NewValidatorInfoFromResponse(res.Validator)
@@ -134,7 +134,7 @@ func (p Precompile) Validators(
 
 	res, err := p.stakingQuerier.Validators(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ValidatorsMethod, err.Error())
 	}
 
 	out := new(ValidatorsOutput).FromResponse(res)
@@ -178,7 +178,7 @@ func (p Precompile) Redelegations(
 
 	res, err := p.stakingQuerier.Redelegations(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, RedelegationsMethod, err.Error())
 	}
 
 	out := new(RedelegationsOutput).FromResponse(res)
