@@ -8,8 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	sdkerrors "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -38,24 +39,22 @@ func (p Precompile) Approve(
 
 	owner := contract.Caller()
 
-	// TODO: owner should be the owner of the contract
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
 	if err != nil {
-		return nil, sdkerrors.Wrap(err, fmt.Sprintf(ErrNoAllowanceForToken, p.tokenPair.Denom))
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ApproveMethod,
+			fmt.Sprintf("%s: %v", fmt.Sprintf(ErrNoAllowanceForToken, p.tokenPair.Denom), err))
 	}
 
 	switch {
 	case allowance.Sign() == 0 && amount != nil && amount.Sign() < 0:
-		// case 1: no allowance, amount 0 or negative -> error
-		err = ErrNegativeAmount
+		err = cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAmount, "cannot approve negative values")
 	case allowance.Sign() == 0 && amount != nil && amount.Sign() > 0:
-		// case 2: no allowance, amount positive -> create a new allowance
 		err = p.setAllowance(ctx, owner, spender, amount)
 	case allowance.Sign() > 0 && amount != nil && amount.Sign() <= 0:
-		// case 3: allowance exists, amount 0 or negative -> remove from spend limit and delete allowance if no spend limit left
-		err = p.erc20Keeper.DeleteAllowance(ctx, p.Address(), owner, spender)
+		if derr := p.erc20Keeper.DeleteAllowance(ctx, p.Address(), owner, spender); derr != nil {
+			err = cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ApproveMethod, derr.Error())
+		}
 	case allowance.Sign() > 0 && amount != nil && amount.Sign() > 0:
-		// case 4: allowance exists, amount positive -> update allowance
 		err = p.setAllowance(ctx, owner, spender, amount)
 	}
 
@@ -64,20 +63,23 @@ func (p Precompile) Approve(
 	}
 
 	if err := p.EmitApprovalEvent(ctx, stateDB, owner, spender, amount); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, ApproveMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
 }
 
-func (p Precompile) setAllowance(
+func (p *Precompile) setAllowance(
 	ctx sdk.Context,
 	owner, spender common.Address,
 	allowance *big.Int,
 ) error {
 	if allowance.BitLen() > sdkmath.MaxBitLen {
-		return fmt.Errorf(ErrIntegerOverflow, allowance)
+		return cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf(ErrIntegerOverflow, allowance))
 	}
 
-	return p.erc20Keeper.SetAllowance(ctx, p.Address(), owner, spender, allowance)
+	if err := p.erc20Keeper.SetAllowance(ctx, p.Address(), owner, spender, allowance); err != nil {
+		return cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ApproveMethod, err.Error())
+	}
+	return nil
 }

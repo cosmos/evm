@@ -9,7 +9,7 @@ describe('ERC20 Precompile', function () {
     before(async function () {
         [owner, spender, recipient] = await hre.ethers.getSigners()
         erc20 = await hre.ethers.getContractAt(
-            'IERC20Metadata',
+            'ERC20I',
             '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
         )
     })
