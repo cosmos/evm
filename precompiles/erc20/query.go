@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/ibc"
+	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -52,7 +53,7 @@ func (p Precompile) Name(
 
 	baseDenom, err := p.getBaseDenomFromIBCVoucher(ctx, p.tokenPair.Denom)
 	if err != nil {
-		return nil, ConvertErrToERC20Error(err)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, NameMethod, err.Error())
 	}
 
 	name := strings.ToUpper(string(baseDenom[1])) + baseDenom[2:]
@@ -76,7 +77,7 @@ func (p Precompile) Symbol(
 
 	baseDenom, err := p.getBaseDenomFromIBCVoucher(ctx, p.tokenPair.Denom)
 	if err != nil {
-		return nil, ConvertErrToERC20Error(err)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, SymbolMethod, err.Error())
 	}
 
 	symbol := strings.ToUpper(baseDenom[1:])
@@ -97,13 +98,13 @@ func (p Precompile) Decimals(
 	if !found {
 		denom, err := ibc.GetDenom(p.transferKeeper, ctx, p.tokenPair.Denom)
 		if err != nil {
-			return nil, ConvertErrToERC20Error(err)
+			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DecimalsMethod, err.Error())
 		}
 
 		// we assume the decimal from the first character of the denomination
 		decimals, err := ibc.DeriveDecimalsFromDenom(denom.Base)
 		if err != nil {
-			return nil, ConvertErrToERC20Error(err)
+			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DecimalsMethod, err.Error())
 		}
 		return method.Outputs.Pack(decimals)
 	}
@@ -128,14 +129,14 @@ func (p Precompile) Decimals(
 	}
 
 	if !displayFound {
-		return nil, ConvertErrToERC20Error(fmt.Errorf(
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DecimalsMethod, fmt.Sprintf(
 			"display denomination not found for denom: %q",
 			p.tokenPair.Denom,
 		))
 	}
 
 	if decimals > math.MaxUint8 {
-		return nil, ConvertErrToERC20Error(fmt.Errorf(
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf(
 			"uint8 overflow: invalid decimals: %d",
 			decimals,
 		))
