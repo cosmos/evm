@@ -1,14 +1,13 @@
 package slashing
 
 import (
-	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/precompiles/testutil"
-	utiltx "github.com/cosmos/evm/testutil/tx"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -16,12 +15,12 @@ import (
 func (s *PrecompileTestSuite) TestUnjail() {
 	method := s.precompile.Methods[slashing.UnjailMethod]
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErrFn func() error
 	}{
 		{
 			"fail - empty input args",
@@ -31,7 +30,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			func() error {
+				return cmn.NewRevertWithSolidityError(slashing.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0))
+			},
 		},
 		{
 			"fail - invalid validator address",
@@ -43,7 +44,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() {},
 			200000,
 			true,
-			"invalid validator hex address",
+			func() error {
+				return cmn.NewRevertWithSolidityError(slashing.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - msg.sender address does not match the validator address (empty address)",
@@ -55,19 +58,34 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() {},
 			200000,
 			true,
-			"does not match the requester address",
+			func() error {
+				return cmn.NewRevertWithSolidityError(
+					slashing.ABI,
+					cmn.SolidityErrRequesterIsNotMsgSender,
+					s.keyring.GetAddr(0),
+					common.Address{},
+				)
+			},
 		},
 		{
 			"fail - msg.sender address does not match the validator address",
 			func() []interface{} {
+				// any non-caller address is fine; keep deterministic for exact error matching
 				return []interface{}{
-					utiltx.GenerateAddress(),
+					common.HexToAddress("0x0000000000000000000000000000000000000001"),
 				}
 			},
 			func() {},
 			200000,
 			true,
-			"does not match the requester address",
+			func() error {
+				return cmn.NewRevertWithSolidityError(
+					slashing.ABI,
+					cmn.SolidityErrRequesterIsNotMsgSender,
+					s.keyring.GetAddr(0),
+					common.HexToAddress("0x0000000000000000000000000000000000000001"),
+				)
+			},
 		},
 		{
 			"fail - validator not jailed",
@@ -79,7 +97,14 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() {},
 			200000,
 			true,
-			"validator not jailed",
+			func() error {
+				return cmn.NewRevertWithSolidityError(
+					slashing.ABI,
+					cmn.SolidityErrMsgServerFailed,
+					slashing.UnjailMethod,
+					"validator not jailed; cannot be unjailed",
+				)
+			},
 		},
 		{
 			"success - validator unjailed",
@@ -110,7 +135,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -129,7 +154,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			res, err := s.precompile.Unjail(ctx, &method, s.network.GetStateDB(), contract, tc.malleate())
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().Error(err)
+				s.Require().NotNil(tc.wantErrFn)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn())
 			} else {
 				s.Require().NoError(err)
 				s.Require().Equal(cmn.TrueValue, res)

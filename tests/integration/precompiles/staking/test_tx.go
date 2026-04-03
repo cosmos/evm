@@ -51,7 +51,7 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 		callerAddress *common.Address
 		postCheck     func(data []byte)
 		expError      bool
-		errContains   string
+		wantErrFn     func(caller common.Address, createArgs []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -62,7 +62,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 6, 0),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(6), big.NewInt(0))
+			},
 		},
 		{
 			"fail - different origin than delegator",
@@ -81,7 +83,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"does not match the requester address",
+			func(caller common.Address, createArgs []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, createArgs[3])
+			},
 		},
 		{
 			"fail - invalid description",
@@ -99,7 +103,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid description",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, staking.SolidityErrInvalidDescription, "")
+			},
 		},
 		{
 			"fail - invalid commission",
@@ -117,7 +123,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid commission",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, staking.SolidityErrInvalidCommission, "")
+			},
 		},
 		{
 			"fail - invalid min self delegation",
@@ -135,7 +143,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid amount",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, "")
+			},
 		},
 		{
 			"fail - invalid validator address",
@@ -153,7 +163,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid validator address",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "1205")
+			},
 		},
 		{
 			"fail - invalid pubkey",
@@ -171,7 +183,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid type for",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "1205")
+			},
 		},
 		{
 			"fail - pubkey decoding error",
@@ -189,7 +203,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"illegal base64 data",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidPubkey, "illegal base64 data at input byte 7")
+			},
 		},
 		{
 			"fail - consensus pubkey len is invalid",
@@ -207,7 +223,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"consensus pubkey len is invalid",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidPubkeySize, big.NewInt(4), big.NewInt(32))
+			},
 		},
 		{
 			"fail - invalid value",
@@ -225,7 +243,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid amount",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, "")
+			},
 		},
 		{
 			"fail - cannot be called from address != than validator address",
@@ -243,7 +263,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			&diffAddr,
 			func([]byte) {},
 			true,
-			"does not match the requester address",
+			func(caller common.Address, createArgs []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, createArgs[3])
+			},
 		},
 		{
 			"fail - cannot be called from account with code (if it is not EIP-7702 delegated account)",
@@ -262,7 +284,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			staking.ErrCannotCallFromContract,
+			func(caller common.Address, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, staking.SolidityErrCannotCallFromContract, caller, big.NewInt(2), false)
+			},
 		},
 		{
 			"success",
@@ -311,7 +335,7 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 				s.Require().Equal(math.NewIntFromBigInt(minSelfDelegation), validator.MinSelfDelegation, "expected validator min self delegation to be %s; got %s", minSelfDelegation, validator.MinSelfDelegation)
 			},
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -333,10 +357,14 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, caller, s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.CreateValidator(ctx, contract, stDB, &method, tc.malleate())
+			createArgs := tc.malleate()
+			bz, err := s.precompile.CreateValidator(ctx, contract, stDB, &method, createArgs)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				wantErr := tc.wantErrFn(caller, createArgs)
+				s.Require().NotNil(wantErr)
+				testutil.RequireExactError(s.T(), err, wantErr)
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
@@ -398,7 +426,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 		callerAddress *common.Address
 		postCheck     func(data []byte)
 		expError      bool
-		errContains   string
+		wantErrFn     func(caller common.Address, args []interface{}, stDB *statedb.StateDB) error
 	}{
 		{
 			"fail - empty input args",
@@ -409,7 +437,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0))
+			},
 		},
 		{
 			"fail - different origin than delegator",
@@ -426,7 +456,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"does not match the requester address",
+			func(caller common.Address, args []interface{}, _ *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, args[1])
+			},
 		},
 		{
 			"fail - invalid description",
@@ -442,7 +474,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid description",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, staking.SolidityErrInvalidDescription, "")
+			},
 		},
 		{
 			"fail - invalid commission rate",
@@ -458,7 +492,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid type for commissionRate",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, "")
+			},
 		},
 		{
 			"fail - invalid min self delegation",
@@ -474,7 +510,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid type for minSelfDelegation",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, "")
+			},
 		},
 		{
 			"fail - invalid validator address",
@@ -490,7 +528,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"invalid validator address",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "1205")
+			},
 		},
 		{
 			"fail - commission change rate too high",
@@ -506,7 +546,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"commission cannot be changed more than max change rate",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.EditValidatorMethod, "commission cannot be changed more than max change rate")
+			},
 		},
 		{
 			"fail - negative commission rate",
@@ -522,7 +564,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"commission rate must be between 0 and 1 (inclusive)",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.EditValidatorMethod, "commission rate must be between 0 and 1 (inclusive): invalid request")
+			},
 		},
 		{
 			"fail - negative min self delegation",
@@ -538,7 +582,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			"minimum self delegation must be a positive integer",
+			func(common.Address, []interface{}, *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.EditValidatorMethod, "minimum self delegation must be a positive integer: invalid request")
+			},
 		},
 		{
 			"fail - cannot be called from account with code (if it is not EIP-7702 delegated account)",
@@ -557,7 +603,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			}(),
 			func([]byte) {},
 			true,
-			"does not match the requester address",
+			func(caller common.Address, args []interface{}, _ *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, args[1])
+			},
 		},
 		{
 			"fail - cannot be called from smart contract",
@@ -574,7 +622,9 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			nil,
 			func([]byte) {},
 			true,
-			staking.ErrCannotCallFromContract,
+			func(caller common.Address, _ []interface{}, stDB *statedb.StateDB) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, staking.SolidityErrCannotCallFromContract, caller, big.NewInt(2), false)
+			},
 		},
 		{
 			"success",
@@ -610,7 +660,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				s.Require().Equal(minSelfDelegation, editValidatorEvent.MinSelfDelegation)
 			},
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - should not update commission rate",
@@ -646,7 +696,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				s.Require().Equal(validatorAddress, editValidatorEvent.ValidatorAddress)
 			},
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - should not update minimum self delegation",
@@ -682,7 +732,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				s.Require().Equal(validatorAddress, editValidatorEvent.ValidatorAddress)
 			},
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -708,10 +758,14 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, caller, s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.EditValidator(ctx, contract, stDB, &method, tc.malleate())
+			editArgs := tc.malleate()
+			bz, err := s.precompile.EditValidator(ctx, contract, stDB, &method, editArgs)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				wantErr := tc.wantErrFn(caller, editArgs, stDB)
+				s.Require().NotNil(wantErr)
+				testutil.RequireExactError(s.T(), err, wantErr)
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
@@ -759,7 +813,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 		expDelegationShares *big.Int
 		postCheck           func(data []byte)
 		expError            bool
-		errContains         string
+		wantErrFn           func(caller common.Address, delegateArgs []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -770,7 +824,9 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			big.NewInt(0),
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0))
+			},
 		},
 		{
 			name: "fail - different origin than delegator",
@@ -782,9 +838,11 @@ func (s *PrecompileTestSuite) TestDelegate() {
 					big.NewInt(1e18),
 				}
 			},
-			gas:         200000,
-			expError:    true,
-			errContains: "does not match the requester address",
+			gas:      200000,
+			expError: true,
+			wantErrFn: func(caller common.Address, delegateArgs []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, delegateArgs[0])
+			},
 		},
 		{
 			"fail - invalid delegator address",
@@ -799,7 +857,9 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			big.NewInt(1),
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - invalid amount",
@@ -814,7 +874,9 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			big.NewInt(1),
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, nil),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", nil))
+			},
 		},
 		{
 			"fail - delegation failed because of insufficient funds",
@@ -831,7 +893,16 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			big.NewInt(15),
 			func([]byte) {},
 			true,
-			"insufficient funds",
+			func(common.Address, []interface{}) error {
+				ctx := s.network.GetContext()
+				delegator := s.keyring.GetKey(0)
+				bal := s.network.App.GetBankKeeper().GetBalance(ctx, delegator.AccAddr, s.bondDenom)
+				amt, ok := math.NewIntFromString("1000000000000000000000000000")
+				s.Require().True(ok)
+				wantCoin := sdk.NewCoin(s.bondDenom, amt)
+				return cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrMsgServerFailed, staking.DelegateMethod,
+					fmt.Sprintf("failed to delegate; %s is smaller than %s: insufficient funds", bal, wantCoin))
+			},
 		},
 		{
 			"success",
@@ -857,7 +928,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
 			},
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -883,7 +954,8 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			delegation, delErr := s.network.App.GetStakingKeeper().Delegation(ctx, delegator.AccAddr, valAddr)
 			s.Require().NoError(delErr)
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(delegator.Addr, delegateArgs))
 				s.Require().Empty(bz)
 				s.Require().Equal(s.network.GetValidators()[0].DelegatorShares, delegation.GetShares())
 			} else {
@@ -914,7 +986,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 		gas                   uint64
 		expUndelegationShares *big.Int
 		expError              bool
-		errContains           string
+		wantErrFn             func(caller common.Address, undelegateArgs []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -925,7 +997,9 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			200000,
 			big.NewInt(0),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0))
+			},
 		},
 		{
 			name: "fail - different origin than delegator",
@@ -937,9 +1011,11 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 					big.NewInt(1000000000000000000),
 				}
 			},
-			gas:         200000,
-			expError:    true,
-			errContains: "does not match the requester address",
+			gas:      200000,
+			expError: true,
+			wantErrFn: func(caller common.Address, undelegateArgs []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, undelegateArgs[0])
+			},
 		},
 		{
 			"fail - invalid delegator address",
@@ -954,7 +1030,9 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			200000,
 			big.NewInt(1),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - invalid amount",
@@ -969,7 +1047,9 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			200000,
 			big.NewInt(1),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, nil),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", nil))
+			},
 		},
 		{
 			"success",
@@ -997,7 +1077,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			20000,
 			big.NewInt(1000000000000000000),
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -1019,7 +1099,8 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			undelegations, _ := s.network.App.GetStakingKeeper().GetAllUnbondingDelegations(ctx, delegator.AccAddr)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(delegator.Addr, undelegateArgs))
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
@@ -1045,7 +1126,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 		gas                   uint64
 		expRedelegationShares *big.Int
 		expError              bool
-		errContains           string
+		wantErrFn             func(caller common.Address, redelegateArgs []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -1056,7 +1137,9 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			200000,
 			big.NewInt(0),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0))
+			},
 		},
 		{
 			name: "fail - different origin than delegator",
@@ -1069,9 +1152,11 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 					big.NewInt(1000000000000000000),
 				}
 			},
-			gas:         200000,
-			expError:    true,
-			errContains: "does not match the requester address",
+			gas:      200000,
+			expError: true,
+			wantErrFn: func(caller common.Address, redelegateArgs []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrRequesterIsNotMsgSender, caller, redelegateArgs[0])
+			},
 		},
 		{
 			"fail - invalid delegator address",
@@ -1087,7 +1172,9 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			200000,
 			big.NewInt(1),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - invalid amount",
@@ -1103,7 +1190,9 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			200000,
 			big.NewInt(1),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, nil),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", nil))
+			},
 		},
 		{
 			"fail - invalid shares amount",
@@ -1119,7 +1208,9 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			200000,
 			big.NewInt(1),
 			true,
-			"invalid shares amount",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.RedelegateMethod, "invalid shares amount: invalid request")
+			},
 		},
 		{
 			"success",
@@ -1145,7 +1236,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			200000,
 			big.NewInt(1),
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -1169,7 +1260,8 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			s.Require().NoError(redelErr)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(delegator.Addr, redelegateArgs))
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
@@ -1196,7 +1288,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		gas                uint64
 		expDelegatedShares *big.Int
 		expError           bool
-		errContains        string
+		wantErrFn          func(caller common.Address, cancelArgs []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -1207,7 +1299,9 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			200000,
 			big.NewInt(0),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0))
+			},
 		},
 		{
 			"fail - invalid delegator address",
@@ -1223,7 +1317,9 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			200000,
 			big.NewInt(1),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - creation height",
@@ -1239,7 +1335,9 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			200000,
 			big.NewInt(1),
 			true,
-			"invalid creation height",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidHeight, fmt.Sprintf("%v", nil))
+			},
 		},
 		{
 			"fail - invalid amount",
@@ -1255,26 +1353,12 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			200000,
 			big.NewInt(1),
 			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, nil),
-		},
-		{
-			"fail - invalid amount",
-			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
-				return []interface{}{
-					delegator.Addr,
-					operatorAddress,
-					nil,
-					big.NewInt(1),
-				}
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", nil))
 			},
-			func([]byte) {},
-			200000,
-			big.NewInt(1),
-			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, nil),
 		},
 		{
-			"fail - invalid shares amount",
+			"fail - negative cancel amount",
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
@@ -1287,7 +1371,9 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			200000,
 			big.NewInt(1),
 			true,
-			"invalid amount: invalid request",
+			func(common.Address, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.CancelUnbondingDelegationMethod, "invalid amount: invalid request")
+			},
 		},
 		{
 			"success",
@@ -1307,7 +1393,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			200000,
 			big.NewInt(1),
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -1324,7 +1410,8 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 
 			if tc.expError {
 				bz, err := s.precompile.CancelUnbondingDelegation(ctx, contract, stDB, &method, cancelArgs)
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(delegator.Addr, cancelArgs))
 				s.Require().Empty(bz)
 			} else {
 				undelegateArgs := []interface{}{

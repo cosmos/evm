@@ -2,6 +2,7 @@ package slashing
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,22 +30,22 @@ func (p Precompile) Unjail(
 	args []interface{},
 ) ([]byte, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	validatorAddress, ok := args[0].(common.Address)
 	if !ok {
-		return nil, fmt.Errorf("invalid validator hex address")
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	msgSender := contract.Caller()
 	if msgSender != validatorAddress {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorAddress.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, validatorAddress)
 	}
 
 	valAddr, err := p.valCodec.BytesToString(validatorAddress.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert validator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAddress, err.Error())
 	}
 
 	msg := &types.MsgUnjail{
@@ -52,11 +53,11 @@ func (p Precompile) Unjail(
 	}
 
 	if _, err := p.slashingMsgServer.Unjail(ctx, msg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UnjailMethod, err.Error())
 	}
 
 	if err := p.EmitValidatorUnjailedEvent(ctx, stateDB, validatorAddress); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, UnjailMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)

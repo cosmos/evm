@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.18;
 
+import "../common/Types.sol";
+
 /// @dev The IBank contract's address.
 address constant IBANK_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000804;
 
@@ -20,7 +22,7 @@ struct Balance {
  * @title Bank Interface
  * @dev Interface for querying balances and supply from the Bank module.
  */
-interface IBank {
+interface IBank is IPrecompile {
     /// @dev balances defines a method for retrieving all the native token balances
     /// for a given account.
     /// @param account the address of the account to query balances for.

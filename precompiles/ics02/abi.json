@@ -1,142 +1,348 @@
 [
   {
-    "type": "function",
-    "name": "getClientState",
     "inputs": [
       {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "stateMutability": "view"
+    "name": "ABISetupFailed",
+    "type": "error"
   },
   {
-    "type": "function",
-    "name": "updateClient",
     "inputs": [
       {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
+        "internalType": "string",
+        "name": "eventKind",
+        "type": "string"
       },
       {
-        "name": "updateMsg",
-        "type": "bytes",
-        "internalType": "bytes"
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum ICS02I.UpdateResult"
-      }
-    ],
-    "stateMutability": "nonpayable"
+    "name": "EventEmitFailed",
+    "type": "error"
   },
   {
-    "type": "function",
-    "name": "verifyMembership",
     "inputs": [
       {
+        "internalType": "string",
+        "name": "bad",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "amount",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
         "name": "clientId",
-        "type": "string",
-        "internalType": "string"
+        "type": "string"
+      }
+    ],
+    "name": "InvalidClientID",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "height",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidHeight",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "expected",
+        "type": "uint256"
       },
       {
-        "name": "proof",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
+        "internalType": "uint256",
+        "name": "got",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidNumberOfArgs",
+    "type": "error"
+  },
+  {
+    "inputs": [
       {
-        "name": "proofHeight",
-        "type": "tuple",
-        "internalType": "struct Height",
-        "components": [
-          {
-            "name": "revisionNumber",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "revisionHeight",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      },
-      {
+        "internalType": "bytes[]",
         "name": "path",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
+        "type": "bytes[]"
+      }
+    ],
+    "name": "InvalidPath",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      }
+    ],
+    "name": "InvalidProof",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "pubkey",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidPubkey",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "got",
+        "type": "uint256"
       },
       {
+        "internalType": "uint256",
+        "name": "expected",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidPubkeySize",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
         "name": "value",
-        "type": "bytes",
-        "internalType": "bytes"
+        "type": "bytes"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
+    "name": "InvalidValue",
+    "type": "error"
   },
   {
-    "type": "function",
-    "name": "verifyNonMembership",
     "inputs": [
       {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
+        "internalType": "string",
+        "name": "msgMethod",
+        "type": "string"
       },
       {
-        "name": "proof",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "proofHeight",
-        "type": "tuple",
-        "internalType": "struct Height",
-        "components": [
-          {
-            "name": "revisionNumber",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "revisionHeight",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      },
-      {
-        "name": "path",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
       }
     ],
+    "name": "MsgServerFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "queryMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "QueryFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "msgSender",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      }
+    ],
+    "name": "RequesterIsNotMsgSender",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "methodName",
+        "type": "string"
+      }
+    ],
+    "name": "UnknownMethod",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      }
+    ],
+    "name": "getClientState",
     "outputs": [
       {
+        "internalType": "bytes",
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bytes"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "updateMsg",
+        "type": "bytes"
+      }
+    ],
+    "name": "updateClient",
+    "outputs": [
+      {
+        "internalType": "enum ICS02I.UpdateResult",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "revisionNumber",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "revisionHeight",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct Height",
+        "name": "proofHeight",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "path",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes",
+        "name": "value",
+        "type": "bytes"
+      }
+    ],
+    "name": "verifyMembership",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "clientId",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "revisionNumber",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "revisionHeight",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct Height",
+        "name": "proofHeight",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "path",
+        "type": "bytes[]"
+      }
+    ],
+    "name": "verifyNonMembership",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ]

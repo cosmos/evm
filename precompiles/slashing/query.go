@@ -4,6 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
@@ -34,12 +36,12 @@ func (p *Precompile) GetSigningInfo(
 
 	res, err := p.slashingKeeper.SigningInfo(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetSigningInfoMethod, err.Error())
 	}
 
 	out, err := new(SigningInfoOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetSigningInfoMethod, err.Error())
 	}
 	return method.Outputs.Pack(out.SigningInfo)
 }
@@ -58,12 +60,12 @@ func (p *Precompile) GetSigningInfos(
 
 	res, err := p.slashingKeeper.SigningInfos(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetSigningInfosMethod, err.Error())
 	}
 
 	out, err := new(SigningInfosOutput).FromResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetSigningInfosMethod, err.Error())
 	}
 	return method.Outputs.Pack(out.SigningInfos, out.PageResponse)
 }
@@ -77,7 +79,7 @@ func (p *Precompile) GetParams(
 ) ([]byte, error) {
 	res, err := p.slashingKeeper.Params(ctx, &types.QueryParamsRequest{})
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetParamsMethod, err.Error())
 	}
 
 	out := new(ParamsOutput).FromResponse(res)

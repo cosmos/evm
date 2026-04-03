@@ -21,4 +21,13 @@ const (
 	ErrDifferentOriginFromSender = "origin address %s is not the same as sender address %s"
 	// ErrDenomNotFound is raised when the denom for the specified request does not exist.
 	ErrDenomNotFound = "denomination not found"
+
+	// Solidity custom error names defined in ICS20I.sol.
+	SolidityErrInvalidSourcePort       = "InvalidSourcePort"
+	SolidityErrInvalidSourceChannel    = "InvalidSourceChannel"
+	SolidityErrInvalidReceiver         = "InvalidReceiver"
+	SolidityErrInvalidTimeoutTimestamp = "InvalidTimeoutTimestamp"
+	SolidityErrInvalidMemo             = "InvalidMemo"
+	SolidityErrInvalidHash             = "InvalidHash"
+	SolidityErrInvalidTrace            = "InvalidTrace"
 )

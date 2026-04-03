@@ -1,7 +1,7 @@
 package slashing
 
 import (
-	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +9,7 @@ import (
 
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/testutil"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -23,7 +24,7 @@ func TestParseSigningInfoArgs(t *testing.T) {
 		name            string
 		args            []any
 		wantErr         bool
-		errMsg          string
+		wantErrObj      error
 		wantConsAddress string
 	}{
 		{
@@ -33,40 +34,40 @@ func TestParseSigningInfoArgs(t *testing.T) {
 			wantConsAddress: expectedConsAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []any{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			name:       "no arguments",
+			args:       []any{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []any{validAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 2),
+			name:       "too many arguments",
+			args:       []any{validAddr, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(2)),
 		},
 		{
-			name:    "invalid type - string instead of address",
-			args:    []any{"not-an-address"},
-			wantErr: true,
-			errMsg:  "invalid consensus address",
+			name:       "invalid type - string instead of address",
+			args:       []any{"not-an-address"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "invalid type - nil",
-			args:    []any{nil},
-			wantErr: true,
-			errMsg:  "invalid consensus address",
+			name:       "invalid type - nil",
+			args:       []any{nil},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "<nil>"),
 		},
 		{
-			name:    "empty address",
-			args:    []any{common.Address{}},
-			wantErr: true,
-			errMsg:  "invalid consensus address",
+			name:       "empty address",
+			args:       []any{common.Address{}},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid type - integer",
-			args:    []any{12345},
-			wantErr: true,
-			errMsg:  "invalid consensus address",
+			name:       "invalid type - integer",
+			args:       []any{12345},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "12345"),
 		},
 	}
 
@@ -75,8 +76,7 @@ func TestParseSigningInfoArgs(t *testing.T) {
 			got, err := ParseSigningInfoArgs(tt.args, consCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, got)
 			} else {
 				require.NoError(t, err)
