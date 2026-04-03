@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/contracts"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
@@ -396,7 +397,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// Transfer tokens
 					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferAmount)
 
-					revertReasonCheck := revertReasonExactCheck(execRevertedCheck, erc20.ErrTransferAmountExceedsBalance.Error())
+					contractAddr := contractsData.GetContractData(callType).Address
+
+					var revertReasonCheck testutil.LogCheckArgs
+					switch callType {
+					case erc20V5CallerCall:
+						// Caller uses OpenZeppelin ERC20, which reverts with Error(string), not IERC20Errors.
+						revertReasonCheck = failCheck.WithErrContains("ERC20: transfer amount exceeds balance")
+					default:
+						revertReasonCheck = failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+							is.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, contractAddr, common.Big0, transferAmount,
+						))
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, revertReasonCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -420,7 +432,9 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// Transfer tokens
 					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferAmt)
 
-					insufficientBalanceCheck := revertReasonExactCheck(failCheck, erc20.ErrTransferAmountExceedsBalance.Error())
+					insufficientBalanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+						is.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, sender.Addr, senderInitialAmt.BigInt(), transferAmt,
+					))
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, insufficientBalanceCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -706,10 +720,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							owner.Addr, receiver, transferAmount,
 						)
 
-						transferCheck := passCheck.WithExpEvents(
-							erc20.EventTypeTransfer,
-							erc20.EventTypeApproval,
-						)
+						var transferCheck testutil.LogCheckArgs
+						switch callType {
+						case erc20Call:
+							// ERC20MinterBurnerDecimals (OZ in this build) does not emit Approval on transferFrom spend.
+							transferCheck = passCheck.WithExpEvents(erc20.EventTypeTransfer)
+						default:
+							transferCheck = passCheck.WithExpEvents(erc20.EventTypeTransfer, erc20.EventTypeApproval)
+						}
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(spender.Priv, txArgs, transferArgs, transferCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -760,7 +778,10 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 								owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 							)
 
-							insufficientAllowanceCheck := revertReasonExactCheck(failCheck, erc20.ErrInsufficientAllowance.Error())
+							insufficientAllowanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+								is.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance,
+								owner.Addr, common.Big0, transferCoins[0].Amount.BigInt(),
+							))
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(spender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -810,10 +831,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 								owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 							)
 
-							transferCheck := passCheck.WithExpEvents(
-								erc20.EventTypeTransfer,
-								erc20.EventTypeApproval,
-							)
+							var transferCheck testutil.LogCheckArgs
+							if callType == erc20Call {
+								transferCheck = passCheck.WithExpEvents(erc20.EventTypeTransfer)
+							} else {
+								transferCheck = passCheck.WithExpEvents(erc20.EventTypeTransfer, erc20.EventTypeApproval)
+							}
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, transferArgs, transferCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -867,7 +890,10 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							owner.Addr, receiver, transferAmount,
 						)
 
-						insufficientAllowanceCheck := revertReasonExactCheck(failCheck, erc20.ErrInsufficientAllowance.Error())
+						insufficientAllowanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+							is.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance,
+							spender.Addr, approveAmount, transferAmount,
+						))
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(spender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -899,7 +925,10 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							from.Addr, receiver, transferAmount,
 						)
 
-						insufficientAllowanceCheck := revertReasonExactCheck(failCheck, erc20.ErrInsufficientAllowance.Error())
+						insufficientAllowanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+							is.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance,
+							sender.Addr, common.Big0, transferAmount,
+						))
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -937,7 +966,9 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						// Transfer tokens
 						txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferFromMethod, from.Addr, receiver, transferAmt)
 
-						insufficientBalanceCheck := revertReasonExactCheck(failCheck, erc20.ErrTransferAmountExceedsBalance.Error())
+						insufficientBalanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+							is.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, from.Addr, senderInitialAmt.BigInt(), transferAmt,
+						))
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, insufficientBalanceCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1103,7 +1134,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							from.Addr, receiver, transferAmount,
 						)
 
-						revertReasonCheck := revertReasonExactCheck(execRevertedCheck, erc20.ErrInsufficientAllowance.Error())
+						spenderPrecompileAddr := contractsData.GetContractData(callType).Address
+
+						var revertReasonCheck testutil.LogCheckArgs
+						switch callType {
+						case erc20V5CallerCall:
+							revertReasonCheck = failCheck.WithErrContains("ERC20: insufficient allowance")
+						default:
+							revertReasonCheck = failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+								is.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance,
+								spenderPrecompileAddr, approveAmount, transferAmount,
+							))
+						}
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(from.Priv, txArgs, transferArgs, revertReasonCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
