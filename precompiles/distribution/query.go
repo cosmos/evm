@@ -53,7 +53,7 @@ func (p Precompile) ValidatorDistributionInfo(
 
 	res, err := p.distributionQuerier.ValidatorDistributionInfo(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ValidatorDistributionInfoMethod, err.Error())
 	}
 
 	out := new(ValidatorDistributionInfoOutput).FromResponse(res)
@@ -75,7 +75,7 @@ func (p Precompile) ValidatorOutstandingRewards(
 
 	res, err := p.distributionQuerier.ValidatorOutstandingRewards(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ValidatorOutstandingRewardsMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(cmn.NewDecCoinsResponse(res.Rewards.Rewards))
@@ -95,7 +95,7 @@ func (p Precompile) ValidatorCommission(
 
 	res, err := p.distributionQuerier.ValidatorCommission(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ValidatorCommissionMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(cmn.NewDecCoinsResponse(res.Commission.Commission))
@@ -115,7 +115,7 @@ func (p Precompile) ValidatorSlashes(
 
 	res, err := p.distributionQuerier.ValidatorSlashes(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ValidatorSlashesMethod, err.Error())
 	}
 
 	out := new(ValidatorSlashesOutput).FromResponse(res)
@@ -137,7 +137,7 @@ func (p Precompile) DelegationRewards(
 
 	res, err := p.distributionQuerier.DelegationRewards(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DelegationRewardsMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(cmn.NewDecCoinsResponse(res.Rewards))
@@ -157,7 +157,7 @@ func (p Precompile) DelegationTotalRewards(
 
 	res, err := p.distributionQuerier.DelegationTotalRewards(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DelegationTotalRewardsMethod, err.Error())
 	}
 
 	out := new(DelegationTotalRewardsOutput).FromResponse(res)
@@ -179,7 +179,7 @@ func (p Precompile) DelegatorValidators(
 
 	res, err := p.distributionQuerier.DelegatorValidators(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DelegatorValidatorsMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.Validators)
@@ -199,7 +199,7 @@ func (p Precompile) DelegatorWithdrawAddress(
 
 	res, err := p.distributionQuerier.DelegatorWithdrawAddress(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, DelegatorWithdrawAddressMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(res.WithdrawAddress)
@@ -219,7 +219,7 @@ func (p Precompile) CommunityPool(
 
 	res, err := p.distributionQuerier.CommunityPool(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, CommunityPoolMethod, err.Error())
 	}
 
 	out := new(CommunityPoolOutput).FromResponse(res)

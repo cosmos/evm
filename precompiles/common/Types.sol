@@ -62,3 +62,18 @@ struct Height {
     // the height within the given revision
     uint64 revisionHeight;
 }
+
+interface IPrecompile {
+    error RequesterIsNotMsgSender(address msgSender, address requester);
+    error InvalidAddress(string bad);
+    error InvalidAmount(string amount);
+    error InvalidHeight(string height);
+    error InvalidPubkey(string pubkey);
+    error InvalidPubkeySize(uint256 got, uint256 expected);
+    error ABISetupFailed(string reason);
+    error InvalidNumberOfArgs(uint256 expected, uint256 got);
+    error UnknownMethod(string methodName);
+    error QueryFailed(string queryMethod, string reason);
+    error MsgServerFailed(string msgMethod, string reason);
+    error EventEmitFailed(string eventKind, string reason);
+}

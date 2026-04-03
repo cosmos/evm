@@ -33,4 +33,29 @@ const (
 	ErrInvalidDescription = "invalid description: %v"
 	// ErrInvalidCommission is raised when the input commission cannot be cast to stakingtypes.CommissionRates{}.
 	ErrInvalidCommission = "invalid commission: %v"
+
+	// SolidityErrInvalidNumberOfArgs is invalid number of arguments
+	SolidityErrInvalidNumberOfArgs = "InvalidNumberOfArgs"
+	// SolidityErrInvalidAddress is invalid address
+	SolidityErrInvalidAddress = "InvalidAddress"
+	// SolidityErrInvalidAmount is invalid amount
+	SolidityErrInvalidAmount = "InvalidAmount"
+	// SolidityErrRequesterIsNotMsgSender is requester is not msg sender
+	SolidityErrRequesterIsNotMsgSender = "RequesterIsNotMsgSender"
+	// SolidityErrInvalidHeight is invalid height
+	SolidityErrInvalidHeight = "InvalidHeight"
+	// SolidityErrInvalidPubkey is invalid pubkey
+	SolidityErrInvalidPubkey = "InvalidPubkey"
+	// SolidityErrInvalidPubkeySize is invalid pubkey size
+	SolidityErrInvalidPubkeySize = "InvalidPubkeySize"
+	// SolidityErrABISetupFailed is abi setup failed
+	SolidityErrABISetupFailed = "ABISetupFailed"
+	// SolidityErrUnknownMethod is unknown method
+	SolidityErrUnknownMethod = "UnknownMethod"
+	// SolidityErrQueryFailed is query failed
+	SolidityErrQueryFailed = "QueryFailed"
+	// SolidityErrMsgServerFailed is msg server failed
+	SolidityErrMsgServerFailed = "MsgServerFailed"
+	// SolidityErrEventEmitFailed is event emit failed
+	SolidityErrEventEmitFailed = "EventEmitFailed"
 )

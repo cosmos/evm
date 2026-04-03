@@ -1,8 +1,6 @@
 package distribution
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -28,6 +26,12 @@ const (
 	// DepositValidatorRewardsPoolMethod defines the ABI method name for the distribution
 	// DepositValidatorRewardsPool transaction
 	DepositValidatorRewardsPoolMethod = "depositValidatorRewardsPool"
+	// ClaimRewardsMaxValidatorsQueryMethod is the method label for MaxValidators keeper query.
+	ClaimRewardsMaxValidatorsQueryMethod = "MaxValidators"
+	// ClaimRewardsGetDelegatorValidatorsQueryMethod is the method label for GetDelegatorValidators query.
+	ClaimRewardsGetDelegatorValidatorsQueryMethod = "GetDelegatorValidators"
+	// ClaimRewardsWithdrawDelegationRewardsMsgMethod is the method label for WithdrawDelegationRewards call.
+	ClaimRewardsWithdrawDelegationRewardsMsgMethod = "WithdrawDelegationRewards"
 )
 
 // ClaimRewards claims the rewards accumulated by a delegator from multiple or all validators.
@@ -45,40 +49,40 @@ func (p *Precompile) ClaimRewards(
 
 	maxVals, err := p.stakingKeeper.MaxValidators(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ClaimRewardsMaxValidatorsQueryMethod, err.Error())
 	}
 	if maxRetrieve > maxVals {
-		return nil, fmt.Errorf("maxRetrieve (%d) parameter exceeds the maximum number of validators (%d)", maxRetrieve, maxVals)
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrClaimRewardsMaxRetrieveExceeded, maxRetrieve, maxVals)
 	}
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorAddr)
 	}
 
 	res, err := p.stakingKeeper.GetDelegatorValidators(ctx, delegatorAddr.Bytes(), maxRetrieve)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ClaimRewardsGetDelegatorValidatorsQueryMethod, err.Error())
 	}
 	totalCoins := sdk.Coins{}
 	for _, validator := range res.Validators {
 		// Convert the validator operator address into an ValAddress
 		valAddr, err := sdk.ValAddressFromBech32(validator.OperatorAddress)
 		if err != nil {
-			return nil, err
+			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAddress, validator.OperatorAddress)
 		}
 
 		// Withdraw the rewards for each validator address
 		coins, err := p.distributionKeeper.WithdrawDelegationRewards(ctx, delegatorAddr.Bytes(), valAddr)
 		if err != nil {
-			return nil, err
+			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, ClaimRewardsWithdrawDelegationRewardsMsgMethod, err.Error())
 		}
 
 		totalCoins = totalCoins.Add(coins...)
 	}
 
 	if err := p.EmitClaimRewardsEvent(ctx, stateDB, delegatorAddr, totalCoins); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, ClaimRewardsMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
@@ -99,15 +103,15 @@ func (p Precompile) SetWithdrawAddress(
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorHexAddr)
 	}
 
 	if _, err = p.distributionMsgServer.SetWithdrawAddress(ctx, msg); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, SetWithdrawAddressMethod, err.Error())
 	}
 
 	if err = p.EmitSetWithdrawAddressEvent(ctx, stateDB, delegatorHexAddr, msg.WithdrawAddress); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, SetWithdrawAddressMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
@@ -128,16 +132,16 @@ func (p *Precompile) WithdrawDelegatorReward(
 
 	msgSender := contract.Caller()
 	if msgSender != delegatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, delegatorHexAddr)
 	}
 
 	res, err := p.distributionMsgServer.WithdrawDelegatorReward(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, WithdrawDelegatorRewardMethod, err.Error())
 	}
 
 	if err = p.EmitWithdrawDelegatorRewardEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, WithdrawDelegatorRewardMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(cmn.NewCoinsResponse(res.Amount))
@@ -158,16 +162,16 @@ func (p *Precompile) WithdrawValidatorCommission(
 
 	msgSender := contract.Caller()
 	if msgSender != validatorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, validatorHexAddr)
 	}
 
 	res, err := p.distributionMsgServer.WithdrawValidatorCommission(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, WithdrawValidatorCommissionMethod, err.Error())
 	}
 
 	if err = p.EmitWithdrawValidatorCommissionEvent(ctx, stateDB, msg.ValidatorAddress, res.Amount); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, WithdrawValidatorCommissionMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(cmn.NewCoinsResponse(res.Amount))
@@ -188,16 +192,16 @@ func (p *Precompile) FundCommunityPool(
 
 	msgSender := contract.Caller()
 	if msgSender != depositorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), depositorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, depositorHexAddr)
 	}
 
 	_, err = p.distributionMsgServer.FundCommunityPool(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, FundCommunityPoolMethod, err.Error())
 	}
 
 	if err = p.EmitFundCommunityPoolEvent(ctx, stateDB, depositorHexAddr, msg.Amount); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, FundCommunityPoolMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)
@@ -219,16 +223,16 @@ func (p *Precompile) DepositValidatorRewardsPool(
 
 	msgSender := contract.Caller()
 	if msgSender != depositorHexAddr {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), depositorHexAddr.String())
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrRequesterIsNotMsgSender, msgSender, depositorHexAddr)
 	}
 
 	_, err = p.distributionMsgServer.DepositValidatorRewardsPool(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, DepositValidatorRewardsPoolMethod, err.Error())
 	}
 
 	if err = p.EmitDepositValidatorRewardsPoolEvent(ctx, stateDB, depositorHexAddr, msg.ValidatorAddress, msg.Amount); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, DepositValidatorRewardsPoolMethod, err.Error())
 	}
 
 	return method.Outputs.Pack(true)

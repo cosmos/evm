@@ -46,7 +46,7 @@ struct Params {
 /// We follow this same interface including four-byte function selectors, in the precompile that
 /// wraps the pallet.
 /// @custom:address 0x0000000000000000000000000000000000000806
-interface ISlashing {
+interface ISlashing is IPrecompile {
     /// @dev Emitted when a validator is unjailed
     /// @param validator The address of the validator
     event ValidatorUnjailed(address indexed validator);

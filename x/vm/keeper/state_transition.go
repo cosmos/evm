@@ -293,7 +293,12 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
 		if err != nil {
 			// If hooks returns an error, revert the whole tx.
-			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
+			if rdp, ok := err.(types.RevertError); ok {
+				res.VmError = vm.ErrExecutionReverted.Error()
+				res.Ret = rdp.RevertData()
+			} else {
+				res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
+			}
 			k.Logger(ctx).Error("tx post processing failed", "error", err)
 			// If the tx failed in post processing hooks, we should clear all log-related data
 			// to match EVM behavior where transaction reverts clear all effects including logs

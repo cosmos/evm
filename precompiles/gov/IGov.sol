@@ -93,7 +93,26 @@ struct Params {
 /// @author The Evmos Core Team
 /// @title Gov Precompile Contract
 /// @dev The interface through which solidity contracts will interact with Gov
-interface IGov {
+interface IGov is IPrecompile {
+    /// @notice Argument or payload validation that does not map to a common IPrecompile error.
+    error GovInputInvalid(string callMethod, string reason);
+    /// @notice Invalid JSON proposal payload (protoJSON envelope).
+    error InvalidProposalJSON(string callMethod, string reason);
+    /// @notice Invalid Vote option argument.
+    error InvalidOption(string callMethod, string reason);
+    /// @notice Invalid metadata argument.
+    error InvalidMetadata(string callMethod, string reason);
+    /// @notice Failed to unpack votes query input.
+    error VotesInputUnpackFailed(string reason);
+    /// @notice Failed to unpack deposits query input.
+    error DepositsInputUnpackFailed(string reason);
+    /// @notice Failed to unpack proposals query input.
+    error ProposalsInputUnpackFailed(string reason);
+    /// @notice Failed to unpack voteWeighted options input.
+    error WeightedVoteOptionsUnpackFailed(string reason);
+    /// @notice Invalid proposal ID argument.
+    error InvalidProposalID(string reason);
+
     /// @dev SubmitProposal defines an Event emitted when a proposal is submitted.
     /// @param proposer the address of the proposer
     /// @param proposalId the proposal of id

@@ -2,7 +2,6 @@ package distribution
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -109,7 +108,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrABISetupFailed, err.Error())
 	}
 
 	var bz []byte
@@ -149,7 +148,7 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	case CommunityPoolMethod:
 		bz, err = p.CommunityPool(ctx, contract, method, args)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, method.Name)
 	}
 
 	return bz, err

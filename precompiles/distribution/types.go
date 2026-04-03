@@ -61,17 +61,17 @@ type EventDepositValidatorRewardsPool struct {
 // parseClaimRewardsArgs parses the arguments for the ClaimRewards method.
 func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
 	if len(args) != 2 {
-		return common.Address{}, 0, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return common.Address{}, 0, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return common.Address{}, 0, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return common.Address{}, 0, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	maxRetrieve, ok := args[1].(uint32)
 	if !ok {
-		return common.Address{}, 0, fmt.Errorf(cmn.ErrInvalidType, "maxRetrieve", uint32(0), args[1])
+		return common.Address{}, 0, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	return delegatorAddress, maxRetrieve, nil
@@ -80,12 +80,12 @@ func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
 // NewMsgSetWithdrawAddress creates a new MsgSetWithdrawAddress instance.
 func NewMsgSetWithdrawAddress(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgSetWithdrawAddress, common.Address, error) {
 	if len(args) != 2 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	withdrawerAddress, _ := args[1].(string)
@@ -95,13 +95,13 @@ func NewMsgSetWithdrawAddress(args []interface{}, addrCdc address.Codec) (*distr
 		var err error
 		withdrawerAddress, err = sdk.Bech32ifyAddressBytes(sdk.GetConfig().GetBech32AccountAddrPrefix(), common.HexToAddress(withdrawerAddress).Bytes())
 		if err != nil {
-			return nil, common.Address{}, err
+			return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 		}
 	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &distributiontypes.MsgSetWithdrawAddress{
 		DelegatorAddress: delAddr,
@@ -114,19 +114,22 @@ func NewMsgSetWithdrawAddress(args []interface{}, addrCdc address.Codec) (*distr
 // NewMsgWithdrawDelegatorReward creates a new MsgWithdrawDelegatorReward instance.
 func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgWithdrawDelegatorReward, common.Address, error) {
 	if len(args) != 2 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorAddress, _ := args[1].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
+	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &distributiontypes.MsgWithdrawDelegatorReward{
 		DelegatorAddress: delAddr,
@@ -139,7 +142,7 @@ func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*
 // NewMsgWithdrawValidatorCommission creates a new MsgWithdrawValidatorCommission message.
 func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.MsgWithdrawValidatorCommission, common.Address, error) {
 	if len(args) != 1 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	validatorAddress, _ := args[0].(string)
@@ -150,7 +153,7 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 
 	validatorHexAddr, err := utils.HexAddressFromBech32String(msg.ValidatorAddress)
 	if err != nil {
-		return nil, common.Address{}, err
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 
 	return msg, validatorHexAddr, nil
@@ -160,27 +163,27 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 func NewMsgFundCommunityPool(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
 	emptyAddr := common.Address{}
 	if len(args) != 2 {
-		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, emptyAddr, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	depositorAddress, ok := args[0].(common.Address)
 	if !ok || depositorAddress == emptyAddr {
-		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
+		return nil, emptyAddr, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	coins, err := cmn.ToCoins(args[1])
 	if err != nil {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+		return nil, emptyAddr, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[1]))
 	}
 
 	amt, err := cmn.NewSdkCoinsFromCoins(coins)
 	if err != nil {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+		return nil, emptyAddr, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", err))
 	}
 
 	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	msg := &distributiontypes.MsgFundCommunityPool{
 		Depositor: depAddr,
@@ -193,29 +196,32 @@ func NewMsgFundCommunityPool(args []interface{}, addrCdc address.Codec) (*distri
 // NewMsgDepositValidatorRewardsPool creates a new MsgDepositValidatorRewardsPool message.
 func NewMsgDepositValidatorRewardsPool(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgDepositValidatorRewardsPool, common.Address, error) {
 	if len(args) != 3 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(int64(len(args))))
 	}
 
 	depositorAddress, ok := args[0].(common.Address)
 	if !ok || depositorAddress == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorAddress, _ := args[1].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
+	}
 
 	coins, err := cmn.ToCoins(args[2])
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	amount, err := cmn.NewSdkCoinsFromCoins(coins)
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, err.Error())
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", err))
 	}
 
 	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
 	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 
 	msg := &distributiontypes.MsgDepositValidatorRewardsPool{
@@ -231,10 +237,13 @@ func NewMsgDepositValidatorRewardsPool(args []interface{}, addrCdc address.Codec
 // checks on the provided arguments.
 func NewValidatorDistributionInfoRequest(args []interface{}) (*distributiontypes.QueryValidatorDistributionInfoRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	validatorAddress, _ := args[0].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
+	}
 
 	return &distributiontypes.QueryValidatorDistributionInfoRequest{
 		ValidatorAddress: validatorAddress,
@@ -245,10 +254,13 @@ func NewValidatorDistributionInfoRequest(args []interface{}) (*distributiontypes
 // checks on the provided arguments.
 func NewValidatorOutstandingRewardsRequest(args []interface{}) (*distributiontypes.QueryValidatorOutstandingRewardsRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	validatorAddress, _ := args[0].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
+	}
 
 	return &distributiontypes.QueryValidatorOutstandingRewardsRequest{
 		ValidatorAddress: validatorAddress,
@@ -259,10 +271,13 @@ func NewValidatorOutstandingRewardsRequest(args []interface{}) (*distributiontyp
 // checks on the provided arguments.
 func NewValidatorCommissionRequest(args []interface{}) (*distributiontypes.QueryValidatorCommissionRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	validatorAddress, _ := args[0].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
+	}
 
 	return &distributiontypes.QueryValidatorCommissionRequest{
 		ValidatorAddress: validatorAddress,
@@ -273,19 +288,19 @@ func NewValidatorCommissionRequest(args []interface{}) (*distributiontypes.Query
 // checks on the provided arguments.
 func NewValidatorSlashesRequest(method *abi.Method, args []interface{}) (*distributiontypes.QueryValidatorSlashesRequest, error) {
 	if len(args) != 4 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(int64(len(args))))
 	}
 
 	if _, ok := args[1].(uint64); !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "startingHeight", uint64(0), args[1])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, fmt.Sprintf("%v", args[1]))
 	}
 	if _, ok := args[2].(uint64); !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "endingHeight", uint64(0), args[2])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, fmt.Sprintf("%v", args[2]))
 	}
 
 	var input ValidatorSlashesInput
 	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to ValidatorSlashesInput struct: %s", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrDistributionValidatorSlashesUnpackFailed, err.Error())
 	}
 
 	return &distributiontypes.QueryValidatorSlashesRequest{
@@ -300,19 +315,22 @@ func NewValidatorSlashesRequest(method *abi.Method, args []interface{}) (*distri
 // checks on the provided arguments.
 func NewDelegationRewardsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegationRewardsRequest, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	validatorAddress, _ := args[1].(string)
+	if _, err := sdk.ValAddressFromBech32(validatorAddress); err != nil {
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
+	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	return &distributiontypes.QueryDelegationRewardsRequest{
 		DelegatorAddress: delAddr,
@@ -324,17 +342,17 @@ func NewDelegationRewardsRequest(args []interface{}, addrCdc address.Codec) (*di
 // checks on the provided arguments.
 func NewDelegationTotalRewardsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegationTotalRewardsRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	return &distributiontypes.QueryDelegationTotalRewardsRequest{
 		DelegatorAddress: delAddr,
@@ -345,17 +363,17 @@ func NewDelegationTotalRewardsRequest(args []interface{}, addrCdc address.Codec)
 // checks on the provided arguments.
 func NewDelegatorValidatorsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegatorValidatorsRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	return &distributiontypes.QueryDelegatorValidatorsRequest{
 		DelegatorAddress: delAddr,
@@ -366,17 +384,17 @@ func NewDelegatorValidatorsRequest(args []interface{}, addrCdc address.Codec) (*
 // checks on the provided arguments.
 func NewDelegatorWithdrawAddressRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegatorWithdrawAddressRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	delegatorAddress, ok := args[0].(common.Address)
 	if !ok || delegatorAddress == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
 	}
 	return &distributiontypes.QueryDelegatorWithdrawAddressRequest{
 		DelegatorAddress: delAddr,
@@ -387,7 +405,7 @@ func NewDelegatorWithdrawAddressRequest(args []interface{}, addrCdc address.Code
 // checks on the provided arguments.
 func NewCommunityPoolRequest(args []interface{}) (*distributiontypes.QueryCommunityPoolRequest, error) {
 	if len(args) != 0 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(0), big.NewInt(int64(len(args))))
 	}
 
 	return &distributiontypes.QueryCommunityPoolRequest{}, nil
