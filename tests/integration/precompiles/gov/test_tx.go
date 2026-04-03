@@ -1,7 +1,7 @@
 package gov
 
 import (
-	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -25,12 +25,12 @@ func (s *PrecompileTestSuite) TestVote() {
 	const metadata = "metadata"
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErrFn func(*PrecompileTestSuite, []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -40,7 +40,9 @@ func (s *PrecompileTestSuite) TestVote() {
 			func() {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0))
+			},
 		},
 		{
 			"fail - invalid voter address",
@@ -55,7 +57,9 @@ func (s *PrecompileTestSuite) TestVote() {
 			func() {},
 			200000,
 			true,
-			"invalid voter address",
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - invalid voter address",
@@ -70,7 +74,9 @@ func (s *PrecompileTestSuite) TestVote() {
 			func() {},
 			200000,
 			true,
-			"invalid voter address",
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String())
+			},
 		},
 		{
 			"fail - using a different voter address",
@@ -85,7 +91,9 @@ func (s *PrecompileTestSuite) TestVote() {
 			func() {},
 			200000,
 			true,
-			"does not match the requester address",
+			func(s *PrecompileTestSuite, args []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrRequesterIsNotMsgSender, s.keyring.GetAddr(0), args[0].(common.Address))
+			},
 		},
 		{
 			"fail - invalid vote option",
@@ -100,7 +108,9 @@ func (s *PrecompileTestSuite) TestVote() {
 			func() {},
 			200000,
 			true,
-			"invalid vote option",
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrMsgServerFailed, gov.VoteMethod, "11: invalid vote option")
+			},
 		},
 		{
 			"success - vote proposal success",
@@ -120,7 +130,7 @@ func (s *PrecompileTestSuite) TestVote() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -132,10 +142,11 @@ func (s *PrecompileTestSuite) TestVote() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.Vote(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			voteArgs := tc.malleate()
+			_, err := s.precompile.Vote(ctx, contract, s.network.GetStateDB(), &method, voteArgs)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(s, voteArgs))
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck()
@@ -152,12 +163,12 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 	const metadata = "metadata"
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErrFn func(*PrecompileTestSuite, []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -167,7 +178,9 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			func() {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0))
+			},
 		},
 		{
 			"fail - invalid voter address",
@@ -182,7 +195,9 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			func() {},
 			200000,
 			true,
-			"invalid voter address",
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidAddress, "")
+			},
 		},
 		{
 			"fail - using a different voter address",
@@ -197,7 +212,9 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			func() {},
 			200000,
 			true,
-			"does not match the requester address",
+			func(s *PrecompileTestSuite, args []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrRequesterIsNotMsgSender, s.keyring.GetAddr(0), args[0].(common.Address))
+			},
 		},
 		{
 			"fail - invalid vote option",
@@ -212,7 +229,9 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			func() {},
 			200000,
 			true,
-			"invalid vote option",
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrMsgServerFailed, gov.VoteWeightedMethod, `option:10 weight:"1.0" : invalid vote option`)
+			},
 		},
 		{
 			"fail - invalid weight sum",
@@ -230,7 +249,9 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			func() {},
 			200000,
 			true,
-			"total weight overflow 1.00",
+			func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrMsgServerFailed, gov.VoteWeightedMethod, "total weight overflow 1.00: invalid vote option")
+			},
 		},
 		{
 			"success - vote weighted proposal",
@@ -254,7 +275,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -266,10 +287,11 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.VoteWeighted(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			voteWeightedArgs := tc.malleate()
+			_, err := s.precompile.VoteWeighted(ctx, contract, s.network.GetStateDB(), &method, voteWeightedArgs)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(s, voteWeightedArgs))
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck()

@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"google.golang.org/grpc/codes"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
@@ -35,6 +34,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -82,7 +82,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
 			passCheck = defaultLogCheck.WithExpPass(true)
-			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
+			outOfGasCheck = defaultLogCheck.WithErrContains("eth tx ran out of gas")
 		})
 
 		Describe("when the precompile is not enabled in the EVM params", func() {
@@ -218,9 +218,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						defaultDescription, defaultCommission, defaultMinSelfDelegation, differentAddr, defaultPubkeyBase64Str, defaultValue,
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains(
-						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0), differentAddr),
-					)
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrRequesterIsNotMsgSender,
+							s.keyring.GetAddr(0),
+							differentAddr,
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -331,14 +335,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						defaultDescription, valHexAddr, defaultCommissionRate, defaultMinSelfDelegation,
 					}
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeEditValidator)
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrRequesterIsNotMsgSender,
+							s.keyring.GetAddr(1),
+							valHexAddr,
+						))
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(1),
 						txArgs, callArgs,
 						logCheckArgs,
 					)
-					Expect(err).NotTo(BeNil(), "error while calling the contract and checking logs")
-					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("msg.sender address %s does not match the requester address %s", s.keyring.GetAddr(1), valHexAddr)))
+					Expect(err).To(BeNil(), "error while calling the contract and checking logs")
 				})
 			})
 		})
@@ -396,7 +405,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						common.BytesToAddress(newAddr), valAddr.String(), big.NewInt(1e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("insufficient funds")
+					ctx := s.network.GetContext()
+					bal := s.network.App.GetBankKeeper().GetBalance(ctx, newAddr, s.bondDenom)
+					wantCoin := sdk.NewCoin(s.bondDenom, math.NewInt(1e18))
+					wantMsg := fmt.Sprintf("failed to delegate; %s is smaller than %s: insufficient funds", bal, wantCoin)
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.DelegateMethod,
+							wantMsg,
+						))
 
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						newAddrPriv,
@@ -416,7 +435,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, nonExistingValAddr.String(), big.NewInt(2e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("validator does not exist")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.DelegateMethod,
+							stakingtypes.ErrNoValidatorFound.Error(),
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -437,9 +462,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						differentAddr, valAddr.String(), big.NewInt(2e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains(
-						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
-					)
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrRequesterIsNotMsgSender,
+							delegator.Addr,
+							differentAddr,
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -494,7 +523,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, valAddr.String(), big.NewInt(2e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("invalid shares amount")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.UndelegateMethod,
+							"invalid shares amount: invalid request",
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -513,7 +548,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, nonExistingValAddr.String(), big.NewInt(1e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("validator does not exist")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.UndelegateMethod,
+							stakingtypes.ErrNoValidatorFound.Error(),
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -532,9 +573,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						differentAddr, valAddr.String(), big.NewInt(1e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains(
-						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
-					)
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrRequesterIsNotMsgSender,
+							delegator.Addr,
+							differentAddr,
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -586,7 +631,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(2e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("invalid shares amount")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.RedelegateMethod,
+							"invalid shares amount: invalid request",
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -605,7 +656,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, valAddr.String(), nonExistingValAddr.String(), big.NewInt(1e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("redelegation destination validator not found")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.RedelegateMethod,
+							stakingtypes.ErrBadRedelegationDst.Error(),
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -625,9 +682,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						differentAddr, valAddr.String(), valAddr2.String(), big.NewInt(1e18),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains(
-						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
-					)
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrRequesterIsNotMsgSender,
+							delegator.Addr,
+							differentAddr,
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -722,7 +783,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, valAddr.String(), big.NewInt(2e18), big.NewInt(creationHeight),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("amount is greater than the unbonding delegation entry balance")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.CancelUnbondingDelegationMethod,
+							"amount is greater than the unbonding delegation entry balance: invalid request",
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -745,7 +812,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegator.Addr, valAddr.String(), big.NewInt(1e18), big.NewInt(creationHeight + 1),
 					}
 
-					logCheckArgs := defaultLogCheck.WithErrContains("unbonding delegation entry is not found at block height")
+					logCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.CancelUnbondingDelegationMethod,
+							fmt.Sprintf("unbonding delegation entry is not found at block height %d: not found", creationHeight+1),
+						))
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -882,12 +955,26 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an error if the bonding type is not known", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				args := []interface{}{
 					"15", // invalid bonding type
 					query.PageRequest{},
 				}
+				method := s.precompile.Methods[staking.ValidatorsMethod]
+				req, rerr := staking.NewValidatorsRequest(&method, args)
+				Expect(rerr).To(BeNil())
+				q := stakingkeeper.NewQuerier(s.network.App.GetStakingKeeper())
+				_, qerr := q.Validators(s.network.GetContext(), req)
+				Expect(qerr).To(HaveOccurred())
 
-				invalidStatusCheck := defaultLogCheck.WithErrContains("invalid validator status 15")
+				invalidStatusCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrQueryFailed,
+						staking.ValidatorsMethod,
+						qerr.Error(),
+					))
+
+				callArgs.Args = args
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2126,11 +2213,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						txArgs.To = &contractTwoAddr
 
-						reverReasonCheck := execRevertedCheck.WithErrContains(
-							errorsmod.Wrapf(
-								sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", bondedTokensPoolAccAddr.String(),
-							).Error(),
-						)
+						// Bank/module-account guard wraps the SDK error with "failed to set account: ".
+						// Substring checks against err.Error() miss this because DecodeRevertReason surfaces hex in the message.
+						revertBz, encErr := evmtypes.RevertReasonBytes("failed to set account: " + errorsmod.Wrapf(
+							sdkerrors.ErrUnauthorized,
+							"%s is not allowed to receive funds",
+							bondedTokensPoolAccAddr.String(),
+						).Error())
+						Expect(encErr).To(BeNil())
+						reverReasonCheck := execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 
 						_, _, err := s.factory.CallContractAndCheckLogs(
 							s.keyring.GetPrivKey(0),
@@ -2164,9 +2255,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						nonExistingVal.String(),
 					}
 
-					reverReasonCheck := execRevertedCheck.WithErrContains(
-						stakingtypes.ErrNoValidatorFound.Error(),
-					)
+					reverReasonCheck := execRevertedCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+						WithErrExact(cmn.NewRevertWithSolidityError(
+							s.precompile.ABI,
+							cmn.SolidityErrMsgServerFailed,
+							staking.DelegateMethod,
+							stakingtypes.ErrNoValidatorFound.Error(),
+						))
 
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -2249,7 +2344,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingVal.String(), big.NewInt(1e18),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+				// Precompile surfaces the msg server error as a standard Error(string) revert (0x08c379a0…), not IPrecompile MsgServerFailed.
+				revertBz, encErr := evmtypes.RevertReasonBytes(CallerErrDelegationNotExist)
+				Expect(encErr).To(BeNil())
+				revertReasonCheck := execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2271,7 +2369,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					valAddr.String(), big.NewInt(1e18),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+				// Same as "delegation does not exist": StakingCaller._checkDelegation runs before the precompile.
+				revertBz, encErr := evmtypes.RevertReasonBytes(CallerErrDelegationNotExist)
+				Expect(encErr).To(BeNil())
+				revertReasonCheck := execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					differentSender.Priv,
@@ -2353,7 +2454,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingVal.String(), valAddr2.String(), big.NewInt(1e18),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+				revertBz, encErr := evmtypes.RevertReasonBytes(CallerErrDelegationNotExist)
+				Expect(encErr).To(BeNil())
+				revertReasonCheck := execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2375,7 +2478,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					valAddr.String(), valAddr2.String(), big.NewInt(1e18),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+				revertBz, encErr := evmtypes.RevertReasonBytes(CallerErrDelegationNotExist)
+				Expect(encErr).To(BeNil())
+				revertReasonCheck := execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					differentSender.Priv,
@@ -2397,9 +2502,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					valAddr.String(), nonExistingVal.String(), big.NewInt(1e18),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(stakingtypes.ErrBadRedelegationDst.Error())
+				revertReasonCheck := execRevertedCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrMsgServerFailed,
+						staking.RedelegateMethod,
+						stakingtypes.ErrBadRedelegationDst.Error(),
+					))
 
-				_, _, err = s.factory.CallContractAndCheckLogs(
+				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs, callArgs,
 					revertReasonCheck,
@@ -2510,7 +2621,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					big.NewInt(expCreationHeight),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrUnbondingDelegationNotExist)
+				revertBz, encErr := evmtypes.RevertReasonBytes(CallerErrUnbondingDelegationNotExist)
+				Expect(encErr).To(BeNil())
+				revertReasonCheck := execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2669,14 +2782,26 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should revert the execution if the bonding type is not known", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				args := []interface{}{
 					"15", // invalid bonding type
 					query.PageRequest{},
 				}
+				method := s.precompile.Methods[staking.ValidatorsMethod]
+				req, rerr := staking.NewValidatorsRequest(&method, args)
+				Expect(rerr).To(BeNil())
+				q := stakingkeeper.NewQuerier(s.network.App.GetStakingKeeper())
+				_, qerr := q.Validators(s.network.GetContext(), req)
+				Expect(qerr).To(HaveOccurred())
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(
-					fmt.Sprintf("rpc error: code = %s desc = invalid validator status %s", codes.InvalidArgument, "15"),
-				)
+				revertReasonCheck := execRevertedCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrQueryFailed,
+						staking.ValidatorsMethod,
+						qerr.Error(),
+					))
+
+				callArgs.Args = args
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3089,9 +3214,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						valAddr2.String(), big.NewInt(1e18), testcase.calltype,
 					}
 
-					checkArgs := execRevertedCheck.WithErrNested(fmt.Sprintf("failed %s to precompile", testcase.calltype))
+					var checkArgs testutil.LogCheckArgs
 					if testcase.expTxPass {
 						checkArgs = passCheck.WithExpEvents(staking.EventTypeUnbond)
+					} else {
+						revertBz, encErr := evmtypes.RevertReasonBytes(fmt.Sprintf("failed %s to precompile", testcase.calltype))
+						Expect(encErr).To(BeNil())
+						checkArgs = execRevertedCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 					}
 
 					_, _, err := s.factory.CallContractAndCheckLogs(

@@ -23,12 +23,12 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 	)
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct event is emitted",
@@ -72,7 +72,7 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -91,7 +91,6 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck()

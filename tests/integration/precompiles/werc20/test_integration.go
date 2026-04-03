@@ -455,7 +455,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("it should fail to transfer tokens to a receiver using `transferFrom`", func() {
 					txArgs, transferArgs := callsData.getTxAndCallArgs(directCall, erc20.TransferFromMethod, txSender.Addr, user.Addr, transferAmount)
 
-					insufficientAllowanceCheck := failCheck.WithErrContains(erc20.ErrInsufficientAllowance.Error())
+					revertBz, encErr := evmtypes.RevertReasonBytes(erc20.ErrInsufficientAllowance.Error())
+					Expect(encErr).ToNot(HaveOccurred())
+					insufficientAllowanceCheck := failCheck.WithErrExact(evmtypes.NewExecErrorWithReason(revertBz))
 					_, _, err := is.factory.CallContractAndCheckLogs(txSender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 					Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock after transfer")

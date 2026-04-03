@@ -454,6 +454,10 @@ func (chain *TestChain) SendEvmTx(
 		return txResult, nil, nil, err
 	}
 	if ethRes.VmError != "" {
+		// Preserve revert bytes on error so callers can do exact custom-error matching.
+		if len(ethRes.Ret) > 0 {
+			return txResult, msgEthereumTx, ethRes, errorsmod.Wrap(types.NewExecErrorWithReason(ethRes.Ret), "vm error: "+ethRes.VmError)
+		}
 		return txResult, msgEthereumTx, ethRes, errorsmod.Wrapf(types.ErrVMExecution, "vm error: %s", ethRes.VmError)
 	}
 

@@ -38,6 +38,16 @@ import (
 
 var is *IntegrationTestSuite
 
+// revertReasonExactCheck matches a failed ETH tx whose revert payload is the standard Error(string) encoding of reason.
+// Use this instead of WithErrContains / WithErrNested when tests assert revert text: err.Error() often carries only hex.
+func revertReasonExactCheck(base testutil.LogCheckArgs, reason string) testutil.LogCheckArgs {
+	bz, err := evmtypes.RevertReasonBytes(reason)
+	if err != nil {
+		panic(err)
+	}
+	return base.WithErrExact(evmtypes.NewExecErrorWithReason(bz))
+}
+
 type IntegrationTestSuite struct {
 	suite.Suite
 
@@ -386,11 +396,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// Transfer tokens
 					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferAmount)
 
-					revertReasonCheck := execRevertedCheck.WithErrNested(erc20.ErrTransferAmountExceedsBalance.Error())
+					revertReasonCheck := revertReasonExactCheck(execRevertedCheck, erc20.ErrTransferAmountExceedsBalance.Error())
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, revertReasonCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
+					// Even on revert, we expect a response with revert bytes.
+					Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 				},
 					// NOTE: we are not passing the direct call here because this test is specific to the contract calls
 					Entry(" - through contract", contractCall),
@@ -409,13 +420,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// Transfer tokens
 					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferAmt)
 
-					insufficientBalanceCheck := failCheck.WithErrContains(
-						erc20.ErrTransferAmountExceedsBalance.Error(),
-					)
+					insufficientBalanceCheck := revertReasonExactCheck(failCheck, erc20.ErrTransferAmountExceedsBalance.Error())
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, insufficientBalanceCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
+					Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 				},
 					Entry(" - direct call", directCall),
 					// NOTE: we are not passing the contract call here because this test is for direct calls only
@@ -508,7 +517,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						}
 						txArgs.Amount = amountToSend
 
-						revertReasonCheck := execRevertedCheck.WithErrNested("revert here")
+						revertReasonCheck := revertReasonExactCheck(execRevertedCheck, "revert here")
 
 						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, revertReasonCheck)
 						Expect(err).To(BeNil())
@@ -602,7 +611,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						}
 						txArgs.Amount = big.NewInt(300)
 
-						revertReasonCheck := execRevertedCheck.WithErrNested("revert here")
+						revertReasonCheck := revertReasonExactCheck(execRevertedCheck, "revert here")
 
 						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, revertReasonCheck)
 						Expect(err).To(BeNil())
@@ -751,13 +760,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 								owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 							)
 
-							insufficientAllowanceCheck := failCheck.WithErrContains(
-								erc20.ErrInsufficientAllowance.Error(),
-							)
+							insufficientAllowanceCheck := revertReasonExactCheck(failCheck, erc20.ErrInsufficientAllowance.Error())
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(spender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-							Expect(ethRes).To(BeNil(), "expected empty result")
+							Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 
 							// commit changes to chain state
 							err = is.network.NextBlock()
@@ -860,11 +867,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							owner.Addr, receiver, transferAmount,
 						)
 
-						insufficientAllowanceCheck := failCheck.WithErrContains(erc20.ErrInsufficientAllowance.Error())
+						insufficientAllowanceCheck := revertReasonExactCheck(failCheck, erc20.ErrInsufficientAllowance.Error())
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(spender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
+						Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 					},
 						Entry(" - direct call", directCall),
 						// NOTE: we are not passing the contract call here because this test case only covers direct calls
@@ -892,13 +899,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							from.Addr, receiver, transferAmount,
 						)
 
-						insufficientAllowanceCheck := failCheck.WithErrContains(
-							erc20.ErrInsufficientAllowance.Error(),
-						)
+						insufficientAllowanceCheck := revertReasonExactCheck(failCheck, erc20.ErrInsufficientAllowance.Error())
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
+						Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 
 						// commit changes to chain state
 						err = is.network.NextBlock()
@@ -932,13 +937,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						// Transfer tokens
 						txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferFromMethod, from.Addr, receiver, transferAmt)
 
-						insufficientBalanceCheck := failCheck.WithErrContains(
-							erc20.ErrTransferAmountExceedsBalance.Error(),
-						)
+						insufficientBalanceCheck := revertReasonExactCheck(failCheck, erc20.ErrTransferAmountExceedsBalance.Error())
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, insufficientBalanceCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
+						Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 
 						// commit changes to chain state
 						err = is.network.NextBlock()
@@ -1100,11 +1103,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							from.Addr, receiver, transferAmount,
 						)
 
-						revertReasonCheck := execRevertedCheck.WithErrNested(erc20.ErrInsufficientAllowance.Error())
+						revertReasonCheck := revertReasonExactCheck(execRevertedCheck, erc20.ErrInsufficientAllowance.Error())
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(from.Priv, txArgs, transferArgs, revertReasonCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						Expect(ethRes).To(BeNil(), "expected empty result")
+						Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 
 						// commit changes to chain state
 						err = is.network.NextBlock()
@@ -1838,7 +1841,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, nameArgs, execRevertedCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
+					Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1850,7 +1853,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, symbolArgs, execRevertedCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
+					Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1862,7 +1865,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, decimalsArgs, execRevertedCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-					Expect(ethRes).To(BeNil(), "expected empty result")
+					Expect(ethRes).ToNot(BeNil(), "expected response with revert data")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),

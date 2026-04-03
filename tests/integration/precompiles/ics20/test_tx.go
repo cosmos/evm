@@ -5,11 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm"
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/ics20"
+	precompileTestutil "github.com/cosmos/evm/precompiles/testutil"
+	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/evm/testutil/tx"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -19,13 +23,13 @@ import (
 )
 
 type testCase struct {
-	name               string
-	port               string
-	channelID          string
-	useDynamicChannel  bool
-	overrideSender     bool
-	receiver           string
-	expectErrSubstring string
+	name              string
+	port              string
+	channelID         string
+	useDynamicChannel bool
+	overrideSender    bool
+	receiver          string
+	wantErr           error
 }
 
 func (s *PrecompileTestSuite) TestTransferErrors() {
@@ -37,36 +41,54 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 	amount := sdkmath.NewInt(1)
 	defaultSender := common.BytesToAddress(s.chainA.SenderAccount.GetAddress().Bytes())
 	defaultReceiver := s.chainB.SenderAccount.GetAddress().String()
+	badSender := tx.GenerateAddress()
 
 	tests := []testCase{
 		{
-			name:               "invalid source channel",
-			port:               transfertypes.PortID,
-			channelID:          "invalid/channel",
-			receiver:           defaultReceiver,
-			expectErrSubstring: "invalid source channel ID",
+			name:      "invalid source channel",
+			port:      transfertypes.PortID,
+			channelID: "invalid/channel",
+			receiver:  defaultReceiver,
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				cmn.SolidityErrMsgServerFailed,
+				ics20.TransferMethod,
+				"invalid source channel ID invalid/channel: identifier invalid/channel cannot contain separator '/': invalid identifier",
+			),
 		},
 		{
-			name:               "channel not found",
-			port:               transfertypes.PortID,
-			channelID:          "channel-9",
-			receiver:           defaultReceiver,
-			expectErrSubstring: "channel not found",
+			name:      "channel not found",
+			port:      transfertypes.PortID,
+			channelID: "channel-9",
+			receiver:  defaultReceiver,
+			// Err comes from validateV1TransferChannel -> Wrapf(ErrChannelNotFound, "port ID (...) channel ID (...)")
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				cmn.SolidityErrMsgServerFailed,
+				ics20.TransferMethod,
+				"port ID (transfer) channel ID (channel-9): channel not found",
+			),
 		},
 		{
-			name:               "invalid receiver",
-			port:               transfertypes.PortID,
-			useDynamicChannel:  true,
-			receiver:           "",
-			expectErrSubstring: "invalid address",
+			name:              "invalid receiver",
+			port:              transfertypes.PortID,
+			useDynamicChannel: true,
+			receiver:          "",
+			// CreateAndValidateMsgTransfer -> MsgTransfer.ValidateBasic error
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				cmn.SolidityErrMsgServerFailed,
+				ics20.TransferMethod,
+				"missing recipient address: invalid address",
+			),
 		},
 		{
-			name:               "msg sender is not a contract caller",
-			port:               transfertypes.PortID,
-			useDynamicChannel:  true,
-			overrideSender:     true,
-			receiver:           defaultReceiver,
-			expectErrSubstring: "does not match the requester address",
+			name:              "msg sender is not a contract caller",
+			port:              transfertypes.PortID,
+			useDynamicChannel: true,
+			overrideSender:    true,
+			receiver:          defaultReceiver,
+			wantErr:           cmn.NewRevertWithSolidityError(ics20.ABI, cmn.SolidityErrRequesterIsNotMsgSender, defaultSender, badSender),
 		},
 	}
 
@@ -84,11 +106,10 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 
 			sender := defaultSender
 			if tc.overrideSender {
-				sender = tx.GenerateAddress()
+				sender = badSender
 			}
 
-			data, err := s.chainAPrecompile.ABI.Pack(
-				"transfer",
+			args := []interface{}{
 				tc.port,
 				channel,
 				denom,
@@ -98,20 +119,15 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 				timeoutHeight,
 				uint64(0),
 				"",
-			)
-			s.Require().NoError(err)
+			}
 
-			_, _, res, err := s.chainA.SendEvmTx(
-				s.chainA.SenderAccounts[0],
-				0,
-				s.chainAPrecompile.Address(),
-				big.NewInt(0),
-				data,
-				0,
-			)
-			s.Require().Error(err)
-			s.Require().Contains(err.Error(), vm.ErrExecutionReverted.Error())
-			s.Require().Contains(evmtypes.NewExecErrorWithReason(res.Ret).Error(), tc.expectErrSubstring)
+			ctx := s.chainA.GetContext()
+			stateDB := testutil.NewStateDB(ctx, evmAppA.GetEVMKeeper())
+			method := s.chainAPrecompile.Methods[ics20.TransferMethod]
+
+			contract := vm.NewContract(defaultSender, s.chainAPrecompile.Address(), uint256.NewInt(0), uint64(1_000_000), nil)
+			_, err = s.chainAPrecompile.Transfer(ctx, contract, stateDB, &method, args)
+			precompileTestutil.RequireExactError(s.T(), err, tc.wantErr)
 		})
 	}
 }

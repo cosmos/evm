@@ -29,12 +29,12 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 	)
 	method := s.precompile.Methods[distribution.SetWithdrawAddressMethod]
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress string) []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct event is emitted",
@@ -63,7 +63,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -81,7 +81,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 
 		if tc.expError {
 			s.Require().Error(err)
-			s.Require().Contains(err.Error(), tc.errContains)
+			testutil.RequireExactError(s.T(), err, tc.wantErr)
 		} else {
 			s.Require().NoError(err)
 			tc.postCheck()
@@ -96,12 +96,12 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 	)
 	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
 	testCases := []struct {
-		name        string
-		malleate    func(val stakingtypes.Validator) []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(val stakingtypes.Validator) []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct event is emitted",
@@ -142,7 +142,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -160,7 +160,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 
 		if tc.expError {
 			s.Require().Error(err)
-			s.Require().Contains(err.Error(), tc.errContains)
+			testutil.RequireExactError(s.T(), err, tc.wantErr)
 		} else {
 			s.Require().NoError(err)
 			tc.postCheck()
@@ -176,12 +176,12 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 	)
 	method := s.precompile.Methods[distribution.WithdrawValidatorCommissionMethod]
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress string) []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct event is emitted",
@@ -219,7 +219,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -240,7 +240,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 
 		if tc.expError {
 			s.Require().Error(err)
-			s.Require().Contains(err.Error(), tc.errContains)
+			testutil.RequireExactError(s.T(), err, tc.wantErr)
 		} else {
 			s.Require().NoError(err)
 			tc.postCheck()
@@ -382,12 +382,12 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 	)
 	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress string) ([]interface{}, sdk.Coins)
-		postCheck   func(sdk.Coins)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress string) ([]interface{}, sdk.Coins)
+		postCheck func(sdk.Coins)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct event is emitted",
@@ -430,7 +430,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - the correct event is emitted for multiple coins",
@@ -482,7 +482,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -499,7 +499,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 
 		if tc.expError {
 			s.Require().Error(err)
-			s.Require().Contains(err.Error(), tc.errContains)
+			testutil.RequireExactError(s.T(), err, tc.wantErr)
 		} else {
 			s.Require().NoError(err)
 			tc.postCheck(sdkCoins)

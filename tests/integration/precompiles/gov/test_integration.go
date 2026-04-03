@@ -84,7 +84,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				ABIEvents: s.precompile.Events,
 			}
 			passCheck = defaultLogCheck.WithExpPass(true)
-			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
+			outOfGasCheck = defaultLogCheck.WithErrContains("eth tx ran out of gas")
 
 			// reset tx args each test to avoid keeping custom
 			// values of previous tests (e.g. gasLimit)
@@ -139,17 +139,31 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("fails with invalid JSON", func() {
 				callArgs.Args = []interface{}{proposerAddr, []byte("{invalid}"), minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
-				errCheck := defaultLogCheck.WithErrContains("invalid proposal JSON")
+				errCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						gov.SolidityErrInvalidProposalJSON,
+						gov.SubmitProposalMethod,
+						"invalid character 'i' looking for beginning of object key string",
+					))
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					proposerKey, txArgs, callArgs, errCheck)
 				Expect(err).To(BeNil())
+
+				// Matches encoding/json.Unmarshal error for "{invalid}" into NewMsgSubmitProposal's proposal envelope.
 			})
 
 			It("fails with invalid deposit denom", func() {
 				jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "1")
 				invalidDep := []cmn.Coin{{Denom: "bad", Amount: big.NewInt(1)}}
 				callArgs.Args = []interface{}{proposerAddr, jsonBlob, invalidDep}
-				errCheck := defaultLogCheck.WithErrContains("invalid deposit denom")
+				errCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrMsgServerFailed,
+						gov.SubmitProposalMethod,
+						"deposited 1bad, but gov accepts only the following denom(s): [aatom]: invalid deposit denom",
+					))
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					proposerKey, txArgs, callArgs, errCheck)
 				Expect(err).To(BeNil())
@@ -163,7 +177,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("fails with wrong proposal id", func() {
 				callArgs.Args = []interface{}{proposerAddr, uint64(999), minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
-				errCheck := defaultLogCheck.WithErrContains("not found")
+				errCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrMsgServerFailed,
+						gov.DepositMethod,
+						"collections: not found: key '999' of type github.com/cosmos/gogoproto/cosmos.gov.v1.Proposal",
+					))
 				_, _, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, errCheck)
 				Expect(err).To(BeNil())
 			})
@@ -232,10 +252,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				notProposerKey := s.keyring.GetPrivKey(1)
 				notProposerAddr := s.keyring.GetAddr(1)
 				errCheck := defaultLogCheck.WithErrContains(
-					cmn.ErrRequesterIsNotMsgSender,
-					notProposerAddr.String(),
-					proposerAddr.String(),
-				)
+					vm.ErrExecutionReverted.Error(),
+				).WithErrExact(cmn.NewRevertWithSolidityError(
+					s.precompile.ABI,
+					cmn.SolidityErrRequesterIsNotMsgSender,
+					notProposerAddr,
+					proposerAddr,
+				))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(notProposerKey, txArgs, callArgs, errCheck)
 				Expect(err).To(BeNil())
@@ -336,7 +359,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr, proposalID, option, metadata,
 				}
 
-				voterSetCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
+				voterSetCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(s.keyring.GetPrivKey(0), txArgs, callArgs, voterSetCheck)
 				Expect(err).To(BeNil())
@@ -401,7 +430,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					metadata,
 				}
 
-				voterSetCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
+				voterSetCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(s.keyring.GetPrivKey(0), txArgs, callArgs, voterSetCheck)
 				Expect(err).To(BeNil())
@@ -743,7 +778,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						s.keyring.GetPrivKey(0),
 						txArgs,
 						callArgs,
-						defaultLogCheck.WithErrContains("proposal 999 doesn't exist"),
+						defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+							WithErrExact(cmn.NewRevertWithSolidityError(
+								s.precompile.ABI,
+								cmn.SolidityErrQueryFailed,
+								gov.GetProposalMethod,
+								"rpc error: code = NotFound desc = proposal 999 doesn't exist",
+							)),
 					)
 					Expect(err).To(BeNil())
 				})
