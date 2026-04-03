@@ -13,6 +13,7 @@ import (
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/math"
 
@@ -27,12 +28,12 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 	newWithdrawerAddr := utiltx.GenerateAddress()
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -42,7 +43,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			func() {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid delegator address",
@@ -55,7 +56,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			func() {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - invalid withdrawer address",
@@ -68,7 +69,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			func() {},
 			200000,
 			true,
-			"invalid withdraw address: empty address string is not allowed: invalid address",
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrMsgServerFailed, distribution.SetWithdrawAddressMethod, "invalid withdraw address: empty address string is not allowed: invalid address: invalid address"),
 		},
 		{
 			"success - using the same address withdrawer address",
@@ -85,7 +86,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - using a different withdrawer address",
@@ -102,7 +103,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -117,7 +118,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			_, err := s.precompile.SetWithdrawAddress(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck()
@@ -134,12 +135,12 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(val stakingtypes.Validator) []interface{}
-		postCheck   func(data []byte)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(val stakingtypes.Validator) []interface{}
+		postCheck func(data []byte)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -149,7 +150,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid delegator address",
@@ -162,7 +163,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - invalid validator address",
@@ -175,7 +176,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			func([]byte) {},
 			200000,
 			true,
-			"invalid validator address",
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "<nil>"),
 		},
 		{
 			"success - withdraw rewards from a single validator without commission",
@@ -206,7 +207,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -222,7 +223,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			bz, err := s.precompile.WithdrawDelegatorReward(ctx, contract, s.network.GetStateDB(), &method, args)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(bz)
@@ -236,15 +237,16 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 		ctx         sdk.Context
 		prevBalance sdk.Coin
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
+	method := s.precompile.Methods[distribution.WithdrawValidatorCommissionMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func(data []byte)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress string) []interface{}
+		postCheck func(data []byte)
+		gas       uint64
+		expError  bool
+		wantErr   error
+		wantErrFn func() error
 	}{
 		{
 			"fail - empty input args",
@@ -254,7 +256,8 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
+			nil,
 		},
 		{
 			"fail - invalid validator address",
@@ -266,7 +269,11 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			func([]byte) {},
 			200000,
 			true,
-			"empty address string is not allowed",
+			nil,
+			func() error {
+				_, err := utils.HexAddressFromBech32String("")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", err))
+			},
 		},
 		{
 			"success - withdraw all commission from a single validator",
@@ -305,7 +312,8 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			},
 			20000,
 			false,
-			"",
+			nil,
+			nil,
 		},
 	}
 
@@ -326,7 +334,11 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			bz, err := s.precompile.WithdrawValidatorCommission(ctx, contract, s.network.GetStateDB(), &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				wantErr := tc.wantErr
+				if tc.wantErrFn != nil {
+					wantErr = tc.wantErrFn()
+				}
+				testutil.RequireExactError(s.T(), err, wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(bz)
@@ -343,12 +355,12 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 	method := s.precompile.Methods[distribution.ClaimRewardsMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []byte)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(data []byte)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -358,7 +370,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid delegator address",
@@ -371,7 +383,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			func([]byte) {},
 			200000,
 			true,
-			"invalid delegator address",
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "<nil>"),
 		},
 		{
 			"fail - invalid type for maxRetrieve: expected uint32",
@@ -384,7 +396,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			func([]byte) {},
 			200000,
 			true,
-			"invalid type for maxRetrieve: expected uint32",
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "100000000000000000"),
 		},
 		{
 			"fail - too many retrieved results",
@@ -397,7 +409,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			func([]byte) {},
 			200000,
 			true,
-			"maxRetrieve (32000000) parameter exceeds the maximum number of validators (100)",
+			cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrClaimRewardsMaxRetrieveExceeded, uint32(32_000_000), uint32(100)),
 		},
 		{
 			"success - withdraw from all validators - 3",
@@ -415,7 +427,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"pass - withdraw from validators with maxRetrieve higher than number of validators",
@@ -433,7 +445,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - withdraw from only 1 validator",
@@ -449,7 +461,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -484,7 +496,8 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			bz, err := s.precompile.ClaimRewards(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().Error(err)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(bz)
@@ -498,12 +511,12 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 	method := s.precompile.Methods[distribution.FundCommunityPoolMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []byte)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(data []byte)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -513,7 +526,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid depositor address",
@@ -526,7 +539,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			func([]byte) {},
 			200000,
 			true,
-			"invalid hex address address",
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "<nil>"),
 		},
 		{
 			"success - fund the community pool 1 ATOM",
@@ -552,7 +565,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -571,7 +584,8 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			bz, err := s.precompile.FundCommunityPool(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().Error(err)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(bz)
@@ -585,12 +599,12 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(val stakingtypes.Validator) []interface{}
-		postCheck   func(data []byte)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(val stakingtypes.Validator) []interface{}
+		postCheck func(data []byte)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -600,7 +614,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0)),
 		},
 		{
 			"fail - invalid depositor address",
@@ -619,7 +633,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidHexAddress, "invalidAddress"),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "invalidAddress"),
 		},
 		{
 			"fail - empty validator address",
@@ -638,7 +652,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			func([]byte) {},
 			200000,
 			true,
-			"empty address string is not allowed",
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - invalid amount",
@@ -652,7 +666,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			func([]byte) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, "invalidAmount"),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAmount, "invalidAmount"),
 		},
 		{
 			"success - deposit rewards to the validator pool",
@@ -709,7 +723,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -725,7 +739,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			bz, err := s.precompile.DepositValidatorRewardsPool(ctx, contract, s.network.GetStateDB(), &method, args)
 
 			if tc.expError {
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(bz)
