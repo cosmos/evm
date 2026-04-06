@@ -24,6 +24,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types/interfaces"
 	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -498,7 +499,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			msgs := []*evmtypes.MsgEthereumTx{
+			msgs := []interfaces.IMsgEthereumTx{
 				buildMsgEthereumTx(t),
 			}
 			expectedTxResult := &servertypes.TxResult{
@@ -509,7 +510,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			}
 			mockIndexer := &MockIndexer{
 				txResults: map[common.Hash]*servertypes.TxResult{
-					msgs[0].Hash(): expectedTxResult,
+					msgs[0].AsTransaction().Hash(): expectedTxResult,
 				},
 			}
 			backend.Indexer = mockIndexer
@@ -519,7 +520,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, receipts, 1)
 			require.Equal(t, tc.expectedTxIndex, receipts[0].TransactionIndex)
-			require.Equal(t, msgs[0].Hash(), receipts[0].TxHash)
+			require.Equal(t, msgs[0].AsTransaction().Hash(), receipts[0].TxHash)
 			require.Equal(t, big.NewInt(height), receipts[0].BlockNumber)
 			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
 		})
@@ -560,8 +561,8 @@ func TestReceiptsLogIndexBlockGlobal(t *testing.T) {
 		return data
 	}
 
-	tx0Data := encodeTxResult(makeTxResponse(msg0.Hash().Hex(), 0))
-	tx1Data := encodeTxResult(makeTxResponse(msg1.Hash().Hex(), 1))
+	tx0Data := encodeTxResult(makeTxResponse(msg0.AsTransaction().Hash().Hex(), 0))
+	tx1Data := encodeTxResult(makeTxResponse(msg1.AsTransaction().Hash().Hex(), 1))
 
 	resBlock := &tmrpctypes.ResultBlock{
 		Block: &tmtypes.Block{Header: tmtypes.Header{Height: height}},
@@ -580,8 +581,8 @@ func TestReceiptsLogIndexBlockGlobal(t *testing.T) {
 
 	mockIndexer := &MockIndexer{
 		txResults: map[common.Hash]*servertypes.TxResult{
-			msg0.Hash(): {Height: height, TxIndex: 0, EthTxIndex: 0, MsgIndex: 0},
-			msg1.Hash(): {Height: height, TxIndex: 1, EthTxIndex: 1, MsgIndex: 0},
+			msg0.AsTransaction().Hash(): {Height: height, TxIndex: 0, EthTxIndex: 0, MsgIndex: 0},
+			msg1.AsTransaction().Hash(): {Height: height, TxIndex: 1, EthTxIndex: 1, MsgIndex: 0},
 		},
 	}
 	backend.Indexer = mockIndexer
@@ -589,7 +590,7 @@ func TestReceiptsLogIndexBlockGlobal(t *testing.T) {
 	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
 
-	msgs := []*evmtypes.MsgEthereumTx{msg0, msg1}
+	msgs := []interfaces.IMsgEthereumTx{msg0, msg1}
 	receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
 	require.NoError(t, err)
 	require.Len(t, receipts, 2)
