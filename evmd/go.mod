@@ -16,7 +16,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.54.1-0.20260410193155-cbbc1d4f86b1
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.2
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20260311202420-1b48494ae021
+	github.com/cosmos/ibc-go/v11 v11.0.0
 	github.com/ethereum/go-ethereum v1.16.8
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
