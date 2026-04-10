@@ -6,9 +6,12 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/vm/statedb"
 	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	connectiontypes "github.com/cosmos/ibc-go/v10/modules/core/03-connection/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -62,4 +65,7 @@ type ERC20Keeper interface {
 	GetCoinAddress(ctx sdk.Context, denom string) (ethcommon.Address, error)
 	GetERC20Map(ctx sdk.Context, erc20 ethcommon.Address) []byte
 	GetTokenPair(ctx sdk.Context, id []byte) (erc20types.TokenPair, bool)
+	IsERC20Enabled(ctx sdk.Context) bool
+	GetTokenPairID(ctx sdk.Context, token string) []byte
+	ConvertERC20IntoCoinsForNativeToken(ctx sdk.Context, stateDB *statedb.StateDB, contract ethcommon.Address, amount math.Int, receiver sdk.AccAddress, sender ethcommon.Address, commit bool, callFromPrecompile bool) (*erc20types.MsgConvertERC20Response, error)
 }

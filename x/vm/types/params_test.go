@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strings"
 	"testing"
 
 	ethparams "github.com/ethereum/go-ethereum/params"
@@ -48,6 +49,22 @@ func TestParamsValidate(t *testing.T) {
 				},
 			},
 			errContains: "precompiles need to be sorted",
+		},
+		{
+			name: "lowercase access control entries",
+			params: Params{
+				AccessControl: AccessControl{
+					Create: AccessControlType{
+						AccessType:        AccessTypePermissionless,
+						AccessControlList: []string{strings.ToLower("0x8FA78CEB7F04118Ec6d06AaC37Ca854691d8e963")},
+					},
+					Call: AccessControlType{
+						AccessType:        AccessTypePermissioned,
+						AccessControlList: []string{strings.ToLower("0x8FA78CEB7F04118Ec6d06AaC37Ca854691d8e963")},
+					},
+				},
+			},
+			expPass: true,
 		},
 	}
 

@@ -21,6 +21,7 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -132,6 +133,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		gas         uint64
 		readOnly    bool
 		expPass     bool
+		expRevert   bool // true if error returns ABI-encoded revert reason bytes (not OOG)
 		errContains string
 	}{
 		{
@@ -147,6 +149,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				return input
 			},
 			8000,
+			false,
 			false,
 			false,
 			"out of gas",
@@ -166,6 +169,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -183,6 +187,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -201,6 +206,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"failed to redelegate tokens",
 		},
 		{
@@ -241,6 +247,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -257,6 +264,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -275,6 +283,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -313,6 +322,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			false,
 			true,
+			false,
 			"",
 		},
 		{
@@ -329,6 +339,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			true,
 			true,
+			false,
 			"",
 		},
 		{
@@ -367,6 +378,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			1000000,
 			true,
 			true,
+			false,
 			"",
 		},
 		{
@@ -384,6 +396,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			21559, // use enough gas to avoid out of gas error
 			true,
 			false,
+			true,
 			"write protection",
 		},
 		{
@@ -394,6 +407,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			21559, // use enough gas to avoid out of gas error
 			false,
 			false,
+			true,
 			"no method with id",
 		},
 	}
@@ -454,17 +468,20 @@ func (s *PrecompileTestSuite) TestRun() {
 			bz, err := s.precompile.Run(evm, contract, tc.readOnly)
 
 			// Check results
-			if tc.expPass {
+			switch {
+			case tc.expPass:
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(bz, "expected returned bytes not to be nil")
-			} else {
-				s.Require().Error(err, "expected error to be returned when running the precompile")
-				s.Require().NotNil(bz, "expected returned bytes to be nil")
-				execRevertErr := evmtypes.NewExecErrorWithReason(bz)
-				s.Require().ErrorContains(execRevertErr, tc.errContains)
+			case tc.expRevert:
+				s.Require().ErrorIs(err, vm.ErrExecutionReverted)
+				s.Require().NotNil(bz, "expected revert reason bytes")
+				revertErr := evmtypes.NewExecErrorWithReason(bz)
+				s.Require().ErrorContains(revertErr, tc.errContains)
+			default:
+				s.Require().ErrorIs(err, vm.ErrOutOfGas)
+				s.Require().Nil(bz, "expected nil bytes on out of gas")
 				consumed := ctx.GasMeter().GasConsumed()
-				// LessThanOrEqual because the gas is consumed before the error is returned
-				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+				s.Require().LessOrEqual(tc.gas, consumed, "expected all gas to be consumed on OOG")
 			}
 		})
 	}
@@ -741,6 +758,16 @@ func (s *PrecompileTestSuite) TestCMS() {
 				HistoricalStores: nil,
 			}
 			ctx = ctx.WithMultiStore(cms)
+
+			// With virtual fee collection enabled, RefundGas uses virtual balance.
+			// Move the fee collector's real coins into its virtual balance.
+			feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+			feeCoins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(InitialTestBalance)))
+			err := s.network.App.GetBankKeeper().SendCoinsFromAccountToModuleVirtual(
+				ctx, feeCollectorAddr, authtypes.FeeCollectorName, feeCoins,
+			)
+			s.Require().NoError(err, "failed to fund fee collector virtual balance")
+
 			baseFee := s.network.App.GetEVMKeeper().GetBaseFee(ctx)
 
 			delegator := s.keyring.GetKey(0)

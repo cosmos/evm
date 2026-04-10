@@ -9,9 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/x/vm/statedb"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Precompile defines a debugging precompile for use in testing.
@@ -66,7 +69,12 @@ func (p Precompile) Call0(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Cont
 
 	caller := contract.Caller()
 	fmt.Printf("Execute debug precompile %s, %p\n", caller.String(), p.BalanceHandlerFactory)
-	rsp, err := p.evmKeeper.CallEVMWithData(ctx, p.Address(), &caller, data, true, nil)
+	stateDBExp := stateDB.(*statedb.StateDB)
+	// Note: when called from within a precompile context, we do not set
+	// commit to true. Doing so will collapse the cache stack and subsequent
+	// reversions will panic.
+	rsp, err := p.evmKeeper.CallEVMWithData(ctx, stateDBExp, p.Address(), &caller, data, true, true, nil)
+
 	fmt.Println("callback response:", rsp.Ret, err)
 	if err != nil {
 		return nil, err

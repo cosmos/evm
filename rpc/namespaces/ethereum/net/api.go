@@ -1,4 +1,4 @@
-package net //nolint:revive // name follows ethereum naming
+package net
 
 import (
 	"context"

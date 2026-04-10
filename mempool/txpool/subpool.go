@@ -17,9 +17,11 @@
 package txpool
 
 import (
+	"context"
 	"math/big"
 	"time"
 
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -32,7 +34,6 @@ import (
 // enough for the miner and other APIs to handle large batches of transactions;
 // and supports pulling up the entire transaction when really needed.
 type LazyTransaction struct {
-	Pool LazyResolver       // Transaction resolver to pull the real transaction up
 	Hash common.Hash        // Transaction hash to pull up if needed
 	Tx   *types.Transaction // Transaction if already resolved
 
@@ -42,21 +43,6 @@ type LazyTransaction struct {
 
 	Gas     uint64 // Amount of gas required by the transaction
 	BlobGas uint64 // Amount of blob gas required by the transaction
-}
-
-// Resolve retrieves the full transaction belonging to a lazy handle if it is still
-// maintained by the transaction pool.
-//
-// Note, the method will *not* cache the retrieved transaction if the original
-// pool has not cached it. The idea being, that if the tx was too big to insert
-// originally, silently saving it will cause more trouble down the line (and
-// indeed seems to have caused a memory bloat in the original implementation
-// which did just that).
-func (ltx *LazyTransaction) Resolve() *types.Transaction {
-	if ltx.Tx != nil {
-		return ltx.Tx
-	}
-	return ltx.Pool.Get(ltx.Hash)
 }
 
 // LazyResolver is a minimal interface needed for a transaction pool to satisfy
@@ -74,7 +60,7 @@ type LazyResolver interface {
 // a very specific call site in mind and each one can be evaluated very cheaply
 // by the pool implementations. Only add new ones that satisfy those constraints.
 type PendingFilter struct {
-	MinTip  *uint256.Int // Minimum miner tip required to include a transaction
+	MinTip  *uint256.Int // Minimum allowed miner tip for transactions
 	BaseFee *uint256.Int // Minimum 1559 basefee needed to include a transaction
 	BlobFee *uint256.Int // Minimum 4844 blobfee needed to include a blob transaction
 
@@ -87,6 +73,9 @@ type TxMetadata struct {
 	Type uint8  // The type of the transaction
 	Size uint64 // The length of the 'rlp encoding' of a transaction
 }
+
+// RemovalReason is a string describing why a tx is being removed.
+type RemovalReason string
 
 // SubPool represents a specialized transaction pool that lives on its own (e.g.
 // blob pool). Since independent of how many specialized pools we have, they do
@@ -105,7 +94,7 @@ type SubPool interface {
 	// These should not be passed as a constructor argument - nor should the pools
 	// start by themselves - in order to keep multiple Subpools in lockstep with
 	// one another.
-	Init(gasTip uint64, head *types.Header, reserver Reserver) error
+	Init(gasTip uint64, head *types.Header, reserver reserver.Reserver) error
 
 	// Close terminates any background processing threads and releases any held
 	// resources.
@@ -114,6 +103,11 @@ type SubPool interface {
 	// Reset retrieves the current state of the blockchain and ensures the content
 	// of the transaction pool is valid with regard to the chain state.
 	Reset(oldHead, newHead *types.Header)
+
+	// CancelReset signals the subpool to stop processing its current reset
+	// request since a new block arrived and the work it is doing to reset at
+	// the current height will be invalidated.
+	CancelReset()
 
 	// SetGasTip updates the minimum price required by the subpool for a new
 	// transaction, and drops all transactions below this threshold.
@@ -149,12 +143,19 @@ type SubPool interface {
 	// to a later point to batch multiple ones together.
 	Add(txs []*types.Transaction, sync bool) []error
 
-	// Pending retrieves all currently processable transactions, grouped by origin
+	// Pending retrieves all currently pending transactions, grouped by origin
 	// account and sorted by nonce.
 	//
 	// The transactions can also be pre-filtered by the dynamic fee components to
 	// reduce allocations and load on downstream subsystems.
-	Pending(filter PendingFilter) map[common.Address][]*LazyTransaction
+	Pending(ctx context.Context, filter PendingFilter) map[common.Address][]*LazyTransaction
+
+	// Rechecked retrieves all currently rechecked transactions, grouped by origin
+	// account and sorted by nonce.
+	//
+	// The transactions can also be pre-filtered by the dynamic fee components to
+	// reduce allocations and load on downstream subsystems.
+	Rechecked(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction
 
 	// SubscribeTransactions subscribes to new transaction events. The subscriber
 	// can decide whether to receive notifications only for newly seen transactions
@@ -185,5 +186,5 @@ type SubPool interface {
 	Clear()
 
 	// RemoveTx removes a tracked transaction from the pool
-	RemoveTx(hash common.Hash, outofbound bool, unreserve bool) int
+	RemoveTx(hash common.Hash, outofbound bool, unreserve bool, reason RemovalReason) int
 }

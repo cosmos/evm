@@ -17,11 +17,13 @@
 package txpool
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -80,7 +82,7 @@ type TxPool struct {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
+func New(gasTip uint64, chain BlockChain, tracker *reserver.ReservationTracker, subpools []SubPool) (*TxPool, error) {
 	// Retrieve the current head so that all Subpools and this main coordinator
 	// pool will have the same starting state, even if the chain moves forward
 	// during initialization.
@@ -105,9 +107,8 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 		term:     make(chan struct{}),
 		sync:     make(chan chan error),
 	}
-	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
-		if err := subpool.Init(gasTip, head, reserver.NewHandle(i)); err != nil {
+		if err := subpool.Init(gasTip, head, tracker.NewHandle(i)); err != nil {
 			for j := i - 1; j >= 0; j-- {
 				subpools[j].Close()
 			}
@@ -213,7 +214,16 @@ func (p *TxPool) loop(head *types.Header) {
 				resetForced = false
 
 			default:
-				// Reset already running, wait until it finishes.
+				// Only if we have seen a new block, then tell the subpools
+				// that are still processing the previous block, to cancel
+				// their work, since it will go to waste.
+				if newHead != oldHead {
+					for _, subpool := range p.Subpools {
+						subpool.CancelReset()
+					}
+				}
+				// Reset already running and we have not seen a new block, wait
+				// until it finishes.
 				//
 				// Note, this will not drop any forced reset request. If a forced
 				// reset was requested, but we were busy, then when the currently
@@ -373,15 +383,30 @@ func (p *TxPool) Add(txs []*types.Transaction, sync bool) []error {
 	return errs
 }
 
-// Pending retrieves all currently processable transactions, grouped by origin
+// Pending retrieves all currently pending transactions, grouped by origin
 // account and sorted by nonce.
 //
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
-func (p *TxPool) Pending(filter PendingFilter) map[common.Address][]*LazyTransaction {
+func (p *TxPool) Pending(ctx context.Context, filter PendingFilter) map[common.Address][]*LazyTransaction {
 	txs := make(map[common.Address][]*LazyTransaction)
 	for _, subpool := range p.Subpools {
-		for addr, set := range subpool.Pending(filter) {
+		for addr, set := range subpool.Pending(ctx, filter) {
+			txs[addr] = set
+		}
+	}
+	return txs
+}
+
+// Rechecked retrieves all currently rechecked transactions, grouped by origin
+// account and sorted by nonce.
+//
+// The transactions can also be pre-filtered by the dynamic fee components to
+// reduce allocations and load on downstream subsystems.
+func (p *TxPool) Rechecked(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction {
+	txs := make(map[common.Address][]*LazyTransaction)
+	for _, subpool := range p.Subpools {
+		for addr, set := range subpool.Rechecked(ctx, height, filter) {
 			txs[addr] = set
 		}
 	}
@@ -492,6 +517,13 @@ func (p *TxPool) Sync() error {
 		return <-sync
 	case <-p.term:
 		return errors.New("pool already terminated")
+	}
+}
+
+// Reset synchronously resets each subpool at a given state.
+func (p *TxPool) Reset(oldHead, newHead *types.Header) {
+	for _, subPool := range p.Subpools {
+		subPool.Reset(oldHead, newHead)
 	}
 }
 

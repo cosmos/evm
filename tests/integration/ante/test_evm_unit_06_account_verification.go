@@ -12,7 +12,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -108,7 +107,6 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 
 				balance, ok := math.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types.ConversionFactor())
 
 				// replace with vesting account
 				ctx := unitNetwork.GetContext()
@@ -131,7 +129,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 				s.Require().Equal(totalBalance.Amount, balance)
 
 				statedbAccount := getDefaultStateDBAccount(unitNetwork, senderKey.Addr)
-				s.Require().Equal(spendable.String(), math.NewIntFromBigInt(statedbAccount.Balance.ToBig()).Quo(types.ConversionFactor()).String())
+				s.Require().Equal(spendable.String(), math.NewIntFromBigInt(statedbAccount.Balance.ToBig()).String())
 				return statedbAccount, txArgs
 			},
 		},
@@ -148,7 +146,6 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 
 				balance, ok := math.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types.ConversionFactor())
 
 				// replace with vesting account
 				ctx := unitNetwork.GetContext()
@@ -189,7 +186,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 				s.Require().Equal(totalBalance.Amount, balance.Mul(math.NewInt(2)))
 
 				statedbAccount := getDefaultStateDBAccount(unitNetwork, senderKey.Addr)
-				s.Require().Equal(spendable.String(), math.NewIntFromBigInt(statedbAccount.Balance.ToBig()).Quo(types.ConversionFactor()).String())
+				s.Require().Equal(spendable.String(), math.NewIntFromBigInt(statedbAccount.Balance.ToBig()).String())
 				return statedbAccount, txArgs
 			},
 		},

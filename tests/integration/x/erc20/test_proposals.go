@@ -163,12 +163,12 @@ func (s *KeeperTestSuite) TestRegisterERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					s.network.App.GetBankKeeper(), mockEVMKeeper, s.network.App.GetStakingKeeper(),
-					&transferKeeper,
+					transferKeeper,
 				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockEVMKeeper.On("EstimateGasInternal", mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.EstimateGasResponse{Gas: uint64(200)}, nil)
-				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced CallEVM error"))
+				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced CallEVM error"))
 				mockEVMKeeper.On("ApplyMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 			},
 			s.keyring.GetAccAddr(0).String(),

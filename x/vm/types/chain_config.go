@@ -13,6 +13,8 @@ import (
 // opcodes are active based on Ethereum upgrades.
 var chainConfig *ChainConfig
 
+var gethChainConfig *gethparams.ChainConfig
+
 // EthereumConfig returns an Ethereum ChainConfig for EVM state transitions.
 // All the negative or nil values are converted to nil
 func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
@@ -20,6 +22,11 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 	if chainID != nil {
 		cID = chainID
 	}
+
+	if gethChainConfig != nil {
+		return gethChainConfig
+	}
+
 	return &gethparams.ChainConfig{
 		ChainID:                 cID,
 		HomesteadBlock:          getBlockValue(cc.HomesteadBlock),

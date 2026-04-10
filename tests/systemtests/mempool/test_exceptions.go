@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/suite"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func RunMinimumGasPricesZero(t *testing.T, base *suite.BaseTestSuite) {
@@ -50,7 +50,7 @@ func RunMinimumGasPricesZero(t *testing.T, base *suite.BaseTestSuite) {
 	}
 
 	s := NewTestSuite(base)
-	s.SetupTest(t, suite.MinimumGasPriceZeroArgs()...)
+	s.SetupTest(t)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)

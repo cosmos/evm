@@ -185,17 +185,6 @@ else
 	go test -count=1 -race -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(TEST_PACKAGES)
 endif
 
-# Use the old Apple linker to workaround broken xcode - https://github.com/golang/go/issues/65169
-ifeq ($(OS_FAMILY),Darwin)
-  FUZZLDFLAGS := -ldflags=-extldflags=-Wl,-ld_classic
-endif
-
-test-fuzz:
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzMintCoins ./x/precisebank/keeper
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzBurnCoins ./x/precisebank/keeper
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzSendCoins ./x/precisebank/keeper
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzGenesisStateValidate_NonZeroRemainder ./x/precisebank/types
-	go test -race -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 15s -fuzz=FuzzGenesisStateValidate_ZeroRemainder ./x/precisebank/types
 
 test-scripts:
 	@echo "Running scripts tests"
@@ -216,7 +205,7 @@ benchmark:
 ###                                Linting                                  ###
 ###############################################################################
 golangci_lint_cmd=golangci-lint
-golangci_version=v2.8.0
+golangci_version=v2.10.1
 
 lint: lint-go lint-python lint-contracts
 
@@ -263,7 +252,7 @@ format-shell:
 ###                                Protobuf                                 ###
 ###############################################################################
 
-protoVer=0.18.0
+protoVer=0.18.1
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace --user 0 $(protoImageName)
 
@@ -383,7 +372,7 @@ test-rpc-compat:
 test-rpc-compat-stop:
 	cd tests/jsonrpc && docker compose down
 
-.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop mocks
 
 test-system: build-v05 build
 	mkdir -p ./tests/systemtests/binaries/
@@ -393,7 +382,7 @@ test-system: build-v05 build
 
 build-v05:
 	mkdir -p ./tests/systemtests/binaries/v0.5
-	git checkout v0.5.0
+	git checkout v0.5.1
 	make build
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.5
 	git checkout -

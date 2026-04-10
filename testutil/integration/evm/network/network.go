@@ -53,7 +53,7 @@ type Network interface {
 	GetMintClient() minttypes.QueryClient
 }
 
-type CreateEvmApp func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp
+type CreateEvmApp func(chainID string, evmChainID uint64, exclusiveMempool bool, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp
 
 var _ Network = (*IntegrationNetwork)(nil)
 
@@ -92,7 +92,7 @@ func New(createEvmApp CreateEvmApp, opts ...ConfigOption) *IntegrationNetwork {
 	}
 
 	// create a new testing app with the following params
-	evmApp := createEvmApp(cfg.chainID, cfg.eip155ChainID.Uint64(), cfg.customBaseAppOpts...)
+	evmApp := createEvmApp(cfg.chainID, cfg.eip155ChainID.Uint64(), cfg.exclusiveMempool, cfg.customBaseAppOpts...)
 	err := network.configureAndInitChain(evmApp)
 	if err != nil {
 		panic(err)

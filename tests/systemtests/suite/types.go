@@ -11,6 +11,10 @@ const (
 	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
 	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
 	NodeArgsMaxTxs                     = "--mempool.max-txs=0"
+
+	NodeArgOperateExclusively       = "--evm.mempool.operate-exclusively=true"
+	NodeArgPendingTxProposalTimeout = "--evm.mempool.pending-tx-proposal-timeout=200ms"
+	NodeArgInsertQueueSize          = "--evm.mempool.insert-queue-size=1000"
 )
 
 // TestOptions defines the options for a test case.
@@ -61,4 +65,20 @@ func MinimumGasPriceZeroArgs() []string {
 	}
 	// Add the zero minimum gas price argument
 	return append(DefaultNodeArgs(), "--minimum-gas-prices=0atest")
+}
+
+// ExlcusiveMempoolArgs returns the node arguments to run with an exclusive app
+// mempool.
+func ExlcusiveMempoolArgs() []string {
+	return append(DefaultNodeArgs(),
+		NodeArgOperateExclusively,
+		NodeArgInsertQueueSize,
+		NodeArgPendingTxProposalTimeout,
+	)
+}
+
+// ExlcusiveMempoolArgs returns the node arguments to run with an exclusive app
+// mempool and no min gas price.
+func ExlcusiveMempoolMinGasPriceZeroArgs() []string {
+	return append(ExlcusiveMempoolArgs(), "--minimum-gas-prices=0atest")
 }

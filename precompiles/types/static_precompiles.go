@@ -19,7 +19,7 @@ import (
 	slashingprecompile "github.com/cosmos/evm/precompiles/slashing"
 	stakingprecompile "github.com/cosmos/evm/precompiles/staking"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
+	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
 	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -119,12 +119,14 @@ func (s StaticPrecompiles) WithICS20Precompile(
 	stakingKeeper stakingkeeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
+	erc20Keeper *erc20Keeper.Keeper,
 ) StaticPrecompiles {
 	ibcTransferPrecompile := ics20precompile.NewPrecompile(
 		bankKeeper,
 		stakingKeeper,
 		transferKeeper,
 		channelKeeper,
+		erc20Keeper,
 	)
 
 	s[ibcTransferPrecompile.Address()] = ibcTransferPrecompile

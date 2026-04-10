@@ -55,6 +55,7 @@ func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce i
 	}
 
 	ethTxArgs := evmtypes.EvmTxArgs{
+		// #nosec G115 -- nonce checked >= 0 above
 		Nonce:    uint64(nonce),
 		To:       &to,
 		Amount:   big.NewInt(1000),
@@ -77,6 +78,7 @@ func (s *IntegrationTestSuite) createEVMValueTransferDynamicFeeTx(key keyring.Ke
 	}
 
 	ethTxArgs := evmtypes.EvmTxArgs{
+		// #nosec G115 -- nonce checked >= 0 above
 		Nonce:     uint64(nonce),
 		To:        &to,
 		Amount:    big.NewInt(1000),
@@ -105,6 +107,19 @@ func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPri
 	s.Require().NoError(err)
 
 	return tx
+}
+
+// insertOrCheckTxs calls mempool Insert or or abci CheckTx depending on the
+// applications mempool type
+func (s *IntegrationTestSuite) insertOrCheckTxs(txs []sdk.Tx) error {
+	switch mp := s.network.App.GetMempool().(type) {
+	case *evmmempool.KrakatoaMempool:
+		return s.insertTxs(txs)
+	case *evmmempool.ExperimentalEVMMempool:
+		return s.checkTxs(txs)
+	default:
+		return fmt.Errorf("unknown mempool type: %T", mp)
+	}
 }
 
 // checkTxs call abci CheckTx for multipile transactions
@@ -139,6 +154,21 @@ func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) (*abci.ResponseCheckTx, error)
 	}
 
 	return res, nil
+}
+
+// insertTxs call mempool Insert for multiple transactions
+func (s *IntegrationTestSuite) insertTxs(txs []sdk.Tx) error {
+	for _, tx := range txs {
+		if err := s.insertTx(tx); err != nil {
+			return fmt.Errorf("failed to Insert for tx: %s", s.getTxHash(tx))
+		}
+	}
+	return nil
+}
+
+// insertTx call mempool Insert for a transaction
+func (s *IntegrationTestSuite) insertTx(tx sdk.Tx) error {
+	return s.network.App.GetMempool().Insert(s.network.GetContext(), tx)
 }
 
 func (s *IntegrationTestSuite) getTxBytes(txs []sdk.Tx) ([][]byte, error) {
