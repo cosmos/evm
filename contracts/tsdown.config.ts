@@ -19,7 +19,7 @@ export default defineConfig({
         "!solidity/precompiles/**/testdata/**",
         "!solidity/precompiles/**/testutil/**",
       ],
-      to: "dist/precompiles",
+      to: "dist",
       flatten: false,
       verbose: true,
     },
