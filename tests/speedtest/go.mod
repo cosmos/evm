@@ -37,7 +37,6 @@ require (
 	cosmossdk.io/errors v1.1.0 // indirect
 	cosmossdk.io/math v1.5.3 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	cosmossdk.io/store v1.10.0-rc.2.0.20260311135820-ea452a1660fd // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect

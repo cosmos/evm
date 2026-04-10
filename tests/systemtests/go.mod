@@ -6,6 +6,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	github.com/cometbft/cometbft v0.39.1-0.20260410173500-f4a9ba93609e
 	github.com/cosmos/cosmos-sdk v0.54.1-0.20260410193155-cbbc1d4f86b1
+	github.com/cosmos/cosmos-sdk/tools/systemtests v0.0.0-20260410193026-d4bd47586927
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/creachadair/tomledit v0.0.29
 	github.com/ethereum/go-ethereum v1.16.8
@@ -25,14 +26,13 @@ require (
 	cosmossdk.io/errors v1.1.0 // indirect
 	cosmossdk.io/log/v2 v2.1.0 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	cosmossdk.io/store v1.10.0-rc.2.0.20260311135820-ea452a1660fd // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/RoaringBitmap/roaring/v2 v2.15.0 // indirect
+	github.com/RoaringBitmap/roaring/v2 v2.16.0 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -57,6 +57,7 @@ require (
 	github.com/cosmos/btree v1.0.0 // indirect
 	github.com/cosmos/cosmos-db v1.1.3 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
+	github.com/cosmos/cosmos-sdk/store/v2 v2.0.0 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.2 // indirect
@@ -308,8 +309,6 @@ require (
 
 replace (
 	github.com/cosmos/evm => ../..
-	// TODO replace this once we no longer pull in an ibc-go version which points to old groups module path
-	github.com/cosmos/ibc-go/v11 => github.com/cosmos/ibc-go/v11 v11.0.0
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 )
 

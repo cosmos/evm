@@ -20,7 +20,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 
-	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
+	"github.com/cosmos/cosmos-sdk/tools/systemtests"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

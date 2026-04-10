@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 
-	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
+	"github.com/cosmos/cosmos-sdk/tools/systemtests"
 )
 
 func TestMain(m *testing.M) {
