@@ -36,7 +36,7 @@ import (
 
 	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
-	pruningtypes "cosmossdk.io/store/pruning/types"
+	pruningtypes "github.com/cosmos/cosmos-sdk/store/v2/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"

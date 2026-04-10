@@ -20,7 +20,7 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
-	"cosmossdk.io/store/prefix"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"

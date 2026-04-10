@@ -13,7 +13,7 @@ import (
 	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"

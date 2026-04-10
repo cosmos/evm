@@ -14,7 +14,7 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"

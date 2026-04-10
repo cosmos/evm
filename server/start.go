@@ -35,7 +35,7 @@ import (
 	servertypes "github.com/cosmos/evm/server/types"
 
 	"cosmossdk.io/log/v2"
-	pruningtypes "cosmossdk.io/store/pruning/types"
+	pruningtypes "github.com/cosmos/cosmos-sdk/store/v2/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"

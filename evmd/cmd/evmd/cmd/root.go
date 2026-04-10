@@ -24,10 +24,10 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
-	"cosmossdk.io/store"
-	snapshottypes "cosmossdk.io/store/snapshots/types"
-	storetypes "cosmossdk.io/store/types"
 	confixcmd "cosmossdk.io/tools/confix/cmd"
+	"github.com/cosmos/cosmos-sdk/store/v2"
+	snapshottypes "github.com/cosmos/cosmos-sdk/store/v2/snapshots/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"

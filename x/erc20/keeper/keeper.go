@@ -8,7 +8,7 @@ import (
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"

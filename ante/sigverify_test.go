@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/server/config"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	kmultisig "github.com/cosmos/cosmos-sdk/crypto/keys/multisig"

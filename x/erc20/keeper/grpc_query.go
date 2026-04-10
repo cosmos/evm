@@ -9,7 +9,7 @@ import (
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 
-	"cosmossdk.io/store/prefix"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"

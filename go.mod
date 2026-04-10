@@ -390,6 +390,4 @@ replace cosmossdk.io/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0
 
 replace github.com/cosmos/cosmos-sdk/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0.0.0-20260227212600-39d4711b8970
 
-replace cosmossdk.io/x/evidence => github.com/cosmos/cosmos-sdk/x/evidence v0.2.0-rc.2.0.20250429200042-9c736b26bf0c
-
 replace cosmossdk.io/log/v2 => github.com/cosmos/cosmos-sdk/log/v2 v2.0.2-0.20260302180736-2fbcc8d5f49e
