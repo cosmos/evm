@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -35,7 +34,6 @@ import (
 	servertypes "github.com/cosmos/evm/server/types"
 
 	"cosmossdk.io/log/v2"
-	pruningtypes "github.com/cosmos/cosmos-sdk/store/v2/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -45,6 +43,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servercmtlog "github.com/cosmos/cosmos-sdk/server/log"
 	"github.com/cosmos/cosmos-sdk/server/types"
+	pruningtypes "github.com/cosmos/cosmos-sdk/store/v2/pruning/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
@@ -60,7 +59,7 @@ type Application interface {
 }
 
 // AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
-type AppCreator func(log.Logger, dbm.DB, io.Writer, types.AppOptions) Application
+type AppCreator func(log.Logger, dbm.DB, types.AppOptions) Application
 
 // StartOptions defines options that can be customized in `StartCmd`
 type StartOptions struct {
@@ -72,8 +71,8 @@ type StartOptions struct {
 // NewDefaultStartOptions use the default db opener provided in tm-db.
 func NewDefaultStartOptions(appCreator AppCreator, defaultNodeHome string) StartOptions {
 	return StartOptions{
-		AppCreator: func(l log.Logger, d dbm.DB, w io.Writer, ao types.AppOptions) types.Application {
-			return appCreator(l, d, w, ao)
+		AppCreator: func(l log.Logger, d dbm.DB, ao types.AppOptions) types.Application {
+			return appCreator(l, d, ao)
 		},
 		DefaultNodeHome: defaultNodeHome,
 		DBOpener:        cosmosevmserverconfig.OpenDB,
@@ -269,12 +268,6 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 		}
 	}()
 
-	traceWriterFile := svrCtx.Viper.GetString(srvflags.TraceStore)
-	traceWriter, err := openTraceWriter(traceWriterFile)
-	if err != nil {
-		return err
-	}
-
 	SetEVMLogger(
 		NewSlogFromCosmosLogger(
 			svrCtx.Logger.With("module", "evm"),
@@ -282,7 +275,7 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 		),
 	)
 
-	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
+	app = opts.AppCreator(svrCtx.Logger, db, svrCtx.Viper)
 	defer func() {
 		if err := app.Close(); err != nil {
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
@@ -378,13 +371,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		}
 	}()
 
-	traceWriterFile := svrCtx.Viper.GetString(srvflags.TraceStore)
-	traceWriter, err := openTraceWriter(traceWriterFile)
-	if err != nil {
-		logger.Error("failed to open trace writer", "error", err.Error())
-		return err
-	}
-
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
 		logger.Error("failed to get server config", "error", err.Error())
@@ -403,7 +389,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		),
 	)
 
-	app = opts.AppCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
+	app = opts.AppCreator(svrCtx.Logger, db, svrCtx.Viper)
 	defer func() {
 		if err := app.Close(); err != nil {
 			logger.Error("close application failed", "error", err.Error())
@@ -585,22 +571,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 func OpenIndexerDB(rootDir string, backendType dbm.BackendType) (dbm.DB, error) {
 	dataDir := filepath.Join(rootDir, "data")
 	return dbm.NewDB("evmindexer", backendType, dataDir)
-}
-
-// openTraceWriter opens a trace writer if a trace store file is specified.
-// Parameters:
-// - traceWriterFile: The path to the trace store file. If this is an empty string, no file will be opened.
-func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
-	if traceWriterFile == "" {
-		return w, err
-	}
-
-	filePath := filepath.Clean(traceWriterFile)
-	return os.OpenFile(
-		filePath,
-		os.O_WRONLY|os.O_APPEND|os.O_CREATE,
-		0o600,
-	)
 }
 
 func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) {

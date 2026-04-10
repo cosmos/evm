@@ -2,7 +2,6 @@ package snapshotmulti
 
 import (
 	"fmt"
-	"io"
 	"sort"
 
 	"github.com/cosmos/evm/x/vm/store/snapshotkv"
@@ -93,16 +92,6 @@ func (s *Store) CacheWrap() storetypes.CacheWrap {
 	return s.CacheMultiStore().(storetypes.CacheWrap)
 }
 
-// CacheWrapWithTrace implements the CacheWrapper interface.
-//
-// NOTE: CacheWrapWithTrace is a method that enables a Store to satisfy the CacheWrapper interface.
-// Although it accepts an io.Writer and tracingContext as inputs, these are not used in the implementation.
-// Instead, it simply adds an additional cache layer on top of the existing KVStores.
-// As a result, while the return value differs, the behavior is effectively the same as the Snapshot() method.
-func (s *Store) CacheWrapWithTrace(_ io.Writer, _ storetypes.TraceContext) storetypes.CacheWrap {
-	return s.CacheWrap()
-}
-
 // CacheMultiStore snapshots store and return current store.
 func (s *Store) CacheMultiStore() storetypes.CacheMultiStore {
 	s.Snapshot()
@@ -144,29 +133,6 @@ func (s *Store) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
 		panic(fmt.Sprintf("store with key %v is not ObjKVStore", key))
 	}
 	return objStore
-}
-
-// TracingEnabled returns if tracing is enabled for the MultiStore.
-func (s *Store) TracingEnabled() bool {
-	return false
-}
-
-// SetTracer sets the tracer for the MultiStore that the underlying
-// stores will utilize to trace operations. A MultiStore is returned.
-//
-// NOTE: SetTracer no-op function.
-func (s *Store) SetTracer(_ io.Writer) storetypes.MultiStore {
-	return s
-}
-
-// SetTracingContext updates the tracing context for the MultiStore by merging
-// the given context with the existing context by key. Any existing keys will
-// be overwritten. It is implied that the caller should update the context when
-// necessary between tracing operations. It returns a modified MultiStore.
-//
-// NOTE: SetTracingContext no-op function
-func (s *Store) SetTracingContext(_ storetypes.TraceContext) storetypes.MultiStore {
-	return s
 }
 
 // LatestVersion returns the branch version of the store

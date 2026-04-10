@@ -19,8 +19,8 @@ import (
 
 	sdkerrors "cosmossdk.io/errors"
 	"cosmossdk.io/log/v2"
-	sdktypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
+	sdktypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"io"
 	"testing"
 	"time"
 
@@ -33,10 +32,6 @@ func (t *TrackingMultiStore) CacheWrap() storetypes.CacheWrap {
 	return t.Store.CacheWrap()
 }
 
-func (t *TrackingMultiStore) CacheWrapWithTrace(w io.Writer, tc storetypes.TraceContext) storetypes.CacheWrap {
-	return t.Store.CacheWrapWithTrace(w, tc)
-}
-
 func (t *TrackingMultiStore) CacheMultiStoreWithVersion(version int64) (storetypes.CacheMultiStore, error) {
 	return t.Store.CacheMultiStoreWithVersion(version)
 }
@@ -51,18 +46,6 @@ func (t *TrackingMultiStore) GetKVStore(key storetypes.StoreKey) storetypes.KVSt
 
 func (t *TrackingMultiStore) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
 	return t.Store.GetObjKVStore(key)
-}
-
-func (t *TrackingMultiStore) TracingEnabled() bool {
-	return t.Store.TracingEnabled()
-}
-
-func (t *TrackingMultiStore) SetTracer(w io.Writer) storetypes.MultiStore {
-	return t.Store.SetTracer(w)
-}
-
-func (t *TrackingMultiStore) SetTracingContext(context storetypes.TraceContext) storetypes.MultiStore {
-	return t.Store.SetTracingContext(context)
 }
 
 func (t *TrackingMultiStore) LatestVersion() int64 {

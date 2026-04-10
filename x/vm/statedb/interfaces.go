@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

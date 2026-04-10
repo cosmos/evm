@@ -10,7 +10,6 @@ import (
 	"github.com/cosmos/evm/utils"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

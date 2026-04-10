@@ -136,18 +136,6 @@ func TestSnapshotMultiCacheWrap(t *testing.T) {
 	require.Equal(t, 1, idx)
 }
 
-func TestSnapshotMultiCacheWrapWithTrace(t *testing.T) {
-	snapshotStore, _ := setupStore()
-
-	// NOTES: CacheWrapWithTrace of snapshotmulti.Store is same with regualr CacheWrap,
-	// and arguments are not actually used.
-	wrap := snapshotStore.CacheWrapWithTrace(nil, nil)
-	require.Equal(t, snapshotStore, wrap)
-
-	idx := snapshotStore.Snapshot()
-	require.Equal(t, 1, idx)
-}
-
 func TestSnapshotMultiCacheMultiStore(t *testing.T) {
 	snapshotStore, _ := setupStore()
 
@@ -163,15 +151,6 @@ func TestSnapshotMultiCacheMultiStoreWithVersion(t *testing.T) {
 
 	m, _ := snapshotStore.CacheMultiStoreWithVersion(1)
 	require.Equal(t, snapshotStore, m)
-}
-
-func TestSnapshotMultiMetadata(t *testing.T) {
-	snapshotStore, _ := setupStore()
-
-	require.Equal(t, storetypes.StoreTypeMulti, snapshotStore.GetStoreType())
-	require.False(t, snapshotStore.TracingEnabled())
-	require.Equal(t, snapshotStore, snapshotStore.SetTracer(nil))
-	require.Equal(t, snapshotStore, snapshotStore.SetTracingContext(nil))
 }
 
 func TestSnapshotMultiLatestVersion(t *testing.T) {

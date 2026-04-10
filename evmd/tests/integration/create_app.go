@@ -42,7 +42,6 @@ func CreateEvmd(chainID string, evmChainID uint64, exclusiveMempool bool, custom
 	app := evmd.NewExampleApp(
 		logger,
 		db,
-		nil,
 		loadLatest,
 		appOptions,
 		baseAppOptions...,
@@ -72,7 +71,6 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	app := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
-		nil,
 		true,
 		NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID, false),
 	)

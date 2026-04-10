@@ -7,8 +7,8 @@ import (
 	"github.com/cosmos/evm/contrib/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
 
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

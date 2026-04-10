@@ -18,7 +18,6 @@ import (
 	"github.com/cosmos/evm/x/vm/types/mocks"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"

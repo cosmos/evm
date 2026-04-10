@@ -236,7 +236,7 @@ func NewTestChain(t *testing.T, isEVM bool, coord *Coordinator, chainID string) 
 
 // GetContext returns the current context for the application.
 func (chain *TestChain) GetContext() sdk.Context {
-	return chain.App.GetBaseApp().NewUncachedContext(false, chain.ProposedHeader)
+	return chain.App.GetBaseApp().NewNextBlockContext(chain.ProposedHeader)
 }
 
 // GetSimApp returns the SimApp to allow usage ofnon-interface fields.

@@ -11,7 +11,6 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

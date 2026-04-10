@@ -92,7 +92,6 @@ func (a appCreator) newApp(
 	return evmd.NewExampleApp(
 		logger,
 		db,
-		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
 		baseappOptions...,
@@ -133,7 +132,6 @@ func (a appCreator) appExport(
 	evmApp = evmd.NewExampleApp(
 		logger,
 		db,
-		traceStore,
 		loadLatest,
 		appOpts,
 	)
