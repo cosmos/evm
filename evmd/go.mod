@@ -100,6 +100,7 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/btree v1.0.0 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
+	github.com/cosmos/cosmos-sdk/store/v2 v2.0.0 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.8 // indirect
@@ -390,3 +391,5 @@ replace (
 replace github.com/cosmos/cosmos-sdk/x/group => github.com/cosmos/cosmos-sdk/enterprise/group v0.0.0-20260227212600-39d4711b8970
 
 replace cosmossdk.io/log/v2 => github.com/cosmos/cosmos-sdk/log/v2 v2.0.2-0.20260302180736-2fbcc8d5f49e
+
+replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.1-0.20260410173500-f4a9ba93609e
