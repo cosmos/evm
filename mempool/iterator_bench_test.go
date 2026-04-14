@@ -261,7 +261,7 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		return ctx, nil
 	}
 
-	config := &evmmempool.KrakatoaMempoolConfig{
+	config := &evmmempool.Config{
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    benchBlockGasLimit,
 		MinTip:           uint256.NewInt(0),

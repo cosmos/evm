@@ -50,9 +50,8 @@ var meter = otel.Meter("github.com/cosmos/evm/mempool")
 
 var _ sdkmempool.ExtMempool = (*Mempool)(nil)
 
-// KrakatoaMempoolConfig extends the EVMMempoolConfig to have Krakatoa specific
-// configuration options.
-type KrakatoaMempoolConfig struct {
+// Config defines the configuration for the EVM mempool.
+type Config struct {
 	LegacyPoolConfig *legacypool.Config
 	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
 	AnteHandler      sdk.AnteHandler
@@ -114,11 +113,11 @@ func NewMempool(
 	txConfig client.TxConfig,
 	evmRechecker legacypool.Rechecker,
 	cosmosRechecker Rechecker,
-	config *KrakatoaMempoolConfig,
+	config *Config,
 	cosmosPoolMaxTx int,
 ) *Mempool {
-	logger = logger.With(log.ModuleKey, "KrakatoaMempool")
-	logger.Debug("creating new Krakatoa mempool")
+	logger = logger.With(log.ModuleKey, "Mempool")
+	logger.Debug("creating new mempool")
 
 	if config == nil {
 		panic("config must not be nil")
@@ -185,7 +184,7 @@ func NewMempool(
 		blockchain,
 	)
 
-	krakatoaMempool := &Mempool{
+	mempool := &Mempool{
 		vmKeeper:                 vmKeeper,
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
@@ -201,14 +200,14 @@ func NewMempool(
 	}
 
 	// Setup queues
-	krakatoaMempool.evmInsertQueue = queue.New(
+	mempool.evmInsertQueue = queue.New(
 		func(txs []*ethtypes.Transaction) []error {
 			return txPool.Add(txs, AllowUnsafeSyncInsert)
 		},
 		config.InsertQueueSize,
 	)
 
-	krakatoaMempool.cosmosInsertQueue = queue.New(
+	mempool.cosmosInsertQueue = queue.New(
 		func(txs []*sdk.Tx) []error {
 			errs := make([]error, len(txs))
 			for i, tx := range txs {
@@ -217,23 +216,23 @@ func NewMempool(
 				// completes successfully, then we know they are valid and
 				// should be added to the reap list, we do not need to wait
 				// until the next blocks recheck.
-				errs[i] = krakatoaMempool.insertAndReapCosmosTx(*tx)
+				errs[i] = mempool.insertAndReapCosmosTx(*tx)
 			}
 			return errs
 		},
 		config.InsertQueueSize,
 	)
 
-	legacyPool.OnTxEnqueued = krakatoaMempool.onEVMTxEnqueued()
-	legacyPool.OnTxPromoted = krakatoaMempool.onEVMTxPromoted()
-	legacyPool.OnTxRemoved = krakatoaMempool.onEVMTxRemoved()
+	legacyPool.OnTxEnqueued = mempool.onEVMTxEnqueued()
+	legacyPool.OnTxPromoted = mempool.onEVMTxPromoted()
+	legacyPool.OnTxRemoved = mempool.onEVMTxRemoved()
 
-	vmKeeper.SetEvmMempool(krakatoaMempool)
+	vmKeeper.SetEvmMempool(mempool)
 
 	// Start the cosmos pool recheck loop
-	krakatoaMempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
+	mempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
 
-	return krakatoaMempool
+	return mempool
 }
 
 // onEVMTxEnqueued defines a hook to run whenever an evm tx enters the queued pool.

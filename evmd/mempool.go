@@ -16,6 +16,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+const (
+	CodeTypeNoRetry = 1
+)
+
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
 func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.Logger) error {
 	if evmtypes.GetChainConfig() == nil {
@@ -72,10 +76,10 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	return nil
 }
 
-// createMempoolConfig creates a new KrakatoaMempoolConfig with the default configuration
+// createMempoolConfig creates a new Config with the default configuration
 // and overrides it with values from appOpts if they exist and are non-zero.
-func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.KrakatoaMempoolConfig {
-	return &evmmempool.KrakatoaMempoolConfig{
+func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.Config {
+	return &evmmempool.Config{
 		AnteHandler:              app.GetAnteHandler(),
 		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
 		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
@@ -84,10 +88,6 @@ func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.
 		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
 	}
 }
-
-const (
-	CodeTypeNoRetry = 1
-)
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.Mempool) sdk.InsertTxHandler {
 	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
