@@ -42,7 +42,7 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	}
 
 	// create mempool
-	mempool := evmmempool.NewKrakatoaMempool(
+	mempool := evmmempool.NewMempool(
 		app.CreateQueryContext,
 		logger,
 		app.EVMKeeper,
@@ -75,15 +75,11 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 // createMempoolConfig creates a new KrakatoaMempoolConfig with the default configuration
 // and overrides it with values from appOpts if they exist and are non-zero.
 func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.KrakatoaMempoolConfig {
-	// todo: kk: simply
 	return &evmmempool.KrakatoaMempoolConfig{
-		// todo: kk: simply
-		EVMMempoolConfig: evmmempool.EVMMempoolConfig{
-			AnteHandler:      app.GetAnteHandler(),
-			LegacyPoolConfig: server.GetLegacyPoolConfig(appOpts, logger),
-			BlockGasLimit:    server.GetBlockGasLimit(appOpts, logger),
-			MinTip:           server.GetMinTip(appOpts, logger),
-		},
+		AnteHandler:              app.GetAnteHandler(),
+		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
+		MinTip:                   server.GetMinTip(appOpts, logger),
 		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
 		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
 	}
@@ -93,7 +89,7 @@ const (
 	CodeTypeNoRetry = 1
 )
 
-func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.KrakatoaMempool) sdk.InsertTxHandler {
+func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.Mempool) sdk.InsertTxHandler {
 	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
 		txBytes := req.GetTx()
 
@@ -122,7 +118,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.KrakatoaMempool) sdk.
 	}
 }
 
-func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.KrakatoaMempool) sdk.ReapTxsHandler {
+func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.Mempool) sdk.ReapTxsHandler {
 	return func(req *abci.RequestReapTxs) (*abci.ResponseReapTxs, error) {
 		maxBytes, maxGas := req.GetMaxBytes(), req.GetMaxGas()
 		txs, err := evmMempool.ReapNewValidTxs(maxBytes, maxGas)

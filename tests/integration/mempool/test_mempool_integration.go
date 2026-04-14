@@ -325,7 +325,7 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -451,7 +451,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -858,7 +858,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -979,7 +979,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			// cosmos txs are available via SelectBy (mirrors production flow
 			// where recheck happens after a new block notification).
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)

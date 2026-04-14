@@ -182,7 +182,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// cosmos txs are available via Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -202,7 +202,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -404,7 +404,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// HeightSync is at the correct height for Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -422,7 +422,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			s.Require().NoError(err)
 
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)

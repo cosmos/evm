@@ -32,12 +32,20 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.ExtMempool = (*KrakatoaMempool)(nil)
+var _ sdkmempool.ExtMempool = (*Mempool)(nil)
 
 // KrakatoaMempoolConfig extends the EVMMempoolConfig to have Krakatoa specific
 // configuration options.
 type KrakatoaMempoolConfig struct {
-	EVMMempoolConfig
+	LegacyPoolConfig *legacypool.Config
+	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
+	AnteHandler      sdk.AnteHandler
+	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
+
+	// Block gas limit from consensus parameters
+	BlockGasLimit uint64
+	MinTip        *uint256.Int
+
 	// PendingTxProposalTimeout is the max amount of time to allocate to
 	// fetching (or waiting to fetch) pending txs from the evm mempool.
 	PendingTxProposalTimeout time.Duration
@@ -47,11 +55,11 @@ type KrakatoaMempoolConfig struct {
 	InsertQueueSize int
 }
 
-// KrakatoaMempool is an application side mempool implementation that operates
-// in conjunction with the CometBFT 'app' configuration. The KrakatoaMempool
+// Mempool is an application side mempool implementation that operates
+// in conjunction with the CometBFT 'app' configuration. The Mempool
 // handles application side rechecking of txs and supports ABCI methods
 // InesrtTx and ReapTxs.
-type KrakatoaMempool struct {
+type Mempool struct {
 	/** Keepers **/
 	vmKeeper VMKeeperI
 
@@ -82,7 +90,7 @@ type KrakatoaMempool struct {
 	evmInsertQueue    *queue.Queue[ethtypes.Transaction]
 }
 
-func NewKrakatoaMempool(
+func NewMempool(
 	getCtxCallback func(height int64, prove bool) (sdk.Context, error),
 	logger log.Logger,
 	vmKeeper VMKeeperI,
@@ -92,7 +100,7 @@ func NewKrakatoaMempool(
 	cosmosRechecker Rechecker,
 	config *KrakatoaMempoolConfig,
 	cosmosPoolMaxTx int,
-) *KrakatoaMempool {
+) *Mempool {
 	logger = logger.With(log.ModuleKey, "KrakatoaMempool")
 	logger.Debug("creating new Krakatoa mempool")
 
@@ -161,7 +169,7 @@ func NewKrakatoaMempool(
 		blockchain,
 	)
 
-	krakatoaMempool := &KrakatoaMempool{
+	krakatoaMempool := &Mempool{
 		vmKeeper:                 vmKeeper,
 		txPool:                   txPool,
 		legacyTxPool:             txPool.Subpools[0].(*legacypool.LegacyPool),
@@ -213,7 +221,7 @@ func NewKrakatoaMempool(
 }
 
 // onEVMTxEnqueued defines a hook to run whenever an evm tx enters the queued pool.
-func (m *KrakatoaMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
+func (m *Mempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
 	return func(tx *ethtypes.Transaction) {
 		_ = m.txTracker.EnteredQueued(tx.Hash())
 	}
@@ -221,7 +229,7 @@ func (m *KrakatoaMempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
 
 // onEVMTxPromoted defines a hook to run whenever an evm tx is promoted from
 // the queued pool to the pending pool.
-func (m *KrakatoaMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
+func (m *Mempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
 	return func(tx *ethtypes.Transaction) {
 		// once we have validated that the tx is valid (and can be promoted, set it
 		// to be reaped)
@@ -237,7 +245,7 @@ func (m *KrakatoaMempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
 
 // onEVMTxRemoved defines a hook to run whenever an evm tx is removed from a
 // pool (queued or pending).
-func (m *KrakatoaMempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
+func (m *Mempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
 	return func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
 		// tx was invalidated for some reason or was included in a block
 		// (either way it is no longer in the mempool), if this tx is in the
@@ -252,31 +260,31 @@ func (m *KrakatoaMempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool l
 }
 
 // IsExclusive returns true if this mempool is the ONLY mempool in the chain.
-func (m *KrakatoaMempool) IsExclusive() bool {
+func (m *Mempool) IsExclusive() bool {
 	return true
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
 // This is primarily used to notify the mempool when new blocks are finalized.
-func (m *KrakatoaMempool) GetBlockchain() *Blockchain {
+func (m *Mempool) GetBlockchain() *Blockchain {
 	return m.blockchain
 }
 
 // GetTxPool returns the underlying EVM txpool.
 // This provides direct access to the EVM-specific transaction management functionality.
-func (m *KrakatoaMempool) GetTxPool() *txpool.TxPool {
+func (m *Mempool) GetTxPool() *txpool.TxPool {
 	return m.txPool
 }
 
 // SetClientCtx sets the client context provider for broadcasting transactions
-func (m *KrakatoaMempool) SetClientCtx(clientCtx client.Context) {
+func (m *Mempool) SetClientCtx(clientCtx client.Context) {
 	m.clientCtx = clientCtx
 }
 
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
-func (m *KrakatoaMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	errC, err := m.insert(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
@@ -300,7 +308,7 @@ func (m *KrakatoaMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // transactions are inserted into the Cosmos sdkmempool. EVM transactions are
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
-func (m *KrakatoaMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
+func (m *Mempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
 	errC, err := m.insert(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
@@ -323,7 +331,7 @@ func (m *KrakatoaMempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *KrakatoaMempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *Mempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
@@ -349,7 +357,7 @@ func (m *KrakatoaMempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, er
 
 // insertAndReapCosmosTx inserts a cosmos tx into the cosmos mempool and sets
 // it to be reaped.
-func (m *KrakatoaMempool) insertAndReapCosmosTx(tx sdk.Tx) error {
+func (m *Mempool) insertAndReapCosmosTx(tx sdk.Tx) error {
 	m.logger.Debug("inserting Cosmos transaction")
 
 	// Insert into cosmos pool (handles locking, ante handler, and address reservation internally)
@@ -367,7 +375,7 @@ func (m *KrakatoaMempool) insertAndReapCosmosTx(tx sdk.Tx) error {
 
 // ReapNewValidTxs removes and returns the oldest transactions from the reap
 // list until maxBytes or maxGas limits are reached.
-func (m *KrakatoaMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {
+func (m *Mempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {
 	m.logger.Debug("reaping transactions", "maxBytes", maxBytes, "maxGas", maxGas, "available_txs")
 	txs := m.reapList.Reap(maxBytes, maxGas)
 	m.logger.Debug("reap complete", "txs_reaped", len(txs))
@@ -378,14 +386,14 @@ func (m *KrakatoaMempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]b
 // Select returns a unified iterator over both EVM and Cosmos transactions.
 // The iterator prioritizes transactions based on their fees and manages proper
 // sequencing. The i parameter contains transaction hashes to exclude from selection.
-func (m *KrakatoaMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
+func (m *Mempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
 	return m.buildIterator(goCtx, i)
 }
 
 // SelectBy iterates through transactions until the provided filter function returns false.
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
-func (m *KrakatoaMempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
+func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
 	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_selectby_duration") }(time.Now()) //nolint:staticcheck
 
 	iter := m.buildIterator(goCtx, txs)
@@ -397,7 +405,7 @@ func (m *KrakatoaMempool) SelectBy(goCtx context.Context, txs [][]byte, filter f
 
 // buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
 // block height and then returns a combined iterator over EVM & Cosmos txs.
-func (m *KrakatoaMempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
+func (m *Mempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_builditerator_duration") }(time.Now()) //nolint:staticcheck
 
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
@@ -414,13 +422,13 @@ func (m *KrakatoaMempool) buildIterator(ctx context.Context, txs [][]byte) sdkme
 
 // CountTx returns the total number of transactions in both EVM and Cosmos pools.
 // This provides a combined count across all mempool types.
-func (m *KrakatoaMempool) CountTx() int {
+func (m *Mempool) CountTx() int {
 	pending, _ := m.txPool.Stats()
 	return m.recheckCosmosPool.CountTx() + pending
 }
 
 // Remove fallbacks for RemoveWithReason
-func (m *KrakatoaMempool) Remove(tx sdk.Tx) error {
+func (m *Mempool) Remove(tx sdk.Tx) error {
 	return m.RemoveWithReason(context.Background(), tx, sdkmempool.RemoveReason{
 		Caller: "remove",
 		Error:  nil,
@@ -430,7 +438,7 @@ func (m *KrakatoaMempool) Remove(tx sdk.Tx) error {
 // RemoveWithReason removes a transaction from the appropriate sdkmempool.
 // For EVM transactions, removal is typically handled automatically by the pool
 // based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
-func (m *KrakatoaMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
+func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	chainCtx, err := m.blockchain.GetLatestContext()
 	if err != nil || chainCtx.BlockHeight() == 0 {
 		m.logger.Warn("Failed to get latest context, skipping removal")
@@ -462,7 +470,7 @@ func (m *KrakatoaMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reaso
 
 // removeCosmosTx removes a cosmos tx from the mempool.
 // The RecheckMempool handles locking internally.
-func (m *KrakatoaMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
+func (m *Mempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	m.logger.Debug("Removing Cosmos transaction")
 
 	// Remove from cosmos pool (handles address reservation release internally)
@@ -479,7 +487,7 @@ func (m *KrakatoaMempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason 
 }
 
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
-func (m *KrakatoaMempool) shouldRemoveFromEVMPool(hash common.Hash, reason sdkmempool.RemoveReason) bool {
+func (m *Mempool) shouldRemoveFromEVMPool(hash common.Hash, reason sdkmempool.RemoveReason) bool {
 	if reason.Error == nil {
 		return false
 	}
@@ -501,7 +509,7 @@ func (m *KrakatoaMempool) shouldRemoveFromEVMPool(hash common.Hash, reason sdkme
 }
 
 // SetEventBus sets CometBFT event bus to listen for new block header event.
-func (m *KrakatoaMempool) SetEventBus(eventBus *cmttypes.EventBus) {
+func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	if m.HasEventBus() {
 		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
 	}
@@ -521,11 +529,11 @@ func (m *KrakatoaMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 }
 
 // HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
-func (m *KrakatoaMempool) HasEventBus() bool {
+func (m *Mempool) HasEventBus() bool {
 	return m.eventBus != nil
 }
 
-func (m *KrakatoaMempool) Close() error {
+func (m *Mempool) Close() error {
 	var errs []error
 	if m.eventBus != nil {
 		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
@@ -547,7 +555,7 @@ func (m *KrakatoaMempool) Close() error {
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *KrakatoaMempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.TransactionsByPriceAndNonce, cosmos sdkmempool.Iterator) {
+func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.TransactionsByPriceAndNonce, cosmos sdkmempool.Iterator) {
 	var (
 		evmIterator    *miner.TransactionsByPriceAndNonce
 		cosmosIterator sdkmempool.Iterator
@@ -581,7 +589,7 @@ func (m *KrakatoaMempool) getIterators(ctx context.Context, _ [][]byte) (evm *mi
 
 // evmIterator returns an iterator over the current valid txs in the evm
 // mempool at height.
-func (m *KrakatoaMempool) evmIterator(ctx context.Context, height *big.Int, baseFee *big.Int) *miner.TransactionsByPriceAndNonce {
+func (m *Mempool) evmIterator(ctx context.Context, height *big.Int, baseFee *big.Int) *miner.TransactionsByPriceAndNonce {
 	var baseFeeUint *uint256.Int
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)
@@ -606,7 +614,7 @@ func (m *KrakatoaMempool) evmIterator(ctx context.Context, height *big.Int, base
 
 // cosmosIterator returns an iterator over the current valid txs in the cosmos
 // mempool at height.
-func (m *KrakatoaMempool) cosmosIterator(
+func (m *Mempool) cosmosIterator(
 	ctx context.Context,
 	height *big.Int,
 	bondDenom string,
@@ -621,18 +629,18 @@ func (m *KrakatoaMempool) cosmosIterator(
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.
-func (m *KrakatoaMempool) TrackTx(hash common.Hash) error {
+func (m *Mempool) TrackTx(hash common.Hash) error {
 	return m.txTracker.Track(hash)
 }
 
 // RecheckEVMTxs triggers a synchronous recheck of evm transactions.
 // This should only be used for testing.
-func (m *KrakatoaMempool) RecheckEVMTxs(newHead *ethtypes.Header) {
+func (m *Mempool) RecheckEVMTxs(newHead *ethtypes.Header) {
 	m.txPool.Reset(nil, newHead)
 }
 
 // RecheckCosmosTxs triggers a synchronous recheck of cosmos transactions.
 // This should only used for testing.
-func (m *KrakatoaMempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
+func (m *Mempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckCosmosPool.TriggerRecheckSync(newHead)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
 	evmmetrics "github.com/cosmos/evm/metrics"
+	"github.com/cosmos/evm/rpc/backend"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -542,9 +543,10 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		mp, ok := evmApp.GetMempool().(PossiblyExclusiveMempool)
+
+		mp, ok := evmApp.GetMempool().(backend.Mempool)
 		if !ok {
-			return fmt.Errorf("json-rpc server requires PossiblyExclusiveMempool")
+			return fmt.Errorf("json-rpc server requires backend.Mempool")
 		}
 
 		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, mp)

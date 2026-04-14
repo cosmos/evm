@@ -113,7 +113,7 @@ func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPri
 // applications mempool type
 func (s *IntegrationTestSuite) insertOrCheckTxs(txs []sdk.Tx) error {
 	switch mp := s.network.App.GetMempool().(type) {
-	case *evmmempool.KrakatoaMempool:
+	case *evmmempool.Mempool:
 		return s.insertTxs(txs)
 	case *evmmempool.ExperimentalEVMMempool:
 		return s.checkTxs(txs)

@@ -570,7 +570,7 @@ type testMempoolDependencies struct {
 	accounts        []testAccount
 }
 
-func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.KrakatoaMempool, testMempoolDependencies) {
+func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, testMempoolDependencies) {
 	t.Helper()
 
 	// Create accounts
@@ -662,18 +662,16 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 	legacyConfig.PriceBump = 10 // 10% price bump for replacement
 
 	krakatoaConfig := &mempool.KrakatoaMempoolConfig{
-		EVMMempoolConfig: mempool.EVMMempoolConfig{
-			LegacyPoolConfig: &legacyConfig,
-			BlockGasLimit:    30000000,
-			MinTip:           uint256.NewInt(0),
-		},
-		InsertQueueSize: 1000,
+		LegacyPoolConfig: &legacyConfig,
+		BlockGasLimit:    30000000,
+		MinTip:           uint256.NewInt(0),
+		InsertQueueSize:  1000,
 	}
 
 	// Create mempool
 	evmRechecker := &MockRechecker{}
 	cosmosRechecker := &MockRechecker{}
-	mp := mempool.NewKrakatoaMempool(
+	mp := mempool.NewMempool(
 		getCtxCallback,
 		log.NewNopLogger(),
 		mockVMKeeper,

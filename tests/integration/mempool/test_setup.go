@@ -125,7 +125,7 @@ func (s *IntegrationTestSuite) TrySetupMempool() {
 // TrySetupKrakataoMempool sets up the ExclusiveMempool, if it is the configured
 // mempool on the suite.
 func (s *IntegrationTestSuite) TrySetupExclusiveMempool() {
-	mp, ok := s.network.App.GetMempool().(*evmmempool.KrakatoaMempool)
+	mp, ok := s.network.App.GetMempool().(*evmmempool.Mempool)
 	if !ok {
 		return
 	}
@@ -165,7 +165,7 @@ func (s *IntegrationTestSuite) TrySetupExperimentalMempool() {
 
 // IsExclusiveMempool returns true if the app mempool is the exclusive mempool
 func (s *IntegrationTestSuite) IsExclusiveMempool() bool {
-	_, ok := s.network.App.GetMempool().(*evmmempool.KrakatoaMempool)
+	_, ok := s.network.App.GetMempool().(*evmmempool.Mempool)
 	return ok
 }
 
