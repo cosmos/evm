@@ -37,9 +37,9 @@ func NewEvmAppAdapter(app evm.TestApp) *EvmAppAdapter {
 // ToEvmAppCreator validates that the provided factory returns an app
 // implementing the desired interface T and then wraps it behind the keeper
 // adapter so downstream helpers can keep using evm.EvmApp.
-func ToEvmAppCreator[T any](create func(string, uint64, bool, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, bool, ...func(*baseapp.BaseApp)) evm.EvmApp {
-	return func(chainID string, evmChainID uint64, excluisveMempool bool, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
-		app := create(chainID, evmChainID, excluisveMempool, customBaseAppOptions...)
+func ToEvmAppCreator[T any](create func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+		app := create(chainID, evmChainID, customBaseAppOptions...)
 		if _, ok := app.(T); !ok {
 			panic(fmt.Sprintf("CreateEvmApp must implement %s", ifaceName))
 		}

@@ -30,7 +30,10 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	if server.GetShouldOperateExclusively(appOpts, logger) {
+	// TODO: decouple
+	operateExclusively := true
+
+	if operateExclusively {
 		logger.Info("app-side mempool is operating exclusively, setting up Krakatoa mempool")
 
 		krakatoaConfig := app.createKrakatoaMempoolConfig(appOpts, logger)

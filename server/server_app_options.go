@@ -145,15 +145,6 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	return &legacyConfig
 }
 
-func GetShouldOperateExclusively(appOpts servertypes.AppOptions, logger log.Logger) bool {
-	if appOpts == nil {
-		logger.Error("app options is nil, assuming mempool is not operating exclusively")
-		return false
-	}
-
-	return cast.ToBool(appOpts.Get(srvflags.EVMMempoolOperateExclusively))
-}
-
 func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
 	if appOpts == nil {
 		logger.Error("app options is nil, using pending tx proposal timeout of 0 (unlimited)")

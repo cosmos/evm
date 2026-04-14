@@ -23,7 +23,7 @@ import (
 )
 
 // CreateEvmd creates an evm app for integration tests
-func CreateEvmd(chainID string, evmChainID uint64, exclusiveMempool bool, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
 	// A temporary home directory is created and used to prevent race conditions
 	// related to home directory locks in chains that use the WASM module.
 	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
@@ -34,7 +34,7 @@ func CreateEvmd(chainID string, evmChainID uint64, exclusiveMempool bool, custom
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := true
-	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID, exclusiveMempool)
+	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
@@ -72,7 +72,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		true,
-		NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID, false),
+		NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID),
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
@@ -89,11 +89,10 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	return app, genesisState
 }
 
-func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64, exlcusiveMempool bool) simutils.AppOptionsMap {
+func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64) simutils.AppOptionsMap {
 	return simutils.AppOptionsMap{
 		flags.FlagHome:                              home,
 		srvflags.EVMChainID:                         evmChainID,
-		srvflags.EVMMempoolOperateExclusively:       exlcusiveMempool,
 		srvflags.EVMMempoolInsertQueueSize:          5000,
 		srvflags.EVMMempoolPendingTxProposalTimeout: "250ms",
 	}
