@@ -90,13 +90,13 @@ func TestValidateCrossConfig(t *testing.T) {
 			name:         "comet-flood:evm-off",
 			cometType:    "flood",
 			mempoolMaxTx: 0,
-			errContains:  "invalid mempool type",
+			errContains:  "invalid config.toml:mempool.type",
 		},
 		{
 			name:         "comet-app:evm-off",
 			cometType:    "app",
 			mempoolMaxTx: -1,
-			errContains:  "evm mempool is disabled",
+			errContains:  "EVM mempool is disabled",
 		},
 		{
 			// both disabled
