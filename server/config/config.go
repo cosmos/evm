@@ -171,12 +171,6 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
-	// OperateExclusively determines if the mempool will assume that it is
-	// running as the only mempool in the application (no CometBFT mempool).
-	// This enables the use of new Krakatoa CometBFT ABCI methods should as
-	// InsertTx and ReapTxs. This also enables use of the insert queues and
-	// partial tx collection.
-	OperateExclusively bool `mapstructure:"operate-exclusively"`
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
@@ -195,7 +189,6 @@ func DefaultMempoolConfig() MempoolConfig {
 		AccountQueue:             64,                     // 64 non-executable transaction slots per account
 		GlobalQueue:              1024,                   // 1024 global non-executable slots
 		Lifetime:                 3 * time.Hour,          // 3 hour lifetime for queued transactions
-		OperateExclusively:       false,                  // Assume CometBFT also has a mempool by default
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
 	}

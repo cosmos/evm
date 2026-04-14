@@ -465,7 +465,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		app.RegisterNodeService(clientCtx, config.Config)
 
 		// Set the clientCtx into the mempool
-		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+		if m, ok := evmApp.GetMempool().(*evmmempool.Mempool); ok && m != nil {
 			m.SetClientCtx(clientCtx)
 		}
 	}

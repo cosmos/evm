@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"go.opentelemetry.io/otel"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
@@ -31,6 +33,20 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
+
+const (
+	// SubscriberName is the name of the event bus subscriber for the EVM mempool
+	SubscriberName = "evm"
+	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
+	fallbackBlockGasLimit = 100_000_000
+)
+
+// AllowUnsafeSyncInsert indicates whether to perform synchronous inserts into the mempool
+// for testing purposes. When true, Insert will block until the transaction is fully processed.
+// This should be used only in tests to ensure deterministic behavior
+var AllowUnsafeSyncInsert = false
+
+var meter = otel.Meter("github.com/cosmos/evm/mempool")
 
 var _ sdkmempool.ExtMempool = (*Mempool)(nil)
 
@@ -257,11 +273,6 @@ func (m *Mempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypoo
 
 		_ = m.txTracker.RemoveTxFromPool(tx.Hash(), pool)
 	}
-}
-
-// IsExclusive returns true if this mempool is the ONLY mempool in the chain.
-func (m *Mempool) IsExclusive() bool {
-	return true
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
@@ -643,4 +654,50 @@ func (m *Mempool) RecheckEVMTxs(newHead *ethtypes.Header) {
 // This should only used for testing.
 func (m *Mempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckCosmosPool.TriggerRecheckSync(newHead)
+}
+
+// getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
+// Returns an error if the transaction has no messages, multiple messages, or the single message is not an EVM transaction.
+func evmTxFromCosmosTx(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
+	msgs := tx.GetMsgs()
+	if len(msgs) == 0 {
+		return nil, ErrNoMessages
+	}
+
+	// ethereum txs should only contain a single msg that is a MsgEthereumTx
+	// type
+	if len(msgs) > 1 {
+		// transaction has > 1 msg, will be treated as a cosmos tx by the
+		// mempool. validate that none of the msgs are a MsgEthereumTx since
+		// those should only be used in the single msg case
+		for _, msg := range msgs {
+			if _, ok := msg.(*evmtypes.MsgEthereumTx); ok {
+				return nil, ErrMultiMsgEthereumTransaction
+			}
+		}
+
+		// transaction has > 1 msg, but none were ethereum txs, this is
+		// still not a valid eth tx
+		return nil, fmt.Errorf("%w, got %d", ErrExpectedOneMessage, len(msgs))
+	}
+
+	ethMsg, ok := msgs[0].(*evmtypes.MsgEthereumTx)
+	if !ok {
+		return nil, ErrNotEVMTransaction
+	}
+	return ethMsg, nil
+}
+
+// convertRemovalReason converts a removal caller to a removal reason
+func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason {
+	switch caller {
+	case sdkmempool.CallerRunTxRecheck:
+		return legacypool.RemovalReasonRunTxRecheck
+	case sdkmempool.CallerRunTxFinalize:
+		return legacypool.RemovalReasonRunTxFinalize
+	case sdkmempool.CallerPrepareProposalRemoveInvalid:
+		return legacypool.RemovalReasonPrepareProposalInvalid
+	default:
+		return txpool.RemovalReason("")
+	}
 }

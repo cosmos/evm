@@ -1071,7 +1071,7 @@ func (app *EVMD) GetTxConfig() client.TxConfig {
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.
 func (app *EVMD) Close() error {
 	var err error
-	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+	if m, ok := app.EVMMempool.(*evmmempool.Mempool); ok && m != nil {
 		app.Logger().Info("Shutting down mempool")
 		err = m.Close()
 	}

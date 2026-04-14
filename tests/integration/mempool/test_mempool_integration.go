@@ -1066,12 +1066,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			wantError: false,
 			verifyFunc: func() {
 				mpool := s.network.App.GetMempool()
-				if s.IsExclusiveMempool() {
-					// exclusive mempool should validate that the gas is too low and drop it
-					s.Require().Equal(0, mpool.CountTx())
-				} else {
-					s.Require().Equal(1, mpool.CountTx())
-				}
+				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 		{
