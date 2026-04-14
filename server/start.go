@@ -293,6 +293,11 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 		return err
 	}
 
+	if err := cosmosevmserverconfig.ValidateCrossConfig(svrCtx.Config, &config); err != nil {
+		svrCtx.Logger.Error("configs mismatch", "error", err.Error())
+		return err
+	}
+
 	_, err = startTelemetry(config)
 	if err != nil {
 		return err
@@ -379,6 +384,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 
 	if err := config.ValidateBasic(); err != nil {
 		logger.Error("invalid server config", "error", err.Error())
+		return err
+	}
+
+	if err := cosmosevmserverconfig.ValidateCrossConfig(svrCtx.Config, &config); err != nil {
+		logger.Error("configs mismatch", "error", err.Error())
 		return err
 	}
 

@@ -28,20 +28,16 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	}
 
 	var (
-		mpConfig = app.createMempoolConfig(appOpts, logger)
+		mpConfig = server.ResolveMempoolConfig(app.GetAnteHandler(), appOpts, logger)
 
-		txEncoder = evmmempool.NewTxEncoder(app.txConfig)
-
-		// todo: kk: should we have a SINGLE rechecker?
+		txEncoder       = evmmempool.NewTxEncoder(app.txConfig)
 		evmRechecker    = evmmempool.NewTxRechecker(mpConfig.AnteHandler, txEncoder)
 		cosmosRechecker = evmmempool.NewTxRechecker(mpConfig.AnteHandler, txEncoder)
-
 		cosmosPoolMaxTx = server.GetCosmosPoolMaxTx(appOpts, logger)
 	)
 
-	// todo: kk: simply + enforce new ABCI
 	if cosmosPoolMaxTx < 0 {
-		logger.Debug("app-side mempool is disabled, skipping evm mempool configuration")
+		logger.Debug("evm mempool is disabled, skipping configuration")
 		return nil
 	}
 
@@ -60,33 +56,20 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	app.EVMMempool = mempool
 
-	// create handlers
-	handlerInsertTx := app.NewInsertTxHandler(mempool)
-	handlerReapTxs := app.NewReapTxsHandler(mempool)
-	handlerPrepareProposal := baseapp.
+	// create ABCI handlers
+	insertTxHandler := app.NewInsertTxHandler(mempool)
+	reapTxsHandler := app.NewReapTxsHandler(mempool)
+	prepareProposalHandler := baseapp.
 		NewDefaultProposalHandler(mempool, NewNoCheckProposalTxVerifier(app.BaseApp)).
 		PrepareProposalHandler()
 
 	// set handlers and the mempool
-	app.SetPrepareProposal(handlerPrepareProposal)
-	app.SetInsertTxHandler(handlerInsertTx)
-	app.SetReapTxsHandler(handlerReapTxs)
+	app.SetPrepareProposal(prepareProposalHandler)
+	app.SetInsertTxHandler(insertTxHandler)
+	app.SetReapTxsHandler(reapTxsHandler)
 	app.SetMempool(mempool)
 
 	return nil
-}
-
-// createMempoolConfig creates a new Config with the default configuration
-// and overrides it with values from appOpts if they exist and are non-zero.
-func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.Config {
-	return &evmmempool.Config{
-		AnteHandler:              app.GetAnteHandler(),
-		LegacyPoolConfig:         server.GetLegacyPoolConfig(appOpts, logger),
-		BlockGasLimit:            server.GetBlockGasLimit(appOpts, logger),
-		MinTip:                   server.GetMinTip(appOpts, logger),
-		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
-		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
-	}
 }
 
 func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.Mempool) sdk.InsertTxHandler {

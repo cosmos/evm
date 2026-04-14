@@ -8,6 +8,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -20,6 +21,18 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
+
+// ResolveMempoolConfig resolves the mempool configuration from the app options.
+func ResolveMempoolConfig(anteHandler sdk.AnteHandler, appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.Config {
+	return &evmmempool.Config{
+		AnteHandler:              anteHandler,
+		LegacyPoolConfig:         GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:            GetBlockGasLimit(appOpts, logger),
+		MinTip:                   GetMinTip(appOpts, logger),
+		PendingTxProposalTimeout: GetPendingTxProposalTimeout(appOpts, logger),
+		InsertQueueSize:          GetMempoolInsertQueueSize(appOpts, logger),
+	}
+}
 
 // GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
 // to extract the consensus block gas limit before InitChain is called.

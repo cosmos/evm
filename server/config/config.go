@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	cmtconfig "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/libs/strings"
 
 	errorsmod "cosmossdk.io/errors"
@@ -483,4 +484,44 @@ func (c Config) ValidateBasic() error {
 	}
 
 	return c.Config.ValidateBasic()
+}
+
+// ValidateCrossConfig ensures compatibility between comet-bft (config.toml) and evm (app.toml) configs
+func ValidateCrossConfig(cometBFT *cmtconfig.Config, app *Config) error {
+	errWrap := func(msg string, args ...any) error {
+		return errortypes.ErrAppConfig.Wrapf(msg, args...)
+	}
+
+	if cometBFT == nil || app == nil {
+		return errWrap("comet and app configs are required")
+	}
+
+	const (
+		consensusMempoolApp      = "app"
+		evmMempoolMaxTxsDisabled = -1
+	)
+
+	var (
+		cometAppMempoolEnabled = cometBFT.Mempool.Type == consensusMempoolApp
+		evmMempoolEnabled      = app.Mempool.MaxTxs > evmMempoolMaxTxsDisabled
+	)
+
+	switch {
+	case cometAppMempoolEnabled == evmMempoolEnabled:
+		// all good (both enabled or both disabled)
+		return nil
+	case evmMempoolEnabled && !cometAppMempoolEnabled:
+		return errWrap(
+			"EVM mempool enabled, but comet-bft has invalid config.toml:mempool.type (want '%s', got '%s')",
+			consensusMempoolApp,
+			cometBFT.Mempool.Type,
+		)
+	case cometAppMempoolEnabled && !evmMempoolEnabled:
+		return errWrap(
+			"CometBFT app-side mempool enabled, but EVM mempool is disabled (app.toml:mempool.max-txs=%d)",
+			app.Mempool.MaxTxs,
+		)
+	}
+
+	return nil
 }
