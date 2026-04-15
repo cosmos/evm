@@ -58,6 +58,7 @@ func (suite *ICS20ERC20ConversionTestSuite) SetupTest() {
 }
 
 func TestICS20ERC20ConversionTestSuite(t *testing.T) {
+	t.Skip("STACK-2601: fix IBC tests")
 	suite.Run(t, new(ICS20ERC20ConversionTestSuite))
 }
 

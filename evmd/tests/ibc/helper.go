@@ -1,7 +1,6 @@
 package ibc
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -49,12 +48,12 @@ type NativeErc20Info struct {
 func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc evmibctesting.SenderAccount) *NativeErc20Info {
 	t.Helper()
 
-	evmCtx := chain.GetContext()
 	evmApp := chain.App.(evm.EvmApp)
+	ctx := chain.GetContext()
 
 	// Deploy new ERC20 contract with default metadata
-	stateDB := statedb.New(chain.GetContext(), chain.App.(evm.EvmApp).GetEVMKeeper(), statedb.NewEmptyTxConfig())
-	contractAddr, err := DeployERC20Contract(evmCtx, stateDB, evmApp.GetAccountKeeper(), evmApp.GetEVMKeeper(), banktypes.Metadata{
+	stateDB := statedb.New(ctx, evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	contractAddr, err := DeployERC20Contract(ctx, stateDB, evmApp.GetAccountKeeper(), evmApp.GetEVMKeeper(), banktypes.Metadata{
 		DenomUnits: []*banktypes.DenomUnit{
 			{Denom: "example", Exponent: 18},
 		},
@@ -64,10 +63,9 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	if err != nil {
 		t.Fatalf("ERC20 deployment failed: %v", err)
 	}
-	chain.NextBlock()
 
 	// Register the contract
-	_, err = evmApp.GetErc20Keeper().RegisterERC20(evmCtx, &erc20types.MsgRegisterERC20{
+	_, err = evmApp.GetErc20Keeper().RegisterERC20(ctx, &erc20types.MsgRegisterERC20{
 		Signer:         authtypes.NewModuleAddress(govtypes.ModuleName).String(), // does not have to be gov
 		Erc20Addresses: []string{contractAddr.Hex()},
 	})
@@ -81,9 +79,9 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	sendAmt := ibctesting.DefaultCoinAmount
 	senderAddr := senderAcc.SenderAccount.GetAddress()
 
-	stateDB = statedb.New(evmCtx, evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	stateDB = statedb.New(ctx, evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 	_, err = evmApp.GetEVMKeeper().CallEVM(
-		evmCtx,
+		ctx,
 		stateDB,
 		contractAbi,
 		erc20types.ModuleAddress,
@@ -100,9 +98,9 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	}
 
 	// Verify minted balance
-	stateDB = statedb.New(evmCtx, evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	stateDB = statedb.New(ctx, evmApp.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 	ethRes, err := evmApp.GetEVMKeeper().CallEVM(
-		evmCtx,
+		ctx,
 		stateDB,
 		contractAbi,
 		common.BytesToAddress(senderAddr),
@@ -124,6 +122,7 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	if bal.Cmp(big.NewInt(sendAmt.Int64())) != 0 {
 		t.Fatalf("unexpected ERC20 balance; got %s, want %s", bal.String(), sendAmt.String())
 	}
+	chain.NextBlock()
 
 	return &NativeErc20Info{
 		Denom:        nativeDenom,
@@ -138,11 +137,12 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 func DeployContract(t *testing.T, chain *evmibctesting.TestChain, deploymentData testutiltypes.ContractDeploymentData) (common.Address, error) {
 	t.Helper()
 
-	// Get account's nonce to create contract hash
+	// Keep address derivation aligned with CallEVMWithData, which uses account sequence as nonce.
 	from := common.BytesToAddress(chain.SenderPrivKey.PubKey().Address().Bytes())
-	account := chain.App.(evm.EvmApp).GetEVMKeeper().GetAccount(chain.GetContext(), from)
-	if account == nil {
-		return common.Address{}, errors.New("account not found")
+	ctx := chain.GetContext()
+	nonce, err := chain.App.(evm.EvmApp).GetAccountKeeper().GetSequence(ctx, from.Bytes())
+	if err != nil {
+		return common.Address{}, errorsmod.Wrap(err, "failed to get account sequence")
 	}
 
 	ctorArgs, err := deploymentData.Contract.ABI.Pack("", deploymentData.ConstructorArgs...)
@@ -153,14 +153,14 @@ func DeployContract(t *testing.T, chain *evmibctesting.TestChain, deploymentData
 	data := deploymentData.Contract.Bin
 	data = append(data, ctorArgs...)
 
-	stateDB := statedb.New(chain.GetContext(), chain.App.(evm.EvmApp).GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	stateDB := statedb.New(ctx, chain.App.(evm.EvmApp).GetEVMKeeper(), statedb.NewEmptyTxConfig())
 
-	_, err = chain.App.(evm.EvmApp).GetEVMKeeper().CallEVMWithData(chain.GetContext(), stateDB, from, nil, data, true, false, nil)
+	_, err = chain.App.(evm.EvmApp).GetEVMKeeper().CallEVMWithData(ctx, stateDB, from, nil, data, true, false, nil)
 	if err != nil {
 		return common.Address{}, errorsmod.Wrapf(err, "failed to deploy contract")
 	}
 
-	return crypto.CreateAddress(from, account.Nonce), nil
+	return crypto.CreateAddress(from, nonce), nil
 }
 
 // DeployERC20Contract creates and deploys an ERC20 contract on the EVM with the
