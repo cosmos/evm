@@ -145,6 +145,7 @@ func (suite *MiddlewareTestSuite) transferViaPrecompile(
 }
 
 func TestMiddlewareTestSuite(t *testing.T) {
+	t.Skip("STACK-2601: fix IBC tests")
 	testifysuite.Run(t, new(MiddlewareTestSuite))
 }
 

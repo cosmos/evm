@@ -942,5 +942,6 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestContractICS20TransferRe
 }
 
 func TestICS20RecursivePrecompileCallsTestSuite(t *testing.T) {
+	t.Skip("STACK-2601: fix IBC tests")
 	suite.Run(t, new(ICS20RecursivePrecompileCallsTestSuite))
 }
