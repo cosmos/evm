@@ -150,7 +150,6 @@ var (
 
 type customRunner struct {
 	*txnrunner.STMRunner
-	txDecoder sdk.TxDecoder
 }
 
 func (r *customRunner) Run(ctx context.Context, ms storetypes.MultiStore, txs [][]byte, deliverTx sdk.DeliverTxFunc) ([]*abci.ExecTxResult, error) {
@@ -159,7 +158,7 @@ func (r *customRunner) Run(ctx context.Context, ms storetypes.MultiStore, txs []
 		return nil, err
 	}
 
-	return evmtypes.PatchTxResponses(results, txs, r.txDecoder), nil
+	return evmtypes.PatchTxResponses(results), nil
 }
 
 // EVMD extends an ABCI application, but with most of its parameters exported.
@@ -798,7 +797,6 @@ func NewExampleApp(
 				return app.EVMKeeper.GetParams(sdk.NewContext(ms, cmtproto.Header{}, false, log.NewNopLogger())).EvmDenom
 			},
 		),
-		txDecoder: txDecoder,
 	})
 
 	return app

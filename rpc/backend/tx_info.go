@@ -197,7 +197,7 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
 	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipts from comet block: %w", err)
+		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
 
 	var signer ethtypes.Signer

@@ -100,18 +100,6 @@ var (
 	ErrNilStateDB = errorsmod.Register(ModuleName, codeErrNilStateDB, "stateDB cannot be nil")
 )
 
-// expected failure error strings used to detect txs that failed after ante
-// handling (fee deducted, nonce incremented) but must still be treated as
-// valid ethereum transactions for indexing and RPC purposes.
-const (
-	// ExceedBlockGasLimitError is the error log when a tx runs out of block gas.
-	// the tx fee is deducted in ante handler, so it shouldn't be ignored in JSON-RPC API.
-	ExceedBlockGasLimitError = "out of gas in location: block gas meter; gasWanted:"
-
-	// StateDBCommitError is the error log when the EVM stateDB commit fails,
-	StateDBCommitError = "failed to commit stateDB"
-)
-
 // RevertReasonBytes converts a message to ABI-encoded revert bytes.
 func RevertReasonBytes(reason string) ([]byte, error) {
 	typ, err := abi.NewType("string", "", nil)
