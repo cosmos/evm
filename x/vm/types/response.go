@@ -49,8 +49,8 @@ func PatchTxResponses(input []*abci.ExecTxResult, rawTxs [][]byte, txDecoder sdk
 					anteEvents = append(anteEvents, abci.Event{
 						Type: EventTypeEthereumTx,
 						Attributes: []abci.EventAttribute{
-							{Key: AttributeKeyEthereumTxHash, Value: ethMsg.Hash().Hex()},
-							{Key: AttributeKeyTxIndex, Value: strconv.FormatUint(txIndex, 10)},
+							{Key: AttributeKeyEthereumTxHash, Value: ethMsg.Hash().Hex(), Index: true},
+							{Key: AttributeKeyTxIndex, Value: strconv.FormatUint(txIndex, 10), Index: true},
 						},
 					})
 					txIndex++

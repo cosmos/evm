@@ -328,7 +328,8 @@ func (b *Backend) ReceiptsFromCometBlock(
 		}
 
 		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
-		if txResult.TxIndex >= uint32(len(blockRes.TxsResults)) {
+		txIndex := int(txResult.TxIndex)   // #nosec G115 -- uint32 always fits into int on supported build targets
+		if txIndex >= len(blockRes.TxsResults) {
 			b.Logger.Debug(
 				"skip receipt because tx index is out of bounds",
 				"height", resBlock.Block.Height,
@@ -340,13 +341,16 @@ func (b *Backend) ReceiptsFromCometBlock(
 			continue
 		}
 
-		logs, err := evmtypes.DecodeMsgLogs(
-			blockRes.TxsResults[txResult.TxIndex].Data,
-			msgIndex,
-			uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+		logs := []*ethtypes.Log{}
+		if !txResult.Failed {
+			logs, err = evmtypes.DecodeMsgLogs(
+				blockRes.TxsResults[txIndex].Data,
+				msgIndex,
+				uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+			}
 		}
 
 		if txResult.EthTxIndex == -1 {
