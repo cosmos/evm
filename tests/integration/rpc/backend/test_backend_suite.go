@@ -96,7 +96,7 @@ func (s *TestSuite) SetupTest() {
 
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	mempool := mocks.NewMempool(s.T())
+	mempool := NewEvmMempoolMock(s.T())
 
 	s.backend = rpcbackend.NewBackend(ctx, clientCtx, idxer, mempool, rpcbackend.WithLogger(ctx.Logger))
 	s.backend.Cfg.JSONRPC.GasCap = 0
