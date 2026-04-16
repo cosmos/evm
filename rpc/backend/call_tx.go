@@ -343,7 +343,7 @@ func (b *Backend) SetTxDefaults(ctx context.Context, args evmtypes.TransactionAr
 			Nonce:                args.Nonce,
 		}
 
-		blockNr := rpctypes.NewBlockNumber(big.NewInt(0))
+		blockNr := rpctypes.EthLatestBlockNumber
 		blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNr}
 		estimated, err := b.EstimateGas(ctx, callArgs, &blockNrOrHash, nil)
 		if err != nil {
