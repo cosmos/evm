@@ -23,7 +23,6 @@ import (
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
-	"github.com/cosmos/evm/rpc/types"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/testutil/constants"
@@ -546,7 +545,7 @@ func TestEthMsgsFromCometBlockSkipStateDBCommitFailure(t *testing.T) {
 	blockRes := &tmrpctypes.ResultBlockResults{
 		Height: 100,
 		TxsResults: []*abcitypes.ExecTxResult{
-			{Code: 4, Log: types.StateDBCommitError},
+			{Code: 4, Log: rpctypes.StateDBCommitError},
 			{Code: 0},
 		},
 	}
