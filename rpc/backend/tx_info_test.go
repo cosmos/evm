@@ -545,7 +545,7 @@ func TestEthMsgsFromCometBlockSkipStateDBCommitFailure(t *testing.T) {
 	blockRes := &tmrpctypes.ResultBlockResults{
 		Height: 100,
 		TxsResults: []*abcitypes.ExecTxResult{
-			{Code: 4, Log: rpctypes.StateDBCommitError},
+			{Code: 4, Log: "failed to commit stateDB"},
 			{Code: 0},
 		},
 	}

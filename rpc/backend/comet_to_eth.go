@@ -117,16 +117,9 @@ func (b *Backend) EthMsgsFromCometBlock(
 	for i, tx := range block.Txs {
 		// Check if tx exists on EVM by cross checking with blockResults:
 		//  - Include unsuccessful tx that exceeds block gas limit
-		//  - Exclude unsuccessful tx that failed when committing changes to stateDB,
-		//    because they don't carry Msg response data and can break receipt decoding
 		//  - Exclude unsuccessful tx with any other error but ExceedBlockGasLimit
 		if !rpctypes.TxSucessOrExpectedFailure(txResults[i]) {
 			b.Logger.Debug("invalid tx result code", "cosmos-hash", hexutil.Encode(tx.Hash()))
-			continue
-		}
-
-		if rpctypes.TxStateDBCommitError(txResults[i]) {
-			b.Logger.Debug("skip statedb commit failure tx", "cosmos-hash", hexutil.Encode(tx.Hash()))
 			continue
 		}
 
