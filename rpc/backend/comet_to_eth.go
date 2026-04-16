@@ -270,19 +270,55 @@ func (b *Backend) ReceiptsFromCometBlock(
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
 	for i, ethMsg := range msgs {
-		txResult, err := b.GetTxByEthHash(ctx, ethMsg.Hash())
-		if err != nil {
-			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
-		}
-
-		cumulatedGasUsed += txResult.GasUsed
-
 		var effectiveGasPrice *big.Int
 		if baseFee != nil {
 			effectiveGasPrice = rpctypes.EffectiveGasPrice(ethMsg.Raw.Transaction, baseFee)
 		} else {
 			effectiveGasPrice = ethMsg.Raw.GasFeeCap()
 		}
+
+		contractAddress := common.Address{}
+		if ethMsg.Raw.To() == nil {
+			contractAddress = crypto.CreateAddress(ethMsg.GetSender(), ethMsg.Raw.Nonce())
+		}
+
+		// Always initialize a non-nil receipt entry to avoid panics when deriving receipt roots.
+		receipts[i] = &ethtypes.Receipt{
+			Type:              ethMsg.Raw.Type(),
+			PostState:         nil,
+			Status:            ethtypes.ReceiptStatusFailed,
+			CumulativeGasUsed: cumulatedGasUsed,
+			Bloom:             ethtypes.Bloom{},
+			Logs:              []*ethtypes.Log{},
+			TxHash:            ethMsg.Hash(),
+			ContractAddress:   contractAddress,
+			GasUsed:           0,
+			EffectiveGasPrice: effectiveGasPrice,
+			BlobGasUsed:       uint64(0),
+			BlobGasPrice:      big.NewInt(0),
+			BlockHash:         blockHash,
+			BlockNumber:       big.NewInt(resBlock.Block.Height),
+			TransactionIndex:  uint(i),
+		}
+
+		txResult, err := b.GetTxByEthHash(ctx, ethMsg.Hash())
+		if err != nil {
+			errByHash := err
+			txResult, err = b.GetTxByTxIndex(ctx, resBlock.Block.Height, uint(i))
+			if err != nil {
+				b.Logger.Debug(
+					"skip receipt because tx lookup failed",
+					"height", resBlock.Block.Height,
+					"eth-hash", ethMsg.Hash().Hex(),
+					"eth-index", i,
+					"by-hash-error", errByHash.Error(),
+					"by-index-error", err.Error(),
+				)
+				continue
+			}
+		}
+
+		cumulatedGasUsed += txResult.GasUsed
 
 		var status uint64
 		if txResult.Failed {
@@ -291,12 +327,19 @@ func (b *Backend) ReceiptsFromCometBlock(
 			status = ethtypes.ReceiptStatusSuccessful
 		}
 
-		contractAddress := common.Address{}
-		if ethMsg.Raw.To() == nil {
-			contractAddress = crypto.CreateAddress(ethMsg.GetSender(), ethMsg.Raw.Nonce())
+		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
+		if txResult.TxIndex >= uint32(len(blockRes.TxsResults)) {
+			b.Logger.Debug(
+				"skip receipt because tx index is out of bounds",
+				"height", resBlock.Block.Height,
+				"eth-hash", ethMsg.Hash().Hex(),
+				"tx-index", txResult.TxIndex,
+				"tx-results-len", len(blockRes.TxsResults),
+			)
+			receipts[i].GasUsed = txResult.GasUsed
+			continue
 		}
 
-		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
 		logs, err := evmtypes.DecodeMsgLogs(
 			blockRes.TxsResults[txResult.TxIndex].Data,
 			msgIndex,
@@ -307,11 +350,17 @@ func (b *Backend) ReceiptsFromCometBlock(
 		}
 
 		if txResult.EthTxIndex == -1 {
-			var err error
 			// Fallback to find tx index by iterating all valid eth transactions
 			txResult.EthTxIndex, err = FindEthTxIndexByHash(ctx, ethMsg.Hash(), resBlock, blockRes, b)
 			if err != nil {
-				return nil, err
+				b.Logger.Debug(
+					"fallback to loop search failed, use loop index",
+					"height", resBlock.Block.Height,
+					"eth-hash", ethMsg.Hash().Hex(),
+					"fallback-index", i,
+					"error", err.Error(),
+				)
+				txResult.EthTxIndex = int32(i)
 			}
 		}
 
