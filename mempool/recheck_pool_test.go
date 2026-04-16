@@ -510,7 +510,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 // Integration
 // ----------------------------------------------------------------------------
 
-func TestKrakatoaMempool_Recheck(t *testing.T) {
+func TestMempool_Recheck(t *testing.T) {
 	type accountTx struct {
 		account int
 		nonce   uint64
@@ -631,7 +631,7 @@ func TestKrakatoaMempool_Recheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+			mp, s := setupMempoolWithAccounts(t, 3)
 			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {

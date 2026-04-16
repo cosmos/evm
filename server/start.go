@@ -28,6 +28,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
 	evmmetrics "github.com/cosmos/evm/metrics"
+	"github.com/cosmos/evm/rpc/backend"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -230,7 +231,6 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
 	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
 	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
-	cmd.Flags().Bool(srvflags.EVMMempoolOperateExclusively, cosmosevmserverconfig.DefaultMempoolConfig().OperateExclusively, "if this mempool is the only mempool in the application (CometBFT must be using the 'app' mempool if this mempool is operating exclusively)")
 	cmd.Flags().Duration(srvflags.EVMMempoolPendingTxProposalTimeout, cosmosevmserverconfig.DefaultMempoolConfig().PendingTxProposalTimeout, "the maximum amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal")
 	cmd.Flags().Int(srvflags.EVMMempoolInsertQueueSize, cosmosevmserverconfig.DefaultMempoolConfig().InsertQueueSize, "the maximum number of transactions that can be in the insert queue at once")
 
@@ -290,6 +290,11 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 
 	if err := config.ValidateBasic(); err != nil {
 		svrCtx.Logger.Error("invalid server config", "error", err.Error())
+		return err
+	}
+
+	if err := cosmosevmserverconfig.ValidateCrossConfig(svrCtx.Config, &config); err != nil {
+		svrCtx.Logger.Error("configs mismatch", "error", err.Error())
 		return err
 	}
 
@@ -382,6 +387,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		return err
 	}
 
+	if err := cosmosevmserverconfig.ValidateCrossConfig(svrCtx.Config, &config); err != nil {
+		logger.Error("configs mismatch", "error", err.Error())
+		return err
+	}
+
 	SetEVMLogger(
 		NewSlogFromCosmosLogger(
 			svrCtx.Logger.With("module", "evm"),
@@ -465,7 +475,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		app.RegisterNodeService(clientCtx, config.Config)
 
 		// Set the clientCtx into the mempool
-		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
+		if m, ok := evmApp.GetMempool().(*evmmempool.Mempool); ok && m != nil {
 			m.SetClientCtx(clientCtx)
 		}
 	}
@@ -543,9 +553,10 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		mp, ok := evmApp.GetMempool().(PossiblyExclusiveMempool)
+
+		mp, ok := evmApp.GetMempool().(backend.Mempool)
 		if !ok {
-			return fmt.Errorf("json-rpc server requires PossiblyExclusiveMempool")
+			return fmt.Errorf("json-rpc server requires backend.Mempool")
 		}
 
 		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, mp)

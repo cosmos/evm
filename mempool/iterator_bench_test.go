@@ -180,8 +180,8 @@ func benchPrivKeyToCosmos(b *testing.B, key *ecdsa.PrivateKey) cryptotypes.PrivK
 	return cosmosKey
 }
 
-// setupBenchMempool creates an ExperimentalEVMMempool with mocked state.
-func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount) (sdk.Context, client.TxConfig, *evmmempool.ExperimentalEVMMempool) {
+// setupBenchMempool creates an Mempool with mocked state.
+func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount) (sdk.Context, client.TxConfig, *evmmempool.Mempool) {
 	b.Helper()
 
 	ethCfg := vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)
@@ -261,22 +261,31 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		return ctx, nil
 	}
 
-	config := &evmmempool.EVMMempoolConfig{
+	config := &evmmempool.Config{
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    benchBlockGasLimit,
 		MinTip:           uint256.NewInt(0),
 		AnteHandler:      noopAnteHandler,
+
+		PendingTxProposalTimeout: 200 * time.Millisecond,
+		InsertQueueSize:          10_000,
 	}
 
-	mpool := evmmempool.NewExperimentalEVMMempool(
+	txEncoder := evmmempool.NewTxEncoder(txConfig)
+	evmRechecker := evmmempool.NewTxRechecker(noopAnteHandler, txEncoder)
+	cosmosRechecker := evmmempool.NewTxRechecker(noopAnteHandler, txEncoder)
+	mpool := evmmempool.NewMempool(
 		getCtxCallback,
 		log.NewNopLogger(),
 		mockVMKeeper,
 		mockFeeMarketKeeper,
 		txConfig,
+		evmRechecker,
+		cosmosRechecker,
 		config,
-		0, // cosmosPoolMaxTx (0 = unlimited)
+		0,
 	)
+
 	mpool.SetClientCtx(clientCtx)
 	require.NotNil(b, mpool)
 

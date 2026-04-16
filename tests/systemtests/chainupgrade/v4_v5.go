@@ -96,6 +96,8 @@ func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	t.Log("Upgrade height was reached. Upgrading chain")
 	sut.SetExecBinary(currentBranchBinary)
 	sut.SetTestnetInitializer(currentInitializer)
+	// Keep Comet and app mempool settings in sync for the upgraded binary startup.
+	base.ModifyCometMempool(t, "app")
 	sut.StartChain(t, "--chain-id=local-4221", "--mempool.max-txs=0")
 
 	require.Equal(t, upgradeHeight+1, sut.CurrentHeight())
