@@ -456,10 +456,8 @@ func (m *KrakatoaMempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reaso
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		_ = m.txTracker.IncludedInBlock(hash)
-		if reason.Error == nil {
-			if err := m.legacyTxPool.ScheduleForRemoval(msgEthereumTx.AsTransaction()); err != nil {
-				m.logger.Error("error scheduling tx for removal from legacypool", "err", err)
-			}
+		if err := m.legacyTxPool.ScheduleForRemoval(msgEthereumTx.AsTransaction()); err != nil {
+			m.logger.Error("error scheduling tx for removal from legacypool", "err", err)
 		}
 	}
 	return nil
