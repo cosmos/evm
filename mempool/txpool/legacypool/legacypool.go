@@ -439,7 +439,7 @@ func (pool *LegacyPool) ScheduleForRemoval(tx *types.Transaction) error {
 }
 
 // removeOlds removes txs that have been scheduled for removals from
-// list l for sender addr.  Returns the number of txs successfully removed.
+// list l for sender addr. Returns the txs successfully removed.
 func (pool *LegacyPool) removeOlds(addr common.Address, l *list, poolType PoolType) types.Transactions {
 	latest, ok := pool.latestIncludedNonce.Get(addr)
 	if !ok {
@@ -1679,9 +1679,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 
 		// Drop all transactions that are below the latest included nonce for
 		// this account based on what we have seen during the latest block
-		// execution.
-		olds := pool.removeOlds(addr, list, Queue)
-		queuedRemovedOld.Mark(int64(len(olds)))
+		// execution. Only do this if we are resetting.
+		var olds types.Transactions
+		if reset != nil {
+			olds = pool.removeOlds(addr, list, Queue)
+			queuedRemovedOld.Mark(int64(len(olds)))
+		}
 
 		// Drop all transactions that now fail the pools RecheckTxFn
 		//
