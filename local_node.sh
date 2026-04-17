@@ -267,7 +267,8 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
   sed -i.bak 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$CONFIG_TOML"
   sed -i.bak 's/type = "flood"/type = "app"/g' "$CONFIG_TOML"
-
+  sed -i.bak 's/laddr = "tcp:\/\/127.0.0.1:26657"/laddr = "tcp:\/\/0.0.0.0:26657"/g' "$CONFIG_TOML"
+  sed -i.bak 's/cors_allowed_origins = \[\]/cors_allowed_origins = ["*"]/g' "$CONFIG_TOML"
   # enable prometheus metrics and all APIs for dev node
   sed -i.bak 's/prometheus = false/prometheus = true/' "$CONFIG_TOML"
   sed -i.bak 's/prometheus-retention-time  = "0"/prometheus-retention-time  = "1000000000000"/g' "$APP_TOML"
@@ -343,8 +344,11 @@ fi
 evmd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
+	--mempool.max-txs=0 \
 	--minimum-gas-prices=0atest \
 	--evm.min-tip=0 \
+	--evm.mempool.operate-exclusively=true \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
+	--api.enabled-unsafe-cors true \
 	--chain-id "$CHAINID"
