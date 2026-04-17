@@ -372,6 +372,9 @@ func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err err
 	if chainID == "" {
 		// If not available load from home
 		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+		if homeDir == "" {
+			return "", errors.New("chain-id not set and home directory not configured")
+		}
 		chainID, err = utils.GetChainIDFromHome(homeDir)
 		if err != nil {
 			return "", err
