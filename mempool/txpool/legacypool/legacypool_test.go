@@ -829,6 +829,57 @@ func TestNonceRecovery(t *testing.T) {
 	}
 }
 
+func TestScheduleForRemoval(t *testing.T) {
+	t.Parallel()
+
+	pool, _, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	testAddBalance(pool, addr, big.NewInt(1_000_000_000_000))
+	<-pool.requestReset(nil, nil)
+
+	txs := []*types.Transaction{
+		transaction(0, 100000, key),
+		transaction(1, 100000, key),
+		transaction(2, 100000, key),
+		transaction(3, 100000, key),
+	}
+	queuedTx := transaction(10, 100000, key)
+
+	for _, tx := range txs {
+		require.NoError(t, pool.addRemote(tx))
+	}
+	require.NoError(t, pool.addRemote(queuedTx))
+	<-pool.requestReset(nil, nil)
+
+	pending, queued := pool.ContentFrom(addr)
+	require.Len(t, pending, 4, "precondition: four pending txs")
+	require.Len(t, queued, 1, "precondition: one queued tx")
+
+	require.NoError(t, pool.ScheduleForRemoval(txs[1]))
+	<-pool.requestReset(nil, nil)
+
+	pending, queued = pool.ContentFrom(addr)
+	require.Len(t, pending, 2)
+	require.Equal(t, uint64(2), pending[0].Nonce())
+	require.Equal(t, uint64(3), pending[1].Nonce())
+	require.Len(t, queued, 1, "queued tx@10 is above threshold and survives")
+
+	require.NoError(t, pool.ScheduleForRemoval(txs[0]))
+	<-pool.requestReset(nil, nil)
+
+	pending, _ = pool.ContentFrom(addr)
+	require.Len(t, pending, 2, "lower-nonce schedule must be a no-op")
+
+	require.NoError(t, pool.ScheduleForRemoval(queuedTx))
+	<-pool.requestReset(nil, nil)
+
+	pending, queued = pool.ContentFrom(addr)
+	require.Empty(t, pending, "pending drained by ScheduleForRemoval at nonce 10")
+	require.Empty(t, queued, "queued tx@10 drained by ScheduleForRemoval")
+}
+
 // Tests that if an account runs out of funds, any pending and queued transactions
 // are dropped.
 func TestDropping(t *testing.T) {
