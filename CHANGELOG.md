@@ -20,6 +20,7 @@
 - [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
+- [\#1085](https://github.com/cosmos/evm/pull/1085) Add Block-STM configuration support: `evm.block-executor`, `evm.block-stm-workers` and `evm.block-stm-pre-estimate`.
 
 ### BUG FIXES
 

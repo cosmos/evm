@@ -254,14 +254,30 @@ func NewExampleApp(
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 
-	// enable block stm for parallel execution
-	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
-		encodingConfig.TxConfig.TxDecoder(),
-		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
-		func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
-	))
+	workers := cast.ToInt(appOpts.Get(sdkserver.FlagBlockSTMWorkers))
+	if workers <= 0 {
+		workers = min(goruntime.GOMAXPROCS(0), goruntime.NumCPU())
+	}
+	preEstimate := cast.ToBool(appOpts.Get(sdkserver.FlagBlockSTMPreEstimate))
+	executor := cast.ToString(appOpts.Get(sdkserver.FlagBlockExecutor))
+	if executor == "" {
+		executor = config.DefaultBlockExecutor
+	}
+
+	switch executor {
+	case config.BlockExecutorBlockSTM:
+		bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
+			encodingConfig.TxConfig.TxDecoder(),
+			nonTransientKeys,
+			workers,
+			preEstimate,
+			func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
+		))
+	case config.BlockExecutorSequential:
+		// Use BaseApp's default sequential execution.
+	default:
+		panic(fmt.Errorf("unknown EVM block executor: %s", executor))
+	}
 
 	// disable block gas meter
 	bApp.SetDisableBlockGasMeter(true)
