@@ -244,7 +244,7 @@ type Config struct {
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
-	IncludedNonceCacheSize int // Max entries in the included-nonce LRU cache (0 = default 4096)
+	IncludedNonceCacheSize int // Max entries in the included nonce LRU cache
 }
 
 // DefaultConfig contains the default configurations for the transaction pool.
@@ -262,7 +262,7 @@ var DefaultConfig = Config{
 
 	Lifetime: 3 * time.Hour,
 
-	IncludedNonceCacheSize: 16_384, // should be >= max txs expected in a block for best perf
+	IncludedNonceCacheSize: 4096, // should be >= max txs expected in a block for best perf
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -390,7 +390,9 @@ func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Optio
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
+	// only errors if size <= 0 and we have already validated this
 	nonceCache, _ := lru.New[common.Address, uint64](config.IncludedNonceCacheSize)
+
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
 		config:              config,
