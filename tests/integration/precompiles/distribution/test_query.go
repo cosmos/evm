@@ -1,13 +1,14 @@
 package distribution
 
 import (
-	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
@@ -22,37 +23,42 @@ import (
 var expValAmount int64 = 1
 
 type distrTestCases struct {
-	name        string
-	malleate    func() []interface{}
-	postCheck   func(bz []byte)
-	gas         uint64
-	expErr      bool
-	errContains string
+	name      string
+	malleate  func() []interface{}
+	postCheck func(bz []byte)
+	gas       uint64
+	expErr    bool
+	wantErrFn func(*PrecompileTestSuite, []interface{}) error
 }
 
-var baseTestCases = []distrTestCases{
-	{
-		"fail - empty input args",
-		func() []interface{} {
-			return []interface{}{}
+func baseQueryTestCases(methodName string, expInputs int) []distrTestCases {
+	return []distrTestCases{
+		{
+			"fail - empty input args",
+			func() []interface{} { return []interface{}{} },
+			func([]byte) {},
+			100000,
+			true,
+			func(_ *PrecompileTestSuite, args []interface{}) error {
+				return cmn.NewRevertWithSolidityError(
+					distribution.ABI,
+					cmn.SolidityErrInvalidNumberOfArgs,
+					big.NewInt(int64(expInputs)),
+					big.NewInt(int64(len(args))),
+				)
+			},
 		},
-		func([]byte) {},
-		100000,
-		true,
-		"invalid number of arguments",
-	},
-	{
-		"fail - invalid validator address",
-		func() []interface{} {
-			return []interface{}{
-				"invalid",
-			}
+		{
+			"fail - invalid validator address",
+			func() []interface{} { return []interface{}{"invalid"} },
+			func([]byte) {},
+			100000,
+			true,
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "invalid")
+			},
 		},
-		func([]byte) {},
-		100000,
-		true,
-		"invalid: unknown address",
-	},
+	}
 }
 
 func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
@@ -73,7 +79,9 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			func([]byte) {},
 			100000,
 			true,
-			"validator does not exist",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+			},
 		},
 		{
 			"fail - existent validator but without self delegation",
@@ -85,7 +93,9 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			func([]byte) {},
 			100000,
 			true,
-			"no delegation for (address, validator) tuple",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "no delegation for (address, validator) tuple")
+			},
 		},
 		{
 			"success",
@@ -120,10 +130,10 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases...)
+	testCases = append(baseQueryTestCases(method.Name, len(method.Inputs)), testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -131,11 +141,13 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.ValidatorDistributionInfo(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.ValidatorDistributionInfo(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -168,7 +180,9 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			},
 			100000,
 			true,
-			"validator does not exist",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+			},
 		},
 		{
 			"success - existent validator, no outstanding rewards",
@@ -185,7 +199,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with outstanding rewards",
@@ -213,10 +227,10 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases...)
+	testCases = append(baseQueryTestCases(method.Name, len(method.Inputs)), testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -224,11 +238,13 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.ValidatorOutstandingRewards(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.ValidatorOutstandingRewards(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -261,7 +277,9 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			},
 			100000,
 			true,
-			"validator does not exist",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+			},
 		},
 		{
 			"success - existent validator, no accumulated commission",
@@ -278,7 +296,7 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with accumulated commission",
@@ -311,10 +329,10 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases...)
+	testCases = append(baseQueryTestCases(method.Name, len(method.Inputs)), testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -322,11 +340,13 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.ValidatorCommission(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.ValidatorCommission(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -352,7 +372,9 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			true,
-			"invalid validator address",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "rpc error: code = InvalidArgument desc = invalid validator address")
+			},
 		},
 		{
 			"fail - invalid starting height type",
@@ -367,7 +389,9 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			true,
-			"invalid type for startingHeight: expected uint64, received int64",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidHeight, "1")
+			},
 		},
 		{
 			"fail - starting height greater than ending height",
@@ -382,7 +406,9 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			true,
-			"starting height greater than ending height",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "rpc error: code = InvalidArgument desc = starting height greater than ending height (6 > 5)")
+			},
 		},
 		{
 			"success - nonexistent validator address",
@@ -406,7 +432,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - existent validator, no slashes",
@@ -427,7 +453,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with slashes",
@@ -453,7 +479,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with slashes w/pagination",
@@ -480,10 +506,10 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases[0])
+	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -491,11 +517,13 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.ValidatorSlashes(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.ValidatorSlashes(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -524,7 +552,9 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			func([]byte) {},
 			100000,
 			true,
-			"invalid: unknown address",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "invalid")
+			},
 		},
 		{
 			"fail - nonexistent validator address",
@@ -540,7 +570,9 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			func([]byte) {},
 			100000,
 			true,
-			"validator does not exist",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+			},
 		},
 		{
 			"fail - existent validator, no delegation",
@@ -554,7 +586,9 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			func([]byte) {},
 			100000,
 			true,
-			"no delegation for (address, validator) tuple",
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "no delegation for (address, validator) tuple")
+			},
 		},
 		{
 			"success - existent validator & delegation, but no rewards",
@@ -572,7 +606,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with rewards",
@@ -595,10 +629,10 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases[0])
+	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -611,7 +645,8 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -639,7 +674,9 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "invalid")
+			},
 		},
 		{
 			"success - no delegations",
@@ -658,7 +695,7 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - existent validator & delegation, but no rewards",
@@ -683,7 +720,7 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with rewards",
@@ -728,10 +765,10 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases[0])
+	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -745,7 +782,8 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -770,7 +808,9 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "invalid")
+			},
 		},
 		{
 			"success - no delegations",
@@ -788,7 +828,7 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - existent delegations",
@@ -813,10 +853,10 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases[0])
+	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -824,11 +864,13 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.DelegatorValidators(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.DelegatorValidators(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -853,7 +895,9 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidAddress, "invalid")
+			},
 		},
 		{
 			"success - withdraw address same as delegator address",
@@ -870,10 +914,10 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
-	testCases = append(testCases, baseTestCases[0])
+	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -881,11 +925,13 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.DelegatorWithdrawAddress(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.DelegatorWithdrawAddress(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -910,7 +956,9 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 			func(bz []byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+			func(_ *PrecompileTestSuite, _ []interface{}) error {
+				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(0), big.NewInt(1))
+			},
 		},
 		{
 			"success - empty community pool",
@@ -925,7 +973,7 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - with community pool",
@@ -947,7 +995,7 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -957,11 +1005,13 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 			ctx = s.network.GetContext()
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.CommunityPool(ctx, contract, &method, tc.malleate())
+			args := tc.malleate()
+			bz, err := s.precompile.CommunityPool(ctx, contract, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErrFn)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)

@@ -17,11 +17,13 @@ import (
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
-	chainutil "github.com/cosmos/evm/testutil"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -316,8 +318,20 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				"INVALID-DENOM-HASH",
 			)
 			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
-			revertErr := chainutil.DecodeRevertReason(*evmRes)
-			suite.Require().Contains(revertErr.Error(), "invalid denom trace hash")
+			denomReq, errBuild := ics20.NewDenomRequest([]interface{}{"INVALID-DENOM-HASH"})
+			suite.Require().NoError(errBuild)
+			_, qerr := evmAppB.TransferKeeper.Denom(sdk.WrapSDKContext(ctxB), denomReq)
+			suite.Require().Error(qerr)
+			precompiletestutil.RequireExactError(
+				suite.T(),
+				evmtypes.NewExecErrorWithReason(evmRes.Ret),
+				cmn.NewRevertWithSolidityError(
+					suite.chainBPrecompile.ABI,
+					cmn.SolidityErrQueryFailed,
+					ics20.DenomMethod,
+					qerr.Error(),
+				),
+			)
 			ctxB.GasMeter().RefundGas(ctxB.GasMeter().Limit(), "refund after error")
 
 			// denomHash query method
@@ -371,8 +385,20 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				"",
 			)
 			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
-			revertErr = chainutil.DecodeRevertReason(*evmRes)
-			suite.Require().Contains(revertErr.Error(), "invalid denomination for cross-chain transfer")
+			hashReq, errBuild := ics20.NewDenomHashRequest([]interface{}{""})
+			suite.Require().NoError(errBuild)
+			_, qerrHash := evmAppB.TransferKeeper.DenomHash(sdk.WrapSDKContext(ctxB), hashReq)
+			suite.Require().Error(qerrHash)
+			precompiletestutil.RequireExactError(
+				suite.T(),
+				evmtypes.NewExecErrorWithReason(evmRes.Ret),
+				cmn.NewRevertWithSolidityError(
+					suite.chainBPrecompile.ABI,
+					cmn.SolidityErrQueryFailed,
+					ics20.DenomHashMethod,
+					qerrHash.Error(),
+				),
+			)
 			ctxB.GasMeter().RefundGas(ctxB.GasMeter().Limit(), "refund after error")
 		})
 	}

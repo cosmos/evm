@@ -36,7 +36,11 @@ struct DelegationDelegatorReward {
 /// @title Distribution Precompile Contract
 /// @dev The interface through which solidity contracts will interact with Distribution
 /// @custom:address 0x0000000000000000000000000000000000000801
-interface DistributionI {
+interface DistributionI is IPrecompile {
+    error DistributionInputInvalid(string callMethod, string reason);
+    error DistributionValidatorSlashesUnpackFailed(string reason);
+    error ClaimRewardsMaxRetrieveExceeded(uint32 maxRetrieve, uint32 maxValidators);
+
     /// @dev ClaimRewards defines an Event emitted when rewards are claimed
     /// @param delegatorAddress the address of the delegator
     /// @param amount the amount being claimed

@@ -1,12 +1,13 @@
 package erc20
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/testutil"
 	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
@@ -110,23 +111,30 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 	symbolMethod := s.precompile.Methods[erc20.SymbolMethod]
 
 	testcases := []struct {
-		name        string
-		denom       string
-		malleate    func(sdk.Context, bankkeeper.Keeper, *transferkeeper.Keeper)
-		expPass     bool
-		errContains string
-		expName     string
-		expSymbol   string
+		name         string
+		denom        string
+		malleate     func(sdk.Context, bankkeeper.Keeper, *transferkeeper.Keeper)
+		expPass      bool
+		expNameErr   error
+		expSymbolErr error
+		expName      string
+		expSymbol    string
 	}{
 		{
-			name:        "fail - invalid denom trace",
-			denom:       tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
-			errContains: "odd length hex string",
+			name:  "fail - invalid denom trace",
+			denom: tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
+			expNameErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.NameMethod,
+				"encoding/hex: odd length hex string"),
+			expSymbolErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.SymbolMethod,
+				"encoding/hex: odd length hex string"),
 		},
 		{
-			name:        "fail - denom not found",
-			denom:       types.NewDenom("notfound", types.NewHop(types.PortID, "channel-0")).IBCDenom(),
-			errContains: vm.ErrExecutionReverted.Error(),
+			name:  "fail - denom not found",
+			denom: types.NewDenom("notfound", types.NewHop(types.PortID, "channel-0")).IBCDenom(),
+			expNameErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.NameMethod,
+				"denom not found"),
+			expSymbolErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.SymbolMethod,
+				"denom not found"),
 		},
 		{
 			name:  "fail - invalid denom (too short < 3 chars)",
@@ -134,12 +142,18 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			malleate: func(ctx sdk.Context, _ bankkeeper.Keeper, keeper *transferkeeper.Keeper) {
 				keeper.SetDenom(ctx, tooShort)
 			},
-			errContains: vm.ErrExecutionReverted.Error(),
+			expNameErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.NameMethod,
+				`invalid base denomination; should be at least length 3; got: "ab"`),
+			expSymbolErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.SymbolMethod,
+				`invalid base denomination; should be at least length 3; got: "ab"`),
 		},
 		{
-			name:        "fail - denom without metadata and not an IBC voucher",
-			denom:       "noIBCvoucher",
-			errContains: vm.ErrExecutionReverted.Error(),
+			name:  "fail - denom without metadata and not an IBC voucher",
+			denom: "noIBCvoucher",
+			expNameErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.NameMethod,
+				"denom: noIBCvoucher: denom is not an IBC voucher"),
+			expSymbolErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.SymbolMethod,
+				"denom: noIBCvoucher: denom is not an IBC voucher"),
 		},
 		{
 			name:  "pass - valid ibc denom without metadata and neither atto nor micro prefix",
@@ -199,7 +213,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 				)
 
 				// NOTE: all output and error checking happens in here
-				s.requireOut(bz, err, nameMethod, tc.expPass, tc.errContains, tc.expName)
+				s.requireOut(bz, err, nameMethod, tc.expPass, tc.expNameErr, tc.expName)
 			})
 
 			s.Run("symbol", func() {
@@ -212,7 +226,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 				)
 
 				// NOTE: all output and error checking happens in here
-				s.requireOut(bz, err, symbolMethod, tc.expPass, tc.errContains, tc.expSymbol)
+				s.requireOut(bz, err, symbolMethod, tc.expPass, tc.expSymbolErr, tc.expSymbol)
 			})
 		})
 	}
@@ -221,36 +235,41 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 func (s *PrecompileTestSuite) TestDecimals() {
 	DecimalsMethod := s.precompile.Methods[erc20.DecimalsMethod]
 
+	ibcNoMicroAttoDenom := validDenomNoMicroAtto.IBCDenom()
 	testcases := []struct {
 		name        string
 		denom       string
 		malleate    func(sdk.Context, bankkeeper.Keeper, *transferkeeper.Keeper)
 		expPass     bool
-		errContains string
+		expErr      error
 		expDecimals uint8
 	}{
 		{
-			name:        "fail - invalid denom trace",
-			denom:       tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
-			errContains: "odd length hex string",
+			name:  "fail - invalid denom trace",
+			denom: tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.DecimalsMethod,
+				"encoding/hex: odd length hex string"),
 		},
 		{
-			name:        "fail - denom not found",
-			denom:       types.NewDenom("notfound", types.NewHop(types.PortID, "channel-0")).IBCDenom(),
-			errContains: vm.ErrExecutionReverted.Error(),
+			name:  "fail - denom not found",
+			denom: types.NewDenom("notfound", types.NewHop(types.PortID, "channel-0")).IBCDenom(),
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.DecimalsMethod,
+				"denom not found"),
 		},
 		{
-			name:        "fail - denom without metadata and not an IBC voucher",
-			denom:       "noIBCvoucher",
-			errContains: vm.ErrExecutionReverted.Error(),
+			name:  "fail - denom without metadata and not an IBC voucher",
+			denom: "noIBCvoucher",
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.DecimalsMethod,
+				"denom: noIBCvoucher: denom is not an IBC voucher"),
 		},
 		{
 			name:  "fail - valid ibc denom without metadata and neither atto nor micro prefix",
-			denom: validDenomNoMicroAtto.IBCDenom(),
+			denom: ibcNoMicroAttoDenom,
 			malleate: func(ctx sdk.Context, _ bankkeeper.Keeper, keeper *transferkeeper.Keeper) {
 				keeper.SetDenom(ctx, validDenomNoMicroAtto)
 			},
-			errContains: vm.ErrExecutionReverted.Error(),
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.DecimalsMethod,
+				`Should be either micro ('u[...]') or atto ('a[...]'); got: "matom": invalid base denomination`),
 		},
 		{
 			name:  "pass - invalid denom (too short < 3 chars)",
@@ -304,7 +323,8 @@ func (s *PrecompileTestSuite) TestDecimals() {
 				// NOTE: we set the denom metadata for the coin
 				keeper.SetDenomMetaData(s.network.GetContext(), overflowMetadata)
 			},
-			errContains: vm.ErrExecutionReverted.Error(),
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAmount,
+				fmt.Sprintf("uint8 overflow: invalid decimals: %d", uint32(math.MaxUint8)+1)),
 		},
 		{
 			name:  "pass - valid ibc denom with metadata but no display denom",
@@ -317,7 +337,8 @@ func (s *PrecompileTestSuite) TestDecimals() {
 				// NOTE: we set the denom metadata for the coin
 				keeper.SetDenomMetaData(ctx, noDisplayMetadata)
 			},
-			errContains: vm.ErrExecutionReverted.Error(),
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.DecimalsMethod,
+				fmt.Sprintf("display denomination not found for denom: %q", validMetadataDenom)),
 		},
 		{
 			name:  "pass - valid IBC denom with metadata using display path",
@@ -364,8 +385,9 @@ func (s *PrecompileTestSuite) TestDecimals() {
 					Symbol:  "MISMATCH",
 				})
 			},
-			expPass:     false,
-			errContains: "execution reverted",
+			expPass: false,
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrQueryFailed, erc20.DecimalsMethod,
+				fmt.Sprintf("display denomination not found for denom: %q", "ibc/C1D2E3F4567890123456789012345678901234567890123456789012345678901234")),
 		},
 	}
 
@@ -389,7 +411,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			)
 
 			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, DecimalsMethod, tc.expPass, tc.errContains, tc.expDecimals)
+			s.requireOut(bz, err, DecimalsMethod, tc.expPass, tc.expErr, tc.expDecimals)
 		})
 	}
 }
@@ -398,11 +420,11 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 	method := s.precompile.Methods[erc20.TotalSupplyMethod]
 
 	testcases := []struct {
-		name        string
-		malleate    func(sdk.Context, bankkeeper.Keeper, *big.Int)
-		expPass     bool
-		errContains string
-		expTotal    *big.Int
+		name     string
+		malleate func(sdk.Context, bankkeeper.Keeper, *big.Int)
+		expPass  bool
+		expErr   error
+		expTotal *big.Int
 	}{
 		{
 			name:     "pass - no coins",
@@ -441,7 +463,7 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 			)
 
 			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expTotal)
+			s.requireOut(bz, err, method, tc.expPass, tc.expErr, tc.expTotal)
 		})
 	}
 }
@@ -450,25 +472,25 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 	method := s.precompile.Methods[erc20.BalanceOfMethod]
 
 	testcases := []struct {
-		name        string
-		malleate    func(sdk.Context, bankkeeper.Keeper, *big.Int) []interface{}
-		expPass     bool
-		errContains string
-		expBalance  *big.Int
+		name       string
+		malleate   func(sdk.Context, bankkeeper.Keeper, *big.Int) []interface{}
+		expPass    bool
+		expErr     error
+		expBalance *big.Int
 	}{
 		{
 			name: "fail - invalid number of arguments",
 			malleate: func(_ sdk.Context, _ bankkeeper.Keeper, _ *big.Int) []interface{} {
 				return []interface{}{}
 			},
-			errContains: "invalid number of arguments; expected 1; got: 0",
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
 			name: "fail - invalid address",
 			malleate: func(_ sdk.Context, _ bankkeeper.Keeper, _ *big.Int) []interface{} {
 				return []interface{}{"invalid address"}
 			},
-			errContains: "invalid account address: invalid address",
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "pass - no coins in token denomination of precompile token pair",
@@ -518,7 +540,7 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 			)
 
 			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expBalance)
+			s.requireOut(bz, err, method, tc.expPass, tc.expErr, tc.expBalance)
 		})
 	}
 }
@@ -527,32 +549,32 @@ func (s *PrecompileTestSuite) TestAllowance() {
 	method := s.precompile.Methods[erc20.AllowanceMethod]
 
 	testcases := []struct {
-		name        string
-		malleate    func(sdk.Context, *big.Int) []interface{}
-		expPass     bool
-		errContains string
-		expAllow    *big.Int
+		name     string
+		malleate func(sdk.Context, *big.Int) []interface{}
+		expPass  bool
+		expErr   error
+		expAllow *big.Int
 	}{
 		{
 			name: "fail - invalid number of arguments",
 			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
 				return []interface{}{1}
 			},
-			errContains: "invalid number of arguments; expected 2; got: 1",
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(1)),
 		},
 		{
 			name: "fail - invalid owner address",
 			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
 				return []interface{}{"invalid address", s.keyring.GetAddr(1)}
 			},
-			errContains: "invalid owner address: invalid address",
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid spender address",
 			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
 				return []interface{}{s.keyring.GetAddr(0), "invalid address"}
 			},
-			errContains: "invalid spender address: invalid address",
+			expErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "pass - no allowance exists should return 0",
@@ -600,7 +622,7 @@ func (s *PrecompileTestSuite) TestAllowance() {
 			)
 
 			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expAllow)
+			s.requireOut(bz, err, method, tc.expPass, tc.expErr, tc.expAllow)
 		})
 	}
 }

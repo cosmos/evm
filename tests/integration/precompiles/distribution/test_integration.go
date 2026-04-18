@@ -1,7 +1,6 @@
 package distribution
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -120,8 +119,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr,
 					s.keyring.GetAddr(0).String(),
 				}
-
-				withdrawAddrSetCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
+				withdrawAddrSetCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -181,12 +185,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr,
 					s.network.GetValidators()[0].OperatorAddress,
 				}
-
-				withdrawalCheck := defaultLogCheck.WithErrContains(
-					cmn.ErrRequesterIsNotMsgSender,
-					s.keyring.GetAddr(0).String(),
-					differentAddr.String(),
-				)
+				withdrawalCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -428,10 +433,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.Args = []interface{}{
 					s.network.GetValidators()[0].OperatorAddress,
 				}
-
 				validatorHexAddr := common.BytesToAddress(s.validatorsKeys[0].AccAddr)
 
-				withdrawalCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), validatorHexAddr.String())
+				withdrawalCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						validatorHexAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -587,8 +597,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.Args = []interface{}{
 					differentAddr, uint32(1),
 				}
-
-				claimRewardsCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
+				claimRewardsCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -662,11 +677,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					},
 				}
 
-				failureCheck := defaultLogCheck.WithErrContains(
-					cmn.ErrRequesterIsNotMsgSender,
-					s.keyring.GetAddr(0).String(),
-					differentAddr,
-				)
+				failureCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						s.keyring.GetAddr(0),
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0), // tx from Addr0
@@ -688,7 +705,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					[]cmn.Coin{{Denom: s.bondDenom, Amount: excessAmount.BigInt()}},
 				}
 
-				failureCheck := defaultLogCheck.WithErrContains("insufficient funds")
+				// Revert reason is ABI-encoded MsgServerFailed; err chain may be estimate-gas or broadcast path.
+				failureCheck := defaultLogCheck.WithErrContains("execution reverted")
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -819,8 +837,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					},
 				}
 
-				// We expect the tx to fail ("execution reverted") because of insufficient funds
-				insufficientFundsCheck := defaultLogCheck.WithErrContains("insufficient funds")
+				// Gas estimation or execution may surface only "execution reverted" plus hex-encoded MsgServerFailed.
+				insufficientFundsCheck := defaultLogCheck.WithErrContains("execution reverted")
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1512,12 +1530,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.Args = []interface{}{
 					differentAddr, s.network.GetValidators()[0].OperatorAddress,
 				}
-
-				revertReasonCheck := execRevertedCheck.WithErrNested(
-					cmn.ErrRequesterIsNotMsgSender,
+				revertReasonCheck := execRevertedCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+					s.precompile.ABI,
+					cmn.SolidityErrRequesterIsNotMsgSender,
 					contractAddr,
-					differentAddr.String(),
-				)
+					differentAddr,
+				))
 
 				res, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2099,11 +2117,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not claim rewards when sending from a different address", func() {
 				callArgs.Args = []interface{}{differentAddr, uint32(1)}
 
-				errCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
-					cmn.ErrRequesterIsNotMsgSender,
-					txArgs.To,
-					differentAddr,
-				).Error())
+				errCheckArgs := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrRequesterIsNotMsgSender,
+						contractAddr,
+						differentAddr,
+					))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2662,11 +2682,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr.String(), differentAddr, s.network.GetValidators()[0].OperatorAddress,
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(
-					cmn.ErrRequesterIsNotMsgSender,
+				revertReasonCheck := execRevertedCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+					s.precompile.ABI,
+					cmn.SolidityErrRequesterIsNotMsgSender,
 					contractAddr,
 					s.keyring.GetAddr(0),
-				)
+				))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),

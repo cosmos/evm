@@ -3,13 +3,12 @@
 pragma solidity ^0.8.0;
 
 import "@account-abstraction/contracts/interfaces/IAccount.sol";
-import "@account-abstraction/contracts/core/EntryPoint.sol";
 
 contract SimpleSmartWallet is IAccount {
     address public owner;
-    EntryPoint public entryPoint;
+    address public entryPoint;
 
-    function initialize(address _owner, EntryPoint _entryPoint) external {
+    function initialize(address _owner, address _entryPoint) external {
         require(owner == address(0), "already initialized");
         owner = _owner;
         entryPoint = _entryPoint;
@@ -20,7 +19,7 @@ contract SimpleSmartWallet is IAccount {
         bytes32 userOpHash,
         uint256 /* missingAccountFunds */
     ) external view override returns (uint256 validationData) {
-        require(msg.sender == address(entryPoint), "only EntryPoint");
+        require(msg.sender == entryPoint, "only EntryPoint");
 
         (uint8 v, bytes32 r, bytes32 s) = _split(userOp.signature);
         address recovered = ecrecover(userOpHash, v, r, s);
@@ -30,7 +29,7 @@ contract SimpleSmartWallet is IAccount {
     }
 
     function execute(address target, uint256 value, bytes calldata data) external {
-        require(msg.sender == address(entryPoint), "only EntryPoint");
+        require(msg.sender == entryPoint, "only EntryPoint");
         (bool success, ) = target.call{value: value}(data);
         require(success, "Execution failed");
     }
