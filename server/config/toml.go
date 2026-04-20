@@ -55,6 +55,9 @@ lifetime = "{{ .EVM.Mempool.Lifetime }}"
 # PendingTxProposalTimeout is the amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal
 pending-tx-proposal-timeout = "{{ .EVM.Mempool.PendingTxProposalTimeout }}"
 
+# CheckTxTimeout is the timeout for async CheckTx handler.
+check-tx-timeout = "{{ .EVM.Mempool.CheckTxTimeout }}"
+
 # InsertQueueSize is the maximum number of transactions that can be in the insert queue at once (0 means unbounded)
 insert-queue-size = "{{ .EVM.Mempool.InsertQueueSize }}"
 
