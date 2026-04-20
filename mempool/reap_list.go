@@ -167,12 +167,16 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 // push inserts a tx to the back of the reap list as the "newest" transaction
 // (last to be returned if Reap was called now). push assumes that a tx is not
 // already in the ReapList, this should be checked via exists.
+//
+// NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
 	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
 	rl.txIndex[hash] = len(rl.txs) - 1
 }
 
 // exists returns true if a hash is in the index, false otherwise.
+//
+// NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) exists(hash string) bool {
 	_, ok := rl.txIndex[hash]
 	return ok
