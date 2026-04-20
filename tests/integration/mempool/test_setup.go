@@ -115,17 +115,9 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	evmmempool.AllowUnsafeSyncInsert = true
 }
 
-// TrySetupMempool sets up the ExperimentalEVMMempool or ExclusiveMempool, if
-// one of those are the configured mempool on the suite.
+// TrySetupMempool sets up the Mempool, if it is the configured mempool on the suite.
 func (s *IntegrationTestSuite) TrySetupMempool() {
-	s.TrySetupExclusiveMempool()
-	s.TrySetupExperimentalMempool()
-}
-
-// TrySetupKrakataoMempool sets up the ExclusiveMempool, if it is the configured
-// mempool on the suite.
-func (s *IntegrationTestSuite) TrySetupExclusiveMempool() {
-	mp, ok := s.network.App.GetMempool().(*evmmempool.KrakatoaMempool)
+	mp, ok := s.network.App.GetMempool().(*evmmempool.Mempool)
 	if !ok {
 		return
 	}
@@ -141,32 +133,6 @@ func (s *IntegrationTestSuite) TrySetupExclusiveMempool() {
 	for _, subpool := range txPool.Subpools {
 		subpool.Reset(oldHead, newHead)
 	}
-}
-
-// TrySetupExperimentalEVMMempool sets up the ExperimentalEVMMempool, if it is
-// the configured mempool on the suite.
-func (s *IntegrationTestSuite) TrySetupExperimentalMempool() {
-	mp, ok := s.network.App.GetMempool().(*evmmempool.ExperimentalEVMMempool)
-	if !ok {
-		return
-	}
-
-	blockchain := mp.GetBlockchain()
-	txPool := mp.GetTxPool()
-
-	oldHead := blockchain.CurrentBlock()
-	blockchain.NotifyNewBlock()
-	newHead := blockchain.CurrentBlock()
-
-	for _, subpool := range txPool.Subpools {
-		subpool.Reset(oldHead, newHead)
-	}
-}
-
-// IsExclusiveMempool returns true if the app mempool is the exclusive mempool
-func (s *IntegrationTestSuite) IsExclusiveMempool() bool {
-	_, ok := s.network.App.GetMempool().(*evmmempool.KrakatoaMempool)
-	return ok
 }
 
 // FundAccount funds an account with a specific amount of a given denomination.

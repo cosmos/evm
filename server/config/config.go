@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	cmtconfig "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/libs/strings"
 
 	errorsmod "cosmossdk.io/errors"
@@ -174,12 +175,6 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
-	// OperateExclusively determines if the mempool will assume that it is
-	// running as the only mempool in the application (no CometBFT mempool).
-	// This enables the use of new Krakatoa CometBFT ABCI methods should as
-	// InsertTx and ReapTxs. This also enables use of the insert queues and
-	// partial tx collection.
-	OperateExclusively bool `mapstructure:"operate-exclusively"`
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
@@ -198,7 +193,6 @@ func DefaultMempoolConfig() MempoolConfig {
 		AccountQueue:             64,                     // 64 non-executable transaction slots per account
 		GlobalQueue:              1024,                   // 1024 global non-executable slots
 		Lifetime:                 3 * time.Hour,          // 3 hour lifetime for queued transactions
-		OperateExclusively:       false,                  // Assume CometBFT also has a mempool by default
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
 	}
@@ -500,4 +494,44 @@ func (c Config) ValidateBasic() error {
 	}
 
 	return c.Config.ValidateBasic()
+}
+
+// ValidateCrossConfig ensures compatibility between comet-bft (config.toml) and evm (app.toml) configs
+func ValidateCrossConfig(cometBFT *cmtconfig.Config, app *Config) error {
+	errWrap := func(msg string, args ...any) error {
+		return errortypes.ErrAppConfig.Wrapf(msg, args...)
+	}
+
+	if cometBFT == nil || app == nil {
+		return errWrap("comet and app configs are required")
+	}
+
+	const (
+		consensusMempoolApp      = "app"
+		evmMempoolMaxTxsDisabled = -1
+	)
+
+	var (
+		cometAppMempoolEnabled = cometBFT.Mempool.Type == consensusMempoolApp
+		evmMempoolEnabled      = app.Mempool.MaxTxs > evmMempoolMaxTxsDisabled
+	)
+
+	switch {
+	case cometAppMempoolEnabled == evmMempoolEnabled:
+		// all good (both enabled or both disabled)
+		return nil
+	case evmMempoolEnabled && !cometAppMempoolEnabled:
+		return errWrap(
+			"EVM mempool enabled, but comet-bft has invalid config.toml:mempool.type (want '%s', got '%s')",
+			consensusMempoolApp,
+			cometBFT.Mempool.Type,
+		)
+	case cometAppMempoolEnabled && !evmMempoolEnabled:
+		return errWrap(
+			"CometBFT app-side mempool enabled, but EVM mempool is disabled (app.toml:mempool.max-txs=%d)",
+			app.Mempool.MaxTxs,
+		)
+	}
+
+	return nil
 }

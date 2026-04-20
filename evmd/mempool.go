@@ -14,7 +14,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+)
+
+const (
+	CodeTypeNoRetry = 1
 )
 
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
@@ -24,103 +27,52 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	cosmosPoolMaxTx := server.GetCosmosPoolMaxTx(appOpts, logger)
+	var (
+		mpConfig = server.ResolveMempoolConfig(app.GetAnteHandler(), appOpts, logger)
+
+		txEncoder       = evmmempool.NewTxEncoder(app.txConfig)
+		evmRechecker    = evmmempool.NewTxRechecker(mpConfig.AnteHandler, txEncoder)
+		cosmosRechecker = evmmempool.NewTxRechecker(mpConfig.AnteHandler, txEncoder)
+		cosmosPoolMaxTx = server.GetCosmosPoolMaxTx(appOpts, logger)
+	)
+
 	if cosmosPoolMaxTx < 0 {
-		logger.Debug("app-side mempool is disabled, skipping evm mempool configuration")
+		logger.Debug("evm mempool is disabled, skipping configuration")
 		return nil
 	}
 
-	if server.GetShouldOperateExclusively(appOpts, logger) {
-		logger.Info("app-side mempool is operating exclusively, setting up Krakatoa mempool")
+	// create mempool
+	mempool := evmmempool.NewMempool(
+		app.CreateQueryContext,
+		logger,
+		app.EVMKeeper,
+		app.FeeMarketKeeper,
+		app.txConfig,
+		evmRechecker,
+		cosmosRechecker,
+		mpConfig,
+		cosmosPoolMaxTx,
+	)
 
-		krakatoaConfig := app.createKrakatoaMempoolConfig(appOpts, logger)
-		txEncoder := evmmempool.NewTxEncoder(app.txConfig)
-		evmRechecker := evmmempool.NewTxRechecker(krakatoaConfig.AnteHandler, txEncoder)
-		cosmosRechecker := evmmempool.NewTxRechecker(krakatoaConfig.AnteHandler, txEncoder)
+	app.EVMMempool = mempool
 
-		krakatoaMempool := evmmempool.NewKrakatoaMempool(
-			app.CreateQueryContext,
-			logger,
-			app.EVMKeeper,
-			app.FeeMarketKeeper,
-			app.txConfig,
-			evmRechecker,
-			cosmosRechecker,
-			krakatoaConfig,
-			cosmosPoolMaxTx,
-		)
+	// create ABCI handlers
+	insertTxHandler := app.NewInsertTxHandler(mempool)
+	reapTxsHandler := app.NewReapTxsHandler(mempool)
+	prepareProposalHandler := baseapp.
+		NewDefaultProposalHandler(mempool, NewNoCheckProposalTxVerifier(app.BaseApp)).
+		PrepareProposalHandler()
 
-		app.SetInsertTxHandler(app.NewInsertTxHandler(krakatoaMempool))
-		app.SetReapTxsHandler(app.NewReapTxsHandler(krakatoaMempool))
-
-		txVerifier := NewNoCheckProposalTxVerifier(app.BaseApp)
-		abciProposalHandler := baseapp.NewDefaultProposalHandler(krakatoaMempool, txVerifier)
-		abciProposalHandler.SetSignerExtractionAdapter(
-			evmmempool.NewEthSignerExtractionAdapter(
-				sdkmempool.NewDefaultSignerExtractionAdapter(),
-			),
-		)
-		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
-
-		app.EVMMempool = krakatoaMempool
-		app.SetMempool(krakatoaMempool)
-	} else {
-		logger.Info("app-side mempool is not operating exclusively, setting up default EVM mempool")
-
-		evmMempool := evmmempool.NewExperimentalEVMMempool(
-			app.CreateQueryContext,
-			logger,
-			app.EVMKeeper,
-			app.FeeMarketKeeper,
-			app.txConfig,
-			app.createMempoolConfig(appOpts, logger),
-			cosmosPoolMaxTx,
-		)
-
-		app.SetCheckTxHandler(evmmempool.NewCheckTxHandler(evmMempool))
-
-		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
-		abciProposalHandler.SetSignerExtractionAdapter(
-			evmmempool.NewEthSignerExtractionAdapter(
-				sdkmempool.NewDefaultSignerExtractionAdapter(),
-			),
-		)
-		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
-
-		app.EVMMempool = evmMempool
-		app.SetMempool(evmMempool)
-	}
+	// set handlers and the mempool
+	app.SetPrepareProposal(prepareProposalHandler)
+	app.SetInsertTxHandler(insertTxHandler)
+	app.SetReapTxsHandler(reapTxsHandler)
+	app.SetMempool(mempool)
 
 	return nil
 }
 
-// createMempoolConfig creates a new EVMMempoolConfig with the default configuration
-// and overrides it with values from appOpts if they exist and are non-zero.
-func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.EVMMempoolConfig {
-	return &evmmempool.EVMMempoolConfig{
-		AnteHandler:      app.GetAnteHandler(),
-		LegacyPoolConfig: server.GetLegacyPoolConfig(appOpts, logger),
-		BlockGasLimit:    server.GetBlockGasLimit(appOpts, logger),
-		MinTip:           server.GetMinTip(appOpts, logger),
-	}
-}
-
-// createKrakatoaMempoolConfig creates a new KrakatoaMempoolConfig with the default configuration
-// and overrides it with values from appOpts if they exist and are non-zero.
-func (app *EVMD) createKrakatoaMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.KrakatoaMempoolConfig {
-	mempoolConfig := app.createMempoolConfig(appOpts, logger)
-	return &evmmempool.KrakatoaMempoolConfig{
-		EVMMempoolConfig:         *mempoolConfig,
-		PendingTxProposalTimeout: server.GetPendingTxProposalTimeout(appOpts, logger),
-		InsertQueueSize:          server.GetMempoolInsertQueueSize(appOpts, logger),
-	}
-}
-
-const (
-	CodeTypeNoRetry = 1
-)
-
-func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.KrakatoaMempool) sdk.InsertTxHandler {
+func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.Mempool) sdk.InsertTxHandler {
 	return func(req *abci.RequestInsertTx) (*abci.ResponseInsertTx, error) {
 		txBytes := req.GetTx()
 
@@ -149,7 +101,7 @@ func (app *EVMD) NewInsertTxHandler(evmMempool *evmmempool.KrakatoaMempool) sdk.
 	}
 }
 
-func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.KrakatoaMempool) sdk.ReapTxsHandler {
+func (app *EVMD) NewReapTxsHandler(evmMempool *evmmempool.Mempool) sdk.ReapTxsHandler {
 	return func(req *abci.RequestReapTxs) (*abci.ResponseReapTxs, error) {
 		maxBytes, maxGas := req.GetMaxBytes(), req.GetMaxGas()
 		txs, err := evmMempool.ReapNewValidTxs(maxBytes, maxGas)
