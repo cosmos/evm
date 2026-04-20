@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
-	"time"
 
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
 	"github.com/spf13/cobra"
@@ -232,7 +231,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
 	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
 	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
-	cmd.Flags().Duration(srvflags.EVMMempoolIncludedNonceCacheSize, time.Duration(cosmosevmserverconfig.DefaultMempoolConfig().IncludedNonceCacheSize), "the maximum amount of nonces in the included cache")
+	cmd.Flags().Int(srvflags.EVMMempoolIncludedNonceCacheSize, cosmosevmserverconfig.DefaultMempoolConfig().IncludedNonceCacheSize, "the maximum amount of nonces in the included cache")
 	cmd.Flags().Duration(srvflags.EVMMempoolPendingTxProposalTimeout, cosmosevmserverconfig.DefaultMempoolConfig().PendingTxProposalTimeout, "the maximum amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal")
 	cmd.Flags().Int(srvflags.EVMMempoolInsertQueueSize, cosmosevmserverconfig.DefaultMempoolConfig().InsertQueueSize, "the maximum number of transactions that can be in the insert queue at once")
 
