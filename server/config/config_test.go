@@ -19,6 +19,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.False(t, cfg.JSONRPC.Enable)
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
+	require.Equal(t, cfg.JSONRPC.HTTPBodyLimit, serverconfig.DefaultHTTPBodyLimit)
 }
 
 func TestGetConfig(t *testing.T) {

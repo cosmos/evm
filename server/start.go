@@ -207,6 +207,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Duration(srvflags.JSONRPCEVMTimeout, cosmosevmserverconfig.DefaultEVMTimeout, "Sets a timeout used for eth_call (0=infinite)")
 	cmd.Flags().Duration(srvflags.JSONRPCHTTPTimeout, cosmosevmserverconfig.DefaultHTTPTimeout, "Sets a read/write timeout for json-rpc http server (0=infinite)")
 	cmd.Flags().Duration(srvflags.JSONRPCHTTPIdleTimeout, cosmosevmserverconfig.DefaultHTTPIdleTimeout, "Sets a idle timeout for json-rpc http server (0=infinite)")
+	cmd.Flags().Int(srvflags.JSONRPCHTTPBodyLimit, cosmosevmserverconfig.DefaultHTTPBodyLimit, "Sets max request body size in bytes for json-rpc http server")
 	cmd.Flags().Bool(srvflags.JSONRPCAllowUnprotectedTxs, cosmosevmserverconfig.DefaultAllowUnprotectedTxs, "Allow for unprotected (non EIP155 signed) transactions to be submitted via the node's RPC when the global parameter is disabled") //nolint:lll
 	cmd.Flags().Int(srvflags.JSONRPCBatchRequestLimit, cosmosevmserverconfig.DefaultBatchRequestLimit, "Maximum number of requests in a batch")
 	cmd.Flags().Int(srvflags.JSONRPCBatchResponseMaxSize, cosmosevmserverconfig.DefaultBatchResponseMaxSize, "Maximum size of server response")
