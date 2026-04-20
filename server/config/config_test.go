@@ -21,6 +21,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
 	require.Equal(t, cfg.EVM.Mempool.CheckTxTimeout, 5*time.Second)
+	require.Equal(t, cfg.JSONRPC.HTTPBodyLimit, serverconfig.DefaultHTTPBodyLimit)
 }
 
 func TestGetConfig(t *testing.T) {
