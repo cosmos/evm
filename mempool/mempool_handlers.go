@@ -71,13 +71,13 @@ func (m *Mempool) NewCheckTxHandler(txDecoder sdk.TxDecoder, timeout time.Durati
 			return nil, fmt.Errorf("unsupported abci.RequestCheckTx.Type: %s", req.Type)
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
 		tx, err := txDecoder(req.GetTx())
 		if err != nil {
 			return nil, fmt.Errorf("decoding tx: %w", err)
 		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
 
 		if err := m.Insert(ctx, tx); err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(err, 0, 0, nil, false), nil
