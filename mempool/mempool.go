@@ -295,7 +295,7 @@ func (m *Mempool) SetClientCtx(clientCtx client.Context) {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	errC, err := m.insert(ctx, tx)
+	errC, err := m.insert(tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
 	}
@@ -318,20 +318,17 @@ func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // transactions are inserted into the Cosmos sdkmempool. EVM transactions are
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
-func (m *Mempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
-	errC, err := m.insert(ctx, tx)
+func (m *Mempool) InsertAsync(tx sdk.Tx) error {
+	errChan, err := m.insert(tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
 	}
 
 	select {
-	case err := <-errC:
-		// if we have a result immediately, ready on the channel returned from
-		// insert, return that (cosmos tx or unable to try and insert the tx
-		// due to parsing error).
+	case err := <-errChan:
+		// if we have a result immediately, ready on the channel returned from insert,
+		// return that (cosmos tx or unable to try and insert the tx due to parsing error).
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
 	default:
 		// result was not ready immediately, return nil while async things happen
 		return nil
@@ -341,7 +338,7 @@ func (m *Mempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *Mempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
