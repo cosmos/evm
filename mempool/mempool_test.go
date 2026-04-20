@@ -576,6 +576,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, 
 	return setupMempool(t, numAccounts, 1000)
 }
 
+//nolint:unparam
 func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Mempool, testMempoolDependencies) {
 	t.Helper()
 
@@ -653,6 +654,8 @@ func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Memp
 	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
 	// Register vm types so MsgEthereumTx can be decoded
 	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	// Register bank types so cosmos MsgSend txs can be decoded
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	txConfig := encodingConfig.TxConfig
 
 	// Create client context
