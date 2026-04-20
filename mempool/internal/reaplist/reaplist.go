@@ -1,4 +1,4 @@
-package mempool
+package reaplist
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ type ReapList struct {
 	txEncoder EVMCosmosTxEncoder
 }
 
-func NewReapList(txEncoder EVMCosmosTxEncoder) *ReapList {
+func New(txEncoder EVMCosmosTxEncoder) *ReapList {
 	return &ReapList{
 		txEncoder: txEncoder,
 		txIndex:   make(map[string]int),

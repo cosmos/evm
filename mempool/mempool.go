@@ -17,6 +17,7 @@ import (
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/queue"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -95,7 +96,7 @@ type Mempool struct {
 	eventBus *cmttypes.EventBus
 
 	/** Transaction Reaping **/
-	reapList *ReapList
+	reapList *reaplist.ReapList
 
 	/** Transaction Tracking **/
 	txTracker *txTracker
@@ -195,7 +196,7 @@ func NewMempool(
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 NewReapList(NewTxEncoder(txConfig)),
+		reapList:                 reaplist.New(NewTxEncoder(txConfig)),
 		txTracker:                newTxTracker(),
 	}
 

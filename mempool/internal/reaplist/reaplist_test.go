@@ -1,4 +1,4 @@
-package mempool_test
+package reaplist_test
 
 import (
 	"crypto/ecdsa"
@@ -17,10 +17,12 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
-	"github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+const txValue = 100
 
 // mockEncoder implements the EVMCosmosTxEncoder interface for testing
 type mockEncoder struct {
@@ -146,7 +148,7 @@ func testEVMTx(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gas uint64) *t
 }
 
 func TestReapList_EmptyList(t *testing.T) {
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	result := rl.Reap(0, 0)
 
@@ -157,7 +159,7 @@ func TestReapList_SingleTransaction(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 	tx := testEVMTx(t, key, 0, 21000)
 	err = rl.PushEVMTx(tx)
 	require.NoError(t, err)
@@ -183,7 +185,7 @@ func TestReapList_NoLimits(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
@@ -202,7 +204,7 @@ func TestReapList_MaxBytesLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Each tx is 100 bytes
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
@@ -225,7 +227,7 @@ func TestReapList_MaxGasLimit(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add transactions with varying gas
 	txGases := []uint64{21000, 30000, 40000, 50000, 60000}
@@ -251,7 +253,7 @@ func TestReapList_BothLimits(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add transactions with varying gas
 	txGases := []uint64{21000, 30000, 40000, 50000, 60000}
@@ -283,7 +285,7 @@ func TestReapList_ExactBytesLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Each tx is 100 bytes
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 5 transactions
 	for i := uint64(0); i < 5; i++ {
@@ -302,7 +304,7 @@ func TestReapList_ExactGasLimit(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add transactions with specific gas amounts
 	txGases := []uint64{21000, 30000, 40000}
@@ -326,7 +328,7 @@ func TestReapList_EncodingFailure(t *testing.T) {
 
 	// Create encoder that fails for nonce 1 and 3
 	failNonces := map[uint64]bool{1: true, 3: true}
-	rl := mempool.NewReapList(newFailingEVMEncoder(failNonces))
+	rl := reaplist.New(newFailingEVMEncoder(failNonces))
 
 	// Add 5 transactions (nonces 0-4)
 	// Nonces 1 and 3 will fail during Push, so only 0, 2, 4 will be added
@@ -367,7 +369,7 @@ func TestReapList_OrderPreservation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create encoder that embeds nonce in the bytes for verification
-	rl := mempool.NewReapList(&nonceEncoder{})
+	rl := reaplist.New(&nonceEncoder{})
 
 	// Add transactions in specific order
 	var nonce uint64
@@ -393,7 +395,7 @@ func TestReapList_MultipleReaps(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 10 transactions
 	var nonce uint64
@@ -424,7 +426,7 @@ func TestReapList_PushAfterReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 5 transactions
 	var nonce uint64
@@ -454,7 +456,7 @@ func TestReapList_ConcurrentPushAndReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	var wg sync.WaitGroup
 	var totalReaped int
@@ -499,7 +501,7 @@ func TestReapList_FirstTransactionExceedsLimit(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(1000, 1000))
+	rl := reaplist.New(newDeterministicEncoder(1000, 1000))
 
 	// Add transaction
 	tx := testEVMTx(t, key, 0, 21000)
@@ -533,7 +535,7 @@ func TestReapList_AllTransactionsFailEncoding(t *testing.T) {
 	require.NoError(t, err)
 
 	// Encoder that always fails
-	rl := mempool.NewReapList(&alwaysFailEncoder{})
+	rl := reaplist.New(&alwaysFailEncoder{})
 
 	// Add transactions - all will fail during Push
 	var nonce uint64
@@ -551,7 +553,7 @@ func TestReapList_AllTransactionsFailEncoding(t *testing.T) {
 // Tests for Cosmos transactions
 
 func TestReapList_PushCosmosTx(t *testing.T) {
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 150))
+	rl := reaplist.New(newDeterministicEncoder(100, 150))
 
 	// Add Cosmos transactions
 	for i := 0; i < 5; i++ {
@@ -574,7 +576,7 @@ func TestReapList_MixedEVMAndCosmosTx(t *testing.T) {
 	require.NoError(t, err)
 
 	// EVM txs are 100 bytes, Cosmos txs are 150 bytes
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 150))
+	rl := reaplist.New(newDeterministicEncoder(100, 150))
 
 	// Add mixed transactions
 	evmTx1 := testEVMTx(t, key, 0, 21000)
@@ -609,7 +611,7 @@ func TestReapList_MixedEVMAndCosmosTx(t *testing.T) {
 }
 
 func TestReapList_CosmosTxWithGasLimit(t *testing.T) {
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add Cosmos transactions with varying gas
 	txGases := []uint64{30000, 40000, 50000, 60000}
@@ -659,7 +661,7 @@ func TestReapList_CosmosEncodingFailure(t *testing.T) {
 	// Create encoder that fails for tx with id=1
 	failEncoder := &selectiveCosmosFailEncoder{failID: 1}
 
-	rl := mempool.NewReapList(failEncoder)
+	rl := reaplist.New(failEncoder)
 
 	// Add Cosmos transactions - tx with id=1 will fail
 	for i := 0; i < 5; i++ {
@@ -679,7 +681,7 @@ func TestReapList_DropEVMTx(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 5 EVM transactions
 	txs := make([]*types.Transaction, 5)
@@ -699,7 +701,7 @@ func TestReapList_DropEVMTx(t *testing.T) {
 }
 
 func TestReapList_DropCosmosTx(t *testing.T) {
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 5 Cosmos transactions
 	txs := make([]*mockCosmosTx, 5)
@@ -723,7 +725,7 @@ func TestReapList_DropAfterReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 5 transactions
 	txs := make([]*types.Transaction, 5)
@@ -753,7 +755,7 @@ func TestReapList_DropNonExistent(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+	rl := reaplist.New(newDeterministicEncoder(100, 100))
 
 	// Add 3 transactions
 	for i := uint64(0); i < 3; i++ {
@@ -775,7 +777,7 @@ func TestReapList_MixedDrops(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := mempool.NewReapList(newDeterministicEncoder(100, 150))
+	rl := reaplist.New(newDeterministicEncoder(100, 150))
 
 	// Add mixed transactions
 	evmTxs := make([]*types.Transaction, 3)
