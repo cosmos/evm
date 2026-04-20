@@ -100,7 +100,7 @@ const (
 	RemovalReasonCapExceeded            txpool.RemovalReason = "capped"             // Too many txs for this account
 	RemovalReasonRunTxRecheck           txpool.RemovalReason = "runtx_recheck"
 	RemovalReasonRunTxFinalize          txpool.RemovalReason = "runtx_finalize"
-	RemovalReasonPreparePropsoalInvalid txpool.RemovalReason = "prepare_proposal_invalid"
+	RemovalReasonPrepareProposalInvalid txpool.RemovalReason = "prepare_proposal_invalid"
 )
 
 var (
@@ -2311,7 +2311,7 @@ func pendingRemovalMetric(reason txpool.RemovalReason) *metrics.Meter {
 		return pendingRemovedRunTxRecheck
 	case RemovalReasonRunTxFinalize:
 		return pendingRemovedRunTxFinalize
-	case RemovalReasonPreparePropsoalInvalid:
+	case RemovalReasonPrepareProposalInvalid:
 		return pendingRemovedPrepareProposal
 	}
 	return pendingRemovedUnknown
@@ -2339,7 +2339,7 @@ func queueRemovalMetric(reason txpool.RemovalReason) *metrics.Meter {
 		return queuedRemovedRunTxRecheck
 	case RemovalReasonRunTxFinalize:
 		return queuedRemovedRunTxFinalize
-	case RemovalReasonPreparePropsoalInvalid:
+	case RemovalReasonPrepareProposalInvalid:
 		return queuedRemovedPrepareProposal
 	}
 	return queuedRemovedUnknown

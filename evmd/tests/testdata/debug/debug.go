@@ -12,7 +12,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/statedb"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

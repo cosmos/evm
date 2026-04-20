@@ -7,9 +7,9 @@ import (
 
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
-	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	connectiontypes "github.com/cosmos/ibc-go/v10/modules/core/03-connection/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibctypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	connectiontypes "github.com/cosmos/ibc-go/v11/modules/core/03-connection/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 
 	"cosmossdk.io/math"
 

@@ -15,6 +15,7 @@
 - [\#1029](https://github.com/cosmos/evm/pull/1029) Mark EvmCoinInfo.Decimals field as deprecated
 - [\#1079](https://github.com/cosmos/evm/pull/1079) Access Control List is now case-insensitive
 - [\#1103](https://github.com/cosmos/evm/pull/1103) Align normal gas metering in ibc erc20 callback.
+- [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
 
 ### FEATURES
 

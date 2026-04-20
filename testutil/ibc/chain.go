@@ -22,14 +22,14 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
-	"github.com/cosmos/ibc-go/v10/modules/core/exported"
-	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-	"github.com/cosmos/ibc-go/v10/testing/simapp"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v11/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v11/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	"github.com/cosmos/ibc-go/v11/testing/simapp"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -236,7 +236,7 @@ func NewTestChain(t *testing.T, isEVM bool, coord *Coordinator, chainID string) 
 
 // GetContext returns the current context for the application.
 func (chain *TestChain) GetContext() sdk.Context {
-	return chain.App.GetBaseApp().NewUncachedContext(false, chain.ProposedHeader)
+	return chain.App.GetBaseApp().NewNextBlockContext(chain.ProposedHeader)
 }
 
 // GetSimApp returns the SimApp to allow usage ofnon-interface fields.
