@@ -64,6 +64,7 @@ func StartJSONRPC(
 
 	rpcServer := ethrpc.NewServer()
 	rpcServer.SetBatchLimits(config.JSONRPC.BatchRequestLimit, config.JSONRPC.BatchResponseMaxSize)
+	rpcServer.SetHTTPBodyLimit(config.JSONRPC.HTTPBodyLimit)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

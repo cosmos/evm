@@ -115,6 +115,9 @@ http-timeout = "{{ .JSONRPC.HTTPTimeout }}"
 # HTTPIdleTimeout is the idle timeout of http json-rpc server.
 http-idle-timeout = "{{ .JSONRPC.HTTPIdleTimeout }}"
 
+# HTTPBodyLimit is the maximum request body size in bytes for json-rpc http server.
+http-body-limit = {{ .JSONRPC.HTTPBodyLimit }}
+
 # AllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
 # the node's RPC when the global parameter is disabled.
 allow-unprotected-txs = {{ .JSONRPC.AllowUnprotectedTxs }}
