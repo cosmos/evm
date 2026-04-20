@@ -24,9 +24,9 @@ import (
 
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -510,7 +510,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 // Integration
 // ----------------------------------------------------------------------------
 
-func TestKrakatoaMempool_Recheck(t *testing.T) {
+func TestMempool_Recheck(t *testing.T) {
 	type accountTx struct {
 		account int
 		nonce   uint64
@@ -631,7 +631,7 @@ func TestKrakatoaMempool_Recheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+			mp, s := setupMempoolWithAccounts(t, 3)
 			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {

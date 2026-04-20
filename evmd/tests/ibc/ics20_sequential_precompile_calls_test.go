@@ -95,7 +95,8 @@ func (suite *ICS20SequentialPrecompileCallsTestSuite) TestReceiveAndSendTwice() 
 	fmt.Printf("ERC20 contract deployed at: %s\n", erc20Addr.Hex())
 
 	// 2. Register the ERC20
-	_, err = evmAppA.Erc20Keeper.RegisterERC20(suite.chainA.GetContext(), &erc20types.MsgRegisterERC20{
+	ctx := suite.chainA.GetContext()
+	_, err = evmAppA.Erc20Keeper.RegisterERC20(ctx, &erc20types.MsgRegisterERC20{
 		Signer:         evmAppA.AccountKeeper.GetModuleAddress("gov").String(),
 		Erc20Addresses: []string{erc20Addr.Hex()},
 	})
@@ -115,8 +116,9 @@ func (suite *ICS20SequentialPrecompileCallsTestSuite) TestReceiveAndSendTwice() 
 	fmt.Printf("Sender contract deployed at: %s\n", contractAddr.Hex())
 
 	// 4. Mint ERC20 tokens to the test sender using deployer (who has MINTER_ROLE)
-	mintStateDB := testutil.NewStateDB(suite.chainA.GetContext(), evmAppA.EVMKeeper)
-	_, err = evmAppA.GetEVMKeeper().CallEVM(suite.chainA.GetContext(), mintStateDB, erc20ContractData.ABI, deployerAddr, erc20Addr, true, false, nil, "mint", senderAddr, big.NewInt(SeqICS20InitialTokenAmount))
+	ctx = suite.chainA.GetContext()
+	mintStateDB := testutil.NewStateDB(ctx, evmAppA.EVMKeeper)
+	_, err = evmAppA.GetEVMKeeper().CallEVM(ctx, mintStateDB, erc20ContractData.ABI, deployerAddr, erc20Addr, true, false, nil, "mint", senderAddr, big.NewInt(SeqICS20InitialTokenAmount))
 	suite.Require().NoError(err)
 	suite.chainA.NextBlock()
 
@@ -126,8 +128,9 @@ func (suite *ICS20SequentialPrecompileCallsTestSuite) TestReceiveAndSendTwice() 
 	fmt.Printf("Sender balance before: %s\n", senderBal.String())
 
 	// 5. Approve the contract to spend tokens (called by sender)
-	approveStateDB := testutil.NewStateDB(suite.chainA.GetContext(), evmAppA.EVMKeeper)
-	_, err = evmAppA.GetEVMKeeper().CallEVM(suite.chainA.GetContext(), approveStateDB, erc20ContractData.ABI, senderAddr, erc20Addr, true, false, nil, "approve", contractAddr, big.NewInt(SeqICS20InitialTokenAmount*2))
+	ctx = suite.chainA.GetContext()
+	approveStateDB := testutil.NewStateDB(ctx, evmAppA.EVMKeeper)
+	_, err = evmAppA.GetEVMKeeper().CallEVM(ctx, approveStateDB, erc20ContractData.ABI, senderAddr, erc20Addr, true, false, nil, "approve", contractAddr, big.NewInt(SeqICS20InitialTokenAmount*2))
 	suite.Require().NoError(err)
 	suite.chainA.NextBlock()
 

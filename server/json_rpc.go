@@ -30,16 +30,6 @@ type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
 }
 
-// PossiblyExclusiveMempool is a Mempool that can also determine
-// if it is operating exclusively or not.
-type PossiblyExclusiveMempool interface {
-	backend.Mempool
-
-	// IsExclusive returns true if the Mempool is the only mempool in
-	// the application.
-	IsExclusive() bool
-}
-
 // StartJSONRPC starts the JSON-RPC server
 func StartJSONRPC(
 	ctx context.Context,
@@ -49,7 +39,7 @@ func StartJSONRPC(
 	config *serverconfig.Config,
 	indexer types.EVMTxIndexer,
 	app AppWithPendingTxStream,
-	mempool PossiblyExclusiveMempool,
+	mempool backend.Mempool,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
 
@@ -67,7 +57,6 @@ func StartJSONRPC(
 		indexer,
 		mempool,
 		backend.WithUnprotectedTxs(config.JSONRPC.AllowUnprotectedTxs),
-		backend.WithAppMempool(mempool.IsExclusive()),
 		backend.WithLogger(srvCtx.Logger),
 	)
 
