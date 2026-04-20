@@ -26,7 +26,7 @@ func init() {
 	var err error
 	numTxs, err = meter.Int64Gauge(
 		"mempool.reap_list.num_txs",
-		metric.WithDescription("Number of transactions currently in the reap list"),
+		metric.WithDescription("Number of populated entries currently in the reap list (may be a nil tombstone)"),
 	)
 	if err != nil {
 		panic(err)
@@ -237,10 +237,12 @@ func (rl *ReapList) exists(hash string) bool {
 // already been reaped. This should only be called when a tx that was
 // previously validated, becomes invalid.
 func (rl *ReapList) DropEVMTx(tx *ethtypes.Transaction) {
-	rl.drop(tx.Hash().String())
+	dropped := rl.drop(tx.Hash().String())
 
-	attributes := attribute.NewSet(attribute.String("tx_type", "evm"))
-	droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+	if dropped {
+		attributes := attribute.NewSet(attribute.String("tx_type", "evm"))
+		droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+	}
 }
 
 // DropCosmosTx removes a Cosmos tx from the ReapList. This tx may or may not
@@ -251,30 +253,37 @@ func (rl *ReapList) DropCosmosTx(tx sdk.Tx) {
 	if err != nil {
 		return
 	}
-	rl.drop(cosmosHash(txBytes))
+	dropped := rl.drop(cosmosHash(txBytes))
 
-	attributes := attribute.NewSet(attribute.String("tx_type", "cosmos"))
-	droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+	if dropped {
+		attributes := attribute.NewSet(attribute.String("tx_type", "cosmos"))
+		droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+	}
 }
 
 // drop removes an individual tx from the reap list. If the tx is not in the
-// list, no changes are made.
-func (rl *ReapList) drop(hash string) {
+// list, no changes are made. Returns true if the tx was dropped, false
+// otherwise.
+func (rl *ReapList) drop(hash string) bool {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
 	idx, ok := rl.txIndex[hash]
 	if !ok {
-		return
+		return false
 	}
 	delete(rl.txIndex, hash)
 	numIndexTxs.Record(context.Background(), int64(len(rl.txIndex)))
 
 	if idx < 0 || idx >= len(rl.txs) {
-		return
+		return false
 	}
 
 	rl.txs[idx] = nil
+	// NOTE: Not updating numTxs metric here since that reports the size of the
+	// reap list **including** tombstones. We will update numTxs when the
+	// tombstone is removed via the next `Reap` call.
+	return true
 }
 
 func cosmosHash(txBytes []byte) string {
