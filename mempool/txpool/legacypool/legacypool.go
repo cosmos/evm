@@ -32,6 +32,8 @@ import (
 
 	cosmoslog "cosmossdk.io/log/v2"
 	"github.com/cosmos/evm/mempool/internal/heightsync"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
@@ -358,14 +360,13 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	// OnTxPromoted is called when a tx is promoted from queued to pending (may
-	// be called multiple times per tx)
-	OnTxPromoted func(tx *types.Transaction)
-	// OnTxRemoved is called when a tx is removed from the mempool (either
-	// explicitly via RemoveTx or implicitly during Reset)
-	OnTxRemoved func(tx *types.Transaction, pool PoolType)
-	// OnTxRemoved is called when a tx is added to the queued pool
-	OnTxEnqueued func(tx *types.Transaction)
+	// reapList is the shared broadcast queue. When non-nil, lifecycle
+	// transitions push / drop the tx from it so that ReapNewValidTxs hands
+	// the tx to consensus (and stops when the tx leaves the pool).
+	reapList *reaplist.ReapList
+	// tracker records per-tx lifecycle timestamps for telemetry. Optional;
+	// nil for tests that don't care about metrics.
+	tracker *txtracker.Tracker
 }
 
 type txpoolResetRequest struct {
@@ -379,6 +380,23 @@ type Option func(pool *LegacyPool)
 func WithRecheck(rechecker Rechecker) Option {
 	return func(pool *LegacyPool) {
 		pool.rechecker = rechecker
+	}
+}
+
+// WithReapList wires the shared broadcast queue into the pool. Promoted txs
+// are pushed onto it and removed txs are dropped from it, so that callers of
+// ReapNewValidTxs see exactly the txs currently in the pending pool.
+func WithReapList(rl *reaplist.ReapList) Option {
+	return func(pool *LegacyPool) {
+		pool.reapList = rl
+	}
+}
+
+// WithTracker wires a telemetry tracker into the pool. Lifecycle transitions
+// record per-tx timestamps used for mempool metrics.
+func WithTracker(t *txtracker.Tracker) Option {
+	return func(pool *LegacyPool) {
+		pool.tracker = t
 	}
 }
 
@@ -2233,30 +2251,30 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
 }
 
-// markTxPromoted calls the OnTxPromoted callback if it has been supplied and
-// includes the tx in the next valid pending txs set, i.e. to be included in
-// the next block, if selected by the application.
+// markTxPromoted adds the tx to the next valid pending txs set (i.e. to be
+// included in the next block if selected by the application), pushes it onto
+// the reap list so consensus picks it up, and records the pending-entry
+// timestamp on the tracker.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
 	pool.validPendingTxs.Do(func(store *TxStore) {
 		store.AddTx(addr, tx)
 	})
-	if pool.OnTxPromoted != nil {
-		pool.OnTxPromoted(tx)
-	}
+	pool.pushReap(tx)
+	pool.trackPromoted(tx.Hash())
 }
 
-// markTxReplaced calls the OnTxPromoted callback if it has been supplied and
-// does **not** include the tx in the next valid pending txs set. This is
-// because tx that are replacing other txs in the pending pool have not been
-// checked for validity yet via the Rechecker, thus we should wait until that
-// happens before adding them to the valid pending txs set.
+// markTxReplaced runs the promotion side-effects for a tx that bypassed the
+// queued pool (replaced an existing pending tx at the same nonce). It does
+// **not** include the tx in the valid pending txs set, since replacements
+// must be revalidated by the Rechecker before we rely on them.
 func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transaction) {
-	if pool.OnTxPromoted != nil {
-		pool.OnTxPromoted(tx)
-	}
+	pool.pushReap(tx)
+	pool.trackPromoted(tx.Hash())
 }
 
-// markTxRemoved calls the OnTxRemoved callback if it has been supplied.
+// markTxRemoved records a removal from the given pool: removes the tx from
+// the pending snapshot (if applicable), drops it from the reap list, and
+// records the final duration on the tracker.
 func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction, p PoolType) {
 	if p == Pending {
 		defer func(t0 time.Time) { pendingRemoveCBTimer.UpdateSince(t0) }(time.Now())
@@ -2265,16 +2283,48 @@ func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction
 			store.RemoveTx(addr, tx)
 		})
 	}
-	if pool.OnTxRemoved != nil {
-		pool.OnTxRemoved(tx, p)
+	if pool.reapList != nil {
+		pool.reapList.DropEVMTx(tx)
+	}
+	if pool.tracker != nil {
+		hash := tx.Hash()
+		switch p {
+		case Pending:
+			_ = pool.tracker.FinalizedFromPending(hash)
+		case Queue:
+			_ = pool.tracker.FinalizedFromQueue(hash)
+		}
 	}
 }
 
-// markTxEnqueued calls the OnTxEnqueued callback if it has been supplied.
+// markTxEnqueued records the queued-entry timestamp on the tracker.
 func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
-	if pool.OnTxEnqueued != nil {
-		pool.OnTxEnqueued(tx)
+	if pool.tracker != nil {
+		_ = pool.tracker.EnteredQueued(tx.Hash())
 	}
+}
+
+// pushReap pushes a tx onto the reap list. Encoding failures are logged and
+// swallowed: the tx is still legitimately in the pending pool, the only
+// consequence of a failed push is that this node won't broadcast it via
+// ReapNewValidTxs.
+func (pool *LegacyPool) pushReap(tx *types.Transaction) {
+	if pool.reapList == nil {
+		return
+	}
+	if err := pool.reapList.PushEVMTx(tx); err != nil {
+		log.Error("could not push promoted evm tx to ReapList", "err", err, "hash", tx.Hash())
+	}
+}
+
+// trackPromoted records the queue-exit + pending-entry timestamps on the
+// tracker. It is a no-op if tracking is disabled.
+func (pool *LegacyPool) trackPromoted(hash common.Hash) {
+	if pool.tracker == nil {
+		return
+	}
+	_ = pool.tracker.ExitedQueued(hash)
+	_ = pool.tracker.EnteredPending(hash)
 }
 
 // tolerateRecheckErr returns nil if err is an error string that should be
