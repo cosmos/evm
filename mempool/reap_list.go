@@ -121,6 +121,10 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 // PushEVMTx enqueues an EVM tx into the reap list.
 func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
 	hash := tx.Hash().String()
+
+	rl.txsLock.Lock()
+	defer rl.txsLock.Unlock()
+
 	if rl.exists(hash) {
 		return nil
 	}
@@ -140,8 +144,11 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 	if err != nil {
 		return fmt.Errorf("encoding cosmos tx to bytes: %w", err)
 	}
-
 	hash := cosmosHash(txBytes)
+
+	rl.txsLock.Lock()
+	defer rl.txsLock.Unlock()
+
 	if rl.exists(hash) {
 		return nil
 	}
@@ -161,18 +168,12 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 // (last to be returned if Reap was called now). push assumes that a tx is not
 // already in the ReapList, this should be checked via exists.
 func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
-	rl.txsLock.Lock()
-	defer rl.txsLock.Unlock()
-
 	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
 	rl.txIndex[hash] = len(rl.txs) - 1
 }
 
 // exists returns true if a hash is in the index, false otherwise.
 func (rl *ReapList) exists(hash string) bool {
-	rl.txsLock.RLock()
-	defer rl.txsLock.RUnlock()
-
 	_, ok := rl.txIndex[hash]
 	return ok
 }
