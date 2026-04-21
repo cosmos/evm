@@ -8,8 +8,9 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
+	errorsmod "cosmossdk.io/errors"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 const (
@@ -80,9 +81,31 @@ func (m *Mempool) NewCheckTxHandler(txDecoder sdk.TxDecoder, timeout time.Durati
 		}
 
 		if err := m.Insert(ctx, tx); err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(err, 0, 0, nil, false), nil
+			return ErrAsCheckTxResponse(err), nil
 		}
 
 		return &abci.ResponseCheckTx{Code: abci.CodeTypeOK}, nil
+	}
+}
+
+// ErrAsCheckTxResponse converts an error to a ResponseCheckTx object, respecting error wrapping.
+func ErrAsCheckTxResponse(err error) *abci.ResponseCheckTx {
+	// keep the original error message
+	log := err.Error()
+
+	space, code, _ := errorsmod.ABCIInfo(err, false)
+
+	// walk the wrap chain for the innermost sdk error
+	for e := errors.Unwrap(err); e != nil && space == errorsmod.UndefinedCodespace; e = errors.Unwrap(e) {
+		space, code, _ = errorsmod.ABCIInfo(e, false)
+	}
+
+	return &abci.ResponseCheckTx{
+		Codespace: space,
+		Code:      code,
+		Log:       log,
+		GasWanted: 0,
+		GasUsed:   0,
+		Events:    nil,
 	}
 }

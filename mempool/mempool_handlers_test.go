@@ -1,6 +1,7 @@
 package mempool_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -10,9 +11,13 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
+	"github.com/cosmos/evm/mempool"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
+	errorsmod "cosmossdk.io/errors"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func TestMempoolHandlers(t *testing.T) {
@@ -185,4 +190,63 @@ func TestMempoolHandlers(t *testing.T) {
 			assert.Nil(t, resp)
 		})
 	})
+}
+
+func TestErrAsCheckTxResponse(t *testing.T) {
+	assertResponse := func(codespace string, code uint32, log string) func(t *testing.T, resp *abci.ResponseCheckTx) {
+		return func(t *testing.T, resp *abci.ResponseCheckTx) {
+			t.Helper()
+
+			require.Equal(t, codespace, resp.Codespace)
+			require.Equal(t, code, resp.Code)
+			require.Equal(t, log, resp.Log)
+		}
+	}
+
+	for _, tt := range []struct {
+		name   string
+		err    error
+		assert func(t *testing.T, resp *abci.ResponseCheckTx)
+	}{
+		{
+			name:   "std error",
+			err:    fmt.Errorf("oops"),
+			assert: assertResponse(errorsmod.UndefinedCodespace, 1, "oops"),
+		},
+		{
+			name:   "std wrapped error",
+			err:    errorsmod.Wrap(fmt.Errorf("oops"), "wrapped"),
+			assert: assertResponse(errorsmod.UndefinedCodespace, 1, "wrapped: oops"),
+		},
+		{
+			name:   "sdk error",
+			err:    errortypes.ErrInsufficientFee,
+			assert: assertResponse(errortypes.RootCodespace, 13, "insufficient fee"),
+		},
+		{
+			name:   "wrapped sdk error",
+			err:    errorsmod.Wrap(errortypes.ErrOutOfGas, "unable to exec tx"),
+			assert: assertResponse(errortypes.RootCodespace, 11, "unable to exec tx: out of gas"),
+		},
+		{
+			name:   "nested sdk wrapped sdk error",
+			err:    errorsmod.Wrap(errorsmod.Wrap(errortypes.ErrOutOfGas, "unable to exec tx"), "wrapped"),
+			assert: assertResponse(errortypes.RootCodespace, 11, "wrapped: unable to exec tx: out of gas"),
+		},
+		{
+			name:   "std wrapped sdk error",
+			err:    fmt.Errorf("something went wrong: %w", errortypes.ErrOutOfGas),
+			assert: assertResponse(errortypes.RootCodespace, 11, "something went wrong: out of gas"),
+		},
+		{
+			name:   "nested std wrapped sdk error",
+			err:    fmt.Errorf("something went wrong: %w", fmt.Errorf("oops: %w", errortypes.ErrTxTimeout)),
+			assert: assertResponse(errortypes.RootCodespace, 42, "something went wrong: oops: tx timeout"),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := mempool.ErrAsCheckTxResponse(tt.err)
+			tt.assert(t, resp)
+		})
+	}
 }
