@@ -142,7 +142,6 @@ var (
 	pendingRecheckDropMeter     = metrics.NewRegisteredMeter("txpool/pending/recheckdrop", nil) // Dropped due to recheck failing
 	pendingRecheckDurationTimer = metrics.NewRegisteredTimer("txpool/pending/rechecktime", nil) // How long rechecking txs in the pending pool takes (demoteUnexecutables)
 	pendingTruncateTimer        = metrics.NewRegisteredTimer("txpool/pending/truncate", nil)    // How long truncating the pending pool takes
-	pendingRemoveCBTimer        = metrics.NewRegisteredTimer("txpool/pending/remove/cb", nil)   // How long calling the removal callback takes
 
 	// Metrics for pending demotions
 	pendingDemotedCostly    = metrics.NewRegisteredMeter("txpool/pending/demoted/cost", nil)      // Demoted due to parent tx being too costly (low balance or out of gas)
@@ -2277,8 +2276,6 @@ func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transactio
 // records the final duration on the tracker.
 func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction, p PoolType) {
 	if p == Pending {
-		defer func(t0 time.Time) { pendingRemoveCBTimer.UpdateSince(t0) }(time.Now())
-
 		pool.validPendingTxs.Do(func(store *TxStore) {
 			store.RemoveTx(addr, tx)
 		})
