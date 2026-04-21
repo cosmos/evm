@@ -52,6 +52,11 @@ global-queue = {{ .EVM.Mempool.GlobalQueue }}
 # Lifetime is the maximum amount of time non-executable transaction are queued
 lifetime = "{{ .EVM.Mempool.Lifetime }}"
 
+# IncludedNonceCacheSize is the maximum amount of evm txs that can be tracked for
+# removal via nonce invalidation. This should be >= the number of txs that can
+# be included in a block.
+included-nonce-cache-size = {{ .EVM.Mempool.IncludedNonceCacheSize }}
+
 # PendingTxProposalTimeout is the amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal
 pending-tx-proposal-timeout = "{{ .EVM.Mempool.PendingTxProposalTimeout }}"
 
@@ -60,7 +65,6 @@ check-tx-timeout = "{{ .EVM.Mempool.CheckTxTimeout }}"
 
 # InsertQueueSize is the maximum number of transactions that can be in the insert queue at once (0 means unbounded)
 insert-queue-size = "{{ .EVM.Mempool.InsertQueueSize }}"
-
 
 ###############################################################################
 ###                           JSON RPC Configuration                        ###

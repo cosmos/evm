@@ -80,6 +80,7 @@ const (
 	EVMMempoolAccountQueue             = "evm.mempool.account-queue"
 	EVMMempoolGlobalQueue              = "evm.mempool.global-queue"
 	EVMMempoolLifetime                 = "evm.mempool.lifetime"
+	EVMMempoolIncludedNonceCacheSize   = "evm.mempool.included-nonce-cache-size"
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
 	EVMMempoolCheckTxTimeout           = "evm.mempool.check-tx-timeout"
 	EVMMempoolInsertQueueSize          = "evm.mempool.insert-queue-size"

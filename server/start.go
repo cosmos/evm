@@ -234,6 +234,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, mpDefaults.AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
 	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, mpDefaults.GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
 	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, mpDefaults.Lifetime, "the maximum amount of time non-executable transaction are queued")
+	cmd.Flags().Int(srvflags.EVMMempoolIncludedNonceCacheSize, mpDefaults.IncludedNonceCacheSize, "the maximum amount of nonces in the included cache")
 	cmd.Flags().Duration(srvflags.EVMMempoolPendingTxProposalTimeout, mpDefaults.PendingTxProposalTimeout, "the maximum amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal")
 	cmd.Flags().Duration(srvflags.EVMMempoolCheckTxTimeout, mpDefaults.CheckTxTimeout, "timeout for async CheckTx handler")
 	cmd.Flags().Int(srvflags.EVMMempoolInsertQueueSize, mpDefaults.InsertQueueSize, "the maximum number of transactions that can be in the insert queue at once")

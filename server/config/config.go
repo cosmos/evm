@@ -175,6 +175,9 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
+	// IncludedNonceCacheSize is the maximum amount of nonces to store in the
+	// included cache
+	IncludedNonceCacheSize int `mapstructure:"included-nonce-cache-size"`
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
@@ -195,6 +198,7 @@ func DefaultMempoolConfig() MempoolConfig {
 		AccountQueue:             64,                     // 64 non-executable transaction slots per account
 		GlobalQueue:              1024,                   // 1024 global non-executable slots
 		Lifetime:                 3 * time.Hour,          // 3 hour lifetime for queued transactions
+		IncludedNonceCacheSize:   4096,                   // Maximum 4096 nonces in LRU by default
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
 		CheckTxTimeout:           5 * time.Second,        // 5 seconds timeout for CheckTx handler.
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
@@ -223,6 +227,9 @@ func (c MempoolConfig) Validate() error {
 	}
 	if c.Lifetime < 1 {
 		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
+	}
+	if c.IncludedNonceCacheSize < 1 {
+		return fmt.Errorf("included nonce cache size should be at least 1, got %d", c.IncludedNonceCacheSize)
 	}
 	if c.CheckTxTimeout <= 0 {
 		return fmt.Errorf("check tx timeout must be greater than 0, got %s", c.CheckTxTimeout)
