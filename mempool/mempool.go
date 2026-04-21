@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -91,7 +92,7 @@ type Mempool struct {
 	blockchain    *Blockchain
 	blockGasLimit uint64 // Block gas limit from consensus parameters
 	minTip        *uint256.Int
-	evmCoinInfo   evmtypes.EvmCoinInfo
+	evmCoinInfo   atomic.Pointer[evmtypes.EvmCoinInfo]
 
 	eventBus *cmttypes.EventBus
 
@@ -131,12 +132,6 @@ func NewMempool(
 
 	blockchain := NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
-	// set only once during genesis
-	evmCoinInfo, err := blockchain.getEvmCoinInfo()
-	if err != nil {
-		panic(err)
-	}
-
 	legacyConfig := legacypool.DefaultConfig
 	if config.LegacyPoolConfig != nil {
 		legacyConfig = *config.LegacyPoolConfig
@@ -157,7 +152,7 @@ func NewMempool(
 
 	cosmosPoolConfig := config.CosmosPoolConfig
 	if cosmosPoolConfig == nil {
-		cosmosPoolConfig = defaultCosmosPoolConfig(evmCoinInfo.Denom)
+		cosmosPoolConfig = defaultCosmosPoolConfig(blockchain.GetCoinDenom)
 	}
 
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
@@ -181,7 +176,6 @@ func NewMempool(
 		blockchain:               blockchain,
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
-		evmCoinInfo:              evmCoinInfo,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(NewTxEncoder(txConfig)),
 		txTracker:                newTxTracker(),
@@ -410,7 +404,6 @@ func (m *Mempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.It
 		cosmosIterator,
 		m.logger,
 		m.txConfig,
-		m.evmCoinInfo.Denom,
 		m.blockchain,
 	)
 }
@@ -566,6 +559,7 @@ func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.Tran
 	// Keeper reads consume gas on the SDK context. Fetch these inputs once
 	// before starting goroutines so we do not race on the shared gas meters.
 	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
+	coinDenom := m.blockchain.GetCoinDenom()
 	cosmosBaseFee := currentBaseFee(m.blockchain)
 
 	wg.Go(func() {
@@ -573,7 +567,7 @@ func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.Tran
 	})
 
 	wg.Go(func() {
-		cosmosIterator = m.cosmosIterator(ctx, selectHeight, m.evmCoinInfo.Denom, cosmosBaseFee)
+		cosmosIterator = m.cosmosIterator(ctx, selectHeight, coinDenom, cosmosBaseFee)
 	})
 
 	wg.Wait()
@@ -639,14 +633,14 @@ func (m *Mempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckCosmosPool.TriggerRecheckSync(newHead)
 }
 
-func defaultCosmosPoolConfig(denom string) *sdkmempool.PriorityNonceMempoolConfig[math.Int] {
+func defaultCosmosPoolConfig(getDenom func() string) *sdkmempool.PriorityNonceMempoolConfig[math.Int] {
 	txPriority := sdkmempool.TxPriority[math.Int]{
 		GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
 			cosmosTxFee, ok := tx.(sdk.FeeTx)
 			if !ok {
 				return math.ZeroInt()
 			}
-			found, coin := cosmosTxFee.GetFee().Find(denom)
+			found, coin := cosmosTxFee.GetFee().Find(getDenom())
 			if !found {
 				return math.ZeroInt()
 			}
