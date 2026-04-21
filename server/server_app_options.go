@@ -176,6 +176,21 @@ func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger
 	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
 }
 
+func GetMempoolCheckTxTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	if appOpts == nil {
+		logger.Error("app options is nil, using check tx timeout of 5 seconds")
+		return 5 * time.Second
+	}
+
+	dur := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolCheckTxTimeout))
+	if dur <= 0 {
+		logger.Error("check tx timeout must be greater than 0, using 5 seconds")
+		return 5 * time.Second
+	}
+
+	return dur
+}
+
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
 		// we don't want to return 0 here, as then appOpts.Get() will return nil and that will be
