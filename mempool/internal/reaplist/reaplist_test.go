@@ -804,3 +804,39 @@ func TestReapList_MixedDrops(t *testing.T) {
 	result := rl.Reap(0, 0)
 	require.Len(t, result, 4, "should have 4 transactions after mixed drops")
 }
+
+// Regression test that verifies that racing PushEVMTx calls with the same hash
+// cannot produce a duplicate entry or an orphaned slot.
+func TestReapList_ConcurrentSameHashPush(t *testing.T) {
+	const iterations = 200
+	const workers = 32
+
+	for i := 0; i < iterations; i++ {
+		key, err := crypto.GenerateKey()
+		require.NoError(t, err)
+
+		rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+		tx := testEVMTx(t, key, 0, 21000)
+
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		for j := 0; j < workers; j++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				_ = rl.PushEVMTx(tx)
+			}()
+		}
+		close(start)
+		wg.Wait()
+
+		result := rl.Reap(0, 0)
+		require.Lenf(t, result, 1, "iter %d: duplicate reap from concurrent same hash push", i)
+
+		require.NotPanicsf(t, func() {
+			rl.DropEVMTx(tx)
+			_ = rl.Reap(0, 0)
+		}, "iter %d: drop after concurrent push must not orphan a slot", i)
+	}
+}

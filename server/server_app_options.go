@@ -151,6 +151,9 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	if globalQueue := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolGlobalQueue)); globalQueue != 0 {
 		legacyConfig.GlobalQueue = globalQueue
 	}
+	if includedNonceCacheSize := cast.ToInt(appOpts.Get(srvflags.EVMMempoolIncludedNonceCacheSize)); includedNonceCacheSize != 0 {
+		legacyConfig.IncludedNonceCacheSize = includedNonceCacheSize
+	}
 	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
 	}
@@ -174,6 +177,21 @@ func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger
 	}
 
 	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
+}
+
+func GetMempoolCheckTxTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	if appOpts == nil {
+		logger.Error("app options is nil, using check tx timeout of 5 seconds")
+		return 5 * time.Second
+	}
+
+	dur := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolCheckTxTimeout))
+	if dur <= 0 {
+		logger.Error("check tx timeout must be greater than 0, using 5 seconds")
+		return 5 * time.Second
+	}
+
+	return dur
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

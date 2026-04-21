@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.False(t, cfg.JSONRPC.Enable)
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
+	require.Equal(t, cfg.EVM.Mempool.CheckTxTimeout, 5*time.Second)
 	require.Equal(t, cfg.JSONRPC.HTTPBodyLimit, serverconfig.DefaultHTTPBodyLimit)
 }
 
