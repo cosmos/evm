@@ -89,9 +89,10 @@ func (suite *AutoFlushTestSuite) mintTokens(tokenAddr common.Address, erc20Data 
 	evmApp := suite.chain.App.(*evmd.EVMD)
 	deployerAddr := common.BytesToAddress(suite.chain.SenderPrivKey.PubKey().Address().Bytes())
 
-	stateDB := testutil.NewStateDB(suite.chain.GetContext(), evmApp.EVMKeeper)
+	ctx := suite.chain.GetContext()
+	stateDB := testutil.NewStateDB(ctx, evmApp.EVMKeeper)
 	_, err := evmApp.GetEVMKeeper().CallEVM(
-		suite.chain.GetContext(),
+		ctx,
 		stateDB,
 		erc20Data.ABI,
 		deployerAddr,
@@ -110,15 +111,16 @@ func (suite *AutoFlushTestSuite) mintTokens(tokenAddr common.Address, erc20Data 
 // Helper: Fund contract with native tokens
 func (suite *AutoFlushTestSuite) fundContractNative(contractAddr sdk.AccAddress, amount sdkmath.Int) {
 	evmApp := suite.chain.App.(*evmd.EVMD)
-	bondDenom, err := evmApp.StakingKeeper.BondDenom(suite.chain.GetContext())
+	ctx := suite.chain.GetContext()
+	bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 	suite.Require().NoError(err)
 
 	coins := sdk.NewCoins(sdk.NewCoin(bondDenom, amount))
-	err = evmApp.GetBankKeeper().MintCoins(suite.chain.GetContext(), "mint", coins)
+	err = evmApp.GetBankKeeper().MintCoins(ctx, "mint", coins)
 	suite.Require().NoError(err)
 
 	err = evmApp.GetBankKeeper().SendCoinsFromModuleToAccount(
-		suite.chain.GetContext(),
+		ctx,
 		"mint",
 		contractAddr,
 		coins,
