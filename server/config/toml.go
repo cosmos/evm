@@ -60,6 +60,9 @@ included-nonce-cache-size = {{ .EVM.Mempool.IncludedNonceCacheSize }}
 # PendingTxProposalTimeout is the amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal
 pending-tx-proposal-timeout = "{{ .EVM.Mempool.PendingTxProposalTimeout }}"
 
+# CheckTxTimeout is the timeout for async CheckTx handler.
+check-tx-timeout = "{{ .EVM.Mempool.CheckTxTimeout }}"
+
 # InsertQueueSize is the maximum number of transactions that can be in the insert queue at once (0 means unbounded)
 insert-queue-size = "{{ .EVM.Mempool.InsertQueueSize }}"
 
@@ -115,6 +118,9 @@ http-timeout = "{{ .JSONRPC.HTTPTimeout }}"
 
 # HTTPIdleTimeout is the idle timeout of http json-rpc server.
 http-idle-timeout = "{{ .JSONRPC.HTTPIdleTimeout }}"
+
+# HTTPBodyLimit is the maximum request body size in bytes for json-rpc http server.
+http-body-limit = {{ .JSONRPC.HTTPBodyLimit }}
 
 # AllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
 # the node's RPC when the global parameter is disabled.

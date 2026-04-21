@@ -101,6 +101,9 @@ const (
 	// DefaultHTTPIdleTimeout is the default idle timeout of the http json-rpc server
 	DefaultHTTPIdleTimeout = 120 * time.Second
 
+	// DefaultHTTPBodyLimit is the default maximum request body size of the http json-rpc server.
+	DefaultHTTPBodyLimit = 5 * 1024 * 1024
+
 	// DefaultAllowUnprotectedTxs value is false
 	DefaultAllowUnprotectedTxs = false
 
@@ -178,6 +181,8 @@ type MempoolConfig struct {
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
+	// CheckTxTimeout timeout for CheckTx handler.
+	CheckTxTimeout time.Duration `mapstructure:"check-tx-timeout"`
 	// InsertQueueSize is the maximum number of transactions that can be in the
 	// insert queue at once (0 means unbounded)
 	InsertQueueSize int `mapstructure:"insert-queue-size"`
@@ -195,6 +200,7 @@ func DefaultMempoolConfig() MempoolConfig {
 		Lifetime:                 3 * time.Hour,          // 3 hour lifetime for queued transactions
 		IncludedNonceCacheSize:   4096,                   // Maximum 4096 nonces in LRU by default
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
+		CheckTxTimeout:           5 * time.Second,        // 5 seconds timeout for CheckTx handler.
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
 	}
 }
@@ -224,6 +230,9 @@ func (c MempoolConfig) Validate() error {
 	}
 	if c.IncludedNonceCacheSize < 1 {
 		return fmt.Errorf("included nonce cache size should be at least 1, got %d", c.IncludedNonceCacheSize)
+	}
+	if c.CheckTxTimeout <= 0 {
+		return fmt.Errorf("check tx timeout must be greater than 0, got %s", c.CheckTxTimeout)
 	}
 	if c.InsertQueueSize < 1 {
 		return fmt.Errorf("insert queue size must be at least 1, got %d", c.InsertQueueSize)
@@ -261,6 +270,8 @@ type JSONRPCConfig struct {
 	HTTPTimeout time.Duration `mapstructure:"http-timeout"`
 	// HTTPIdleTimeout is the idle timeout of http json-rpc server.
 	HTTPIdleTimeout time.Duration `mapstructure:"http-idle-timeout"`
+	// HTTPBodyLimit is the maximum allowed size, in bytes, of a JSON-RPC HTTP request body.
+	HTTPBodyLimit int `mapstructure:"http-body-limit"`
 	// AllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
 	// the node's RPC when global parameter is disabled.
 	AllowUnprotectedTxs bool `mapstructure:"allow-unprotected-txs"`
@@ -351,6 +362,7 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		LogsCap:              DefaultLogsCap,
 		HTTPTimeout:          DefaultHTTPTimeout,
 		HTTPIdleTimeout:      DefaultHTTPIdleTimeout,
+		HTTPBodyLimit:        DefaultHTTPBodyLimit,
 		AllowUnprotectedTxs:  DefaultAllowUnprotectedTxs,
 		BatchRequestLimit:    DefaultBatchRequestLimit,
 		BatchResponseMaxSize: DefaultBatchResponseMaxSize,
@@ -398,6 +410,10 @@ func (c JSONRPCConfig) Validate() error {
 
 	if c.HTTPIdleTimeout < 0 {
 		return errors.New("JSON-RPC HTTP idle timeout duration cannot be negative")
+	}
+
+	if c.HTTPBodyLimit <= 0 {
+		return errors.New("JSON-RPC HTTP body limit must be greater than 0")
 	}
 
 	if c.BatchRequestLimit < 0 {
