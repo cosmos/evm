@@ -91,6 +91,7 @@ type Mempool struct {
 	blockchain    *Blockchain
 	blockGasLimit uint64 // Block gas limit from consensus parameters
 	minTip        *uint256.Int
+	evmCoinInfo   evmtypes.EvmCoinInfo
 
 	eventBus *cmttypes.EventBus
 
@@ -122,11 +123,19 @@ func NewMempool(
 	if config == nil {
 		panic("config must not be nil")
 	}
+
 	if config.BlockGasLimit == 0 {
 		logger.Warn("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
 		config.BlockGasLimit = fallbackBlockGasLimit
 	}
+
 	blockchain := NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
+
+	// set only once during genesis
+	evmCoinInfo, err := blockchain.getEvmCoinInfo()
+	if err != nil {
+		panic(err)
+	}
 
 	legacyConfig := legacypool.DefaultConfig
 	if config.LegacyPoolConfig != nil {
@@ -148,31 +157,9 @@ func NewMempool(
 
 	cosmosPoolConfig := config.CosmosPoolConfig
 	if cosmosPoolConfig == nil {
-		// Default configuration
-		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
-		defaultConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
-			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
-				ctx := sdk.UnwrapSDKContext(goCtx)
-				cosmosTxFee, ok := tx.(sdk.FeeTx)
-				if !ok {
-					return math.ZeroInt()
-				}
-				found, coin := cosmosTxFee.GetFee().Find(vmKeeper.GetEvmCoinInfo(ctx).Denom)
-				if !found {
-					return math.ZeroInt()
-				}
-
-				gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
-
-				return gasPrice
-			},
-			Compare: func(a, b math.Int) int {
-				return a.BigInt().Cmp(b.BigInt())
-			},
-			MinValue: math.ZeroInt(),
-		}
-		cosmosPoolConfig = &defaultConfig
+		cosmosPoolConfig = defaultCosmosPoolConfig(evmCoinInfo.Denom)
 	}
+
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool := sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 	recheckPool := NewRecheckMempool(
@@ -194,6 +181,7 @@ func NewMempool(
 		blockchain:               blockchain,
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
+		evmCoinInfo:              evmCoinInfo,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 NewReapList(NewTxEncoder(txConfig)),
 		txTracker:                newTxTracker(),
@@ -422,7 +410,7 @@ func (m *Mempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.It
 		cosmosIterator,
 		m.logger,
 		m.txConfig,
-		m.vmKeeper.GetEvmCoinInfo(sdk.UnwrapSDKContext(ctx)).Denom,
+		m.evmCoinInfo.Denom,
 		m.blockchain,
 	)
 }
@@ -578,7 +566,6 @@ func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.Tran
 	// Keeper reads consume gas on the SDK context. Fetch these inputs once
 	// before starting goroutines so we do not race on the shared gas meters.
 	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
-	bondDenom := m.vmKeeper.GetEvmCoinInfo(sdkctx).Denom
 	cosmosBaseFee := currentBaseFee(m.blockchain)
 
 	wg.Go(func() {
@@ -586,7 +573,7 @@ func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.Tran
 	})
 
 	wg.Go(func() {
-		cosmosIterator = m.cosmosIterator(ctx, selectHeight, bondDenom, cosmosBaseFee)
+		cosmosIterator = m.cosmosIterator(ctx, selectHeight, m.evmCoinInfo.Denom, cosmosBaseFee)
 	})
 
 	wg.Wait()
@@ -650,6 +637,31 @@ func (m *Mempool) RecheckEVMTxs(newHead *ethtypes.Header) {
 // This should only used for testing.
 func (m *Mempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckCosmosPool.TriggerRecheckSync(newHead)
+}
+
+func defaultCosmosPoolConfig(denom string) *sdkmempool.PriorityNonceMempoolConfig[math.Int] {
+	txPriority := sdkmempool.TxPriority[math.Int]{
+		GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
+			cosmosTxFee, ok := tx.(sdk.FeeTx)
+			if !ok {
+				return math.ZeroInt()
+			}
+			found, coin := cosmosTxFee.GetFee().Find(denom)
+			if !found {
+				return math.ZeroInt()
+			}
+
+			gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
+
+			return gasPrice
+		},
+		Compare: func(a, b math.Int) int {
+			return a.BigInt().Cmp(b.BigInt())
+		},
+		MinValue: math.ZeroInt(),
+	}
+
+	return &sdkmempool.PriorityNonceMempoolConfig[math.Int]{TxPriority: txPriority}
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.

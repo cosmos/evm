@@ -291,3 +291,12 @@ func (b *Blockchain) newLatestContext() (sdk.Context, error) {
 
 	return ctx, nil
 }
+
+func (b *Blockchain) getEvmCoinInfo() (evmtypes.EvmCoinInfo, error) {
+	ctx, err := b.GetLatestContext()
+	if err != nil {
+		return evmtypes.EvmCoinInfo{}, err
+	}
+
+	return b.vmKeeper.GetEvmCoinInfo(ctx), nil
+}
