@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -92,7 +91,6 @@ type Mempool struct {
 	blockchain    *Blockchain
 	blockGasLimit uint64 // Block gas limit from consensus parameters
 	minTip        *uint256.Int
-	evmCoinInfo   atomic.Pointer[evmtypes.EvmCoinInfo]
 
 	eventBus *cmttypes.EventBus
 
