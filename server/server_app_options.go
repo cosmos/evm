@@ -182,7 +182,13 @@ func GetMempoolCheckTxTimeout(appOpts servertypes.AppOptions, logger log.Logger)
 		return 5 * time.Second
 	}
 
-	return cast.ToDuration(appOpts.Get(srvflags.EVMMempoolCheckTxTimeout))
+	dur := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolCheckTxTimeout))
+	if dur <= 0 {
+		logger.Error("check tx timeout must be greater than 0, using 5 seconds")
+		return 5 * time.Second
+	}
+
+	return dur
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
