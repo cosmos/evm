@@ -1,61 +1,16 @@
 package mempool
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"sync"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
-
-var (
-	numTxs      metric.Int64Gauge
-	numIndexTxs metric.Int64Gauge
-	pushedTxs   metric.Int64Counter
-	droppedTxs  metric.Int64Counter
-)
-
-func init() {
-	var err error
-	numTxs, err = meter.Int64Gauge(
-		"mempool.reap_list.num_txs",
-		metric.WithDescription("Number of populated entries currently in the reap list (may be a nil tombstone)"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	numIndexTxs, err = meter.Int64Gauge(
-		"mempool.reap_list.num_index_txs",
-		metric.WithDescription("Number of transactions currently in the reap list's index"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	pushedTxs, err = meter.Int64Counter(
-		"mempool.reap_list.pushed_txs",
-		metric.WithDescription("Total number of transactions that have been pushed into the reap list"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	droppedTxs, err = meter.Int64Counter(
-		"mempool.reap_list.dropped_txs",
-		metric.WithDescription("Total number of transactions that have been dropped from the reap list"),
-	)
-	if err != nil {
-		panic(err)
-	}
-}
 
 type EVMCosmosTxEncoder interface {
 	EVMTx(tx *ethtypes.Transaction) ([]byte, error)
@@ -151,7 +106,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 			return tx == nil
 		})
 	}
-	numTxs.Record(context.Background(), int64(len(rl.txs)))
+	metrics.reapList.RecordNumTxs(rl.txs)
 
 	// rebuild the index since txs may have shifted indices
 	for i, tx := range rl.txs {
@@ -160,7 +115,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		}
 		rl.txIndex[tx.hash] = i
 	}
-	numIndexTxs.Record(context.Background(), int64(len(rl.txIndex)))
+	metrics.reapList.RecordNumIndexTxs(rl.txIndex)
 
 	return result
 }
@@ -179,8 +134,7 @@ func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
 
 	rl.push(hash, txBytes, tx.Gas())
 
-	attributes := attribute.NewSet(attribute.String("tx_type", "evm"))
-	pushedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+	metrics.reapList.TxPushed(evmType)
 	return nil
 }
 
@@ -205,8 +159,7 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 
 	rl.push(hash, txBytes, gas)
 
-	attributes := attribute.NewSet(attribute.String("tx_type", "cosmos"))
-	pushedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+	metrics.reapList.TxPushed(cosmosType)
 	return nil
 }
 
@@ -220,8 +173,8 @@ func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
 	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
 	rl.txIndex[hash] = len(rl.txs) - 1
 
-	numTxs.Record(context.Background(), int64(len(rl.txs)))
-	numIndexTxs.Record(context.Background(), int64(len(rl.txIndex)))
+	metrics.reapList.RecordNumTxs(rl.txs)
+	metrics.reapList.RecordNumIndexTxs(rl.txIndex)
 }
 
 // exists returns true if a hash is in the index, false otherwise.
@@ -240,8 +193,7 @@ func (rl *ReapList) DropEVMTx(tx *ethtypes.Transaction) {
 	dropped := rl.drop(tx.Hash().String())
 
 	if dropped {
-		attributes := attribute.NewSet(attribute.String("tx_type", "evm"))
-		droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+		metrics.reapList.TxDropped(evmType)
 	}
 }
 
@@ -256,8 +208,7 @@ func (rl *ReapList) DropCosmosTx(tx sdk.Tx) {
 	dropped := rl.drop(cosmosHash(txBytes))
 
 	if dropped {
-		attributes := attribute.NewSet(attribute.String("tx_type", "cosmos"))
-		droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+		metrics.reapList.TxDropped(cosmosType)
 	}
 }
 
@@ -273,7 +224,7 @@ func (rl *ReapList) drop(hash string) bool {
 		return false
 	}
 	delete(rl.txIndex, hash)
-	numIndexTxs.Record(context.Background(), int64(len(rl.txIndex)))
+	metrics.reapList.RecordNumIndexTxs(rl.txIndex)
 
 	if idx < 0 || idx >= len(rl.txs) {
 		return false
