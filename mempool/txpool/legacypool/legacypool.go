@@ -362,13 +362,8 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	// reapList is the shared broadcast queue. When non-nil, lifecycle
-	// transitions push / drop the tx from it so that ReapNewValidTxs hands
-	// the tx to consensus (and stops when the tx leaves the pool).
-	reapList *reaplist.ReapList
-	// tracker records per-tx lifecycle timestamps for telemetry. Optional;
-	// nil for tests that don't care about metrics.
-	tracker *txtracker.Tracker
+	reapList *reaplist.ReapList // Queue of txs to be reaped by comet on gossiped
+	tracker  *txtracker.Tracker // Track tx life cycle events for metrics
 }
 
 type txpoolResetRequest struct {
@@ -385,26 +380,24 @@ func WithRecheck(rechecker Rechecker) Option {
 	}
 }
 
-// WithReapList wires the shared broadcast queue into the pool. Promoted txs
-// are pushed onto it and removed txs are dropped from it, so that callers of
-// ReapNewValidTxs see exactly the txs currently in the pending pool.
-func WithReapList(rl *reaplist.ReapList) Option {
-	return func(pool *LegacyPool) {
-		pool.reapList = rl
-	}
-}
-
-// WithTracker wires a telemetry tracker into the pool. Lifecycle transitions
-// record per-tx timestamps used for mempool metrics.
-func WithTracker(t *txtracker.Tracker) Option {
-	return func(pool *LegacyPool) {
-		pool.tracker = t
-	}
-}
-
 // New creates a new transaction pool to gather, sort and filter inbound
-// transactions from the network.
-func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Option) *LegacyPool {
+// transactions from the network. reapList and tracker are required: they
+// observe every pending-pool transition and are load-bearing for both
+// broadcast (reapList) and telemetry (tracker).
+func New(
+	config Config,
+	logger cosmoslog.Logger,
+	chain BlockChain,
+	reapList *reaplist.ReapList,
+	tracker *txtracker.Tracker,
+	opts ...Option,
+) *LegacyPool {
+	if reapList == nil {
+		panic("legacypool: reapList must not be nil")
+	}
+	if tracker == nil {
+		panic("legacypool: tracker must not be nil")
+	}
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -422,6 +415,8 @@ func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Optio
 		beats:               make(map[common.Address]time.Time),
 		all:                 newLookup(),
 		rechecker:           newNopRechecker(),
+		reapList:            reapList,
+		tracker:             tracker,
 		validPendingTxs:     heightsync.New(chain.CurrentBlock().Number, NewTxStore, logger.With("pool", "legacypool")),
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
@@ -2252,22 +2247,30 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 // markTxPromoted adds the tx to the next valid pending txs set (i.e. to be
 // included in the next block if selected by the application), pushes it onto
 // the reap list so consensus picks it up, and records the pending-entry
-// timestamp on the tracker.
+// timestamps on the tracker.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
 	pool.validPendingTxs.Do(func(store *TxStore) {
 		store.AddTx(addr, tx)
 	})
-	pool.pushReap(tx)
-	pool.trackPromoted(tx.Hash())
+	if err := pool.reapList.PushEVMTx(tx); err != nil {
+		log.Error("could not push promoted evm tx to ReapList", "err", err, "hash", tx.Hash())
+	}
+	hash := tx.Hash()
+	_ = pool.tracker.ExitedQueued(hash)
+	_ = pool.tracker.EnteredPending(hash)
 }
 
 // markTxReplaced runs the promotion side-effects for a tx that bypassed the
 // queued pool (replaced an existing pending tx at the same nonce). It does
 // **not** include the tx in the valid pending txs set, since replacements
 // must be revalidated by the Rechecker before we rely on them.
-func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transaction) {
-	pool.pushReap(tx)
-	pool.trackPromoted(tx.Hash())
+func (pool *LegacyPool) markTxReplaced(_ common.Address, tx *types.Transaction) {
+	if err := pool.reapList.PushEVMTx(tx); err != nil {
+		log.Error("could not push replaced evm tx to ReapList", "err", err, "hash", tx.Hash())
+	}
+	hash := tx.Hash()
+	_ = pool.tracker.ExitedQueued(hash)
+	_ = pool.tracker.EnteredPending(hash)
 }
 
 // markTxRemoved records a removal from the given pool: removes the tx from
@@ -2279,48 +2282,20 @@ func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction
 			store.RemoveTx(addr, tx)
 		})
 	}
-	if pool.reapList != nil {
-		pool.reapList.DropEVMTx(tx)
-	}
-	if pool.tracker != nil {
-		hash := tx.Hash()
-		switch p {
-		case Pending:
-			_ = pool.tracker.FinalizedFromPending(hash)
-		case Queue:
-			_ = pool.tracker.FinalizedFromQueue(hash)
-		}
+
+	pool.reapList.DropEVMTx(tx)
+	hash := tx.Hash()
+	switch p {
+	case Pending:
+		_ = pool.tracker.FinalizedFromPending(hash)
+	case Queue:
+		_ = pool.tracker.FinalizedFromQueue(hash)
 	}
 }
 
 // markTxEnqueued records the queued-entry timestamp on the tracker.
 func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
-	if pool.tracker != nil {
-		_ = pool.tracker.EnteredQueued(tx.Hash())
-	}
-}
-
-// pushReap pushes a tx onto the reap list. Encoding failures are logged and
-// swallowed: the tx is still legitimately in the pending pool, the only
-// consequence of a failed push is that this node won't broadcast it via
-// ReapNewValidTxs.
-func (pool *LegacyPool) pushReap(tx *types.Transaction) {
-	if pool.reapList == nil {
-		return
-	}
-	if err := pool.reapList.PushEVMTx(tx); err != nil {
-		log.Error("could not push promoted evm tx to ReapList", "err", err, "hash", tx.Hash())
-	}
-}
-
-// trackPromoted records the queue-exit + pending-entry timestamps on the
-// tracker. It is a no-op if tracking is disabled.
-func (pool *LegacyPool) trackPromoted(hash common.Hash) {
-	if pool.tracker == nil {
-		return
-	}
-	_ = pool.tracker.ExitedQueued(hash)
-	_ = pool.tracker.EnteredPending(hash)
+	_ = pool.tracker.EnteredQueued(tx.Hash())
 }
 
 // tolerateRecheckErr returns nil if err is an error string that should be

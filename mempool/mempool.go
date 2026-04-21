@@ -135,21 +135,19 @@ func NewMempool(
 		legacyConfig = *config.LegacyPoolConfig
 	}
 
-	// Construct the shared reap list and tracker up-front so legacypool can
-	// call into them directly at lifecycle transitions.
-	reapListInstance := reaplist.New(NewTxEncoder(txConfig))
-	txTrackerInstance := txtracker.New()
+	reapList := reaplist.New(NewTxEncoder(txConfig))
+	txTracker := txtracker.New()
 	legacyPool := legacypool.New(
 		legacyConfig,
 		logger,
 		blockchain,
+		reapList,
+		txTracker,
 		legacypool.WithRecheck(evmRechecker),
-		legacypool.WithReapList(reapListInstance),
-		legacypool.WithTracker(txTrackerInstance),
 	)
 
-	tracker := reserver.NewReservationTracker()
-	txPool, err := txpool.New(uint64(0), blockchain, tracker, []txpool.SubPool{legacyPool})
+	reservationTracker := reserver.NewReservationTracker()
+	txPool, err := txpool.New(uint64(0), blockchain, reservationTracker, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
 	}
@@ -192,7 +190,7 @@ func NewMempool(
 	recheckPool := NewRecheckMempool(
 		logger,
 		cosmosPool,
-		tracker.NewHandle(-1),
+		reservationTracker.NewHandle(-1),
 		cosmosRechecker,
 		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "cosmos_recheck_mempool")),
 		blockchain,
@@ -209,8 +207,8 @@ func NewMempool(
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 reapListInstance,
-		txTracker:                txTrackerInstance,
+		reapList:                 reapList,
+		txTracker:                txTracker,
 	}
 
 	// Setup queues

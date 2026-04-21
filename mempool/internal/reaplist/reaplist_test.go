@@ -815,7 +815,7 @@ func TestReapList_ConcurrentSameHashPush(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
-		rl := mempool.NewReapList(newDeterministicEncoder(100, 100))
+		rl := reaplist.New(newDeterministicEncoder(100, 100))
 		tx := testEVMTx(t, key, 0, 21000)
 
 		var wg sync.WaitGroup
