@@ -106,7 +106,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 			return tx == nil
 		})
 	}
-	metrics.reapList.RecordNumTxs(rl.txs)
+	metrics.RecordNumTxs(rl.txs)
 
 	// rebuild the index since txs may have shifted indices
 	for i, tx := range rl.txs {
@@ -115,7 +115,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		}
 		rl.txIndex[tx.hash] = i
 	}
-	metrics.reapList.RecordNumIndexTxs(rl.txIndex)
+	metrics.RecordNumIndexTxs(rl.txIndex)
 
 	return result
 }
@@ -138,7 +138,7 @@ func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
 
 	rl.push(hash, txBytes, tx.Gas())
 
-	metrics.reapList.TxPushed(evmType)
+	metrics.TxPushed(evmType)
 	return nil
 }
 
@@ -166,7 +166,7 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 
 	rl.push(hash, txBytes, gas)
 
-	metrics.reapList.TxPushed(cosmosType)
+	metrics.TxPushed(cosmosType)
 	return nil
 }
 
@@ -179,8 +179,8 @@ func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
 	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
 	rl.txIndex[hash] = len(rl.txs) - 1
 
-	metrics.reapList.RecordNumTxs(rl.txs)
-	metrics.reapList.RecordNumIndexTxs(rl.txIndex)
+	metrics.RecordNumTxs(rl.txs)
+	metrics.RecordNumIndexTxs(rl.txIndex)
 }
 
 // exists returns true if a hash is in the index, false otherwise.
@@ -198,7 +198,7 @@ func (rl *ReapList) DropEVMTx(tx *ethtypes.Transaction) {
 	dropped := rl.drop(tx.Hash().String())
 
 	if dropped {
-		metrics.reapList.TxDropped(evmType)
+		metrics.TxDropped(evmType)
 	}
 }
 
@@ -213,7 +213,7 @@ func (rl *ReapList) DropCosmosTx(tx sdk.Tx) {
 	dropped := rl.drop(cosmosHash(txBytes))
 
 	if dropped {
-		metrics.reapList.TxDropped(cosmosType)
+		metrics.TxDropped(cosmosType)
 	}
 }
 
@@ -229,7 +229,7 @@ func (rl *ReapList) drop(hash string) bool {
 		return false
 	}
 	delete(rl.txIndex, hash)
-	metrics.reapList.RecordNumIndexTxs(rl.txIndex)
+	metrics.RecordNumIndexTxs(rl.txIndex)
 
 	if idx < 0 || idx >= len(rl.txs) {
 		return false
