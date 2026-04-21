@@ -74,6 +74,9 @@ func (p *Precompile) transfer(
 	from, to common.Address,
 	amount *big.Int,
 ) (data []byte, err error) {
+	if amount == nil {
+		amount = big.NewInt(0)
+	}
 	coins := sdk.Coins{{Denom: p.tokenPair.Denom, Amount: math.NewIntFromBigInt(amount)}}
 
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
