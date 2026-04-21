@@ -120,16 +120,12 @@ func (t *Tracker) IncludedInBlock(hash common.Hash) error {
 	return nil
 }
 
-// FinalizedFromPending records the pending-duration metric and removes the
-// tx from the tracker. Call when a tx exits the mempool from the pending pool.
-func (t *Tracker) FinalizedFromPending(hash common.Hash) error {
+func (t *Tracker) RemovedFromPending(hash common.Hash) error {
 	defer t.removeTx(hash)
 	return t.ExitedPending(hash)
 }
 
-// FinalizedFromQueue records the queued-duration metric and removes the tx
-// from the tracker. Call when a tx exits the mempool from the queued pool.
-func (t *Tracker) FinalizedFromQueue(hash common.Hash) error {
+func (t *Tracker) RemovedFromQueue(hash common.Hash) error {
 	defer t.removeTx(hash)
 	return t.ExitedQueued(hash)
 }

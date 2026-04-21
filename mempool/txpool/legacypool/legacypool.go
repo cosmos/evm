@@ -362,8 +362,8 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	reapList *reaplist.ReapList // Queue of txs to be reaped by comet on gossiped
-	tracker  *txtracker.Tracker // Track tx life cycle events for metrics
+	reapList *reaplist.ReapList // Queue of txs to be reaped by comet and gossiped
+	tracker  *txtracker.Tracker // Track tx lifecycle events for metrics
 }
 
 type txpoolResetRequest struct {
@@ -2287,9 +2287,9 @@ func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction
 	hash := tx.Hash()
 	switch p {
 	case Pending:
-		_ = pool.tracker.FinalizedFromPending(hash)
+		_ = pool.tracker.RemovedFromPending(hash)
 	case Queue:
-		_ = pool.tracker.FinalizedFromQueue(hash)
+		_ = pool.tracker.RemovedFromQueue(hash)
 	}
 }
 
