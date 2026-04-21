@@ -14,6 +14,7 @@
 - [\#968](https://github.com/cosmos/evm/pull/968) Use normal gas config in ibc transfer to prevent potential DoS attack
 - [\#1029](https://github.com/cosmos/evm/pull/1029) Mark EvmCoinInfo.Decimals field as deprecated
 - [\#1079](https://github.com/cosmos/evm/pull/1079) Access Control List is now case-insensitive
+- [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
 
 ### FEATURES
 
