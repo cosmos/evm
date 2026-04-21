@@ -80,24 +80,23 @@ func (m *Mempool) NewCheckTxHandler(txDecoder sdk.TxDecoder, timeout time.Durati
 			return nil, fmt.Errorf("decoding tx: %w", err)
 		}
 
-		if err := m.Insert(ctx, tx); err != nil {
-			return ErrAsCheckTxResponse(err), nil
-		}
+		err = m.Insert(ctx, tx)
 
-		return &abci.ResponseCheckTx{Code: abci.CodeTypeOK}, nil
+		return ErrAsCheckTxResponse(err), nil
 	}
 }
 
 // ErrAsCheckTxResponse converts an error to a ResponseCheckTx object, respecting error wrapping.
 func ErrAsCheckTxResponse(err error) *abci.ResponseCheckTx {
-	// keep the original error message
-	log := err.Error()
+	if err == nil {
+		return &abci.ResponseCheckTx{Code: abci.CodeTypeOK}
+	}
 
-	space, code, _ := errorsmod.ABCIInfo(err, false)
+	space, code, log := errorsmod.ABCIInfo(err, false)
 
 	// walk the wrap chain for the innermost sdk error
 	for e := errors.Unwrap(err); e != nil && space == errorsmod.UndefinedCodespace; e = errors.Unwrap(e) {
-		space, code, _ = errorsmod.ABCIInfo(e, false)
+		space, code, log = errorsmod.ABCIInfo(e, false)
 	}
 
 	return &abci.ResponseCheckTx{

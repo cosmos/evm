@@ -209,6 +209,14 @@ func TestErrAsCheckTxResponse(t *testing.T) {
 		assert func(t *testing.T, resp *abci.ResponseCheckTx)
 	}{
 		{
+			name: "nil error",
+			err:  nil,
+			assert: func(t *testing.T, resp *abci.ResponseCheckTx) {
+				t.Helper()
+				require.Equal(t, abci.CodeTypeOK, resp.Code)
+			},
+		},
+		{
 			name:   "std error",
 			err:    fmt.Errorf("oops"),
 			assert: assertResponse(errorsmod.UndefinedCodespace, 1, "oops"),
@@ -216,7 +224,7 @@ func TestErrAsCheckTxResponse(t *testing.T) {
 		{
 			name:   "std wrapped error",
 			err:    errorsmod.Wrap(fmt.Errorf("oops"), "wrapped"),
-			assert: assertResponse(errorsmod.UndefinedCodespace, 1, "wrapped: oops"),
+			assert: assertResponse(errorsmod.UndefinedCodespace, 1, "oops"),
 		},
 		{
 			name:   "sdk error",
@@ -236,12 +244,12 @@ func TestErrAsCheckTxResponse(t *testing.T) {
 		{
 			name:   "std wrapped sdk error",
 			err:    fmt.Errorf("something went wrong: %w", errortypes.ErrOutOfGas),
-			assert: assertResponse(errortypes.RootCodespace, 11, "something went wrong: out of gas"),
+			assert: assertResponse(errortypes.RootCodespace, 11, "out of gas"),
 		},
 		{
 			name:   "nested std wrapped sdk error",
 			err:    fmt.Errorf("something went wrong: %w", fmt.Errorf("oops: %w", errortypes.ErrTxTimeout)),
-			assert: assertResponse(errortypes.RootCodespace, 42, "something went wrong: oops: tx timeout"),
+			assert: assertResponse(errortypes.RootCodespace, 42, "tx timeout"),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
