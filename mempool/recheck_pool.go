@@ -607,7 +607,7 @@ func cosmosPoolConfig(
 			// already been inserted into the reaplist via the insert.
 			reapList.DropCosmosTx(oldTx)
 		}
-		return true
+		return shouldReplace
 	}
 	config.TxReplacement = txReplacement
 
