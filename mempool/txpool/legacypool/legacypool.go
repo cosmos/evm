@@ -32,6 +32,8 @@ import (
 
 	cosmoslog "cosmossdk.io/log/v2"
 	"github.com/cosmos/evm/mempool/internal/heightsync"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/reserver"
 	lru "github.com/hashicorp/golang-lru/v2"
 
@@ -360,14 +362,8 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	// OnTxPromoted is called when a tx is promoted from queued to pending (may
-	// be called multiple times per tx)
-	OnTxPromoted func(tx *types.Transaction)
-	// OnTxRemoved is called when a tx is removed from the mempool (either
-	// explicitly via RemoveTx or implicitly during Reset)
-	OnTxRemoved func(tx *types.Transaction, pool PoolType)
-	// OnTxRemoved is called when a tx is added to the queued pool
-	OnTxEnqueued func(tx *types.Transaction)
+	reapList *reaplist.ReapList   // Queue of txs to be reaped by comet and gossiped
+	tracker  *txtracker.TxTracker // Track tx lifecycle events for metrics
 }
 
 type txpoolResetRequest struct {
@@ -385,8 +381,23 @@ func WithRecheck(rechecker Rechecker) Option {
 }
 
 // New creates a new transaction pool to gather, sort and filter inbound
-// transactions from the network.
-func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Option) *LegacyPool {
+// transactions from the network. reapList and tracker are required: they
+// observe every pending-pool transition and are load-bearing for both
+// broadcast (reapList) and telemetry (tracker).
+func New(
+	config Config,
+	logger cosmoslog.Logger,
+	chain BlockChain,
+	reapList *reaplist.ReapList,
+	tracker *txtracker.TxTracker,
+	opts ...Option,
+) *LegacyPool {
+	if reapList == nil {
+		panic("legacypool: reapList must not be nil")
+	}
+	if tracker == nil {
+		panic("legacypool: tracker must not be nil")
+	}
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -404,6 +415,8 @@ func New(config Config, logger cosmoslog.Logger, chain BlockChain, opts ...Optio
 		beats:               make(map[common.Address]time.Time),
 		all:                 newLookup(),
 		rechecker:           newNopRechecker(),
+		reapList:            reapList,
+		tracker:             tracker,
 		validPendingTxs:     heightsync.New(chain.CurrentBlock().Number, NewTxStore, logger.With("pool", "legacypool")),
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
@@ -2231,46 +2244,58 @@ func (pool *LegacyPool) HasPendingAuth(addr common.Address) bool {
 	return pool.all.hasAuth(addr)
 }
 
-// markTxPromoted calls the OnTxPromoted callback if it has been supplied and
-// includes the tx in the next valid pending txs set, i.e. to be included in
-// the next block, if selected by the application.
+// markTxPromoted adds the tx to the next valid pending txs set (i.e. to be
+// included in the next block if selected by the application), pushes it onto
+// the reap list so consensus picks it up, and records the pending-entry
+// timestamps on the tracker.
 func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transaction) {
 	pool.validPendingTxs.Do(func(store *TxStore) {
 		store.AddTx(addr, tx)
 	})
-	if pool.OnTxPromoted != nil {
-		pool.OnTxPromoted(tx)
+	if err := pool.reapList.PushEVMTx(tx); err != nil {
+		log.Error("could not push promoted evm tx to ReapList", "err", err, "hash", tx.Hash())
 	}
+	hash := tx.Hash()
+	_ = pool.tracker.ExitedQueued(hash)
+	_ = pool.tracker.EnteredPending(hash)
 }
 
-// markTxReplaced calls the OnTxPromoted callback if it has been supplied and
-// does **not** include the tx in the next valid pending txs set. This is
-// because tx that are replacing other txs in the pending pool have not been
-// checked for validity yet via the Rechecker, thus we should wait until that
-// happens before adding them to the valid pending txs set.
-func (pool *LegacyPool) markTxReplaced(addr common.Address, tx *types.Transaction) {
-	if pool.OnTxPromoted != nil {
-		pool.OnTxPromoted(tx)
+// markTxReplaced runs the promotion side-effects for a tx that bypassed the
+// queued pool (replaced an existing pending tx at the same nonce). It does
+// **not** include the tx in the valid pending txs set, since replacements
+// must be revalidated by the Rechecker before we rely on them.
+func (pool *LegacyPool) markTxReplaced(_ common.Address, tx *types.Transaction) {
+	if err := pool.reapList.PushEVMTx(tx); err != nil {
+		log.Error("could not push replaced evm tx to ReapList", "err", err, "hash", tx.Hash())
 	}
+	hash := tx.Hash()
+	_ = pool.tracker.ExitedQueued(hash)
+	_ = pool.tracker.EnteredPending(hash)
 }
 
-// markTxRemoved calls the OnTxRemoved callback if it has been supplied.
+// markTxRemoved records a removal from the given pool: removes the tx from
+// the pending snapshot (if applicable), drops it from the reap list, and
+// records the final duration on the tracker.
 func (pool *LegacyPool) markTxRemoved(addr common.Address, tx *types.Transaction, p PoolType) {
 	if p == Pending {
 		pool.validPendingTxs.Do(func(store *TxStore) {
 			store.RemoveTx(addr, tx)
 		})
 	}
-	if pool.OnTxRemoved != nil {
-		pool.OnTxRemoved(tx, p)
+
+	pool.reapList.DropEVMTx(tx)
+	hash := tx.Hash()
+	switch p {
+	case Pending:
+		_ = pool.tracker.RemovedFromPending(hash)
+	case Queue:
+		_ = pool.tracker.RemovedFromQueue(hash)
 	}
 }
 
-// markTxEnqueued calls the OnTxEnqueued callback if it has been supplied.
+// markTxEnqueued records the queued-entry timestamp on the tracker.
 func (pool *LegacyPool) markTxEnqueued(tx *types.Transaction) {
-	if pool.OnTxEnqueued != nil {
-		pool.OnTxEnqueued(tx)
-	}
+	_ = pool.tracker.EnteredQueued(tx.Hash())
 }
 
 // tolerateRecheckErr returns nil if err is an error string that should be

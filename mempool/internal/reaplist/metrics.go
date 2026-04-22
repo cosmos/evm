@@ -1,29 +1,24 @@
-package mempool
+package reaplist
 
 import (
 	"context"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
 
-// mempoolMetrics is a wrapper around all mempool metrics plus mempool
-// subcomponents and their metrics
-type mempoolMetrics struct {
-	reapList reapListMetrics
-}
+var meter = otel.Meter("github.com/cosmos/evm/mempool/internal/reaplist")
 
-// metrics is a package local singleton, all mempool components that need
-// metrics should access them via this metrics struct
-var metrics = mempoolMetrics{}
-
-// reapListMetrics are metrics specific to the reap list component
+// reapListMetrics are reapListMetrics specific to the reaplist
 type reapListMetrics struct {
 	numTxs      metric.Int64Gauge
 	numIndexTxs metric.Int64Gauge
 	pushedTxs   metric.Int64Counter
 	droppedTxs  metric.Int64Counter
 }
+
+var metrics = reapListMetrics{}
 
 type txType string
 
@@ -59,32 +54,32 @@ func (rlm *reapListMetrics) RecordNumIndexTxs(index map[string]int) {
 // initialize all metrics or panic
 func init() {
 	var err error
-	metrics.reapList.numTxs, err = meter.Int64Gauge(
-		"mempool.reap_list.num_txs",
+	metrics.numTxs, err = meter.Int64Gauge(
+		"reap_list.num_txs",
 		metric.WithDescription("Number of populated entries currently in the reap list (may be a nil tombstone)"),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	metrics.reapList.numIndexTxs, err = meter.Int64Gauge(
-		"mempool.reap_list.num_index_txs",
+	metrics.numIndexTxs, err = meter.Int64Gauge(
+		"reap_list.num_index_txs",
 		metric.WithDescription("Number of transactions currently in the reap list's index"),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	metrics.reapList.pushedTxs, err = meter.Int64Counter(
-		"mempool.reap_list.pushed_txs",
+	metrics.pushedTxs, err = meter.Int64Counter(
+		"reap_list.pushed_txs",
 		metric.WithDescription("Total number of transactions that have been pushed into the reap list"),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	metrics.reapList.droppedTxs, err = meter.Int64Counter(
-		"mempool.reap_list.dropped_txs",
+	metrics.droppedTxs, err = meter.Int64Counter(
+		"reap_list.dropped_txs",
 		metric.WithDescription("Total number of transactions that have been dropped from the reap list"),
 	)
 	if err != nil {

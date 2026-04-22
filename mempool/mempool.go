@@ -17,6 +17,8 @@ import (
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/queue"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -95,10 +97,10 @@ type Mempool struct {
 	eventBus *cmttypes.EventBus
 
 	/** Transaction Reaping **/
-	reapList *ReapList
+	reapList *reaplist.ReapList
 
 	/** Transaction Tracking **/
-	txTracker *txTracker
+	txTracker *txtracker.TxTracker
 
 	/** Transaction Inserting **/
 	cosmosInsertQueue *queue.Queue[sdk.Tx]
@@ -134,10 +136,20 @@ func NewMempool(
 	if config.LegacyPoolConfig != nil {
 		legacyConfig = *config.LegacyPoolConfig
 	}
-	legacyPool := legacypool.New(legacyConfig, logger, blockchain, legacypool.WithRecheck(evmRechecker))
 
-	tracker := reserver.NewReservationTracker()
-	txPool, err := txpool.New(uint64(0), blockchain, tracker, []txpool.SubPool{legacyPool})
+	reapList := reaplist.New(NewTxEncoder(txConfig))
+	txTracker := txtracker.New()
+	legacyPool := legacypool.New(
+		legacyConfig,
+		logger,
+		blockchain,
+		reapList,
+		txTracker,
+		legacypool.WithRecheck(evmRechecker),
+	)
+
+	reservationTracker := reserver.NewReservationTracker()
+	txPool, err := txpool.New(uint64(0), blockchain, reservationTracker, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +170,7 @@ func NewMempool(
 	recheckPool := NewRecheckMempool(
 		logger,
 		cosmosPool,
-		tracker.NewHandle(-1),
+		reservationTracker.NewHandle(-1),
 		cosmosRechecker,
 		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "cosmos_recheck_mempool")),
 		blockchain,
@@ -175,8 +187,8 @@ func NewMempool(
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 NewReapList(NewTxEncoder(txConfig)),
-		txTracker:                newTxTracker(),
+		reapList:                 reapList,
+		txTracker:                txTracker,
 	}
 
 	// Setup queues
@@ -203,55 +215,12 @@ func NewMempool(
 		config.InsertQueueSize,
 	)
 
-	legacyPool.OnTxEnqueued = mempool.onEVMTxEnqueued()
-	legacyPool.OnTxPromoted = mempool.onEVMTxPromoted()
-	legacyPool.OnTxRemoved = mempool.onEVMTxRemoved()
-
 	vmKeeper.SetEvmMempool(mempool)
 
 	// Start the cosmos pool recheck loop
 	mempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
 
 	return mempool
-}
-
-// onEVMTxEnqueued defines a hook to run whenever an evm tx enters the queued pool.
-func (m *Mempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
-	return func(tx *ethtypes.Transaction) {
-		_ = m.txTracker.EnteredQueued(tx.Hash())
-	}
-}
-
-// onEVMTxPromoted defines a hook to run whenever an evm tx is promoted from
-// the queued pool to the pending pool.
-func (m *Mempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
-	return func(tx *ethtypes.Transaction) {
-		// once we have validated that the tx is valid (and can be promoted, set it
-		// to be reaped)
-		if err := m.reapList.PushEVMTx(tx); err != nil {
-			m.logger.Error("could not push promoted evm tx to ReapList", "err", err)
-		}
-
-		hash := tx.Hash()
-		_ = m.txTracker.ExitedQueued(hash)
-		_ = m.txTracker.EnteredPending(hash)
-	}
-}
-
-// onEVMTxRemoved defines a hook to run whenever an evm tx is removed from a
-// pool (queued or pending).
-func (m *Mempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
-	return func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
-		// tx was invalidated for some reason or was included in a block
-		// (either way it is no longer in the mempool), if this tx is in the
-		// reap list we need remove it from there (no longer need to gossip to
-		// others about the tx) + the reap guard (since we may see this tx at a
-		// later time, in which case we should gossip it again) by readding to
-		// the reap guard.
-		m.reapList.DropEVMTx(tx)
-
-		_ = m.txTracker.RemoveTxFromPool(tx.Hash(), pool)
-	}
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
