@@ -119,10 +119,10 @@ type RecheckMempool struct {
 	wg sync.WaitGroup
 }
 
-// NewRecheckMempool creates a new RecheckMempool wrapping the given pool.
+// NewRecheckMempool creates a new RecheckMempool.
 func NewRecheckMempool(
 	logger log.Logger,
-	cosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
+	defaultCosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
 	maxTxs int,
 	reserver *reserver.ReservationHandle,
 	rechecker Rechecker,
@@ -130,13 +130,9 @@ func NewRecheckMempool(
 	reapList *reaplist.ReapList,
 	blockchain *Blockchain,
 ) *RecheckMempool {
-	if cosmosPoolConfig == nil {
-		cosmosPoolConfig = defaultCosmosPoolConfig(reapList, blockchain)
-	}
-	cosmosPoolConfig.MaxTx = maxTxs
-
+	priorityMempoolConfg := cosmosPoolConfig(reapList, blockchain, defaultCosmosPoolConfig, maxTxs)
 	return &RecheckMempool{
-		ExtMempool:      sdkmempool.NewPriorityMempool(*cosmosPoolConfig),
+		ExtMempool:      sdkmempool.NewPriorityMempool(priorityMempoolConfg),
 		reserver:        reserver,
 		rechecker:       rechecker,
 		blockchain:      blockchain,
@@ -568,38 +564,60 @@ func signerAddressesFromTx(tx sdk.Tx) ([]common.Address, error) {
 	return addrs, nil
 }
 
-func defaultCosmosPoolConfig(reapList *reaplist.ReapList, blockchain *Blockchain) *sdkmempool.PriorityNonceMempoolConfig[math.Int] {
-	txPriority := sdkmempool.TxPriority[math.Int]{
-		GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
-			cosmosTxFee, ok := tx.(sdk.FeeTx)
-			if !ok {
-				return math.ZeroInt()
-			}
-			found, coin := cosmosTxFee.GetFee().Find(blockchain.GetCoinDenom())
-			if !found {
-				return math.ZeroInt()
-			}
+func cosmosPoolConfig(
+	reapList *reaplist.ReapList,
+	blockchain *Blockchain,
+	defaultConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
+	maxTxs int,
+) sdkmempool.PriorityNonceMempoolConfig[math.Int] {
+	var config sdkmempool.PriorityNonceMempoolConfig[math.Int]
 
-			gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
+	if defaultConfig != nil {
+		// prioritize the default configs TxPriority struct if defined
+		config.TxPriority = defaultConfig.TxPriority
+	} else {
+		config.TxPriority = sdkmempool.TxPriority[math.Int]{
+			GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
+				cosmosTxFee, ok := tx.(sdk.FeeTx)
+				if !ok {
+					return math.ZeroInt()
+				}
+				found, coin := cosmosTxFee.GetFee().Find(blockchain.GetCoinDenom())
+				if !found {
+					return math.ZeroInt()
+				}
 
-			return gasPrice
-		},
-		Compare: func(a, b math.Int) int {
-			return a.BigInt().Cmp(b.BigInt())
-		},
-		MinValue: math.ZeroInt(),
+				gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
+
+				return gasPrice
+			},
+			Compare: func(a, b math.Int) int {
+				return a.BigInt().Cmp(b.BigInt())
+			},
+			MinValue: math.ZeroInt(),
+		}
 	}
 
 	txReplacement := func(oldPriority, newPriority math.Int, oldTx, newTx sdk.Tx) bool {
-		// tx is being replaced, we need to drop the tx that is going to be removed
-		// from the reap list. we assume that the tx doing the replacing has
-		// already been inserted into the reaplist via the insert.
-		reapList.DropCosmosTx(oldTx)
+		// start by assuming we are going to replace oldTx with newTx
+		shouldReplace := true
+
+		if defaultConfig != nil && defaultConfig.TxReplacement != nil {
+			// if the default config has a custom TxReplacement function, call
+			// that to determine if we should replace oldTx for newTx
+			shouldReplace = defaultConfig.TxReplacement(oldPriority, newPriority, oldTx, newTx)
+		}
+
+		if shouldReplace {
+			// tx is being replaced, we need to drop the tx that is going to be removed
+			// from the reap list. we assume that the tx doing the replacing has
+			// already been inserted into the reaplist via the insert.
+			reapList.DropCosmosTx(oldTx)
+		}
 		return true
 	}
+	config.TxReplacement = txReplacement
 
-	return &sdkmempool.PriorityNonceMempoolConfig[math.Int]{
-		TxPriority:    txPriority,
-		TxReplacement: txReplacement,
-	}
+	config.MaxTx = maxTxs
+	return config
 }
