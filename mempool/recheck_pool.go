@@ -123,9 +123,9 @@ func NewRecheckMempool(
 	reapList *reaplist.ReapList,
 	blockchain *Blockchain,
 ) *RecheckMempool {
-	priorityMempoolConfg := cosmosPoolConfig(reapList, blockchain, defaultCosmosPoolConfig, maxTxs)
+	priorityMempoolConfig := cosmosPoolConfig(reapList, blockchain, defaultCosmosPoolConfig, maxTxs)
 	return &RecheckMempool{
-		ExtMempool:      sdkmempool.NewPriorityMempool(priorityMempoolConfg),
+		ExtMempool:      sdkmempool.NewPriorityMempool(priorityMempoolConfig),
 		reserver:        reserver,
 		rechecker:       rechecker,
 		blockchain:      blockchain,
@@ -591,8 +591,7 @@ func cosmosPoolConfig(
 		}
 	}
 
-	txReplacement := func(oldPriority, newPriority math.Int, oldTx, newTx sdk.Tx) bool {
-		// start by assuming we are going to replace oldTx with newTx
+	config.TxReplacement = func(oldPriority, newPriority math.Int, oldTx, newTx sdk.Tx) bool {
 		shouldReplace := true
 
 		if defaultConfig != nil && defaultConfig.TxReplacement != nil {
@@ -609,7 +608,6 @@ func cosmosPoolConfig(
 		}
 		return shouldReplace
 	}
-	config.TxReplacement = txReplacement
 
 	config.MaxTx = maxTxs
 	return config
