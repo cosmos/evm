@@ -34,23 +34,23 @@ var (
 	pendingDurationKey = "pending_duration"
 )
 
-// Tracker tracks timestamps about important events in a transactions
+// TxTracker tracks timestamps about important events in a transactions
 // lifecycle and exposes metrics about these via prometheus.
-type Tracker struct {
+type TxTracker struct {
 	txCheckpoints map[common.Hash]*checkpoints
 	lock          sync.RWMutex
 }
 
 // New creates a new Tracker instance.
-func New() *Tracker {
-	return &Tracker{
+func New() *TxTracker {
+	return &TxTracker{
 		txCheckpoints: make(map[common.Hash]*checkpoints),
 	}
 }
 
 // Track initializes tracking for a tx. This should only be called from
 // SendRawTransaction when a tx enters this node via a RPC.
-func (t *Tracker) Track(hash common.Hash) error {
+func (t *TxTracker) Track(hash common.Hash) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -62,7 +62,7 @@ func (t *Tracker) Track(hash common.Hash) error {
 	return nil
 }
 
-func (t *Tracker) EnteredQueued(hash common.Hash) error {
+func (t *TxTracker) EnteredQueued(hash common.Hash) error {
 	checkpoints, err := t.getCheckpointsIfTracked(hash)
 	if err != nil {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
@@ -73,7 +73,7 @@ func (t *Tracker) EnteredQueued(hash common.Hash) error {
 	return nil
 }
 
-func (t *Tracker) ExitedQueued(hash common.Hash) error {
+func (t *TxTracker) ExitedQueued(hash common.Hash) error {
 	checkpoints, err := t.getCheckpointsIfTracked(hash)
 	if err != nil {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
@@ -89,7 +89,7 @@ func (t *Tracker) ExitedQueued(hash common.Hash) error {
 	return nil
 }
 
-func (t *Tracker) EnteredPending(hash common.Hash) error {
+func (t *TxTracker) EnteredPending(hash common.Hash) error {
 	checkpoints, err := t.getCheckpointsIfTracked(hash)
 	if err != nil {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
@@ -100,7 +100,7 @@ func (t *Tracker) EnteredPending(hash common.Hash) error {
 	return nil
 }
 
-func (t *Tracker) ExitedPending(hash common.Hash) error {
+func (t *TxTracker) ExitedPending(hash common.Hash) error {
 	checkpoints, err := t.getCheckpointsIfTracked(hash)
 	if err != nil {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
@@ -110,7 +110,7 @@ func (t *Tracker) ExitedPending(hash common.Hash) error {
 	return nil
 }
 
-func (t *Tracker) IncludedInBlock(hash common.Hash) error {
+func (t *TxTracker) IncludedInBlock(hash common.Hash) error {
 	checkpoints, err := t.getCheckpointsIfTracked(hash)
 	if err != nil {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
@@ -120,17 +120,17 @@ func (t *Tracker) IncludedInBlock(hash common.Hash) error {
 	return nil
 }
 
-func (t *Tracker) RemovedFromPending(hash common.Hash) error {
+func (t *TxTracker) RemovedFromPending(hash common.Hash) error {
 	defer t.removeTx(hash)
 	return t.ExitedPending(hash)
 }
 
-func (t *Tracker) RemovedFromQueue(hash common.Hash) error {
+func (t *TxTracker) RemovedFromQueue(hash common.Hash) error {
 	defer t.removeTx(hash)
 	return t.ExitedQueued(hash)
 }
 
-func (t *Tracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, error) {
+func (t *TxTracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, error) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
@@ -142,7 +142,7 @@ func (t *Tracker) getCheckpointsIfTracked(hash common.Hash) (*checkpoints, error
 }
 
 // removeTx removes a tx by hash.
-func (t *Tracker) removeTx(hash common.Hash) {
+func (t *TxTracker) removeTx(hash common.Hash) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	delete(t.txCheckpoints, hash)
