@@ -17,6 +17,8 @@ import (
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/queue"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -95,10 +97,10 @@ type Mempool struct {
 	eventBus *cmttypes.EventBus
 
 	/** Transaction Reaping **/
-	reapList *ReapList
+	reapList *reaplist.ReapList
 
 	/** Transaction Tracking **/
-	txTracker *txTracker
+	txTracker *txtracker.TxTracker
 
 	/** Transaction Inserting **/
 	cosmosInsertQueue *queue.Queue[sdk.Tx]
@@ -122,20 +124,32 @@ func NewMempool(
 	if config == nil {
 		panic("config must not be nil")
 	}
+
 	if config.BlockGasLimit == 0 {
 		logger.Warn("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
 		config.BlockGasLimit = fallbackBlockGasLimit
 	}
+
 	blockchain := NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	legacyConfig := legacypool.DefaultConfig
 	if config.LegacyPoolConfig != nil {
 		legacyConfig = *config.LegacyPoolConfig
 	}
-	legacyPool := legacypool.New(legacyConfig, logger, blockchain, legacypool.WithRecheck(evmRechecker))
 
-	tracker := reserver.NewReservationTracker()
-	txPool, err := txpool.New(uint64(0), blockchain, tracker, []txpool.SubPool{legacyPool})
+	reapList := reaplist.New(NewTxEncoder(txConfig))
+	txTracker := txtracker.New()
+	legacyPool := legacypool.New(
+		legacyConfig,
+		logger,
+		blockchain,
+		reapList,
+		txTracker,
+		legacypool.WithRecheck(evmRechecker),
+	)
+
+	reservationTracker := reserver.NewReservationTracker()
+	txPool, err := txpool.New(uint64(0), blockchain, reservationTracker, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
 	}
@@ -148,39 +162,17 @@ func NewMempool(
 
 	cosmosPoolConfig := config.CosmosPoolConfig
 	if cosmosPoolConfig == nil {
-		// Default configuration
-		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
-		defaultConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
-			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
-				ctx := sdk.UnwrapSDKContext(goCtx)
-				cosmosTxFee, ok := tx.(sdk.FeeTx)
-				if !ok {
-					return math.ZeroInt()
-				}
-				found, coin := cosmosTxFee.GetFee().Find(vmKeeper.GetEvmCoinInfo(ctx).Denom)
-				if !found {
-					return math.ZeroInt()
-				}
-
-				gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
-
-				return gasPrice
-			},
-			Compare: func(a, b math.Int) int {
-				return a.BigInt().Cmp(b.BigInt())
-			},
-			MinValue: math.ZeroInt(),
-		}
-		cosmosPoolConfig = &defaultConfig
+		cosmosPoolConfig = defaultCosmosPoolConfig(blockchain.GetCoinDenom)
 	}
+
 	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool := sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 	recheckPool := NewRecheckMempool(
 		logger,
 		cosmosPool,
-		tracker.NewHandle(-1),
+		reservationTracker.NewHandle(-1),
 		cosmosRechecker,
-		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger),
+		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "cosmos_recheck_mempool")),
 		blockchain,
 	)
 
@@ -195,8 +187,8 @@ func NewMempool(
 		blockGasLimit:            config.BlockGasLimit,
 		minTip:                   config.MinTip,
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
-		reapList:                 NewReapList(NewTxEncoder(txConfig)),
-		txTracker:                newTxTracker(),
+		reapList:                 reapList,
+		txTracker:                txTracker,
 	}
 
 	// Setup queues
@@ -223,55 +215,12 @@ func NewMempool(
 		config.InsertQueueSize,
 	)
 
-	legacyPool.OnTxEnqueued = mempool.onEVMTxEnqueued()
-	legacyPool.OnTxPromoted = mempool.onEVMTxPromoted()
-	legacyPool.OnTxRemoved = mempool.onEVMTxRemoved()
-
 	vmKeeper.SetEvmMempool(mempool)
 
 	// Start the cosmos pool recheck loop
 	mempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
 
 	return mempool
-}
-
-// onEVMTxEnqueued defines a hook to run whenever an evm tx enters the queued pool.
-func (m *Mempool) onEVMTxEnqueued() func(tx *ethtypes.Transaction) {
-	return func(tx *ethtypes.Transaction) {
-		_ = m.txTracker.EnteredQueued(tx.Hash())
-	}
-}
-
-// onEVMTxPromoted defines a hook to run whenever an evm tx is promoted from
-// the queued pool to the pending pool.
-func (m *Mempool) onEVMTxPromoted() func(tx *ethtypes.Transaction) {
-	return func(tx *ethtypes.Transaction) {
-		// once we have validated that the tx is valid (and can be promoted, set it
-		// to be reaped)
-		if err := m.reapList.PushEVMTx(tx); err != nil {
-			m.logger.Error("could not push promoted evm tx to ReapList", "err", err)
-		}
-
-		hash := tx.Hash()
-		_ = m.txTracker.ExitedQueued(hash)
-		_ = m.txTracker.EnteredPending(hash)
-	}
-}
-
-// onEVMTxRemoved defines a hook to run whenever an evm tx is removed from a
-// pool (queued or pending).
-func (m *Mempool) onEVMTxRemoved() func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
-	return func(tx *ethtypes.Transaction, pool legacypool.PoolType) {
-		// tx was invalidated for some reason or was included in a block
-		// (either way it is no longer in the mempool), if this tx is in the
-		// reap list we need remove it from there (no longer need to gossip to
-		// others about the tx) + the reap guard (since we may see this tx at a
-		// later time, in which case we should gossip it again) by readding to
-		// the reap guard.
-		m.reapList.DropEVMTx(tx)
-
-		_ = m.txTracker.RemoveTxFromPool(tx.Hash(), pool)
-	}
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
@@ -295,7 +244,7 @@ func (m *Mempool) SetClientCtx(clientCtx client.Context) {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
 func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	errC, err := m.insert(ctx, tx)
+	errC, err := m.insert(tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
 	}
@@ -318,20 +267,17 @@ func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // transactions are inserted into the Cosmos sdkmempool. EVM transactions are
 // inserted async, i.e. they are scheduled for promotion only, we do not wait
 // for it to complete.
-func (m *Mempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
-	errC, err := m.insert(ctx, tx)
+func (m *Mempool) InsertAsync(tx sdk.Tx) error {
+	errChan, err := m.insert(tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
 	}
 
 	select {
-	case err := <-errC:
-		// if we have a result immediately, ready on the channel returned from
-		// insert, return that (cosmos tx or unable to try and insert the tx
-		// due to parsing error).
+	case err := <-errChan:
+		// if we have a result immediately, ready on the channel returned from insert,
+		// return that (cosmos tx or unable to try and insert the tx due to parsing error).
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
 	default:
 		// result was not ready immediately, return nil while async things happen
 		return nil
@@ -341,7 +287,7 @@ func (m *Mempool) InsertAsync(ctx context.Context, tx sdk.Tx) error {
 // insert inserts a tx into its respective mempool, returning a channel for any
 // async errors that may happen later upon actual mempool insertion, and an
 // error for any errors that occurred synchronously.
-func (m *Mempool) insert(_ context.Context, tx sdk.Tx) (<-chan error, error) {
+func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 	ethMsg, err := evmTxFromCosmosTx(tx)
 	switch {
 	case err == nil:
@@ -425,7 +371,6 @@ func (m *Mempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.It
 		cosmosIterator,
 		m.logger,
 		m.txConfig,
-		m.vmKeeper.GetEvmCoinInfo(sdk.UnwrapSDKContext(ctx)).Denom,
 		m.blockchain,
 	)
 }
@@ -473,6 +418,9 @@ func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmem
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		_ = m.txTracker.IncludedInBlock(hash)
+		if err := m.legacyTxPool.ScheduleForRemoval(msgEthereumTx.AsTransaction()); err != nil {
+			m.logger.Error("error scheduling tx for removal from legacypool", "err", err)
+		}
 	}
 
 	return nil
@@ -581,7 +529,7 @@ func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.Tran
 	// Keeper reads consume gas on the SDK context. Fetch these inputs once
 	// before starting goroutines so we do not race on the shared gas meters.
 	baseFee := m.vmKeeper.GetBaseFee(sdkctx)
-	bondDenom := m.vmKeeper.GetEvmCoinInfo(sdkctx).Denom
+	coinDenom := m.blockchain.GetCoinDenom()
 	cosmosBaseFee := currentBaseFee(m.blockchain)
 
 	wg.Go(func() {
@@ -589,7 +537,7 @@ func (m *Mempool) getIterators(ctx context.Context, _ [][]byte) (evm *miner.Tran
 	})
 
 	wg.Go(func() {
-		cosmosIterator = m.cosmosIterator(ctx, selectHeight, bondDenom, cosmosBaseFee)
+		cosmosIterator = m.cosmosIterator(ctx, selectHeight, coinDenom, cosmosBaseFee)
 	})
 
 	wg.Wait()
@@ -653,6 +601,31 @@ func (m *Mempool) RecheckEVMTxs(newHead *ethtypes.Header) {
 // This should only used for testing.
 func (m *Mempool) RecheckCosmosTxs(newHead *ethtypes.Header) {
 	m.recheckCosmosPool.TriggerRecheckSync(newHead)
+}
+
+func defaultCosmosPoolConfig(getDenom func() string) *sdkmempool.PriorityNonceMempoolConfig[math.Int] {
+	txPriority := sdkmempool.TxPriority[math.Int]{
+		GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
+			cosmosTxFee, ok := tx.(sdk.FeeTx)
+			if !ok {
+				return math.ZeroInt()
+			}
+			found, coin := cosmosTxFee.GetFee().Find(getDenom())
+			if !found {
+				return math.ZeroInt()
+			}
+
+			gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
+
+			return gasPrice
+		},
+		Compare: func(a, b math.Int) int {
+			return a.BigInt().Cmp(b.BigInt())
+		},
+		MinValue: math.ZeroInt(),
+	}
+
+	return &sdkmempool.PriorityNonceMempoolConfig[math.Int]{TxPriority: txPriority}
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.

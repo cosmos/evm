@@ -359,9 +359,12 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 		return len(pending) == 3 && len(queued) == 0 && mp.CountTx() == 3
 	}, time.Second, 10*time.Millisecond)
 
-	// simulate comet calling removeTx, a new height being published, and
-	// our accounts nonce increments to 1, so tx 0 will be invalidated
-	// after the next reset
+	// simulate comet calling removeTx with RunTxFinalize for tx0 (the included
+	// tx), a new height being published, and our account's nonce incrementing
+	// to 1. On the next reset, ScheduleForRemoval drives tx0 out of the pool.
+	require.NoError(t, mp.RemoveWithReason(context.Background(), tx0, mempooltypes.RemoveReason{
+		Caller: mempooltypes.CallerRunTxFinalize,
+	}))
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Unset()
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Return(&statedb.Account{
 		Nonce:   1,
@@ -573,6 +576,13 @@ type testMempoolDependencies struct {
 func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, testMempoolDependencies) {
 	t.Helper()
 
+	return setupMempool(t, numAccounts, 1000)
+}
+
+//nolint:unparam
+func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Mempool, testMempoolDependencies) {
+	t.Helper()
+
 	// Create accounts
 	accounts := make([]testAccount, numAccounts)
 	for i := range numAccounts {
@@ -647,6 +657,8 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, 
 	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
 	// Register vm types so MsgEthereumTx can be decoded
 	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	// Register bank types so cosmos MsgSend txs can be decoded
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	txConfig := encodingConfig.TxConfig
 
 	// Create client context
@@ -665,7 +677,7 @@ func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, 
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    30000000,
 		MinTip:           uint256.NewInt(0),
-		InsertQueueSize:  1000,
+		InsertQueueSize:  insertQueueSize,
 	}
 
 	// Create mempool
