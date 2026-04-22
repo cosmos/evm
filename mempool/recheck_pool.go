@@ -75,13 +75,6 @@ type Rechecker interface {
 	Update(ctx sdk.Context, header *ethtypes.Header)
 }
 
-// LatestContextProvider provides the minimal methods needed by RecheckMempool
-// for context management during rechecks.
-type LatestContextProvider interface {
-	GetLatestContext() (sdk.Context, error)
-	CurrentBlock() *ethtypes.Header
-}
-
 // RecheckMempool wraps an ExtMempool and provides block-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
 // pattern but simplified for Cosmos mempool behavior (no reorgs, no queued/pending management).
