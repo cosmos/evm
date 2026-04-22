@@ -100,7 +100,7 @@ type Mempool struct {
 	reapList *reaplist.ReapList
 
 	/** Transaction Tracking **/
-	txTracker *txtracker.Tracker
+	txTracker *txtracker.TxTracker
 
 	/** Transaction Inserting **/
 	cosmosInsertQueue *queue.Queue[sdk.Tx]

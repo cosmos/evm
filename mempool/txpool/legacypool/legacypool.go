@@ -362,8 +362,8 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	reapList *reaplist.ReapList // Queue of txs to be reaped by comet and gossiped
-	tracker  *txtracker.Tracker // Track tx lifecycle events for metrics
+	reapList *reaplist.ReapList   // Queue of txs to be reaped by comet and gossiped
+	tracker  *txtracker.TxTracker // Track tx lifecycle events for metrics
 }
 
 type txpoolResetRequest struct {
@@ -389,7 +389,7 @@ func New(
 	logger cosmoslog.Logger,
 	chain BlockChain,
 	reapList *reaplist.ReapList,
-	tracker *txtracker.Tracker,
+	tracker *txtracker.TxTracker,
 	opts ...Option,
 ) *LegacyPool {
 	if reapList == nil {
