@@ -82,7 +82,6 @@ func (suite *TransferTestSuiteV2) SetupTest() {
 }
 
 func TestTransferTestSuiteV2(t *testing.T) {
-	t.Skip("STACK-2601: fix IBC tests")
 	testifysuite.Run(t, new(TransferTestSuiteV2))
 }
 
