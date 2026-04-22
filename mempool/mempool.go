@@ -304,20 +304,6 @@ func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 	}
 }
 
-// insertAndReapCosmosTx inserts a cosmos tx into the cosmos mempool and sets
-// it to be reaped.
-func (m *Mempool) insertAndReapCosmosTx(tx sdk.Tx) error {
-	m.logger.Debug("inserting Cosmos transaction")
-
-	// Insert into cosmos pool (handles locking, ante handler, and address reservation internally)
-
-	m.logger.Debug("Cosmos transaction inserted successfully")
-	if err := m.reapList.PushCosmosTx(tx); err != nil {
-		panic(fmt.Errorf("successfully inserted cosmos tx, but failed to insert into reap list: %w", err))
-	}
-	return nil
-}
-
 // ReapNewValidTxs removes and returns the oldest transactions from the reap
 // list until maxBytes or maxGas limits are reached.
 func (m *Mempool) ReapNewValidTxs(maxBytes uint64, maxGas uint64) ([][]byte, error) {

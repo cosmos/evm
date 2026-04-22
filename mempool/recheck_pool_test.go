@@ -117,13 +117,6 @@ func newTestReapList() *reaplist.ReapList {
 	return reaplist.New(testTxEncoder{})
 }
 
-// ensureEVMChainConfig initializes the global EVM chain config / coin info
-// needed by *Blockchain.CurrentBlock() when a test exercises that path.
-// Safe to call from multiple tests (ResetTestConfig clears prior state).
-func ensureEVMChainConfig(t *testing.T) {
-	t.Helper()
-}
-
 // testHeader creates a minimal header for testing with the given height.
 func testHeader(height int64) *ethtypes.Header {
 	return &ethtypes.Header{
