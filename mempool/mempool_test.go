@@ -359,9 +359,12 @@ func TestMempool_ReapNewBlock(t *testing.T) {
 		return len(pending) == 3 && len(queued) == 0 && mp.CountTx() == 3
 	}, time.Second, 10*time.Millisecond)
 
-	// simulate comet calling removeTx, a new height being published, and
-	// our accounts nonce increments to 1, so tx 0 will be invalidated
-	// after the next reset
+	// simulate comet calling removeTx with RunTxFinalize for tx0 (the included
+	// tx), a new height being published, and our account's nonce incrementing
+	// to 1. On the next reset, ScheduleForRemoval drives tx0 out of the pool.
+	require.NoError(t, mp.RemoveWithReason(context.Background(), tx0, mempooltypes.RemoveReason{
+		Caller: mempooltypes.CallerRunTxFinalize,
+	}))
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Unset()
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Return(&statedb.Account{
 		Nonce:   1,

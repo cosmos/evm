@@ -151,6 +151,9 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	if globalQueue := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolGlobalQueue)); globalQueue != 0 {
 		legacyConfig.GlobalQueue = globalQueue
 	}
+	if includedNonceCacheSize := cast.ToInt(appOpts.Get(srvflags.EVMMempoolIncludedNonceCacheSize)); includedNonceCacheSize != 0 {
+		legacyConfig.IncludedNonceCacheSize = includedNonceCacheSize
+	}
 	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
 	}

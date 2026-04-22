@@ -160,7 +160,7 @@ func NewMempool(
 		cosmosPool,
 		tracker.NewHandle(-1),
 		cosmosRechecker,
-		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger),
+		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "cosmos_recheck_mempool")),
 		blockchain,
 	)
 
@@ -449,6 +449,9 @@ func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmem
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		_ = m.txTracker.IncludedInBlock(hash)
+		if err := m.legacyTxPool.ScheduleForRemoval(msgEthereumTx.AsTransaction()); err != nil {
+			m.logger.Error("error scheduling tx for removal from legacypool", "err", err)
+		}
 	}
 
 	return nil
