@@ -79,7 +79,6 @@ func NewEVMMempoolIterator(
 	cosmosIterator mempool.Iterator,
 	logger log.Logger,
 	txConfig client.TxConfig,
-	bondDenom string,
 	blockchain *Blockchain,
 ) mempool.Iterator {
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
@@ -96,7 +95,7 @@ func NewEVMMempoolIterator(
 		nextCosmosAction: none,
 		logger:           logger,
 		txConfig:         txConfig,
-		bondDenom:        bondDenom,
+		bondDenom:        blockchain.GetCoinDenom(),
 		chainID:          blockchain.Config().ChainID,
 		ethSigner:        ethtypes.LatestSignerForChainID(blockchain.Config().ChainID),
 		baseFee:          currentBaseFee(blockchain),
