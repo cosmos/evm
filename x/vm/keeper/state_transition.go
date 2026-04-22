@@ -585,7 +585,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 
 	// if the execution reverted, we return the revert reason as the return data
 	if vmError == vm.ErrExecutionReverted.Error() {
-		ret = evm.Interpreter().ReturnData()
+		ret = evm.ReturnData()
 	}
 	return &types.MsgEthereumTxResponse{
 		GasUsed:        gasUsed.TruncateInt().Uint64(),
@@ -636,12 +636,12 @@ func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAutho
 	state.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
 	if auth.Address == (common.Address{}) {
 		// Delegation to zero address means clear.
-		state.SetCode(authority, nil)
+		state.SetCode(authority, nil, tracing.CodeChangeAuthorizationClear)
 		return nil
 	}
 
 	// Otherwise install delegation to auth.Address.
-	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address))
+	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address), tracing.CodeChangeAuthorization)
 
 	return nil
 }

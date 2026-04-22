@@ -110,7 +110,7 @@ func (diff *StateOverride) Apply(db *statedb.StateDB, precompiles vm.Precompiled
 		}
 		// Override account(contract) code.
 		if account.Code != nil {
-			db.SetCode(addr, *account.Code)
+			db.SetCode(addr, *account.Code, tracing.CodeChangeUnspecified)
 		}
 		// Override account balance.
 		if account.Balance != nil && *account.Balance != nil {
@@ -132,6 +132,7 @@ func (diff *StateOverride) Apply(db *statedb.StateDB, precompiles vm.Precompiled
 		}
 	}
 
+	db.EmitLogsForBurnAccounts()
 	// Now finalize the changes. Finalize is normally performed between transactions.
 	// By using finalize, the overrides are semantically behaving as
 	// if they were created in a transaction just before the tracing occur.

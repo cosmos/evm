@@ -670,22 +670,9 @@ func (pool *LegacyPool) Pending(ctx context.Context, filter txpool.PendingFilter
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	// Convert the new uint256.Int types to the old big.Int ones used by the
-	// legacy pool
-	var (
-		minTip  *big.Int
-		baseFee *big.Int
-	)
-	if filter.MinTip != nil {
-		minTip = filter.MinTip.ToBig()
-	}
-	if filter.BaseFee != nil {
-		baseFee = filter.BaseFee.ToBig()
-	}
-
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(pool.pending))
 	for addr, list := range pool.pending {
-		if lazies := filterAndWrapTxs(list.Flatten(), minTip, baseFee); len(lazies) > 0 {
+		if lazies := filterAndWrapTxs(list.Flatten(), filter.MinTip, filter.BaseFee); len(lazies) > 0 {
 			pending[addr] = lazies
 		}
 	}
@@ -694,7 +681,7 @@ func (pool *LegacyPool) Pending(ctx context.Context, filter txpool.PendingFilter
 
 // filterAndWrapTxs applies tip filtering to txs and wraps the survivors into
 // LazyTransactions.
-func filterAndWrapTxs(txs []*types.Transaction, minTip, baseFee *big.Int) []*txpool.LazyTransaction {
+func filterAndWrapTxs(txs []*types.Transaction, minTip, baseFee *uint256.Int) []*txpool.LazyTransaction {
 	if minTip != nil {
 		for i, tx := range txs {
 			if tx.EffectiveGasTipIntCmp(minTip, baseFee) < 0 {

@@ -265,7 +265,8 @@ func (_c *Mempool_Select_Call) RunAndReturn(run func(context.Context, [][]byte) 
 func NewMempool(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *Mempool {
+},
+) *Mempool {
 	mock := &Mempool{}
 	mock.Mock.Test(t)
 

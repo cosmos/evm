@@ -73,7 +73,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 
 			// create a contract account
 			db.CreateAccount(address)
-			db.SetCode(address, []byte("hello world"))
+			db.SetCode(address, []byte("hello world"), 0x0)
 			db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
 			db.CreateContract(address)
 			db.SetState(address, key1, value1)
@@ -113,7 +113,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 
 			// create a contract account
 			db.CreateAccount(address)
-			db.SetCode(address, []byte("hello world"))
+			db.SetCode(address, []byte("hello world"), 0x0)
 			db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
 			db.CreateContract(address)
 			db.SetState(address, key1, value1)
@@ -121,7 +121,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 
 			// SelfDestruct
 			suite.Require().False(db.HasSelfDestructed(address))
-			_, _ = db.SelfDestruct6780(address)
+			db.SelfDestruct(address)
 
 			// check dirty state
 			suite.Require().True(db.HasSelfDestructed(address))
@@ -151,7 +151,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 
 			// create a contract account
 			db.CreateAccount(address)
-			db.SetCode(address, []byte("hello world"))
+			db.SetCode(address, []byte("hello world"), 0x0)
 			db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
 			db.CreateContract(address)
 			db.SetState(address, key1, value1)
@@ -161,7 +161,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			// SelfDestruct
 			db = statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), db.Keeper(), emptyTxConfig)
 			suite.Require().False(db.HasSelfDestructed(address))
-			_, _ = db.SelfDestruct6780(address)
+			db.SelfDestruct(address)
 
 			// Same-tx is not marked as self-destructed
 			suite.Require().False(db.HasSelfDestructed(address))
@@ -233,9 +233,9 @@ func (suite *StateDBTestSuite) TestDBError() {
 		}},
 		{"set account before delete (EIP-6780 same-tx)", func(db vm.StateDB) {
 			db.CreateAccount(mocks.ErrAddress)
-			db.SetCode(mocks.ErrAddress, []byte("code"))
+			db.SetCode(mocks.ErrAddress, []byte("code"), 0x0)
 			db.CreateContract(mocks.ErrAddress)
-			db.SelfDestruct6780(mocks.ErrAddress)
+			db.SelfDestruct(mocks.ErrAddress)
 			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
 		}},
 	}
@@ -367,7 +367,7 @@ func (suite *StateDBTestSuite) TestCode() {
 			db.CreateAccount(address)
 		}, nil, common.BytesToHash(mocks.EmptyCodeHash)},
 		{"set code", func(db vm.StateDB) {
-			db.SetCode(address, code)
+			db.SetCode(address, code, 0x0)
 		}, code, codeHash},
 	}
 
@@ -415,11 +415,11 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 			db.CreateAccount(address)
 		}},
 		{"set code", func(db vm.StateDB) {
-			db.SetCode(address, []byte("hello world"))
+			db.SetCode(address, []byte("hello world"), 0x0)
 		}},
 		{"suicide", func(db vm.StateDB) {
 			db.SetState(address, v1, v2)
-			db.SetCode(address, []byte("hello world"))
+			db.SetCode(address, []byte("hello world"), 0x0)
 			db.SelfDestruct(address)
 			suite.Require().True(db.HasSelfDestructed(address))
 		}},
@@ -447,7 +447,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 				db := statedb.New(ctx, keeper, emptyTxConfig)
 				db.SetNonce(address, 1, tracing.NonceChangeUnspecified)
 				db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
-				db.SetCode(address, []byte("hello world"))
+				db.SetCode(address, []byte("hello world"), 0x0)
 				db.SetState(address, v1, v2)
 				db.SetNonce(address2, 1, tracing.NonceChangeUnspecified)
 				suite.Require().NoError(db.Commit())
@@ -550,7 +550,6 @@ func (suite *StateDBTestSuite) TestAccessList() {
 			}}
 
 			rules := ethparams.Rules{
-				ChainID:          big.NewInt(1000),
 				IsHomestead:      true,
 				IsEIP150:         true,
 				IsEIP155:         true,
@@ -747,7 +746,7 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 			func(ctx sdk.Context, keeper *mocks.EVMKeeper) *statedb.StateDB {
 				db := statedb.New(ctx, keeper, emptyTxConfig)
 				db.CreateAccount(address)
-				db.SetCode(address, []byte("code"))
+				db.SetCode(address, []byte("code"), 0x0)
 				db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
 				db.CreateContract(address)
 				return db
@@ -764,7 +763,7 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 				suite.Require().NoError(db.Commit())
 				db = statedb.New(ctx, keeper, emptyTxConfig)
 				db.CreateAccount(address)
-				db.SetCode(address, []byte("contract code"))
+				db.SetCode(address, []byte("contract code"), 0x0)
 				db.CreateContract(address)
 				return db
 			},
@@ -777,7 +776,7 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 			func(ctx sdk.Context, keeper *mocks.EVMKeeper) *statedb.StateDB {
 				db := statedb.New(ctx, keeper, emptyTxConfig)
 				db.CreateAccount(address)
-				db.SetCode(address, []byte("existing contract"))
+				db.SetCode(address, []byte("existing contract"), 0x0)
 				db.AddBalance(address, uint256.NewInt(10), tracing.BalanceChangeUnspecified)
 				db.CreateContract(address)
 				suite.Require().NoError(db.Commit())
@@ -795,8 +794,7 @@ func (suite *StateDBTestSuite) TestEIP6780SameTxCodePersistence() {
 			keeper := mocks.NewEVMKeeper()
 			db := tc.malleate(ctx, keeper)
 
-			_, selfDestructed := db.SelfDestruct6780(address)
-			suite.Require().Equal(tc.expSelfDestructed, selfDestructed)
+			db.SelfDestruct(address)
 			suite.Require().Equal(tc.expSelfDestructed, db.HasSelfDestructed(address))
 			suite.Require().Equal(tc.expKeeperCodeBeforeCommit, keeper.GetCode(ctx, db.GetCodeHash(address)))
 

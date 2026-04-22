@@ -21,7 +21,7 @@ func ReturnRevertError(evm *vm.EVM, err error) ([]byte, error) {
 	if encErr != nil {
 		return nil, vm.ErrExecutionReverted
 	}
-	evm.Interpreter().SetReturnData(revertReasonBz)
+	evm.SetReturnData(revertReasonBz)
 
 	return revertReasonBz, vm.ErrExecutionReverted
 }

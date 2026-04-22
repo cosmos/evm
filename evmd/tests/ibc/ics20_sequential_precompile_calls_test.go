@@ -2,9 +2,10 @@ package ibc
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/testutil"
 	"math/big"
 	"testing"
+
+	"github.com/cosmos/evm/testutil"
 
 	"github.com/cosmos/evm/contracts"
 	testutiltypes "github.com/cosmos/evm/testutil/types"

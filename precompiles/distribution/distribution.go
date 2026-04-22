@@ -76,6 +76,10 @@ func NewPrecompile(
 	}
 }
 
+func (Precompile) Name() string {
+	return "distribution"
+}
+
 // RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	// TODO: refactor this to be used in the common precompile method on a separate PR

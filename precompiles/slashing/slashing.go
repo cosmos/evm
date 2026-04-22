@@ -74,6 +74,10 @@ func NewPrecompile(
 	}
 }
 
+func (Precompile) Name() string {
+	return "slashing"
+}
+
 // RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	// NOTE: This check avoid panicking when trying to decode the method ID
