@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -44,6 +45,7 @@ type Blockchain struct {
 	previousHeaderHash common.Hash
 	latestCtx          sdk.Context
 	mu                 sync.RWMutex
+	coinInfo           atomic.Pointer[evmtypes.EvmCoinInfo]
 
 	testingCommitMu sync.RWMutex
 }
@@ -290,4 +292,32 @@ func (b *Blockchain) newLatestContext() (sdk.Context, error) {
 		"gas_limit", b.blockGasLimit)
 
 	return ctx, nil
+}
+
+// GetCoinDenom returns the coin denom used in the EVM.
+// Note: return "" if height=0.
+func (b *Blockchain) GetCoinDenom() string {
+	coinInfo, err := b.getEvmCoinInfo()
+	if err != nil {
+		b.logger.Error("Failed to get evm coin info", "error", err)
+		return ""
+	}
+
+	return coinInfo.Denom
+}
+
+func (b *Blockchain) getEvmCoinInfo() (*evmtypes.EvmCoinInfo, error) {
+	if coin := b.coinInfo.Load(); coin != nil {
+		return coin, nil
+	}
+
+	ctx, err := b.GetLatestContext()
+	if err != nil {
+		return nil, err
+	}
+
+	coinInfo := b.vmKeeper.GetEvmCoinInfo(ctx)
+	b.coinInfo.Store(&coinInfo)
+
+	return &coinInfo, nil
 }
