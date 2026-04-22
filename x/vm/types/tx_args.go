@@ -140,7 +140,7 @@ func (args *TransactionArgs) CallDefaults(globalGasCap uint64, baseFee *big.Int,
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
 // Assumes that fields are not nil, i.e. setDefaults or CallDefaults has been called.
-func (args *TransactionArgs) ToMessage(baseFee *big.Int, skipNonceCheck, SkipTransactionChecks bool) *core.Message {
+func (args *TransactionArgs) ToMessage(baseFee *big.Int, skipNonceCheck, skipTransactionChecks bool) *core.Message {
 	var (
 		gasPrice  *big.Int
 		gasFeeCap *big.Int
@@ -188,7 +188,7 @@ func (args *TransactionArgs) ToMessage(baseFee *big.Int, skipNonceCheck, SkipTra
 		BlobHashes:            args.BlobHashes,
 		SetCodeAuthorizations: args.AuthorizationList,
 		SkipNonceChecks:       skipNonceCheck,
-		SkipTransactionChecks: SkipTransactionChecks,
+		SkipTransactionChecks: skipTransactionChecks,
 	}
 }
 
