@@ -17,6 +17,7 @@
 - [\#1103](https://github.com/cosmos/evm/pull/1103) Align normal gas metering in ibc erc20 callback.
 - [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
 - [\#1118](https://github.com/cosmos/evm/pull/1118) Cache chain denom for evm mempool
+- Use `sdk.ValidateAuthority` in `x/vm`, `x/erc20`, and `x/feemarket` `MsgServer` handlers so authority can optionally be centralized via the consensus `AuthorityParams` introduced in cosmos-sdk v0.54.
 
 ### FEATURES
 

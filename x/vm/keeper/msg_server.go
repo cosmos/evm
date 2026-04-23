@@ -20,7 +20,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 var _ types.MsgServer = &Keeper{}
@@ -131,8 +130,8 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
-	if k.authority.String() != req.Authority {
-		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
+	if err := sdk.ValidateAuthority(ctx, k.authority.String(), req.Authority); err != nil {
+		return nil, err
 	}
 
 	if err := k.SetParams(ctx, req.Params); err != nil {
@@ -154,8 +153,8 @@ func (k *Keeper) RegisterPreinstalls(goCtx context.Context, req *types.MsgRegist
 		attribute.String("authority", req.Authority),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
-	if k.authority.String() != req.Authority {
-		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
+	if err := sdk.ValidateAuthority(ctx, k.authority.String(), req.Authority); err != nil {
+		return nil, err
 	}
 
 	if err := k.AddPreinstalls(ctx, req.Preinstalls); err != nil {

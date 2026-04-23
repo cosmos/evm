@@ -15,7 +15,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 var _ types.MsgServer = &Keeper{}
@@ -157,13 +156,15 @@ func (k Keeper) ConvertCoinNativeERC20(ctx sdk.Context, pair types.TokenPair, am
 
 // UpdateParams implements the gRPC MsgServer interface. After a successful governance vote
 // it updates the parameters in the keeper only if the requested authority
-// is the Cosmos SDK governance module account
+// is the Cosmos SDK governance module account, unless an authority address is
+// configured via the consensus AuthorityParams, in which case that takes
+// precedence.
 func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if k.authority.String() != req.Authority {
-		return nil, sdkerrors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", k.authority, req.Authority)
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := sdk.ValidateAuthority(ctx, k.authority.String(), req.Authority); err != nil {
+		return nil, err
 	}
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
 	if err := k.SetParams(ctx, req.Params); err != nil {
 		return nil, err
 	}
@@ -179,7 +180,7 @@ func (k *Keeper) RegisterERC20(goCtx context.Context, req *types.MsgRegisterERC2
 	params := k.GetParams(ctx)
 
 	if !params.PermissionlessRegistration {
-		if err := k.validateAuthority(req.Signer); err != nil {
+		if err := k.validateAuthority(ctx, req.Signer); err != nil {
 			return nil, err
 		}
 	}
@@ -222,7 +223,7 @@ func (k *Keeper) ToggleConversion(goCtx context.Context, req *types.MsgToggleCon
 		return nil, types.ErrERC20Disabled.Wrap("toggle conversion is currently disabled by governance")
 	}
 
-	if err := k.validateAuthority(req.Authority); err != nil {
+	if err := k.validateAuthority(ctx, req.Authority); err != nil {
 		return nil, err
 	}
 
@@ -243,14 +244,12 @@ func (k *Keeper) ToggleConversion(goCtx context.Context, req *types.MsgToggleCon
 }
 
 // validateAuthority is a helper function to validate that the provided authority
-// is the keeper's authority address
-func (k *Keeper) validateAuthority(authority string) error {
+// matches the effective authority. It first checks the consensus AuthorityParams
+// and falls back to the keeper's authority address if none is configured.
+func (k *Keeper) validateAuthority(ctx sdk.Context, authority string) error {
 	if _, err := k.addrCodec.StringToBytes(authority); err != nil {
 		return errortypes.ErrInvalidAddress.Wrapf("invalid authority address: %s", err)
 	}
 
-	if k.authority.String() != authority {
-		return sdkerrors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", k.authority, authority)
-	}
-	return nil
+	return sdk.ValidateAuthority(ctx, k.authority.String(), authority)
 }
