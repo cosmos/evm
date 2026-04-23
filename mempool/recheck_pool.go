@@ -13,9 +13,11 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
 	"github.com/cosmos/evm/mempool/reserver"
 
 	"cosmossdk.io/log/v2"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -73,13 +75,6 @@ type Rechecker interface {
 	Update(ctx sdk.Context, header *ethtypes.Header)
 }
 
-// LatestContextProvider provides the minimal methods needed by RecheckMempool
-// for context management during rechecks.
-type LatestContextProvider interface {
-	GetLatestContext() (sdk.Context, error)
-	CurrentBlock() *ethtypes.Header
-}
-
 // RecheckMempool wraps an ExtMempool and provides block-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
 // pattern but simplified for Cosmos mempool behavior (no reorgs, no queued/pending management).
@@ -97,9 +92,9 @@ type RecheckMempool struct {
 	// reserver coordinates address reservations with other pools (i.e. legacypool)
 	reserver *reserver.ReservationHandle
 
-	rechecker       Rechecker
-	contextProvider LatestContextProvider
-	logger          log.Logger
+	rechecker  Rechecker
+	blockchain *Blockchain
+	logger     log.Logger
 
 	// event channels
 	reqRecheckCh    chan *recheckRequest // channel that schedules rechecking.
@@ -112,28 +107,34 @@ type RecheckMempool struct {
 	// have been rechecked at a height, and discard of them once the chain.
 	recheckedTxs *heightsync.HeightSync[CosmosTxStore]
 
+	reapList *reaplist.ReapList
+
 	wg sync.WaitGroup
 }
 
-// NewRecheckMempool creates a new RecheckMempool wrapping the given pool.
+// NewRecheckMempool creates a new RecheckMempool.
 func NewRecheckMempool(
 	logger log.Logger,
-	pool sdkmempool.ExtMempool,
+	defaultCosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
+	maxTxs int,
 	reserver *reserver.ReservationHandle,
 	rechecker Rechecker,
 	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
-	contextProvider LatestContextProvider,
+	reapList *reaplist.ReapList,
+	blockchain *Blockchain,
 ) *RecheckMempool {
+	priorityMempoolConfig := cosmosPoolConfig(reapList, blockchain, defaultCosmosPoolConfig, maxTxs)
 	return &RecheckMempool{
-		ExtMempool:      pool,
+		ExtMempool:      sdkmempool.NewPriorityMempool(priorityMempoolConfig),
 		reserver:        reserver,
 		rechecker:       rechecker,
-		contextProvider: contextProvider,
+		blockchain:      blockchain,
 		logger:          logger.With(log.ModuleKey, "RecheckMempool"),
 		reqRecheckCh:    make(chan *recheckRequest),
 		recheckDoneCh:   make(chan chan struct{}),
 		shutdownCh:      make(chan struct{}),
 		recheckShutdown: make(chan struct{}),
+		reapList:        reapList,
 		recheckedTxs:    recheckedTxs,
 	}
 }
@@ -142,7 +143,7 @@ func NewRecheckMempool(
 // context to the latest chain state. The initialHead is used for the first
 // Rechecker.Update call before any recheck has been triggered.
 func (m *RecheckMempool) Start(initialHead *ethtypes.Header) {
-	ctx, err := m.contextProvider.GetLatestContext()
+	ctx, err := m.blockchain.GetLatestContext()
 	if err != nil {
 		m.logger.Error("failed to initialize rechecker context", "err", err)
 	} else {
@@ -184,12 +185,12 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 		m.logger.Warn("no context found in rechecker on insert, updating to latest")
 		// if this happens, we have not rechecked any txs yet, so this is safe
 		// to update
-		newCtx, err := m.contextProvider.GetLatestContext()
+		newCtx, err := m.blockchain.GetLatestContext()
 		if err != nil {
 			return fmt.Errorf("fetching latest context since rechecker has none: %w", err)
 		}
 
-		m.rechecker.Update(newCtx, m.contextProvider.CurrentBlock())
+		m.rechecker.Update(newCtx, m.blockchain.CurrentBlock())
 		ctx, write = m.rechecker.GetContext()
 	}
 
@@ -201,6 +202,13 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	if err := m.ExtMempool.Insert(ctx, tx); err != nil {
 		_ = m.reserver.Release(addrs...) // best effort cleanup
 		return err
+	}
+
+	// since we have rechecked the tx via `rechecker.RecheckCosmos`, and this
+	// rechecks the tx on top of the state of all txs already rechecked in the
+	// mempool, this tx is valid and we can include it in the reaplist
+	if err := m.reapList.PushCosmosTx(tx); err != nil {
+		m.logger.Error("successfully inserted cosmos tx, but failed to insert into reap list", "err", err)
 	}
 
 	write()
@@ -235,6 +243,7 @@ func (m *RecheckMempool) removeLocked(tx sdk.Tx) error {
 		panic("failed to extract signer addresses from tx during Remove")
 	}
 	m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
+	m.reapList.DropCosmosTx(tx)
 
 	return nil
 }
@@ -381,7 +390,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	m.recheckedTxs.StartNewHeight(newHead.Number)
 	defer m.recheckedTxs.EndCurrentHeight()
 
-	latestCtx, err := m.contextProvider.GetLatestContext()
+	latestCtx, err := m.blockchain.GetLatestContext()
 	if err != nil {
 		m.logger.Error("failed to get context for recheck", "err", err)
 		return
@@ -454,6 +463,8 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			m.logger.Error("failed to remove tx during recheck", "err", err)
 			continue
 		}
+		m.reapList.DropCosmosTx(txn)
+
 		addrs, err := signerAddressesFromTx(txn)
 		if err != nil {
 			m.logger.Error("failed to extract signer addresses for release", "err", err)
@@ -544,4 +555,60 @@ func signerAddressesFromTx(tx sdk.Tx) ([]common.Address, error) {
 	}
 
 	return addrs, nil
+}
+
+func cosmosPoolConfig(
+	reapList *reaplist.ReapList,
+	blockchain *Blockchain,
+	defaultConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
+	maxTxs int,
+) sdkmempool.PriorityNonceMempoolConfig[math.Int] {
+	var config sdkmempool.PriorityNonceMempoolConfig[math.Int]
+
+	if defaultConfig != nil {
+		// prioritize the default configs TxPriority struct if defined
+		config.TxPriority = defaultConfig.TxPriority
+	} else {
+		config.TxPriority = sdkmempool.TxPriority[math.Int]{
+			GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
+				cosmosTxFee, ok := tx.(sdk.FeeTx)
+				if !ok {
+					return math.ZeroInt()
+				}
+				found, coin := cosmosTxFee.GetFee().Find(blockchain.GetCoinDenom())
+				if !found {
+					return math.ZeroInt()
+				}
+
+				gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
+
+				return gasPrice
+			},
+			Compare: func(a, b math.Int) int {
+				return a.BigInt().Cmp(b.BigInt())
+			},
+			MinValue: math.ZeroInt(),
+		}
+	}
+
+	config.TxReplacement = func(oldPriority, newPriority math.Int, oldTx, newTx sdk.Tx) bool {
+		shouldReplace := true
+
+		if defaultConfig != nil && defaultConfig.TxReplacement != nil {
+			// if the default config has a custom TxReplacement function, call
+			// that to determine if we should replace oldTx for newTx
+			shouldReplace = defaultConfig.TxReplacement(oldPriority, newPriority, oldTx, newTx)
+		}
+
+		if shouldReplace {
+			// tx is being replaced, we need to drop the tx that is going to be removed
+			// from the reap list. we assume that the tx doing the replacing has
+			// already been inserted into the reaplist via the insert.
+			reapList.DropCosmosTx(oldTx)
+		}
+		return shouldReplace
+	}
+
+	config.MaxTx = maxTxs
+	return config
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	cmtconfig "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/libs/strings"
 
 	errorsmod "cosmossdk.io/errors"
@@ -100,6 +101,9 @@ const (
 	// DefaultHTTPIdleTimeout is the default idle timeout of the http json-rpc server
 	DefaultHTTPIdleTimeout = 120 * time.Second
 
+	// DefaultHTTPBodyLimit is the default maximum request body size of the http json-rpc server.
+	DefaultHTTPBodyLimit = 5 * 1024 * 1024
+
 	// DefaultAllowUnprotectedTxs value is false
 	DefaultAllowUnprotectedTxs = false
 
@@ -171,15 +175,14 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
-	// OperateExclusively determines if the mempool will assume that it is
-	// running as the only mempool in the application (no CometBFT mempool).
-	// This enables the use of new Krakatoa CometBFT ABCI methods should as
-	// InsertTx and ReapTxs. This also enables use of the insert queues and
-	// partial tx collection.
-	OperateExclusively bool `mapstructure:"operate-exclusively"`
+	// IncludedNonceCacheSize is the maximum amount of nonces to store in the
+	// included cache
+	IncludedNonceCacheSize int `mapstructure:"included-nonce-cache-size"`
 	// PendingTxProposalTimeout is the amount of time to spend waiting for
 	// rechecking of the mempool to complete when creating a proposal
 	PendingTxProposalTimeout time.Duration `mapstructure:"pending-tx-proposal-timeout"`
+	// CheckTxTimeout timeout for CheckTx handler.
+	CheckTxTimeout time.Duration `mapstructure:"check-tx-timeout"`
 	// InsertQueueSize is the maximum number of transactions that can be in the
 	// insert queue at once (0 means unbounded)
 	InsertQueueSize int `mapstructure:"insert-queue-size"`
@@ -195,8 +198,9 @@ func DefaultMempoolConfig() MempoolConfig {
 		AccountQueue:             64,                     // 64 non-executable transaction slots per account
 		GlobalQueue:              1024,                   // 1024 global non-executable slots
 		Lifetime:                 3 * time.Hour,          // 3 hour lifetime for queued transactions
-		OperateExclusively:       false,                  // Assume CometBFT also has a mempool by default
+		IncludedNonceCacheSize:   4096,                   // Maximum 4096 nonces in LRU by default
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
+		CheckTxTimeout:           5 * time.Second,        // 5 seconds timeout for CheckTx handler.
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
 	}
 }
@@ -223,6 +227,12 @@ func (c MempoolConfig) Validate() error {
 	}
 	if c.Lifetime < 1 {
 		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
+	}
+	if c.IncludedNonceCacheSize < 1 {
+		return fmt.Errorf("included nonce cache size should be at least 1, got %d", c.IncludedNonceCacheSize)
+	}
+	if c.CheckTxTimeout <= 0 {
+		return fmt.Errorf("check tx timeout must be greater than 0, got %s", c.CheckTxTimeout)
 	}
 	if c.InsertQueueSize < 1 {
 		return fmt.Errorf("insert queue size must be at least 1, got %d", c.InsertQueueSize)
@@ -260,6 +270,8 @@ type JSONRPCConfig struct {
 	HTTPTimeout time.Duration `mapstructure:"http-timeout"`
 	// HTTPIdleTimeout is the idle timeout of http json-rpc server.
 	HTTPIdleTimeout time.Duration `mapstructure:"http-idle-timeout"`
+	// HTTPBodyLimit is the maximum allowed size, in bytes, of a JSON-RPC HTTP request body.
+	HTTPBodyLimit int `mapstructure:"http-body-limit"`
 	// AllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
 	// the node's RPC when global parameter is disabled.
 	AllowUnprotectedTxs bool `mapstructure:"allow-unprotected-txs"`
@@ -350,6 +362,7 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		LogsCap:              DefaultLogsCap,
 		HTTPTimeout:          DefaultHTTPTimeout,
 		HTTPIdleTimeout:      DefaultHTTPIdleTimeout,
+		HTTPBodyLimit:        DefaultHTTPBodyLimit,
 		AllowUnprotectedTxs:  DefaultAllowUnprotectedTxs,
 		BatchRequestLimit:    DefaultBatchRequestLimit,
 		BatchResponseMaxSize: DefaultBatchResponseMaxSize,
@@ -397,6 +410,10 @@ func (c JSONRPCConfig) Validate() error {
 
 	if c.HTTPIdleTimeout < 0 {
 		return errors.New("JSON-RPC HTTP idle timeout duration cannot be negative")
+	}
+
+	if c.HTTPBodyLimit <= 0 {
+		return errors.New("JSON-RPC HTTP body limit must be greater than 0")
 	}
 
 	if c.BatchRequestLimit < 0 {
@@ -490,4 +507,44 @@ func (c Config) ValidateBasic() error {
 	}
 
 	return c.Config.ValidateBasic()
+}
+
+// ValidateCrossConfig ensures compatibility between comet-bft (config.toml) and evm (app.toml) configs
+func ValidateCrossConfig(cometBFT *cmtconfig.Config, app *Config) error {
+	errWrap := func(msg string, args ...any) error {
+		return errortypes.ErrAppConfig.Wrapf(msg, args...)
+	}
+
+	if cometBFT == nil || app == nil {
+		return errWrap("comet and app configs are required")
+	}
+
+	const (
+		consensusMempoolApp      = "app"
+		evmMempoolMaxTxsDisabled = -1
+	)
+
+	var (
+		cometAppMempoolEnabled = cometBFT.Mempool.Type == consensusMempoolApp
+		evmMempoolEnabled      = app.Mempool.MaxTxs > evmMempoolMaxTxsDisabled
+	)
+
+	switch {
+	case cometAppMempoolEnabled == evmMempoolEnabled:
+		// all good (both enabled or both disabled)
+		return nil
+	case evmMempoolEnabled && !cometAppMempoolEnabled:
+		return errWrap(
+			"EVM mempool enabled, but comet-bft has invalid config.toml:mempool.type (want '%s', got '%s')",
+			consensusMempoolApp,
+			cometBFT.Mempool.Type,
+		)
+	case cometAppMempoolEnabled && !evmMempoolEnabled:
+		return errWrap(
+			"CometBFT app-side mempool enabled, but EVM mempool is disabled (app.toml:mempool.max-txs=%d)",
+			app.Mempool.MaxTxs,
+		)
+	}
+
+	return nil
 }

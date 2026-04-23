@@ -17,7 +17,7 @@ import (
 
 	statedb "github.com/cosmos/evm/x/vm/statedb"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	tracing "github.com/ethereum/go-ethereum/core/tracing"
 
@@ -394,7 +394,8 @@ func (_m *EVMKeeper) SetState(ctx types.Context, addr common.Address, key common
 func NewEVMKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *EVMKeeper {
+},
+) *EVMKeeper {
 	mock := &EVMKeeper{}
 	mock.Mock.Test(t)
 

@@ -22,14 +22,14 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
-	"github.com/cosmos/ibc-go/v10/modules/core/exported"
-	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-	"github.com/cosmos/ibc-go/v10/testing/simapp"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v11/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v11/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	"github.com/cosmos/ibc-go/v11/testing/simapp"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -95,6 +95,13 @@ type TestChain struct {
 	// Short-term solution to override the logic of the standard SendMsgs function.
 	// See issue https://github.com/cosmos/ibc-go/issues/3123 for more information.
 	SendMsgsOverride func(msgs ...sdk.Msg) (*abci.ExecTxResult, error)
+
+	// nextBlockContextInitialized tracks whether NewNextBlockContext has been
+	// called for the current block. Calling it again would reset the finalize
+	// state and discard any writes made since the last call. GetContext uses
+	// this to initialize lazily and then return NewContextLegacy on subsequent
+	// calls so direct keeper writes accumulate across a single test body.
+	nextBlockContextInitialized bool
 }
 
 // NewTestChainWithValSet initializes a new TestChain instance with the given validator set
@@ -235,8 +242,32 @@ func NewTestChain(t *testing.T, isEVM bool, coord *Coordinator, chainID string) 
 }
 
 // GetContext returns the current context for the application.
+// If called between blocks (after Commit, before FinalizeBlock), it lazily
+// initializes the finalize state via NewNextBlockContext so that direct keeper
+// writes target the state that will be committed in the next block.
+// If called during FinalizeBlock (e.g. inside a contract callback), it returns
+// the already-active finalize state without replacing it.
 func (chain *TestChain) GetContext() sdk.Context {
-	return chain.App.GetBaseApp().NewUncachedContext(false, chain.ProposedHeader)
+	if !chain.nextBlockContextInitialized {
+		// Try to get the existing finalize state first. If FinalizeBlock is
+		// in progress, the state already exists and we must not replace it
+		// with NewNextBlockContext.
+		if ctx, ok := chain.tryGetContextLegacy(); ok {
+			return ctx
+		}
+		chain.App.GetBaseApp().NewNextBlockContext(chain.ProposedHeader)
+		chain.nextBlockContextInitialized = true
+	}
+
+	return chain.App.GetBaseApp().NewContextLegacy(false, chain.ProposedHeader)
+}
+
+// tryGetContextLegacy attempts to get a context from the finalize state.
+// Returns false if the finalize state is not initialized (e.g. between blocks).
+func (chain *TestChain) tryGetContextLegacy() (sdk.Context, bool) {
+	defer func() { recover() }() //nolint:errcheck // catch nil pointer panic
+	ctx := chain.App.GetBaseApp().NewContextLegacy(false, chain.ProposedHeader)
+	return ctx, true
 }
 
 // GetSimApp returns the SimApp to allow usage ofnon-interface fields.
@@ -347,6 +378,7 @@ func (chain *TestChain) NextBlock() {
 func (chain *TestChain) commitBlock(res *abci.ResponseFinalizeBlock) {
 	_, err := chain.App.Commit()
 	require.NoError(chain.TB, err)
+	chain.nextBlockContextInitialized = false
 
 	// set the last header to the current header
 	// use nil trusted fields

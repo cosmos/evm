@@ -42,18 +42,18 @@ func (s *KeeperTestSuite) TestCommitIdempotency() {
 	// addr1: Account with code and storage (tests SetCode + SetState)
 	db.CreateAccount(addr1)
 	code1 := []byte{0x60, 0x42}
-	db.SetCode(addr1, code1)
+	db.SetCode(addr1, code1, 0x0)
 	db.SetState(addr1, storageKey1, common.HexToHash("0x456"))
 	db.AddBalance(addr1, uint256ToInt(big.NewInt(1000)), 0)
 
 	// addr2: Account with empty/deleted code (tests DeleteCode)
 	db.CreateAccount(addr2)
-	db.SetCode(addr2, nil)
+	db.SetCode(addr2, nil, 0x0)
 	db.AddBalance(addr2, uint256ToInt(big.NewInt(2000)), 0)
 
 	// addr3: Self-destructed account (tests DeleteAccount)
 	db.CreateAccount(addr3)
-	db.SetCode(addr3, code)
+	db.SetCode(addr3, code, 0x0)
 	db.SelfDestruct(addr3)
 
 	// addr4: Account with storage deleted (tests DeleteState)
@@ -136,7 +136,7 @@ func (s *KeeperTestSuite) TestCommitIdempotencyWithCodeDeletion() {
 	cacheCtx, err := db.GetCacheContext()
 	s.Require().NoError(err)
 	db.CreateAccount(addr)
-	db.SetCode(addr, nil)
+	db.SetCode(addr, nil, 0x0)
 	err = db.FlushToCacheCtx()
 	s.Require().NoError(err)
 
