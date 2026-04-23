@@ -186,6 +186,9 @@ func (api *PublicFilterAPI) timeoutLoop() {
 	}
 }
 
+// clientIPFromContext derives a bare-IP rate-limit key from the JSON-RPC
+// peer info. The transport (http/ws) is intentionally omitted so a single
+// client cannot double its quota by opening filters over both transports.
 func (api *PublicFilterAPI) clientIPFromContext(ctx context.Context) string {
 	peerInfo := rpc.PeerInfoFromContext(ctx)
 	remoteAddr := strings.TrimSpace(peerInfo.RemoteAddr)
@@ -193,12 +196,9 @@ func (api *PublicFilterAPI) clientIPFromContext(ctx context.Context) string {
 		remoteAddr = host
 	}
 	if remoteAddr == "" {
-		remoteAddr = "unknown"
+		return "unknown"
 	}
-	if peerInfo.Transport == "" {
-		return remoteAddr
-	}
-	return fmt.Sprintf("%s:%s", peerInfo.Transport, remoteAddr)
+	return remoteAddr
 }
 
 func stopAndDrainTimer(timer *time.Timer) {

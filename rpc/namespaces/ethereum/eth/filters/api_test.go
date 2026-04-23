@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	dummyHTTPClientA = "http:203.0.113.10"
-	dummyHTTPClientB = "http:203.0.113.11"
-	dummyWSClientA   = "ws:198.51.100.25"
+	dummyClientA = "203.0.113.10"
+	dummyClientB = "203.0.113.11"
+	dummyClientC = "198.51.100.25"
 )
 
 func newFilterAPITestSubject(backend Backend) *PublicFilterAPI {
@@ -164,15 +164,15 @@ func TestEnsureFilterCreationAllowedLocked_PerClientIsolation(t *testing.T) {
 	api := newFilterAPITestSubject(backend)
 	api.clientCap = 1
 
-	id := api.installFilterLocked(dummyHTTPClientA, &filter{deadline: time.NewTimer(time.Minute)})
+	id := api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
 	require.NotEmpty(t, id)
-	require.Equal(t, 1, api.clientFilterCount[dummyHTTPClientA])
+	require.Equal(t, 1, api.clientFilterCount[dummyClientA])
 
-	err := api.ensureFilterCreationAllowedLocked(dummyHTTPClientA)
+	err := api.ensureFilterCreationAllowedLocked(dummyClientA)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "per-client max limit reached")
 
-	err = api.ensureFilterCreationAllowedLocked(dummyHTTPClientB)
+	err = api.ensureFilterCreationAllowedLocked(dummyClientB)
 	require.NoError(t, err)
 }
 
@@ -182,9 +182,9 @@ func TestEnsureFilterCreationAllowedLocked_GlobalCapPrecedence(t *testing.T) {
 
 	api := newFilterAPITestSubject(backend)
 	api.clientCap = 10
-	api.installFilterLocked(dummyHTTPClientA, &filter{deadline: time.NewTimer(time.Minute)})
+	api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
 
-	err := api.ensureFilterCreationAllowedLocked(dummyHTTPClientB)
+	err := api.ensureFilterCreationAllowedLocked(dummyClientB)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "max limit reached")
 }
@@ -199,21 +199,21 @@ func TestDeleteFilterLocked_DecrementsPerClientCounter(t *testing.T) {
 	idB := rpc.NewID()
 	idC := rpc.NewID()
 
-	api.filters[idA] = &filter{owner: dummyHTTPClientA, deadline: time.NewTimer(time.Minute)}
-	api.filters[idB] = &filter{owner: dummyHTTPClientA, deadline: time.NewTimer(time.Minute)}
-	api.filters[idC] = &filter{owner: dummyWSClientA, deadline: time.NewTimer(time.Minute)}
-	api.clientFilterCount[dummyHTTPClientA] = 2
-	api.clientFilterCount[dummyWSClientA] = 1
+	api.filters[idA] = &filter{owner: dummyClientA, deadline: time.NewTimer(time.Minute)}
+	api.filters[idB] = &filter{owner: dummyClientA, deadline: time.NewTimer(time.Minute)}
+	api.filters[idC] = &filter{owner: dummyClientC, deadline: time.NewTimer(time.Minute)}
+	api.clientFilterCount[dummyClientA] = 2
+	api.clientFilterCount[dummyClientC] = 1
 
 	require.True(t, api.deleteFilterLocked(idA))
-	require.Equal(t, 1, api.clientFilterCount[dummyHTTPClientA])
+	require.Equal(t, 1, api.clientFilterCount[dummyClientA])
 
 	require.True(t, api.deleteFilterLocked(idB))
-	_, exists := api.clientFilterCount[dummyHTTPClientA]
+	_, exists := api.clientFilterCount[dummyClientA]
 	require.False(t, exists)
 
 	require.True(t, api.deleteFilterLocked(idC))
-	_, exists = api.clientFilterCount[dummyWSClientA]
+	_, exists = api.clientFilterCount[dummyClientC]
 	require.False(t, exists)
 
 	require.False(t, api.deleteFilterLocked(rpc.NewID()))
