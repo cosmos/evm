@@ -543,6 +543,10 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		span.AddEvent("vm_error", trace.WithAttributes(attribute.String("vm_err", vmError)))
 	}
 
+	isAmsterdam := ethCfg.IsAmsterdam(evm.Context.BlockNumber, evm.Context.Time)
+	if isAmsterdam {
+		stateDB.EmitLogsForBurnAccounts()
+	}
 	// The dirty states in `StateDB` is either committed or discarded after return
 	if commit {
 		// In a precompile context, we never want to commit, as that will collapse the cache stack.
