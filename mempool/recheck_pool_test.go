@@ -14,19 +14,24 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/internal/heightsync"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/mocks"
 	"github.com/cosmos/evm/mempool/reserver"
+	"github.com/cosmos/evm/testutil/constants"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -68,33 +73,48 @@ func (m *mockRechecker) Update(ctx sdk.Context, _ *ethtypes.Header) {
 }
 
 // ----------------------------------------------------------------------------
-// Mock ContextProvider
+// Test Blockchain
 // ----------------------------------------------------------------------------
 
-// mockContextProvider implements ContextProvider for unit tests.
-type mockContextProvider struct {
-	ctx          sdk.Context
-	getContextFn func() (sdk.Context, error)
-	ctxErr       error
+// newTestBlockchain creates a minimal *mempool.Blockchain for recheck-pool
+// tests. GetLatestContext() returns the supplied ctx.
+func newTestBlockchain(t *testing.T, ctx sdk.Context) *mempool.Blockchain {
+	t.Helper()
+	return newTestBlockchainWithGetter(t, func(_ int64, _ bool) (sdk.Context, error) {
+		return ctx, nil
+	})
 }
 
-func newMockContextProvider(ctx sdk.Context) *mockContextProvider {
-	return &mockContextProvider{ctx: ctx}
+// newTestBlockchainWithGetter lets a test control the behavior of the ctx
+// callback (e.g., to simulate failures or return different contexts over
+// time).
+func newTestBlockchainWithGetter(t *testing.T, getCtx func(int64, bool) (sdk.Context, error)) *mempool.Blockchain {
+	t.Helper()
+	vmKeeper := mocks.NewVMKeeperI(t)
+	feeMarketKeeper := mocks.NewFeeMarketKeeper(t)
+	vmKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(0)).Maybe()
+	vmKeeper.On("GetEvmCoinInfo", mock.Anything).
+		Return(vmtypes.EvmCoinInfo{Denom: recheckTestFeeDenom}).Maybe()
+	feeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(0)).Maybe()
+	return mempool.NewBlockchain(getCtx, log.NewNopLogger(), vmKeeper, feeMarketKeeper, 30_000_000)
 }
 
-func (m *mockContextProvider) GetLatestContext() (sdk.Context, error) {
-	if m.ctxErr != nil {
-		return sdk.Context{}, m.ctxErr
-	}
-	if m.getContextFn != nil {
-		return m.getContextFn()
-	}
-	ctx, _ := m.ctx.CacheContext()
-	return ctx, nil
+// ----------------------------------------------------------------------------
+// Test ReapList + Encoder
+// ----------------------------------------------------------------------------
+
+type testTxEncoder struct{}
+
+func (testTxEncoder) EVMTx(tx *ethtypes.Transaction) ([]byte, error) {
+	return tx.Hash().Bytes(), nil
 }
 
-func (m *mockContextProvider) CurrentBlock() *ethtypes.Header {
-	return &ethtypes.Header{Number: big.NewInt(10)}
+func (testTxEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
+	return []byte(fmt.Sprintf("%p", tx)), nil
+}
+
+func newTestReapList() *reaplist.ReapList {
+	return reaplist.New(testTxEncoder{})
 }
 
 // testHeader creates a minimal header for testing with the given height.
@@ -114,7 +134,6 @@ func TestRecheckMempool_Insert(t *testing.T) {
 		name          string
 		setupReserver func(*reserver.ReservationTracker, common.Address)
 		anteErr       error
-		poolInsertErr error
 		expectErr     error
 		expectCount   int
 		expectHeld    bool
@@ -142,13 +161,6 @@ func TestRecheckMempool_Insert(t *testing.T) {
 			expectCount: 0,
 			expectHeld:  false,
 		},
-		{
-			name:          "pool insert failure releases reservation",
-			poolInsertErr: errors.New("pool full"),
-			expectErr:     errors.New("pool full"),
-			expectCount:   0,
-			expectHeld:    false,
-		},
 	}
 
 	for _, tc := range tests {
@@ -161,8 +173,6 @@ func TestRecheckMempool_Insert(t *testing.T) {
 				tc.setupReserver(tracker, acc.address)
 			}
 
-			pool := &recheckMockPool{insertErr: tc.poolInsertErr}
-
 			anteHandler := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 				if tc.anteErr != nil {
 					return sdk.Context{}, tc.anteErr
@@ -171,10 +181,13 @@ func TestRecheckMempool_Insert(t *testing.T) {
 			}
 
 			ctx := newRecheckTestContext()
-			bc := newMockContextProvider(ctx)
+			bc := newTestBlockchain(t, ctx)
 			rc := newMockRechecker(ctx, anteHandler)
 
-			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+			mp := mempool.NewRecheckMempool(
+				log.NewNopLogger(), nil, 0, handle, rc,
+				newTestRecheckedTxs(), newTestReapList(), bc,
+			)
 
 			tx := newRecheckTestTx(t, acc.key)
 			err := mp.Insert(ctx, tx)
@@ -199,63 +212,76 @@ func TestRecheckMempool_Insert(t *testing.T) {
 	}
 }
 
+func TestRecheckMempool_Insert_PoolCapacity(t *testing.T) {
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
+
+	maxTxs := 1
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, maxTxs, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
+
+	firstAcc := newRecheckTestAccount(t)
+	require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, firstAcc.key)))
+
+	secondAcc := newRecheckTestAccount(t)
+	err := mp.Insert(ctx, newRecheckTestTx(t, secondAcc.key))
+	require.Error(t, err)
+
+	// Second signer should not remain reserved after failed insert.
+	otherHandle := tracker.NewHandle(2)
+	require.False(t, otherHandle.Has(secondAcc.address))
+	require.True(t, otherHandle.Has(firstAcc.address))
+}
+
 func TestRecheckMempool_Remove(t *testing.T) {
-	tests := []struct {
-		name       string
-		poolErr    error
-		expectErr  bool
-		expectHeld bool
-	}{
-		{
-			name:       "success releases reservation",
-			expectErr:  false,
-			expectHeld: false,
-		},
-		{
-			name:       "pool error does not release",
-			poolErr:    errors.New("tx not found"),
-			expectErr:  true,
-			expectHeld: true,
-		},
-	}
+	acc := newRecheckTestAccount(t)
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			acc := newRecheckTestAccount(t)
-			tracker := reserver.NewReservationTracker()
-			handle := tracker.NewHandle(1)
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
 
-			pool := &recheckMockPool{}
-			ctx := newRecheckTestContext()
-			bc := newMockContextProvider(ctx)
-			rc := newMockRechecker(ctx, noopAnteHandler)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 
-			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	tx := newRecheckTestTx(t, acc.key)
+	require.NoError(t, mp.Insert(ctx, tx))
 
-			tx := newRecheckTestTx(t, acc.key)
-			require.NoError(t, mp.Insert(ctx, tx))
+	otherHandle := tracker.NewHandle(2)
+	require.True(t, otherHandle.Has(acc.address), "address should be reserved after insert")
 
-			otherHandle := tracker.NewHandle(2)
-			require.True(t, otherHandle.Has(acc.address), "address should be reserved after insert")
+	require.NoError(t, mp.Remove(tx))
+	require.False(t, otherHandle.Has(acc.address), "address should not be reserved after remove")
+}
 
-			if tc.poolErr != nil {
-				pool.removeErr = tc.poolErr
-			}
+func TestRecheckMempool_Remove_NotInPool(t *testing.T) {
+	acc := newRecheckTestAccount(t)
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
 
-			err := mp.Remove(tx)
-			if tc.expectErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
 
-			if tc.expectHeld {
-				require.True(t, otherHandle.Has(acc.address))
-			} else {
-				require.False(t, otherHandle.Has(acc.address))
-			}
-		})
-	}
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
+
+	err := mp.Remove(newRecheckTestTx(t, acc.key))
+	require.Error(t, err)
+
+	otherHandle := tracker.NewHandle(2)
+	require.False(t, otherHandle.Has(acc.address))
 }
 
 // ----------------------------------------------------------------------------
@@ -265,12 +291,14 @@ func TestRecheckMempool_Remove(t *testing.T) {
 func TestRecheckMempool_StartClose(t *testing.T) {
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 
 	mp.Start(testHeader(0))
 
@@ -290,12 +318,14 @@ func TestRecheckMempool_StartClose(t *testing.T) {
 func TestRecheckMempool_CloseIdempotent(t *testing.T) {
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 
 	require.NoError(t, mp.Close())
@@ -305,12 +335,14 @@ func TestRecheckMempool_CloseIdempotent(t *testing.T) {
 func TestRecheckMempool_TriggerRecheckAfterShutdown(t *testing.T) {
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	require.NoError(t, mp.Close())
 
@@ -330,9 +362,8 @@ func TestRecheckMempool_TriggerRecheckAfterShutdown(t *testing.T) {
 func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 
 	gate := make(chan struct{})
 	ready := make(chan struct{}) // signals when ante handler is waiting
@@ -352,7 +383,10 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 
 	rc := newMockRechecker(ctx, anteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 
 	for range numTxsToInsert {
@@ -400,66 +434,35 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 func TestRecheckMempool_GetCtxError(t *testing.T) {
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
 
-	// Blockchain that returns an error from GetLatestContext
-	bc := newMockContextProvider(ctx)
-	bc.ctxErr = errors.New("context unavailable")
-
+	// Blockchain with a switchable ctx getter — healthy during insert,
+	// failing once we flip the flag before triggering recheck.
+	var getCtxFail atomic.Bool
+	bc := newTestBlockchainWithGetter(t, func(_ int64, _ bool) (sdk.Context, error) {
+		if getCtxFail.Load() {
+			return sdk.Context{}, errors.New("context unavailable")
+		}
+		return ctx, nil
+	})
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
 
 	acc := newRecheckTestAccount(t)
 	tx := newRecheckTestTx(t, acc.key)
-
-	// Use a separate mempool to insert the tx (which shares the same underlying pool)
-	insertBc := newMockContextProvider(ctx)
-	insertRc := newMockRechecker(ctx, noopAnteHandler)
-	insertMp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, insertRc, newTestRecheckedTxs(), insertBc)
-	require.NoError(t, insertMp.Insert(ctx, tx))
-
+	require.NoError(t, mp.Insert(ctx, tx))
 	require.Equal(t, 1, mp.CountTx())
 
+	getCtxFail.Store(true)
 	mp.TriggerRecheckSync(testHeader(1))
 
 	require.Equal(t, 1, mp.CountTx(), "tx should remain when getCtx fails")
-}
-
-func TestRecheckMempool_RemoveErrorDuringRecheck(t *testing.T) {
-	acc := newRecheckTestAccount(t)
-	tracker := reserver.NewReservationTracker()
-	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
-	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
-
-	failOnRecheck := false
-	anteHandler := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
-		if failOnRecheck {
-			return sdk.Context{}, errors.New("recheck failed")
-		}
-		return ctx, nil
-	}
-
-	rc := newMockRechecker(ctx, anteHandler)
-
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
-	mp.Start(testHeader(0))
-	defer mp.Close()
-
-	tx := newRecheckTestTx(t, acc.key)
-	require.NoError(t, mp.Insert(ctx, tx))
-
-	failOnRecheck = true
-	pool.removeErr = errors.New("remove failed")
-
-	mp.TriggerRecheckSync(testHeader(1))
-
-	require.Equal(t, 1, mp.CountTx(), "tx remains when remove fails")
 }
 
 // ----------------------------------------------------------------------------
@@ -469,12 +472,14 @@ func TestRecheckMempool_RemoveErrorDuringRecheck(t *testing.T) {
 func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
 
@@ -510,7 +515,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 // Integration
 // ----------------------------------------------------------------------------
 
-func TestKrakatoaMempool_Recheck(t *testing.T) {
+func TestMempool_Recheck(t *testing.T) {
 	type accountTx struct {
 		account int
 		nonce   uint64
@@ -631,7 +636,7 @@ func TestKrakatoaMempool_Recheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+			mp, s := setupMempoolWithAccounts(t, 3)
 			txConfig, cosmosRechecker, accounts := s.txConfig, s.cosmosRechecker, s.accounts
 
 			getSignerAddr := func(accountIdx int) []byte {
@@ -711,9 +716,8 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tracker := reserver.NewReservationTracker()
 			handle := tracker.NewHandle(1)
-			pool := &recheckMockPool{}
 			ctx := newRecheckTestContext()
-			bc := newMockContextProvider(ctx)
+			bc := newTestBlockchain(t, ctx)
 			recheckedTxs := newTestRecheckedTxs()
 
 			failSet := make(map[sdk.Tx]bool)
@@ -727,7 +731,10 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 
 			rc := newMockRechecker(ctx, anteHandler)
 
-			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+			mp := mempool.NewRecheckMempool(
+				log.NewNopLogger(), nil, 0, handle, rc,
+				recheckedTxs, newTestReapList(), bc,
+			)
 			mp.Start(testHeader(0))
 			defer mp.Close()
 
@@ -786,13 +793,15 @@ func TestRecheckMempool_RecheckedTxsReset(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tracker := reserver.NewReservationTracker()
 			handle := tracker.NewHandle(1)
-			pool := &recheckMockPool{}
 			ctx := newRecheckTestContext()
-			bc := newMockContextProvider(ctx)
+			bc := newTestBlockchain(t, ctx)
 			recheckedTxs := newTestRecheckedTxs()
 			rc := newMockRechecker(ctx, noopAnteHandler)
 
-			mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+			mp := mempool.NewRecheckMempool(
+				log.NewNopLogger(), nil, 0, handle, rc,
+				recheckedTxs, newTestReapList(), bc,
+			)
 			mp.Start(testHeader(0))
 			defer mp.Close()
 
@@ -837,9 +846,8 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 	acc := newRecheckTestAccount(t)
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	recheckedTxs := newTestRecheckedTxs()
 
 	var callCount atomic.Int32
@@ -854,7 +862,10 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 
 	rc := newMockRechecker(ctx, anteHandler)
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
 
@@ -893,19 +904,29 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 }
 
 func TestRecheckMempool_RecheckerNoContextOnInsert(t *testing.T) {
+	// setup mocks for blockchain fetching latest block
+	vmtypes.NewEVMConfigurator().ResetTestConfig()
+	require.NoError(t, vmtypes.SetChainConfig(vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)))
+	require.NoError(t, vmtypes.NewEVMConfigurator().
+		WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).
+		Configure())
+
 	acc := newRecheckTestAccount(t)
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
 
-	// context provided has a valid context ready
+	// blockchain has a valid context ready
 	ctx := newRecheckTestContext()
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
+
 	// rechecker does not have a valid context
 	rc := newMockRechecker(sdk.Context{}, noopAnteHandler)
 
 	recheckedTxs := newTestRecheckedTxs()
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc,
+	)
 
 	tx := newRecheckTestTx(t, acc.key)
 	require.NoError(t, mp.Insert(ctx, tx))
@@ -967,11 +988,13 @@ func TestRecheckMempool_InsertSequentialNonces(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, newNonceTrackingAnteHandler())
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -990,11 +1013,13 @@ func TestRecheckMempool_InsertNonceGapFails(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, newNonceTrackingAnteHandler())
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1014,14 +1039,16 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 
 	// The nonce tracker is shared across insert and recheck calls.
 	// After recheck re-validates nonces 0 and 1, the tracker expects 2 next.
 	rc := newMockRechecker(ctx, newNonceTrackingAnteHandler())
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, newTestRecheckedTxs(), bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
 
@@ -1048,12 +1075,14 @@ func TestRecheckMempool_InsertReplacementInvalidatesRechecked(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
 	handle := tracker.NewHandle(1)
-	pool := &recheckMockPool{}
-	bc := newMockContextProvider(ctx)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, noopAnteHandler)
 	recheckedTxs := newTestRecheckedTxs()
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	t.Cleanup(func() {
 		require.NoError(t, mp.Close())
@@ -1081,14 +1110,14 @@ func TestRecheckMempool_InsertReplacementInvalidatesRechecked(t *testing.T) {
 	require.Equal(t, 1, mp.CountTx())
 }
 
-func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
-	ctx := newRecheckTestContext()
-	tracker := reserver.NewReservationTracker()
-	handle := tracker.NewHandle(1)
-	pool := sdkmempool.NewPriorityMempool(sdkmempool.PriorityNonceMempoolConfig[sdkmath.Int]{
+// customReplacementConfig returns a PriorityNonceMempoolConfig whose
+// TxReplacement allows replacement only when the new priority beats the old.
+// Used by tests that exercise replacement behavior without relying on the
+// default (reap-list-dropping) config.
+func customReplacementConfig() *sdkmempool.PriorityNonceMempoolConfig[sdkmath.Int] {
+	return &sdkmempool.PriorityNonceMempoolConfig[sdkmath.Int]{
 		TxPriority: sdkmempool.TxPriority[sdkmath.Int]{
-			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) sdkmath.Int {
-				_ = sdk.UnwrapSDKContext(goCtx)
+			GetTxPriority: func(_ context.Context, tx sdk.Tx) sdkmath.Int {
 				cosmosTxFee, ok := tx.(sdk.FeeTx)
 				if !ok {
 					return sdkmath.ZeroInt()
@@ -1097,9 +1126,7 @@ func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 				if !found {
 					return sdkmath.ZeroInt()
 				}
-
-				gasPrice := coin.Amount.Quo(sdkmath.NewIntFromUint64(cosmosTxFee.GetGas()))
-				return gasPrice
+				return coin.Amount.Quo(sdkmath.NewIntFromUint64(cosmosTxFee.GetGas()))
 			},
 			Compare: func(a, b sdkmath.Int) int {
 				return a.BigInt().Cmp(b.BigInt())
@@ -1109,12 +1136,21 @@ func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 		TxReplacement: func(op, np sdkmath.Int, _ sdk.Tx, _ sdk.Tx) bool {
 			return np.GT(op)
 		},
-	})
-	bc := newMockContextProvider(ctx)
+	}
+}
+
+func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	bc := newTestBlockchain(t, ctx)
 	rc := newMockRechecker(ctx, noopAnteHandler)
 	recheckedTxs := newTestRecheckedTxs()
 
-	mp := mempool.NewRecheckMempool(log.NewNopLogger(), pool, handle, rc, recheckedTxs, bc)
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), customReplacementConfig(), 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc,
+	)
 	mp.Start(testHeader(0))
 	t.Cleanup(func() {
 		require.NoError(t, mp.Close())
@@ -1146,6 +1182,96 @@ func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 	iter = mp.RecheckedTxs(context.Background(), big.NewInt(1))
 	rechecked = collectIteratorTxs(iter)
 	require.Equal(t, []sdk.Tx{tx3, replacement, tx5, tx6}, rechecked)
+}
+
+// TestRecheckMempool_RecheckDropsFromReapList verifies that when a tx fails
+// recheck and gets removed from the pool, it is also dropped from the reap
+// list. Txs that pass recheck must remain reapable.
+func TestRecheckMempool_RecheckDropsFromReapList(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	bc := newTestBlockchain(t, ctx)
+	reapList := newTestReapList()
+
+	failSet := make(map[sdk.Tx]bool)
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
+		if failSet[tx] {
+			return sdk.Context{}, errors.New("recheck failed")
+		}
+		return ctx, nil
+	}
+	rc := newMockRechecker(ctx, anteHandler)
+
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), reapList, bc,
+	)
+	mp.Start(testHeader(0))
+	t.Cleanup(func() { require.NoError(t, mp.Close()) })
+
+	// Three txs from independent signers: keepA, doomed, keepB.
+	keepA := newRecheckTestTx(t, mustGenKey(t))
+	doomed := newRecheckTestTx(t, mustGenKey(t))
+	keepB := newRecheckTestTx(t, mustGenKey(t))
+
+	for _, tx := range []sdk.Tx{keepA, doomed, keepB} {
+		require.NoError(t, mp.Insert(ctx, tx))
+	}
+
+	// Flip the doomed tx to fail on recheck.
+	failSet[doomed] = true
+	mp.TriggerRecheckSync(testHeader(1))
+
+	require.Equal(t, 2, mp.CountTx(), "failed tx should be removed from pool")
+
+	reaped := reapList.Reap(0, 0)
+	require.Len(t, reaped, 2, "doomed tx's bytes should also be dropped from reap list")
+
+	enc := testTxEncoder{}
+	doomedBytes, _ := enc.CosmosTx(doomed)
+	for _, b := range reaped {
+		require.NotEqual(t, doomedBytes, b, "doomed tx bytes should not appear in reap list")
+	}
+}
+
+func mustGenKey(t *testing.T) *ecdsa.PrivateKey {
+	t.Helper()
+	k, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	return k
+}
+
+func TestRecheckMempool_ReplacementDropsFromReapList(t *testing.T) {
+	ctx := newRecheckTestContext()
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	bc := newTestBlockchain(t, ctx)
+	rc := newMockRechecker(ctx, noopAnteHandler)
+	reapList := newTestReapList()
+
+	mp := mempool.NewRecheckMempool(
+		log.NewNopLogger(), nil, 0, handle, rc,
+		newTestRecheckedTxs(), reapList, bc,
+	)
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	original := newRecheckTestTxWithGasPrice(t, key, 5, 1)
+	require.NoError(t, mp.Insert(ctx, original))
+
+	// same sender + nonce, new gas price
+	replacement := newRecheckTestTxWithGasPrice(t, key, 5, 2)
+	require.NoError(t, mp.Insert(ctx, replacement))
+
+	require.Equal(t, 1, mp.CountTx(), "pool should hold exactly one tx after replacement")
+
+	reaped := reapList.Reap(0, 0)
+	require.Len(t, reaped, 1, "reap list should only hold the replacement")
+	expected, err := testTxEncoder{}.CosmosTx(replacement)
+	require.NoError(t, err)
+	require.Equal(t, expected, reaped[0])
 }
 
 // newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.
@@ -1217,94 +1343,6 @@ func (m *recheckTestTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
 			Sequence: m.sequence,
 		},
 	}, nil
-}
-
-// recheckMockPool is a simple in-memory ExtMempool for testing RecheckMempool in isolation.
-type recheckMockPool struct {
-	mu          sync.Mutex
-	txs         []sdk.Tx
-	insertErr   error
-	removeErr   error
-	insertDelay time.Duration
-}
-
-func (m *recheckMockPool) Insert(_ context.Context, tx sdk.Tx) error {
-	if m.insertDelay > 0 {
-		time.Sleep(m.insertDelay)
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.insertErr != nil {
-		return m.insertErr
-	}
-	m.txs = append(m.txs, tx)
-	return nil
-}
-
-func (m *recheckMockPool) Remove(tx sdk.Tx) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.removeErr != nil {
-		return m.removeErr
-	}
-	for i, t := range m.txs {
-		if t == tx {
-			m.txs = append(m.txs[:i], m.txs[i+1:]...)
-			return nil
-		}
-	}
-	return sdkmempool.ErrTxNotFound
-}
-
-func (m *recheckMockPool) RemoveWithReason(_ context.Context, tx sdk.Tx, _ sdkmempool.RemoveReason) error {
-	return m.Remove(tx)
-}
-
-func (m *recheckMockPool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if len(m.txs) == 0 {
-		return nil
-	}
-	return &recheckMockIterator{txs: append([]sdk.Tx{}, m.txs...), idx: 0}
-}
-
-func (m *recheckMockPool) SelectBy(_ context.Context, _ [][]byte, callback func(sdk.Tx) bool) {
-	m.mu.Lock()
-	txsCopy := append([]sdk.Tx{}, m.txs...)
-	m.mu.Unlock()
-
-	for _, tx := range txsCopy {
-		if !callback(tx) {
-			return
-		}
-	}
-}
-
-func (m *recheckMockPool) CountTx() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return len(m.txs)
-}
-
-type recheckMockIterator struct {
-	txs []sdk.Tx
-	idx int
-}
-
-func (i *recheckMockIterator) Tx() sdk.Tx {
-	if i.idx >= len(i.txs) {
-		return nil
-	}
-	return i.txs[i.idx]
-}
-
-func (i *recheckMockIterator) Next() sdkmempool.Iterator {
-	i.idx++
-	if i.idx >= len(i.txs) {
-		return nil
-	}
-	return i
 }
 
 // recheckTestAccount holds test account data.

@@ -7,11 +7,11 @@ import (
 
 	"github.com/cosmos/evm/testutil/keyring"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
-	cbtypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	ibcerrors "github.com/cosmos/ibc-go/v10/modules/core/errors"
+	cbtypes "github.com/cosmos/ibc-go/v11/modules/apps/callbacks/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

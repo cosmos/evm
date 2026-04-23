@@ -12,7 +12,7 @@ import (
 
 	statedb "github.com/cosmos/evm/x/vm/statedb"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	types "github.com/cosmos/cosmos-sdk/types"
 
@@ -251,7 +251,8 @@ func (_m *VMKeeperI) SetState(ctx types.Context, addr common.Address, key common
 func NewVMKeeperI(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *VMKeeperI {
+},
+) *VMKeeperI {
 	mock := &VMKeeperI{}
 	mock.Mock.Test(t)
 

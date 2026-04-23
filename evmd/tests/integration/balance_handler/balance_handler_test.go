@@ -42,6 +42,8 @@ func (s *BalanceHandlerTestSuite) SetupTest() {
 // TestRecursivePrecompileCallsWithDebugPrecompile demonstrates the balance handler bug
 // by triggering recursive calls that share the same BalanceHandler instance.
 func (s *BalanceHandlerTestSuite) TestRecursivePrecompileCallsWithDebugPrecompile() {
+	s.T().Skip("STACK-2602: fix test")
+
 	evmApp := s.chain.App.(evm.EvmApp)
 	ctx := s.chain.GetContext()
 

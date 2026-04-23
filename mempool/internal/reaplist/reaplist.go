@@ -1,4 +1,4 @@
-package mempool
+package reaplist
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ type ReapList struct {
 	txEncoder EVMCosmosTxEncoder
 }
 
-func NewReapList(txEncoder EVMCosmosTxEncoder) *ReapList {
+func New(txEncoder EVMCosmosTxEncoder) *ReapList {
 	return &ReapList{
 		txEncoder: txEncoder,
 		txIndex:   make(map[string]int),
@@ -106,6 +106,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 			return tx == nil
 		})
 	}
+	metrics.RecordNumTxs(rl.txs)
 
 	// rebuild the index since txs may have shifted indices
 	for i, tx := range rl.txs {
@@ -114,6 +115,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		}
 		rl.txIndex[tx.hash] = i
 	}
+	metrics.RecordNumIndexTxs(rl.txIndex)
 
 	return result
 }
@@ -121,6 +123,10 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 // PushEVMTx enqueues an EVM tx into the reap list.
 func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
 	hash := tx.Hash().String()
+
+	rl.txsLock.Lock()
+	defer rl.txsLock.Unlock()
+
 	if rl.exists(hash) {
 		return nil
 	}
@@ -131,6 +137,8 @@ func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
 	}
 
 	rl.push(hash, txBytes, tx.Gas())
+
+	metrics.TxPushed(evmType)
 	return nil
 }
 
@@ -140,8 +148,11 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 	if err != nil {
 		return fmt.Errorf("encoding cosmos tx to bytes: %w", err)
 	}
-
 	hash := cosmosHash(txBytes)
+
+	rl.txsLock.Lock()
+	defer rl.txsLock.Unlock()
+
 	if rl.exists(hash) {
 		return nil
 	}
@@ -154,25 +165,28 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 	}
 
 	rl.push(hash, txBytes, gas)
+
+	metrics.TxPushed(cosmosType)
 	return nil
 }
 
 // push inserts a tx to the back of the reap list as the "newest" transaction
 // (last to be returned if Reap was called now). push assumes that a tx is not
 // already in the ReapList, this should be checked via exists.
+//
+// NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
-	rl.txsLock.Lock()
-	defer rl.txsLock.Unlock()
-
 	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
 	rl.txIndex[hash] = len(rl.txs) - 1
+
+	metrics.RecordNumTxs(rl.txs)
+	metrics.RecordNumIndexTxs(rl.txIndex)
 }
 
 // exists returns true if a hash is in the index, false otherwise.
+//
+// NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) exists(hash string) bool {
-	rl.txsLock.RLock()
-	defer rl.txsLock.RUnlock()
-
 	_, ok := rl.txIndex[hash]
 	return ok
 }
@@ -181,7 +195,11 @@ func (rl *ReapList) exists(hash string) bool {
 // already been reaped. This should only be called when a tx that was
 // previously validated, becomes invalid.
 func (rl *ReapList) DropEVMTx(tx *ethtypes.Transaction) {
-	rl.drop(tx.Hash().String())
+	dropped := rl.drop(tx.Hash().String())
+
+	if dropped {
+		metrics.TxDropped(evmType)
+	}
 }
 
 // DropCosmosTx removes a Cosmos tx from the ReapList. This tx may or may not
@@ -192,26 +210,36 @@ func (rl *ReapList) DropCosmosTx(tx sdk.Tx) {
 	if err != nil {
 		return
 	}
-	rl.drop(cosmosHash(txBytes))
+	dropped := rl.drop(cosmosHash(txBytes))
+
+	if dropped {
+		metrics.TxDropped(cosmosType)
+	}
 }
 
 // drop removes an individual tx from the reap list. If the tx is not in the
-// list, no changes are made.
-func (rl *ReapList) drop(hash string) {
+// list, no changes are made. Returns true if the tx was dropped, false
+// otherwise.
+func (rl *ReapList) drop(hash string) bool {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()
 
 	idx, ok := rl.txIndex[hash]
 	if !ok {
-		return
+		return false
 	}
 	delete(rl.txIndex, hash)
+	metrics.RecordNumIndexTxs(rl.txIndex)
 
 	if idx < 0 || idx >= len(rl.txs) {
-		return
+		return false
 	}
 
 	rl.txs[idx] = nil
+	// NOTE: Not updating numTxs metric here since that reports the size of the
+	// reap list **including** tombstones. We will update numTxs when the
+	// tombstone is removed via the next `Reap` call.
+	return true
 }
 
 func cosmosHash(txBytes []byte) string {
