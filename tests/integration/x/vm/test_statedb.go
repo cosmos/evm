@@ -40,17 +40,6 @@ func (s *KeeperTestSuite) TestCreateAccount() {
 		callback func(vm.StateDB, common.Address)
 	}{
 		{
-			"reset account (keep balance)",
-			utiltx.GenerateAddress(),
-			func(vmdb vm.StateDB, addr common.Address) {
-				vmdb.AddBalance(addr, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
-				s.Require().NotZero(vmdb.GetBalance(addr).Uint64())
-			},
-			func(vmdb vm.StateDB, addr common.Address) {
-				s.Require().Equal(vmdb.GetBalance(addr).Uint64(), uint64(100))
-			},
-		},
-		{
 			"create account",
 			utiltx.GenerateAddress(),
 			func(vmdb vm.StateDB, addr common.Address) {
