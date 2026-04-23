@@ -9,6 +9,10 @@ import (
 	ethmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/ethereum/eip712"
+
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -16,10 +20,6 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/ethereum/eip712"
 )
 
 // setupEIP712Test initializes the EIP-712 encoding codec with the given
