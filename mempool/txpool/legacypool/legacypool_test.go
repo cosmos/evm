@@ -43,10 +43,22 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/txpool"
 )
+
+// minimal tx encoder to construct a reap list during testing
+type testTxEncoder struct{}
+
+func (testTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
+	return tx.Hash().Bytes(), nil
+}
+
+func (testTxEncoder) CosmosTx(sdk.Tx) ([]byte, error) { return nil, nil }
 
 var (
 	// testTxPoolConfig is a transaction pool configuration without stateful disk
@@ -249,7 +261,7 @@ func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecke
 
 	key, _ := crypto.GenerateKey()
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New(), WithRecheck(rechecker))
 	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
 		panic(err)
 	}
@@ -334,6 +346,132 @@ func validateEvents(events chan core.NewTxsEvent, count int) error {
 	return nil
 }
 
+// TestMarkTxRemovedInvalidatesPending tests that when you have txs with nonces 4,5,6, and you submit a replacement for 4,
+// txs 5 and 6 need to be revalidated.
+func TestMarkTxRemovedInvalidatesPending(t *testing.T) {
+	pool, _, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+	replacement := pricedTransaction(4, 100000, big.NewInt(2), key)
+
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+	testSetNonce(pool, addr, 4)
+	pool.chain.(*testBlockChain).statedb.SetNonce(addr, 4, tracing.NonceChangeUnspecified)
+
+	pool.all.Add(tx4)
+	pool.priced.Put(tx4)
+	pool.promoteTx(addr, tx4.Hash(), tx4)
+
+	pool.all.Add(tx5)
+	pool.priced.Put(tx5)
+	pool.promoteTx(addr, tx5.Hash(), tx5)
+
+	pool.all.Add(tx6)
+	pool.priced.Put(tx6)
+	pool.promoteTx(addr, tx6.Hash(), tx6)
+
+	height := pool.chain.CurrentBlock().Number
+
+	pending := pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3) // at this point, should have txs 4,5,6.
+
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr]) // now should have nothing, since tx 4 is now a new tx, and 5,6 depended on 4.
+
+	pool.Reset(nil, nil) // recheck
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3)
+	require.Equal(t, []uint64{4, 5, 6}, []uint64{
+		pending[addr][0].Tx.Nonce(),
+		pending[addr][1].Tx.Nonce(),
+		pending[addr][2].Tx.Nonce(),
+	})
+	require.Equal(t, replacement.Hash(), pending[addr][0].Tx.Hash())
+}
+
+// TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck tests that when a
+// replacement for nonce 4 later fails recheck, the rechecked pending snapshot
+// stays empty and the higher nonces are demoted back to queue.
+func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
+	pool, rechecker, key := setupPool()
+	defer pool.Close()
+
+	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
+	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
+	tx5 := pricedTransaction(5, 100000, big.NewInt(1), key)
+	tx6 := pricedTransaction(6, 100000, big.NewInt(1), key)
+	replacement := pricedTransaction(4, 100000, big.NewInt(2), key)
+
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+	testSetNonce(pool, addr, 4)
+	pool.chain.(*testBlockChain).statedb.SetNonce(addr, 4, tracing.NonceChangeUnspecified)
+
+	pool.all.Add(tx4)
+	pool.priced.Put(tx4)
+	pool.promoteTx(addr, tx4.Hash(), tx4)
+
+	pool.all.Add(tx5)
+	pool.priced.Put(tx5)
+	pool.promoteTx(addr, tx5.Hash(), tx5)
+
+	pool.all.Add(tx6)
+	pool.priced.Put(tx6)
+	pool.promoteTx(addr, tx6.Hash(), tx6)
+
+	height := pool.chain.CurrentBlock().Number
+
+	pending := pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Len(t, pending[addr], 3)
+
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
+
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Hash() == replacement.Hash() {
+			return sdk.Context{}, errors.New("replacement failed recheck")
+		}
+		return sdk.Context{}, nil
+	})
+
+	pool.Reset(nil, nil)
+
+	pending = pool.Rechecked(context.Background(), height, txpool.PendingFilter{})
+	require.Empty(t, pending[addr])
+
+	pool.mu.RLock()
+	require.Nil(t, pool.pending[addr])
+	require.NotNil(t, pool.queue[addr])
+	require.Len(t, pool.queue[addr].Flatten(), 2)
+	require.Equal(t, []uint64{5, 6}, []uint64{
+		pool.queue[addr].Flatten()[0].Nonce(),
+		pool.queue[addr].Flatten()[1].Nonce(),
+	})
+	require.Nil(t, pool.all.Get(replacement.Hash()))
+
+	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
+	require.Equal(t, int64(1), dropped)
+
+	invalidated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
+	require.Equal(t, int64(2), invalidated)
+	pool.mu.RUnlock()
+}
+
 func deriveSender(tx *types.Transaction) (common.Address, error) {
 	return types.Sender(types.HomesteadSigner{}, tx)
 }
@@ -382,7 +520,7 @@ func TestStateChangeDuringReset(t *testing.T) {
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -458,8 +596,10 @@ func TestInvalidTransactions(t *testing.T) {
 func TestQueue(t *testing.T) {
 	t.Parallel()
 
-	pool, _, key := setupPool()
+	pool, rechecker, key := setupPool()
 	defer pool.Close()
+
+	rechecker.SetRecheck(stateValidatingRecheck(pool))
 
 	tx := transaction(0, 100, key)
 	from, _ := deriveSender(tx)
@@ -666,8 +806,22 @@ func TestNonceRecovery(t *testing.T) {
 	t.Parallel()
 
 	const n = 10
-	pool, _, key := setupPool()
+	pool, rechecker, key := setupPool()
 	defer pool.Close()
+
+	// Rechecker fails any tx whose nonce does not equal the sender's current
+	// state nonce.
+	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		from, err := types.Sender(pool.signer, tx)
+		if err != nil {
+			return ctx, err
+		}
+		stateNonce := pool.currentState.GetNonce(from)
+		if tx.Nonce() != stateNonce {
+			return ctx, fmt.Errorf("nonce mismatch: tx=%d state=%d", tx.Nonce(), stateNonce)
+		}
+		return ctx, nil
+	})
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	testSetNonce(pool, addr, n)
@@ -686,14 +840,67 @@ func TestNonceRecovery(t *testing.T) {
 	}
 }
 
+func TestScheduleForRemoval(t *testing.T) {
+	t.Parallel()
+
+	pool, _, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	testAddBalance(pool, addr, big.NewInt(1_000_000_000_000))
+	<-pool.requestReset(nil, nil)
+
+	txs := []*types.Transaction{
+		transaction(0, 100000, key),
+		transaction(1, 100000, key),
+		transaction(2, 100000, key),
+		transaction(3, 100000, key),
+	}
+	queuedTx := transaction(10, 100000, key)
+
+	for _, tx := range txs {
+		require.NoError(t, pool.addRemote(tx))
+	}
+	require.NoError(t, pool.addRemote(queuedTx))
+	<-pool.requestReset(nil, nil)
+
+	pending, queued := pool.ContentFrom(addr)
+	require.Len(t, pending, 4, "precondition: four pending txs")
+	require.Len(t, queued, 1, "precondition: one queued tx")
+
+	require.NoError(t, pool.ScheduleForRemoval(txs[1]))
+	<-pool.requestReset(nil, nil)
+
+	pending, queued = pool.ContentFrom(addr)
+	require.Len(t, pending, 2)
+	require.Equal(t, uint64(2), pending[0].Nonce())
+	require.Equal(t, uint64(3), pending[1].Nonce())
+	require.Len(t, queued, 1, "queued tx@10 is above threshold and survives")
+
+	require.NoError(t, pool.ScheduleForRemoval(txs[0]))
+	<-pool.requestReset(nil, nil)
+
+	pending, _ = pool.ContentFrom(addr)
+	require.Len(t, pending, 2, "lower-nonce schedule must be a no-op")
+
+	require.NoError(t, pool.ScheduleForRemoval(queuedTx))
+	<-pool.requestReset(nil, nil)
+
+	pending, queued = pool.ContentFrom(addr)
+	require.Empty(t, pending, "pending drained by ScheduleForRemoval at nonce 10")
+	require.Empty(t, queued, "queued tx@10 drained by ScheduleForRemoval")
+}
+
 // Tests that if an account runs out of funds, any pending and queued transactions
 // are dropped.
 func TestDropping(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, _, key := setupPool()
+	pool, rechecker, key := setupPool()
 	defer pool.Close()
+
+	rechecker.SetRecheck(stateValidatingRecheck(pool))
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
 	testAddBalance(pool, account, big.NewInt(1000))
@@ -799,9 +1006,12 @@ func TestPostponing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	rechecker := &MockRechecker{}
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New(), WithRecheck(rechecker))
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
+
+	rechecker.SetRecheck(stateValidatingRecheck(pool))
 
 	// Create two test accounts to produce different gap profiles with
 	keys := make([]*ecdsa.PrivateKey, 2)
@@ -1009,7 +1219,7 @@ func TestQueueGlobalLimiting(t *testing.T) {
 	config.NoLocals = true
 	config.GlobalQueue = config.AccountQueue*3 - 1 // reduce the queue limits to shorten test time (-1 to make it non divisible)
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1061,7 +1271,7 @@ func TestQueueTimeLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.Lifetime = time.Second
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1222,7 +1432,7 @@ func TestPendingGlobalLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = config.AccountSlots * 10
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1321,7 +1531,7 @@ func TestCapClearsFromAll(t *testing.T) {
 	config.AccountQueue = 2
 	config.GlobalSlots = 8
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1354,7 +1564,7 @@ func TestPendingMinimumAllowance(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = 1
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1398,7 +1608,7 @@ func TestRepricing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1503,7 +1713,7 @@ func TestMinGasPriceEnforced(t *testing.T) {
 
 	txPoolConfig := DefaultConfig
 	txPoolConfig.NoLocals = true
-	pool := New(txPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(txPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(txPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1652,7 +1862,7 @@ func TestUnderpricing(t *testing.T) {
 	config.GlobalSlots = 2
 	config.GlobalQueue = 2
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1742,7 +1952,7 @@ func TestStableUnderpricing(t *testing.T) {
 	config.GlobalSlots = 128
 	config.GlobalQueue = 0
 
-	pool := New(config, log.NewNopLogger(), blockchain)
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1945,7 +2155,7 @@ func TestDeduplication(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2012,7 +2222,7 @@ func TestReplacement(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2204,7 +2414,7 @@ func TestStatusCheck(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2277,7 +2487,7 @@ func TestSetCodeTransactions(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2307,8 +2517,8 @@ func TestSetCodeTransactions(t *testing.T) {
 			pending: 1,
 			run: func(name string) {
 				aa := common.Address{0xaa, 0xaa}
-				statedb.SetCode(addrA, append(types.DelegationPrefix, aa.Bytes()...))
-				statedb.SetCode(aa, []byte{byte(vm.ADDRESS), byte(vm.PUSH0), byte(vm.SSTORE)})
+				statedb.SetCode(addrA, append(types.DelegationPrefix, aa.Bytes()...), 0x0)
+				statedb.SetCode(aa, []byte{byte(vm.ADDRESS), byte(vm.PUSH0), byte(vm.SSTORE)}, 0x0)
 
 				// Send gapped transaction, it should be rejected.
 				if err := pool.addRemoteSync(pricedTransaction(2, 100000, big.NewInt(1), keyA)); !errors.Is(err, ErrOutOfOrderTxFromDelegated) {
@@ -2332,7 +2542,7 @@ func TestSetCodeTransactions(t *testing.T) {
 				}
 
 				// Reset the delegation, avoid leaking state into the other tests
-				statedb.SetCode(addrA, nil)
+				statedb.SetCode(addrA, nil, 0x0)
 			},
 		},
 		{
@@ -2575,9 +2785,12 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	rechecker := &MockRechecker{}
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New(), WithRecheck(rechecker))
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
+
+	rechecker.SetRecheck(stateValidatingRecheck(pool))
 
 	// Create the test accounts
 	var (
@@ -2598,7 +2811,7 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	}
 	// Simulate the chain moving
 	blockchain.statedb.SetNonce(addrA, 1, tracing.NonceChangeAuthorization)
-	blockchain.statedb.SetCode(addrA, types.AddressToDelegation(auth.Address))
+	blockchain.statedb.SetCode(addrA, types.AddressToDelegation(auth.Address), 0x0)
 	<-pool.requestReset(nil, nil)
 	// Set an authorization for 0x00
 	auth, _ = types.SignSetCode(keyA, types.SetCodeAuthorization{
@@ -2616,7 +2829,7 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	}
 	// Simulate the chain moving
 	blockchain.statedb.SetNonce(addrA, 2, tracing.NonceChangeAuthorization)
-	blockchain.statedb.SetCode(addrA, nil)
+	blockchain.statedb.SetCode(addrA, nil, 0x0)
 	<-pool.requestReset(nil, nil)
 	// Now send two transactions from addrA
 	if err := pool.addRemoteSync(pricedTransaction(2, 100000, big.NewInt(1000), keyA)); err != nil {
@@ -2634,7 +2847,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain)
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
 	err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	if err != nil {
 		t.Fatalf("failed to init pool: %v", err)
@@ -2688,6 +2901,8 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, key := setupPool()
 	defer pool.Close()
+
+	initialDropped := queuedRecheckDropMeter.Snapshot().Count()
 
 	// Create transactions with sequential nonces
 	tx0 := transaction(0, 100000, key)
@@ -2749,9 +2964,9 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	if pool.all.Get(tx2.Hash()) == nil {
 		t.Errorf("tx2 should still be in the all lookup")
 	}
-	dropped := queuedRecheckDropMeter.Snapshot().Count()
+	dropped := queuedRecheckDropMeter.Snapshot().Count() - initialDropped
 	if dropped != 1 {
-		t.Error("1 queued recheck drops should have been recorded by meter, got", dropped)
+		t.Error("1 queued recheck drops should have been recorded by meter delta, got", dropped)
 	}
 	pool.mu.RUnlock()
 }
@@ -2762,6 +2977,9 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, _ := setupPool()
 	defer pool.Close()
+
+	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
+	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
 
 	// Create transactions with sequential nonces
 	key1, _ := crypto.GenerateKey()
@@ -2841,17 +3059,17 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 
 	// tx10 and tx22 got dropped
-	dropped := pendingRecheckDropMeter.Snapshot().Count()
+	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
 	if dropped != 2 {
-		t.Error("2 pending recheck drops should have been recorded by meter, got", dropped)
+		t.Error("2 pending recheck drops should have been recorded by meter delta, got", dropped)
 	}
 
 	// tx11 and tx12 were invalidated since a tx from the same sender with a
 	// lower nonce was just dropped, they need to be validated again before
 	// being moved to pending, so they are back in queued
-	invaliated := pendingDemotedRecheck.Snapshot().Count()
+	invaliated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
 	if invaliated != 2 {
-		t.Error("2 pending recheck invalidate should have been recorded by meter, got", invaliated)
+		t.Error("2 pending recheck invalidate should have been recorded by meter delta, got", invaliated)
 	}
 	pool.mu.RUnlock()
 }
@@ -3044,6 +3262,31 @@ func BenchmarkMultiAccountBatchInsert(b *testing.B) {
 	b.ResetTimer()
 	for _, tx := range batches {
 		pool.addRemotesSync([]*types.Transaction{tx})
+	}
+}
+
+// stateValidatingRecheck returns a RecheckFn that mocks behavior these tests
+// rely on, in a production environment it is safe to assume these checks would
+// happen via the chains ante handler.
+func stateValidatingRecheck(pool *LegacyPool) func(sdk.Context, *types.Transaction) (sdk.Context, error) {
+	return func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		from, err := types.Sender(pool.signer, tx)
+		if err != nil {
+			return ctx, err
+		}
+		stateNonce := pool.currentState.GetNonce(from)
+		if tx.Nonce() < stateNonce {
+			return ctx, fmt.Errorf("nonce too low: tx=%d state=%d", tx.Nonce(), stateNonce)
+		}
+		gasLimit := pool.chain.(*testBlockChain).gasLimit.Load()
+		if tx.Gas() > gasLimit {
+			return ctx, fmt.Errorf("gas %d exceeds block limit %d", tx.Gas(), gasLimit)
+		}
+		balance := pool.currentState.GetBalance(from).ToBig()
+		if tx.Cost().Cmp(balance) > 0 {
+			return ctx, fmt.Errorf("insufficient funds: cost=%s balance=%s", tx.Cost(), balance)
+		}
+		return ctx, nil
 	}
 }
 

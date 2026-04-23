@@ -1,7 +1,6 @@
 package legacypool
 
 import (
-	"math/big"
 	"sort"
 	"sync"
 
@@ -49,25 +48,13 @@ func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
-	var (
-		minTipBig  *big.Int
-		baseFeeBig *big.Int
-	)
-	if filter.MinTip != nil {
-		minTipBig = filter.MinTip.ToBig()
-	}
-	if filter.BaseFee != nil {
-		baseFeeBig = filter.BaseFee.ToBig()
-	}
-
 	numSelected := 0
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(t.txs))
 
 	for addr, txs := range t.txs {
 		sort.Sort(types.TxByNonce(txs))
 
-		if lazies := filterAndWrapTxs(txs, minTipBig, baseFeeBig); len(lazies) > 0 {
+		if lazies := filterAndWrapTxs(txs, filter.MinTip, filter.BaseFee); len(lazies) > 0 {
 			numSelected += len(lazies)
 			pending[addr] = lazies
 		}
@@ -89,6 +76,7 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 			continue
 		}
 		toAdd = append(toAdd, tx)
+		t.lookup[tx.Hash()] = struct{}{}
 	}
 
 	if existing, ok := t.txs[addr]; ok {
@@ -112,25 +100,37 @@ func (t *TxStore) AddTx(addr common.Address, tx *types.Transaction) {
 
 // RemoveTx removes a tx for an address from the current set.
 func (t *TxStore) RemoveTx(addr common.Address, tx *types.Transaction) {
+	t.RemoveTxsFromNonce(addr, tx.Nonce())
+}
+
+// RemoveTxsFromNonce removes all txs for addr whose nonce is >= minNonce.
+func (t *TxStore) RemoveTxsFromNonce(addr common.Address, minNonce uint64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
-	defer delete(t.lookup, tx.Hash())
 
 	txs, ok := t.txs[addr]
 	if !ok {
 		return
 	}
 
-	// Find and remove the tx by nonce
-	nonce := tx.Nonce()
-	for i := 0; i < len(txs); i++ {
-		if txs[i].Nonce() == nonce {
-			// Swap with last element and truncate
-			txs[i] = txs[len(txs)-1]
-			t.txs[addr] = txs[:len(txs)-1]
-			t.total -= 1
-			return
+	next := txs[:0]
+	numRemoved := 0
+	for _, existing := range txs {
+		if existing.Nonce() >= minNonce {
+			delete(t.lookup, existing.Hash())
+			numRemoved++
+			continue
 		}
+		next = append(next, existing)
 	}
+
+	// memory reclaim
+	clear(txs[len(next):])
+
+	t.total -= uint64(numRemoved)
+	if len(next) == 0 {
+		delete(t.txs, addr)
+		return
+	}
+	t.txs[addr] = next
 }
