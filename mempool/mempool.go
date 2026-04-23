@@ -105,6 +105,9 @@ type Mempool struct {
 	/** Transaction Inserting **/
 	cosmosInsertQueue *queue.Queue[sdk.Tx]
 	evmInsertQueue    *queue.Queue[ethtypes.Transaction]
+
+	/** Signer extraction **/
+	signerExtractor sdkmempool.SignerExtractionAdapter
 }
 
 func NewMempool(
@@ -184,6 +187,7 @@ func NewMempool(
 		pendingTxProposalTimeout: config.PendingTxProposalTimeout,
 		reapList:                 reapList,
 		txTracker:                txTracker,
+		signerExtractor:          NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()),
 	}
 
 	// Setup queues
@@ -375,20 +379,32 @@ func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmem
 		return err
 	case err != nil:
 		// unable to parse evm tx -> process as cosmos tx
-		return m.removeCosmosTx(tx)
-	}
+		if err := m.removeCosmosTx(tx); err != nil {
+			return err
+		}
 
-	hash := msgEthereumTx.Hash()
+		if reason.Caller == sdkmempool.CallerRunTxFinalize {
+			signers, err := m.signerExtractor.GetSigners(tx)
+			if err != nil {
+				m.logger.Warn("could not extract cosmos signers for nonce tracking", "err", err)
+				return nil
+			}
+			for _, s := range signers {
+				m.legacyTxPool.SetLatestNonce(common.BytesToAddress(s.Signer), s.Sequence)
+			}
+		}
+	default:
+		hash := msgEthereumTx.Hash()
+		if m.shouldRemoveFromEVMPool(hash, reason) {
+			m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
+			m.legacyTxPool.RemoveTx(hash, false, true, convertRemovalReason(reason.Caller))
+		}
 
-	if m.shouldRemoveFromEVMPool(hash, reason) {
-		m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
-		m.legacyTxPool.RemoveTx(hash, false, true, convertRemovalReason(reason.Caller))
-	}
-
-	if reason.Caller == sdkmempool.CallerRunTxFinalize {
-		_ = m.txTracker.IncludedInBlock(hash)
-		if err := m.legacyTxPool.ScheduleForRemoval(msgEthereumTx.AsTransaction()); err != nil {
-			m.logger.Error("error scheduling tx for removal from legacypool", "err", err)
+		if reason.Caller == sdkmempool.CallerRunTxFinalize {
+			_ = m.txTracker.IncludedInBlock(hash)
+			if err := m.legacyTxPool.SetLatestNonceForTx(msgEthereumTx.AsTransaction()); err != nil {
+				m.logger.Warn("could not update latest nonce from tx", "tx_hash", hash, "err", err)
+			}
 		}
 	}
 
