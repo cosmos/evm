@@ -136,12 +136,18 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 }
 
+// HydrateGlobals restores global EVM variables from KV store after a node restart (post-genesis).
+func (am AppModule) HydrateGlobals(goCtx context.Context) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if ctx.BlockHeight() > 1 {
+		am.hydrateGlobals(ctx)
+	}
+}
+
 func (am AppModule) PreBlock(goCtx context.Context) (appmodule.ResponsePreBlock, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
-	am.initializer.Do(func() {
-		SetGlobalConfigVariables(coinInfo)
-	})
+	am.hydrateGlobals(ctx)
+
 	return &sdk.ResponsePreBlock{ConsensusParamsChanged: false}, nil
 }
 
@@ -193,6 +199,11 @@ func (am AppModule) IsAppModule() {}
 // IsOnePerModuleType implements the depinject.OnePerModuleType interface.
 func (am AppModule) IsOnePerModuleType() {}
 
+func (am AppModule) hydrateGlobals(ctx sdk.Context) {
+	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
+	am.initializer.Do(func() { SetGlobalConfigVariables(coinInfo) })
+}
+
 // setBaseDenom registers the display denom and base denom and sets the
 // base denom for the chain. The function registered different values based on
 // the EvmCoinInfo to allow different configurations in mainnet and testnet.
@@ -219,9 +230,11 @@ func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
 	}
 
 	configurator := types.NewEVMConfigurator()
+
+	// we're using the 18 decimals default for the example chain
+	// note that .Configure() sets global evmCoinInfo
 	err := configurator.
 		WithExtendedEips(types.DefaultCosmosEVMActivators).
-		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {
