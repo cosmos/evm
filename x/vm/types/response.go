@@ -14,7 +14,7 @@ import (
 // PatchTxResponses fills the evm tx index and log indexes in the tx result.
 // Note: txIndex starts at 0 and is incremented for each Ethereum transaction found.
 // This ensures proper indexing when multiple EVM transactions are included in a block.
-func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
+func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) {
 	var (
 		txIndex  uint64
 		logIndex uint64
@@ -27,7 +27,7 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 
 		var txMsgData sdk.TxMsgData
 		if err := proto.Unmarshal(res.Data, &txMsgData); err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		var (
@@ -42,7 +42,7 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 			}
 
 			if err := proto.Unmarshal(rsp.Value, &response); err != nil {
-				panic(err)
+				return nil, err
 			}
 
 			anteEvents = append(anteEvents, abci.Event{
@@ -62,7 +62,7 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 
 				anyRsp, err := codectypes.NewAnyWithValue(&response)
 				if err != nil {
-					panic(err)
+					return nil, err
 				}
 				txMsgData.MsgResponses[i] = anyRsp
 
@@ -82,12 +82,12 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 			if dataDirty {
 				data, err := proto.Marshal(&txMsgData)
 				if err != nil {
-					panic(err)
+					return nil, err
 				}
 
 				res.Data = data
 			}
 		}
 	}
-	return input
+	return input, nil
 }

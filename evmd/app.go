@@ -158,7 +158,7 @@ func (r *customRunner) Run(ctx context.Context, ms storetypes.MultiStore, txs []
 		return nil, err
 	}
 
-	return evmtypes.PatchTxResponses(results), nil
+	return evmtypes.PatchTxResponses(results)
 }
 
 // EVMD extends an ABCI application, but with most of its parameters exported.

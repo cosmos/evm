@@ -183,7 +183,8 @@ func TestPatchTxResponses(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := evmtypes.PatchTxResponses(tc.input)
+			result, err := evmtypes.PatchTxResponses(tc.input)
+			require.NoError(t, err)
 			tc.validate(t, result)
 		})
 	}
@@ -192,7 +193,8 @@ func TestPatchTxResponses(t *testing.T) {
 func TestPatchTxResponses_EventAttributes(t *testing.T) {
 	txHash := common.BytesToHash([]byte("test_hash"))
 	input := []*abci.ExecTxResult{createEthTxResult(t, txHash.Hex(), 0, 0)}
-	result := evmtypes.PatchTxResponses(input)
+	result, err := evmtypes.PatchTxResponses(input)
+	require.NoError(t, err)
 
 	require.Len(t, result, 1)
 	require.Len(t, result[0].Events, 1)
@@ -211,7 +213,8 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 		createEthTxResult(t, "hash2", 3, 0), // Logs 2, 3, 4
 		createEthTxResult(t, "hash3", 1, 0), // Log 5
 	}
-	result := evmtypes.PatchTxResponses(input)
+	result, err := evmtypes.PatchTxResponses(input)
+	require.NoError(t, err)
 	expectedLogIndexes := [][]uint64{
 		{0, 1},
 		{2, 3, 4},
