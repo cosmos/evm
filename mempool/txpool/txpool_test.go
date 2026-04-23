@@ -7,7 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/log/v2"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
@@ -85,7 +88,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
 	recheckGuard := make(chan struct{})
-	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain, legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
+	legacyPool := legacypool.New(legacypool.DefaultConfig, log.NewNopLogger(), legacyChain, reaplist.New(stubTxEncoder{}), txtracker.New(), legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
@@ -150,3 +153,9 @@ func (mr *BlockingRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) 
 }
 
 func (mr *BlockingRechecker) Update(ctx sdk.Context, header *types.Header) {}
+
+// minimal tx encoder to construct a testing reaplist
+type stubTxEncoder struct{}
+
+func (stubTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) { return tx.Hash().Bytes(), nil }
+func (stubTxEncoder) CosmosTx(sdk.Tx) ([]byte, error)             { return nil, nil }

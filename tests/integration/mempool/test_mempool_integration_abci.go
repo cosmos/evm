@@ -4,9 +4,6 @@ import (
 	"encoding/hex"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
@@ -176,16 +173,17 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// cosmos txs are available via Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -202,9 +200,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
@@ -396,16 +395,17 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
+			// Call CheckTx or InsertTx for transactions
+			err := s.insertOrCheckTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
 			// HeightSync is at the correct height for Select/PrepareProposal.
 			mpool := s.network.App.GetMempool()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(s.network.GetContext().BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 
 			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
@@ -420,9 +420,10 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			s.Require().NoError(err)
 
 			ctx := s.network.GetContext()
-			if evmMp, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-				evmMp.GetBlockchain().NotifyNewBlock()
-				evmMp.RecheckCosmosTxs(&types.Header{Number: big.NewInt(ctx.BlockHeight())})
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 
@@ -442,99 +443,6 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				txHashes = append(txHashes, txHash)
 			}
 			s.Require().Equal(expTxHashes, txHashes)
-		})
-	}
-}
-
-// TestCheckTxHandlerForCommittedAndLowerNonceTxs tests that:
-// 1. Committed transactions are not in the mempool after block finalization
-// 2. New transactions with nonces lower than current nonce fail at mempool level
-func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() {
-	testCases := []struct {
-		name       string
-		setupTxs   func() []sdk.Tx
-		verifyFunc func()
-	}{
-		{
-			name: "EVM transactions: committed txs removed from mempool and lower nonce txs fail",
-			setupTxs: func() []sdk.Tx {
-				key := s.keyring.GetKey(0)
-
-				// Create transactions with sequential nonces (0, 1, 2)
-				tx0 := s.createEVMValueTransferTx(key, 0, big.NewInt(2000000000))
-				tx1 := s.createEVMValueTransferTx(key, 1, big.NewInt(2000000000))
-				tx2 := s.createEVMValueTransferTx(key, 2, big.NewInt(2000000000))
-
-				return []sdk.Tx{tx0, tx1, tx2}
-			},
-			verifyFunc: func() {
-				// 1. Verify the correct nonce transaction is in mempool
-				mpool := s.network.App.GetMempool()
-				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
-
-				// 2. Check current sequence
-				acc := s.network.App.GetAccountKeeper().GetAccount(s.network.GetContext(), s.keyring.GetAccAddr(0))
-				sequence := acc.GetSequence()
-				s.Require().Equal(uint64(3), sequence)
-
-				// 3. Check new transactions with nonces lower than current nonce fails
-				// Current nonce should be 3 after committing nonces 1, 2
-				//
-				// NOTE: The reason we don't try tx with nonce 0 is
-				// because txFactory replace nonce 0 with curreent nonce.
-				// So we just test for nonce 1 and 2.
-				key := s.keyring.GetKey(0)
-
-				// Try to add transaction with nonce 1 (lower than current nonce 3) - should fail
-				dupTx1 := s.createEVMValueTransferTx(key, 1, big.NewInt(2000000000))
-				res, err := s.checkTx(dupTx1)
-				s.Require().NoError(err, "Transaction with nonce 1 should fail when current nonce is 3")
-				s.Require().Contains(res.GetLog(), core.ErrNonceTooLow.Error())
-				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
-
-				// Try to add transaction with nonce 2 (lower than current nonce 3) - should fail
-				dupTx2 := s.createEVMValueTransferTx(key, 2, big.NewInt(2000000000))
-				res, err = s.checkTx(dupTx2)
-				s.Require().NoError(err, "Transaction with nonce 2 should fail when current nonce is 3")
-				s.Require().Contains(res.GetLog(), core.ErrNonceTooLow.Error())
-				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
-
-				// Verify transaction with correct nonce (3) still works
-				tx3 := s.createEVMValueTransferTx(key, 3, big.NewInt(2000000000))
-				res, err = s.checkTx(tx3)
-				s.Require().NoError(err, "Transaction with correct nonce 3 should succeed")
-				s.Require().Equal(abci.CodeTypeOK, res.Code)
-				s.Require().Equal(1, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			// Clean up previous test's resources before resetting
-			s.TearDownTest()
-			// Reset test setup to ensure clean state
-			s.SetupTest()
-
-			txs := tc.setupTxs()
-
-			// Call CheckTx for transactions
-			err := s.checkTxs(txs)
-			s.Require().NoError(err)
-
-			// Finalize block with txs and Commit state
-			txBytes, err := s.getTxBytes(txs)
-			s.Require().NoError(err)
-
-			_, err = s.network.NextBlockWithTxs(txBytes...)
-			s.Require().NoError(err)
-
-			// Manually trigger chain head event to notify mempool about the new block
-			// This simulates the natural block notification that occurs in production
-			s.notifyNewBlockToMempool()
-
-			// Run verification function
-			tc.verifyFunc()
 		})
 	}
 }

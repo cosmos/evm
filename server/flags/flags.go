@@ -51,6 +51,7 @@ const (
 	JSONRPCBlockRangeCap        = "json-rpc.block-range-cap"
 	JSONRPCHTTPTimeout          = "json-rpc.http-timeout"
 	JSONRPCHTTPIdleTimeout      = "json-rpc.http-idle-timeout"
+	JSONRPCHTTPBodyLimit        = "json-rpc.http-body-limit"
 	JSONRPCAllowUnprotectedTxs  = "json-rpc.allow-unprotected-txs"
 	JSONRPCMaxOpenConnections   = "json-rpc.max-open-connections"
 	JSONRPCEnableIndexer        = "json-rpc.enable-indexer"
@@ -79,7 +80,9 @@ const (
 	EVMMempoolAccountQueue             = "evm.mempool.account-queue"
 	EVMMempoolGlobalQueue              = "evm.mempool.global-queue"
 	EVMMempoolLifetime                 = "evm.mempool.lifetime"
+	EVMMempoolIncludedNonceCacheSize   = "evm.mempool.included-nonce-cache-size"
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
+	EVMMempoolCheckTxTimeout           = "evm.mempool.check-tx-timeout"
 	EVMMempoolInsertQueueSize          = "evm.mempool.insert-queue-size"
 )
 

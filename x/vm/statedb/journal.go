@@ -102,9 +102,7 @@ type (
 		prev *stateObject
 	}
 	selfDestructChange struct {
-		account     *common.Address
-		prev        bool // whether account had already self-destructed
-		prevbalance *uint256.Int
+		account *common.Address
 	}
 
 	// Changes to individual accounts.
@@ -213,8 +211,7 @@ func (ch resetObjectChange) Dirtied() *common.Address {
 func (ch selfDestructChange) Revert(s *StateDB) {
 	obj := s.getStateObject(*ch.account)
 	if obj != nil {
-		obj.selfDestructed = ch.prev
-		obj.setBalance(ch.prevbalance)
+		obj.selfDestructed = false
 	}
 }
 

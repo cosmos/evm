@@ -19,7 +19,7 @@ import (
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
-	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	servertypes "github.com/cosmos/evm/server/types"
@@ -31,6 +31,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 // BackendI implements the Cosmos and EVM backend.
@@ -138,6 +139,16 @@ type EVMBackend interface {
 	TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
 }
 
+// TrackingMempool is a set of methods that a mempool may implement in order to
+// track evm transaction lifecycle events.
+type TrackingMempool interface {
+	// TrackTx is called when a tx should start to be tracked by the
+	// TrackingMempool. This is called on tx ingestion from the rpc backend.
+	// This is NOT called when txs are ingested over p2p, i.e local
+	// transactions only.
+	TrackTx(hash common.Hash) error
+}
+
 var (
 	_ BackendI = (*Backend)(nil)
 
@@ -167,6 +178,14 @@ type ProcessBlocker func(
 	targetOneFeeHistory *types.OneFeeHistory,
 ) error
 
+// Mempool is a mempool that can be used for the rpc backend.
+type Mempool interface {
+	sdkmempool.Mempool
+
+	// GetTxPool returns the mempools underlying evm txpool.
+	GetTxPool() *txpool.TxPool
+}
+
 // Backend implements the BackendI interface
 type Backend struct {
 	ClientCtx           client.Context
@@ -176,31 +195,17 @@ type Backend struct {
 	EvmChainID          *big.Int
 	Cfg                 config.Config
 	AllowUnprotectedTxs bool
-	UseAppMempool       bool
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
-	Application         Application
-	Mempool             *evmmempool.ExperimentalEVMMempool
+	Mempool             Mempool
 }
 
 // Opt is a function type that configures the backend.
 type Opt func(*Backend)
 
-// Application represents ABCI application itself (us).
-// This is used for opaque ABCI calls instead of injecting BaseApp into Backend.
-type Application interface {
-	GetContextForCheckTx(txBytes []byte) sdk.Context
-}
-
 // WithUnprotectedTxs sets whether to allow unprotected transactions.
 func WithUnprotectedTxs(value bool) Opt {
 	return func(b *Backend) { b.AllowUnprotectedTxs = value }
-}
-
-// WithAppMempool sets whether to use the app-side mempool instead of
-// broadcasting the tx to cometbft mempool.
-func WithAppMempool(value bool) Opt {
-	return func(b *Backend) { b.UseAppMempool = value }
 }
 
 // WithLogger sets the logger for the backend.
@@ -208,17 +213,12 @@ func WithLogger(logger log.Logger) Opt {
 	return func(b *Backend) { b.Logger = logger.With("module", "backend") }
 }
 
-// WithApplication sets the ABCI application for the backend.
-func WithApplication(abciApp Application) Opt {
-	return func(b *Backend) { b.Application = abciApp }
-}
-
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
 func NewBackend(
 	ctx *server.Context,
 	clientCtx client.Context,
 	indexer servertypes.EVMTxIndexer,
-	mempool *evmmempool.ExperimentalEVMMempool,
+	mempool Mempool,
 	opts ...Opt,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
@@ -238,7 +238,6 @@ func NewBackend(
 		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
 		Cfg:                 appConf,
 		AllowUnprotectedTxs: false,
-		UseAppMempool:       false,
 		Indexer:             indexer,
 		Mempool:             mempool,
 		Logger:              log.NewNopLogger(),
@@ -255,4 +254,18 @@ func NewBackend(
 
 func (b *Backend) GetConfig() config.Config {
 	return b.Cfg
+}
+
+// TrackTxIfSupported calls TrackTx on the backends mempool if it is a
+// supported method.
+func (b *Backend) TrackTxIfSupported(txHash common.Hash) {
+	tm, ok := b.Mempool.(TrackingMempool)
+	if !ok {
+		return
+	}
+
+	// track the tx for tx inclusion timing metrics of local txs
+	if err := tm.TrackTx(txHash); err != nil {
+		b.Logger.Error("error tracking inserted inserted into mempool", "hash", txHash, "err", err)
+	}
 }

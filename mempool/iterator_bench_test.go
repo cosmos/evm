@@ -30,11 +30,11 @@ import (
 
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	cosmostx "github.com/cosmos/cosmos-sdk/client/tx"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktxsigning "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -180,8 +180,8 @@ func benchPrivKeyToCosmos(b *testing.B, key *ecdsa.PrivateKey) cryptotypes.PrivK
 	return cosmosKey
 }
 
-// setupBenchMempool creates an ExperimentalEVMMempool with mocked state.
-func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount) (sdk.Context, client.TxConfig, *evmmempool.ExperimentalEVMMempool) {
+// setupBenchMempool creates an Mempool with mocked state.
+func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount) (sdk.Context, client.TxConfig, *evmmempool.Mempool) {
 	b.Helper()
 
 	ethCfg := vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)
@@ -191,15 +191,13 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).
 		Configure() // ignore if already configured
 
-	mockVMKeeper := mocks.NewVMKeeper(b)
-	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(b)
-	mockEVMRechecker := &MockRechecker{}
-	mockCosmosRechecker := &MockRechecker{}
-
+	mockVMKeeper := mocks.NewVMKeeperI(b)
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
-	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10_000_000)).Maybe()
 	mockVMKeeper.On("GetEvmCoinInfo", mock.Anything).Return(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Maybe()
+
+	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(b)
+	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10_000_000)).Maybe()
 
 	// Register each account with proper balance
 	for _, acc := range evmAccounts {
@@ -263,25 +261,31 @@ func setupBenchMempool(b *testing.B, evmAccounts, cosmosAccounts []benchAccount)
 		return ctx, nil
 	}
 
-	config := &evmmempool.EVMMempoolConfig{
+	config := &evmmempool.Config{
 		LegacyPoolConfig: &legacyConfig,
 		BlockGasLimit:    benchBlockGasLimit,
 		MinTip:           uint256.NewInt(0),
 		AnteHandler:      noopAnteHandler,
+
+		PendingTxProposalTimeout: 200 * time.Millisecond,
+		InsertQueueSize:          10_000,
 	}
 
-	mpool := evmmempool.NewExperimentalEVMMempool(
+	txEncoder := evmmempool.NewTxEncoder(txConfig)
+	evmRechecker := evmmempool.NewTxRechecker(noopAnteHandler, txEncoder)
+	cosmosRechecker := evmmempool.NewTxRechecker(noopAnteHandler, txEncoder)
+	mpool := evmmempool.NewMempool(
 		getCtxCallback,
 		log.NewNopLogger(),
 		mockVMKeeper,
 		mockFeeMarketKeeper,
 		txConfig,
-		evmmempool.NewTxEncoder(txConfig),
-		mockEVMRechecker,
-		mockCosmosRechecker,
+		evmRechecker,
+		cosmosRechecker,
 		config,
-		0, // cosmosPoolMaxTx (0 = unlimited)
+		0,
 	)
+
 	mpool.SetClientCtx(clientCtx)
 	require.NotNil(b, mpool)
 

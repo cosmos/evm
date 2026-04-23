@@ -14,7 +14,6 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/stream"
@@ -23,14 +22,12 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const shutdownTimeout = 200 * time.Millisecond
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
-	GetContextForCheckTx(txBytes []byte) sdk.Context
 }
 
 // StartJSONRPC starts the JSON-RPC server
@@ -42,7 +39,7 @@ func StartJSONRPC(
 	config *serverconfig.Config,
 	indexer types.EVMTxIndexer,
 	app AppWithPendingTxStream,
-	mempool *evmmempool.ExperimentalEVMMempool,
+	mempool backend.Mempool,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
 
@@ -60,8 +57,6 @@ func StartJSONRPC(
 		indexer,
 		mempool,
 		backend.WithUnprotectedTxs(config.JSONRPC.AllowUnprotectedTxs),
-		backend.WithAppMempool(mempool.IsExclusive()),
-		backend.WithApplication(app),
 		backend.WithLogger(srvCtx.Logger),
 	)
 
@@ -69,6 +64,7 @@ func StartJSONRPC(
 
 	rpcServer := ethrpc.NewServer()
 	rpcServer.SetBatchLimits(config.JSONRPC.BatchRequestLimit, config.JSONRPC.BatchResponseMaxSize)
+	rpcServer.SetHTTPBodyLimit(config.JSONRPC.HTTPBodyLimit)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

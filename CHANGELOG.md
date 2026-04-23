@@ -13,6 +13,9 @@
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
 - [\#968](https://github.com/cosmos/evm/pull/968) Use normal gas config in ibc transfer to prevent potential DoS attack
 - [\#1029](https://github.com/cosmos/evm/pull/1029) Mark EvmCoinInfo.Decimals field as deprecated
+- [\#1079](https://github.com/cosmos/evm/pull/1079) Access Control List is now case-insensitive
+- [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
+- [\#1118](https://github.com/cosmos/evm/pull/1118) Cache chain denom for evm mempool
 
 ### FEATURES
 
@@ -45,6 +48,8 @@
 - [\#992](https://github.com/cosmos/evm/pull/992) Respect the provided `gasCap` in `CallEVMWithData` instead of always used the default cap.
 - [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
 - [\#1061](https://github.com/cosmos/evm/pull/9910613) Block nested ICS20 forwarding in source callbacks.
+- [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
+
 
 ## v0.6.0
 

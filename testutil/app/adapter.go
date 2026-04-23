@@ -9,13 +9,12 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
-	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
-	storetypes "cosmossdk.io/store/types"
+	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"

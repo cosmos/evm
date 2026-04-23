@@ -1,15 +1,14 @@
 package legacypool
 
 import (
-	"math/big"
 	"sort"
 	"sync"
 
+	"cosmossdk.io/log/v2"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/holiman/uint256"
 )
 
 // txsCollected is the total amount of txs returned by Collect.
@@ -23,14 +22,19 @@ type TxStore struct {
 	// lookup provides a fast lookup to determine if a tx is in the set or not
 	lookup map[common.Hash]struct{}
 
-	mu sync.RWMutex
+	total uint64
+
+	logger log.Logger
+	mu     sync.RWMutex
 }
 
 // NewTxStore creates a new TxStore.
-func NewTxStore() *TxStore {
+func NewTxStore(logger log.Logger) *TxStore {
 	return &TxStore{
 		txs:    make(map[common.Address]types.Transactions),
+		total:  0,
 		lookup: make(map[common.Hash]struct{}),
+		logger: logger.With("txstore", "evm"),
 	}
 }
 
@@ -44,53 +48,19 @@ func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
-	var (
-		minTipBig  *big.Int
-		baseFeeBig *big.Int
-	)
-	if filter.MinTip != nil {
-		minTipBig = filter.MinTip.ToBig()
-	}
-	if filter.BaseFee != nil {
-		baseFeeBig = filter.BaseFee.ToBig()
-	}
-
 	numSelected := 0
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(t.txs))
 
 	for addr, txs := range t.txs {
 		sort.Sort(types.TxByNonce(txs))
 
-		// Filter by minimum tip if configured
-		if minTipBig != nil {
-			for i, tx := range txs {
-				if tx.EffectiveGasTipIntCmp(minTipBig, baseFeeBig) < 0 {
-					txs = txs[:i]
-					break
-				}
-			}
-		}
-
-		// Convert to lazy transactions
-		if len(txs) > 0 {
-			lazies := make([]*txpool.LazyTransaction, len(txs))
-			for i, tx := range txs {
-				lazies[i] = &txpool.LazyTransaction{
-					Hash:      tx.Hash(),
-					Tx:        tx,
-					Time:      tx.Time(),
-					GasFeeCap: uint256.MustFromBig(tx.GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
-					Gas:       tx.Gas(),
-					BlobGas:   tx.BlobGas(),
-				}
-			}
+		if lazies := filterAndWrapTxs(txs, filter.MinTip, filter.BaseFee); len(lazies) > 0 {
 			numSelected += len(lazies)
 			pending[addr] = lazies
 		}
 	}
 
+	t.logger.Info("collected txs from evm tx store", "total_in_store", t.total, "num_selected", numSelected)
 	txsCollected.Mark(int64(numSelected))
 	return pending
 }
@@ -106,6 +76,7 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 			continue
 		}
 		toAdd = append(toAdd, tx)
+		t.lookup[tx.Hash()] = struct{}{}
 	}
 
 	if existing, ok := t.txs[addr]; ok {
@@ -113,6 +84,13 @@ func (t *TxStore) AddTxs(addr common.Address, txs types.Transactions) {
 	} else {
 		t.txs[addr] = toAdd
 	}
+
+	// mark the txs in the lookup
+	for _, tx := range toAdd {
+		t.lookup[tx.Hash()] = struct{}{}
+	}
+
+	t.total += uint64(len(toAdd))
 }
 
 // AddTx adds a single tx to the store.
@@ -122,24 +100,37 @@ func (t *TxStore) AddTx(addr common.Address, tx *types.Transaction) {
 
 // RemoveTx removes a tx for an address from the current set.
 func (t *TxStore) RemoveTx(addr common.Address, tx *types.Transaction) {
+	t.RemoveTxsFromNonce(addr, tx.Nonce())
+}
+
+// RemoveTxsFromNonce removes all txs for addr whose nonce is >= minNonce.
+func (t *TxStore) RemoveTxsFromNonce(addr common.Address, minNonce uint64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
-	defer delete(t.lookup, tx.Hash())
 
 	txs, ok := t.txs[addr]
 	if !ok {
 		return
 	}
 
-	// Find and remove the tx by nonce
-	nonce := tx.Nonce()
-	for i := 0; i < len(txs); i++ {
-		if txs[i].Nonce() == nonce {
-			// Swap with last element and truncate
-			txs[i] = txs[len(txs)-1]
-			t.txs[addr] = txs[:len(txs)-1]
-			return
+	next := txs[:0]
+	numRemoved := 0
+	for _, existing := range txs {
+		if existing.Nonce() >= minNonce {
+			delete(t.lookup, existing.Hash())
+			numRemoved++
+			continue
 		}
+		next = append(next, existing)
 	}
+
+	// memory reclaim
+	clear(txs[len(next):])
+
+	t.total -= uint64(numRemoved)
+	if len(next) == 0 {
+		delete(t.txs, addr)
+		return
+	}
+	t.txs[addr] = next
 }
