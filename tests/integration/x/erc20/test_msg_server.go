@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"math/big"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/mock/gomock"
+
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/x/erc20/keeper"

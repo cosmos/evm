@@ -3,9 +3,10 @@ package vm
 import (
 	"math/big"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
