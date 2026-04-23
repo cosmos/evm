@@ -21,7 +21,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 var (
@@ -92,9 +91,10 @@ type RecheckMempool struct {
 	// reserver coordinates address reservations with other pools (i.e. legacypool)
 	reserver *reserver.ReservationHandle
 
-	rechecker  Rechecker
-	blockchain *Blockchain
-	logger     log.Logger
+	rechecker       Rechecker
+	blockchain      *Blockchain
+	signerExtractor sdkmempool.SignerExtractionAdapter
+	logger          log.Logger
 
 	// event channels
 	reqRecheckCh    chan *recheckRequest // channel that schedules rechecking.
@@ -129,6 +129,7 @@ func NewRecheckMempool(
 		reserver:        reserver,
 		rechecker:       rechecker,
 		blockchain:      blockchain,
+		signerExtractor: sdkmempool.NewDefaultSignerExtractionAdapter(),
 		logger:          logger.With(log.ModuleKey, "RecheckMempool"),
 		reqRecheckCh:    make(chan *recheckRequest),
 		recheckDoneCh:   make(chan chan struct{}),
@@ -167,12 +168,9 @@ func (m *RecheckMempool) Close() error {
 // This is the main entry point for new cosmos transactions.
 func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 	// Reserve addresses to prevent conflicts with EVM pool
-	addrs, err := signerAddressesFromTx(tx)
+	addrs, err := m.acquireTxReservations(tx)
 	if err != nil {
-		return err
-	}
-	if err := m.reserver.Hold(addrs...); err != nil {
-		return fmt.Errorf("reserving %d addresses for cosmos recheck pool: %w", len(addrs), err)
+		return fmt.Errorf("acquiring reservations for tx: %w", err)
 	}
 
 	m.mu.Lock()
@@ -231,6 +229,41 @@ func (m *RecheckMempool) RemoveWithReason(_ context.Context, tx sdk.Tx, _ sdkmem
 	return m.Remove(tx)
 }
 
+// releaseTxReservations extracts the signers of tx and releases their
+// reserver holds. Returns an error only if signer extraction fails; any
+// error from the reserver itself is swallowed to preserve the prior
+// best-effort cleanup semantics.
+func (m *RecheckMempool) releaseTxReservations(tx sdk.Tx) error {
+	signers, err := m.signerExtractor.GetSigners(tx)
+	if err != nil {
+		return fmt.Errorf("getting signers for tx: %w", err)
+	}
+	addrs := make([]common.Address, len(signers))
+	for i, s := range signers {
+		addrs[i] = common.BytesToAddress(s.Signer)
+	}
+	_ = m.reserver.Release(addrs...) // best-effort cleanup
+	return nil
+}
+
+// acquireTxReservations extracts the signers of tx and acquires their reserver
+// holds. Returns any addresses who are now reserved, and any errors that
+// occurred.
+func (m *RecheckMempool) acquireTxReservations(tx sdk.Tx) ([]common.Address, error) {
+	signers, err := m.signerExtractor.GetSigners(tx)
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]common.Address, len(signers))
+	for i, s := range signers {
+		addrs[i] = common.BytesToAddress(s.Signer)
+	}
+	if err := m.reserver.Hold(addrs...); err != nil {
+		return nil, fmt.Errorf("reserving %d addresses for cosmos recheck pool: %w", len(addrs), err)
+	}
+	return addrs, nil
+}
+
 // removeLocked removes a tx from the underlying pool and releases the
 // reserver. Caller must hold m.mu.
 func (m *RecheckMempool) removeLocked(tx sdk.Tx) error {
@@ -238,11 +271,9 @@ func (m *RecheckMempool) removeLocked(tx sdk.Tx) error {
 		return err
 	}
 
-	addrs, err := signerAddressesFromTx(tx)
-	if err != nil {
-		panic("failed to extract signer addresses from tx during Remove")
+	if err := m.releaseTxReservations(tx); err != nil {
+		panic("failed to extract signers from tx during Remove")
 	}
-	m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 	m.reapList.DropCosmosTx(tx)
 
 	return nil
@@ -418,16 +449,16 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		txsChecked++
-		signerSeqs, err := extractSignerSequences(txn)
+		signers, err := m.signerExtractor.GetSigners(txn)
 		if err != nil {
-			m.logger.Error("failed to extract signer sequences", "err", err)
+			m.logger.Error("failed to extract signers", "err", err)
 			iter = iter.Next()
 			continue
 		}
 
 		invalidTx := false
-		for _, sig := range signerSeqs {
-			if failedSeq, ok := failedAtSequence[sig.account]; ok && failedSeq < sig.seq {
+		for _, s := range signers {
+			if failedSeq, ok := failedAtSequence[string(s.Signer)]; ok && failedSeq < s.Sequence {
 				invalidTx = true
 				break
 			}
@@ -444,9 +475,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		removeTxs = append(removeTxs, txn)
-		for _, sig := range signerSeqs {
-			if existing, ok := failedAtSequence[sig.account]; !ok || existing > sig.seq {
-				failedAtSequence[sig.account] = sig.seq
+		for _, s := range signers {
+			key := string(s.Signer)
+			if existing, ok := failedAtSequence[key]; !ok || existing > s.Sequence {
+				failedAtSequence[key] = s.Sequence
 			}
 		}
 
@@ -465,12 +497,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 		m.reapList.DropCosmosTx(txn)
 
-		addrs, err := signerAddressesFromTx(txn)
-		if err != nil {
-			m.logger.Error("failed to extract signer addresses for release", "err", err)
+		if err := m.releaseTxReservations(txn); err != nil {
+			m.logger.Error("failed to release reservations", "err", err)
 			continue
 		}
-		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 	}
 	txsRemoved = len(removeTxs)
 }
@@ -492,37 +522,6 @@ func (m *RecheckMempool) markTxInserted(txn sdk.Tx) {
 	})
 }
 
-type signerSequence struct {
-	account string
-	seq     uint64
-}
-
-// extractSignerSequences extracts account addresses and sequences from a tx.
-func extractSignerSequences(txn sdk.Tx) ([]signerSequence, error) {
-	sigTx, ok := txn.(authsigning.SigVerifiableTx)
-	if !ok {
-		return nil, fmt.Errorf(
-			"tx does not implement %T",
-			(*authsigning.SigVerifiableTx)(nil),
-		)
-	}
-
-	sigs, err := sigTx.GetSignaturesV2()
-	if err != nil {
-		return nil, err
-	}
-
-	signerSeqs := make([]signerSequence, 0, len(sigs))
-	for _, sig := range sigs {
-		signerSeqs = append(signerSeqs, signerSequence{
-			account: sig.PubKey.Address().String(),
-			seq:     sig.Sequence,
-		})
-	}
-
-	return signerSeqs, nil
-}
-
 // isCancelled checks if the cancellation channel has been closed.
 func isCancelled(ch <-chan struct{}) bool {
 	select {
@@ -531,30 +530,6 @@ func isCancelled(ch <-chan struct{}) bool {
 	default:
 		return false
 	}
-}
-
-// signerAddressesFromTx extracts signer addresses from a transaction as EVM addresses.
-func signerAddressesFromTx(tx sdk.Tx) ([]common.Address, error) {
-	sigTx, ok := tx.(authsigning.SigVerifiableTx)
-	if !ok {
-		return nil, fmt.Errorf("tx does not implement GetSigners")
-	}
-
-	signers, err := sigTx.GetSigners()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(signers) == 0 {
-		return nil, fmt.Errorf("tx contains no signers")
-	}
-
-	addrs := make([]common.Address, 0, len(signers))
-	for _, signer := range signers {
-		addrs = append(addrs, common.BytesToAddress(signer))
-	}
-
-	return addrs, nil
 }
 
 func cosmosPoolConfig(

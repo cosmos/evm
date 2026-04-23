@@ -16,10 +16,11 @@ import (
 // CosmosTxStore is a set of cosmos transactions that can be added to or
 // removed from.
 type CosmosTxStore struct {
-	txs         map[string]cosmosTxBucket
-	nextUnkeyed uint64
-	logger      log.Logger
-	mu          sync.RWMutex
+	txs             map[string]cosmosTxBucket
+	nextUnkeyed     uint64
+	logger          log.Logger
+	signerExtractor sdkmempool.SignerExtractionAdapter
+	mu              sync.RWMutex
 }
 
 type cosmosTxBucket struct {
@@ -38,8 +39,9 @@ type cosmosTxWithMetadata struct {
 // NewCosmosTxStore creates a new CosmosTxStore.
 func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
-		txs:    make(map[string]cosmosTxBucket),
-		logger: l,
+		txs:             make(map[string]cosmosTxBucket),
+		logger:          l,
+		signerExtractor: sdkmempool.NewDefaultSignerExtractionAdapter(),
 	}
 }
 
@@ -48,7 +50,7 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	storedTx := newCosmosTxWithMetadata(tx)
+	storedTx := s.newCosmosTxWithMetadata(tx)
 	if storedTx.signerKey == "" {
 		storedTx.signerKey = unkeyedSignerKey
 	}
@@ -80,7 +82,7 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	storedTx := newCosmosTxWithMetadata(tx)
+	storedTx := s.newCosmosTxWithMetadata(tx)
 
 	// first check if this tx is already here. If it isn't; no need to do anything. It's a fresh insert.
 	// If it is, we need to do the work of invaliding any txs from the same sender with a higher nonce.
@@ -124,10 +126,10 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 	return removed
 }
 
-func newCosmosTxWithMetadata(tx sdk.Tx) cosmosTxWithMetadata {
+func (s *CosmosTxStore) newCosmosTxWithMetadata(tx sdk.Tx) cosmosTxWithMetadata {
 	storedTx := cosmosTxWithMetadata{tx: tx}
 
-	nonceMap, ok := cosmosTxNonceMap(tx)
+	nonceMap, ok := s.cosmosTxNonceMap(tx)
 	if !ok {
 		return storedTx
 	}
@@ -143,11 +145,11 @@ const unkeyedSignerKey = "unkeyed"
 
 func cosmosTxSignerSetKey(nonceMap map[string]uint64) string {
 	var b strings.Builder
-	for i, sig := range sortedSignerNonces(nonceMap) {
+	for i, k := range sortedSignerKeys(nonceMap) {
 		if i > 0 {
 			b.WriteByte('|')
 		}
-		b.WriteString(sig.account)
+		b.WriteString(k)
 	}
 
 	return b.String()
@@ -155,11 +157,11 @@ func cosmosTxSignerSetKey(nonceMap map[string]uint64) string {
 
 func cosmosTxKey(nonceMap map[string]uint64) string {
 	var b strings.Builder
-	for i, sig := range sortedSignerNonces(nonceMap) {
+	for i, k := range sortedSignerKeys(nonceMap) {
 		if i > 0 {
 			b.WriteByte('|')
 		}
-		fmt.Fprintf(&b, "%s/%020d", sig.account, sig.seq)
+		fmt.Fprintf(&b, "%s/%020d", k, nonceMap[k])
 	}
 
 	return b.String()
@@ -175,33 +177,33 @@ func cosmosTxNonceSum(nonceMap map[string]uint64) uint64 {
 
 // cosmosTxNonceMap extracts the signers from the transaction
 // and returns a signer -> nonce map.
-func cosmosTxNonceMap(tx sdk.Tx) (map[string]uint64, bool) {
-	signerSeqs, err := extractSignerSequences(tx)
-	if err != nil || len(signerSeqs) == 0 {
+func (s *CosmosTxStore) cosmosTxNonceMap(tx sdk.Tx) (map[string]uint64, bool) {
+	signers, err := s.signerExtractor.GetSigners(tx)
+	if err != nil || len(signers) == 0 {
 		return nil, false
 	}
 
-	nonceMap := make(map[string]uint64, len(signerSeqs))
-	for _, sig := range signerSeqs {
-		nonce, err := sdkmempool.ChooseNonce(sig.seq, tx)
+	nonceMap := make(map[string]uint64, len(signers))
+	for _, sig := range signers {
+		nonce, err := sdkmempool.ChooseNonce(sig.Sequence, tx)
 		if err != nil {
 			return nil, false
 		}
-		nonceMap[sig.account] = nonce
+		nonceMap[string(sig.Signer)] = nonce
 	}
 
 	return nonceMap, true
 }
 
-func sortedSignerNonces(nonceMap map[string]uint64) []signerSequence {
-	signerSeqs := make([]signerSequence, 0, len(nonceMap))
-	for account, seq := range nonceMap {
-		signerSeqs = append(signerSeqs, signerSequence{account: account, seq: seq})
+// sortedSignerKeys returns the signer-address keys of nonceMap in stable
+// ascending byte order, for use in deterministic signer-set / tx keys.
+func sortedSignerKeys(nonceMap map[string]uint64) []string {
+	keys := make([]string, 0, len(nonceMap))
+	for k := range nonceMap {
+		keys = append(keys, k)
 	}
-	slices.SortFunc(signerSeqs, func(a, b signerSequence) int {
-		return strings.Compare(a.account, b.account)
-	})
-	return signerSeqs
+	slices.Sort(keys)
+	return keys
 }
 
 func invalidatesCosmosTx(tx cosmosTxWithMetadata, thresholds map[string]uint64) bool {
