@@ -31,8 +31,7 @@ var (
 	errInvalidBlockRange      = errors.New("invalid block range params")
 	errPendingLogsUnsupported = errors.New("pending logs are not supported")
 
-	tracer                    = otel.Tracer("evm/rpc/namespaces/ethereum/eth/filters")
-	errFilterCreationDisabled = errors.New("filter creation is disabled")
+	tracer = otel.Tracer("evm/rpc/namespaces/ethereum/eth/filters")
 )
 
 // FilterAPI gathers
@@ -240,7 +239,7 @@ func (api *PublicFilterAPI) resetFilterTimer(timer *time.Timer) {
 func (api *PublicFilterAPI) ensureFilterCreationAllowedLocked(clientIP string) error {
 	globalCap := int(api.backend.RPCFilterCap())
 	if globalCap <= 0 {
-		return errFilterCreationDisabled
+		globalCap = int(evmsrvconfig.DefaultFilterCap)
 	}
 
 	if len(api.filters) >= globalCap {

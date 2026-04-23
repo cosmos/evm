@@ -13,6 +13,7 @@ import (
 
 	filtermocks "github.com/cosmos/evm/rpc/namespaces/ethereum/eth/filters/mocks"
 	"github.com/cosmos/evm/rpc/stream"
+	evmsrvconfig "github.com/cosmos/evm/server/config"
 
 	"cosmossdk.io/log/v2"
 
@@ -118,15 +119,12 @@ func TestTimeoutLoop_PanicOnNilCancel(t *testing.T) {
 	require.False(t, panicked)
 }
 
-func TestNewBlockFilter_DisabledReturnsError(t *testing.T) {
+func TestEnsureFilterCreationAllowedLocked_ZeroCapUsesDefault(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
 	api := newFilterAPITestSubject(t, backend)
-	id, err := api.NewBlockFilter(context.Background())
-	require.Error(t, err)
-	require.Empty(t, id)
-	require.Contains(t, err.Error(), "filter creation is disabled")
+	require.NoError(t, api.ensureFilterCreationAllowedLocked(dummyClientA))
 }
 
 func TestNewPendingTransactionFilter_PerClientCap(t *testing.T) {
@@ -153,15 +151,17 @@ func TestNewPendingTransactionFilter_PerClientCap(t *testing.T) {
 	require.NotEmpty(t, id3)
 }
 
-func TestNewFilter_GlobalCapReturnsError(t *testing.T) {
+func TestEnsureFilterCreationAllowedLocked_ZeroCapEnforcesDefault(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
 	api := newFilterAPITestSubject(t, backend)
-	id, err := api.NewFilter(context.Background(), filters.FilterCriteria{})
+	for i := 0; i < int(evmsrvconfig.DefaultFilterCap); i++ {
+		api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
+	}
+	err := api.ensureFilterCreationAllowedLocked(dummyClientB)
 	require.Error(t, err)
-	require.Empty(t, id)
-	require.Contains(t, err.Error(), "filter creation is disabled")
+	require.Contains(t, err.Error(), "max limit reached")
 }
 
 func TestEnsureFilterCreationAllowedLocked_PerClientIsolation(t *testing.T) {
@@ -247,13 +247,14 @@ func TestNewPendingTransactionFilter_PerClientCap_HTTPContext(t *testing.T) {
 	requireNewPendingTxFilterSuccess(t, rpcClient)
 }
 
-func TestNewPendingTransactionFilter_Disabled_HTTPContext(t *testing.T) {
+func TestNewPendingTransactionFilter_ZeroCapUsesDefault_HTTPContext(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
 	api := newFilterAPITestSubject(t, backend)
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
-	requireNewPendingTxFilterError(t, rpcClient, "filter creation is disabled")
+	id := requireNewPendingTxFilterSuccess(t, rpcClient)
+	require.NotEmpty(t, id)
 }
 
 func TestNewPendingTransactionFilter_GlobalCap_HTTPContext(t *testing.T) {
