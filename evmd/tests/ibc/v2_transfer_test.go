@@ -22,10 +22,10 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
-	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+	"github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v11/modules/core/04-channel/v2/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -291,7 +291,6 @@ func (suite *TransferTestSuiteV2) TestOnRecvPacket() {
 				originalCoin, suite.chainB.SenderAccount.GetAddress().String(),
 				suite.evmChainA.SenderAccount.GetAddress().String(), clienttypes.Height{},
 				timeoutTimestamp, "", types.EncodingProtobuf,
-				false,
 			)
 			_, err := suite.chainB.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed
@@ -394,7 +393,6 @@ func (suite *TransferTestSuiteV2) TestOnAckPacket() {
 				originalCoin, suite.evmChainA.SenderAccount.GetAddress().String(),
 				suite.chainB.SenderAccount.GetAddress().String(), clienttypes.Height{},
 				timeoutTimestamp, "", types.EncodingProtobuf,
-				false,
 			)
 			_, err := suite.evmChainA.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed
@@ -502,7 +500,6 @@ func (suite *TransferTestSuiteV2) TestOnTimeoutPacket() {
 				originalCoin, suite.evmChainA.SenderAccount.GetAddress().String(),
 				suite.chainB.SenderAccount.GetAddress().String(), clienttypes.Height{},
 				timeoutTimestamp, "", types.EncodingProtobuf,
-				false,
 			)
 			_, err := suite.evmChainA.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed

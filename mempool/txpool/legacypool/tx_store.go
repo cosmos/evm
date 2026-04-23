@@ -1,7 +1,6 @@
 package legacypool
 
 import (
-	"math/big"
 	"sort"
 	"sync"
 
@@ -49,25 +48,13 @@ func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// Convert the new uint256.Int types to the old big.Int ones used by the legacy pool
-	var (
-		minTipBig  *big.Int
-		baseFeeBig *big.Int
-	)
-	if filter.MinTip != nil {
-		minTipBig = filter.MinTip.ToBig()
-	}
-	if filter.BaseFee != nil {
-		baseFeeBig = filter.BaseFee.ToBig()
-	}
-
 	numSelected := 0
 	pending := make(map[common.Address][]*txpool.LazyTransaction, len(t.txs))
 
 	for addr, txs := range t.txs {
 		sort.Sort(types.TxByNonce(txs))
 
-		if lazies := filterAndWrapTxs(txs, minTipBig, baseFeeBig); len(lazies) > 0 {
+		if lazies := filterAndWrapTxs(txs, filter.MinTip, filter.BaseFee); len(lazies) > 0 {
 			numSelected += len(lazies)
 			pending[addr] = lazies
 		}

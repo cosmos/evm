@@ -50,6 +50,10 @@ func NewPrecompile(baseGas uint64) (*Precompile, error) {
 	}, nil
 }
 
+func (Precompile) Name() string {
+	return "bech32"
+}
+
 // Address defines the address of the bech32 precompiled contract.
 func (Precompile) Address() common.Address {
 	return common.HexToAddress(evmtypes.Bech32PrecompileAddress)
