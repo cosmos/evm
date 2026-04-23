@@ -415,6 +415,13 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if overrides != nil {
 		precompiles := vm.ActivePrecompiledContracts(rules)
+		params := k.GetParams(ctx)
+		for _, precompileAddr := range params.ActiveStaticPrecompiles {
+			address := common.HexToAddress(precompileAddr)
+			if precompile, found := k.precompiles[address]; found {
+				precompiles[address] = precompile
+			}
+		}
 		if err := overrides.Apply(stateDB, precompiles); err != nil {
 			return nil, errorsmod.Wrap(err, "failed to apply state override")
 		}
