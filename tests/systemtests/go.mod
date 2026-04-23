@@ -306,7 +306,7 @@ require (
 
 replace (
 	github.com/cosmos/evm => ../..
-	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v0.0.0-20260422194018-9b6c18c22611
+	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.17.2-cosmos-0
 )
 
 replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20260417173832-6850afc89406
