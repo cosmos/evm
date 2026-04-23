@@ -369,19 +369,13 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 // For EVM transactions, removal is typically handled automatically by the pool
 // based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
 func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
-	chainCtx, err := m.blockchain.GetLatestContext()
-	if err != nil || chainCtx.BlockHeight() == 0 {
-		m.logger.Warn("Failed to get latest context, skipping removal")
-		return nil
-	}
-
 	msgEthereumTx, err := evmTxFromCosmosTx(tx)
 	switch {
 	case errors.Is(err, ErrNoMessages):
 		return err
 	case err != nil:
 		// unable to parse evm tx -> process as cosmos tx
-		return m.removeCosmosTx(ctx, tx, reason)
+		return m.removeCosmosTx(tx)
 	}
 
 	hash := msgEthereumTx.Hash()
@@ -403,15 +397,14 @@ func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmem
 
 // removeCosmosTx removes a cosmos tx from the mempool.
 // The RecheckMempool handles locking internally.
-func (m *Mempool) removeCosmosTx(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
+func (m *Mempool) removeCosmosTx(tx sdk.Tx) error {
 	m.logger.Debug("Removing Cosmos transaction")
 
 	// Remove from cosmos pool (handles address reservation release  and reap
 	// list drop internally)
-	err := sdkmempool.RemoveWithReason(ctx, m.recheckCosmosPool, tx, reason)
-	if err != nil {
+	if err := m.recheckCosmosPool.Remove(tx); err != nil {
 		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
-		return err
+		return fmt.Errorf("removing cosmos tx: %w", err)
 	}
 	m.logger.Debug("Cosmos transaction removed successfully")
 
