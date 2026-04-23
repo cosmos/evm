@@ -13,6 +13,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	protov2 "google.golang.org/protobuf/proto"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -65,10 +66,9 @@ func setupMockBackend(t *testing.T) *Backend {
 		WithClient(mocks.NewClient(t)).
 		WithCodec(encodingConfig.Codec)
 
-	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	backend := NewBackend(ctx, clientCtx, idxer, nil, WithLogger(ctx.Logger))
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true
@@ -422,6 +422,25 @@ func buildMsgEthereumTx(t *testing.T) *evmtypes.MsgEthereumTx {
 	return msgEthereumTx
 }
 
+type mockDecodedTx struct {
+	msgs []sdk.Msg
+}
+
+func (m mockDecodedTx) GetMsgs() []sdk.Msg { return m.msgs }
+
+func (m mockDecodedTx) GetMsgsV2() ([]protov2.Message, error) { return nil, nil }
+
+func (m mockDecodedTx) ValidateBasic() error { return nil }
+
+type txConfigWithDecoder struct {
+	client.TxConfig
+	decoder sdk.TxDecoder
+}
+
+func (t txConfigWithDecoder) TxDecoder() sdk.TxDecoder {
+	return t.decoder
+}
+
 type MockIndexer struct {
 	txResults map[common.Hash]*servertypes.TxResult
 }
@@ -501,4 +520,38 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
 		})
 	}
+}
+
+func TestEthMsgsFromCometBlockSkipStateDBCommitFailure(t *testing.T) {
+	backend := setupMockBackend(t)
+	successMsg := buildMsgEthereumTx(t)
+	decodeCalls := 0
+
+	backend.ClientCtx = backend.ClientCtx.WithTxConfig(txConfigWithDecoder{
+		TxConfig: backend.ClientCtx.TxConfig,
+		decoder: func(_ []byte) (sdk.Tx, error) {
+			decodeCalls++
+			return mockDecodedTx{msgs: []sdk.Msg{successMsg}}, nil
+		},
+	})
+
+	resBlock := &tmrpctypes.ResultBlock{
+		Block: &tmtypes.Block{
+			Header: tmtypes.Header{Height: 100},
+			Data:   tmtypes.Data{Txs: []tmtypes.Tx{{0x01}, {0x02}}},
+		},
+	}
+
+	blockRes := &tmrpctypes.ResultBlockResults{
+		Height: 100,
+		TxsResults: []*abcitypes.ExecTxResult{
+			{Code: 4, Log: "failed to commit stateDB"},
+			{Code: 0},
+		},
+	}
+
+	msgs := backend.EthMsgsFromCometBlock(rpctypes.NewContextWithHeight(100), resBlock, blockRes)
+	require.Equal(t, 1, decodeCalls)
+	require.Len(t, msgs, 1)
+	require.Same(t, successMsg, msgs[0])
 }

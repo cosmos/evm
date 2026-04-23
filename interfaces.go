@@ -6,12 +6,10 @@ import (
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
-	storetypes "cosmossdk.io/store/types"
+	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -19,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -147,10 +146,10 @@ type (
 		GetStakingKeeper() *stakingkeeper.Keeper
 	}
 	TransferKeeperProvider interface {
-		GetTransferKeeper() transferkeeper.Keeper
+		GetTransferKeeper() *transferkeeper.Keeper
 	}
 	TransferKeeperSetter interface {
-		SetTransferKeeper(transferkeeper.Keeper)
+		SetTransferKeeper(*transferkeeper.Keeper)
 	}
 )
 

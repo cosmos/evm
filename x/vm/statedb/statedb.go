@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
@@ -23,8 +22,8 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -34,7 +33,6 @@ import (
 type revision struct {
 	id           int
 	journalIndex int
-	events       sdk.Events
 }
 
 var _ vm.StateDB = &StateDB{}
@@ -80,6 +78,12 @@ type StateDB struct {
 
 	// The count of calls to precompiles
 	precompileCallsCounter uint8
+
+	// processedEventsCount tracks how many events have been
+	// processed by BalanceHandler. Events are processed sequentially starting
+	// from index 0. Event counter tracks events to avoid having them reprocessed.
+	// On revert, this counter is rewound to the snapshot's event count.
+	processedEventsCount int
 }
 
 func (s *StateDB) CreateContract(address common.Address) {
@@ -90,6 +94,16 @@ func (s *StateDB) CreateContract(address common.Address) {
 			&address,
 		})
 	}
+}
+
+// IsNewContract reports whether the contract at the given address was deployed
+// during the current transaction.
+func (s *StateDB) IsNewContract(addr common.Address) bool {
+	obj := s.getStateObject(addr)
+	if obj == nil {
+		return false
+	}
+	return obj.newContract
 }
 
 // GetStorageRoot calculates the hash of the trie root by iterating through all storage objects for a given account
@@ -114,15 +128,6 @@ func (s *StateDB) IsStorageEmpty(addr common.Address) bool {
 	return empty
 }
 
-/*
-	PointCache, Witness, and AccessEvents are all utilized for verkle trees.
-	For now, we just return nil and verkle trees are not supported.
-*/
-
-func (s *StateDB) PointCache() *utils.PointCache {
-	return nil
-}
-
 func (s *StateDB) Witness() *stateless.Witness {
 	// TODO support verkle tries?
 	return nil
@@ -130,6 +135,41 @@ func (s *StateDB) Witness() *stateless.Witness {
 
 func (s *StateDB) AccessEvents() *state.AccessEvents {
 	return nil
+}
+
+type removedAccountWithBalance struct {
+	address common.Address
+	balance *uint256.Int
+}
+
+// EmitLogsForBurnAccounts emits the eth burn logs for accounts scheduled for
+// removal which still have positive balance. The purpose of this function is
+// to handle a corner case of EIP-7708 where a self-destructed account might
+// still receive funds between sending/burning its previous balance and actual
+// removal. In this case the burning of these remaining balances still need to
+// be logged.
+// Specification EIP-7708: https://eips.ethereum.org/EIPS/eip-7708
+//
+// This function should only be invoked at the transaction boundary, specifically
+// before the Finalise.
+func (s *StateDB) EmitLogsForBurnAccounts() {
+	var list []removedAccountWithBalance
+	for addr := range s.journal.dirties {
+		if obj, exist := s.stateObjects[addr]; exist && obj.selfDestructed && !obj.Balance().IsZero() {
+			list = append(list, removedAccountWithBalance{
+				address: obj.address,
+				balance: obj.Balance(),
+			})
+		}
+	}
+	if list != nil {
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].address.Cmp(list[j].address) < 0
+		})
+	}
+	for _, acct := range list {
+		s.AddLog(ethtypes.EthBurnLog(acct.address, acct.balance))
+	}
 }
 
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
@@ -147,13 +187,14 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // New creates a new state from a given trie.
 func New(ctx sdk.Context, keeper Keeper, txConfig TxConfig) *StateDB {
 	return &StateDB{
-		keeper:           keeper,
-		ctx:              ctx,
-		stateObjects:     make(map[common.Address]*stateObject),
-		journal:          newJournal(),
-		accessList:       newAccessList(),
-		transientStorage: newTransientStorage(),
-		txConfig:         txConfig,
+		keeper:               keeper,
+		ctx:                  ctx,
+		stateObjects:         make(map[common.Address]*stateObject),
+		journal:              newJournal(),
+		accessList:           newAccessList(),
+		transientStorage:     newTransientStorage(),
+		txConfig:             txConfig,
+		processedEventsCount: len(ctx.EventManager().Events()),
 	}
 }
 
@@ -184,12 +225,8 @@ func (s *StateDB) MultiStoreSnapshot() int {
 	return s.snapshotter.Snapshot()
 }
 
-func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
+func (s *StateDB) RevertMultiStore(snapshot int) {
 	s.snapshotter.RevertToSnapshot(snapshot)
-	s.writeCache = func() {
-		s.ctx.EventManager().EmitEvents(events)
-		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
-	}
 }
 
 // cache creates the stateDB cache context
@@ -208,7 +245,8 @@ func (s *StateDB) cache() error {
 	s.snapshotter = snapshotStore
 	s.cacheCtx = s.cacheCtx.WithMultiStore(snapshotStore)
 	s.writeCache = func() {
-		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
+		eventsToEmit := s.cacheCtx.EventManager().Events()
+		s.ctx.EventManager().EmitEvents(eventsToEmit)
 		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}
 
@@ -433,16 +471,37 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // AddPrecompileFn adds a precompileCall journal entry
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
-func (s *StateDB) AddPrecompileFn(snapshot int, events sdk.Events) error {
+func (s *StateDB) AddPrecompileFn(snapshot int) error {
+	// Capture events before the precompile call
+	prevEvents := s.cacheCtx.EventManager().Events()
+
 	s.journal.append(precompileCallChange{
-		snapshot: snapshot,
-		events:   events,
+		snapshot:                snapshot,
+		prevEvents:              prevEvents,
+		prevProcessedEventCount: s.processedEventsCount,
 	})
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
 		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
 	}
 	return nil
+}
+
+// MarkEventProcessed records that the event at the given index
+// has been seen by BalanceHandler. Events must be marked sequentially.
+func (s *StateDB) MarkEventProcessed(idx int) {
+	// Events must be processed sequentially - idx should equal current count
+	if idx != s.processedEventsCount {
+		panic(fmt.Sprintf("balance events must be processed sequentially: expected %d, got %d",
+			s.processedEventsCount, idx))
+	}
+	s.processedEventsCount++
+}
+
+// IsEventProcessed reports whether the event at idx has already been
+// seen by a previous AfterBalanceChange invocation.
+func (s *StateDB) IsEventProcessed(idx int) bool {
+	return idx < s.processedEventsCount
 }
 
 // AddBalance adds amount to the account associated with addr.
@@ -475,7 +534,7 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.Non
 }
 
 // SetCode sets the code of account.
-func (s *StateDB) SetCode(addr common.Address, code []byte) []byte {
+func (s *StateDB) SetCode(addr common.Address, code []byte, reason tracing.CodeChangeReason) []byte {
 	stateObject := s.getOrNewStateObject(addr)
 	var prev []byte
 	if stateObject != nil {
@@ -510,37 +569,18 @@ func (s *StateDB) SetStorage(addr common.Address, storage Storage) {
 }
 
 // SelfDestruct marks the given account as self-destructed.
-// This clears the account balance.
 //
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after SelfDestruct.
-func (s *StateDB) SelfDestruct(addr common.Address) uint256.Int {
+func (s *StateDB) SelfDestruct(addr common.Address) {
 	stateObject := s.getStateObject(addr)
-	var prevBalance uint256.Int
 	if stateObject == nil {
-		return prevBalance
+		return
 	}
-	prevBalance = *(stateObject.Balance())
 	s.journal.append(selfDestructChange{
-		account:     &addr,
-		prev:        stateObject.selfDestructed,
-		prevbalance: new(uint256.Int).Set(stateObject.Balance()),
+		account: &addr,
 	})
 	stateObject.markSelfDestructed()
-	stateObject.account.Balance = new(uint256.Int)
-	return prevBalance
-}
-
-func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
-	stateObject := s.getStateObject(addr)
-	if stateObject == nil {
-		return uint256.Int{}, false
-	}
-
-	if stateObject.newContract {
-		return s.SelfDestruct(addr), true
-	}
-	return *(stateObject.Balance()), false
 }
 
 // HasSelfDestructed returns if the contract is self-destructed in current transaction.
@@ -664,7 +704,7 @@ func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addre
 func (s *StateDB) Snapshot() int {
 	id := s.nextRevisionID
 	s.nextRevisionID++
-	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length(), s.ctx.EventManager().Events()})
+	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
 	return id
 }
 
@@ -679,12 +719,8 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 	}
 	snapshot := s.validRevisions[idx].journalIndex
 
-	// revert back to snapshotted events
-	eventManager := sdk.NewEventManager()
-	eventManager.EmitEvents(s.validRevisions[idx].events)
-	s.ctx = s.ctx.WithEventManager(eventManager)
-
 	// Replay the journal to undo changes and remove invalidated snapshots
+	// Event restoration is handled by precompileCallChange.Revert()
 	s.journal.Revert(s, snapshot)
 	s.validRevisions = s.validRevisions[:idx]
 }
@@ -700,11 +736,19 @@ func (s *StateDB) Commit() error {
 	return s.commitWithCtx(s.ctx)
 }
 
-// CommitWithCacheCtx writes the dirty states to keeper using the cacheCtx.
+// FlushToCacheCtx writes the dirty states to keeper using the cacheCtx.
 // This function is used before any precompile call to make sure the cacheCtx
 // is updated with the latest changes within the tx (StateDB's journal entries).
-func (s *StateDB) CommitWithCacheCtx() error {
-	return s.commitWithCtx(s.cacheCtx)
+func (s *StateDB) FlushToCacheCtx() error {
+	if err := s.commitWithCtx(s.cacheCtx); err != nil {
+		return err
+	}
+
+	// Set counter to event count - all flushed events (from mint/burn during commit) are now accounted for.
+	// This prevents the balance handler from re-adding already flushed events.
+	s.processedEventsCount = len(s.cacheCtx.EventManager().Events())
+
+	return nil
 }
 
 // commitWithCtx writes the dirty states to keeper

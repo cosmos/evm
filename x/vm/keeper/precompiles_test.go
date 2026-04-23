@@ -99,6 +99,10 @@ type mockPrecompiledContract struct {
 	address common.Address
 }
 
+func (m *mockPrecompiledContract) Name() string {
+	return ""
+}
+
 func (m *mockPrecompiledContract) Address() common.Address {
 	return m.address
 }

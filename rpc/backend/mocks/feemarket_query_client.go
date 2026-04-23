@@ -252,7 +252,8 @@ func (_c *FeeMarketQueryClient_Params_Call) RunAndReturn(run func(context.Contex
 func NewFeeMarketQueryClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *FeeMarketQueryClient {
+},
+) *FeeMarketQueryClient {
 	mock := &FeeMarketQueryClient{}
 	mock.Mock.Test(t)
 

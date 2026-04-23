@@ -36,7 +36,7 @@ import (
 
 	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
-	pruningtypes "cosmossdk.io/store/pruning/types"
+	pruningtypes "github.com/cosmos/cosmos-sdk/store/v2/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -109,7 +109,7 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -140,7 +140,7 @@ func DefaultConfig() Config {
 func NewAppConstructor(chainID string) AppConstructor {
 	return func(val Validator) servertypes.Application {
 		return evmd.NewExampleApp(
-			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
+			val.Ctx.Logger, dbm.NewMemDB(), true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),

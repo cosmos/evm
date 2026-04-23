@@ -102,9 +102,7 @@ type (
 		prev *stateObject
 	}
 	selfDestructChange struct {
-		account     *common.Address
-		prev        bool // whether account had already self-destructed
-		prevbalance *uint256.Int
+		account *common.Address
 	}
 
 	// Changes to individual accounts.
@@ -144,8 +142,9 @@ type (
 		slot    *common.Hash
 	}
 	precompileCallChange struct {
-		snapshot int
-		events   sdk.Events
+		snapshot                int
+		prevEvents              sdk.Events
+		prevProcessedEventCount int
 	}
 	createContractChange struct {
 		account *common.Address
@@ -180,7 +179,13 @@ func (ch createContractChange) Dirtied() *common.Address {
 func (pc precompileCallChange) Revert(s *StateDB) {
 	// rollback multi store from cache ctx to the previous
 	// state stored in the snapshot
-	s.RevertMultiStore(pc.snapshot, pc.events)
+	s.RevertMultiStore(pc.snapshot)
+
+	// Restore events to the state before this precompile call
+	s.cacheCtx.EventManager().OverrideEvents(pc.prevEvents)
+
+	// Restore processed events counter
+	s.processedEventsCount = pc.prevProcessedEventCount
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {
@@ -206,8 +211,7 @@ func (ch resetObjectChange) Dirtied() *common.Address {
 func (ch selfDestructChange) Revert(s *StateDB) {
 	obj := s.getStateObject(*ch.account)
 	if obj != nil {
-		obj.selfDestructed = ch.prev
-		obj.setBalance(ch.prevbalance)
+		obj.selfDestructed = false
 	}
 }
 

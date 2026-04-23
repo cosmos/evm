@@ -9,7 +9,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
 	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -47,7 +47,8 @@ func (s *PrecompileTestSuite) TestDenoms() {
 			args: []interface{}{query.PageRequest{Limit: 10, CountTotal: true}},
 			malleate: func(ctx sdk.Context) {
 				evmApp := s.chainA.App.(evm.EvmApp)
-				evmApp.GetTransferKeeper().SetDenom(ctx, denom)
+				keeper := evmApp.GetTransferKeeper()
+				keeper.SetDenom(ctx, denom)
 			},
 			expDenom: denom,
 		},
@@ -108,7 +109,8 @@ func (s *PrecompileTestSuite) TestDenom() {
 			arg:  denom.Hash().String(),
 			malleate: func(ctx sdk.Context) {
 				evmApp := s.chainA.App.(evm.EvmApp)
-				evmApp.GetTransferKeeper().SetDenom(ctx, denom)
+				keeper := evmApp.GetTransferKeeper()
+				keeper.SetDenom(ctx, denom)
 			},
 			expDenom: denom,
 		},
@@ -189,7 +191,8 @@ func (s *PrecompileTestSuite) TestDenomHash() {
 			arg:  denom.Path(),
 			malleate: func(ctx sdk.Context) {
 				evmApp := s.chainA.App.(evm.EvmApp)
-				evmApp.GetTransferKeeper().SetDenom(ctx, denom)
+				keeper := evmApp.GetTransferKeeper()
+				keeper.SetDenom(ctx, denom)
 			},
 			expHash: denom.Hash().String(),
 		},

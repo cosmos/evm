@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,13 +15,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/cosmos/evm/mempool"
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	errorsmod "cosmossdk.io/errors"
-
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 )
@@ -94,14 +89,6 @@ func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.Transaction
 		return common.Hash{}, err
 	}
 
-	// Encode transaction by default Tx encoder
-	txEncoder := b.ClientCtx.TxConfig.TxEncoder()
-	txBytes, err := txEncoder(tx)
-	if err != nil {
-		b.Logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
-		return common.Hash{}, err
-	}
-
 	ethTx := msg.AsTransaction()
 
 	// check the local node config in case unprotected txs are disabled
@@ -112,25 +99,20 @@ func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.Transaction
 
 	txHash := ethTx.Hash()
 
-	// Broadcast transaction in sync mode (default)
-	// NOTE: If error is encountered on the node, the broadcast will not return an error
-	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
-	rsp, err := syncCtx.BroadcastTx(txBytes)
-	if rsp != nil && rsp.Code != 0 {
-		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
-	}
-	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			return txHash, nil
-		}
-		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, err
+	// publish tx directly to app-side mempool, avoiding broadcasting to
+	// consensus layer.
+	// we are directly calling into the mempool rather than the ABCI
+	// handler for InsertTx, since the ABCI handler obfuscates the error's
+	// returned via codes, and we would like to have the full error to
+	// return to clients.
+	if err = b.Mempool.Insert(ctx, tx); err != nil {
+		// no need for special error handling like in the broadcast tx case
+		// since this is coming directly from the evm mempool insert.
+		return common.Hash{}, err
 	}
 
-	// Return transaction hash
+	b.TrackTxIfSupported(txHash)
+
 	return txHash, nil
 }
 

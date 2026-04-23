@@ -8,10 +8,20 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
-	storetypes "cosmossdk.io/store/types"
-
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+// NotifiedMempool is the set of methods that a mempool must implement in order
+// to be notified of new blocks by this Keeper via the EndBlocker.
+type NotifiedMempool interface {
+	// HasEventBus returns true if the mempool has an event bus configured to
+	// get cometbft events
+	HasEventBus() bool
+
+	// GetBlockchain returns the mempools blockchain representation.
+	GetBlockchain() *Blockchain
+}
 
 type VMKeeperI interface {
 	GetBaseFee(ctx sdk.Context) *big.Int
@@ -29,7 +39,7 @@ type VMKeeperI interface {
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
 	KVStoreKeys() map[string]storetypes.StoreKey
-	SetEvmMempool(evmMempool *ExperimentalEVMMempool)
+	SetEvmMempool(evmMempool NotifiedMempool)
 }
 
 type FeeMarketKeeperI interface {

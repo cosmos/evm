@@ -6,9 +6,8 @@ import (
 	"github.com/cosmos/evm/contrib/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	storetypes "cosmossdk.io/store/types"
-
 	"github.com/cosmos/cosmos-sdk/codec"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -48,10 +47,18 @@ func (k Keeper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderA
 	return k.bk.SendCoinsFromAccountToModuleVirtual(ctx, senderAddr, recipientModule, amt)
 }
 
+func (k Keeper) UncheckedSetBalance(ctx context.Context, addr sdk.AccAddress, amt sdk.Coin) error {
+	return k.bk.UncheckedSetBalance(ctx, addr, amt)
+}
+
 func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool) {
 	k.bk.IterateTotalSupply(ctx, cb)
 }
 
 func (k Keeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
 	return k.bk.GetSupply(ctx, denom)
+}
+
+func (k Keeper) LockedCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return k.bk.LockedCoins(ctx, addr)
 }

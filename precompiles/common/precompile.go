@@ -10,8 +10,7 @@ import (
 
 	"github.com/cosmos/evm/x/vm/statedb"
 
-	storetypes "cosmossdk.io/store/types"
-
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -48,6 +47,9 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 func (p Precompile) RunNativeAction(evm *vm.EVM, contract *vm.Contract, action NativeAction) ([]byte, error) {
 	bz, err := p.runNativeAction(evm, contract, action)
 	if err != nil {
+		if errors.Is(err, vm.ErrOutOfGas) {
+			return nil, vm.ErrOutOfGas
+		}
 		return ReturnRevertError(evm, err)
 	}
 
@@ -69,29 +71,28 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 	// take a snapshot of the current state before any changes
 	// to be able to revert the changes
 	snapshot := stateDB.MultiStoreSnapshot()
-	events := ctx.EventManager().Events()
 
 	// add precompileCall entry on the stateDB journal
 	// this allows to revert the changes within an evm tx
-	if err := stateDB.AddPrecompileFn(snapshot, events); err != nil {
+	if err := stateDB.AddPrecompileFn(snapshot); err != nil {
 		return nil, err
 	}
 
 	// commit the current changes in the cache ctx
 	// to get the updated state for the precompile call
-	if err := stateDB.CommitWithCacheCtx(); err != nil {
+	if err := stateDB.FlushToCacheCtx(); err != nil {
 		return nil, err
 	}
 
 	initialGas := ctx.GasMeter().GasConsumed()
-
-	defer HandleGasError(ctx, contract, initialGas, &err)()
 
 	// set the default SDK gas configuration to track gas usage
 	// we are changing the gas meter type, so it panics gracefully when out of gas
 	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(contract.Gas)).
 		WithKVGasConfig(p.KvGasConfig).
 		WithTransientKVGasConfig(p.TransientKVGasConfig)
+
+	defer HandleGasError(ctx, contract, initialGas, &err)()
 
 	// we need to consume the gas that was already used by the EVM
 	ctx.GasMeter().ConsumeGas(initialGas, "creating a new gas meter")

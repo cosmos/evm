@@ -8,12 +8,11 @@ import (
 
 	"github.com/cosmos/evm/ibc"
 	"github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v10/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v11/modules/core/exported"
 
 	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -130,18 +129,18 @@ func (k Keeper) OnRecvPacket(
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
-		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(recipient.Bytes()), recipient); err != nil {
+		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(recipient.Bytes()), recipient, false); err != nil {
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
 		// For now the only case we are interested in adding telemetry is a successful conversion.
-		telemetry.IncrCounterWithLabels( //nolint:staticcheck // TODO: fix
+		telemetry.IncrCounterWithLabels(
 			[]string{types.ModuleName, "ibc", "on_recv", "total"},
 			1,
 			[]metrics.Label{
-				telemetry.NewLabel("denom", coin.Denom),                    //nolint:staticcheck // TODO: fix
-				telemetry.NewLabel("source_channel", packet.SourceChannel), //nolint:staticcheck // TODO: fix
-				telemetry.NewLabel("source_port", packet.SourcePort),       //nolint:staticcheck // TODO: fix
+				telemetry.NewLabel("denom", coin.Denom),
+				telemetry.NewLabel("source_channel", packet.SourceChannel),
+				telemetry.NewLabel("source_port", packet.SourcePort),
 			},
 		)
 	}
@@ -211,11 +210,6 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 
 	// Case 2. if pair is native ERC20 -> unescrow
 	case pair.IsNativeERC20():
-		// use a zero gas config to avoid extra costs for the relayers
-		ctx = ctx.
-			WithKVGasConfig(storetypes.GasConfig{}).
-			WithTransientKVGasConfig(storetypes.GasConfig{})
-
 		params := k.GetParams(ctx)
 		if !params.EnableErc20 || !k.IsDenomRegistered(ctx, coin.Denom) {
 			// no-op, ERC20s are disabled or the denom is not registered
@@ -230,10 +224,10 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 		}
 
 		// Convert from Coin to ERC20
-		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(sender), sender); err != nil {
+		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(sender), sender, false); err != nil {
 			// We want to record only the failed attempt to reconvert the coins during IBC.
 			defer func() {
-				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total") //nolint:staticcheck // TODO: fix
+				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total")
 			}()
 			ctx.EventManager().EmitEvents(
 				sdk.Events{

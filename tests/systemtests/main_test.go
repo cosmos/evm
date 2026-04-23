@@ -3,15 +3,16 @@
 package systemtests
 
 import (
+	"testing"
+
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
-	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
 
-	"cosmossdk.io/systemtests"
+	"github.com/cosmos/cosmos-sdk/tools/systemtests"
 )
 
 func TestMain(m *testing.M) {
@@ -19,38 +20,34 @@ func TestMain(m *testing.M) {
 }
 
 /*
-* Mempool Tests
+ * Mempool Tests
  */
 func TestMempoolTxsOrdering(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunTxsOrdering)
+	suite.RunWithSharedSuite(t, mempool.RunTxsOrdering, suite.MempoolArgs()...)
 }
 
 func TestMempoolTxsReplacement(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunTxsReplacement)
+	suite.RunWithSharedSuite(t, mempool.RunTxsReplacement, suite.MempoolArgs()...)
 }
 
 func TestMempoolTxsReplacementWithCosmosTx(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunTxsReplacementWithCosmosTx)
-}
-
-func TestMempoolMixedTxsReplacementEVMAndCosmos(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementEVMAndCosmos)
+	suite.RunWithSharedSuite(t, mempool.RunTxsReplacementWithCosmosTx, suite.MempoolArgs()...)
 }
 
 func TestMempoolMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementLegacyAndDynamicFee)
+	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementLegacyAndDynamicFee, suite.MempoolMinGasPriceZeroArgs()...)
 }
 
 func TestMempoolTxBroadcasting(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunTxBroadcasting)
+	suite.RunWithSharedSuite(t, mempool.RunTxBroadcasting, suite.MempoolArgs()...)
 }
 
-func TestMinimumGasPricesZero(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero)
+func TestMempoolMinimumGasPricesZero(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero, suite.MempoolArgs()...)
 }
 
 func TestMempoolCosmosTxsCompatibility(t *testing.T) {
-	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility)
+	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility, suite.MempoolArgs()...)
 }
 
 // /*

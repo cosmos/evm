@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/eth"
@@ -16,7 +15,6 @@ import (
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/txpool"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/web3"
 	"github.com/cosmos/evm/rpc/stream"
-	servertypes "github.com/cosmos/evm/server/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -46,9 +44,7 @@ type APICreator = func(
 	ctx *server.Context,
 	clientCtx client.Context,
 	stream *stream.RPCStream,
-	allowUnprotectedTxs bool,
-	indexer servertypes.EVMTxIndexer,
-	mempool *evmmempool.ExperimentalEVMMempool,
+	backend backend.BackendI,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -56,30 +52,34 @@ var apiCreators map[string]APICreator
 
 func init() {
 	apiCreators = map[string]APICreator{
-		EthNamespace: func(ctx *server.Context,
+		EthNamespace: func(
+			ctx *server.Context,
 			clientCtx client.Context,
 			stream *stream.RPCStream,
-			allowUnprotectedTxs bool,
-			indexer servertypes.EVMTxIndexer,
-			mempool *evmmempool.ExperimentalEVMMempool,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			// should not happen, but just in case
+			filterBackend, ok := backend.(filters.Backend)
+			if !ok {
+				panic("backend does not implement filter.Backend")
+			}
+
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
 					Version:   apiVersion,
-					Service:   eth.NewPublicAPI(ctx.Logger, evmBackend),
+					Service:   eth.NewPublicAPI(ctx.Logger, backend),
 					Public:    true,
 				},
 				{
 					Namespace: EthNamespace,
 					Version:   apiVersion,
-					Service:   filters.NewPublicAPI(ctx.Logger, clientCtx, stream, evmBackend),
+					Service:   filters.NewPublicAPI(ctx.Logger, clientCtx, stream, filterBackend),
 					Public:    true,
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, backend.BackendI) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -89,7 +89,12 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool) []rpc.API {
+		NetNamespace: func(
+			ctx *server.Context,
+			clientCtx client.Context,
+			_ *stream.RPCStream,
+			_ backend.BackendI,
+		) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
@@ -99,70 +104,62 @@ func init() {
 				},
 			}
 		},
-		PersonalNamespace: func(ctx *server.Context,
-			clientCtx client.Context,
+		PersonalNamespace: func(
+			ctx *server.Context,
+			_ client.Context,
 			_ *stream.RPCStream,
-			allowUnprotectedTxs bool,
-			indexer servertypes.EVMTxIndexer,
-			mempool *evmmempool.ExperimentalEVMMempool,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
 					Version:   apiVersion,
-					Service:   personal.NewAPI(ctx.Logger, evmBackend),
+					Service:   personal.NewAPI(ctx.Logger, backend),
 					Public:    false,
 				},
 			}
 		},
-		TxPoolNamespace: func(ctx *server.Context,
-			clientCtx client.Context,
+		TxPoolNamespace: func(
+			ctx *server.Context,
+			_ client.Context,
 			_ *stream.RPCStream,
-			allowUnprotectedTxs bool,
-			indexer servertypes.EVMTxIndexer,
-			mempool *evmmempool.ExperimentalEVMMempool,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
 					Version:   apiVersion,
-					Service:   txpool.NewPublicAPI(ctx.Logger, evmBackend),
+					Service:   txpool.NewPublicAPI(ctx.Logger, backend),
 					Public:    true,
 				},
 			}
 		},
-		DebugNamespace: func(ctx *server.Context,
-			clientCtx client.Context,
+		DebugNamespace: func(
+			ctx *server.Context,
+			_ client.Context,
 			_ *stream.RPCStream,
-			allowUnprotectedTxs bool,
-			indexer servertypes.EVMTxIndexer,
-			mempool *evmmempool.ExperimentalEVMMempool,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
 					Version:   apiVersion,
-					Service:   debug.NewAPI(ctx, evmBackend, evmBackend.GetConfig().JSONRPC.EnableProfiling),
+					Service:   debug.NewAPI(ctx, backend, backend.GetConfig().JSONRPC.EnableProfiling),
 					Public:    true,
 				},
 			}
 		},
-		MinerNamespace: func(ctx *server.Context,
-			clientCtx client.Context,
+		MinerNamespace: func(
+			ctx *server.Context,
+			_ client.Context,
 			_ *stream.RPCStream,
-			allowUnprotectedTxs bool,
-			indexer servertypes.EVMTxIndexer,
-			mempool *evmmempool.ExperimentalEVMMempool,
+			backend backend.BackendI,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
 					Version:   apiVersion,
-					Service:   miner.NewPrivateAPI(ctx, evmBackend),
+					Service:   miner.NewPrivateAPI(ctx, backend),
 					Public:    false,
 				},
 			}
@@ -170,23 +167,26 @@ func init() {
 	}
 }
 
-// GetRPCAPIs returns the list of all APIs
-func GetRPCAPIs(ctx *server.Context,
+// BuildRPCs builds the JSON-RPC APIs for the given namespaces.
+func BuildRPCs(
+	selectedAPIs []string,
+	ctx *server.Context,
 	clientCtx client.Context,
 	stream *stream.RPCStream,
-	allowUnprotectedTxs bool,
-	indexer servertypes.EVMTxIndexer,
-	selectedAPIs []string,
-	mempool *evmmempool.ExperimentalEVMMempool,
+	backend backend.BackendI,
 ) []rpc.API {
 	var apis []rpc.API
 
 	for _, ns := range selectedAPIs {
-		if creator, ok := apiCreators[ns]; ok {
-			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool)...)
-		} else {
+		creator, ok := apiCreators[ns]
+		if !ok {
 			ctx.Logger.Error("invalid namespace value", "namespace", ns)
+			continue
 		}
+
+		api := creator(ctx, clientCtx, stream, backend)
+
+		apis = append(apis, api...)
 	}
 
 	return apis

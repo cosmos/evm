@@ -19,8 +19,8 @@ import (
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -35,7 +35,8 @@ func createMockContext() sdk.Context {
 	return ctx.
 		WithBlockTime(time.Now()).
 		WithBlockHeader(cmtproto.Header{AppHash: []byte("00000000000000000000000000000000")}).
-		WithBlockHeight(1)
+		WithBlockHeight(1).
+		WithEventManager(sdk.NewEventManager())
 }
 
 // TestBlockchainRaceCondition tests concurrent access to NotifyNewBlock and StateAt
@@ -44,7 +45,7 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	logger := log.NewNopLogger()
 
 	// Create mock keepers using generated mocks
-	mockVMKeeper := mocks.NewVMKeeper(t)
+	mockVMKeeper := mocks.NewVMKeeperI(t)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
 
 	ethCfg := vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)

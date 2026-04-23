@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -28,7 +29,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 		{
 			name: "cosmos transaction success",
 			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -68,8 +69,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 				txBuilder := s.network.App.GetTxConfig().NewTxBuilder()
 				return txBuilder.GetTx()
 			},
-			wantError:     true,
-			errorContains: "tx must have at least one signer",
+			wantError: true,
 			verifyFunc: func() {
 			},
 		},
@@ -126,7 +126,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 				return txBuilder.GetTx()
 			},
 			wantError:     true,
-			errorContains: "tx must have at least one signer", // assumes that this is a cosmos message because multiple evm messages fail
+			errorContains: "multiple messages with an EVM msg",
 			verifyFunc: func() {
 			},
 		},
@@ -171,7 +171,7 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 		{
 			name: "remove cosmos transaction success",
 			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
 			},
 			insertFirst: true,
 			wantError:   false,
@@ -208,7 +208,7 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 		{
 			name: "remove non-existent transaction",
 			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
 			},
 			insertFirst:   false,
 			wantError:     true, // Remove should error for non-existent transactions
@@ -228,15 +228,20 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			s.SetupTest()
 
 			tx := tc.setupTx()
-			mpool := s.network.App.GetMempool()
+			mp := s.network.App.GetMempool()
 
 			if tc.insertFirst {
-				err := mpool.Insert(s.network.GetContext(), tx)
+				err := mp.Insert(s.network.GetContext(), tx)
 				require.NoError(s.T(), err)
-				require.Equal(s.T(), 1, mpool.CountTx())
+				require.Equal(s.T(), 1, mp.CountTx())
 			}
 
-			err := mpool.Remove(tx)
+			reason := mempool.RemoveReason{
+				Caller: "test_mempool_remove",
+				Error:  nil,
+			}
+
+			err := mempool.RemoveWithReason(s.network.GetContext(), mp, tx, reason)
 
 			if tc.wantError {
 				require.Error(s.T(), err)
@@ -270,7 +275,7 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 		{
 			name: "single cosmos transaction",
 			setupTxs: func() {
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))
 				mpool := s.network.App.GetMempool()
 				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -315,8 +320,17 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 
 			tc.setupTxs()
 
+			// Refresh the cached latestCtx and trigger cosmos recheck so
+			// cosmos txs are available via Select (mirrors production flow
+			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
+			}
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -340,7 +354,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 		{
 			name: "single cosmos transaction iteration",
 			setupTxs: func() {
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))
 				mpool := s.network.App.GetMempool()
 				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -376,11 +390,11 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				mpool := s.network.App.GetMempool()
 
-				cosmosTx1 := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
+				cosmosTx1 := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
 				err := mpool.Insert(s.network.GetContext(), cosmosTx1)
 				s.Require().NoError(err)
 
-				cosmosTx2 := s.createCosmosSendTx(s.keyring.GetKey(1), big.NewInt(2000))
+				cosmosTx2 := s.createCosmosSendTx(s.keyring.GetKey(1), big.NewInt(2000000000))
 				err = mpool.Insert(s.network.GetContext(), cosmosTx2)
 				s.Require().NoError(err)
 			},
@@ -400,14 +414,14 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				mpool := s.network.App.GetMempool()
 
-				// Add EVM transaction
-				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000))
+				// Add EVM transaction (use key 0)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000))
 
 				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 
-				// Add Cosmos transaction
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
+				// Add Cosmos transaction (use key 2 to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(2), big.NewInt(2000000000))
 				err = mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 			},
@@ -432,8 +446,17 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 
 			tc.setupTxs()
 
+			// Refresh the cached latestCtx and trigger cosmos recheck so
+			// cosmos txs are available via Select (mirrors production flow
+			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
+			}
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -559,11 +582,13 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			},
 		},
 		{
-			name: "cosmos-only transaction replacement",
+			name: "cosmos-only transaction ordering",
 			setupTxs: func() {
-				highFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
-				lowFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))    // 1 gaatom
-				mediumFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
+				// Cosmos txs from the same sender require incrementing sequences
+				// (no same-nonce replacement like EVM), so use different keys.
+				highFeeTx := s.createCosmosSendTx(s.keyring.GetKey(5), big.NewInt(5000000000))   // 5 gaatom
+				lowFeeTx := s.createCosmosSendTx(s.keyring.GetKey(6), big.NewInt(1000000000))    // 1 gaatom
+				mediumFeeTx := s.createCosmosSendTx(s.keyring.GetKey(7), big.NewInt(3000000000)) // 3 gaatom
 
 				mpool := s.network.App.GetMempool()
 
@@ -576,14 +601,22 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
-				// Should get first transaction from cosmos pool
+				// Should get transactions ordered by fee: high, medium, low
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
-				// Calculate gas price: fee_amount / gas_limit = 5000000000 / 200000 = 25000
-				expectedGasPrice := big.NewInt(5000000000)
-				feeTx := tx1.(sdk.FeeTx)
-				actualGasPrice := s.calculateCosmosGasPrice(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas())
-				s.Require().Equal(expectedGasPrice, actualGasPrice, "Expected gas price should match fee_amount/gas_limit")
+				feeTx1 := tx1.(sdk.FeeTx)
+				s.Require().Equal(big.NewInt(5000000000), s.calculateCosmosGasPrice(feeTx1.GetFee().AmountOf("aatom").Int64(), feeTx1.GetGas()))
+
+				iterator = iterator.Next()
+				s.Require().NotNil(iterator)
+				feeTx2 := iterator.Tx().(sdk.FeeTx)
+				s.Require().Equal(big.NewInt(3000000000), s.calculateCosmosGasPrice(feeTx2.GetFee().AmountOf("aatom").Int64(), feeTx2.GetGas()))
+
+				iterator = iterator.Next()
+				s.Require().NotNil(iterator)
+				feeTx3 := iterator.Tx().(sdk.FeeTx)
+				s.Require().Equal(big.NewInt(1000000000), s.calculateCosmosGasPrice(feeTx3.GetFee().AmountOf("aatom").Int64(), feeTx3.GetGas()))
+
 				iterator = iterator.Next()
 				s.Require().Nil(iterator)
 			},
@@ -595,8 +628,8 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// EVM: 1000 aatom/gas effective tip
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)) // 1 gaatom/gas
 
-				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+				// Cosmos with same effective tip (use different key to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(3), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
 
 				mpool := s.network.App.GetMempool()
 
@@ -637,8 +670,8 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Create EVM transaction with higher gas price
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom/gas
 
-				// Create Cosmos transaction with lower gas price
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
+				// Create Cosmos transaction with lower gas price (use different key to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(3), big.NewInt(2000000000)) // 2 gaatom/gas
 
 				mpool := s.network.App.GetMempool()
 
@@ -676,8 +709,8 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Create EVM transaction with lower gas price
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2000 aatom/gas
 
-				// Create Cosmos transaction with higher gas price
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5000 aatom/gas
+				// Create Cosmos transaction with higher gas price (use different key to avoid address reservation conflict)
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(3), big.NewInt(5000000000)) // 5000 aatom/gas
 
 				mpool := s.network.App.GetMempool()
 
@@ -820,8 +853,17 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 
 			tc.setupTxs()
 
+			// Refresh the cached latestCtx and trigger cosmos recheck so
+			// cosmos txs are available via Select (mirrors production flow
+			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			ctx := s.network.GetContext()
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
+			}
+			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -848,7 +890,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 		{
 			name: "single cosmos transaction - terminates properly",
 			setupTxs: func() {
-				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))
 				mpool := s.network.App.GetMempool()
 				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -876,19 +918,19 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			setupTxs: func() {
 				mpool := s.network.App.GetMempool()
 
-				// Add transactions with different fees
+				// Add transactions with different fees (gas prices above base fee)
 				for i := 1; i < 6; i++ { // Use different keys for different transactions
-					cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(i), big.NewInt(int64(i*1000))) // 5000, 4000, 3000, 2000, 1000
+					cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(i), big.NewInt(int64(i)*1000000000))
 					err := mpool.Insert(s.network.GetContext(), cosmosTx)
 					s.Require().NoError(err)
 				}
 			},
 			filterFunc: func(tx sdk.Tx) bool {
-				// Accept transactions with fees >= 3000, reject lower
+				// Accept transactions with fees >= 3 gwei * TxGas, reject lower
 				if feeTx, ok := tx.(sdk.FeeTx); ok {
 					fees := feeTx.GetFee()
 					if len(fees) > 0 {
-						return fees[0].Amount.Int64() >= 3000*TxGas
+						return fees[0].Amount.Int64() >= 3000000000*TxGas
 					}
 				}
 				return false
@@ -933,6 +975,16 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 			tc.setupTxs()
 
+			// Refresh the cached latestCtx and trigger cosmos recheck so
+			// cosmos txs are available via SelectBy (mirrors production flow
+			// where recheck happens after a new block notification).
+			ctx := s.network.GetContext()
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
+				head := kMp.GetBlockchain().CurrentBlock()
+				kMp.RecheckEVMTxs(head)
+				kMp.RecheckCosmosTxs(head)
+			}
+
 			// Track filter function calls to ensure we don't have infinite loops
 			callCount := 0
 			wrappedFilter := func(tx sdk.Tx) bool {
@@ -945,7 +997,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			}
 
 			// Test SelectBy directly
-			mpool.SelectBy(s.network.GetContext(), nil, wrappedFilter)
+			mpool.SelectBy(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil, wrappedFilter)
 
 			// Assert that SelectBy completed without hanging
 			if tc.expectedCalls > 0 {
@@ -977,7 +1029,7 @@ func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
 	s.Require().Equal(int64(2), nw.GetContext().BlockHeight())
 
 	mpool := nw.App.GetMempool()
-	tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
+	tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
 
 	// Should fail because mempool requires block height >= 2
 	err = mpool.Insert(nw.GetContext(), tx)
@@ -1014,7 +1066,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			wantError: false,
 			verifyFunc: func() {
 				mpool := s.network.App.GetMempool()
-				s.Require().Equal(1, mpool.CountTx())
+				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 		{

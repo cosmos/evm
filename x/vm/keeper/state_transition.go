@@ -25,8 +25,8 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
@@ -232,7 +232,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 	tmpCtx, commitFn := ctx.CacheContext()
 
 	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig, false, nil)
+	stateDB := statedb.New(tmpCtx, k, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, nil, true, false, cfg, txConfig, false, nil)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -335,7 +336,9 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
-func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+// Note: if you call this from a precompile context, ensure that
+// you use the existing stateDB.
+func (k *Keeper) ApplyMessage(ctx sdk.Context, stateDB *statedb.StateDB, msg core.Message, tracingHooks *tracing.Hooks, commit, callFromPrecompile, internal bool) (*types.MsgEthereumTxResponse, error) {
 	ctx, span := ctx.StartSpan(tracer, "ApplyMessage", trace.WithAttributes(
 		attribute.Bool("commit", commit),
 		attribute.Bool("internal", internal),
@@ -348,7 +351,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *t
 	}
 
 	txConfig := statedb.NewEmptyTxConfig()
-	return k.ApplyMessageWithConfig(ctx, msg, tracingHooks, commit, cfg, txConfig, internal, nil)
+	return k.ApplyMessageWithConfig(ctx, stateDB, msg, tracingHooks, commit, callFromPrecompile, cfg, txConfig, internal, nil)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -388,17 +391,8 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracingHooks *t
 //
 // # Commit parameter
 //
-// If commit is true, the `StateDB` will be committed, otherwise discarded.
-func (k *Keeper) ApplyMessageWithConfig(
-	ctx sdk.Context,
-	msg core.Message,
-	tracingHooks *tracing.Hooks,
-	commit bool,
-	cfg *statedb.EVMConfig,
-	txConfig statedb.TxConfig,
-	internal bool,
-	overrides *rpctypes.StateOverride,
-) (_ *types.MsgEthereumTxResponse, err error) {
+// If commit is true, the `StateDB` will be committed or flushed (if called from within a precompile), otherwise discarded.
+func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateDB, msg core.Message, tracingHooks *tracing.Hooks, commit bool, callFromPrecompile bool, cfg *statedb.EVMConfig, txConfig statedb.TxConfig, internal bool, overrides *rpctypes.StateOverride) (_ *types.MsgEthereumTxResponse, err error) {
 	var (
 		ret   []byte // return bytes from evm execution
 		vmErr error  // vm errors do not effect consensus and are therefore not assigned to err
@@ -412,13 +406,22 @@ func (k *Keeper) ApplyMessageWithConfig(
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
-	stateDB := statedb.New(ctx, k, txConfig)
+	if stateDB == nil {
+		return nil, types.ErrNilStateDB
+	}
 	ethCfg := types.GetEthChainConfig()
 	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracingHooks, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if overrides != nil {
 		precompiles := vm.ActivePrecompiledContracts(rules)
+		params := k.GetParams(ctx)
+		for _, precompileAddr := range params.ActiveStaticPrecompiles {
+			address := common.HexToAddress(precompileAddr)
+			if precompile, found := k.precompiles[address]; found {
+				precompiles[address] = precompile
+			}
+		}
 		if err := overrides.Apply(stateDB, precompiles); err != nil {
 			return nil, errorsmod.Wrap(err, "failed to apply state override")
 		}
@@ -470,7 +473,10 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
+	// If we're in a nested precompile scenario, then we don't want to prepare the stateDB a second time.
+	if !callFromPrecompile {
+		stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
+	}
 
 	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
 	if err != nil {
@@ -544,13 +550,24 @@ func (k *Keeper) ApplyMessageWithConfig(
 		span.AddEvent("vm_error", trace.WithAttributes(attribute.String("vm_err", vmError)))
 	}
 
+	isAmsterdam := ethCfg.IsAmsterdam(evm.Context.BlockNumber, evm.Context.Time)
+	if isAmsterdam {
+		stateDB.EmitLogsForBurnAccounts()
+	}
 	// The dirty states in `StateDB` is either committed or discarded after return
 	if commit {
-		if err := stateDB.Commit(); err != nil {
-			return nil, errorsmod.Wrap(err, "failed to commit stateDB")
+		// In a precompile context, we never want to commit, as that will collapse the cache stack.
+		// Instead, we want to flush to the cacheCtx.
+		if callFromPrecompile {
+			if err := stateDB.FlushToCacheCtx(); err != nil {
+				return nil, errorsmod.Wrap(err, "failed to flush stateDB to cacheCtx")
+			}
+		} else {
+			if err := stateDB.Commit(); err != nil {
+				return nil, errorsmod.Wrap(err, "failed to commit stateDB")
+			}
 		}
 	}
-
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
 	// is considerably higher than GasUsed to stay more aligned with CometBFT gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
@@ -579,7 +596,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// if the execution reverted, we return the revert reason as the return data
 	if vmError == vm.ErrExecutionReverted.Error() {
-		ret = evm.Interpreter().ReturnData()
+		ret = evm.ReturnData()
 	}
 	return &types.MsgEthereumTxResponse{
 		GasUsed:        gasUsed.TruncateInt().Uint64(),
@@ -630,12 +647,12 @@ func (k *Keeper) applyAuthorization(ctx sdk.Context, auth *ethtypes.SetCodeAutho
 	state.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
 	if auth.Address == (common.Address{}) {
 		// Delegation to zero address means clear.
-		state.SetCode(authority, nil)
+		state.SetCode(authority, nil, tracing.CodeChangeAuthorizationClear)
 		return nil
 	}
 
 	// Otherwise install delegation to auth.Address.
-	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address))
+	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address), tracing.CodeChangeAuthorization)
 
 	return nil
 }

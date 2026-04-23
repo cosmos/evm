@@ -205,7 +205,7 @@ benchmark:
 ###                                Linting                                  ###
 ###############################################################################
 golangci_lint_cmd=golangci-lint
-golangci_version=v2.8.0
+golangci_version=v2.10.1
 
 lint: lint-go lint-python lint-contracts
 
@@ -252,7 +252,7 @@ format-shell:
 ###                                Protobuf                                 ###
 ###############################################################################
 
-protoVer=0.18.0
+protoVer=0.18.1
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace --user 0 $(protoImageName)
 
@@ -372,7 +372,7 @@ test-rpc-compat:
 test-rpc-compat-stop:
 	cd tests/jsonrpc && docker compose down
 
-.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop mocks
 
 test-system: build-v05 build
 	mkdir -p ./tests/systemtests/binaries/
@@ -382,7 +382,7 @@ test-system: build-v05 build
 
 build-v05:
 	mkdir -p ./tests/systemtests/binaries/v0.5
-	git checkout v0.5.0
+	git checkout v0.5.1
 	make build
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.5
 	git checkout -

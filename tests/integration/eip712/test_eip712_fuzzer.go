@@ -174,6 +174,7 @@ func (s *TestSuite) createRandomString() string {
 	bz := make([]byte, bzLen)
 
 	for i := 0; i < bzLen; i++ {
+		// #nosec G115 -- ascii range constrains to 0-255
 		bz[i] = byte(s.createRandomIntInRange(asciiRangeStart, asciiRangeEnd))
 	}
 

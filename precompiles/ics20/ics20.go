@@ -13,8 +13,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	storetypes "cosmossdk.io/store/types"
-
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -44,6 +43,7 @@ type Precompile struct {
 	stakingKeeper  cmn.StakingKeeper
 	transferKeeper cmn.TransferKeeper
 	channelKeeper  cmn.ChannelKeeper
+	erc20Keeper    cmn.ERC20Keeper
 }
 
 // NewPrecompile creates a new ICS-20 Precompile instance as a
@@ -53,6 +53,7 @@ func NewPrecompile(
 	stakingKeeper cmn.StakingKeeper,
 	transferKeeper cmn.TransferKeeper,
 	channelKeeper cmn.ChannelKeeper,
+	erc20Keeper cmn.ERC20Keeper,
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
@@ -66,7 +67,12 @@ func NewPrecompile(
 		transferKeeper: transferKeeper,
 		channelKeeper:  channelKeeper,
 		stakingKeeper:  stakingKeeper,
+		erc20Keeper:    erc20Keeper,
 	}
+}
+
+func (Precompile) Name() string {
+	return "ics20"
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.

@@ -1,8 +1,6 @@
 package evmd
 
 import (
-	"fmt"
-
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/server"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -11,7 +9,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
@@ -21,49 +18,52 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	cosmosPoolMaxTx := server.GetCosmosPoolMaxTx(appOpts, logger)
+	var (
+		mpConfig = server.ResolveMempoolConfig(app.GetAnteHandler(), appOpts, logger)
+
+		txEncoder       = evmmempool.NewTxEncoder(app.txConfig)
+		evmRechecker    = evmmempool.NewTxRechecker(mpConfig.AnteHandler, txEncoder)
+		cosmosRechecker = evmmempool.NewTxRechecker(mpConfig.AnteHandler, txEncoder)
+		cosmosPoolMaxTx = server.GetCosmosPoolMaxTx(appOpts, logger)
+		checkTxTimeout  = server.GetMempoolCheckTxTimeout(appOpts, logger)
+	)
+
 	if cosmosPoolMaxTx < 0 {
-		logger.Debug("app-side mempool is disabled, skipping evm mempool configuration")
+		logger.Debug("evm mempool is disabled, skipping configuration")
 		return nil
 	}
 
-	mempoolConfig, err := app.createMempoolConfig(appOpts, logger)
-	if err != nil {
-		return fmt.Errorf("failed to get mempool config: %w", err)
-	}
-
-	evmMempool := evmmempool.NewExperimentalEVMMempool(
+	// create mempool
+	mempool := evmmempool.NewMempool(
 		app.CreateQueryContext,
 		logger,
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.txConfig,
-		mempoolConfig,
+		evmRechecker,
+		cosmosRechecker,
+		mpConfig,
 		cosmosPoolMaxTx,
 	)
-	app.EVMMempool = evmMempool
-	app.SetMempool(evmMempool)
-	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
+
+	app.EVMMempool = mempool
+
+	// create ABCI handlers
+	prepareProposalHandler := baseapp.
+		NewDefaultProposalHandler(mempool, NewNoCheckProposalTxVerifier(app.BaseApp)).
+		PrepareProposalHandler()
+
+	insertTxHandler := mempool.NewInsertTxHandler(app.TxDecode)
+	reapTxsHandler := mempool.NewReapTxsHandler()
+	checkTxHandler := mempool.NewCheckTxHandler(app.TxDecode, checkTxTimeout)
+
+	// set handlers and the mempool
+	app.SetPrepareProposal(prepareProposalHandler)
+	app.SetInsertTxHandler(insertTxHandler)
+	app.SetReapTxsHandler(reapTxsHandler)
 	app.SetCheckTxHandler(checkTxHandler)
 
-	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
-	abciProposalHandler.SetSignerExtractionAdapter(
-		evmmempool.NewEthSignerExtractionAdapter(
-			sdkmempool.NewDefaultSignerExtractionAdapter(),
-		),
-	)
-	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	app.SetMempool(mempool)
 
 	return nil
-}
-
-// createMempoolConfig creates a new EVMMempoolConfig with the default configuration
-// and overrides it with values from appOpts if they exist and are non-zero.
-func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
-	return &evmmempool.EVMMempoolConfig{
-		AnteHandler:      app.GetAnteHandler(),
-		LegacyPoolConfig: server.GetLegacyPoolConfig(appOpts, logger),
-		BlockGasLimit:    server.GetBlockGasLimit(appOpts, logger),
-		MinTip:           server.GetMinTip(appOpts, logger),
-	}, nil
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	"cosmossdk.io/math"
 
@@ -85,7 +85,8 @@ func RegisterIBCERC20Coins(
 	denom transfertypes.Denom,
 ) (erc20types.TokenPair, error) {
 	ibcDenom := denom.IBCDenom()
-	network.App.GetTransferKeeper().SetDenom(network.GetContext(), denom)
+	keeper := network.App.GetTransferKeeper()
+	keeper.SetDenom(network.GetContext(), denom)
 	ibcMetadata := banktypes.Metadata{
 		Name:        "Generic IBC name",
 		Symbol:      "IBC",

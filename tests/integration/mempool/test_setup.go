@@ -49,8 +49,8 @@ func (s *IntegrationTestSuite) TearDownTest() {
 		// Close the mempool to stop background goroutines before the next test
 		// This prevents race conditions when global test state is reset in SetupTest
 		if mp := s.network.App.GetMempool(); mp != nil {
-			if evmmp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
-				if err := evmmp.Close(); err != nil {
+			if closer, ok := mp.(interface{ Close() error }); ok {
+				if err := closer.Close(); err != nil {
 					s.T().Logf("Warning: failed to close mempool: %v", err)
 				}
 
@@ -81,8 +81,11 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	options = append(options, s.options...)
 
 	nw := network.NewUnitTestNetwork(s.create, options...)
+	s.network = nw
+
 	gh := grpc.NewIntegrationHandler(nw)
 	tf := factory.New(nw, gh)
+	s.factory = tf
 
 	// Advance to block 2+ where mempool is designed to operate
 	// This ensures proper headers, StateDB, and fee market initialization
@@ -95,19 +98,7 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	// Directly call Reset on subpools to ensure synchronous completion
 	// This prevents race conditions by waiting for the reset to complete
 	// before continuing with test setup
-	mpool := nw.App.GetMempool()
-	if evmMempoolCast, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
-		blockchain := evmMempoolCast.GetBlockchain()
-		txPool := evmMempoolCast.GetTxPool()
-
-		oldHead := blockchain.CurrentBlock()
-		blockchain.NotifyNewBlock()
-		newHead := blockchain.CurrentBlock()
-
-		for _, subpool := range txPool.Subpools {
-			subpool.Reset(oldHead, newHead)
-		}
-	}
+	s.TrySetupMempool()
 
 	// Ensure mempool is in ready state by verifying block height
 	s.Require().Equal(int64(3), nw.GetContext().BlockHeight())
@@ -122,9 +113,26 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 
 	// Enforces deterministic mempool state for tests
 	evmmempool.AllowUnsafeSyncInsert = true
+}
 
-	s.network = nw
-	s.factory = tf
+// TrySetupMempool sets up the Mempool, if it is the configured mempool on the suite.
+func (s *IntegrationTestSuite) TrySetupMempool() {
+	mp, ok := s.network.App.GetMempool().(*evmmempool.Mempool)
+	if !ok {
+		return
+	}
+
+	blockchain := mp.GetBlockchain()
+	txPool := mp.GetTxPool()
+
+	oldHead := blockchain.CurrentBlock()
+	blockchain.NotifyNewBlock()
+	newHead := blockchain.CurrentBlock()
+
+	mp.RecheckCosmosTxs(newHead)
+	for _, subpool := range txPool.Subpools {
+		subpool.Reset(oldHead, newHead)
+	}
 }
 
 // FundAccount funds an account with a specific amount of a given denomination.

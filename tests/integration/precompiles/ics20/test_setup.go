@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 )
 
 type PrecompileTestSuite struct {
@@ -48,6 +48,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		*evmAppA.GetStakingKeeper(),
 		evmAppA.GetTransferKeeper(),
 		evmAppA.GetIBCKeeper().ChannelKeeper,
+		evmAppA.GetErc20Keeper(),
 	)
 	s.chainABondDenom, _ = evmAppA.GetStakingKeeper().BondDenom(s.chainA.GetContext())
 	evmAppB := s.chainB.App.(evm.IBCApp)
@@ -56,6 +57,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		*evmAppB.GetStakingKeeper(),
 		evmAppB.GetTransferKeeper(),
 		evmAppB.GetIBCKeeper().ChannelKeeper,
+		evmAppB.GetErc20Keeper(),
 	)
 	s.chainBBondDenom, _ = evmAppB.GetStakingKeeper().BondDenom(s.chainB.GetContext())
 }

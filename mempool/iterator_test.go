@@ -40,49 +40,49 @@ const (
 )
 
 func TestNewEVMMempoolIterator_BothEmpty(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
-	iter := NewEVMMempoolIterator(nil, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	txConfig, b := setupIteratorTest(t)
+	iter := NewEVMMempoolIterator(nil, nil, log.NewNopLogger(), txConfig, b)
 	require.Nil(t, iter)
 }
 
 func TestNewEVMMempoolIterator_EmptyEVMIterator(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.Nil(t, iter)
 }
 
 func TestNewEVMMempoolIterator_NilCosmosIterator(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	addr, key := newAddrKey(t)
 
-	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), chainID)
+	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{addr: {tx}}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 }
 
 func TestNewEVMMempoolIterator_NilEVMWithCosmosOnly(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	_, key := newAddrKey(t)
 
 	pool := newCosmosPriorityPool()
 	cosmosTx := buildCosmosTx(t, txConfig, key, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 }
 
 func TestIterator_EVMOnly_SingleTx(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	addr, key := newAddrKey(t)
 
-	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), chainID)
+	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{addr: {tx}}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -91,17 +91,17 @@ func TestIterator_EVMOnly_SingleTx(t *testing.T) {
 }
 
 func TestIterator_EVMOnly_MultipleTxsSameAccount(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	addr, key := newAddrKey(t)
 
 	var lazyTxs []*txpool.LazyTransaction
 	for nonce := uint64(0); nonce < 3; nonce++ {
-		tx := buildEVMTx(t, key, nonce, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), chainID)
+		tx := buildEVMTx(t, key, nonce, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 		lazyTxs = append(lazyTxs, tx)
 	}
 
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{addr: lazyTxs}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -112,16 +112,16 @@ func TestIterator_EVMOnly_MultipleTxsSameAccount(t *testing.T) {
 }
 
 func TestIterator_EVMOnly_MultipleAccounts(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	txsByAddr := make(map[common.Address][]*txpool.LazyTransaction)
 	for i := 0; i < 3; i++ {
 		addr, key := newAddrKey(t)
-		tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), chainID)
+		tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 		txsByAddr[addr] = []*txpool.LazyTransaction{tx}
 	}
 
 	evmIter := makeEVMIterator(txsByAddr, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -129,17 +129,17 @@ func TestIterator_EVMOnly_MultipleAccounts(t *testing.T) {
 }
 
 func TestIterator_EVMMultipleAccountsDifferentPrices(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	gasPrices := []int64{10_000_000_000, 5_000_000_000, 1_000_000_000}
 	txsByAddr := make(map[common.Address][]*txpool.LazyTransaction)
 	for _, gp := range gasPrices {
 		addr, key := newAddrKey(t)
-		tx := buildEVMTx(t, key, 0, big.NewInt(gp), big.NewInt(gp), chainID)
+		tx := buildEVMTx(t, key, 0, big.NewInt(gp), big.NewInt(gp), b.Config().ChainID)
 		txsByAddr[addr] = []*txpool.LazyTransaction{tx}
 	}
 
 	evmIter := makeEVMIterator(txsByAddr, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -151,14 +151,14 @@ func TestIterator_EVMMultipleAccountsDifferentPrices(t *testing.T) {
 }
 
 func TestIterator_CosmosOnly_SingleTx(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	_, key := newAddrKey(t)
 
 	pool := newCosmosPriorityPool()
 	cosmosTx := buildCosmosTx(t, txConfig, key, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -167,7 +167,7 @@ func TestIterator_CosmosOnly_SingleTx(t *testing.T) {
 }
 
 func TestIterator_CosmosOnly_MultipleTxs(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	pool := newCosmosPriorityPool()
 
 	// different accounts, different gas prices, ordered by priority
@@ -181,7 +181,7 @@ func TestIterator_CosmosOnly_MultipleTxs(t *testing.T) {
 
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -193,7 +193,7 @@ func TestIterator_CosmosOnly_MultipleTxs(t *testing.T) {
 }
 
 func TestIterator_CosmosOnlyWithBaseFee(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, _ := setupIteratorTest(t)
 	baseFee := big.NewInt(1_000_000_000)
 	pool := newCosmosPriorityPool()
 
@@ -208,7 +208,7 @@ func TestIterator_CosmosOnlyWithBaseFee(t *testing.T) {
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
 	bc := makeBlockchain(t, baseFee)
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, bc)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, bc)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -220,10 +220,10 @@ func TestIterator_CosmosOnlyWithBaseFee(t *testing.T) {
 }
 
 func TestIterator_Mixed_EVMHigherFee(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(10_000_000_000), big.NewInt(10_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(10_000_000_000), big.NewInt(10_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -233,7 +233,7 @@ func TestIterator_Mixed_EVMHigherFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -245,10 +245,10 @@ func TestIterator_Mixed_EVMHigherFee(t *testing.T) {
 }
 
 func TestIterator_Mixed_CosmosHigherFee(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -258,7 +258,7 @@ func TestIterator_Mixed_CosmosHigherFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 10_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -270,10 +270,10 @@ func TestIterator_Mixed_CosmosHigherFee(t *testing.T) {
 }
 
 func TestIterator_Mixed_EqualFees_PrefersEVM(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -283,7 +283,7 @@ func TestIterator_Mixed_EqualFees_PrefersEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 5_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -293,7 +293,7 @@ func TestIterator_Mixed_EqualFees_PrefersEVM(t *testing.T) {
 }
 
 func TestIterator_Mixed_InterleavedByFee(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	// EVM fees (tip): 8, 5, 2 gwei (3 accounts)
 	// Cosmos fees (no base fee, tip = gas price): 9, 6, 1 gwei (3 accounts)
 	// Expected: C(9), E(8), C(6), E(5), E(2), C(1)
@@ -302,7 +302,7 @@ func TestIterator_Mixed_InterleavedByFee(t *testing.T) {
 	txsByAddr := make(map[common.Address][]*txpool.LazyTransaction)
 	for _, gp := range evmGasPrices {
 		addr, key := newAddrKey(t)
-		tx := buildEVMTx(t, key, 0, big.NewInt(gp), big.NewInt(gp), chainID)
+		tx := buildEVMTx(t, key, 0, big.NewInt(gp), big.NewInt(gp), b.Config().ChainID)
 		txsByAddr[addr] = []*txpool.LazyTransaction{tx}
 	}
 	evmIter := makeEVMIterator(txsByAddr, nil)
@@ -318,7 +318,7 @@ func TestIterator_Mixed_InterleavedByFee(t *testing.T) {
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -337,10 +337,10 @@ func TestIterator_Mixed_InterleavedByFee(t *testing.T) {
 }
 
 func TestIterator_CosmosZeroFee_PrefersEVM(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -351,7 +351,7 @@ func TestIterator_CosmosZeroFee_PrefersEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 0, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -361,10 +361,10 @@ func TestIterator_CosmosZeroFee_PrefersEVM(t *testing.T) {
 }
 
 func TestIterator_CosmosWrongDenom_PrefersEVM(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -375,7 +375,7 @@ func TestIterator_CosmosWrongDenom_PrefersEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 100_000_000_000, testGas, "uosmo")
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -385,16 +385,17 @@ func TestIterator_CosmosWrongDenom_PrefersEVM(t *testing.T) {
 }
 
 func TestIterator_WithBaseFee_CosmosEffectiveTip(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, _ := setupIteratorTest(t)
 	// base fee 1 gwei:
 	//   EVM: gasFeeCap=gasTipCap=4 gwei, miner tip = min(4, 4-1) = 3
 	//   Cosmos: gasPrice=5 gwei, effective tip = 5 - 1 = 4
 	//   Cosmos tip (4) > EVM tip (3) → cosmos first
 	baseFee := big.NewInt(1_000_000_000)
+	bc := makeBlockchain(t, baseFee)
 
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(4_000_000_000), big.NewInt(4_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(4_000_000_000), big.NewInt(4_000_000_000), bc.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, baseFee)
@@ -404,8 +405,7 @@ func TestIterator_WithBaseFee_CosmosEffectiveTip(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 5_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	bc := makeBlockchain(t, baseFee)
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -415,13 +415,14 @@ func TestIterator_WithBaseFee_CosmosEffectiveTip(t *testing.T) {
 }
 
 func TestIterator_WithBaseFee_CosmosBelowBaseFee(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, _ := setupIteratorTest(t)
 	// cosmos gas price 2 gwei < base fee 3 gwei → effective tip = 0 → EVM preferred
 	baseFee := big.NewInt(3_000_000_000)
+	bc := makeBlockchain(t, baseFee)
 
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), bc.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, baseFee)
@@ -431,8 +432,7 @@ func TestIterator_WithBaseFee_CosmosBelowBaseFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 2_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	bc := makeBlockchain(t, baseFee)
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -442,13 +442,14 @@ func TestIterator_WithBaseFee_CosmosBelowBaseFee(t *testing.T) {
 }
 
 func TestIterator_WithBaseFee_CosmosEqualToBaseFee(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, _ := setupIteratorTest(t)
 	// cosmos gas price == base fee → effective tip = 0 → EVM preferred
 	baseFee := big.NewInt(5_000_000_000)
+	bc := makeBlockchain(t, baseFee)
 
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(6_000_000_000), big.NewInt(6_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(6_000_000_000), big.NewInt(6_000_000_000), bc.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, baseFee)
@@ -458,8 +459,7 @@ func TestIterator_WithBaseFee_CosmosEqualToBaseFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 5_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	bc := makeBlockchain(t, baseFee)
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -469,12 +469,12 @@ func TestIterator_WithBaseFee_CosmosEqualToBaseFee(t *testing.T) {
 }
 
 func TestIterator_NoBaseFee_CosmosGasPriceUsedDirectly(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	// nil blockchain → no base fee → cosmos gas price used as effective tip
 	// Cosmos 10 gwei vs EVM 5 gwei → cosmos first
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -484,7 +484,7 @@ func TestIterator_NoBaseFee_CosmosGasPriceUsedDirectly(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 10_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -494,11 +494,12 @@ func TestIterator_NoBaseFee_CosmosGasPriceUsedDirectly(t *testing.T) {
 }
 
 func TestIterator_NilBaseFeeInHeader(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, _ := setupIteratorTest(t)
 	// blockchain exists but header has nil BaseFee → same as no base fee
+	bc := makeBlockchain(t, nil)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(5_000_000_000), big.NewInt(5_000_000_000), bc.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -508,8 +509,7 @@ func TestIterator_NilBaseFeeInHeader(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 10_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	bc := makeBlockchain(t, nil)
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -518,15 +518,16 @@ func TestIterator_NilBaseFeeInHeader(t *testing.T) {
 }
 
 func TestIterator_MixedWithBaseFee_OrderingCorrect(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, _ := setupIteratorTest(t)
 	// EVM: gasFeeCap=10, gasTipCap=10, baseFee=2 → miner tip = min(10, 10-2) = 8
 	// Cosmos: gasPrice=7, baseFee=2 → effective tip = 7 - 2 = 5
 	// EVM tip (8) > Cosmos tip (5) → EVM first
 	baseFee := big.NewInt(2_000_000_000)
+	bc := makeBlockchain(t, baseFee)
 
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(10_000_000_000), big.NewInt(10_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(10_000_000_000), big.NewInt(10_000_000_000), bc.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, baseFee)
@@ -536,8 +537,7 @@ func TestIterator_MixedWithBaseFee_OrderingCorrect(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 7_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	bc := makeBlockchain(t, baseFee)
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -547,13 +547,13 @@ func TestIterator_MixedWithBaseFee_OrderingCorrect(t *testing.T) {
 }
 
 func TestIterator_CosmosExhaustedFirstThenEVM(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	// 1 cosmos tx with high fee, 2 EVM txs with lower fee
 	evmAddr, evmKey := newAddrKey(t)
 
 	var lazyTxs []*txpool.LazyTransaction
 	for nonce := uint64(0); nonce < 2; nonce++ {
-		tx := buildEVMTx(t, evmKey, nonce, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), chainID)
+		tx := buildEVMTx(t, evmKey, nonce, big.NewInt(1_000_000_000), big.NewInt(1_000_000_000), b.Config().ChainID)
 		lazyTxs = append(lazyTxs, tx)
 	}
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{evmAddr: lazyTxs}, nil)
@@ -563,7 +563,7 @@ func TestIterator_CosmosExhaustedFirstThenEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 50_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -577,11 +577,11 @@ func TestIterator_CosmosExhaustedFirstThenEVM(t *testing.T) {
 }
 
 func TestIterator_EVMExhaustedFirstThenCosmos(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	// 1 EVM tx with high fee, 2 cosmos txs with lower fee
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(50_000_000_000), big.NewInt(50_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(50_000_000_000), big.NewInt(50_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -597,7 +597,7 @@ func TestIterator_EVMExhaustedFirstThenCosmos(t *testing.T) {
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -611,10 +611,10 @@ func TestIterator_EVMExhaustedFirstThenCosmos(t *testing.T) {
 }
 
 func TestIterator_Tx_CalledMultipleTimesReturnsSameType(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	evmAddr, evmKey := newAddrKey(t)
 
-	tx := buildEVMTx(t, evmKey, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), chainID)
+	tx := buildEVMTx(t, evmKey, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		evmAddr: {tx},
 	}, nil)
@@ -624,7 +624,7 @@ func TestIterator_Tx_CalledMultipleTimesReturnsSameType(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 
 	// Tx() should be idempotent
@@ -637,15 +637,15 @@ func TestIterator_Tx_CalledMultipleTimesReturnsSameType(t *testing.T) {
 }
 
 func TestIterator_NextReturnsNilWhenExhausted(t *testing.T) {
-	txConfig, chainID := setupIteratorTest(t)
+	txConfig, b := setupIteratorTest(t)
 	addr, key := newAddrKey(t)
 
-	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), chainID)
+	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{
 		addr: {tx},
 	}, nil)
 
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, testBondDenom, chainID, nil)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
 	require.NotNil(t, iter.Tx())
 
@@ -653,7 +653,7 @@ func TestIterator_NextReturnsNilWhenExhausted(t *testing.T) {
 	require.Nil(t, next)
 }
 
-func setupIteratorTest(t *testing.T) (client.TxConfig, *big.Int) {
+func setupIteratorTest(t *testing.T) (client.TxConfig, *Blockchain) {
 	t.Helper()
 
 	chainID := uint64(constants.EighteenDecimalsChainID)
@@ -664,15 +664,16 @@ func setupIteratorTest(t *testing.T) (client.TxConfig, *big.Int) {
 	err := vmtypes.SetChainConfig(vmtypes.DefaultChainConfig(chainID))
 	require.NoError(t, err)
 
-	err = configurator.
-		WithEVMCoinInfo(constants.ChainsCoinInfo[chainID]).
-		Configure()
+	coinInfo := constants.ChainsCoinInfo[chainID]
+	coinInfo.Denom = testBondDenom
+
+	err = configurator.WithEVMCoinInfo(coinInfo).Configure()
 	require.NoError(t, err)
 
 	enc := encoding.MakeConfig(chainID)
 	vmtypes.RegisterInterfaces(enc.InterfaceRegistry)
 
-	return enc.TxConfig, vmtypes.GetEthChainConfig().ChainID
+	return enc.TxConfig, makeBlockchain(t, big.NewInt(20000))
 }
 
 // newAddrKey generates an Ethereum address and its corresponding private key.
@@ -808,7 +809,11 @@ func newCosmosPriorityPool() sdkmempool.ExtMempool {
 // the given baseFee. If baseFee is nil, the header will have nil BaseFee.
 func makeBlockchain(t *testing.T, baseFee *big.Int) *Blockchain {
 	t.Helper()
-	return &Blockchain{
+
+	coinInfo := constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]
+	coinInfo.Denom = testBondDenom
+
+	blockchain := &Blockchain{
 		logger:        log.NewNopLogger(),
 		blockGasLimit: 30_000_000,
 		getCtxCallback: func(_ int64, _ bool) (sdk.Context, error) {
@@ -820,6 +825,10 @@ func makeBlockchain(t *testing.T, baseFee *big.Int) *Blockchain {
 			BaseFee:    baseFee,
 		},
 	}
+
+	blockchain.coinInfo.Store(&coinInfo)
+
+	return blockchain
 }
 
 // collectAll drains an iterator, returning all transactions.

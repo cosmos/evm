@@ -12,6 +12,11 @@
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 - [\#829](https://github.com/cosmos/evm/pull/829) Seperate test app interface
 - [\#968](https://github.com/cosmos/evm/pull/968) Use normal gas config in ibc transfer to prevent potential DoS attack
+- [\#1029](https://github.com/cosmos/evm/pull/1029) Mark EvmCoinInfo.Decimals field as deprecated
+- [\#1079](https://github.com/cosmos/evm/pull/1079) Access Control List is now case-insensitive
+- [\#1103](https://github.com/cosmos/evm/pull/1103) Align normal gas metering in ibc erc20 callback.
+- [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
+- [\#1118](https://github.com/cosmos/evm/pull/1118) Cache chain denom for evm mempool
 
 ### FEATURES
 
@@ -19,6 +24,7 @@
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
 - [\#1008](https://github.com/cosmos/evm/pull/1008) Add per-IP rate limit to filter API.
+- [\#1096](https://github.com/cosmos/evm/pull/1096) Allow eth_call overrides work with static precompiles.
 
 ### BUG FIXES
 
@@ -44,6 +50,27 @@
 - [\#967](https://github.com/cosmos/evm/pull/967) Fix return value of erc20 ibcv2 middleware to properly reflect application success and middleware failure.
 - [\#992](https://github.com/cosmos/evm/pull/992) Respect the provided `gasCap` in `CallEVMWithData` instead of always used the default cap.
 - [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
+- [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
+- [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
+
+
+## v0.6.0
+
+Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade instructions.
+
+### BREAKING CHANGES
+- Removed IBC Transfer wrapper. Users are now required to use the precompile to transfer ERC20 tokens.
+- Added StateDB as a parameter to internal EVM calls.
+
+### DEPENDENCIES
+
+### IMPROVEMENTS
+
+### FEATURES
+
+### BUG FIXES
+
+## v0.5.1
 
 ## v0.5.0
 

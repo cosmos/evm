@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -15,8 +14,8 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
+	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/server/types"
@@ -40,7 +39,7 @@ func StartJSONRPC(
 	config *serverconfig.Config,
 	indexer types.EVMTxIndexer,
 	app AppWithPendingTxStream,
-	mempool *evmmempool.ExperimentalEVMMempool,
+	mempool backend.Mempool,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
 
@@ -52,17 +51,20 @@ func StartJSONRPC(
 	stream := stream.NewRPCStreams(evtClient, logger, clientCtx.TxConfig.TxDecoder())
 	app.RegisterPendingTxListener(stream.ListenPendingTx)
 
-	// Set Geth's global logger to use this handler
-	handler := &CustomSlogHandler{logger: logger}
-	slog.SetDefault(slog.New(handler))
+	evmBackend := backend.NewBackend(
+		srvCtx,
+		clientCtx,
+		indexer,
+		mempool,
+		backend.WithUnprotectedTxs(config.JSONRPC.AllowUnprotectedTxs),
+		backend.WithLogger(srvCtx.Logger),
+	)
+
+	apis := rpc.BuildRPCs(config.JSONRPC.API, srvCtx, clientCtx, stream, evmBackend)
 
 	rpcServer := ethrpc.NewServer()
-
 	rpcServer.SetBatchLimits(config.JSONRPC.BatchRequestLimit, config.JSONRPC.BatchResponseMaxSize)
-	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
-	rpcAPIArr := config.JSONRPC.API
-
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
+	rpcServer.SetHTTPBodyLimit(config.JSONRPC.HTTPBodyLimit)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

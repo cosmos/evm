@@ -17,6 +17,8 @@ import (
 
 type precompileContract struct{}
 
+func (p *precompileContract) Name() string { return "" }
+
 func (p *precompileContract) Address() common.Address { return common.Address{} }
 
 func (p *precompileContract) RequiredGas(input []byte) uint64 { return 0 }
@@ -27,7 +29,7 @@ func (p *precompileContract) Run(evm *vm.EVM, contract *vm.Contract, readonly bo
 
 func TestApply(t *testing.T) {
 	emptyTxConfig := statedb.NewEmptyTxConfig()
-	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
 	precompiles := map[common.Address]vm.PrecompiledContract{
 		common.BytesToAddress([]byte{0x1}): &precompileContract{},
 		common.BytesToAddress([]byte{0x2}): &precompileContract{},
