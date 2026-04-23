@@ -161,7 +161,7 @@ func (k Keeper) ConvertCoinNativeERC20(ctx sdk.Context, pair types.TokenPair, am
 // precedence.
 func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	if err := sdk.ValidateAuthority(ctx, k.authority.String(), req.Authority); err != nil {
+	if err := k.validateAuthority(ctx, req.Authority); err != nil {
 		return nil, err
 	}
 
