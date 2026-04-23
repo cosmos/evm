@@ -122,7 +122,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				stateDB := s.network.GetStateDB()
 				sdAddr := utiltx.GenerateAddress()
 				stateDB.CreateAccount(sdAddr)
-				stateDB.SetCode(sdAddr, []byte{0x60, 0x00})
+				stateDB.SetCode(sdAddr, []byte{0x60, 0x00}, 0x0)
 				stateDB.SelfDestruct(sdAddr)
 				Expect(stateDB.Commit()).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())

@@ -248,7 +248,7 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 		{
 			"fail - cannot be called from account with code (if it is not EIP-7702 delegated account)",
 			func() []interface{} {
-				stDB.SetCode(validatorAddress, []byte{0x60, 0x00})
+				stDB.SetCode(validatorAddress, []byte{0x60, 0x00}, 0x0)
 				return []interface{}{
 					description,
 					commission,
@@ -562,7 +562,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 		{
 			"fail - cannot be called from smart contract",
 			func() []interface{} {
-				stDB.SetCode(validatorAddress, []byte{0x60, 0x00})
+				stDB.SetCode(validatorAddress, []byte{0x60, 0x00}, 0x0)
 				return []interface{}{
 					description,
 					validatorAddress,
