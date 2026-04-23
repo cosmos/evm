@@ -140,13 +140,13 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 func (am AppModule) HydrateGlobals(goCtx context.Context) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if ctx.BlockHeight() > 1 {
-		am.hydrateGlobals(ctx)
+		am.hydrateGlobals(ctx, "HydrateGlobals")
 	}
 }
 
 func (am AppModule) PreBlock(goCtx context.Context) (appmodule.ResponsePreBlock, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	am.hydrateGlobals(ctx)
+	am.hydrateGlobals(ctx, "PreBlock")
 
 	return &sdk.ResponsePreBlock{ConsensusParamsChanged: false}, nil
 }
@@ -199,9 +199,12 @@ func (am AppModule) IsAppModule() {}
 // IsOnePerModuleType implements the depinject.OnePerModuleType interface.
 func (am AppModule) IsOnePerModuleType() {}
 
-func (am AppModule) hydrateGlobals(ctx sdk.Context) {
+func (am AppModule) hydrateGlobals(ctx sdk.Context, origin string) {
 	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
-	am.initializer.Do(func() { SetGlobalConfigVariables(coinInfo) })
+	am.initializer.Do(func() {
+		SetGlobalConfigVariables(coinInfo)
+		ctx.Logger().With("module", "vm", "origin", origin).Info("Restored global evm variables from store")
+	})
 }
 
 // setBaseDenom registers the display denom and base denom and sets the
