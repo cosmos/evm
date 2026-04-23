@@ -779,7 +779,7 @@ func NewExampleApp(
 			os.Exit(1)
 		}
 
-		ctx := app.NewContextLegacy(false, cmtproto.Header{
+		ctx := app.NewContextLegacy(true, cmtproto.Header{
 			Height:  app.LastBlockHeight(),
 			ChainID: app.ChainID(),
 		})
