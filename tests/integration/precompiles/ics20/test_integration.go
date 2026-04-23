@@ -30,8 +30,6 @@ import (
 )
 
 func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.AppCreator) {
-	t.Skip("STACK-2601: fix IBC tests")
-
 	isContractDeployed := func(ctx sdk.Context, evmApp evm.EvmApp, contractAddr common.Address) bool {
 		codeHash := evmApp.GetEVMKeeper().GetCodeHash(ctx, contractAddr)
 		code := evmApp.GetEVMKeeper().GetCode(ctx, codeHash)
