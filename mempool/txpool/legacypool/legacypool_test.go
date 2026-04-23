@@ -868,7 +868,7 @@ func TestScheduleForRemoval(t *testing.T) {
 	require.Len(t, pending, 4, "precondition: four pending txs")
 	require.Len(t, queued, 1, "precondition: one queued tx")
 
-	require.NoError(t, pool.ScheduleForRemoval(txs[1]))
+	pool.SetLatestNonce(addr, txs[1].Nonce())
 	<-pool.requestReset(nil, nil)
 
 	pending, queued = pool.ContentFrom(addr)
@@ -877,18 +877,18 @@ func TestScheduleForRemoval(t *testing.T) {
 	require.Equal(t, uint64(3), pending[1].Nonce())
 	require.Len(t, queued, 1, "queued tx@10 is above threshold and survives")
 
-	require.NoError(t, pool.ScheduleForRemoval(txs[0]))
+	pool.SetLatestNonce(addr, txs[0].Nonce())
 	<-pool.requestReset(nil, nil)
 
 	pending, _ = pool.ContentFrom(addr)
 	require.Len(t, pending, 2, "lower-nonce schedule must be a no-op")
 
-	require.NoError(t, pool.ScheduleForRemoval(queuedTx))
+	pool.SetLatestNonce(addr, queuedTx.Nonce())
 	<-pool.requestReset(nil, nil)
 
 	pending, queued = pool.ContentFrom(addr)
-	require.Empty(t, pending, "pending drained by ScheduleForRemoval at nonce 10")
-	require.Empty(t, queued, "queued tx@10 drained by ScheduleForRemoval")
+	require.Empty(t, pending, "pending drained by SetLatestNonce at nonce 10")
+	require.Empty(t, queued, "queued tx@10 drained by SetLatestNonce")
 }
 
 // Tests that if an account runs out of funds, any pending and queued transactions
@@ -2919,10 +2919,10 @@ func TestQueuedPromotionOnResetWithStalePending(t *testing.T) {
 
 	// mock that tx0 and tx1 **AND** tx2 were included on chain (simulating
 	// that another node had tx2, and filled the nonce gap for us)
-	require.NoError(t, pool.ScheduleForRemoval(tx0))
-	require.NoError(t, pool.ScheduleForRemoval(tx1))
+	pool.SetLatestNonce(addr, tx0.Nonce())
+	pool.SetLatestNonce(addr, tx1.Nonce())
 	tx2 := transaction(2, 100000, key)
-	require.NoError(t, pool.ScheduleForRemoval(tx2))
+	pool.SetLatestNonce(addr, tx2.Nonce())
 
 	// now we reset the pool to a new height. this reset will trigger a mempool
 	// state reset, plus a promotion of our queued tx to pending, and dropping

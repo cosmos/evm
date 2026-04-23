@@ -436,19 +436,24 @@ func New(
 	return pool
 }
 
-// ScheduleForRemoval schedules a tx to be removed from the mempool the next
-// time it is reset. This is typically called when a tx is included on chain.
-func (pool *LegacyPool) ScheduleForRemoval(tx *types.Transaction) error {
+// SetLatestNonceForTx records the latest on chain nonce observed for an
+// account based on tx's values.
+func (pool *LegacyPool) SetLatestNonceForTx(tx *types.Transaction) error {
 	sender, err := types.Sender(pool.signer, tx)
 	if err != nil {
 		return fmt.Errorf("getting tx signer: %w", err)
 	}
 
-	existing, ok := pool.latestIncludedNonce.Get(sender)
-	if !ok || tx.Nonce() > existing {
-		pool.latestIncludedNonce.Add(sender, tx.Nonce())
-	}
+	pool.SetLatestNonce(sender, tx.Nonce())
 	return nil
+}
+
+// SetLatestNonce records the latest on chain nonce observed for an account.
+func (pool *LegacyPool) SetLatestNonce(sender common.Address, nonce uint64) {
+	existing, ok := pool.latestIncludedNonce.Get(sender)
+	if !ok || nonce > existing {
+		pool.latestIncludedNonce.Add(sender, nonce)
+	}
 }
 
 // removeOlds removes txs that have been scheduled for removals from
@@ -1521,7 +1526,10 @@ func (pool *LegacyPool) computePendingTipNonces() map[common.Address]uint64 {
 		nextPendingNonce := list.LastElement().Nonce() + 1
 
 		// grab the latest nonce that we have observed on chain for this
-		// account if we have it cached
+		// account if we have it cached. SetLatestNonce is called from the
+		// finalize-removal path for both EVM and cosmos txs, so the LRU
+		// tracks on chain nonce advances from either tx type — important
+		// on Cosmos-EVM chains where the account's nonce is shared.
 		latestIncludedNonce, ok := pool.latestIncludedNonce.Get(addr)
 		if ok {
 			// if we have a cached on chain nonce for this account, it likely
