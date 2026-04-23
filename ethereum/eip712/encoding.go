@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
@@ -242,9 +243,27 @@ func validateCodecInit() error {
 	return nil
 }
 
-// parseChainID attempts to parse the chain ID string as a uint64.
-// The chain ID in the sign doc should be the EIP-155 chain ID.
+// cosmosEVMChainIDRegex matches the canonical cosmos-evm chain id format
+// "<name>_<eip155>-<revision>", e.g. "cosmos_9001-1" or "cosmos_262144-1",
+// and captures the EIP-155 numeric portion.
+var cosmosEVMChainIDRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*_([1-9][0-9]*)-[1-9][0-9]*$`)
+
+// parseChainID extracts the EIP-155 numeric chain id from a Cosmos sign-doc
+// chain id string. It supports both:
+//
+//   - the canonical cosmos-evm form "<name>_<eip155>-<revision>"
+//     (e.g. "cosmos_9001-1"), and
+//   - a bare decimal string (e.g. "9001"), which is what the CLI emits when
+//     a chain is configured to use its EVM chain id directly as its
+//     Cosmos chain id.
+//
+// Cosmos chain ids that don't encode an EVM chain id (e.g. "cosmoshub-4",
+// "cosmos-1") return an error; callers should fall back to the configured
+// global eip155ChainID for those.
 func parseChainID(chainIDStr string) (uint64, error) {
+	if m := cosmosEVMChainIDRegex.FindStringSubmatch(chainIDStr); len(m) == 2 {
+		return strconv.ParseUint(m[1], 10, 64)
+	}
 	return strconv.ParseUint(chainIDStr, 10, 64)
 }
 
