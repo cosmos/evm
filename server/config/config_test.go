@@ -42,18 +42,18 @@ func TestJSONRPCConfigValidate_FilterProtectionFields(t *testing.T) {
 			errText: "filter-client-cap cannot be negative",
 		},
 		{
-			name: "zero filter-timeout",
+			name: "negative filter-timeout",
 			mutate: func(c *serverconfig.JSONRPCConfig) {
-				c.FilterTimeout = 0
+				c.FilterTimeout = -1
 			},
-			errText: "filter-timeout must be greater than 0",
+			errText: "filter-timeout cannot be negative",
 		},
 		{
-			name: "zero cleanup interval",
+			name: "negative cleanup interval",
 			mutate: func(c *serverconfig.JSONRPCConfig) {
-				c.FilterCleanupInterval = 0
+				c.FilterCleanupInterval = -1
 			},
-			errText: "filter-cleanup-interval must be greater than 0",
+			errText: "filter-cleanup-interval cannot be negative",
 		},
 	}
 

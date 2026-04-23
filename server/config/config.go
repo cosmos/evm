@@ -406,12 +406,12 @@ func (c JSONRPCConfig) Validate() error {
 		return errors.New("JSON-RPC filter-client-cap cannot be negative")
 	}
 
-	if c.FilterTimeout <= 0 {
-		return errors.New("JSON-RPC filter-timeout must be greater than 0")
+	if c.FilterTimeout < 0 {
+		return errors.New("JSON-RPC filter-timeout cannot be negative")
 	}
 
-	if c.FilterCleanupInterval <= 0 {
-		return errors.New("JSON-RPC filter-cleanup-interval must be greater than 0")
+	if c.FilterCleanupInterval < 0 {
+		return errors.New("JSON-RPC filter-cleanup-interval cannot be negative")
 	}
 
 	if c.FeeHistoryCap <= 0 {

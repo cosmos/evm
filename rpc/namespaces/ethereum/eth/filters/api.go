@@ -117,7 +117,7 @@ func NewPublicAPI(
 		if jsonRPC.FilterCleanupInterval > 0 {
 			cleanupInterval = jsonRPC.FilterCleanupInterval
 		}
-		if jsonRPC.FilterClientCap >= 0 {
+		if jsonRPC.FilterClientCap > 0 {
 			clientCap = jsonRPC.FilterClientCap
 		}
 	}
