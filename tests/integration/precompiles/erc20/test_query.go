@@ -190,7 +190,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			s.Require().NoError(err)
 
 			s.Run("name", func() {
-				bz, err := precompile.Name(
+				bz, err := precompile.TokenName(
 					s.network.GetContext(),
 					nil,
 					nil,

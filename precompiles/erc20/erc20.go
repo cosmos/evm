@@ -89,6 +89,10 @@ func NewPrecompile(
 	}
 }
 
+func (p Precompile) Name() string {
+	return "erc20"
+}
+
 // RequiredGas calculates the contract gas used for the
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	// NOTE: This check avoid panicking when trying to decode the method ID
@@ -184,7 +188,7 @@ func (p *Precompile) HandleMethod(
 		bz, err = p.Approve(ctx, contract, stateDB, method, args)
 	// ERC-20 queries
 	case NameMethod:
-		bz, err = p.Name(ctx, contract, stateDB, method, args)
+		bz, err = p.TokenName(ctx, contract, stateDB, method, args)
 	case SymbolMethod:
 		bz, err = p.Symbol(ctx, contract, stateDB, method, args)
 	case DecimalsMethod:

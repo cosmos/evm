@@ -38,6 +38,10 @@ func NewPrecompile(bankKeeper cmn.BankKeeper, evmKeeper EVMKeeper) *Precompile {
 	}
 }
 
+func (Precompile) Name() string {
+	return "debug-precompile"
+}
+
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	return 1000
 }

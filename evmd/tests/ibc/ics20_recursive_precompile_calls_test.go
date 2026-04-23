@@ -927,7 +927,6 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestContractICS20TransferRe
 
 	// Verify event count
 	suite.Require().Equal(DelegationEventCount+ICS20WithConversionEventCount+EVMEventCount, len(res.Events), "should have 41 events")
-
 }
 
 func TestICS20RecursivePrecompileCallsTestSuite(t *testing.T) {

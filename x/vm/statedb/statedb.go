@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
@@ -97,6 +96,16 @@ func (s *StateDB) CreateContract(address common.Address) {
 	}
 }
 
+// IsNewContract reports whether the contract at the given address was deployed
+// during the current transaction.
+func (s *StateDB) IsNewContract(addr common.Address) bool {
+	obj := s.getStateObject(addr)
+	if obj == nil {
+		return false
+	}
+	return obj.newContract
+}
+
 // GetStorageRoot calculates the hash of the trie root by iterating through all storage objects for a given account
 func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
 	sr := trie.NewStackTrie(nil)
@@ -119,15 +128,6 @@ func (s *StateDB) IsStorageEmpty(addr common.Address) bool {
 	return empty
 }
 
-/*
-	PointCache, Witness, and AccessEvents are all utilized for verkle trees.
-	For now, we just return nil and verkle trees are not supported.
-*/
-
-func (s *StateDB) PointCache() *utils.PointCache {
-	return nil
-}
-
 func (s *StateDB) Witness() *stateless.Witness {
 	// TODO support verkle tries?
 	return nil
@@ -135,6 +135,41 @@ func (s *StateDB) Witness() *stateless.Witness {
 
 func (s *StateDB) AccessEvents() *state.AccessEvents {
 	return nil
+}
+
+type removedAccountWithBalance struct {
+	address common.Address
+	balance *uint256.Int
+}
+
+// EmitLogsForBurnAccounts emits the eth burn logs for accounts scheduled for
+// removal which still have positive balance. The purpose of this function is
+// to handle a corner case of EIP-7708 where a self-destructed account might
+// still receive funds between sending/burning its previous balance and actual
+// removal. In this case the burning of these remaining balances still need to
+// be logged.
+// Specification EIP-7708: https://eips.ethereum.org/EIPS/eip-7708
+//
+// This function should only be invoked at the transaction boundary, specifically
+// before the Finalise.
+func (s *StateDB) EmitLogsForBurnAccounts() {
+	var list []removedAccountWithBalance
+	for addr := range s.journal.dirties {
+		if obj, exist := s.stateObjects[addr]; exist && obj.selfDestructed && !obj.Balance().IsZero() {
+			list = append(list, removedAccountWithBalance{
+				address: obj.address,
+				balance: obj.Balance(),
+			})
+		}
+	}
+	if list != nil {
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].address.Cmp(list[j].address) < 0
+		})
+	}
+	for _, acct := range list {
+		s.AddLog(ethtypes.EthBurnLog(acct.address, acct.balance))
+	}
 }
 
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
@@ -499,7 +534,7 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.Non
 }
 
 // SetCode sets the code of account.
-func (s *StateDB) SetCode(addr common.Address, code []byte) []byte {
+func (s *StateDB) SetCode(addr common.Address, code []byte, reason tracing.CodeChangeReason) []byte {
 	stateObject := s.getOrNewStateObject(addr)
 	var prev []byte
 	if stateObject != nil {
@@ -534,37 +569,18 @@ func (s *StateDB) SetStorage(addr common.Address, storage Storage) {
 }
 
 // SelfDestruct marks the given account as self-destructed.
-// This clears the account balance.
 //
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after SelfDestruct.
-func (s *StateDB) SelfDestruct(addr common.Address) uint256.Int {
+func (s *StateDB) SelfDestruct(addr common.Address) {
 	stateObject := s.getStateObject(addr)
-	var prevBalance uint256.Int
 	if stateObject == nil {
-		return prevBalance
+		return
 	}
-	prevBalance = *(stateObject.Balance())
 	s.journal.append(selfDestructChange{
-		account:     &addr,
-		prev:        stateObject.selfDestructed,
-		prevbalance: new(uint256.Int).Set(stateObject.Balance()),
+		account: &addr,
 	})
 	stateObject.markSelfDestructed()
-	stateObject.account.Balance = new(uint256.Int)
-	return prevBalance
-}
-
-func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
-	stateObject := s.getStateObject(addr)
-	if stateObject == nil {
-		return uint256.Int{}, false
-	}
-
-	if stateObject.newContract {
-		return s.SelfDestruct(addr), true
-	}
-	return *(stateObject.Balance()), false
 }
 
 // HasSelfDestructed returns if the contract is self-destructed in current transaction.
