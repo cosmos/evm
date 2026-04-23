@@ -96,6 +96,9 @@ type PublicFilterAPI struct {
 	cleanupInterval   time.Duration
 	clientCap         int32
 	clientFilterCount map[string]int
+
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
 // NewPublicAPI returns a new PublicFilterAPI instance.
@@ -157,11 +160,20 @@ func newPublicAPIWithOptions(
 		cleanupInterval:   cleanupInterval,
 		clientCap:         clientCap,
 		clientFilterCount: make(map[string]int),
+
+		stop: make(chan struct{}),
 	}
 
 	go api.timeoutLoop()
 
 	return api
+}
+
+// Stop terminates the filter timeout goroutine. Safe to call multiple times.
+func (api *PublicFilterAPI) Stop() {
+	api.stopOnce.Do(func() {
+		close(api.stop)
+	})
 }
 
 // timeoutLoop runs every 5 minutes and deletes filters that have not been recently used.
@@ -171,7 +183,11 @@ func (api *PublicFilterAPI) timeoutLoop() {
 	defer ticker.Stop()
 
 	for {
-		<-ticker.C
+		select {
+		case <-api.stop:
+			return
+		case <-ticker.C:
+		}
 		api.filtersMu.Lock()
 		// #nosec G705
 		for id, f := range api.filters {

@@ -25,18 +25,22 @@ const (
 	dummyClientC = "198.51.100.25"
 )
 
-func newFilterAPITestSubject(backend Backend) *PublicFilterAPI {
-	return NewPublicAPIWithDeadline(
+func newFilterAPITestSubject(t *testing.T, backend Backend) *PublicFilterAPI {
+	t.Helper()
+	api := NewPublicAPIWithDeadline(
 		log.NewNopLogger(),
 		client.Context{},
 		stream.NewRPCStreams(nil, log.NewNopLogger(), nil),
 		backend,
 		time.Minute,
 	)
+	t.Cleanup(api.Stop)
+	return api
 }
 
-func newFilterAPITestSubjectWithOptions(backend Backend, deadline, cleanupInterval time.Duration, clientCap int32) *PublicFilterAPI {
-	return newPublicAPIWithOptions(
+func newFilterAPITestSubjectWithOptions(t *testing.T, backend Backend, deadline, cleanupInterval time.Duration, clientCap int32) *PublicFilterAPI {
+	t.Helper()
+	api := newPublicAPIWithOptions(
 		log.NewNopLogger(),
 		client.Context{},
 		stream.NewRPCStreams(nil, log.NewNopLogger(), nil),
@@ -45,6 +49,8 @@ func newFilterAPITestSubjectWithOptions(backend Backend, deadline, cleanupInterv
 		cleanupInterval,
 		clientCap,
 	)
+	t.Cleanup(api.Stop)
+	return api
 }
 
 func newHTTPRPCClientForFilterAPI(t *testing.T, api *PublicFilterAPI) *rpc.Client {
@@ -87,6 +93,7 @@ func TestTimeoutLoop_PanicOnNilCancel(t *testing.T) {
 		filtersMu:       sync.Mutex{},
 		deadline:        10 * time.Millisecond,
 		cleanupInterval: 10 * time.Millisecond,
+		stop:            make(chan struct{}),
 	}
 	api.filters[rpc.NewID()] = &filter{
 		typ:      filters.BlocksSubscription,
@@ -115,7 +122,7 @@ func TestNewBlockFilter_DisabledReturnsError(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	id, err := api.NewBlockFilter(context.Background())
 	require.Error(t, err)
 	require.Empty(t, id)
@@ -126,7 +133,7 @@ func TestNewPendingTransactionFilter_PerClientCap(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(3)
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	api.clientCap = 1
 
 	id1, err := api.NewPendingTransactionFilter(context.Background())
@@ -150,7 +157,7 @@ func TestNewFilter_GlobalCapReturnsError(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	id, err := api.NewFilter(context.Background(), filters.FilterCriteria{})
 	require.Error(t, err)
 	require.Empty(t, id)
@@ -161,7 +168,7 @@ func TestEnsureFilterCreationAllowedLocked_PerClientIsolation(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(2)
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	api.clientCap = 1
 
 	id := api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
@@ -180,7 +187,7 @@ func TestEnsureFilterCreationAllowedLocked_GlobalCapPrecedence(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(1)).Once()
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	api.clientCap = 10
 	api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
 
@@ -229,7 +236,7 @@ func TestNewPendingTransactionFilter_PerClientCap_HTTPContext(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(3)
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	api.clientCap = 1
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
 	id1 := requireNewPendingTxFilterSuccess(t, rpcClient)
@@ -244,7 +251,7 @@ func TestNewPendingTransactionFilter_Disabled_HTTPContext(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
 	requireNewPendingTxFilterError(t, rpcClient, "filter creation is disabled")
 }
@@ -253,7 +260,7 @@ func TestNewPendingTransactionFilter_GlobalCap_HTTPContext(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(1)).Times(2)
 
-	api := newFilterAPITestSubject(backend)
+	api := newFilterAPITestSubject(t, backend)
 	api.clientCap = 10
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
 	requireNewPendingTxFilterSuccess(t, rpcClient)
@@ -264,7 +271,7 @@ func TestNewPendingTransactionFilter_PerClientCap_RecoversAfterTimeout_HTTPConte
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(3)
 
-	api := newFilterAPITestSubjectWithOptions(backend, 20*time.Millisecond, 5*time.Millisecond, 1)
+	api := newFilterAPITestSubjectWithOptions(t, backend, 20*time.Millisecond, 5*time.Millisecond, 1)
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
 	requireNewPendingTxFilterSuccess(t, rpcClient)
 	requireNewPendingTxFilterError(t, rpcClient, "per-client max limit reached")
