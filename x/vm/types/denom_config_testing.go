@@ -70,6 +70,9 @@ func setDisplayDenom(displayDenom string) error {
 func GetCoinInfo() EvmCoinInfo {
 	testingEvmCoinInfoMu.RLock()
 	defer testingEvmCoinInfoMu.RUnlock()
+	if testingEvmCoinInfo == nil {
+		panic("global testingEvmCoinInfo is not set yet!")
+	}
 	return *testingEvmCoinInfo
 }
 
