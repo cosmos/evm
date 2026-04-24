@@ -7,8 +7,7 @@ import (
 
 	callbackstypes "github.com/cosmos/evm/x/ibc/callbacks/types"
 
-	storetypes "cosmossdk.io/store/types"
-
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 )
 
