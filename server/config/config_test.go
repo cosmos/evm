@@ -20,7 +20,6 @@ func TestDefaultConfig(t *testing.T) {
 	require.False(t, cfg.JSONRPC.Enable)
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
-	require.Equal(t, serverconfig.DefaultFilterCap, cfg.JSONRPC.FilterCap)
 	require.Equal(t, serverconfig.DefaultFilterTimeout, cfg.JSONRPC.FilterTimeout)
 	require.Equal(t, serverconfig.DefaultFilterCleanupInterval, cfg.JSONRPC.FilterCleanupInterval)
 	require.Equal(t, cfg.EVM.Mempool.CheckTxTimeout, 5*time.Second)

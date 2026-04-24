@@ -56,7 +56,6 @@ type Backend interface {
 
 	BloomStatus() (uint64, uint64)
 
-	RPCFilterCap() int32
 	RPCLogsCap() int32
 	RPCBlockRangeCap() int32
 }
@@ -204,17 +203,6 @@ func (api *PublicFilterAPI) resetFilterTimer(timer *time.Timer) {
 	timer.Reset(api.deadline)
 }
 
-// globalFilterCap returns the configured global filter cap, falling back to the
-// default when the backend reports a non-positive value (e.g. zero from an
-// uninitialized config).
-func (api *PublicFilterAPI) globalFilterCap() int {
-	cap := int(api.backend.RPCFilterCap())
-	if cap <= 0 {
-		cap = int(evmsrvconfig.DefaultFilterCap)
-	}
-	return cap
-}
-
 func (api *PublicFilterAPI) deleteFilterLocked(id rpc.ID) bool {
 	f, found := api.filters[id]
 	if !found {
@@ -236,10 +224,6 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	if len(api.filters) >= api.globalFilterCap() {
-		return rpc.ID("error creating pending tx filter: max limit reached")
-	}
-
 	id := rpc.NewID()
 	_, offset := api.events.PendingTxStream().ReadNonBlocking(-1)
 	api.filters[id] = &filter{
@@ -258,10 +242,6 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
-
-	if len(api.filters) >= api.globalFilterCap() {
-		return rpc.ID("error creating block filter: max limit reached")
-	}
 
 	id := rpc.NewID()
 	_, offset := api.events.HeaderStream().ReadNonBlocking(-1)
@@ -290,10 +270,6 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
-
-	if len(api.filters) >= api.globalFilterCap() {
-		return "", fmt.Errorf("error creating filter: max limit reached")
-	}
 
 	id := rpc.NewID()
 	_, offset := api.events.LogStream().ReadNonBlocking(-1)

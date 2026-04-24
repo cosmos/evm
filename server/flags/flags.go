@@ -46,7 +46,6 @@ const (
 	JSONRPCAllowInsecureUnlock  = "json-rpc.allow-insecure-unlock"
 	JSONRPCEVMTimeout           = "json-rpc.evm-timeout"
 	JSONRPCTxFeeCap             = "json-rpc.txfee-cap"
-	JSONRPCFilterCap            = "json-rpc.filter-cap"
 	JSONRPCLogsCap              = "json-rpc.logs-cap"
 	JSONRPCBlockRangeCap        = "json-rpc.block-range-cap"
 	JSONRPCHTTPTimeout          = "json-rpc.http-timeout"

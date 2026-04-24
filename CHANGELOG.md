@@ -17,7 +17,7 @@
 - [\#1103](https://github.com/cosmos/evm/pull/1103) Align normal gas metering in ibc erc20 callback.
 - [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
 - [\#1118](https://github.com/cosmos/evm/pull/1118) Cache chain denom for evm mempool
-- [\#1008](https://github.com/cosmos/evm/pull/1008) Make filter idle timeout and cleanup interval configurable, and filter timeout goroutine stoppable.
+- [\#1008](https://github.com/cosmos/evm/pull/1008) Stop enforcing JSON-RPC global filter cap and allow reclaim filters via configurable idle timeout.
 
 ### FEATURES
 

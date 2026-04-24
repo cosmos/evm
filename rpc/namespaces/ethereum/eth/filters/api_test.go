@@ -12,7 +12,6 @@ import (
 
 	filtermocks "github.com/cosmos/evm/rpc/namespaces/ethereum/eth/filters/mocks"
 	"github.com/cosmos/evm/rpc/stream"
-	evmsrvconfig "github.com/cosmos/evm/server/config"
 
 	"cosmossdk.io/log/v2"
 
@@ -97,25 +96,8 @@ func TestTimeoutLoop_StopHalts(t *testing.T) {
 	}
 }
 
-func TestGlobalFilterCap_ZeroFallsBackToDefault(t *testing.T) {
+func TestNewPendingTransactionFilter_HTTPContext(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
-
-	api := newFilterAPITestSubject(t, backend)
-	require.Equal(t, int(evmsrvconfig.DefaultFilterCap), api.globalFilterCap())
-}
-
-func TestGlobalFilterCap_UsesBackendValue(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(7)).Once()
-
-	api := newFilterAPITestSubject(t, backend)
-	require.Equal(t, 7, api.globalFilterCap())
-}
-
-func TestNewPendingTransactionFilter_ZeroCapUsesDefault_HTTPContext(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
 	api := newFilterAPITestSubject(t, backend)
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
@@ -123,9 +105,27 @@ func TestNewPendingTransactionFilter_ZeroCapUsesDefault_HTTPContext(t *testing.T
 	require.NotEmpty(t, id)
 }
 
+func TestNewPendingTransactionFilter_NoCapExhaustion(t *testing.T) {
+	backend := filtermocks.NewBackend(t)
+
+	api := newFilterAPITestSubject(t, backend)
+	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
+
+	// Create more filters than the old default cap (200) to confirm the
+	// node no longer refuses filter creation — matches upstream geth,
+	// which relies on the idle-deadline sweep rather than a fixed cap.
+	for i := 0; i < 300; i++ {
+		requireNewPendingTxFilterSuccess(t, rpcClient)
+	}
+	require.Equal(t, 300, func() int {
+		api.filtersMu.Lock()
+		defer api.filtersMu.Unlock()
+		return len(api.filters)
+	}())
+}
+
 func TestFilter_ExpiresAfterDeadline(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(10)).Maybe()
 
 	api := newFilterAPITestSubjectWithOptions(t, backend, 20*time.Millisecond, 5*time.Millisecond)
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
