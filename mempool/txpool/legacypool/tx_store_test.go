@@ -1,6 +1,7 @@
 package legacypool
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -41,7 +42,7 @@ func TestTxStoreAddAndGet(t *testing.T) {
 	store.AddTx(addr1, tx2)
 	store.AddTx(addr2, tx3)
 
-	result := store.Txs(txpool.PendingFilter{})
+	result := store.Txs(context.Background(),txpool.PendingFilter{})
 	require.Len(t, result[addr1], 2)
 	require.Len(t, result[addr2], 1)
 }
@@ -62,7 +63,7 @@ func TestTxStoreMinTipFilter(t *testing.T) {
 		MinTip:  uint256.MustFromBig(big.NewInt(1e9)),
 		BaseFee: uint256.MustFromBig(big.NewInt(1e9)),
 	}
-	result := store.Txs(filter)
+	result := store.Txs(context.Background(),filter)
 
 	// should only get the high tip tx (nonce 0), low tip at nonce 1 is
 	// filtered
@@ -80,7 +81,7 @@ func TestTxStoreSortedByNonce(t *testing.T) {
 	store.AddTx(addr1, createTestTx(0, big.NewInt(1e9), big.NewInt(2e9)))
 	store.AddTx(addr1, createTestTx(1, big.NewInt(1e9), big.NewInt(2e9)))
 
-	result := store.Txs(txpool.PendingFilter{})
+	result := store.Txs(context.Background(),txpool.PendingFilter{})
 	require.Len(t, result[addr1], 3)
 
 	for i, lazy := range result[addr1] {
@@ -106,7 +107,7 @@ func TestTxStoreRetainsPreviousTxs(t *testing.T) {
 
 	store.RemoveTx(addr1, tx4)
 
-	result := store.Txs(txpool.PendingFilter{})
+	result := store.Txs(context.Background(),txpool.PendingFilter{})
 	require.Len(t, result[addr1], 3) // should just have 0,1,2.
 	for i, tx := range result[addr1] {
 		require.Equal(t, uint64(i), tx.Tx.Nonce())
@@ -124,7 +125,7 @@ func TestTxStoreRemoveTx(t *testing.T) {
 	store.AddTx(addr1, tx2)
 	store.RemoveTx(addr1, tx1)
 
-	result := store.Txs(txpool.PendingFilter{})
+	result := store.Txs(context.Background(),txpool.PendingFilter{})
 	require.Len(t, result[addr1], 0)
 }
 
@@ -134,6 +135,6 @@ func TestTxStoreBlobTxsFiltered(t *testing.T) {
 	addr1 := common.HexToAddress("0x1")
 	store.AddTx(addr1, createTestTx(0, big.NewInt(1e9), big.NewInt(2e9)))
 
-	result := store.Txs(txpool.PendingFilter{OnlyBlobTxs: true})
+	result := store.Txs(context.Background(),txpool.PendingFilter{OnlyBlobTxs: true})
 	require.Nil(t, result)
 }

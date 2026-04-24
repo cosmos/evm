@@ -18,6 +18,7 @@ package legacypool
 
 import (
 	"container/heap"
+	"context"
 	"math"
 	"math/big"
 	"slices"
@@ -743,7 +744,7 @@ func (l *pricedList) Reheap() {
 		l.floating.list[i] = heap.Pop(&l.urgent).(*types.Transaction)
 	}
 	heap.Init(&l.floating)
-	reheapTimer.Update(time.Since(start))
+	reheapTimer.Record(context.Background(), float64(time.Since(start).Milliseconds()))
 }
 
 // SetBaseFee updates the base fee and triggers a re-heap. Note that Removed is not

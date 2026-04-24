@@ -17,21 +17,37 @@
 package reserver
 
 import (
+	"context"
 	"errors"
-	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
-// reservationsGaugeName is the prefix of a per-subpool address reservation
-// metric.
+var meter = otel.Meter("github.com/cosmos/evm/mempool/reserver")
+
+// reservationsGauge is a per-subpool address reservation count, tagged with
+// the subpool id.
 //
 // This is mostly a sanity metric to ensure there's no bug that would make
 // some subpool hog all the reservations due to mis-accounting.
-var reservationsGaugeName = "txpool/reservations"
+var reservationsGauge metric.Int64UpDownCounter
+
+func init() {
+	var err error
+	reservationsGauge, err = meter.Int64UpDownCounter(
+		"txpool.reservations",
+		metric.WithDescription("Number of addresses currently reserved by a subpool"),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // ReservationTracker is a struct shared between different Subpools. It is used to reserve
 // the account and ensure that one address cannot initiate transactions, authorizations,
@@ -93,10 +109,7 @@ func (h *ReservationHandle) Hold(addrs ...common.Address) error {
 			return ErrAlreadyReserved
 		}
 		h.tracker.accounts[addr] = h.id
-		if metrics.Enabled() {
-			m := fmt.Sprintf("%s/%d", reservationsGaugeName, h.id)
-			metrics.GetOrRegisterGauge(m, nil).Inc(1)
-		}
+		reservationsGauge.Add(context.Background(), 1, metric.WithAttributes(attribute.String("subpool_id", strconv.Itoa(h.id))))
 	}
 	return nil
 }
@@ -119,10 +132,7 @@ func (h *ReservationHandle) Release(addrs ...common.Address) error {
 			return errors.New("address not owned")
 		}
 		delete(h.tracker.accounts, addr)
-		if metrics.Enabled() {
-			m := fmt.Sprintf("%s/%d", reservationsGaugeName, h.id)
-			metrics.GetOrRegisterGauge(m, nil).Dec(1)
-		}
+		reservationsGauge.Add(context.Background(), -1, metric.WithAttributes(attribute.String("subpool_id", strconv.Itoa(h.id))))
 	}
 	return nil
 }
