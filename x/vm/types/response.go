@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strconv"
+
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/gogoproto/proto"
@@ -9,19 +11,28 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// PatchTxResponses rewrites log.TxIndex (eth-only tx counter) and log.Index
-// (cumulative across the block) inside MsgEthereumTxResponse payloads. These
-// values cannot be computed per-tx because they depend on the ordering and
-// log counts of every prior successful eth tx in the block; under BlockSTM
-// the invariant is invisible at execution time. Must be invoked once per
-// block on the full ExecTxResult slice produced by the TxRunner.
+// PatchTxResponses rewrites block-cumulative / eth-only indices that cannot
+// be computed per-tx under BlockSTM:
+//
+//   - log.Index (cumulative across the block) and log.TxIndex (eth-only tx
+//     counter) inside MsgEthereumTxResponse payloads.
+//   - AttributeKeyTxIndex on ante-emitted ethereum_tx events, rewritten from
+//     ctx.TxIndex() (cosmos-level position) to the eth-only counter so the
+//     indexer's stored EthTxIndex — which becomes receipt.TransactionIndex
+//     in RPC receipts — stays aligned with log.TxIndex in mixed-tx blocks.
+//
+// Must be invoked once per block on the full ExecTxResult slice produced by
+// the TxRunner.
 func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) {
 	var (
 		ethTxIndex uint64
 		logIndex   uint64
 	)
 	for _, res := range input {
+		rewritten := rewriteEthTxEventIndex(res.Events, ethTxIndex)
+
 		if res.Code != 0 {
+			ethTxIndex += uint64(rewritten)
 			continue
 		}
 
@@ -67,4 +78,23 @@ func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) 
 		}
 	}
 	return input, nil
+}
+
+// rewriteEthTxEventIndex rewrites AttributeKeyTxIndex on every ethereum_tx
+// event in events to start, start+1, ... and returns the number of events
+// rewritten.
+func rewriteEthTxEventIndex(events []abci.Event, start uint64) int {
+	n := 0
+	for eIdx := range events {
+		if events[eIdx].Type != EventTypeEthereumTx {
+			continue
+		}
+		for aIdx := range events[eIdx].Attributes {
+			if events[eIdx].Attributes[aIdx].Key == AttributeKeyTxIndex {
+				events[eIdx].Attributes[aIdx].Value = strconv.FormatUint(start+uint64(n), 10)
+			}
+		}
+		n++
+	}
+	return n
 }

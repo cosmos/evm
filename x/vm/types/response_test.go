@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -180,6 +181,84 @@ func TestPatchTxResponses(t *testing.T) {
 			tc.validate(t, result)
 		})
 	}
+}
+
+// ethTxEvent builds an ante-style ethereum_tx event with the given cosmos
+// position as AttributeKeyTxIndex. Used to simulate what EmitTxHashEvent
+// produces from the ante handler.
+func ethTxEvent(hash string, cosmosTxIndex uint64) abci.Event {
+	return abci.Event{
+		Type: evmtypes.EventTypeEthereumTx,
+		Attributes: []abci.EventAttribute{
+			{Key: evmtypes.AttributeKeyEthereumTxHash, Value: hash},
+			{Key: evmtypes.AttributeKeyTxIndex, Value: strconv.FormatUint(cosmosTxIndex, 10)},
+		},
+	}
+}
+
+func eventTxIndex(t *testing.T, res *abci.ExecTxResult) string {
+	t.Helper()
+	for _, ev := range res.Events {
+		if ev.Type != evmtypes.EventTypeEthereumTx {
+			continue
+		}
+		for _, a := range ev.Attributes {
+			if a.Key == evmtypes.AttributeKeyTxIndex {
+				return a.Value
+			}
+		}
+	}
+	t.Fatalf("no %s event with %s attribute", evmtypes.EventTypeEthereumTx, evmtypes.AttributeKeyTxIndex)
+	return ""
+}
+
+// TestPatchTxResponses_MixedBlockEventRewrite asserts that in a block where a
+// non-EVM cosmos tx sits between EVM txs, the ante-emitted ethereum_tx events
+// get their AttributeKeyTxIndex rewritten from cosmos-position to eth-only
+// rank so the indexer's EthTxIndex (and downstream receipt.TransactionIndex)
+// matches log.TxIndex.
+func TestPatchTxResponses_MixedBlockEventRewrite(t *testing.T) {
+	eth0 := createEthTxResult(t, "hash0", 1, 0)
+	eth0.Events = []abci.Event{ethTxEvent("0xaa", 0)}
+
+	nonEVM := &abci.ExecTxResult{Code: 0}
+
+	eth2 := createEthTxResult(t, "hash2", 1, 0)
+	eth2.Events = []abci.Event{ethTxEvent("0xbb", 2)}
+
+	result, err := evmtypes.PatchTxResponses([]*abci.ExecTxResult{eth0, nonEVM, eth2})
+	require.NoError(t, err)
+	require.Len(t, result, 3)
+
+	require.Equal(t, "0", eventTxIndex(t, result[0]))
+	require.Equal(t, "1", eventTxIndex(t, result[2]),
+		"second eth tx's event should be rewritten from cosmos-pos 2 to eth-only rank 1")
+
+	resp0 := unmarshalTxResponse(t, result[0])
+	require.Equal(t, uint64(0), resp0.Logs[0].TxIndex)
+	resp2 := unmarshalTxResponse(t, result[2])
+	require.Equal(t, uint64(1), resp2.Logs[0].TxIndex,
+		"log.TxIndex must agree with the event attribute so receipt.TransactionIndex == log.transactionIndex")
+}
+
+// TestPatchTxResponses_FailedEthTxAdvancesCounter asserts that a failed eth
+// tx (one that emitted an ante ethereum_tx event but has no success response)
+// still advances the eth-only counter so subsequent successful eth txs get
+// the right rank.
+func TestPatchTxResponses_FailedEthTxAdvancesCounter(t *testing.T) {
+	failed := &abci.ExecTxResult{Code: 1, Events: []abci.Event{ethTxEvent("0xaa", 0)}}
+
+	eth1 := createEthTxResult(t, "hash1", 1, 0)
+	eth1.Events = []abci.Event{ethTxEvent("0xbb", 1)}
+
+	result, err := evmtypes.PatchTxResponses([]*abci.ExecTxResult{failed, eth1})
+	require.NoError(t, err)
+
+	require.Equal(t, "0", eventTxIndex(t, result[0]))
+	require.Equal(t, "1", eventTxIndex(t, result[1]))
+
+	resp1 := unmarshalTxResponse(t, result[1])
+	require.Equal(t, uint64(1), resp1.Logs[0].TxIndex)
 }
 
 func TestPatchTxResponses_LogIndex(t *testing.T) {
