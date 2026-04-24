@@ -93,9 +93,10 @@ func rewriteEthTxEventIndex(events []abci.Event, start uint64) int {
 		for aIdx := range events[eIdx].Attributes {
 			if events[eIdx].Attributes[aIdx].Key == AttributeKeyTxIndex {
 				events[eIdx].Attributes[aIdx].Value = strconv.FormatUint(start+uint64(n), 10) //#nosec G115 -- int overflow is not a concern here
+				n++
+				break
 			}
 		}
-		n++
 	}
 	return n
 }

@@ -303,6 +303,30 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 	}
 }
 
+func TestPatchTxResponses_DualEthereumTxEvents(t *testing.T) {
+	failed := &abci.ExecTxResult{
+		Code: 1,
+		Events: []abci.Event{
+			ethTxEvent("0xaa", 0),
+			{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+				{Key: evmtypes.AttributeKeyEthereumTxHash, Value: "0xaa"},
+			}},
+		},
+	}
+
+	eth := createEthTxResult(t, "hash1", 1, 0)
+	eth.Events = []abci.Event{ethTxEvent("0xbb", 1)}
+
+	result, err := evmtypes.PatchTxResponses([]*abci.ExecTxResult{failed, eth})
+	require.NoError(t, err)
+
+	require.Equal(t, "0", eventTxIndex(t, result[0]))
+	require.Equal(t, "1", eventTxIndex(t, result[1]))
+
+	resp := unmarshalTxResponse(t, result[1])
+	require.Equal(t, uint64(1), resp.Logs[0].TxIndex)
+}
+
 func TestPatchTxResponses_ZeroLogEthTx(t *testing.T) {
 	input := []*abci.ExecTxResult{
 		createEthTxResult(t, "hash1", 2, 0),
