@@ -17,11 +17,15 @@ permissions:
 jobs:
   build:
     timeout-minutes: 15
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        goarch: [amd64, arm64]
+        include:
+          - goarch: amd64
+            runner: depot-ubuntu-22.04-4
+          - goarch: arm64
+            runner: depot-ubuntu-22.04-arm-4
 
     steps:
       - name: Checkout repository
