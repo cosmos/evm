@@ -308,7 +308,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		if txResult.EthTxIndex == -1 {
 			var err error
 			// Fallback to find tx index by iterating all valid eth transactions
-			txResult.EthTxIndex, err = FindEthTxIndexByHash(ctx, ethMsg.Hash(), resBlock, blockRes, b)
+			txResult.EthTxIndex, err = b.FindEthTxIndexByHash(ctx, ethMsg.Hash(), resBlock, blockRes)
 			if err != nil {
 				return nil, err
 			}

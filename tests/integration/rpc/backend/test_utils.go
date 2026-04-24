@@ -237,7 +237,7 @@ func (s *TestSuite) TestFindEthTxIndexByHash() {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			block, blockRes := tc.setupMock()
 
-			idx, err := backend2.FindEthTxIndexByHash(context.Background(), tc.txHash, block, blockRes, s.backend)
+			idx, err := s.backend.FindEthTxIndexByHash(context.Background(), tc.txHash, block, blockRes)
 
 			if tc.expectError {
 				s.Require().Error(err)

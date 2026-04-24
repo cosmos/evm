@@ -356,8 +356,10 @@ func unwrapBlockNOrHash(blockNOrHash types.BlockNumberOrHash) string {
 	return ""
 }
 
-// Fallback to find tx index by iterating all valid eth transactions for legacy blocks that don't have AttributeKeyTxIndex in events
-func FindEthTxIndexByHash(ctx context.Context, txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults, b *Backend) (int32, error) {
+// FindEthTxIndexByHash is a fallback that locates an eth tx's index by
+// iterating every valid eth tx in the block. Used for legacy blocks whose
+// ethereum_tx events lack AttributeKeyTxIndex.
+func (b *Backend) FindEthTxIndexByHash(ctx context.Context, txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults) (int32, error) {
 	msgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
 	for i := range msgs {
 		if msgs[i].Hash() == txHash {
