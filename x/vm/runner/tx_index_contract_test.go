@@ -5,9 +5,11 @@ import (
 	"sync"
 	"testing"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+
+	dbm "github.com/cosmos/cosmos-db"
 
 	"cosmossdk.io/log/v2"
 

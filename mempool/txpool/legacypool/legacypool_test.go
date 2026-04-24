@@ -2840,6 +2840,104 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	}
 }
 
+func TestQueuedPromotionOnReset(t *testing.T) {
+	t.Parallel()
+
+	pool, _, _ := setupPool()
+	defer pool.Close()
+
+	// create transactions with sequential nonces
+	key, _ := crypto.GenerateKey()
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	// mock the on chain nonce for this account as 0
+	testSetNonce(pool, addr, 0)
+	testAddBalance(pool, addr, big.NewInt(1000000000000000))
+
+	// create two txs and add  both transactions to the pool synchronously, so
+	// they will both go to pending
+	tx0 := transaction(0, 100000, key)
+	tx1 := transaction(1, 100000, key)
+	require.NoError(t, pool.addRemoteSync(tx0))
+	require.NoError(t, pool.addRemoteSync(tx1))
+
+	// create another sequential tx based on the previous two, but only enqueue
+	// it
+	tx2 := transaction(2, 100000, key)
+	replaced, err := pool.enqueueTx(tx2.Hash(), tx2, true)
+	require.False(t, replaced, "enqueuing tx should not have replaced anything")
+	require.NoError(t, err)
+
+	// ensure we have 2 txs in pending and 1 in queued
+	pending, queued := pool.Stats()
+	require.Equal(t, 2, pending, "incorrect amount of txs in the pending pool after setup")
+	require.Equal(t, 1, queued, "incorrect amount of txs in queued pool after setup")
+
+	// now we reset the pool to a new height. this reset will trigger a mempool
+	// state reset, plus a promotion of our queued tx to pending
+	oldHead := pool.currentHead.Load()
+	oldHead.BaseFee = big.NewInt(100) // needed for testing
+	newHead := *oldHead
+	newHead.Number = new(big.Int).Add(oldHead.Number, big.NewInt(1))
+	pool.Reset(oldHead, &newHead)
+
+	pending, queued = pool.Stats()
+	require.Equal(t, 3, pending, "incorrect amount of txs in the pending pool after reset")
+	require.Equal(t, 0, queued, "incorrect amount of txs in queued pool after reset")
+}
+
+func TestQueuedPromotionOnResetWithStalePending(t *testing.T) {
+	t.Parallel()
+
+	pool, _, _ := setupPool()
+	defer pool.Close()
+
+	// create transactions with sequential nonces
+	key, _ := crypto.GenerateKey()
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	// mock the on chain nonce for this account as 0
+	testSetNonce(pool, addr, 0)
+	testAddBalance(pool, addr, big.NewInt(1000000000000000))
+
+	// create two txs and add  both transactions to the pool synchronously, so
+	// they will both go to pending
+	tx0 := transaction(0, 100000, key)
+	tx1 := transaction(1, 100000, key)
+	require.NoError(t, pool.addRemoteSync(tx0))
+	require.NoError(t, pool.addRemoteSync(tx1))
+
+	// create another tx with a nonce gap from the previous two, this will stay
+	// enqueued.
+	tx3 := transaction(3, 100000, key)
+	require.NoError(t, pool.addRemoteSync(tx3))
+
+	// ensure we have 2 txs in pending and 1 in queued
+	pending, queued := pool.Stats()
+	require.Equal(t, 2, pending, "incorrect amount of txs in the pending pool after setup")
+	require.Equal(t, 1, queued, "incorrect amount of txs in queued pool after setup")
+
+	// mock that tx0 and tx1 **AND** tx2 were included on chain (simulating
+	// that another node had tx2, and filled the nonce gap for us)
+	require.NoError(t, pool.ScheduleForRemoval(tx0))
+	require.NoError(t, pool.ScheduleForRemoval(tx1))
+	tx2 := transaction(2, 100000, key)
+	require.NoError(t, pool.ScheduleForRemoval(tx2))
+
+	// now we reset the pool to a new height. this reset will trigger a mempool
+	// state reset, plus a promotion of our queued tx to pending, and dropping
+	// the olds txs that were scheduled for removal
+	oldHead := pool.currentHead.Load()
+	oldHead.BaseFee = big.NewInt(100) // needed for testing
+	newHead := *oldHead
+	newHead.Number = new(big.Int).Add(oldHead.Number, big.NewInt(1))
+	pool.Reset(oldHead, &newHead)
+
+	pending, queued = pool.Stats()
+	require.Equal(t, 1, pending, "incorrect amount of txs in the pending pool after reset")
+	require.Equal(t, 0, queued, "incorrect amount of txs in queued pool after reset")
+}
+
 // TestRemoveTxTruncatePoolRace is a regression test for a race condition
 // between removing txs and runReorg loop. Run this with the -race flag to
 // ensure that there is no race condition between the two functions.

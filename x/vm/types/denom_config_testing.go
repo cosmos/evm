@@ -66,6 +66,16 @@ func setDisplayDenom(displayDenom string) error {
 	return nil
 }
 
+// GetCoinInfo returns EvmCoinInfo if set, otherwise panics.
+func GetCoinInfo() EvmCoinInfo {
+	testingEvmCoinInfoMu.RLock()
+	defer testingEvmCoinInfoMu.RUnlock()
+	if testingEvmCoinInfo == nil {
+		panic("global testingEvmCoinInfo is not set yet!")
+	}
+	return *testingEvmCoinInfo
+}
+
 // GetEVMCoinDecimals returns the decimals used in the representation of the EVM
 // coin.
 func GetEVMCoinDecimals() Decimals {
