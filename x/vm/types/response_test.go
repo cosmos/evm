@@ -302,3 +302,23 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 		}
 	}
 }
+
+func TestPatchTxResponses_ZeroLogEthTx(t *testing.T) {
+	input := []*abci.ExecTxResult{
+		createEthTxResult(t, "hash1", 2, 0),
+		createEthTxResult(t, "hash2", 0, 0),
+		createEthTxResult(t, "hash3", 1, 0),
+	}
+	result, err := evmtypes.PatchTxResponses(input)
+	require.NoError(t, err)
+
+	resp0 := unmarshalTxResponse(t, result[0])
+	require.Len(t, resp0.Logs, 2)
+	require.Equal(t, uint64(0), resp0.Logs[0].Index)
+	require.Equal(t, uint64(1), resp0.Logs[1].Index)
+
+	resp2 := unmarshalTxResponse(t, result[2])
+	require.Len(t, resp2.Logs, 1)
+	require.Equal(t, uint64(2), resp2.Logs[0].Index, "zero-log tx must not advance log.Index")
+	require.Equal(t, uint64(2), resp2.Logs[0].TxIndex, "zero-log tx must still take an eth-tx rank")
+}
