@@ -32,13 +32,13 @@ func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) 
 		rewritten := rewriteEthTxEventIndex(res.Events, ethTxIndex)
 
 		if res.Code != 0 {
-			ethTxIndex += uint64(rewritten)
+			ethTxIndex += uint64(rewritten) //#nosec G115 -- int overflow is not a concern here
 			continue
 		}
 
 		var txMsgData sdk.TxMsgData
 		if err := proto.Unmarshal(res.Data, &txMsgData); err != nil {
-			ethTxIndex += uint64(rewritten)
+			ethTxIndex += uint64(rewritten) //#nosec G115 -- int overflow is not a concern here
 			continue
 		}
 
@@ -92,7 +92,7 @@ func rewriteEthTxEventIndex(events []abci.Event, start uint64) int {
 		}
 		for aIdx := range events[eIdx].Attributes {
 			if events[eIdx].Attributes[aIdx].Key == AttributeKeyTxIndex {
-				events[eIdx].Attributes[aIdx].Value = strconv.FormatUint(start+uint64(n), 10)
+				events[eIdx].Attributes[aIdx].Value = strconv.FormatUint(start+uint64(n), 10) //#nosec G115 -- int overflow is not a concern here
 			}
 		}
 		n++

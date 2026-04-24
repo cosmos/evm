@@ -5,19 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
 	goruntime "runtime"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
-	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
@@ -60,7 +59,6 @@ import (
 	"cosmossdk.io/client/v2/autocli"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log/v2"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
@@ -76,6 +74,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	testdata_pulsar "github.com/cosmos/cosmos-sdk/testutil/testdata/testpb"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -1073,7 +1072,7 @@ func (app *EVMD) GetMempool() sdkmempool.ExtMempool {
 }
 
 func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
-	return app.BaseApp.AnteHandler()
+	return app.AnteHandler()
 }
 
 // GetTxConfig implements the TestingApp interface.
