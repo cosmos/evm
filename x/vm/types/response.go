@@ -1,8 +1,6 @@
 package types
 
 import (
-	"strconv"
-
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/gogoproto/proto"
@@ -11,16 +9,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// PatchTxResponses fills the evm tx index and log indexes in the tx result.
-// Note: txIndex starts at 0 and is incremented for each Ethereum transaction found.
-// This ensures proper indexing when multiple EVM transactions are included in a block.
+// PatchTxResponses rewrites log.TxIndex (eth-only tx counter) and log.Index
+// (cumulative across the block) inside MsgEthereumTxResponse payloads. These
+// values cannot be computed per-tx because they depend on the ordering and
+// log counts of every prior successful eth tx in the block; under BlockSTM
+// the invariant is invisible at execution time. Must be invoked once per
+// block on the full ExecTxResult slice produced by the TxRunner.
 func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) {
 	var (
-		txIndex  uint64
-		logIndex uint64
+		ethTxIndex uint64
+		logIndex   uint64
 	)
 	for _, res := range input {
-		// assume no error result in msg handler
 		if res.Code != 0 {
 			continue
 		}
@@ -30,32 +30,19 @@ func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) 
 			return nil, err
 		}
 
-		var (
-			anteEvents []abci.Event
-			// if the response data is modified and need to be marshaled back
-			dataDirty bool
-		)
+		dataDirty := false
 		for i, rsp := range txMsgData.MsgResponses {
 			var response MsgEthereumTxResponse
 			if rsp.TypeUrl != "/"+proto.MessageName(&response) {
 				continue
 			}
-
 			if err := proto.Unmarshal(rsp.Value, &response); err != nil {
 				return nil, err
 			}
 
-			anteEvents = append(anteEvents, abci.Event{
-				Type: EventTypeEthereumTx,
-				Attributes: []abci.EventAttribute{
-					{Key: AttributeKeyEthereumTxHash, Value: response.Hash},
-					{Key: AttributeKeyTxIndex, Value: strconv.FormatUint(txIndex, 10)},
-				},
-			})
-
 			if len(response.Logs) > 0 {
 				for _, log := range response.Logs {
-					log.TxIndex = txIndex
+					log.TxIndex = ethTxIndex
 					log.Index = logIndex
 					logIndex++
 				}
@@ -65,28 +52,18 @@ func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) 
 					return nil, err
 				}
 				txMsgData.MsgResponses[i] = anyRsp
-
 				dataDirty = true
 			}
 
-			txIndex++
+			ethTxIndex++
 		}
 
-		if len(anteEvents) > 0 {
-			// prepend ante events in front to emulate the side effect of `EthEmitEventDecorator`
-			events := make([]abci.Event, len(anteEvents)+len(res.Events))
-			copy(events, anteEvents)
-			copy(events[len(anteEvents):], res.Events)
-			res.Events = events
-
-			if dataDirty {
-				data, err := proto.Marshal(&txMsgData)
-				if err != nil {
-					return nil, err
-				}
-
-				res.Data = data
+		if dataDirty {
+			data, err := proto.Marshal(&txMsgData)
+			if err != nil {
+				return nil, err
 			}
+			res.Data = data
 		}
 	}
 	return input, nil

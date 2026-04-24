@@ -257,6 +257,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
+	EmitTxHashEvent(ctx, ethMsg, uint64(ctx.TxIndex())) // #nosec G115 -- no overflow here
+
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
 		return ctx, err
 	}

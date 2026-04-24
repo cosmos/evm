@@ -1,7 +1,6 @@
 package types_test
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,13 +47,6 @@ func unmarshalTxResponse(t *testing.T, result *abci.ExecTxResult) *evmtypes.MsgE
 	return &response
 }
 
-func requireEventTxIndex(t *testing.T, result *abci.ExecTxResult, expectedIdx string) {
-	t.Helper()
-	require.Len(t, result.Events, 1)
-	require.Equal(t, evmtypes.EventTypeEthereumTx, result.Events[0].Type)
-	require.Equal(t, expectedIdx, result.Events[0].Attributes[1].Value)
-}
-
 func TestPatchTxResponses(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -70,21 +62,20 @@ func TestPatchTxResponses(t *testing.T) {
 			},
 		},
 		{
-			name:  "single tx with no logs",
+			name:  "single tx with no logs is a no-op",
 			input: []*abci.ExecTxResult{createEthTxResult(t, "hash1", 0, 0)},
 			validate: func(t *testing.T, result []*abci.ExecTxResult) {
 				t.Helper()
 				require.Len(t, result, 1)
-				requireEventTxIndex(t, result[0], "0")
+				require.Empty(t, result[0].Events)
 			},
 		},
 		{
-			name:  "single tx with logs",
+			name:  "single tx with logs: log.Index + log.TxIndex rewritten",
 			input: []*abci.ExecTxResult{createEthTxResult(t, "hash1", 2, 0)},
 			validate: func(t *testing.T, result []*abci.ExecTxResult) {
 				t.Helper()
 				require.Len(t, result, 1)
-				requireEventTxIndex(t, result[0], "0")
 				response := unmarshalTxResponse(t, result[0])
 				require.Len(t, response.Logs, 2)
 				require.Equal(t, uint64(0), response.Logs[0].TxIndex)
@@ -94,7 +85,7 @@ func TestPatchTxResponses(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple txs with logs",
+			name: "multiple txs with logs: indices monotonic across block",
 			input: []*abci.ExecTxResult{
 				createEthTxResult(t, "hash1", 2, 0),
 				createEthTxResult(t, "hash2", 3, 0),
@@ -102,7 +93,6 @@ func TestPatchTxResponses(t *testing.T) {
 			validate: func(t *testing.T, result []*abci.ExecTxResult) {
 				t.Helper()
 				require.Len(t, result, 2)
-				requireEventTxIndex(t, result[0], "0")
 				response1 := unmarshalTxResponse(t, result[0])
 				require.Len(t, response1.Logs, 2)
 				require.Equal(t, uint64(0), response1.Logs[0].TxIndex)
@@ -110,7 +100,6 @@ func TestPatchTxResponses(t *testing.T) {
 				require.Equal(t, uint64(0), response1.Logs[1].TxIndex)
 				require.Equal(t, uint64(1), response1.Logs[1].Index)
 
-				requireEventTxIndex(t, result[1], "1")
 				response2 := unmarshalTxResponse(t, result[1])
 				require.Len(t, response2.Logs, 3)
 				require.Equal(t, uint64(1), response2.Logs[0].TxIndex)
@@ -122,7 +111,7 @@ func TestPatchTxResponses(t *testing.T) {
 			},
 		},
 		{
-			name:  "failed tx should be skipped",
+			name:  "failed tx is skipped (no index increments)",
 			input: []*abci.ExecTxResult{createEthTxResult(t, "hash1", 1, 1)},
 			validate: func(t *testing.T, result []*abci.ExecTxResult) {
 				t.Helper()
@@ -131,25 +120,29 @@ func TestPatchTxResponses(t *testing.T) {
 			},
 		},
 		{
-			name: "mixed success and failed txs",
+			name: "mixed success and failed txs: eth tx counter only advances on success",
 			input: []*abci.ExecTxResult{
-				createEthTxResult(t, "hash1", 1, 0), // Success
-				createEthTxResult(t, "hash2", 1, 1), // Failed
-				createEthTxResult(t, "hash3", 1, 0), // Success
+				createEthTxResult(t, "hash1", 1, 0),
+				createEthTxResult(t, "hash2", 1, 1),
+				createEthTxResult(t, "hash3", 1, 0),
 			},
 			validate: func(t *testing.T, result []*abci.ExecTxResult) {
 				t.Helper()
 				require.Len(t, result, 3)
-				requireEventTxIndex(t, result[0], "0")
+
+				response1 := unmarshalTxResponse(t, result[0])
+				require.Equal(t, uint64(0), response1.Logs[0].TxIndex)
+				require.Equal(t, uint64(0), response1.Logs[0].Index)
+
 				require.Empty(t, result[1].Events)
-				requireEventTxIndex(t, result[2], "1")
+
 				response3 := unmarshalTxResponse(t, result[2])
 				require.Equal(t, uint64(1), response3.Logs[0].TxIndex)
 				require.Equal(t, uint64(1), response3.Logs[0].Index)
 			},
 		},
 		{
-			name: "tx with existing events",
+			name: "existing events are preserved",
 			input: func() []*abci.ExecTxResult {
 				result := createEthTxResult(t, "hash1", 1, 0)
 				result.Events = []abci.Event{
@@ -160,13 +153,12 @@ func TestPatchTxResponses(t *testing.T) {
 			validate: func(t *testing.T, result []*abci.ExecTxResult) {
 				t.Helper()
 				require.Len(t, result, 1)
-				require.Len(t, result[0].Events, 2)
-				require.Equal(t, evmtypes.EventTypeEthereumTx, result[0].Events[0].Type)
-				require.Equal(t, "existing_event", result[0].Events[1].Type)
+				require.Len(t, result[0].Events, 1)
+				require.Equal(t, "existing_event", result[0].Events[0].Type)
 			},
 		},
 		{
-			name: "non-ethereum tx msg should be ignored",
+			name: "non-ethereum tx msg response is ignored",
 			input: func() []*abci.ExecTxResult {
 				anyRsp, _ := codectypes.NewAnyWithValue(&sdk.TxMsgData{})
 				txMsgData := &sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyRsp}}
@@ -190,28 +182,11 @@ func TestPatchTxResponses(t *testing.T) {
 	}
 }
 
-func TestPatchTxResponses_EventAttributes(t *testing.T) {
-	txHash := common.BytesToHash([]byte("test_hash"))
-	input := []*abci.ExecTxResult{createEthTxResult(t, txHash.Hex(), 0, 0)}
-	result, err := evmtypes.PatchTxResponses(input)
-	require.NoError(t, err)
-
-	require.Len(t, result, 1)
-	require.Len(t, result[0].Events, 1)
-
-	event := result[0].Events[0]
-	require.Equal(t, evmtypes.EventTypeEthereumTx, event.Type)
-	require.Len(t, event.Attributes, 2)
-	require.Equal(t, evmtypes.AttributeKeyEthereumTxHash, event.Attributes[0].Key)
-	require.Equal(t, evmtypes.AttributeKeyTxIndex, event.Attributes[1].Key)
-	require.Equal(t, "0", event.Attributes[1].Value)
-}
-
 func TestPatchTxResponses_LogIndex(t *testing.T) {
 	input := []*abci.ExecTxResult{
-		createEthTxResult(t, "hash1", 2, 0), // Logs 0, 1
-		createEthTxResult(t, "hash2", 3, 0), // Logs 2, 3, 4
-		createEthTxResult(t, "hash3", 1, 0), // Log 5
+		createEthTxResult(t, "hash1", 2, 0),
+		createEthTxResult(t, "hash2", 3, 0),
+		createEthTxResult(t, "hash3", 1, 0),
 	}
 	result, err := evmtypes.PatchTxResponses(input)
 	require.NoError(t, err)
@@ -227,8 +202,5 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 			require.Equal(t, expectedIndex, response.Logs[logIdx].Index)
 			require.Equal(t, uint64(txIdx), response.Logs[logIdx].TxIndex) //#nosec G115
 		}
-		eventTxIndex, err := strconv.ParseUint(result[txIdx].Events[0].Attributes[1].Value, 10, 64)
-		require.NoError(t, err)
-		require.Equal(t, uint64(txIdx), eventTxIndex) //#nosec G115
 	}
 }
