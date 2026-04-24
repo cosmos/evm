@@ -22,7 +22,7 @@
 
 ### BUG FIXES
 
-- [\#1032](https://github.com/cosmos/evm/issues/1032) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
+- [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
 - [\#860](https://github.com/cosmos/evm/pull/860) Fix EIP-712 signature verification to use configured EVM chain ID instead of parsing cosmos chain ID string and replace legacytx.StdSignBytes with the aminojson sign mode handler.
