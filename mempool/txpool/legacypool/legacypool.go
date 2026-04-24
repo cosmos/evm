@@ -436,19 +436,12 @@ func New(
 	return pool
 }
 
-// ScheduleForRemoval schedules a tx to be removed from the mempool the next
-// time it is reset. This is typically called when a tx is included on chain.
-func (pool *LegacyPool) ScheduleForRemoval(tx *types.Transaction) error {
-	sender, err := types.Sender(pool.signer, tx)
-	if err != nil {
-		return fmt.Errorf("getting tx signer: %w", err)
-	}
-
+// SetLatestNonce records the latest on chain nonce observed for an account.
+func (pool *LegacyPool) SetLatestNonce(sender common.Address, nonce uint64) {
 	existing, ok := pool.latestIncludedNonce.Get(sender)
-	if !ok || tx.Nonce() > existing {
-		pool.latestIncludedNonce.Add(sender, tx.Nonce())
+	if !ok || nonce > existing {
+		pool.latestIncludedNonce.Add(sender, nonce)
 	}
-	return nil
 }
 
 // removeOlds removes txs that have been scheduled for removals from
@@ -1510,6 +1503,49 @@ type reorgInput struct {
 	events        map[common.Address]*SortedMap
 }
 
+// computePendingTipNonces returns a mapping from account address to the next
+// expected nonce, taking the pending pool entries into account, but not the
+// queued pool entries.
+func (pool *LegacyPool) computePendingTipNonces() map[common.Address]uint64 {
+	tips := make(map[common.Address]uint64, len(pool.pending))
+	for addr, list := range pool.pending {
+		// get the next nonce that should be included on chain after last
+		// pending pool tx for this account lands
+		nextPendingNonce := list.LastElement().Nonce() + 1
+
+		// grab the latest nonce that we have observed on chain for this
+		// account if we have it cached
+		latestIncludedNonce, ok := pool.latestIncludedNonce.Get(addr)
+		if ok {
+			// if we have a cached on chain nonce for this account, it likely
+			// had a tx land in the latest block and its last pending pool
+			// element may be stale if we have not yet run demoteUnexecutables
+			// yet. thus, if the latestIncludedNonce + 1 is > nextPendingNonce,
+			// then that is actually what we should be using as the 'tip' of
+			// the pending pool for this account
+			//
+			// NOTE: latestIncludedNonce is a lru cache (lru to manage its
+			// growth). It is strongly recommended to the user to configure
+			// this cache size > the max number of unique accounts they expect
+			// to see in a block. If they do not do so, an issue could manifest
+			// here where a block has more accounts than entries in the
+			// latestIncludedNonce cache. If an entry gets evicted from
+			// latestIncludedNonce for an account that was included in H-1,
+			// then calling this function at H will use a stale
+			// nextPendingNonce value (when compared to statedb.GetNonce(addr))
+			// if this function is called before demoteUnexecutables, causing a
+			// queued contiguous nonce tx (with respect to pending txs) to not
+			// be promoted if there is a race on resetting + promoting the
+			// queued tx after insert. This is unlikely and would require a
+			// misconfiguration by the user, but this is a documented possible
+			// scenario.
+			nextPendingNonce = max(nextPendingNonce, latestIncludedNonce+1)
+		}
+		tips[addr] = nextPendingNonce
+	}
+	return tips
+}
+
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *LegacyPool) runReorg(input reorgInput) {
 	defer func(t0 time.Time) {
@@ -1566,12 +1602,7 @@ func (pool *LegacyPool) runReorg(input reorgInput) {
 			}
 		}
 		// Update all accounts to the latest known pending nonce
-		nonces := make(map[common.Address]uint64, len(pool.pending))
-		for addr, list := range pool.pending {
-			highestPending := list.LastElement()
-			nonces[addr] = highestPending.Nonce() + 1
-		}
-		pool.pendingNonces.setAll(nonces)
+		pool.pendingNonces.setAll(pool.computePendingTipNonces())
 		pool.validPendingTxs.EndCurrentHeight()
 	}
 
@@ -1629,6 +1660,26 @@ func (pool *LegacyPool) resetInternalState(newHead *types.Header, reinject types
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
+
+	// a brand new noncer only knows the statedb's committed nonce, which may
+	// be behind the tip of pool.pending nonce wise. we need to reconcile
+	// the noncer with the current pending tip so that any subsequent
+	// promoteExecutables can still promote queued txs whose nonces are
+	// contiguous with pending.
+	//
+	// without this the following scenario is possible:
+	// - pool.pending = [tx0, tx1], pool.queue = [tx2].
+	// - statedb nonce for this account is 0 (nothing included on chain).
+	// - reset runs **before** the async promotion gets scheduled, or they are batched together.
+	// - pendingNonces reset = newNoncer(statedb), noncer map empty so
+	//   get(addr) falls back to nonce 0 from statedb.
+	// - promoteExecutables calls list.Ready(0) on pool.queue = [tx2], sees
+	//   lowest nonce 2 > 0, returns a gap, promotes nothing.
+	// - tx2 stays stuck in queued even though it is contiguous with pending.
+	// - tx2 must wait for another insert from this account in order to be
+	//   promoted, or the existing pending txs are included on chain.
+	pool.pendingNonces.setAll(pool.computePendingTipNonces())
+
 	ctx, err := pool.chain.GetLatestContext()
 	if err != nil {
 		panic(fmt.Errorf("failed to get latest context for rechecker: %w", err))
