@@ -364,7 +364,7 @@ func (b *Backend) QueryCometTxIndexer(ctx context.Context, query string, txGette
 		return nil, errors.New("ethereum tx not found")
 	}
 	txResult := resTxs.Txs[0]
-	if !rpctypes.TxSucessOrExpectedFailure(&txResult.TxResult) {
+	if !evmtypes.TxSucessOrExpectedFailure(&txResult.TxResult) {
 		return nil, errors.New("invalid ethereum tx")
 	}
 

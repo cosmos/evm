@@ -22,13 +22,19 @@ import (
 //     in RPC receipts — stays aligned with log.TxIndex in mixed-tx blocks.
 //
 // Must be invoked once per block on the full ExecTxResult slice produced by
-// the TxRunner.
+// the TxRunner. Gated on TxSucessOrExpectedFailure to match the indexer's and
+// RPC backend's eth-rank inclusion rule — unexpected failures don't consume
+// an eth-tx rank.
 func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) {
 	var (
 		ethTxIndex uint64
 		logIndex   uint64
 	)
 	for _, res := range input {
+		if !TxSucessOrExpectedFailure(res) {
+			continue
+		}
+
 		rewritten := rewriteEthTxEventIndex(res.Events, ethTxIndex)
 
 		if res.Code != 0 {

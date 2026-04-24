@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -29,10 +28,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
-
-// ExceedBlockGasLimitError defines the error message when tx execution exceeds the block gas limit.
-// The tx fee is deducted in ante handler, so it shouldn't be ignored in JSON-RPC API.
-const ExceedBlockGasLimitError = "out of gas in location: block gas meter; gasWanted:"
 
 // RawTxToEthTx returns a evm MsgEthereum transaction from raw tx bytes.
 func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEthereumTx, error) {
@@ -343,17 +338,6 @@ func CheckTxFee(gasPrice *big.Int, gas uint64, minCap float64) error {
 		return fmt.Errorf("tx fee (%.2f ether) exceeds the configured cap (%.2f ether)", feeFloat, minCap)
 	}
 	return nil
-}
-
-// TxExceedBlockGasLimit returns true if the tx exceeds block gas limit.
-func TxExceedBlockGasLimit(res *abci.ExecTxResult) bool {
-	return strings.Contains(res.Log, ExceedBlockGasLimitError)
-}
-
-// TxSucessOrExpectedFailure returns true if the transaction was successful
-// or if it failed with an ExceedBlockGasLimit error.
-func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
-	return res.Code == 0 || TxExceedBlockGasLimit(res)
 }
 
 // CalcBaseFee calculates the basefee of the header.

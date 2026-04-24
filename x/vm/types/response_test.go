@@ -260,12 +260,15 @@ func TestPatchTxResponses_NonTxMsgDataDoesNotHaltBlock(t *testing.T) {
 		"eth tx counter must start from 0 when preceding non-EVM tx is skipped")
 }
 
-// TestPatchTxResponses_FailedEthTxAdvancesCounter asserts that a failed eth
-// tx (one that emitted an ante ethereum_tx event but has no success response)
-// still advances the eth-only counter so subsequent successful eth txs get
-// the right rank.
-func TestPatchTxResponses_FailedEthTxAdvancesCounter(t *testing.T) {
-	failed := &abci.ExecTxResult{Code: 1, Events: []abci.Event{ethTxEvent("0xaa", 0)}}
+// TestPatchTxResponses_ExceedBlockGasLimitAdvancesCounter asserts that an
+// ExceedBlockGasLimit failure — which the indexer still includes in the eth
+// rank space — advances the eth-only counter.
+func TestPatchTxResponses_ExceedBlockGasLimitAdvancesCounter(t *testing.T) {
+	failed := &abci.ExecTxResult{
+		Code:   1,
+		Log:    evmtypes.ExceedBlockGasLimitError,
+		Events: []abci.Event{ethTxEvent("0xaa", 0)},
+	}
 
 	eth1 := createEthTxResult(t, "hash1", 1, 0)
 	eth1.Events = []abci.Event{ethTxEvent("0xbb", 1)}
@@ -278,6 +281,36 @@ func TestPatchTxResponses_FailedEthTxAdvancesCounter(t *testing.T) {
 
 	resp1 := unmarshalTxResponse(t, result[1])
 	require.Equal(t, uint64(1), resp1.Logs[0].TxIndex)
+}
+
+// TestPatchTxResponses_UnexpectedFailureIsSkipped asserts that a failure that
+// is NOT ExceedBlockGasLimit is skipped entirely — events are not rewritten
+// and the eth-only counter is not advanced — matching the indexer's and RPC
+// backend's TxSucessOrExpectedFailure gate.
+func TestPatchTxResponses_UnexpectedFailureIsSkipped(t *testing.T) {
+	eth0 := createEthTxResult(t, "hash0", 1, 0)
+	eth0.Events = []abci.Event{ethTxEvent("0xaa", 0)}
+
+	rejected := &abci.ExecTxResult{
+		Code:   1,
+		Log:    "some unrelated ante error",
+		Events: []abci.Event{ethTxEvent("0xbb", 1)},
+	}
+
+	eth2 := createEthTxResult(t, "hash2", 1, 0)
+	eth2.Events = []abci.Event{ethTxEvent("0xcc", 2)}
+
+	result, err := evmtypes.PatchTxResponses([]*abci.ExecTxResult{eth0, rejected, eth2})
+	require.NoError(t, err)
+
+	require.Equal(t, "0", eventTxIndex(t, result[0]))
+	require.Equal(t, "1", eventTxIndex(t, result[1]),
+		"rejected tx's event should retain its original cosmos-position value (not rewritten)")
+	require.Equal(t, "1", eventTxIndex(t, result[2]),
+		"third eth tx's rank should be 1 (rejected tx did not consume a rank)")
+
+	resp2 := unmarshalTxResponse(t, result[2])
+	require.Equal(t, uint64(1), resp2.Logs[0].TxIndex)
 }
 
 func TestPatchTxResponses_LogIndex(t *testing.T) {
@@ -306,6 +339,7 @@ func TestPatchTxResponses_LogIndex(t *testing.T) {
 func TestPatchTxResponses_DualEthereumTxEvents(t *testing.T) {
 	failed := &abci.ExecTxResult{
 		Code: 1,
+		Log:  evmtypes.ExceedBlockGasLimitError,
 		Events: []abci.Event{
 			ethTxEvent("0xaa", 0),
 			{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
