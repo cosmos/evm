@@ -426,7 +426,7 @@ func (m *Mempool) removeEVMTx(tx sdk.Tx, msgEthereumTx *evmtypes.MsgEthereumTx, 
 }
 
 // recordNonceAdvances records the on chain nonce advance for every signer of
-// tx against in the legacypool.
+// tx in the legacypool.
 func (m *Mempool) recordNonceAdvances(tx sdk.Tx) {
 	signers, err := m.signerExtractor.GetSigners(tx)
 	if err != nil {

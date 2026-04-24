@@ -268,11 +268,11 @@ func (m *RecheckMempool) acquireTxReservations(tx sdk.Tx) ([]common.Address, err
 // reserver. Caller must hold m.mu.
 func (m *RecheckMempool) removeLocked(tx sdk.Tx) error {
 	if err := m.ExtMempool.Remove(tx); err != nil {
-		return err
+		return fmt.Errorf("failed to remove tx from mempool: %w", err)
 	}
 
 	if err := m.releaseTxReservations(tx); err != nil {
-		panic("failed to extract signers from tx during Remove")
+		m.logger.Error("failed to release reservations", "err", err)
 	}
 	m.reapList.DropCosmosTx(tx)
 
