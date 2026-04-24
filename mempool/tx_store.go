@@ -195,8 +195,6 @@ func (s *CosmosTxStore) cosmosTxNonceMap(tx sdk.Tx) (map[string]uint64, bool) {
 	return nonceMap, true
 }
 
-// sortedSignerKeys returns the signer-address keys of nonceMap in stable
-// ascending byte order, for use in deterministic signer-set / tx keys.
 func sortedSignerKeys(nonceMap map[string]uint64) []string {
 	keys := make([]string, 0, len(nonceMap))
 	for k := range nonceMap {

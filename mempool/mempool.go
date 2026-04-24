@@ -370,61 +370,72 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 }
 
 // RemoveWithReason removes a transaction from the appropriate sdkmempool.
-// For EVM transactions, removal is typically handled automatically by the pool
-// based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
-func (m *Mempool) RemoveWithReason(ctx context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
+//
+// NOTE: even if removal fails, side effects may have occurred like recording
+// nonce increments.
+func (m *Mempool) RemoveWithReason(_ context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	msgEthereumTx, err := evmTxFromCosmosTx(tx)
 	switch {
 	case errors.Is(err, ErrNoMessages):
 		return err
 	case err != nil:
 		// unable to parse evm tx -> process as cosmos tx
-		if err := m.removeCosmosTx(tx); err != nil {
-			return err
-		}
-
-		if reason.Caller == sdkmempool.CallerRunTxFinalize {
-			signers, err := m.signerExtractor.GetSigners(tx)
-			if err != nil {
-				m.logger.Warn("could not extract cosmos signers for nonce tracking", "err", err)
-				return nil
-			}
-			for _, s := range signers {
-				m.legacyTxPool.SetLatestNonce(common.BytesToAddress(s.Signer), s.Sequence)
-			}
-		}
+		return m.removeCosmosTx(tx, reason)
 	default:
-		hash := msgEthereumTx.Hash()
-		if m.shouldRemoveFromEVMPool(hash, reason) {
-			m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
-			m.legacyTxPool.RemoveTx(hash, false, true, convertRemovalReason(reason.Caller))
-		}
-
-		if reason.Caller == sdkmempool.CallerRunTxFinalize {
-			_ = m.txTracker.IncludedInBlock(hash)
-			if err := m.legacyTxPool.SetLatestNonceForTx(msgEthereumTx.AsTransaction()); err != nil {
-				m.logger.Warn("could not update latest nonce from tx", "tx_hash", hash, "err", err)
-			}
-		}
+		return m.removeEVMTx(tx, msgEthereumTx, reason)
 	}
-
-	return nil
 }
 
 // removeCosmosTx removes a cosmos tx from the mempool.
 // The RecheckMempool handles locking internally.
-func (m *Mempool) removeCosmosTx(tx sdk.Tx) error {
+func (m *Mempool) removeCosmosTx(tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	m.logger.Debug("Removing Cosmos transaction")
 
-	// Remove from cosmos pool (handles address reservation release  and reap
-	// list drop internally)
+	if reason.Caller == sdkmempool.CallerRunTxFinalize {
+		m.recordNonceAdvances(tx)
+	}
+
 	if err := m.recheckCosmosPool.Remove(tx); err != nil {
 		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
 		return fmt.Errorf("removing cosmos tx: %w", err)
 	}
+
 	m.logger.Debug("Cosmos transaction removed successfully")
 
 	return nil
+}
+
+// removeEVMTx removes a evm tx from the mempool.
+func (m *Mempool) removeEVMTx(tx sdk.Tx, msgEthereumTx *evmtypes.MsgEthereumTx, reason sdkmempool.RemoveReason) error {
+	m.logger.Debug("Removing EVM transaction")
+
+	hash := msgEthereumTx.Hash()
+	if reason.Caller == sdkmempool.CallerRunTxFinalize {
+		_ = m.txTracker.IncludedInBlock(hash)
+		m.recordNonceAdvances(tx)
+	}
+
+	if m.shouldRemoveFromEVMPool(hash, reason) {
+		m.logger.Debug("Manually removing EVM transaction", "tx_hash", hash)
+		m.legacyTxPool.RemoveTx(hash, false, true, convertRemovalReason(reason.Caller))
+	}
+
+	m.logger.Debug("EVM transaction removed successfully")
+
+	return nil
+}
+
+// recordNonceAdvances records the on chain nonce advance for every signer of
+// tx against in the legacypool.
+func (m *Mempool) recordNonceAdvances(tx sdk.Tx) {
+	signers, err := m.signerExtractor.GetSigners(tx)
+	if err != nil {
+		m.logger.Warn("could not extract signers for nonce tracking", "err", err)
+		return
+	}
+	for _, s := range signers {
+		m.legacyTxPool.SetLatestNonce(common.BytesToAddress(s.Signer), s.Sequence)
+	}
 }
 
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
