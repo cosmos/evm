@@ -1,7 +1,6 @@
 package balancehandler
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -42,8 +41,6 @@ func (s *BalanceHandlerTestSuite) SetupTest() {
 // TestRecursivePrecompileCallsWithDebugPrecompile demonstrates the balance handler bug
 // by triggering recursive calls that share the same BalanceHandler instance.
 func (s *BalanceHandlerTestSuite) TestRecursivePrecompileCallsWithDebugPrecompile() {
-	s.T().Skip("STACK-2602: fix test")
-
 	evmApp := s.chain.App.(evm.EvmApp)
 	ctx := s.chain.GetContext()
 
@@ -55,7 +52,7 @@ func (s *BalanceHandlerTestSuite) TestRecursivePrecompileCallsWithDebugPrecompil
 	s.Require().NoError(err)
 
 	a, b, c := evmApp.GetEVMKeeper().GetPrecompileInstance(ctx, debugPrec.Address())
-	fmt.Println(a, b, c)
+	s.T().Logf("Precompile instance: %v, %v, %v", a, b, c)
 
 	// Deploy caller contract
 	callerContract, err := contracts.LoadDebugPrecompileCaller()
@@ -92,15 +89,16 @@ func (s *BalanceHandlerTestSuite) TestRecursivePrecompileCallsWithDebugPrecompil
 	)
 	s.Require().NoError(err, "callback transaction should succeed")
 	s.Require().False(res.IsErr(), "callback should not fail: %s", res.Events)
-
 	s.Require().Equal(15, len(res.Events), "callback should have 15 events")
-	debug_count := 0
+
+	debugCount := 0
 	for _, event := range res.Events {
 		if event.Type == "debug_precompile" {
-			debug_count++
+			debugCount++
 		}
 	}
-	s.Require().Equal(10, debug_count, "callback should have 1 debug precompile")
+
+	s.Require().Equal(10, debugCount, "callback should have 10 debug precompile events")
 
 	// Advance to next block to finalize state
 	s.chain.NextBlock()

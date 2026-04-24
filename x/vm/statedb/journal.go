@@ -98,9 +98,6 @@ type (
 	createObjectChange struct {
 		account *common.Address
 	}
-	resetObjectChange struct {
-		prev *stateObject
-	}
 	selfDestructChange struct {
 		account *common.Address
 	}
@@ -154,7 +151,6 @@ type (
 var (
 	_ JournalEntry = createContractChange{}
 	_ JournalEntry = createObjectChange{}
-	_ JournalEntry = resetObjectChange{}
 	_ JournalEntry = selfDestructChange{}
 	_ JournalEntry = balanceChange{}
 	_ JournalEntry = nonceChange{}
@@ -198,14 +194,6 @@ func (ch createObjectChange) Revert(s *StateDB) {
 
 func (ch createObjectChange) Dirtied() *common.Address {
 	return ch.account
-}
-
-func (ch resetObjectChange) Revert(s *StateDB) {
-	s.setStateObject(ch.prev)
-}
-
-func (ch resetObjectChange) Dirtied() *common.Address {
-	return nil
 }
 
 func (ch selfDestructChange) Revert(s *StateDB) {

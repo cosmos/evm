@@ -115,25 +115,6 @@ func (suite *StateDBTestSuite) TestAccount() {
 	}
 }
 
-func (suite *StateDBTestSuite) TestAccountOverride() {
-	keeper := mocks.NewEVMKeeper()
-	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), keeper, emptyTxConfig)
-	// test balance carry over when overwritten
-	amount := uint256.NewInt(1)
-
-	// init an EOA account, account overridden only happens on EOA account.
-	db.AddBalance(address, amount, tracing.BalanceChangeUnspecified)
-	db.SetNonce(address, 1, tracing.NonceChangeUnspecified)
-
-	// override
-	db.CreateAccount(address)
-
-	// check balance is not lost
-	suite.Require().Equal(amount, db.GetBalance(address))
-	// but nonce is reset
-	suite.Require().Equal(uint64(0), db.GetNonce(address))
-}
-
 func (suite *StateDBTestSuite) TestDBError() {
 	testCases := []struct {
 		name     string
