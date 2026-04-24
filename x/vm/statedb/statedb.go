@@ -402,44 +402,31 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 func (s *StateDB) getOrNewStateObject(addr common.Address) *stateObject {
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
-		stateObject, _ = s.createObject(addr)
+		stateObject = s.createObject(addr)
 	}
 	return stateObject
 }
 
-// createObject creates a new state object. If there is an existing account with
-// the given address, it is overwritten and returned as the second return value.
-func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
-	prev = s.getStateObject(addr)
-
-	newobj = newObject(s, addr, Account{})
-	if prev == nil {
-		s.journal.append(createObjectChange{account: &addr})
-	} else {
-		s.journal.append(resetObjectChange{prev: prev})
-	}
-	s.setStateObject(newobj)
-	if prev != nil {
-		return newobj, prev
-	}
-	return newobj, nil
+// createObject creates a new state object. The assumption is held there is no
+// existing account with the given address, otherwise it will be silently overwritten.
+func (s *StateDB) createObject(addr common.Address) *stateObject {
+	obj := newObject(s, addr, Account{})
+	s.journal.append(createObjectChange{account: &addr})
+	s.setStateObject(obj)
+	return obj
 }
 
-// CreateAccount explicitly creates a state object. If a state object with the address
-// already exists the balance is carried over to the new account.
+// CreateAccount explicitly creates a new state object, assuming that the
+// account did not previously exist in the state. If the account already
+// exists, this function will silently overwrite it which might lead to a
+// consensus bug eventually.
 //
-// CreateAccount is called during the EVM CREATE operation. The situation might arise that
-// a contract does the following:
-//
-// 1. sends funds to sha(account ++ (nonce + 1))
-// 2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
-//
-// Carrying over the balance ensures that Ether doesn't disappear.
+// The EVM only calls CreateAccount when Exist(addr) is false, immediately
+// followed by CreateContract to set the EIP-6780 newContract flag, so the
+// pre-funded-then-deployed flow is preserved without any balance carry-over
+// here. See go-ethereum PR #29520.
 func (s *StateDB) CreateAccount(addr common.Address) {
-	newObj, prev := s.createObject(addr)
-	if prev != nil {
-		newObj.setBalance(prev.account.Balance)
-	}
+	s.createObject(addr)
 }
 
 // ForEachStorage iterate the contract storage, the iteration order is not defined.
