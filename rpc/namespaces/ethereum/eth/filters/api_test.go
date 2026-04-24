@@ -1,7 +1,6 @@
 package filters
 
 import (
-	"context"
 	"net/http/httptest"
 	"sync"
 	"testing"
@@ -20,12 +19,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 )
 
-const (
-	dummyClientA = "203.0.113.10"
-	dummyClientB = "203.0.113.11"
-	dummyClientC = "198.51.100.25"
-)
-
 func newFilterAPITestSubject(t *testing.T, backend Backend) *PublicFilterAPI {
 	t.Helper()
 	api := NewPublicAPIWithDeadline(
@@ -39,7 +32,7 @@ func newFilterAPITestSubject(t *testing.T, backend Backend) *PublicFilterAPI {
 	return api
 }
 
-func newFilterAPITestSubjectWithOptions(t *testing.T, backend Backend, deadline, cleanupInterval time.Duration, clientCap int32) *PublicFilterAPI {
+func newFilterAPITestSubjectWithOptions(t *testing.T, backend Backend, deadline, cleanupInterval time.Duration) *PublicFilterAPI {
 	t.Helper()
 	api := newPublicAPIWithOptions(
 		log.NewNopLogger(),
@@ -48,7 +41,6 @@ func newFilterAPITestSubjectWithOptions(t *testing.T, backend Backend, deadline,
 		backend,
 		deadline,
 		cleanupInterval,
-		clientCap,
 	)
 	t.Cleanup(api.Stop)
 	return api
@@ -80,15 +72,7 @@ func requireNewPendingTxFilterSuccess(t *testing.T, rpcClient *rpc.Client) rpc.I
 	return id
 }
 
-func requireNewPendingTxFilterError(t *testing.T, rpcClient *rpc.Client, expectedErrContains string) {
-	t.Helper()
-	var id rpc.ID
-	err := rpcClient.Call(&id, "eth_newPendingTransactionFilter")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErrContains)
-}
-
-func TestTimeoutLoop_PanicOnNilCancel(t *testing.T) {
+func TestTimeoutLoop_StopHalts(t *testing.T) {
 	api := &PublicFilterAPI{
 		filters:         make(map[rpc.ID]*filter),
 		filtersMu:       sync.Mutex{},
@@ -102,149 +86,31 @@ func TestTimeoutLoop_PanicOnNilCancel(t *testing.T) {
 	}
 	done := make(chan struct{})
 	go func() {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("cancel panic")
-			}
-			close(done)
-		}()
 		api.timeoutLoop()
+		close(done)
 	}()
-	panicked := false
+	api.Stop()
 	select {
 	case <-done:
-		panicked = true
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timeoutLoop did not exit after Stop")
 	}
-	require.False(t, panicked)
 }
 
-func TestEnsureFilterCreationAllowedLocked_ZeroCapUsesDefault(t *testing.T) {
+func TestGlobalFilterCap_ZeroFallsBackToDefault(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
 	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
 
 	api := newFilterAPITestSubject(t, backend)
-	require.NoError(t, api.ensureFilterCreationAllowedLocked(dummyClientA))
+	require.Equal(t, int(evmsrvconfig.DefaultFilterCap), api.globalFilterCap())
 }
 
-func TestNewPendingTransactionFilter_PerClientCap(t *testing.T) {
+func TestGlobalFilterCap_UsesBackendValue(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(3)
+	backend.EXPECT().RPCFilterCap().Return(int32(7)).Once()
 
 	api := newFilterAPITestSubject(t, backend)
-	api.clientCap = 1
-
-	id1, err := api.NewPendingTransactionFilter(context.Background())
-	require.NoError(t, err)
-	require.NotEmpty(t, id1)
-
-	id2, err := api.NewPendingTransactionFilter(context.Background())
-	require.Error(t, err)
-	require.Empty(t, id2)
-	require.Contains(t, err.Error(), "per-client max limit reached")
-
-	removed := api.UninstallFilter(id1)
-	require.True(t, removed)
-
-	id3, err := api.NewPendingTransactionFilter(context.Background())
-	require.NoError(t, err)
-	require.NotEmpty(t, id3)
-}
-
-func TestEnsureFilterCreationAllowedLocked_ZeroCapEnforcesDefault(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(0)).Once()
-
-	api := newFilterAPITestSubject(t, backend)
-	for i := 0; i < int(evmsrvconfig.DefaultFilterCap); i++ {
-		api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
-	}
-	err := api.ensureFilterCreationAllowedLocked(dummyClientB)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "max limit reached")
-}
-
-func TestEnsureFilterCreationAllowedLocked_PerClientIsolation(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(2)
-
-	api := newFilterAPITestSubject(t, backend)
-	api.clientCap = 1
-
-	id := api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
-	require.NotEmpty(t, id)
-	require.Equal(t, 1, api.clientFilterCount[dummyClientA])
-
-	err := api.ensureFilterCreationAllowedLocked(dummyClientA)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "per-client max limit reached")
-
-	err = api.ensureFilterCreationAllowedLocked(dummyClientB)
-	require.NoError(t, err)
-}
-
-func TestEnsureFilterCreationAllowedLocked_GlobalCapPrecedence(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(1)).Once()
-
-	api := newFilterAPITestSubject(t, backend)
-	api.clientCap = 10
-	api.installFilterLocked(dummyClientA, &filter{deadline: time.NewTimer(time.Minute)})
-
-	err := api.ensureFilterCreationAllowedLocked(dummyClientB)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "max limit reached")
-}
-
-func TestDeleteFilterLocked_DecrementsPerClientCounter(t *testing.T) {
-	api := &PublicFilterAPI{
-		filters:           make(map[rpc.ID]*filter),
-		clientFilterCount: make(map[string]int),
-	}
-
-	idA := rpc.NewID()
-	idB := rpc.NewID()
-	idC := rpc.NewID()
-
-	api.filters[idA] = &filter{owner: dummyClientA, deadline: time.NewTimer(time.Minute)}
-	api.filters[idB] = &filter{owner: dummyClientA, deadline: time.NewTimer(time.Minute)}
-	api.filters[idC] = &filter{owner: dummyClientC, deadline: time.NewTimer(time.Minute)}
-	api.clientFilterCount[dummyClientA] = 2
-	api.clientFilterCount[dummyClientC] = 1
-
-	require.True(t, api.deleteFilterLocked(idA))
-	require.Equal(t, 1, api.clientFilterCount[dummyClientA])
-
-	require.True(t, api.deleteFilterLocked(idB))
-	_, exists := api.clientFilterCount[dummyClientA]
-	require.False(t, exists)
-
-	require.True(t, api.deleteFilterLocked(idC))
-	_, exists = api.clientFilterCount[dummyClientC]
-	require.False(t, exists)
-
-	require.False(t, api.deleteFilterLocked(rpc.NewID()))
-}
-
-func TestClientIPFromContext_DefaultsToUnknown(t *testing.T) {
-	api := &PublicFilterAPI{}
-	clientIP := api.clientIPFromContext(context.Background())
-	require.Equal(t, "unknown", clientIP)
-}
-
-func TestNewPendingTransactionFilter_PerClientCap_HTTPContext(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(3)
-
-	api := newFilterAPITestSubject(t, backend)
-	api.clientCap = 1
-	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
-	id1 := requireNewPendingTxFilterSuccess(t, rpcClient)
-	requireNewPendingTxFilterError(t, rpcClient, "per-client max limit reached")
-	var removed bool
-	require.NoError(t, rpcClient.Call(&removed, "eth_uninstallFilter", id1))
-	require.True(t, removed)
-	requireNewPendingTxFilterSuccess(t, rpcClient)
+	require.Equal(t, 7, api.globalFilterCap())
 }
 
 func TestNewPendingTransactionFilter_ZeroCapUsesDefault_HTTPContext(t *testing.T) {
@@ -257,31 +123,32 @@ func TestNewPendingTransactionFilter_ZeroCapUsesDefault_HTTPContext(t *testing.T
 	require.NotEmpty(t, id)
 }
 
-func TestNewPendingTransactionFilter_GlobalCap_HTTPContext(t *testing.T) {
+func TestFilter_ExpiresAfterDeadline(t *testing.T) {
 	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(1)).Times(2)
+	backend.EXPECT().RPCFilterCap().Return(int32(10)).Maybe()
 
-	api := newFilterAPITestSubject(t, backend)
-	api.clientCap = 10
+	api := newFilterAPITestSubjectWithOptions(t, backend, 20*time.Millisecond, 5*time.Millisecond)
 	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
 	requireNewPendingTxFilterSuccess(t, rpcClient)
-	requireNewPendingTxFilterError(t, rpcClient, "max limit reached")
-}
-
-func TestNewPendingTransactionFilter_PerClientCap_RecoversAfterTimeout_HTTPContext(t *testing.T) {
-	backend := filtermocks.NewBackend(t)
-	backend.EXPECT().RPCFilterCap().Return(int32(10)).Times(3)
-
-	api := newFilterAPITestSubjectWithOptions(t, backend, 20*time.Millisecond, 5*time.Millisecond, 1)
-	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
-	requireNewPendingTxFilterSuccess(t, rpcClient)
-	requireNewPendingTxFilterError(t, rpcClient, "per-client max limit reached")
 
 	require.Eventually(t, func() bool {
 		api.filtersMu.Lock()
 		defer api.filtersMu.Unlock()
-		return len(api.filters) == 0 && len(api.clientFilterCount) == 0
+		return len(api.filters) == 0
 	}, 400*time.Millisecond, 10*time.Millisecond)
+}
 
-	requireNewPendingTxFilterSuccess(t, rpcClient)
+func TestDeleteFilterLocked_RemovesAndReportsMissing(t *testing.T) {
+	api := &PublicFilterAPI{
+		filters: make(map[rpc.ID]*filter),
+	}
+
+	id := rpc.NewID()
+	api.filters[id] = &filter{deadline: time.NewTimer(time.Minute)}
+
+	require.True(t, api.deleteFilterLocked(id))
+	_, exists := api.filters[id]
+	require.False(t, exists)
+
+	require.False(t, api.deleteFilterLocked(rpc.NewID()))
 }

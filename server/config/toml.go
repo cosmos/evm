@@ -101,11 +101,10 @@ evm-timeout = "{{ .JSONRPC.EVMTimeout }}"
 # TxFeeCap is the global tx-fee cap for send transaction. Default: 1eth.
 txfee-cap = {{ .JSONRPC.TxFeeCap }}
 
-# FilterCap sets the global cap for total number of filters that can be created
+# FilterCap sets the global cap for total number of filters that can be created.
+# The node does not enforce per-client rate limits; front the JSON-RPC server
+# with a reverse proxy like nginx or Cloudflare.
 filter-cap = {{ .JSONRPC.FilterCap }}
-
-# FilterClientCap sets the per-client cap for total number of filters that can be created.
-filter-client-cap = {{ .JSONRPC.FilterClientCap }}
 
 # FilterTimeout defines when an idle filter expires.
 filter-timeout = "{{ .JSONRPC.FilterTimeout }}"

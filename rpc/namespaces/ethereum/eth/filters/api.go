@@ -3,8 +3,6 @@ package filters
 import (
 	"context"
 	"fmt"
-	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,9 +34,9 @@ var (
 
 // FilterAPI gathers
 type FilterAPI interface {
-	NewPendingTransactionFilter(ctx context.Context) (rpc.ID, error)
-	NewBlockFilter(ctx context.Context) (rpc.ID, error)
-	NewFilter(ctx context.Context, criteria filters.FilterCriteria) (rpc.ID, error)
+	NewPendingTransactionFilter() rpc.ID
+	NewBlockFilter() rpc.ID
+	NewFilter(criteria filters.FilterCriteria) (rpc.ID, error)
 	GetFilterChanges(id rpc.ID) (interface{}, error)
 	GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ethtypes.Log, error)
 	UninstallFilter(id rpc.ID) bool
@@ -66,10 +64,7 @@ type Backend interface {
 // consider a filter inactive if it has not been polled for within deadline
 const defaultDeadline = 5 * time.Minute
 
-const (
-	defaultCleanupInterval = 30 * time.Second
-	defaultClientFilterCap = int32(32)
-)
+const defaultCleanupInterval = 30 * time.Second
 
 // filter is a helper struct that holds meta information over the filter type
 // and associated subscription in the event system.
@@ -78,7 +73,6 @@ type filter struct {
 	deadline *time.Timer // filter is inactive when deadline triggers
 	crit     filters.FilterCriteria
 	offset   int // offset for stream subscription
-	owner    string
 }
 
 // PublicFilterAPI offers support to create and manage filters. This will allow external clients to retrieve various
@@ -92,9 +86,7 @@ type PublicFilterAPI struct {
 	filters   map[rpc.ID]*filter
 	deadline  time.Duration
 
-	cleanupInterval   time.Duration
-	clientCap         int32
-	clientFilterCount map[string]int
+	cleanupInterval time.Duration
 
 	stop     chan struct{}
 	stopOnce sync.Once
@@ -109,7 +101,6 @@ func NewPublicAPI(
 ) *PublicFilterAPI {
 	deadline := defaultDeadline
 	cleanupInterval := defaultCleanupInterval
-	clientCap := defaultClientFilterCap
 
 	if cfgBackend, ok := backend.(interface{ GetConfig() evmsrvconfig.Config }); ok {
 		jsonRPC := cfgBackend.GetConfig().JSONRPC
@@ -119,12 +110,9 @@ func NewPublicAPI(
 		if jsonRPC.FilterCleanupInterval > 0 {
 			cleanupInterval = jsonRPC.FilterCleanupInterval
 		}
-		if jsonRPC.FilterClientCap > 0 {
-			clientCap = jsonRPC.FilterClientCap
-		}
 	}
 
-	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, cleanupInterval, clientCap)
+	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, cleanupInterval)
 }
 
 // NewPublicAPIWithDeadline returns a new PublicFilterAPI instance with the given deadline.
@@ -135,7 +123,7 @@ func NewPublicAPIWithDeadline(
 	backend Backend,
 	deadline time.Duration,
 ) *PublicFilterAPI {
-	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, defaultCleanupInterval, defaultClientFilterCap)
+	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, defaultCleanupInterval)
 }
 
 func newPublicAPIWithOptions(
@@ -145,22 +133,17 @@ func newPublicAPIWithOptions(
 	backend Backend,
 	deadline time.Duration,
 	cleanupInterval time.Duration,
-	clientCap int32,
 ) *PublicFilterAPI {
 	logger = logger.With("api", "filter")
 	api := &PublicFilterAPI{
-		logger:    logger,
-		clientCtx: clientCtx,
-		backend:   backend,
-		filters:   make(map[rpc.ID]*filter),
-		events:    stream,
-		deadline:  deadline,
-
-		cleanupInterval:   cleanupInterval,
-		clientCap:         clientCap,
-		clientFilterCount: make(map[string]int),
-
-		stop: make(chan struct{}),
+		logger:          logger,
+		clientCtx:       clientCtx,
+		backend:         backend,
+		filters:         make(map[rpc.ID]*filter),
+		events:          stream,
+		deadline:        deadline,
+		cleanupInterval: cleanupInterval,
+		stop:            make(chan struct{}),
 	}
 
 	go api.timeoutLoop()
@@ -175,8 +158,8 @@ func (api *PublicFilterAPI) Stop() {
 	})
 }
 
-// timeoutLoop runs every 5 minutes and deletes filters that have not been recently used.
-// Tt is started when the api is created.
+// timeoutLoop runs every cleanupInterval and deletes filters that have not been recently used.
+// It is started when the api is created.
 func (api *PublicFilterAPI) timeoutLoop() {
 	ticker := time.NewTicker(api.cleanupInterval)
 	defer ticker.Stop()
@@ -201,21 +184,6 @@ func (api *PublicFilterAPI) timeoutLoop() {
 	}
 }
 
-// clientIPFromContext derives a bare-IP rate-limit key from the JSON-RPC
-// peer info. The transport (http/ws) is intentionally omitted so a single
-// client cannot double its quota by opening filters over both transports.
-func (api *PublicFilterAPI) clientIPFromContext(ctx context.Context) string {
-	peerInfo := rpc.PeerInfoFromContext(ctx)
-	remoteAddr := strings.TrimSpace(peerInfo.RemoteAddr)
-	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		remoteAddr = host
-	}
-	if remoteAddr == "" {
-		return "unknown"
-	}
-	return remoteAddr
-}
-
 func stopAndDrainTimer(timer *time.Timer) {
 	if timer == nil {
 		return
@@ -236,29 +204,15 @@ func (api *PublicFilterAPI) resetFilterTimer(timer *time.Timer) {
 	timer.Reset(api.deadline)
 }
 
-func (api *PublicFilterAPI) ensureFilterCreationAllowedLocked(clientIP string) error {
-	globalCap := int(api.backend.RPCFilterCap())
-	if globalCap <= 0 {
-		globalCap = int(evmsrvconfig.DefaultFilterCap)
+// globalFilterCap returns the configured global filter cap, falling back to the
+// default when the backend reports a non-positive value (e.g. zero from an
+// uninitialized config).
+func (api *PublicFilterAPI) globalFilterCap() int {
+	cap := int(api.backend.RPCFilterCap())
+	if cap <= 0 {
+		cap = int(evmsrvconfig.DefaultFilterCap)
 	}
-
-	if len(api.filters) >= globalCap {
-		return fmt.Errorf("error creating filter: max limit reached")
-	}
-
-	if api.clientCap > 0 && api.clientFilterCount[clientIP] >= int(api.clientCap) {
-		return fmt.Errorf("error creating filter: per-client max limit reached")
-	}
-
-	return nil
-}
-
-func (api *PublicFilterAPI) installFilterLocked(clientIP string, filterData *filter) rpc.ID {
-	id := rpc.NewID()
-	filterData.owner = clientIP
-	api.filters[id] = filterData
-	api.clientFilterCount[clientIP]++
-	return id
+	return cap
 }
 
 func (api *PublicFilterAPI) deleteFilterLocked(id rpc.ID) bool {
@@ -266,17 +220,8 @@ func (api *PublicFilterAPI) deleteFilterLocked(id rpc.ID) bool {
 	if !found {
 		return false
 	}
-
 	delete(api.filters, id)
 	stopAndDrainTimer(f.deadline)
-
-	if f.owner != "" {
-		api.clientFilterCount[f.owner]--
-		if api.clientFilterCount[f.owner] <= 0 {
-			delete(api.clientFilterCount, f.owner)
-		}
-	}
-
 	return true
 }
 
@@ -287,46 +232,46 @@ func (api *PublicFilterAPI) deleteFilterLocked(id rpc.ID) bool {
 // `eth_getFilterChanges` polling method that is also used for log filters.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newPendingTransactionFilter
-func (api *PublicFilterAPI) NewPendingTransactionFilter(ctx context.Context) (rpc.ID, error) {
+func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	clientIP := api.clientIPFromContext(ctx)
-	if err := api.ensureFilterCreationAllowedLocked(clientIP); err != nil {
-		return "", err
+	if len(api.filters) >= api.globalFilterCap() {
+		return rpc.ID("error creating pending tx filter: max limit reached")
 	}
 
+	id := rpc.NewID()
 	_, offset := api.events.PendingTxStream().ReadNonBlocking(-1)
-	id := api.installFilterLocked(clientIP, &filter{
+	api.filters[id] = &filter{
 		typ:      filters.PendingTransactionsSubscription,
 		deadline: time.NewTimer(api.deadline),
 		offset:   offset,
-	})
+	}
 
-	return id, nil
+	return id
 }
 
 // NewBlockFilter creates a filter that fetches blocks that are imported into the chain.
 // It is part of the filter package since polling goes with eth_getFilterChanges.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newblockfilter
-func (api *PublicFilterAPI) NewBlockFilter(ctx context.Context) (rpc.ID, error) {
+func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	clientIP := api.clientIPFromContext(ctx)
-	if err := api.ensureFilterCreationAllowedLocked(clientIP); err != nil {
-		return "", err
+	if len(api.filters) >= api.globalFilterCap() {
+		return rpc.ID("error creating block filter: max limit reached")
 	}
 
+	id := rpc.NewID()
 	_, offset := api.events.HeaderStream().ReadNonBlocking(-1)
-	id := api.installFilterLocked(clientIP, &filter{
+	api.filters[id] = &filter{
 		typ:      filters.BlocksSubscription,
 		deadline: time.NewTimer(api.deadline),
 		offset:   offset,
-	})
+	}
 
-	return id, nil
+	return id
 }
 
 // NewFilter creates a new filter and returns the filter id. It can be
@@ -342,22 +287,22 @@ func (api *PublicFilterAPI) NewBlockFilter(ctx context.Context) (rpc.ID, error) 
 // In case "fromBlock" > "toBlock" an error is returned.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newfilter
-func (api *PublicFilterAPI) NewFilter(ctx context.Context, criteria filters.FilterCriteria) (rpc.ID, error) {
+func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
 
-	clientIP := api.clientIPFromContext(ctx)
-	if err := api.ensureFilterCreationAllowedLocked(clientIP); err != nil {
-		return "", err
+	if len(api.filters) >= api.globalFilterCap() {
+		return "", fmt.Errorf("error creating filter: max limit reached")
 	}
 
+	id := rpc.NewID()
 	_, offset := api.events.LogStream().ReadNonBlocking(-1)
-	id := api.installFilterLocked(clientIP, &filter{
+	api.filters[id] = &filter{
 		typ:      filters.LogsSubscription,
 		deadline: time.NewTimer(api.deadline),
 		crit:     criteria,
 		offset:   offset,
-	})
+	}
 
 	return id, nil
 }

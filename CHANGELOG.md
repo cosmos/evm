@@ -17,13 +17,13 @@
 - [\#1103](https://github.com/cosmos/evm/pull/1103) Align normal gas metering in ibc erc20 callback.
 - [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
 - [\#1118](https://github.com/cosmos/evm/pull/1118) Cache chain denom for evm mempool
+- [\#1008](https://github.com/cosmos/evm/pull/1008) Make filter idle timeout and cleanup interval configurable, and filter timeout goroutine stoppable.
 
 ### FEATURES
 
 - [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
-- [\#1008](https://github.com/cosmos/evm/pull/1008) Add per-IP rate limit to filter API.
 - [\#1096](https://github.com/cosmos/evm/pull/1096) Allow eth_call overrides work with static precompiles.
 
 ### BUG FIXES

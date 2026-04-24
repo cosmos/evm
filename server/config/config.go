@@ -80,9 +80,6 @@ const (
 	// DefaultFilterCap is the default cap for total number of filters that can be created
 	DefaultFilterCap int32 = 200
 
-	// DefaultFilterClientCap is the default per-client cap for total number of filters.
-	DefaultFilterClientCap int32 = 32
-
 	// DefaultFilterTimeout defines when an idle filter expires.
 	DefaultFilterTimeout = 5 * time.Minute
 
@@ -267,8 +264,6 @@ type JSONRPCConfig struct {
 	TxFeeCap float64 `mapstructure:"txfee-cap"`
 	// FilterCap is the global cap for total number of filters that can be created.
 	FilterCap int32 `mapstructure:"filter-cap"`
-	// FilterClientCap is the per-client cap for total number of filters that can be created.
-	FilterClientCap int32 `mapstructure:"filter-client-cap"`
 	// FilterTimeout defines when an idle filter expires.
 	FilterTimeout time.Duration `mapstructure:"filter-timeout"`
 	// FilterCleanupInterval defines how often expired filters are cleaned up.
@@ -372,7 +367,6 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		EVMTimeout:            DefaultEVMTimeout,
 		TxFeeCap:              DefaultTxFeeCap,
 		FilterCap:             DefaultFilterCap,
-		FilterClientCap:       DefaultFilterClientCap,
 		FilterTimeout:         DefaultFilterTimeout,
 		FilterCleanupInterval: DefaultFilterCleanupInterval,
 		FeeHistoryCap:         DefaultFeeHistoryCap,
@@ -400,10 +394,6 @@ func (c JSONRPCConfig) Validate() error {
 
 	if c.FilterCap < 0 {
 		return errors.New("JSON-RPC filter-cap cannot be negative")
-	}
-
-	if c.FilterClientCap < 0 {
-		return errors.New("JSON-RPC filter-client-cap cannot be negative")
 	}
 
 	if c.FilterTimeout < 0 {

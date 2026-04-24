@@ -21,7 +21,6 @@ func TestDefaultConfig(t *testing.T) {
 	require.Equal(t, cfg.JSONRPC.Address, serverconfig.DefaultJSONRPCAddress)
 	require.Equal(t, cfg.JSONRPC.WsAddress, serverconfig.DefaultJSONRPCWsAddress)
 	require.Equal(t, serverconfig.DefaultFilterCap, cfg.JSONRPC.FilterCap)
-	require.Equal(t, serverconfig.DefaultFilterClientCap, cfg.JSONRPC.FilterClientCap)
 	require.Equal(t, serverconfig.DefaultFilterTimeout, cfg.JSONRPC.FilterTimeout)
 	require.Equal(t, serverconfig.DefaultFilterCleanupInterval, cfg.JSONRPC.FilterCleanupInterval)
 	require.Equal(t, cfg.EVM.Mempool.CheckTxTimeout, 5*time.Second)
@@ -34,13 +33,6 @@ func TestJSONRPCConfigValidate_FilterProtectionFields(t *testing.T) {
 		mutate  func(c *serverconfig.JSONRPCConfig)
 		errText string
 	}{
-		{
-			name: "negative filter-client-cap",
-			mutate: func(c *serverconfig.JSONRPCConfig) {
-				c.FilterClientCap = -1
-			},
-			errText: "filter-client-cap cannot be negative",
-		},
 		{
 			name: "negative filter-timeout",
 			mutate: func(c *serverconfig.JSONRPCConfig) {
