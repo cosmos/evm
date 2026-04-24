@@ -38,7 +38,13 @@ func PatchTxResponses(input []*abci.ExecTxResult) ([]*abci.ExecTxResult, error) 
 
 		var txMsgData sdk.TxMsgData
 		if err := proto.Unmarshal(res.Data, &txMsgData); err != nil {
-			return nil, err
+			// Non-EVM txs may carry res.Data in formats other than
+			// sdk.TxMsgData (custom tx types, SDK version skew). Skip them
+			// rather than halt the block; there's nothing to patch if the
+			// payload isn't a TxMsgData. Advance the counter by any eth-tx
+			// events we already rewrote on this res to keep ranks aligned.
+			ethTxIndex += uint64(rewritten)
+			continue
 		}
 
 		dataDirty := false

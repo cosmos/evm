@@ -241,6 +241,25 @@ func TestPatchTxResponses_MixedBlockEventRewrite(t *testing.T) {
 		"log.TxIndex must agree with the event attribute so receipt.TransactionIndex == log.transactionIndex")
 }
 
+// TestPatchTxResponses_NonTxMsgDataDoesNotHaltBlock asserts that a successful
+// non-EVM tx carrying a res.Data payload that isn't an sdk.TxMsgData is
+// skipped rather than causing the whole block to error out.
+func TestPatchTxResponses_NonTxMsgDataDoesNotHaltBlock(t *testing.T) {
+	nonEVM := &abci.ExecTxResult{Code: 0, Data: []byte{0xff, 0xff, 0xff}}
+
+	eth := createEthTxResult(t, "hash1", 1, 0)
+
+	result, err := evmtypes.PatchTxResponses([]*abci.ExecTxResult{nonEVM, eth})
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+
+	require.Equal(t, []byte{0xff, 0xff, 0xff}, result[0].Data, "non-EVM data must be left untouched")
+
+	resp := unmarshalTxResponse(t, result[1])
+	require.Equal(t, uint64(0), resp.Logs[0].TxIndex,
+		"eth tx counter must start from 0 when preceding non-EVM tx is skipped")
+}
+
 // TestPatchTxResponses_FailedEthTxAdvancesCounter asserts that a failed eth
 // tx (one that emitted an ante ethereum_tx event but has no success response)
 // still advances the eth-only counter so subsequent successful eth txs get
