@@ -138,6 +138,38 @@ func TestFilter_ExpiresAfterDeadline(t *testing.T) {
 	}, 400*time.Millisecond, 10*time.Millisecond)
 }
 
+func TestFilter_PollingResetsDeadline(t *testing.T) {
+	backend := filtermocks.NewBackend(t)
+
+	deadline := 500 * time.Millisecond
+	cleanup := 25 * time.Millisecond
+	api := newFilterAPITestSubjectWithOptions(t, backend, deadline, cleanup)
+	rpcClient := newHTTPRPCClientForFilterAPI(t, api)
+	id := requireNewPendingTxFilterSuccess(t, rpcClient)
+
+	filterPresent := func() bool {
+		api.filtersMu.Lock()
+		defer api.filtersMu.Unlock()
+		_, ok := api.filters[id]
+		return ok
+	}
+
+	// Poll faster than deadline, each call must reset the timer
+	const pollInterval = 50 * time.Millisecond
+	pollEnd := time.Now().Add(3 * deadline)
+	for time.Now().Before(pollEnd) {
+		var hashes []string
+		require.NoError(t, rpcClient.Call(&hashes, "eth_getFilterChanges", id))
+		require.True(t, filterPresent(), "filter reaped while still being polled")
+		time.Sleep(pollInterval)
+	}
+
+	// After polling stops, filter is reaped within deadline+cleanup
+	require.Eventually(t, func() bool {
+		return !filterPresent()
+	}, deadline+cleanup+2*time.Second, 25*time.Millisecond)
+}
+
 func TestDeleteFilterLocked_RemovesAndReportsMissing(t *testing.T) {
 	api := &PublicFilterAPI{
 		filters: make(map[rpc.ID]*filter),
