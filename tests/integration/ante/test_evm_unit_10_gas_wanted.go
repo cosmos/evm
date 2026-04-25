@@ -12,7 +12,7 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"

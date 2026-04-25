@@ -15,7 +15,7 @@ import (
 	"github.com/cosmos/evm/rpc/backend"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"

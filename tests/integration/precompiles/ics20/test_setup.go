@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 )
 
 type PrecompileTestSuite struct {

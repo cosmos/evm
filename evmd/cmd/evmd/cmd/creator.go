@@ -16,11 +16,11 @@ import (
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
-	"cosmossdk.io/log"
-	"cosmossdk.io/store"
-	"cosmossdk.io/store/snapshots"
-	snapshottypes "cosmossdk.io/store/snapshots/types"
-	storetypes "cosmossdk.io/store/types"
+	"cosmossdk.io/log/v2"
+	"github.com/cosmos/cosmos-sdk/store/v2"
+	"github.com/cosmos/cosmos-sdk/store/v2/snapshots"
+	snapshottypes "github.com/cosmos/cosmos-sdk/store/v2/snapshots/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 type appCreator struct{}
@@ -90,7 +90,6 @@ func (a appCreator) newApp(
 	return evmd.NewExampleApp(
 		logger,
 		db,
-		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
 		baseappOptions...,
@@ -131,7 +130,6 @@ func (a appCreator) appExport(
 	evmApp = evmd.NewExampleApp(
 		logger,
 		db,
-		traceStore,
 		loadLatest,
 		appOpts,
 	)

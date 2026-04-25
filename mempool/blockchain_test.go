@@ -18,8 +18,8 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
+	"cosmossdk.io/log/v2"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

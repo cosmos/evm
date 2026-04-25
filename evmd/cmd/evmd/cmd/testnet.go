@@ -24,7 +24,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -759,7 +759,6 @@ func NewTestNetworkFixture() sdknetwork.TestFixture {
 	app := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
-		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
 	)
@@ -768,7 +767,6 @@ func NewTestNetworkFixture() sdknetwork.TestFixture {
 		return evmd.NewExampleApp(
 			log.NewNopLogger(),
 			dbm.NewMemDB(),
-			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
 		)

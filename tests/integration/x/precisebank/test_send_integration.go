@@ -18,7 +18,7 @@ import (
 	"github.com/cosmos/evm/x/precisebank/types"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	sdkmath "cosmossdk.io/math"
 

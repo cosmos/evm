@@ -15,7 +15,7 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 // The Ethereum API allows applications to connect to an node of any Cosmos EVM based blockchain.

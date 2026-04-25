@@ -18,7 +18,7 @@ import (
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 // BloomIV represents the bit indexes and value inside the bloom filter that belong

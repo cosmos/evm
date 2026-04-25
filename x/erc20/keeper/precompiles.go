@@ -12,8 +12,8 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/store/prefix"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -62,10 +62,10 @@ func (k Keeper) InstantiateERC20Precompile(ctx sdk.Context, contractAddr common.
 	}
 
 	if hasWrappedMethods {
-		return werc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper), nil
+		return werc20.NewPrecompile(pair, k.bankKeeper, k, k.transferKeeper), nil
 	}
 
-	return erc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper), nil
+	return erc20.NewPrecompile(pair, k.bankKeeper, k, k.transferKeeper), nil
 }
 
 // RegisterCodeHash checks if a new precompile already exists and registers the code hash it is not

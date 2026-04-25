@@ -5,7 +5,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
 	dbm "github.com/cosmos/cosmos-db"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/config"
@@ -15,7 +15,7 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
 	clienthelpers "cosmossdk.io/client/v2/helpers"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"

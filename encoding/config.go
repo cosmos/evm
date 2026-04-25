@@ -10,7 +10,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
 
-	"cosmossdk.io/x/tx/signing"
+	"github.com/cosmos/cosmos-sdk/x/tx/signing"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	amino "github.com/cosmos/cosmos-sdk/codec"

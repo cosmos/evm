@@ -8,12 +8,12 @@ import (
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
-	storetypes "cosmossdk.io/store/types"
-	evidencekeeper "cosmossdk.io/x/evidence/keeper"
-	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	evidencekeeper "github.com/cosmos/cosmos-sdk/x/evidence/keeper"
+	feegrantkeeper "github.com/cosmos/cosmos-sdk/x/feegrant/keeper"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec/types"

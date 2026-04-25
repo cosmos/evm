@@ -26,11 +26,11 @@ import (
 	callbacktypes "github.com/cosmos/evm/x/ibc/callbacks/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctransfer "github.com/cosmos/ibc-go/v11/modules/apps/transfer"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"cosmossdk.io/math"
 

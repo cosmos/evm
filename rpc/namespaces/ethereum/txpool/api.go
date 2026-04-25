@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/types"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 // PublicAPI offers and API for the transaction pool. It only operates on data that is non-confidential.

@@ -18,13 +18,13 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	ibcclienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	ibctypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	ibcclienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
-	evtypes "cosmossdk.io/x/evidence/types"
-	"cosmossdk.io/x/feegrant"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	evtypes "github.com/cosmos/cosmos-sdk/x/evidence/types"
+	"github.com/cosmos/cosmos-sdk/x/feegrant"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"

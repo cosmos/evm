@@ -2,11 +2,11 @@ package ante
 
 import (
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
 
 	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
-	txsigning "cosmossdk.io/x/tx/signing"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	txsigning "github.com/cosmos/cosmos-sdk/x/tx/signing"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"

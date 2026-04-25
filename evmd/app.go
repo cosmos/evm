@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"io"
-
 	"os"
 
 	"github.com/spf13/cast"
@@ -44,34 +42,34 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
-	transfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
-	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
-	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	transferv2 "github.com/cosmos/ibc-go/v10/modules/apps/transfer/v2"
-	ibc "github.com/cosmos/ibc-go/v10/modules/core"
-	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
-	ibcapi "github.com/cosmos/ibc-go/v10/modules/core/api"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
-	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibccallbacks "github.com/cosmos/ibc-go/v11/modules/apps/callbacks"
+	transfer "github.com/cosmos/ibc-go/v11/modules/apps/transfer"
+	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
+	ibctransfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	transferv2 "github.com/cosmos/ibc-go/v11/modules/apps/transfer/v2"
+	ibc "github.com/cosmos/ibc-go/v11/modules/core"
+	porttypes "github.com/cosmos/ibc-go/v11/modules/core/05-port/types"
+	ibcapi "github.com/cosmos/ibc-go/v11/modules/core/api"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
+	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
 	"cosmossdk.io/core/appmodule"
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
-	"cosmossdk.io/x/evidence"
-	evidencekeeper "cosmossdk.io/x/evidence/keeper"
-	evidencetypes "cosmossdk.io/x/evidence/types"
-	"cosmossdk.io/x/feegrant"
-	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
-	feegrantmodule "cosmossdk.io/x/feegrant/module"
-	"cosmossdk.io/x/upgrade"
-	upgradekeeper "cosmossdk.io/x/upgrade/keeper"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
+	"cosmossdk.io/log/v2"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	"github.com/cosmos/cosmos-sdk/x/evidence"
+	evidencekeeper "github.com/cosmos/cosmos-sdk/x/evidence/keeper"
+	evidencetypes "github.com/cosmos/cosmos-sdk/x/evidence/types"
+	"github.com/cosmos/cosmos-sdk/x/feegrant"
+	feegrantkeeper "github.com/cosmos/cosmos-sdk/x/feegrant/keeper"
+	feegrantmodule "github.com/cosmos/cosmos-sdk/x/feegrant/module"
+	"github.com/cosmos/cosmos-sdk/x/upgrade"
+	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -182,7 +180,7 @@ type EVMD struct {
 
 	// IBC keepers
 	IBCKeeper      *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
-	TransferKeeper transferkeeper.Keeper
+	TransferKeeper *transferkeeper.Keeper
 	CallbackKeeper ibccallbackskeeper.ContractKeeper
 
 	// Cosmos EVM keepers
@@ -207,7 +205,6 @@ type EVMD struct {
 func NewExampleApp(
 	logger log.Logger,
 	db dbm.DB,
-	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
@@ -228,7 +225,6 @@ func NewExampleApp(
 		encodingConfig.TxConfig.TxDecoder(),
 		baseAppOptions...,
 	)
-	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
@@ -387,7 +383,6 @@ func NewExampleApp(
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibcexported.StoreKey]),
-		nil,
 		app.UpgradeKeeper,
 		authAddr,
 	)
@@ -399,7 +394,7 @@ func NewExampleApp(
 	*/
 	govKeeper := govkeeper.NewKeeper(
 		appCodec, runtime.NewKVStoreService(keys[govtypes.StoreKey]), app.AccountKeeper, app.BankKeeper,
-		app.StakingKeeper, app.DistrKeeper, app.MsgServiceRouter(), govConfig, authAddr,
+		app.DistrKeeper, app.MsgServiceRouter(), govConfig, authAddr, govkeeper.NewDefaultCalculateVoteResultsAndVotingPower(app.StakingKeeper),
 	)
 
 	app.GovKeeper = *govKeeper.SetHooks(
@@ -459,7 +454,7 @@ func NewExampleApp(
 			app.DistrKeeper,
 			app.PreciseBankKeeper,
 			&app.Erc20Keeper,
-			&app.TransferKeeper,
+			app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
@@ -475,22 +470,20 @@ func NewExampleApp(
 		app.PreciseBankKeeper,
 		app.EVMKeeper,
 		app.StakingKeeper,
-		&app.TransferKeeper,
+		app.TransferKeeper,
 	)
 
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		appCodec,
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		nil,
-		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
 		app.BankKeeper,
 		authAddr,
 	)
-	app.TransferKeeper.SetAddressCodec(evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()))
 
 	/*
 		Create Transfer Stack
@@ -518,7 +511,7 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
+	transferStack = ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -961,7 +954,9 @@ func (app *EVMD) RegisterTendermintService(clientCtx client.Context) {
 }
 
 func (app *EVMD) RegisterNodeService(clientCtx client.Context, cfg config.Config) {
-	node.RegisterNodeService(clientCtx, app.GRPCQueryRouter(), cfg)
+	node.RegisterNodeService(clientCtx, app.GRPCQueryRouter(), cfg, func() int64 {
+		return app.CommitMultiStore().EarliestVersion()
+	})
 }
 
 // ---------------------------------------------
@@ -1052,11 +1047,11 @@ func (app *EVMD) GetCallbackKeeper() ibccallbackskeeper.ContractKeeper {
 }
 
 func (app *EVMD) GetTransferKeeper() transferkeeper.Keeper {
-	return app.TransferKeeper
+	return *app.TransferKeeper
 }
 
 func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
-	app.TransferKeeper = transferKeeper
+	app.TransferKeeper = &transferKeeper
 }
 
 func (app *EVMD) GetMempool() sdkmempool.ExtMempool {

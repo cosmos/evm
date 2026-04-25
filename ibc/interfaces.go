@@ -3,7 +3,7 @@ package ibc
 import (
 	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
 
-	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibctypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

@@ -7,7 +7,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
