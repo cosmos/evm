@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -36,9 +37,11 @@ func NewEthSigVerificationDecorator(ek anteinterfaces.EVMKeeper) EthSigVerificat
 func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
 	if v, ok := ctx.GetIncarnationCache(EthSigVerificationResultCacheKey); ok {
 		if v != nil {
-			if cachedErr, ok := v.(error); ok {
-				return ctx, cachedErr
+			cachedErr, ok := v.(error)
+			if !ok {
+				return ctx, fmt.Errorf("unexpected type %T cached under %s, want error", v, EthSigVerificationResultCacheKey)
 			}
+			return ctx, cachedErr
 		}
 		return next(ctx, tx, simulate)
 	}
