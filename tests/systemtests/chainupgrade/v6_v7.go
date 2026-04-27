@@ -109,7 +109,10 @@ func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	sut.SetTestnetInitializer(currentInitializer)
 	// Keep Comet and app mempool settings in sync for the upgraded binary startup.
 	base.ModifyCometMempool(t, "app")
-	sut.StartChain(t, "--chain-id=local-4221", "--mempool.max-txs=0")
+	// Use the shared default args (pins EVM chain ID to 4221 so the eth client
+	// can sign valid txs — v0.7's default EVM chain ID differs from v0.6 — and
+	// enables the JSON-RPC namespaces the contended-account workload needs).
+	sut.StartChain(t, suite.DefaultNodeArgs()...)
 
 	require.Equal(t, upgradeHeight+1, sut.CurrentHeight())
 
