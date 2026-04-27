@@ -17,6 +17,7 @@
 - [\#1103](https://github.com/cosmos/evm/pull/1103) Align normal gas metering in ibc erc20 callback.
 - [\#1108](https://github.com/cosmos/evm/pull/1108) Add json-rpc http server request body limit.
 - [\#1118](https://github.com/cosmos/evm/pull/1118) Cache chain denom for evm mempool
+- [\#1008](https://github.com/cosmos/evm/pull/1008) Stop enforcing JSON-RPC global filter cap and allow reclaim filters via configurable idle timeout.
 - [\#1130](https://github.com/cosmos/evm/pull/1130) Use `sdk.ValidateAuthority` in `x/vm`, `x/erc20`, and `x/feemarket` `MsgServer` handlers so authority can optionally be centralized via the consensus `AuthorityParams` introduced in cosmos-sdk v0.54.
 
 ### FEATURES
@@ -40,6 +41,7 @@
 - [\#774](https://github.com/cosmos/evm/pull/774) Emit proper allowance amount in erc20 event.
 - [\#790](https://github.com/cosmos/evm/pull/790) fix panic in historical query due to missing EvmCoinInfo.
 - [\#800](https://github.com/cosmos/evm/pull/800) Fix denom exponent validation in virtual fee deduct in vm module.
+- [\#1132](https://github.com/cosmos/evm/pull/1132) Patch block-cumulative `log.Index` and eth-only `log.TxIndex` post-execution to fix indexing under BlockSTM.
 - [\#817](https://github.com/cosmos/evm/pull/817) Align GetCoinbaseAddress to handle empty proposer address in contexts like CheckTx where proposer doesn't exist.
 - [\#814](https://github.com/cosmos/evm/pull/814) Fix duplicated events in post tx processor.
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
