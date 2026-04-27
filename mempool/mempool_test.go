@@ -27,14 +27,15 @@ import (
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/testutil/constants"
+	evmtestutiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -42,8 +43,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-func TestKrakatoaMempool_Reserver(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_Reserver(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, accounts := s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
@@ -82,8 +83,8 @@ func TestKrakatoaMempool_Reserver(t *testing.T) {
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 
-func TestKrakatoaMempool_ReserverMultiSigner(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 4)
+func TestMempool_ReserverMultiSigner(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 4)
 	txConfig, accounts := s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
@@ -111,8 +112,8 @@ func TestKrakatoaMempool_ReserverMultiSigner(t *testing.T) {
 
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
-func TestKrakatoaMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, rechecker, bus, accounts := s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -204,8 +205,8 @@ func TestKrakatoaMempool_ReapPromoteDemotePromote(t *testing.T) {
 	require.Equal(t, uint64(1), getTxNonce(t, txConfig, txs[0]))
 }
 
-func TestKrakatoaMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, rechecker, bus, accounts := s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -259,8 +260,8 @@ func TestKrakatoaMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	require.Len(t, queued, 0)
 }
 
-func TestKrakatoaMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, rechecker, bus, accounts := s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -328,8 +329,8 @@ func TestKrakatoaMempool_ReapPromoteDemoteReap(t *testing.T) {
 	require.Equal(t, uint64(0), getTxNonce(t, txConfig, txs[0]))
 }
 
-func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_ReapNewBlock(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	vmKeeper, txConfig, bus, accounts := s.vmKeeper, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -359,9 +360,12 @@ func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
 		return len(pending) == 3 && len(queued) == 0 && mp.CountTx() == 3
 	}, time.Second, 10*time.Millisecond)
 
-	// simulate comet calling removeTx, a new height being published, and
-	// our accounts nonce increments to 1, so tx 0 will be invalidated
-	// after the next reset
+	// simulate comet calling removeTx with RunTxFinalize for tx0 (the included
+	// tx), a new height being published, and our account's nonce incrementing
+	// to 1. On the next reset, ScheduleForRemoval drives tx0 out of the pool.
+	require.NoError(t, mp.RemoveWithReason(context.Background(), tx0, mempooltypes.RemoveReason{
+		Caller: mempooltypes.CallerRunTxFinalize,
+	}))
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Unset()
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Return(&statedb.Account{
 		Nonce:   1,
@@ -395,8 +399,63 @@ func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
 	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[1]), uint64(1)) // 1 or 2
 }
 
-func TestKrakatoaMempool_InsertMultiMsgCosmosTx(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_CosmosNonceAdvanceDropsStaleEVM(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 1)
+	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
+	account := accounts[0]
+
+	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	}))
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// seed the pool with two pending EVM txs at nonces 0 and 1
+	for nonce := uint64(0); nonce < 2; nonce++ {
+		tx := createMsgEthereumTx(t, txConfig, account.key, nonce, big.NewInt(1e8))
+		require.NoError(t, mp.Insert(context.Background(), tx))
+	}
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// ensure initial state is correct
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+	pending, queued := legacyPool.ContentFrom(account.address)
+	require.Equal(t, 2, len(pending), "expected 2 txs in the pending pool after setup")
+	require.Equal(t, 0, len(queued), "expected 0 txs in the queued pool after setup")
+
+	// mock that another val had a cosmos tx with nonce 1 and included that on
+	// chain (note that this will never be our node doing this, since the
+	// reserver prevents us from having an evm tx and cosmos tx with the same
+	// signer(s) in the both pools at the same time)
+	cosmosTx := createTestCosmosTx(t, txConfig, account.key, 1)
+	err := mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+		Caller: mempooltypes.CallerRunTxFinalize,
+	})
+	require.ErrorIs(t, err, mempooltypes.ErrTxNotFound)
+
+	// after we finish finalizing the above block, the chain will advance and
+	// the pool will reset
+	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  2,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	}))
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// using eventually here since publishing a new block happens async
+	require.Eventually(t, func() bool {
+		pending, queued := legacyPool.ContentFrom(account.address)
+		return len(pending) == 0 && len(queued) == 0
+	}, time.Second, 10*time.Millisecond, "expected pending and queued pools to drain after stale txs dropped")
+}
+
+func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus := s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -457,8 +516,8 @@ func TestKrakatoaMempool_InsertMultiMsgCosmosTx(t *testing.T) {
 	require.Len(t, txs, 1, "expected a single tx to be reaped")
 }
 
-func TestKrakatoaMempool_InsertSynchronous(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_InsertSynchronous(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -497,8 +556,8 @@ func TestKrakatoaMempool_InsertSynchronous(t *testing.T) {
 	require.Contains(t, err.Error(), "insufficient funds", "error should indicate insufficient funds")
 }
 
-func TestKrakatoaMempool_InsertMultiMsgEthereumTx(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus := s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -570,7 +629,14 @@ type testMempoolDependencies struct {
 	accounts        []testAccount
 }
 
-func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.KrakatoaMempool, testMempoolDependencies) {
+func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, testMempoolDependencies) {
+	t.Helper()
+
+	return setupMempool(t, numAccounts, 1000)
+}
+
+//nolint:unparam
+func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Mempool, testMempoolDependencies) {
 	t.Helper()
 
 	// Create accounts
@@ -647,6 +713,8 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
 	// Register vm types so MsgEthereumTx can be decoded
 	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	// Register bank types so cosmos MsgSend txs can be decoded
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	txConfig := encodingConfig.TxConfig
 
 	// Create client context
@@ -661,19 +729,17 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 	legacyConfig.PriceLimit = 1
 	legacyConfig.PriceBump = 10 // 10% price bump for replacement
 
-	krakatoaConfig := &mempool.KrakatoaMempoolConfig{
-		EVMMempoolConfig: mempool.EVMMempoolConfig{
-			LegacyPoolConfig: &legacyConfig,
-			BlockGasLimit:    30000000,
-			MinTip:           uint256.NewInt(0),
-		},
-		InsertQueueSize: 1000,
+	config := &mempool.Config{
+		LegacyPoolConfig: &legacyConfig,
+		BlockGasLimit:    30000000,
+		MinTip:           uint256.NewInt(0),
+		InsertQueueSize:  insertQueueSize,
 	}
 
 	// Create mempool
 	evmRechecker := &MockRechecker{}
 	cosmosRechecker := &MockRechecker{}
-	mp := mempool.NewKrakatoaMempool(
+	mp := mempool.NewMempool(
 		getCtxCallback,
 		log.NewNopLogger(),
 		mockVMKeeper,
@@ -681,7 +747,7 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 		txConfig,
 		evmRechecker,
 		cosmosRechecker,
-		krakatoaConfig,
+		config,
 		1000, // cosmos pool max tx
 	)
 	require.NotNil(t, mp)
@@ -711,34 +777,22 @@ func createMsgEthereumTx(
 ) sdk.Tx {
 	t.Helper()
 
-	tx := types.NewTransaction(
-		nonce,
-		common.Address{0x01}, // Send to a dummy address
-		big.NewInt(txValue),
-		txGasLimit,
-		gasPrice,
-		nil,
-	)
+	to := common.Address{0x01} // dummy recipient
+	chainID := new(big.Int).SetUint64(vmtypes.GetChainConfig().ChainId)
+	msg := vmtypes.NewTx(&vmtypes.EvmTxArgs{
+		ChainID:  chainID,
+		Nonce:    nonce,
+		To:       &to,
+		Amount:   big.NewInt(txValue),
+		GasLimit: txGasLimit,
+		GasPrice: gasPrice,
+	})
+	msg.From = crypto.PubkeyToAddress(key.PublicKey).Bytes()
 
-	chainID := vmtypes.GetChainConfig().ChainId
-	signer := types.LatestSignerForChainID(new(big.Int).SetUint64(chainID))
-	signedTx, err := types.SignTx(tx, signer, key)
+	priv := &ethsecp256k1.PrivKey{Key: crypto.FromECDSA(key)}
+	cosmosTx, err := evmtestutiltx.PrepareEthTx(txConfig, priv, msg)
 	require.NoError(t, err)
-
-	return wrapInCosmosSDKTx(t, txConfig, signedTx)
-}
-
-func wrapInCosmosSDKTx(t *testing.T, txConfig client.TxConfig, ethTx *types.Transaction) sdk.Tx {
-	t.Helper()
-
-	msg := &vmtypes.MsgEthereumTx{}
-	msg.FromEthereumTx(ethTx)
-
-	txBuilder := txConfig.NewTxBuilder()
-	err := txBuilder.SetMsgs(msg)
-	require.NoError(t, err)
-
-	return txBuilder.GetTx()
+	return cosmosTx
 }
 
 // decodeTxBytes decodes transaction bytes returned from ReapNewValidTxs back into an Ethereum transaction

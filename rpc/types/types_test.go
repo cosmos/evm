@@ -17,6 +17,8 @@ import (
 
 type precompileContract struct{}
 
+func (p *precompileContract) Name() string { return "" }
+
 func (p *precompileContract) Address() common.Address { return common.Address{} }
 
 func (p *precompileContract) RequiredGas(input []byte) uint64 { return 0 }

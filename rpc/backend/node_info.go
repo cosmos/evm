@@ -324,11 +324,6 @@ func (b *Backend) RPCTxFeeCap() float64 {
 	return b.Cfg.JSONRPC.TxFeeCap
 }
 
-// RPCFilterCap is the limit for total number of filters that can be created
-func (b *Backend) RPCFilterCap() int32 {
-	return b.Cfg.JSONRPC.FilterCap
-}
-
 // RPCFeeHistoryCap is the limit for total number of blocks that can be fetched
 func (b *Backend) RPCFeeHistoryCap() int32 {
 	return b.Cfg.JSONRPC.FeeHistoryCap

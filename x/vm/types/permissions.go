@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -95,6 +94,23 @@ func getCanCreateFn(accessControl *AccessControl, signer common.Address) callerF
 	return func(_ common.Address) bool { return false }
 }
 
+// addressSet is used for quickly checking inclusion of an address in both permissionedCheckFn and permissionlessCheckFn.
+// Previous iterations of cosmos/evm used string equality checks, which made the checks case-sensitive.
+type addressSet map[common.Address]struct{}
+
+func newAddressSet(addresses []string) addressSet {
+	set := make(addressSet, len(addresses))
+	for _, address := range addresses {
+		set[common.HexToAddress(address)] = struct{}{}
+	}
+	return set
+}
+
+func (s addressSet) contains(address common.Address) bool {
+	_, ok := s[address]
+	return ok
+}
+
 // CanCall implements the PermissionPolicy interface.
 // It allows calls if access type is set to everybody.
 // Otherwise, it checks if:
@@ -121,21 +137,19 @@ func getCanCallFn(accessControl *AccessControl, signer common.Address) callerFn 
 // permissionlessCheckFn returns a callerFn that returns true unless the signer or the caller is
 // within the addresses slice.
 func permissionlessCheckFn(addresses []string, signer common.Address) callerFn {
-	strSigner := signer.String()
-	isSignerBlocked := !slices.Contains(addresses, strSigner)
+	blockedAddresses := newAddressSet(addresses)
+	isSignerAllowed := !blockedAddresses.contains(signer)
 	return func(caller common.Address) bool {
-		strCaller := caller.String()
-		return isSignerBlocked && !slices.Contains(addresses, strCaller)
+		return isSignerAllowed && !blockedAddresses.contains(caller)
 	}
 }
 
 // permissionedCheckFn returns a callerFn that returns true if the signer or caller
 // is within the addresses slice.
 func permissionedCheckFn(addresses []string, signer common.Address) callerFn {
-	strSigner := signer.String()
-	isSignerAllowed := slices.Contains(addresses, strSigner)
+	allowedAddresses := newAddressSet(addresses)
+	isSignerAllowed := allowedAddresses.contains(signer)
 	return func(caller common.Address) bool {
-		strCaller := caller.String()
-		return isSignerAllowed || slices.Contains(addresses, strCaller)
+		return isSignerAllowed || allowedAddresses.contains(caller)
 	}
 }

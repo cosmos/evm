@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 const MinIntrinsicGas = 21000
@@ -102,8 +104,8 @@ func (s *TestSuite) TestSendTransaction() {
 		{
 			"fail - Cannot broadcast transaction",
 			func() {
-				client, txBytes := broadcastTx(s, priv, baseFee, callArgsDefault)
-				RegisterBroadcastTxError(client, txBytes)
+				_, _ = buildBroadcastTx(s, priv, baseFee, callArgsDefault)
+				RegisterMempoolInsert(s.T(), s.Mempool(), nil, errors.New("queue is full"))
 			},
 			callArgsDefault,
 			common.Hash{},
@@ -112,8 +114,8 @@ func (s *TestSuite) TestSendTransaction() {
 		{
 			"pass - Return the transaction hash",
 			func() {
-				client, txBytes := broadcastTx(s, priv, baseFee, callArgsDefault)
-				RegisterBroadcastTx(client, txBytes)
+				_, tx := buildBroadcastTx(s, priv, baseFee, callArgsDefault)
+				RegisterMempoolInsert(s.T(), s.Mempool(), tx, nil)
 			},
 			callArgsDefault,
 			hash,
@@ -140,6 +142,7 @@ func (s *TestSuite) TestSendTransaction() {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expHash, responseHash)
 			} else {
+				s.T().Logf("error: %v", err)
 				s.Require().Error(err)
 			}
 		})
@@ -243,26 +246,33 @@ func (s *TestSuite) TestSignTypedData() {
 	}
 }
 
-func broadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int, callArgsDefault evmtypes.TransactionArgs) (client *mocks.Client, txBytes []byte) {
+//nolint:unparam
+func buildBroadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int, callArgsDefault evmtypes.TransactionArgs) (*mocks.Client, signing.Tx) {
 	var header metadata.MD
-	QueryClient := suite.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-	client = suite.backend.ClientCtx.Client.(*mocks.Client)
+
+	evmQueryClient := suite.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	client := suite.backend.ClientCtx.Client.(*mocks.Client)
 	armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 	_ = suite.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 	height := int64(1)
-	RegisterParams(QueryClient, &header, height)
+
+	RegisterParams(evmQueryClient, &header, height)
 	RegisterBlock(client, height, nil)
 	RegisterBlockResults(client, height)
-	RegisterBaseFee(QueryClient, baseFee)
-	RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+	RegisterBaseFee(evmQueryClient, baseFee)
+	RegisterValidatorAccount(evmQueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 	RegisterConsensusParams(client, height)
+
 	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
 	msg := evmtypes.NewTxFromArgs(&callArgsDefault)
+
 	err := msg.Sign(ethSigner, suite.backend.ClientCtx.Keyring)
 	suite.Require().NoError(err)
-	baseDenom := evmtypes.GetEVMCoinDenom()
-	tx, _ := msg.BuildTx(suite.backend.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
-	txEncoder := suite.backend.ClientCtx.TxConfig.TxEncoder()
-	txBytes, _ = txEncoder(tx)
-	return client, txBytes
+
+	tx, _ := msg.BuildTx(
+		suite.backend.ClientCtx.TxConfig.NewTxBuilder(),
+		evmtypes.GetEVMCoinDenom(),
+	)
+
+	return client, tx
 }

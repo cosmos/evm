@@ -52,12 +52,19 @@ global-queue = {{ .EVM.Mempool.GlobalQueue }}
 # Lifetime is the maximum amount of time non-executable transaction are queued
 lifetime = "{{ .EVM.Mempool.Lifetime }}"
 
+# IncludedNonceCacheSize is the maximum amount of evm txs that can be tracked for
+# removal via nonce invalidation. This should be >= the number of txs that can
+# be included in a block.
+included-nonce-cache-size = {{ .EVM.Mempool.IncludedNonceCacheSize }}
+
 # PendingTxProposalTimeout is the amount of time to spend waiting for rechecking of the mempool to complete when creating a proposal
 pending-tx-proposal-timeout = "{{ .EVM.Mempool.PendingTxProposalTimeout }}"
 
+# CheckTxTimeout is the timeout for async CheckTx handler.
+check-tx-timeout = "{{ .EVM.Mempool.CheckTxTimeout }}"
+
 # InsertQueueSize is the maximum number of transactions that can be in the insert queue at once (0 means unbounded)
 insert-queue-size = "{{ .EVM.Mempool.InsertQueueSize }}"
-
 
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
@@ -94,8 +101,13 @@ evm-timeout = "{{ .JSONRPC.EVMTimeout }}"
 # TxFeeCap is the global tx-fee cap for send transaction. Default: 1eth.
 txfee-cap = {{ .JSONRPC.TxFeeCap }}
 
-# FilterCap sets the global cap for total number of filters that can be created
-filter-cap = {{ .JSONRPC.FilterCap }}
+# FilterTimeout defines when an idle filter expires.
+# Filters are reclaimed via this idle sweep (matching upstream go-ethereum);
+# front the JSON-RPC server with a reverse proxy if you need rate limiting.
+filter-timeout = "{{ .JSONRPC.FilterTimeout }}"
+
+# FilterCleanupInterval defines how often expired filters are cleaned up.
+filter-cleanup-interval = "{{ .JSONRPC.FilterCleanupInterval }}"
 
 # FeeHistoryCap sets the global cap for total number of blocks that can be fetched
 feehistory-cap = {{ .JSONRPC.FeeHistoryCap }}
@@ -111,6 +123,9 @@ http-timeout = "{{ .JSONRPC.HTTPTimeout }}"
 
 # HTTPIdleTimeout is the idle timeout of http json-rpc server.
 http-idle-timeout = "{{ .JSONRPC.HTTPIdleTimeout }}"
+
+# HTTPBodyLimit is the maximum request body size in bytes for json-rpc http server.
+http-body-limit = {{ .JSONRPC.HTTPBodyLimit }}
 
 # AllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
 # the node's RPC when the global parameter is disabled.

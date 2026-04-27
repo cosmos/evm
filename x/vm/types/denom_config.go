@@ -7,115 +7,80 @@
 package types
 
 import (
-	"errors"
 	"fmt"
+	"sync/atomic"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// defaultEvmCoinInfo provides a default configuration to prevent nil pointer dereferences
-// when RPC requests execute before evmCoinInfo is initialized in PreBlock.
-// This is set via SetDefaultEvmCoinInfo from the keeper's defaultEvmCoinInfo field.
-var defaultEvmCoinInfo *EvmCoinInfo
-
-// SetDefaultEvmCoinInfo sets the default EVM coin info to be used as fallback.
-// This should be called during keeper initialization.
-func SetDefaultEvmCoinInfo(coinInfo EvmCoinInfo) {
-	defaultEvmCoinInfo = &coinInfo
-}
-
 // evmCoinInfo hold the information of the coin used in the EVM as gas token. It
 // can only be set via `EVMConfigurator` before starting the app.
-var evmCoinInfo *EvmCoinInfo
+var evmCoinInfo atomic.Pointer[EvmCoinInfo]
 
-// getEvmCoinInfo returns the evmCoinInfo if set, otherwise returns defaultEvmCoinInfo.
-func getEvmCoinInfo() *EvmCoinInfo {
-	if evmCoinInfo == nil {
-		return defaultEvmCoinInfo
-	}
-	return evmCoinInfo
+// GetCoinInfo returns EvmCoinInfo if set, otherwise panics.
+func GetCoinInfo() EvmCoinInfo {
+	return *getCoinInfo()
 }
 
-// setEVMCoinDecimals allows to define the decimals used in the representation
-// of the EVM coin.
-func setEVMCoinDecimals(d Decimals) error {
-	if err := d.Validate(); err != nil {
-		return fmt.Errorf("setting EVM coin decimals: %w", err)
-	}
-
-	evmCoinInfo.Decimals = d.Uint32()
-	return nil
-}
-
-// setEVMCoinDenom allows to define the denom of the coin used in the EVM.
-func setEVMCoinDenom(denom string) error {
-	if err := sdk.ValidateDenom(denom); err != nil {
-		return fmt.Errorf("setting EVM coin denom: %w", err)
-	}
-	evmCoinInfo.Denom = denom
-	return nil
-}
-
-// setEVMCoinExtendedDenom allows to define the extended denom of the coin used in the EVM.
-func setEVMCoinExtendedDenom(extendedDenom string) error {
-	if err := sdk.ValidateDenom(extendedDenom); err != nil {
-		return err
-	}
-	evmCoinInfo.ExtendedDenom = extendedDenom
-	return nil
-}
-
-func setDisplayDenom(displayDenom string) error {
-	if err := sdk.ValidateDenom(displayDenom); err != nil {
-		return fmt.Errorf("setting EVM coin display denom: %w", err)
-	}
-	evmCoinInfo.DisplayDenom = displayDenom
-	return nil
-}
-
-// GetEVMCoinDecimals returns the decimals used in the representation of the EVM
-// coin.
+// GetEVMCoinDecimals returns the decimals used in the representation of the EVM coin.
 func GetEVMCoinDecimals() Decimals {
-	return Decimals(getEvmCoinInfo().Decimals)
+	return Decimals(getCoinInfo().Decimals)
 }
 
 // GetEVMCoinDenom returns the denom used for the EVM coin.
 func GetEVMCoinDenom() string {
-	return getEvmCoinInfo().Denom
+	return getCoinInfo().Denom
 }
 
 // GetEVMCoinExtendedDenom returns the extended denom used for the EVM coin.
 func GetEVMCoinExtendedDenom() string {
-	return getEvmCoinInfo().ExtendedDenom
+	return getCoinInfo().ExtendedDenom
 }
 
 // GetEVMCoinDisplayDenom returns the display denom used for the EVM coin.
 func GetEVMCoinDisplayDenom() string {
-	return getEvmCoinInfo().DisplayDenom
+	return getCoinInfo().DisplayDenom
 }
 
-// setEVMCoinInfo allows to define denom and decimals of the coin used in the EVM.
-func setEVMCoinInfo(eci EvmCoinInfo) error {
-	if evmCoinInfo != nil {
-		return errors.New("EVM coin info already set")
+// getCoinInfo return evmCoinInfo or panics if not present!
+func getCoinInfo() *EvmCoinInfo {
+	if info := evmCoinInfo.Load(); info != nil {
+		return info
 	}
 
-	if Decimals(eci.Decimals) == EighteenDecimals {
-		if eci.Denom != eci.ExtendedDenom {
-			return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
-		}
+	panic("global evmCoinInfo is not set yet!")
+}
+
+func setCoinInfo(info EvmCoinInfo) error {
+	if err := validateCoinInfo(&info); err != nil {
+		return err
 	}
 
-	evmCoinInfo = new(EvmCoinInfo)
+	evmCoinInfo.Store(&info)
 
-	if err := setEVMCoinDenom(eci.Denom); err != nil {
-		return err
+	return nil
+}
+
+func validateCoinInfo(info *EvmCoinInfo) error {
+	if err := sdk.ValidateDenom(info.Denom); err != nil {
+		return fmt.Errorf("invalid EVM denom: %w", err)
 	}
-	if err := setEVMCoinExtendedDenom(eci.ExtendedDenom); err != nil {
-		return err
+
+	if err := sdk.ValidateDenom(info.ExtendedDenom); err != nil {
+		return fmt.Errorf("invalid EVM extended denom: %w", err)
 	}
-	if err := setDisplayDenom(eci.DisplayDenom); err != nil {
-		return err
+
+	if err := sdk.ValidateDenom(info.DisplayDenom); err != nil {
+		return fmt.Errorf("invalid EVM display denom: %w", err)
 	}
-	return setEVMCoinDecimals(Decimals(eci.Decimals))
+
+	if err := Decimals(info.Decimals).Validate(); err != nil {
+		return fmt.Errorf("invalid EVM decimals: %w", err)
+	}
+
+	if Decimals(info.Decimals) == EighteenDecimals && info.Denom != info.ExtendedDenom {
+		return fmt.Errorf("EVM denom and extended denom must be the same for 18 decimals")
+	}
+
+	return nil
 }
