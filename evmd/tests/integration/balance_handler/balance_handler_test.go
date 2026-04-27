@@ -4,10 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
-
-	"github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm"
@@ -16,6 +12,10 @@ import (
 	debugprecompile "github.com/cosmos/evm/evmd/tests/testdata/debug"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/types"
 )
 
 // BalanceHandlerTestSuite tests the balance handler bug where recursive precompile calls
