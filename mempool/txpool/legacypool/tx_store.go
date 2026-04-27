@@ -1,6 +1,7 @@
 package legacypool
 
 import (
+	"context"
 	"sort"
 	"sync"
 
@@ -8,11 +9,22 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/metrics"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // txsCollected is the total amount of txs returned by Collect.
-var txsCollected = metrics.NewRegisteredMeter("legacypool/txstore/txscollected", nil)
+var txsCollected metric.Int64Counter
+
+func init() {
+	var err error
+	txsCollected, err = meter.Int64Counter(
+		"legacypool.txstore.txs_collected",
+		metric.WithDescription("Total number of transactions returned by TxStore.Txs"),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // TxStore is a set of transactions at a height that can be added to or
 // removed from.
@@ -39,7 +51,7 @@ func NewTxStore(logger log.Logger) *TxStore {
 }
 
 // Get returns the current set of txs in the store.
-func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+func (t *TxStore) Txs(ctx context.Context, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
 	// Do not support blob txs
 	if filter.OnlyBlobTxs {
 		return nil
@@ -61,7 +73,7 @@ func (t *TxStore) Txs(filter txpool.PendingFilter) map[common.Address][]*txpool.
 	}
 
 	t.logger.Info("collected txs from evm tx store", "total_in_store", t.total, "num_selected", numSelected)
-	txsCollected.Mark(int64(numSelected))
+	txsCollected.Add(ctx, int64(numSelected))
 	return pending
 }
 

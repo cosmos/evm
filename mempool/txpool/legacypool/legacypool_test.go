@@ -405,8 +405,8 @@ func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
 	pool, rechecker, key := setupPool()
 	defer pool.Close()
 
-	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
-	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
+	initialDropped := readCounterTotal(t, "txpool.pending.recheckdrop")
+	initialInvalidated := readCounterTotal(t, "txpool.pending.demoted.recheck")
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	tx4 := pricedTransaction(4, 100000, big.NewInt(1), key)
@@ -464,10 +464,10 @@ func TestMarkTxRemovedInvalidatesPendingReplacementFailsRecheck(t *testing.T) {
 	})
 	require.Nil(t, pool.all.Get(replacement.Hash()))
 
-	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
+	dropped := readCounterTotal(t, "txpool.pending.recheckdrop") - initialDropped
 	require.Equal(t, int64(1), dropped)
 
-	invalidated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
+	invalidated := readCounterTotal(t, "txpool.pending.demoted.recheck") - initialInvalidated
 	require.Equal(t, int64(2), invalidated)
 	pool.mu.RUnlock()
 }
@@ -3000,7 +3000,7 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, key := setupPool()
 	defer pool.Close()
 
-	initialDropped := queuedRecheckDropMeter.Snapshot().Count()
+	initialDropped := readCounterTotal(t, "txpool.queued.recheckdrop")
 
 	// Create transactions with sequential nonces
 	tx0 := transaction(0, 100000, key)
@@ -3062,7 +3062,7 @@ func TestPromoteExecutablesRecheckTx(t *testing.T) {
 	if pool.all.Get(tx2.Hash()) == nil {
 		t.Errorf("tx2 should still be in the all lookup")
 	}
-	dropped := queuedRecheckDropMeter.Snapshot().Count() - initialDropped
+	dropped := readCounterTotal(t, "txpool.queued.recheckdrop") - initialDropped
 	if dropped != 1 {
 		t.Error("1 queued recheck drops should have been recorded by meter delta, got", dropped)
 	}
@@ -3076,8 +3076,8 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	pool, rechecker, _ := setupPool()
 	defer pool.Close()
 
-	initialDropped := pendingRecheckDropMeter.Snapshot().Count()
-	initialInvalidated := pendingDemotedRecheck.Snapshot().Count()
+	initialDropped := readCounterTotal(t, "txpool.pending.recheckdrop")
+	initialInvalidated := readCounterTotal(t, "txpool.pending.demoted.recheck")
 
 	// Create transactions with sequential nonces
 	key1, _ := crypto.GenerateKey()
@@ -3157,7 +3157,7 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	}
 
 	// tx10 and tx22 got dropped
-	dropped := pendingRecheckDropMeter.Snapshot().Count() - initialDropped
+	dropped := readCounterTotal(t, "txpool.pending.recheckdrop") - initialDropped
 	if dropped != 2 {
 		t.Error("2 pending recheck drops should have been recorded by meter delta, got", dropped)
 	}
@@ -3165,7 +3165,7 @@ func TestDemoteUnexecutablesRecheckTx(t *testing.T) {
 	// tx11 and tx12 were invalidated since a tx from the same sender with a
 	// lower nonce was just dropped, they need to be validated again before
 	// being moved to pending, so they are back in queued
-	invaliated := pendingDemotedRecheck.Snapshot().Count() - initialInvalidated
+	invaliated := readCounterTotal(t, "txpool.pending.demoted.recheck") - initialInvalidated
 	if invaliated != 2 {
 		t.Error("2 pending recheck invalidate should have been recorded by meter delta, got", invaliated)
 	}

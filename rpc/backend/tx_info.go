@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -66,21 +65,12 @@ func (b *Backend) GetTransactionByHash(ctx context.Context, txHash common.Hash) 
 	}
 
 	if res.EthTxIndex == -1 {
+		var err error
 		// Fallback to find tx index by iterating all valid eth transactions
-		msgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
-		for i := range msgs {
-			if msgs[i].Hash() == txHash {
-				if i > math.MaxInt32 {
-					return nil, errors.New("tx index overflow")
-				}
-				res.EthTxIndex = int32(i) //#nosec G115 -- checked for int overflow already
-				break
-			}
+		res.EthTxIndex, err = b.FindEthTxIndexByHash(ctx, txHash, block, blockRes)
+		if err != nil {
+			return nil, err
 		}
-	}
-	// if we still unable to find the eth tx index, return error, shouldn't happen.
-	if res.EthTxIndex == -1 {
-		return nil, errors.New("can't find index of ethereum tx")
 	}
 
 	baseFee, err := b.BaseFee(ctx, blockRes)
@@ -374,7 +364,7 @@ func (b *Backend) QueryCometTxIndexer(ctx context.Context, query string, txGette
 		return nil, errors.New("ethereum tx not found")
 	}
 	txResult := resTxs.Txs[0]
-	if !rpctypes.TxSucessOrExpectedFailure(&txResult.TxResult) {
+	if !evmtypes.TxSucessOrExpectedFailure(&txResult.TxResult) {
 		return nil, errors.New("invalid ethereum tx")
 	}
 

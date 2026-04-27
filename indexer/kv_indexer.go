@@ -59,7 +59,7 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 	var ethTxIndex int32
 	for txIndex, tx := range block.Txs {
 		result := txResults[txIndex]
-		if !rpctypes.TxSucessOrExpectedFailure(result) {
+		if !evmtypes.TxSucessOrExpectedFailure(result) {
 			continue
 		}
 
