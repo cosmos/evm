@@ -54,6 +54,7 @@
 - [\#967](https://github.com/cosmos/evm/pull/967) Fix return value of erc20 ibcv2 middleware to properly reflect application success and middleware failure.
 - [\#992](https://github.com/cosmos/evm/pull/992) Respect the provided `gasCap` in `CallEVMWithData` instead of always used the default cap.
 - [\#993](https://github.com/cosmos/evm/pull/993) Enforce `src_callback` contract address to match the packet sender for IBC acknowledgement and timeout callbacks to prevent arbitrary contract execution.
+- [\#1061](https://github.com/cosmos/evm/pull/1061) Block nested ICS20 forwarding in source callbacks.
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 

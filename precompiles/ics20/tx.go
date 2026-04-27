@@ -11,6 +11,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	callbackstypes "github.com/cosmos/evm/x/ibc/callbacks/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	connectiontypes "github.com/cosmos/ibc-go/v11/modules/core/03-connection/types"
@@ -189,6 +190,11 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
+	// Marker is set in the callbacks keeper and propagates here via cacheCtx.
+	if callbackstypes.IsSourceCallbackExecution(ctx) {
+		return nil, callbackstypes.ErrNestedSourceCallbackTransfer
+	}
+
 	msg, sender, err := NewMsgTransfer(method, args)
 	if err != nil {
 		return nil, err
