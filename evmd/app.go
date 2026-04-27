@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	goruntime "runtime"
+
 	"os"
 
 	"github.com/spf13/cast"
@@ -60,6 +62,7 @@ import (
 	"cosmossdk.io/client/v2/autocli"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log/v2"
+	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/x/evidence"
 	evidencekeeper "github.com/cosmos/cosmos-sdk/x/evidence/keeper"
@@ -247,6 +250,18 @@ func NewExampleApp(
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
+
+	// enable block stm for parallel execution
+	bApp.SetBlockSTMTxRunner(txnrunner.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		nonTransientKeys,
+		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		true,
+		func(ms storetypes.MultiStore) string { return sdk.DefaultBondDenom },
+	))
+
+	// disable block gas meter
+	bApp.SetDisableBlockGasMeter(true)
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
