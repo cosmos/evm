@@ -483,6 +483,9 @@ func NewExampleApp(
 		),
 	)
 
+	// enable virtual fee collection
+	app.EVMKeeper.EnableVirtualFeeCollection()
+
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
 		appCodec,
