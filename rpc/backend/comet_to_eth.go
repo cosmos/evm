@@ -118,7 +118,7 @@ func (b *Backend) EthMsgsFromCometBlock(
 		// Check if tx exists on EVM by cross checking with blockResults:
 		//  - Include unsuccessful tx that exceeds block gas limit
 		//  - Exclude unsuccessful tx with any other error but ExceedBlockGasLimit
-		if !rpctypes.TxSucessOrExpectedFailure(txResults[i]) {
+		if !evmtypes.TxSucessOrExpectedFailure(txResults[i]) {
 			b.Logger.Debug("invalid tx result code", "cosmos-hash", hexutil.Encode(tx.Hash()))
 			continue
 		}
@@ -303,6 +303,15 @@ func (b *Backend) ReceiptsFromCometBlock(
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+		}
+
+		if txResult.EthTxIndex == -1 {
+			var err error
+			// Fallback to find tx index by iterating all valid eth transactions
+			txResult.EthTxIndex, err = b.FindEthTxIndexByHash(ctx, ethMsg.Hash(), resBlock, blockRes)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
