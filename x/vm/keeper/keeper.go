@@ -85,6 +85,10 @@ type Keeper struct {
 	// virtualFeeCollection enabling will use "Virtual" methods from the bank module to accumulate
 	// fees to the fee collector module in the endBlocker instead of using regular sends during tx execution.
 	virtualFeeCollection bool
+
+	// defaultEvmCoinInfo is the default EVM coin info used when evmCoinInfo is not initialized in the state,
+	// mainly for historical queries.
+	defaultEvmCoinInfo types.EvmCoinInfo
 }
 
 // NewKeeper generates new evm module keeper
@@ -140,6 +144,14 @@ func NewKeeper(
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        storeKeys,
 	}
+
+}
+
+// WithDefaultEvmCoinInfo set default EvmCoinInfo
+func (k *Keeper) WithDefaultEvmCoinInfo(coinInfo types.EvmCoinInfo) *Keeper {
+	k.defaultEvmCoinInfo = coinInfo
+	types.SetDefaultEvmCoinInfo(coinInfo)
+	return k
 }
 
 // EnableVirtualFeeCollection switches fee deduction for evm transactions to use the virtual fee collection of the

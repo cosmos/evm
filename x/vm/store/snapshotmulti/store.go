@@ -13,14 +13,14 @@ import (
 
 type Store struct {
 	stores    map[storetypes.StoreKey]types.SnapshotKVStore
-	storeKeys []*storetypes.KVStoreKey // ordered keys
+	storeKeys []storetypes.StoreKey // ordered keys
 	head      int
 }
 
 var _ types.SnapshotMultiStore = (*Store)(nil)
 
 // NewStore creates a new Store objectwith CacheMultiStore and KVStoreKeys
-func NewStore(cms storetypes.CacheMultiStore, keys map[string]*storetypes.KVStoreKey) *Store {
+func NewStore(cms storetypes.CacheMultiStore, keys map[string]storetypes.StoreKey) *Store {
 	s := &Store{
 		stores:    make(map[storetypes.StoreKey]types.SnapshotKVStore),
 		storeKeys: vmtypes.SortedKVStoreKeys(keys),
