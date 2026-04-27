@@ -3,7 +3,10 @@
 package chainupgrade
 
 import (
+	"context"
 	"fmt"
+	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +23,14 @@ import (
 const (
 	upgradeHeight int64 = 22
 	upgradeName         = "v0.6.0-to-v0.7.0" // must match UpgradeName in evmd/upgrades.go
+
+	// Contended-account workload — multiple senders, single recipient.
+	// SendEthLegacyTx hard-codes the recipient to acc3 and the value to 1000 wei,
+	// so any change to that helper means changing these constants too.
+	contendedSenders   = 3 // acc0, acc1, acc2
+	contendedTxsPerEOA = 4
+	contendedRecipient = "acc3"
+	contendedTxValue   = int64(1000)
 )
 
 // RunChainUpgrade exercises an on-chain software upgrade using the injected shared suite.
@@ -108,4 +119,84 @@ func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	from := cli.GetKeyAddr("node0")
 	got := cli.Run("tx", "bank", "send", from, to, "1atest", "--from=node0", "--fees=10000000000000000000atest", "--chain-id=local-4221")
 	systest.RequireTxSuccess(t, got)
+
+	runContendedAccountWorkload(t, base)
+}
+
+// runContendedAccountWorkload exercises BlockSTM's conflict detection across
+// the upgrade boundary. Multiple senders fire EVM txs concurrently to a single
+// recipient so every tx in a block writes to the same balance slot — the
+// classic contended-account scenario. A missed scheduler conflict would
+// manifest as a lost write (final balance below the expected delta).
+func runContendedAccountWorkload(t *testing.T, base *suite.BaseTestSuite) {
+	t.Helper()
+
+	sut := base.SystemUnderTest
+	nodeID := base.Node(0)
+
+	baseFee, err := base.GetLatestBaseFee(nodeID)
+	require.NoError(t, err, "fetch base fee")
+	base.SetBaseFee(baseFee)
+	gasPrice := base.GasPriceMultiplier(10)
+
+	recipient := base.EthAccount(contendedRecipient)
+	balCtx, cancelBal := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelBal()
+	startBal, err := base.EthClient.Clients[nodeID].BalanceAt(balCtx, recipient.Address, nil)
+	require.NoError(t, err, "fetch starting recipient balance")
+
+	type sendResult struct {
+		hash string
+		err  error
+	}
+	resultsCh := make(chan sendResult, contendedSenders*contendedTxsPerEOA)
+
+	var wg sync.WaitGroup
+	for i := 0; i < contendedSenders; i++ {
+		wg.Add(1)
+		go func(senderIdx int) {
+			defer wg.Done()
+			signerID := base.AccID(senderIdx)
+			// Fire txsPerEOA txs back-to-back from this EOA. Each call reads the
+			// chain nonce and adds nonceIdx; while the txs sit in the mempool
+			// the chain nonce hasn't advanced, so this produces a contiguous
+			// nonce sequence per sender.
+			for n := uint64(0); n < contendedTxsPerEOA; n++ {
+				info, err := base.SendEthLegacyTx(t, nodeID, signerID, n, gasPrice)
+				if err != nil {
+					resultsCh <- sendResult{err: fmt.Errorf("sender %s nonce %d: %w", signerID, n, err)}
+					return
+				}
+				resultsCh <- sendResult{hash: info.TxHash}
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(resultsCh)
+
+	var hashes []string
+	for r := range resultsCh {
+		require.NoError(t, r.err)
+		hashes = append(hashes, r.hash)
+	}
+	require.Len(t, hashes, contendedSenders*contendedTxsPerEOA)
+
+	for _, h := range hashes {
+		_, err := base.EthClient.WaitForCommit(nodeID, h, 60*time.Second)
+		require.NoErrorf(t, err, "tx %s did not commit", h)
+	}
+
+	endCtx, cancelEnd := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelEnd()
+	endBal, err := base.EthClient.Clients[nodeID].BalanceAt(endCtx, recipient.Address, nil)
+	require.NoError(t, err, "fetch ending recipient balance")
+
+	expectedDelta := big.NewInt(int64(contendedSenders*contendedTxsPerEOA) * contendedTxValue)
+	expected := new(big.Int).Add(startBal, expectedDelta)
+	require.Equalf(t, expected.String(), endBal.String(),
+		"contended-account balance mismatch: start=%s end=%s expected=%s — possible BlockSTM lost write",
+		startBal, endBal, expected)
+
+	// Chain liveness: if any node forked, the chain would have halted by now.
+	sut.AwaitNBlocks(t, 2)
 }
