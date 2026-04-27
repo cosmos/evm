@@ -15,6 +15,8 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
+// EthSigVerificationResultCacheKey caches sig verification per incarnation,
+// since the result is a pure function of the tx bytes and signer.
 const EthSigVerificationResultCacheKey = "ante:EthSigVerificationResult"
 
 // EthSigVerificationDecorator validates an ethereum signatures
