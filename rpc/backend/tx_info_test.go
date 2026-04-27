@@ -489,11 +489,12 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 		TxsResults: []*abcitypes.ExecTxResult{{Code: 0, Data: encodedData}},
 	}
 	tcs := []struct {
-		name       string
-		ethTxIndex int32
+		name            string
+		ethTxIndex      int32
+		expectedTxIndex uint
 	}{
-		{"tx_with_index_5", 5},
-		{"tx_with_index_10", 10},
+		{"tx_with_valid_index", 5, 5},
+		{"tx_with_sentinel_index", -1, 0}, // -1 sentinel resolved to loop index
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -517,9 +518,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
 			require.NoError(t, err)
 			require.Len(t, receipts, 1)
-			actualTxIndex := receipts[0].TransactionIndex
-			require.NotEqual(t, uint(0), actualTxIndex)
-			require.Equal(t, uint(tc.ethTxIndex), actualTxIndex) // #nosec G115
+			require.Equal(t, tc.expectedTxIndex, receipts[0].TransactionIndex)
 			require.Equal(t, msgs[0].Hash(), receipts[0].TxHash)
 			require.Equal(t, big.NewInt(height), receipts[0].BlockNumber)
 			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
