@@ -190,15 +190,9 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	inSourceCallback := callbackstypes.IsSourceCallbackExecution(ctx)
-	if !inSourceCallback {
-		if stateDBExp, ok := stateDB.(*statedb.StateDB); ok {
-			inSourceCallback = callbackstypes.IsSourceCallbackExecution(stateDBExp.GetContext())
-		}
-	}
-
-	if inSourceCallback {
-		return nil, errorsmod.Wrap(channeltypes.ErrInvalidChannelState, ErrTransferBlockedInSourceCallback)
+	// Marker is set in the callbacks keeper and propagates here via cacheCtx.
+	if callbackstypes.IsSourceCallbackExecution(ctx) {
+		return nil, callbackstypes.ErrNestedSourceCallbackTransfer
 	}
 
 	msg, sender, err := NewMsgTransfer(method, args)

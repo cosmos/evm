@@ -1,6 +1,7 @@
 package ics20
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,5 +20,5 @@ func TestTransfer_BlockedDuringSourceCallbackExecution(t *testing.T) {
 	p := &Precompile{}
 	_, err := p.Transfer(ctx, nil, nil, nil, nil)
 	require.Error(t, err)
-	require.ErrorContains(t, err, ErrTransferBlockedInSourceCallback)
+	require.True(t, errors.Is(err, callbackstypes.ErrNestedSourceCallbackTransfer))
 }

@@ -21,6 +21,4 @@ const (
 	ErrDifferentOriginFromSender = "origin address %s is not the same as sender address %s"
 	// ErrDenomNotFound is raised when the denom for the specified request does not exist.
 	ErrDenomNotFound = "denomination not found"
-	// ErrTransferBlockedInSourceCallback is raised when an ICS-20 transfer is attempted during source callback execution.
-	ErrTransferBlockedInSourceCallback = "ics20 transfer is not allowed during source callback execution"
 )
