@@ -2,6 +2,10 @@
 
 ## UNRELEASED
 
+### BREAKING CHANGES
+
+- [#1141](https://github.com/cosmos/evm/pull/1141) Use EVM hex validator addresses for staking and distribution precompile inputs.
+
 ### DEPENDENCIES
 
 ### IMPROVEMENTS
