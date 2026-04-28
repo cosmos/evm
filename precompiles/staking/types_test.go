@@ -14,10 +14,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const (
-	denom         = "stake"
-	validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
-)
+const denom = "stake"
+
+var validatorAddr = common.HexToAddress("0x0102030405060708090a0b0c0d0e0f1011121314")
 
 func TestNewMsgCreateValidator(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
@@ -162,7 +161,7 @@ func TestNewMsgDelegate(t *testing.T) {
 			args:              []interface{}{delegatorAddr, validatorAddr, amount},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
-			wantValidatorAddr: validatorAddr,
+			wantValidatorAddr: sdk.ValAddress(validatorAddr.Bytes()).String(),
 			wantAmount:        amount,
 		},
 		{
@@ -191,9 +190,9 @@ func TestNewMsgDelegate(t *testing.T) {
 		},
 		{
 			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount},
+			args:    []interface{}{delegatorAddr, "not-an-address", amount},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 		{
 			name:    "invalid amount type",
@@ -247,7 +246,7 @@ func TestNewMsgUndelegate(t *testing.T) {
 			args:              []interface{}{delegatorAddr, validatorAddr, amount},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
-			wantValidatorAddr: validatorAddr,
+			wantValidatorAddr: sdk.ValAddress(validatorAddr.Bytes()).String(),
 			wantAmount:        amount,
 		},
 		{
@@ -276,9 +275,9 @@ func TestNewMsgUndelegate(t *testing.T) {
 		},
 		{
 			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount},
+			args:    []interface{}{delegatorAddr, "not-an-address", amount},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 		{
 			name:    "invalid amount type",
@@ -313,8 +312,8 @@ func TestNewMsgRedelegate(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorSrcAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
-	validatorDstAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaay"
+	validatorSrcAddr := common.HexToAddress("0x0102030405060708090a0b0c0d0e0f1011121314")
+	validatorDstAddr := common.HexToAddress("0x1112131415161718191a1b1c1d1e1f2021222324")
 	amount := big.NewInt(1000000000)
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
@@ -335,8 +334,8 @@ func TestNewMsgRedelegate(t *testing.T) {
 			args:                 []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, amount},
 			wantErr:              false,
 			wantDelegatorAddr:    expectedDelegatorAddr,
-			wantValidatorSrcAddr: validatorSrcAddr,
-			wantValidatorDstAddr: validatorDstAddr,
+			wantValidatorSrcAddr: sdk.ValAddress(validatorSrcAddr.Bytes()).String(),
+			wantValidatorDstAddr: sdk.ValAddress(validatorDstAddr.Bytes()).String(),
 			wantAmount:           amount,
 		},
 		{
@@ -365,15 +364,15 @@ func TestNewMsgRedelegate(t *testing.T) {
 		},
 		{
 			name:    "invalid validator src address type",
-			args:    []interface{}{delegatorAddr, 123, validatorDstAddr, amount},
+			args:    []interface{}{delegatorAddr, "not-an-address", validatorDstAddr, amount},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorSrcAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 		{
 			name:    "invalid validator dst address type",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, 123, amount},
+			args:    []interface{}{delegatorAddr, validatorSrcAddr, "not-an-address", amount},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorDstAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 		{
 			name:    "invalid amount type",
@@ -430,7 +429,7 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 			args:               []interface{}{delegatorAddr, validatorAddr, amount, creationHeight},
 			wantErr:            false,
 			wantDelegatorAddr:  expectedDelegatorAddr,
-			wantValidatorAddr:  validatorAddr,
+			wantValidatorAddr:  sdk.ValAddress(validatorAddr.Bytes()).String(),
 			wantAmount:         amount,
 			wantCreationHeight: creationHeight.Int64(),
 		},
@@ -460,9 +459,9 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 		},
 		{
 			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount, creationHeight},
+			args:    []interface{}{delegatorAddr, "not-an-address", amount, creationHeight},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 		{
 			name:    "invalid amount type",
@@ -521,7 +520,7 @@ func TestNewDelegationRequest(t *testing.T) {
 			args:              []interface{}{delegatorAddr, validatorAddr},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
-			wantValidatorAddr: validatorAddr,
+			wantValidatorAddr: sdk.ValAddress(validatorAddr.Bytes()).String(),
 		},
 		{
 			name:    "no arguments",
@@ -549,9 +548,9 @@ func TestNewDelegationRequest(t *testing.T) {
 		},
 		{
 			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123},
+			args:    []interface{}{delegatorAddr, "not-an-address"},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 	}
 
@@ -594,7 +593,7 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 			args:              []interface{}{delegatorAddr, validatorAddr},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
-			wantValidatorAddr: validatorAddr,
+			wantValidatorAddr: sdk.ValAddress(validatorAddr.Bytes()).String(),
 		},
 		{
 			name:    "no arguments",
@@ -622,9 +621,9 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 		},
 		{
 			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123},
+			args:    []interface{}{delegatorAddr, "not-an-address"},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
 		},
 	}
 

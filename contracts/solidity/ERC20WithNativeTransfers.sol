@@ -30,7 +30,7 @@ contract ERC20WithNativeTransfers is Context, AccessControlEnumerable, ERC20Burn
     address public recipient1;
     address public recipient2;
     uint256 public transferAmount;
-    string public validatorAddr;
+    address public validatorAddr;
     uint256 public delegateAmount;
     bool public enableHook;
 
@@ -95,7 +95,7 @@ contract ERC20WithNativeTransfers is Context, AccessControlEnumerable, ERC20Burn
         address _recipient1,
         address _recipient2,
         uint256 _transferAmount,
-        string calldata _validatorAddr,
+        address _validatorAddr,
         uint256 _delegateAmount,
         bool _enableHook
     ) external {
@@ -136,7 +136,7 @@ contract ERC20WithNativeTransfers is Context, AccessControlEnumerable, ERC20Burn
             }
 
             // Perform delegation if configured
-            if (delegateAmount > 0 && bytes(validatorAddr).length > 0) {
+            if (delegateAmount > 0 && validatorAddr != address(0)) {
                 bool ok = staking.STAKING_CONTRACT.delegate(address(this), validatorAddr, delegateAmount);
                 require(ok, "Delegation failed");
                 emit DelegateCompleted(delegateAmount);

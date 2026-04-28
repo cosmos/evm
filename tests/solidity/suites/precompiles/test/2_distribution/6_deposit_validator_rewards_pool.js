@@ -18,7 +18,7 @@ describe('Distribution – deposit validator rewards pool', function () {
     it('deposits rewards and emits DepositValidatorRewardsPool event', async function () {
         const coin = { denom: 'atest', amount: hre.ethers.parseEther('0.1') };
 
-        const beforeRewards = await distribution.validatorOutstandingRewards(VAL_BECH32);
+        const beforeRewards = await distribution.validatorOutstandingRewards(VAL_HEX);
         const beforeCoin = beforeRewards.find(c => c.denom === coin.denom);
         const start = beforeCoin ? BigInt(beforeCoin.amount.toString()) : 0n;
 
@@ -27,7 +27,7 @@ describe('Distribution – deposit validator rewards pool', function () {
 
         const tx = await distribution
             .connect(signer)
-            .depositValidatorRewardsPool(signer.address, VAL_BECH32, [coin], { gasLimit: GAS_LIMIT });
+            .depositValidatorRewardsPool(signer.address, VAL_HEX, [coin], { gasLimit: GAS_LIMIT });
         const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
         console.log('DepositValidatorRewardsPool tx hash:', receipt.hash);
 
@@ -46,7 +46,7 @@ describe('Distribution – deposit validator rewards pool', function () {
         expect(balanceAfter).to.equal(expectedBalance, 'User balance should decrease by deposit amount plus gas costs');
         console.log('finished balance checks');
 
-        const afterRewards = await distribution.validatorOutstandingRewards(VAL_BECH32);
+        const afterRewards = await distribution.validatorOutstandingRewards(VAL_HEX);
         const afterCoin = afterRewards.find(c => c.denom === coin.denom);
         const end = afterCoin ? BigInt(afterCoin.amount.toString()) : 0n;
         expect(end).to.gte(start + BigInt(coin.amount.toString()));

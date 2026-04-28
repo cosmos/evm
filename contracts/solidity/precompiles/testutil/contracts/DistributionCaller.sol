@@ -20,7 +20,7 @@ contract DistributionCaller {
     }
 
     function testWithdrawDelegatorRewardFromContract(
-        string memory _valAddr
+        address _valAddr
     ) public returns (types.Coin[] memory) {
         return
             distribution.DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(
@@ -41,7 +41,7 @@ contract DistributionCaller {
     }
 
     function testWithdrawDelegatorRewardWithTransfer(
-        string memory _valAddr,
+        address _valAddr,
         bool _before,
         bool _after
     ) public returns (types.Coin[] memory coins) {
@@ -64,7 +64,7 @@ contract DistributionCaller {
     function revertWithdrawRewardsAndTransfer(
         address payable _delAddr,
         address payable _withdrawer,
-        string memory _valAddr,
+        address _valAddr,
         bool _after
     ) public {
         try
@@ -82,7 +82,7 @@ contract DistributionCaller {
 
     function testWithdrawDelegatorReward(
         address _delAddr,
-        string memory _valAddr
+        address _valAddr
     ) public returns (types.Coin[] memory) {
         return
             distribution.DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(
@@ -93,7 +93,7 @@ contract DistributionCaller {
 
     function withdrawDelegatorRewardsAndRevert(
         address _delAddr,
-        string memory _valAddr
+        address _valAddr
     ) external returns (types.Coin[] memory coins) {
         coins = distribution.DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(
             _delAddr,
@@ -103,7 +103,7 @@ contract DistributionCaller {
     }
 
     function testWithdrawValidatorCommission(
-        string memory _valAddr
+        address _valAddr
     ) public returns (types.Coin[] memory) {
         return
             distribution.DISTRIBUTION_CONTRACT.withdrawValidatorCommission(
@@ -112,7 +112,7 @@ contract DistributionCaller {
     }
 
     function testWithdrawValidatorCommissionWithTransfer(
-        string memory _valAddr,
+        address _valAddr,
         address payable _withdrawer,
         bool _before,
         bool _after
@@ -240,7 +240,7 @@ contract DistributionCaller {
     /// @return success Whether the transaction was successful or not
     function testDepositValidatorRewardsPool(
         address depositor,
-        string memory validatorAddress,
+        address validatorAddress,
         types.Coin[] memory  amount
     ) public returns (bool success) {
         counter += 1;
@@ -260,7 +260,7 @@ contract DistributionCaller {
     /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testDepositValidatorRewardsPoolWithTransfer(
-        string memory validatorAddress,
+        address validatorAddress,
         types.Coin[] memory amount,
         bool _before,
         bool _after
@@ -284,7 +284,7 @@ contract DistributionCaller {
     /// @param _validatorAddr The validator address to delegate to.
     /// @param _amount The amount to delegate.
     function testDelegateFromContract(
-        string memory _validatorAddr,
+        address _validatorAddr,
         uint256 _amount
     ) public payable {
         staking.STAKING_CONTRACT.delegate(
@@ -295,7 +295,7 @@ contract DistributionCaller {
     }
 
     function getValidatorDistributionInfo(
-        string memory _valAddr
+        address _valAddr
     ) public view returns (distribution.ValidatorDistributionInfo memory) {
         return
             distribution.DISTRIBUTION_CONTRACT.validatorDistributionInfo(
@@ -304,7 +304,7 @@ contract DistributionCaller {
     }
 
     function getValidatorOutstandingRewards(
-        string memory _valAddr
+        address _valAddr
     ) public view returns (types.DecCoin[] memory) {
         return
             distribution.DISTRIBUTION_CONTRACT.validatorOutstandingRewards(
@@ -313,13 +313,13 @@ contract DistributionCaller {
     }
 
     function getValidatorCommission(
-        string memory _valAddr
+        address _valAddr
     ) public view returns (types.DecCoin[] memory) {
         return distribution.DISTRIBUTION_CONTRACT.validatorCommission(_valAddr);
     }
 
     function getValidatorSlashes(
-        string memory _valAddr,
+        address _valAddr,
         uint64 _startingHeight,
         uint64 _endingHeight,
         types.PageRequest calldata pageRequest
@@ -342,7 +342,7 @@ contract DistributionCaller {
 
     function getDelegationRewards(
         address _delAddr,
-        string memory _valAddr
+        address _valAddr
     ) public view returns (types.DecCoin[] memory) {
         return
             distribution.DISTRIBUTION_CONTRACT.delegationRewards(
@@ -389,7 +389,7 @@ contract DistributionCaller {
     function testRevertState(
         string memory _withdrawAddr,
         address _delAddr,
-        string memory _valAddr
+        address _valAddr
     ) public returns (types.Coin[] memory) {
         bool success = distribution.DISTRIBUTION_CONTRACT.setWithdrawAddress(
             msg.sender,

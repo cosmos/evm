@@ -194,7 +194,7 @@ func (s *PrecompileTestSuite) TestDelegateEvent() {
 			func(delegator common.Address) []interface{} {
 				return []interface{}{
 					delegator,
-					s.network.GetValidators()[0].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 					delegationAmt,
 				}
 			},
@@ -266,7 +266,7 @@ func (s *PrecompileTestSuite) TestUnbondEvent() {
 			func(delegator common.Address) []interface{} {
 				return []interface{}{
 					delegator,
-					s.network.GetValidators()[0].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 					big.NewInt(1000000000000000000),
 				}
 			},
@@ -335,8 +335,8 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 			func(delegator common.Address) []interface{} {
 				return []interface{}{
 					delegator,
-					s.network.GetValidators()[0].OperatorAddress,
-					s.network.GetValidators()[1].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
+					validatorHexAddress(s.network.GetValidators()[1].OperatorAddress),
 					big.NewInt(1000000000000000000),
 				}
 			},
@@ -410,7 +410,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 			func(contract *vm.Contract, delegator testkeyring.Key) []interface{} {
 				undelegateArgs := []interface{}{
 					delegator.Addr,
-					s.network.GetValidators()[0].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 					big.NewInt(1000000000000000000),
 				}
 				_, err := s.precompile.Undelegate(ctx, contract, stDB, &methodUndelegate, undelegateArgs)
@@ -418,7 +418,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 
 				return []interface{}{
 					delegator.Addr,
-					s.network.GetValidators()[0].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 					big.NewInt(1000000000000000000),
 					big.NewInt(1),
 				}

@@ -30,7 +30,7 @@ describe('Staking – delegate with event assertion', function () {
         const hexValAddr = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E'
 
         // Query delegation before staking
-        const beforeDelegation = await staking.delegation(signer.address, valBech32)
+        const beforeDelegation = await staking.delegation(signer.address, hexValAddr)
         const initialBalance = BigInt(beforeDelegation.balance.amount.toString())
         const initialShares = BigInt(beforeDelegation.shares.toString())
         console.log('Initial delegation balance:', initialBalance.toString())
@@ -40,7 +40,7 @@ describe('Staking – delegate with event assertion', function () {
         // Send the delegate tx
         const tx = await staking
             .connect(signer)
-            .delegate(signer.address, valBech32, stakeAmount, {gasLimit: GAS_LIMIT})
+            .delegate(signer.address, hexValAddr, stakeAmount, {gasLimit: GAS_LIMIT})
         const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('Delegate tx hash:', receipt.hash, 'gas used:', receipt.gasUsed.toString())
 
@@ -58,7 +58,7 @@ describe('Staking – delegate with event assertion', function () {
         expect(newShares).to.be.equal(stakeShares)
 
         // Query delegation after staking
-        const afterDelegation = await staking.delegation(signer.address, valBech32)
+        const afterDelegation = await staking.delegation(signer.address, hexValAddr)
         const afterBalance = BigInt(afterDelegation.balance.amount.toString())
         console.log('Delegated amount after staking:', afterBalance.toString())
 

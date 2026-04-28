@@ -778,7 +778,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 				differentAddr := cosmosevmutiltx.GenerateAddress()
 				return []interface{}{
 					differentAddr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1e18),
 				}
 			},
@@ -791,7 +791,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					"",
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1),
 				}
 			},
@@ -806,7 +806,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					nil,
 				}
 			},
@@ -823,7 +823,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 				s.Require().True(ok)
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					amt.BigInt(),
 				}
 			},
@@ -838,7 +838,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1e18),
 				}
 			},
@@ -933,7 +933,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 				differentAddr := cosmosevmutiltx.GenerateAddress()
 				return []interface{}{
 					differentAddr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1000000000000000000),
 				}
 			},
@@ -946,7 +946,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					"",
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1),
 				}
 			},
@@ -961,7 +961,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					nil,
 				}
 			},
@@ -976,7 +976,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1000000000000000000),
 				}
 			},
@@ -1064,8 +1064,8 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 				differentAddr := cosmosevmutiltx.GenerateAddress()
 				return []interface{}{
 					differentAddr,
-					srcOperatorAddr,
-					dstOperatorAddr,
+					validatorHexAddress(srcOperatorAddr),
+					validatorHexAddress(dstOperatorAddr),
 					big.NewInt(1000000000000000000),
 				}
 			},
@@ -1078,8 +1078,8 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			func(_ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					"",
-					srcOperatorAddr,
-					dstOperatorAddr,
+					validatorHexAddress(srcOperatorAddr),
+					validatorHexAddress(dstOperatorAddr),
 					big.NewInt(1),
 				}
 			},
@@ -1094,8 +1094,8 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					srcOperatorAddr,
-					dstOperatorAddr,
+					validatorHexAddress(srcOperatorAddr),
+					validatorHexAddress(dstOperatorAddr),
 					nil,
 				}
 			},
@@ -1110,8 +1110,8 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					srcOperatorAddr,
-					dstOperatorAddr,
+					validatorHexAddress(srcOperatorAddr),
+					validatorHexAddress(dstOperatorAddr),
 					big.NewInt(-1),
 				}
 			},
@@ -1126,8 +1126,8 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					srcOperatorAddr,
-					dstOperatorAddr,
+					validatorHexAddress(srcOperatorAddr),
+					validatorHexAddress(dstOperatorAddr),
 					big.NewInt(1000000000000000000),
 				}
 			},
@@ -1214,7 +1214,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					"",
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1),
 					big.NewInt(1),
 				}
@@ -1230,7 +1230,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1),
 					nil,
 				}
@@ -1246,7 +1246,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					nil,
 					big.NewInt(1),
 				}
@@ -1262,7 +1262,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					nil,
 					big.NewInt(1),
 				}
@@ -1278,7 +1278,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(-1),
 					big.NewInt(1),
 				}
@@ -1294,7 +1294,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
-					operatorAddress,
+					validatorHexAddress(operatorAddress),
 					big.NewInt(1),
 					big.NewInt(1),
 				}
@@ -1329,7 +1329,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			} else {
 				undelegateArgs := []interface{}{
 					delegator.Addr,
-					s.network.GetValidators()[0].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 					big.NewInt(1000000000000000000),
 				}
 

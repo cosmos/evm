@@ -170,7 +170,7 @@ interface StakingI {
     /// @return success Whether or not the delegate was successful
     function delegate(
         address delegatorAddress,
-        string memory validatorAddress,
+        address validatorAddress,
         uint256 amount
     ) external returns (bool success);
 
@@ -182,7 +182,7 @@ interface StakingI {
     /// @return completionTime The time when the undelegation is completed
     function undelegate(
         address delegatorAddress,
-        string memory validatorAddress,
+        address validatorAddress,
         uint256 amount
     ) external returns (int64 completionTime);
 
@@ -196,8 +196,8 @@ interface StakingI {
     /// @return completionTime The time when the redelegation is completed
     function redelegate(
         address delegatorAddress,
-        string memory validatorSrcAddress,
-        string memory validatorDstAddress,
+        address validatorSrcAddress,
+        address validatorDstAddress,
         uint256 amount
     ) external returns (int64 completionTime);
 
@@ -211,7 +211,7 @@ interface StakingI {
     /// @return success Whether or not the unbonding delegation was cancelled
     function cancelUnbondingDelegation(
         address delegatorAddress,
-        string memory validatorAddress,
+        address validatorAddress,
         uint256 amount,
         uint256 creationHeight
     ) external returns (bool success);
@@ -224,7 +224,7 @@ interface StakingI {
     /// This returned balance uses the bond denomination precision stored in the bank metadata.
     function delegation(
         address delegatorAddress,
-        string memory validatorAddress
+        address validatorAddress
     ) external view returns (uint256 shares, Coin calldata balance);
 
     /// @dev Returns the delegation shares and coins, that are currently
@@ -234,7 +234,7 @@ interface StakingI {
     /// @return unbondingDelegation The delegations that are currently unbonding.
     function unbondingDelegation(
         address delegatorAddress,
-        string memory validatorAddress
+        address validatorAddress
     )
         external
         view
@@ -269,23 +269,23 @@ interface StakingI {
     /// validator combination.
     function redelegation(
         address delegatorAddress,
-        string memory srcValidatorAddress,
-        string memory dstValidatorAddress
+        address srcValidatorAddress,
+        address dstValidatorAddress
     ) external view returns (RedelegationOutput calldata redelegation);
 
     /// @dev Queries all redelegations based on the specified criteria:
     /// for a given delegator and/or origin validator address
     /// and/or destination validator address
     /// in a specified pagination manner.
-    /// @param delegatorAddress The address of the delegator as string (can be a zero address).
-    /// @param srcValidatorAddress Defines the validator address to redelegate from (can be empty string).
-    /// @param dstValidatorAddress Defines the validator address to redelegate to (can be empty string).
+    /// @param delegatorAddress The address of the delegator (can be the zero address).
+    /// @param srcValidatorAddress Defines the validator address to redelegate from (can be the zero address).
+    /// @param dstValidatorAddress Defines the validator address to redelegate to (can be the zero address).
     /// @param pageRequest Defines an optional pagination for the request.
     /// @return response Holds the redelegations for the given delegator, source and destination validator combination.
     function redelegations(
         address delegatorAddress,
-        string memory srcValidatorAddress,
-        string memory dstValidatorAddress,
+        address srcValidatorAddress,
+        address dstValidatorAddress,
         PageRequest calldata pageRequest
     )
         external

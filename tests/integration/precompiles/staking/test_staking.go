@@ -87,7 +87,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(10000000000),
 				)
 				s.Require().NoError(err)
@@ -101,7 +101,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 				input, err := s.precompile.Pack(
 					staking.UndelegateMethod,
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1),
 				)
 				s.Require().NoError(err)
@@ -142,7 +142,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -160,7 +160,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -178,7 +178,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.UndelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -196,8 +196,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.RedelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
-					s.network.GetValidators()[1].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
+					validatorHexAddress(s.network.GetValidators()[1].GetOperator()),
 					big.NewInt(1),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -237,7 +237,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.CancelUnbondingDelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 					big.NewInt(ctx.BlockHeight()),
 				)
@@ -256,7 +256,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.DelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -313,8 +313,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.RedelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
-					s.network.GetValidators()[1].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
+					validatorHexAddress(s.network.GetValidators()[1].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -331,7 +331,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.DelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -370,7 +370,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.UnbondingDelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -387,7 +387,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -505,7 +505,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -522,7 +522,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -539,7 +539,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.UndelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -556,8 +556,8 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.RedelegateMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
-					s.network.GetValidators()[1].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
+					validatorHexAddress(s.network.GetValidators()[1].GetOperator()),
 					big.NewInt(1),
 				)
 				s.Require().NoError(err, "failed to pack input")
@@ -596,7 +596,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.CancelUnbondingDelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 					big.NewInt(1000),
 					big.NewInt(ctx.BlockHeight()),
 				)
@@ -614,7 +614,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.DelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -669,8 +669,8 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.RedelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
-					s.network.GetValidators()[1].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
+					validatorHexAddress(s.network.GetValidators()[1].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -686,7 +686,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.DelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input
@@ -724,7 +724,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					staking.UnbondingDelegationMethod,
 					delegator.Addr,
-					s.network.GetValidators()[0].GetOperator(),
+					validatorHexAddress(s.network.GetValidators()[0].GetOperator()),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return input

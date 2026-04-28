@@ -13,7 +13,7 @@ contract StakingCallerTwo {
 
     /// The delegation mapping is used to associate the EOA address that 
     /// actually made the delegate request with its corresponding delegation information. 
-    mapping(address => mapping(string => uint256)) public delegation;
+    mapping(address => mapping(address => uint256)) public delegation;
 
     /// @dev This function showcased, that there was a bug in the EVM implementation, that occurred when
     /// Cosmos state is modified in the same transaction as state information inside
@@ -22,7 +22,7 @@ contract StakingCallerTwo {
     /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testDelegateWithCounterAndTransfer(
-        string memory _validatorAddr,
+        address _validatorAddr,
         bool _before,
         bool _after
     ) public payable {
@@ -56,7 +56,7 @@ contract StakingCallerTwo {
     function testDelegateWithTransfer(
         address payable _dest,
         address payable _delegator,
-        string memory _validatorAddr,
+        address _validatorAddr,
         bool _before,
         bool _after
     ) public payable{

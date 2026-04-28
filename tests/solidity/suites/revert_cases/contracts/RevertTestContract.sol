@@ -25,7 +25,7 @@ contract RevertTestContract {
     /**
      * @dev Direct staking precompile call that will revert
      */
-    function directStakingRevert(string calldata invalidValidator) external {
+    function directStakingRevert(address invalidValidator) external {
         counter++;
         emit PrecompileCallMade("staking", false);
         // This should revert with invalid validator address
@@ -35,7 +35,7 @@ contract RevertTestContract {
     /**
      * @dev Direct distribution precompile call that will revert
      */
-    function directDistributionRevert(string calldata invalidValidator) external {
+    function directDistributionRevert(address invalidValidator) external {
         counter++;
         emit PrecompileCallMade("distribution", false);
         // This should revert with invalid validator address
@@ -54,7 +54,7 @@ contract RevertTestContract {
     /**
      * @dev Precompile call via contract that reverts
      */
-    function precompileViaContractRevert(string calldata invalidValidator) external {
+    function precompileViaContractRevert(address invalidValidator) external {
         counter++;
         try this.internalStakingCall(invalidValidator) {
             // Should not reach here
@@ -69,7 +69,7 @@ contract RevertTestContract {
     /**
      * @dev Internal function for precompile call via contract
      */
-    function internalStakingCall(string calldata validatorAddress) external {
+    function internalStakingCall(address validatorAddress) external {
         require(msg.sender == address(this), "Only self can call");
         emit PrecompileCallMade("staking_internal", false);
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 1);
@@ -78,7 +78,7 @@ contract RevertTestContract {
     /**
      * @dev Complex scenario: multiple precompile calls with revert
      */
-    function multiplePrecompileCallsWithRevert(string calldata validatorAddress) external {
+    function multiplePrecompileCallsWithRevert(address validatorAddress) external {
         counter++;
         
         // First, make a successful call
@@ -98,7 +98,7 @@ contract RevertTestContract {
     /**
      * @dev Direct precompile call that runs out of gas
      */
-    function directStakingOutOfGas(string calldata validatorAddress) external {
+    function directStakingOutOfGas(address validatorAddress) external {
         counter++;
         emit OutOfGasSimulated(gasleft());
         
@@ -114,7 +114,7 @@ contract RevertTestContract {
     /**
      * @dev Precompile call via contract that runs out of gas
      */
-    function precompileViaContractOutOfGas(string calldata validatorAddress) external {
+    function precompileViaContractOutOfGas(address validatorAddress) external {
         counter++;
         emit OutOfGasSimulated(gasleft());
         
@@ -130,7 +130,7 @@ contract RevertTestContract {
     /**
      * @dev Wrapper precompile call that runs out of gas
      */
-    function wrappedPrecompileOutOfGas(string calldata validatorAddress) external {
+    function wrappedPrecompileOutOfGas(address stakingValidatorAddress, address distributionValidatorAddress) external {
         counter++;
         emit OutOfGasSimulated(gasleft());
         
@@ -141,8 +141,8 @@ contract RevertTestContract {
         }
         
         // Then try multiple precompile calls
-        STAKING_CONTRACT.delegate(address(this), validatorAddress, 1);
-        DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(address(this), validatorAddress);
+        STAKING_CONTRACT.delegate(address(this), stakingValidatorAddress, 1);
+        DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(address(this), distributionValidatorAddress);
     }
     
     // ============ UTILITY FUNCTIONS ============
@@ -186,7 +186,7 @@ contract PrecompileWrapper {
     /**
      * @dev Wrapper function that calls staking precompile and reverts
      */
-    function wrappedStakingCall(string calldata validatorAddress, uint256 amount) external {
+    function wrappedStakingCall(address validatorAddress, uint256 amount) external {
         emit WrapperCall("staking", false);
         STAKING_CONTRACT.delegate(address(this), validatorAddress, amount);
         revert("Wrapper intentional revert");
@@ -195,7 +195,7 @@ contract PrecompileWrapper {
     /**
      * @dev Wrapper function that calls distribution precompile and reverts
      */
-    function wrappedDistributionCall(string calldata validatorAddress) external {
+    function wrappedDistributionCall(address validatorAddress) external {
         emit WrapperCall("distribution", false);
         DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(address(this), validatorAddress);
         revert("Wrapper intentional revert");
@@ -204,7 +204,7 @@ contract PrecompileWrapper {
     /**
      * @dev Wrapper function that runs out of gas
      */
-    function wrappedOutOfGasCall(string calldata validatorAddress) external {
+    function wrappedOutOfGasCall(address validatorAddress) external {
         // Consume all gas
         for (uint256 i = 0; i < 1000000; i++) {
             // Gas consuming operation

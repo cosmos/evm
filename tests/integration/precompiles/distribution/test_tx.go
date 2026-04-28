@@ -240,7 +240,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress common.Address) []interface{}
 		postCheck   func(data []byte)
 		gas         uint64
 		expError    bool
@@ -248,7 +248,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 	}{
 		{
 			"fail - empty input args",
-			func(string) []interface{} {
+			func(common.Address) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -258,7 +258,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 		},
 		{
 			"fail - invalid validator address",
-			func(string) []interface{} {
+			func(common.Address) []interface{} {
 				return []interface{}{
 					nil,
 				}
@@ -270,8 +270,8 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 		},
 		{
 			"success - withdraw all commission from a single validator",
-			func(operatorAddress string) []interface{} {
-				valAddr, err := sdk.ValAddressFromBech32(operatorAddress)
+			func(operatorAddress common.Address) []interface{} {
+				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				amt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
 				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(testconstants.ExampleAttoDenom, amt)}
@@ -323,7 +323,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.WithdrawValidatorCommission(ctx, contract, s.network.GetStateDB(), &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			bz, err := s.precompile.WithdrawValidatorCommission(ctx, contract, s.network.GetStateDB(), &method, tc.malleate(valHex(s.network.GetValidators()[0].OperatorAddress)))
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

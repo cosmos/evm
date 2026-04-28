@@ -10,7 +10,7 @@ const {
 
 describe('Precompile Revert Cases E2E Tests', function () {
     let revertTestContract, precompileWrapper;
-    let validValidatorAddress, invalidValidatorAddress;
+    let validValidatorAddress, invalidValidatorAddress, validStakingValidatorAddress, invalidStakingValidatorAddress;
     let analysis, decodedReason;
 
     before(async function () {
@@ -33,8 +33,10 @@ describe('Precompile Revert Cases E2E Tests', function () {
         await precompileWrapper.waitForDeployment();
         
         // Use a known validator for valid cases and invalid one for error cases
-        validValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql';
-        invalidValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pinvalid';
+        validValidatorAddress = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E';
+        invalidValidatorAddress = '0x000000000000000000000000000000000000dEaD';
+        validStakingValidatorAddress = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E';
+        invalidStakingValidatorAddress = '0x000000000000000000000000000000000000dEaD';
         
         console.log('RevertTestContract deployed at:', await revertTestContract.getAddress());
         console.log('PrecompileWrapper deployed at:', await precompileWrapper.getAddress());
@@ -46,7 +48,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
     describe('Direct Precompile Call Reverts', function () {
         it('should handle direct staking precompile revert', async function () {
             try {
-                const tx = await revertTestContract.directStakingRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
+                const tx = await revertTestContract.directStakingRevert(invalidStakingValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
@@ -79,7 +81,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should capture precompile revert reason through transaction receipt', async function () {
             try {
-                const tx = await revertTestContract.directStakingRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
+                const tx = await revertTestContract.directStakingRevert(invalidStakingValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
@@ -92,7 +94,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
     describe('Precompile Call Via Contract Reverts', function () {
         it('should handle precompile call via contract revert', async function () {            
             try {
-                const tx = await revertTestContract.precompileViaContractRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
+                const tx = await revertTestContract.precompileViaContractRevert(invalidStakingValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
@@ -103,7 +105,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should handle multiple precompile calls with revert', async function () {            
             try {
-                const tx = await revertTestContract.multiplePrecompileCallsWithRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
+                const tx = await revertTestContract.multiplePrecompileCallsWithRevert(invalidStakingValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
@@ -114,7 +116,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should handle wrapper contract precompile revert', async function () {
             try {
-                const tx = await precompileWrapper.wrappedStakingCall(invalidValidatorAddress, 1, { gasLimit: LARGE_GAS_LIMIT });
+                const tx = await precompileWrapper.wrappedStakingCall(invalidStakingValidatorAddress, 1, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
@@ -139,7 +141,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
         it('should handle direct precompile OutOfGas', async function () {
             // Use a very low gas limit to trigger OutOfGas on precompile calls            
             try {
-                const tx = await revertTestContract.directStakingOutOfGas(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
+                const tx = await revertTestContract.directStakingOutOfGas(validStakingValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
@@ -150,7 +152,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should handle precompile via contract OutOfGas', async function () {            
             try {
-                const tx = await revertTestContract.precompileViaContractOutOfGas(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
+                const tx = await revertTestContract.precompileViaContractOutOfGas(validStakingValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
@@ -161,7 +163,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should handle wrapper precompile OutOfGas', async function () {
             try {
-                const tx = await precompileWrapper.wrappedOutOfGasCall(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
+                const tx = await precompileWrapper.wrappedOutOfGasCall(validStakingValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
@@ -172,7 +174,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should analyze precompile OutOfGas error through transaction receipt', async function () {
             try {
-                const tx = await revertTestContract.directStakingOutOfGas(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
+                const tx = await revertTestContract.directStakingOutOfGas(validStakingValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
@@ -187,7 +189,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
             const testCases = [
                 {
                     name: 'Staking Precompile Revert',
-                    call: () => revertTestContract.directStakingRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT }),
+                    call: () => revertTestContract.directStakingRevert(invalidStakingValidatorAddress, { gasLimit: LARGE_GAS_LIMIT }),
                     expectedReason: "invalid validator address"
                 },
                 {
@@ -211,7 +213,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should verify precompile error data is properly hex-encoded in receipts', async function () {
             try {
-                const tx = await revertTestContract.directStakingRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
+                const tx = await revertTestContract.directStakingRevert(invalidStakingValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
@@ -221,7 +223,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
                         const contractAddress = await revertTestContract.getAddress();
                         await hre.ethers.provider.call({
                             to: contractAddress,
-                            data: revertTestContract.interface.encodeFunctionData('directStakingRevert', [invalidValidatorAddress]),
+                            data: revertTestContract.interface.encodeFunctionData('directStakingRevert', [invalidStakingValidatorAddress]),
                             gasLimit: LARGE_GAS_LIMIT
                         });
                     } catch (callError) {

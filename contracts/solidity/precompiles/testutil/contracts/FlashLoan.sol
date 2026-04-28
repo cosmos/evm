@@ -13,7 +13,7 @@ contract FlashLoan {
 
     function flashLoan(
         address _token,
-        string memory _validator
+        address _validator
     ) public payable returns (bool) {
         require(msg.sender == owner, "Only owner can call this function");
 
@@ -55,7 +55,7 @@ contract FlashLoan {
 
     function flashLoanWithRevert(
         address _token,
-        string memory _validator
+        address _validator
     ) public payable returns (bool) {
         require(msg.sender == owner, "Only owner can call this function");
 
@@ -89,7 +89,7 @@ contract FlashLoan {
 
     function delegateWithRevert(
         address _delegator,
-        string memory _validator,
+        address _validator,
         uint256 _amount
     ) external {
         // Execute some precompile logic and revert (e.g. staking)

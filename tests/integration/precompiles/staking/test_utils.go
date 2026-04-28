@@ -2,6 +2,7 @@ package staking
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math/big"
 	"slices"
 	"time"
@@ -25,6 +26,17 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
+
+func validatorHexAddress(operatorAddress string) common.Address {
+	validatorAddress, err := sdk.ValAddressFromBech32(operatorAddress)
+	Expect(err).To(BeNil(), fmt.Sprintf("invalid validator address %s", operatorAddress))
+
+	return common.BytesToAddress(validatorAddress.Bytes())
+}
+
+func valHex(validatorAddress sdk.ValAddress) common.Address {
+	return common.BytesToAddress(validatorAddress.Bytes())
+}
 
 // assertValidatorsResponse asserts all the fields on the validators response
 func (s *PrecompileTestSuite) assertValidatorsResponse(validators []staking.ValidatorInfo, expLen int) {

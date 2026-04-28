@@ -51,7 +51,7 @@ contract ContractCreationTester {
 
     /// @dev Scenario 4: Precompile -> Create Contract -> Precompile
     function scenario4_delegateCreateDelegate(
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount1,
         uint256 creationValue,
         uint256 delegateAmount2
@@ -83,7 +83,7 @@ contract ContractCreationTester {
 
     /// @dev Scenario 5: Precompile -> Create Contract (reverted & caught) -> Precompile
     function scenario5_delegateCreateRevertDelegate(
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount1,
         uint256 creationValue,
         uint256 delegateAmount2
@@ -120,7 +120,7 @@ contract ContractCreationTester {
     /// @dev Creates fail because the helper function reverts after creation, testing auto-flush with reverted creations
     function scenario6_createRevertDelegateCreateRevert(
         uint256 creationValue1,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount,
         uint256 creationValue2
     ) external payable {
@@ -157,7 +157,7 @@ contract ContractCreationTester {
     /// @dev Scenario 7: Create+Send -> Precompile (reverted & caught) -> Send more
     function scenario7_createDelegateRevertSend(
         uint256 creationValue,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount,
         uint256 sendAmount
     ) external payable {
@@ -190,7 +190,7 @@ contract ContractCreationTester {
     /// @dev Tests that reverted creation doesn't prevent successful creation after delegation
     function scenario8_createRevertDelegateCreateSuccess(
         uint256 revertCreationValue,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount,
         uint256 successCreationValue
     ) external payable {

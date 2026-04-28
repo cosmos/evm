@@ -5,6 +5,7 @@ describe('Distribution – validator query methods', function () {
     const DIST_ADDRESS = '0x0000000000000000000000000000000000000801';
     const VAL_OPER_BECH32 = 'cosmosvaloper1cml96vmptgw99syqrrz8az79xer2pcgpqqyk2g';
     const VAL_BECH32 = 'cosmos1cml96vmptgw99syqrrz8az79xer2pcgp95srxm'
+    const VAL_HEX = '0xc6fe5d33615a1c52900418c47e8bc53646a0e101'
 
     let distribution, signer;
 
@@ -14,7 +15,7 @@ describe('Distribution – validator query methods', function () {
     });
 
     it('validatorDistributionInfo returns current distribution info', async function () {
-        const info = await distribution.validatorDistributionInfo(VAL_OPER_BECH32);
+        const info = await distribution.validatorDistributionInfo(VAL_HEX);
         console.log('validatorDistributionInfo:', info);
         expect(info.operatorAddress).to.equal(VAL_BECH32);
         expect(info.selfBondRewards).to.be.an('array');
@@ -24,7 +25,7 @@ describe('Distribution – validator query methods', function () {
     it('validatorSlashes returns slashing events (none expected)', async function () {
         const pageReq = { key: '0x', offset: 0, limit: 100, countTotal: true, reverse: false };
         const [slashes, pageResponse] = await distribution.validatorSlashes(
-            VAL_OPER_BECH32,
+            VAL_HEX,
             1,
             5,
             pageReq

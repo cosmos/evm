@@ -27,7 +27,7 @@ describe('Distribution – withdraw delegator reward', function () {
         // Delegate to the validator first
         const delegateTx = await staking
             .connect(signer)
-            .delegate(signer.address, valBech32, stakeAmount, {gasLimit: GAS_LIMIT})
+            .delegate(signer.address, valHex, stakeAmount, {gasLimit: GAS_LIMIT})
         const delegateReceipt = await waitWithTimeout(delegateTx, 20000, RETRY_DELAY_FUNC)
         console.log('Delegate tx hash:', delegateReceipt.hash, 'gas used:', delegateReceipt.gasUsed.toString())
 
@@ -36,7 +36,7 @@ describe('Distribution – withdraw delegator reward', function () {
         await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds
 
         // Query accumulated rewards before withdrawal
-        const result = await distribution.delegationRewards(signer.address, valBech32);
+        const result = await distribution.delegationRewards(signer.address, valHex);
         const currentReward = result[0];
 
         // Check user balance before withdrawal
@@ -45,7 +45,7 @@ describe('Distribution – withdraw delegator reward', function () {
 
         const tx = await distribution
             .connect(signer)
-            .withdrawDelegatorRewards(signer.address, valBech32, {gasLimit: GAS_LIMIT});
+            .withdrawDelegatorRewards(signer.address, valHex, {gasLimit: GAS_LIMIT});
         const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('WithdrawDelegatorRewards tx hash:', receipt.hash);
 
@@ -68,7 +68,7 @@ describe('Distribution – withdraw delegator reward', function () {
         console.log('finished balance checks')
 
         // Check state after withdrawal
-        const afterResult = await distribution.delegationRewards(signer.address, valBech32);
+        const afterResult = await distribution.delegationRewards(signer.address, valHex);
         if(afterResult.length > 0) {
             const afterReward = afterResult[0];
             // afterReward should be less than currentReward

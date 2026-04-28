@@ -14,7 +14,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
+var validatorAddr = common.HexToAddress("0x0102030405060708090a0b0c0d0e0f1011121314")
+
+var validatorBech32Addr = sdk.ValAddress(validatorAddr.Bytes()).String()
 
 func TestNewMsgSetWithdrawAddress(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
@@ -120,7 +122,7 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 			args:          []interface{}{delegatorAddr, validatorAddr},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
-			wantValidator: validatorAddr,
+			wantValidator: validatorBech32Addr,
 		},
 		{
 			name:    "no arguments",
@@ -250,7 +252,7 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 			args:          []interface{}{depositorAddr, validatorAddr, validCoins},
 			wantErr:       false,
 			wantDepositor: expectedDepositorAddr,
-			wantValidator: validatorAddr,
+			wantValidator: validatorBech32Addr,
 		},
 		{
 			name:    "no arguments",
@@ -319,7 +321,7 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 			args:          []interface{}{delegatorAddr, validatorAddr},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
-			wantValidator: validatorAddr,
+			wantValidator: validatorBech32Addr,
 		},
 		{
 			name:    "no arguments",

@@ -79,8 +79,8 @@ describe('Staking – redelegate with event and state assertions', function () {
         const dstValHex = '0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101'
 
         // 1) query current delegations to both validators before redelegation
-        const beforeSrcDelegationRaw = await staking.delegation(signer.address, srcValBech32)
-        const beforeDstDelegationRaw = await staking.delegation(signer.address, dstValBech32)
+        const beforeSrcDelegationRaw = await staking.delegation(signer.address, srcValHex)
+        const beforeDstDelegationRaw = await staking.delegation(signer.address, dstValHex)
         const beforeSrcDelegation = formatDelegation(beforeSrcDelegationRaw)
         const beforeDstDelegation = formatDelegation(beforeDstDelegationRaw)
         const amount = beforeSrcDelegation.balance.amount
@@ -91,14 +91,14 @@ describe('Staking – redelegate with event and state assertions', function () {
         console.log('Before redelegation - dstVal delegation balance:', beforeDstDelegation.balance.amount.toString(), beforeDstDelegation.balance.denom)
 
         // 2) query redelegation entries before
-        const beforeRaw = await staking.redelegation(signer.address, srcValBech32, dstValBech32)
+        const beforeRaw = await staking.redelegation(signer.address, srcValHex, dstValHex)
         const beforeR = formatRedelegation(beforeRaw)
         const entriesBefore = beforeR.entries.length
 
         // 3) send the redelegate transaction
         const tx = await staking
             .connect(signer)
-            .redelegate(signer.address, srcValBech32, dstValBech32, amount, {gasLimit: GAS_LIMIT})
+            .redelegate(signer.address, srcValHex, dstValHex, amount, {gasLimit: GAS_LIMIT})
         const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('Redelegate tx hash:', tx.hash, 'gas used:', receipt.gasUsed.toString())
 
@@ -113,8 +113,8 @@ describe('Staking – redelegate with event and state assertions', function () {
         expect(completionTime > 0n, 'completionTime should be positive').to.be.true
 
         // 5) query delegations after redelegation to verify state changes
-        const afterSrcDelegationRaw = await staking.delegation(signer.address, srcValBech32)
-        const afterDstDelegationRaw = await staking.delegation(signer.address, dstValBech32)
+        const afterSrcDelegationRaw = await staking.delegation(signer.address, srcValHex)
+        const afterDstDelegationRaw = await staking.delegation(signer.address, dstValHex)
         const afterSrcDelegation = formatDelegation(afterSrcDelegationRaw)
         const afterDstDelegation = formatDelegation(afterDstDelegationRaw)
         
@@ -157,7 +157,7 @@ describe('Staking – redelegate with event and state assertions', function () {
         expect(afterDstDelegation.balance.denom).to.equal(beforeDstDelegation.balance.denom)
 
         // 6) query redelegation state after
-        const afterRaw = await staking.redelegation(signer.address, srcValBech32, dstValBech32)
+        const afterRaw = await staking.redelegation(signer.address, srcValHex, dstValHex)
         const afterR = formatRedelegation(afterRaw)
         console.log('After redelegation:', afterR)
         const entriesAfter = afterR.entries.length
@@ -183,8 +183,8 @@ describe('Staking – redelegate with event and state assertions', function () {
         const pageRequest = {key: '0x', offset: 0, limit: 10, countTotal: true, reverse: false}
         const [responses, _] = await staking.redelegations(
             signer.address,
-            srcValBech32,
-            dstValBech32,
+            srcValHex,
+            dstValHex,
             pageRequest
         )
         expect(responses.length).to.be.gte(1, 'redelegations() should return at least one response')

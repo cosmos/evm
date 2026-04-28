@@ -24,7 +24,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress common.Address) []interface{}
 		postCheck   func(bz []byte)
 		gas         uint64
 		expErr      bool
@@ -32,7 +32,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 	}{
 		{
 			"fail - empty input args",
-			func(string) []interface{} {
+			func(common.Address) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -42,7 +42,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress common.Address) []interface{} {
 				return []interface{}{
 					"invalid",
 					operatorAddress,
@@ -55,7 +55,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 		},
 		{
 			"fail - invalid operator address",
-			func(string) []interface{} {
+			func(common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					"invalid",
@@ -68,7 +68,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 		},
 		{
 			"success - empty delegation",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress common.Address) []interface{} {
 				addr, _ := testutiltx.NewAddrKey()
 				return []interface{}{
 					addr,
@@ -87,7 +87,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 		},
 		{
 			"success",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					operatorAddress,
@@ -110,7 +110,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			s.SetupTest() // reset
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			bz, err := s.precompile.Delegation(s.network.GetContext(), contract, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			bz, err := s.precompile.Delegation(s.network.GetContext(), contract, &method, tc.malleate(validatorHexAddress(s.network.GetValidators()[0].OperatorAddress)))
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -129,7 +129,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress common.Address) []interface{}
 		postCheck   func(bz []byte)
 		gas         uint64
 		expErr      bool
@@ -137,7 +137,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 	}{
 		{
 			"fail - empty input args",
-			func(string) []interface{} {
+			func(common.Address) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -147,7 +147,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress common.Address) []interface{} {
 				return []interface{}{
 					"invalid",
 					operatorAddress,
@@ -160,7 +160,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 		},
 		{
 			"success - no unbonding delegation found",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress common.Address) []interface{} {
 				addr, _ := testutiltx.NewAddrKey()
 				return []interface{}{
 					addr,
@@ -179,7 +179,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 		},
 		{
 			"success",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					operatorAddress,
@@ -209,7 +209,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 			_, _, err = s.network.App.GetStakingKeeper().Undelegate(s.network.GetContext(), s.keyring.GetAddr(0).Bytes(), valAddr, math.LegacyNewDec(1))
 			s.Require().NoError(err)
 
-			bz, err := s.precompile.UnbondingDelegation(s.network.GetContext(), contract, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			bz, err := s.precompile.UnbondingDelegation(s.network.GetContext(), contract, &method, tc.malleate(validatorHexAddress(s.network.GetValidators()[0].OperatorAddress)))
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -422,7 +422,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 
 	testCases := []struct {
 		name        string
-		malleate    func(srcOperatorAddr, destOperatorAddr string) []interface{}
+		malleate    func(srcOperatorAddr, destOperatorAddr common.Address) []interface{}
 		postCheck   func(bz []byte)
 		gas         uint64
 		expErr      bool
@@ -430,7 +430,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 	}{
 		{
 			"fail - empty input args",
-			func(string, string) []interface{} {
+			func(common.Address, common.Address) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -440,7 +440,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(srcOperatorAddr, destOperatorAddr string) []interface{} {
+			func(srcOperatorAddr, destOperatorAddr common.Address) []interface{} {
 				return []interface{}{
 					"invalid",
 					srcOperatorAddr,
@@ -454,10 +454,10 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		},
 		{
 			"fail - empty src validator addr",
-			func(_, destOperatorAddr string) []interface{} {
+			func(_, destOperatorAddr common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					"",
+					common.Address{},
 					destOperatorAddr,
 				}
 			},
@@ -468,7 +468,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		},
 		{
 			"fail - empty destination addr",
-			func(srcOperatorAddr, _ string) []interface{} {
+			func(srcOperatorAddr, _ common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
@@ -482,7 +482,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		},
 		{
 			"success",
-			func(srcOperatorAddr, destOperatorAddr string) []interface{} {
+			func(srcOperatorAddr, destOperatorAddr common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
@@ -503,13 +503,13 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		},
 		{
 			name: "success - no redelegation found",
-			malleate: func(srcOperatorAddr, _ string) []interface{} {
+			malleate: func(srcOperatorAddr, _ common.Address) []interface{} {
 				nonExistentAddr, _ := testutiltx.NewAccAddressAndKey()
 				nonExistentOperator := sdk.ValAddress(nonExistentAddr)
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
-					nonExistentOperator.String(),
+					valHex(nonExistentOperator),
 				}
 			},
 			postCheck: func(data []byte) {
@@ -529,15 +529,15 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 
 			delegationArgs := []interface{}{
 				s.keyring.GetAddr(0),
-				s.network.GetValidators()[0].OperatorAddress,
-				s.network.GetValidators()[1].OperatorAddress,
+				validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
+				validatorHexAddress(s.network.GetValidators()[1].OperatorAddress),
 				big.NewInt(1e18),
 			}
 
 			_, err := s.precompile.Redelegate(s.network.GetContext(), contract, s.network.GetStateDB(), &redelegateMethod, delegationArgs)
 			s.Require().NoError(err)
 
-			bz, err := s.precompile.Redelegation(s.network.GetContext(), &method, contract, tc.malleate(s.network.GetValidators()[0].OperatorAddress, s.network.GetValidators()[1].OperatorAddress))
+			bz, err := s.precompile.Redelegation(s.network.GetContext(), &method, contract, tc.malleate(validatorHexAddress(s.network.GetValidators()[0].OperatorAddress), validatorHexAddress(s.network.GetValidators()[1].OperatorAddress)))
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -581,8 +581,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func() []interface{} {
 				return []interface{}{
 					common.BytesToAddress([]byte("invalid")),
-					s.network.GetValidators()[0].OperatorAddress,
-					s.network.GetValidators()[1].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
+					validatorHexAddress(s.network.GetValidators()[1].OperatorAddress),
 					query.PageRequest{},
 				}
 			},
@@ -596,8 +596,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func() []interface{} {
 				return []interface{}{
 					common.Address{},
-					"",
-					"",
+					common.Address{},
+					common.Address{},
 					query.PageRequest{},
 				}
 			},
@@ -611,8 +611,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func() []interface{} {
 				return []interface{}{
 					common.Address{},
-					"",
-					s.network.GetValidators()[1].OperatorAddress,
+					common.Address{},
+					validatorHexAddress(s.network.GetValidators()[1].OperatorAddress),
 					query.PageRequest{},
 				}
 			},
@@ -626,8 +626,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
-					s.network.GetValidators()[1].OperatorAddress,
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
+					validatorHexAddress(s.network.GetValidators()[1].OperatorAddress),
 					query.PageRequest{},
 				}
 			},
@@ -643,8 +643,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func() []interface{} {
 				return []interface{}{
 					common.Address{},
-					s.network.GetValidators()[0].OperatorAddress,
-					"",
+					validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
+					common.Address{},
 					query.PageRequest{
 						Limit:      1,
 						CountTotal: true,
