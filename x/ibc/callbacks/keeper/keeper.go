@@ -148,8 +148,10 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
 	isolatedAddrHex := common.BytesToAddress(isolatedAddr.Bytes())
 
-	acc := k.authKeeper.NewAccountWithAddress(ctx, receiver)
-	k.authKeeper.SetAccount(ctx, acc)
+	if !k.authKeeper.HasAccount(ctx, receiver) {
+		acc := k.authKeeper.NewAccountWithAddress(ctx, receiver)
+		k.authKeeper.SetAccount(ctx, acc)
+	}
 
 	// Ensure receiver address is equal to the isolated address.
 	if receiverHex.Cmp(isolatedAddrHex) != 0 {
@@ -299,6 +301,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	cachedCtx, writeFn := ctx.CacheContext()
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
 		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
+	cachedCtx = types.WithSourceCallbackExecution(cachedCtx)
 	stateDB := statedb.New(cachedCtx, k.evmKeeper, statedb.NewEmptyTxConfig())
 
 	if len(cbData.Calldata) != 0 {
@@ -423,6 +426,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	cachedCtx, writeFn := ctx.CacheContext()
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
 		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
+	cachedCtx = types.WithSourceCallbackExecution(cachedCtx)
 	stateDB := statedb.New(cachedCtx, k.evmKeeper, statedb.NewEmptyTxConfig())
 
 	res, err := k.evmKeeper.CallEVM(cachedCtx, stateDB, callbacksabi.ABI, sender, contractAddr, true, false, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketTimeout",
