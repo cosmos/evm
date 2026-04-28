@@ -70,7 +70,6 @@ func TestGetBlockGasLimit(t *testing.T) {
 				opts.Set(flags.FlagHome, homeDir)
 				return opts
 			},
-			expected: math.MaxUint64,
 			expected: math.MaxInt64,
 		},
 		{
