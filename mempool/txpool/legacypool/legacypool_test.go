@@ -261,7 +261,7 @@ func setupPoolWithConfig(config *params.ChainConfig) (*LegacyPool, *MockRechecke
 
 	key, _ := crypto.GenerateKey()
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New(), WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New(), WithRecheck(rechecker))
 	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
 		panic(err)
 	}
@@ -520,7 +520,7 @@ func TestStateChangeDuringReset(t *testing.T) {
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1007,7 +1007,7 @@ func TestPostponing(t *testing.T) {
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New(), WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New(), WithRecheck(rechecker))
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1219,7 +1219,7 @@ func TestQueueGlobalLimiting(t *testing.T) {
 	config.NoLocals = true
 	config.GlobalQueue = config.AccountQueue*3 - 1 // reduce the queue limits to shorten test time (-1 to make it non divisible)
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1271,7 +1271,7 @@ func TestQueueTimeLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.Lifetime = time.Second
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1432,7 +1432,7 @@ func TestPendingGlobalLimiting(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = config.AccountSlots * 10
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1531,7 +1531,7 @@ func TestCapClearsFromAll(t *testing.T) {
 	config.AccountQueue = 2
 	config.GlobalSlots = 8
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1564,7 +1564,7 @@ func TestPendingMinimumAllowance(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalSlots = 1
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1608,7 +1608,7 @@ func TestRepricing(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1713,7 +1713,7 @@ func TestMinGasPriceEnforced(t *testing.T) {
 
 	txPoolConfig := DefaultConfig
 	txPoolConfig.NoLocals = true
-	pool := New(txPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(txPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(txPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1862,7 +1862,7 @@ func TestUnderpricing(t *testing.T) {
 	config.GlobalSlots = 2
 	config.GlobalQueue = 2
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -1952,7 +1952,7 @@ func TestStableUnderpricing(t *testing.T) {
 	config.GlobalSlots = 128
 	config.GlobalQueue = 0
 
-	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(config, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2155,7 +2155,7 @@ func TestDeduplication(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2222,7 +2222,7 @@ func TestReplacement(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2414,7 +2414,7 @@ func TestStatusCheck(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.TestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2487,7 +2487,7 @@ func TestSetCodeTransactions(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2786,7 +2786,7 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
 	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New(), WithRecheck(rechecker))
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New(), WithRecheck(rechecker))
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -2945,7 +2945,7 @@ func TestRemoveTxTruncatePoolRace(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
 
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}), txtracker.New())
+	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil), txtracker.New())
 	err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	if err != nil {
 		t.Fatalf("failed to init pool: %v", err)

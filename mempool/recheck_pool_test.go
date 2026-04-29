@@ -114,7 +114,7 @@ func (testTxEncoder) CosmosTx(tx sdk.Tx) ([]byte, error) {
 }
 
 func newTestReapList() *reaplist.ReapList {
-	return reaplist.New(testTxEncoder{})
+	return reaplist.New(testTxEncoder{}, reaplist.Unbounded, nil)
 }
 
 // testHeader creates a minimal header for testing with the given height.

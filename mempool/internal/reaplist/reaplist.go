@@ -1,6 +1,7 @@
 package reaplist
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -12,6 +13,40 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// Unbounded is the sentinel value for ReapList.maxSize that disables the
+// capacity check, restoring legacy unbounded behavior.
+const Unbounded = 0
+
+// ErrReapListFull is returned by Push* when the reap list is at capacity.
+var ErrReapListFull = errors.New("reap list full")
+
+// Eviction reasons used by metrics and surfaced via the drop callback.
+const (
+	reasonOversizedBytes = "oversized_bytes"
+	reasonOversizedGas   = "oversized_gas"
+	reasonCapFull        = "cap_full"
+)
+
+// TxKind identifies which sub-pool owns a tx so the drop callback can route
+// the eviction without re-decoding bytes.
+type TxKind int
+
+const (
+	KindEVM TxKind = iota
+	KindCosmos
+)
+
+// DropCallback is invoked from Reap when a tx is evicted from the reap list
+// (e.g. permanently oversized for any block). The callback should remove the
+// tx from its owning sub-pool. It is invoked AFTER the reap list lock has been
+// released so callbacks may safely re-enter the reap list.
+//
+// For KindCosmos evictions, cosmosTx is the original sdk.Tx (populated at
+// PushCosmosTx time) so callers can drive the cosmos pool's typed removal API
+// without re-decoding bytes. For KindEVM evictions, cosmosTx is nil and
+// callers should remove via the hash.
+type DropCallback func(hash string, kind TxKind, cosmosTx sdk.Tx)
+
 type EVMCosmosTxEncoder interface {
 	EVMTx(tx *ethtypes.Transaction) ([]byte, error)
 	CosmosTx(tx sdk.Tx) ([]byte, error)
@@ -21,11 +56,15 @@ type txWithHash struct {
 	bytes []byte
 	hash  string
 	gas   uint64
+	kind  TxKind
+	// cosmosTx is populated for KindCosmos entries only. The drop callback
+	// requires the original sdk.Tx to remove from the cosmos sub-pool, since
+	// the cosmos pool API takes sdk.Tx (not bytes/hash).
+	cosmosTx sdk.Tx
 }
 
 type ReapList struct {
 	// txs is a list of transactions and their respective hashes
-	// NOTE: this currently has unbound size
 	txs []*txWithHash
 
 	// txIndex is a map of tx hashes to what index that tx is stored in inside
@@ -39,27 +78,57 @@ type ReapList struct {
 
 	// txEncoder encodes evm and cosmos txs to bytes.
 	txEncoder EVMCosmosTxEncoder
+
+	// maxSize is the upper bound on len(txs). Tombstones (nil entries) count
+	// toward the cap until the next Reap compacts them. If maxSize == Unbounded
+	// the cap check is skipped.
+	maxSize int
+
+	// dropCallback, if set, is invoked from Reap when a tx is evicted (e.g.
+	// permanently oversized) so the owning sub-pool can also drop it. May be
+	// nil; callers in tests can pass nil to disable the side effect.
+	dropCallback DropCallback
 }
 
-func New(txEncoder EVMCosmosTxEncoder) *ReapList {
-	return &ReapList{
-		txEncoder: txEncoder,
-		txIndex:   make(map[string]int),
+// New constructs a ReapList. Pass Unbounded for maxSize to disable the cap.
+// dropCallback may be nil.
+func New(txEncoder EVMCosmosTxEncoder, maxSize int, dropCallback DropCallback) *ReapList {
+	if maxSize < 0 {
+		maxSize = Unbounded
 	}
+	return &ReapList{
+		txEncoder:    txEncoder,
+		txIndex:      make(map[string]int),
+		maxSize:      maxSize,
+		dropCallback: dropCallback,
+	}
+}
+
+// pendingDrop carries a deferred drop callback invocation collected during
+// Reap. Callbacks are invoked after the reap list lock is released so they
+// may safely re-enter the reap list.
+type pendingDrop struct {
+	hash string
+	kind TxKind
+	tx   sdk.Tx
 }
 
 // Reap returns a list of the oldest to newest transactions bytes from the reap
 // list until either maxBytes or maxGas is reached for the list of transactions
 // being returned. If maxBytes and maxGas are both 0 all txs will be returned.
+//
+// Permanently oversized txs (txSize > maxBytes or txGas > maxGas) are evicted
+// from the reap list (and their owning sub-pool, via dropCallback) since they
+// can never fit in any block under the current limits.
 func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	rl.txsLock.Lock()
-	defer rl.txsLock.Unlock()
 
 	var (
 		totalBytes uint64
 		totalGas   uint64
 		result     [][]byte
 		nextStart  int
+		drops      []pendingDrop
 	)
 
 	for idx, tx := range rl.txs {
@@ -73,7 +142,27 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		txSize := uint64(len(tx.bytes))
 		txGas := tx.gas
 
-		// Check if adding this tx would exceed limits
+		// Permanently oversized: tx alone exceeds the block limit. Evict so a
+		// single oversized tx at the head of the list cannot block subsequent
+		// reaps indefinitely.
+		oversizedBytes := maxBytes > 0 && txSize > maxBytes
+		oversizedGas := maxGas > 0 && txGas > maxGas
+		if oversizedBytes || oversizedGas {
+			reason := reasonOversizedBytes
+			if oversizedGas && !oversizedBytes {
+				reason = reasonOversizedGas
+			}
+			rl.evict(idx, reason)
+			drops = append(drops, pendingDrop{hash: tx.hash, kind: tx.kind, tx: tx.cosmosTx})
+			// the slot is now nil; advance nextStart so we don't keep
+			// re-considering it on subsequent iterations (handled naturally
+			// since loop is over a fixed snapshot of rl.txs).
+			nextStart = idx + 1
+			continue
+		}
+
+		// Adding this tx would exceed the remaining budget. Stop here -- the
+		// tx itself fits, just not in this reap.
 		if (maxBytes > 0 && totalBytes+txSize > maxBytes) || (maxGas > 0 && totalGas+txGas > maxGas) {
 			break
 		}
@@ -117,6 +206,16 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	}
 	metrics.RecordNumIndexTxs(rl.txIndex)
 
+	rl.txsLock.Unlock()
+
+	// Invoke drop callbacks AFTER releasing the lock so the sub-pool's drop
+	// path may safely re-enter the reap list (e.g. via DropCosmosTx -> drop).
+	if rl.dropCallback != nil {
+		for _, d := range drops {
+			rl.dropCallback(d.hash, d.kind, d.tx)
+		}
+	}
+
 	return result
 }
 
@@ -131,12 +230,17 @@ func (rl *ReapList) PushEVMTx(tx *ethtypes.Transaction) error {
 		return nil
 	}
 
+	if rl.atCapacityLocked() {
+		metrics.TxEvicted(reasonCapFull)
+		return ErrReapListFull
+	}
+
 	txBytes, err := rl.txEncoder.EVMTx(tx)
 	if err != nil {
 		return fmt.Errorf("encoding evm tx to bytes: %w", err)
 	}
 
-	rl.push(hash, txBytes, tx.Gas())
+	rl.push(&txWithHash{bytes: txBytes, hash: hash, gas: tx.Gas(), kind: KindEVM})
 
 	metrics.TxPushed(evmType)
 	return nil
@@ -157,6 +261,11 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 		return nil
 	}
 
+	if rl.atCapacityLocked() {
+		metrics.TxEvicted(reasonCapFull)
+		return ErrReapListFull
+	}
+
 	var gas uint64
 	if feeTx, ok := tx.(sdk.FeeTx); ok {
 		gas = feeTx.GetGas()
@@ -164,7 +273,7 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 		return fmt.Errorf("error getting tx gas: cosmos tx must implement sdk.FeeTx")
 	}
 
-	rl.push(hash, txBytes, gas)
+	rl.push(&txWithHash{bytes: txBytes, hash: hash, gas: gas, kind: KindCosmos, cosmosTx: tx})
 
 	metrics.TxPushed(cosmosType)
 	return nil
@@ -175,12 +284,24 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 // already in the ReapList, this should be checked via exists.
 //
 // NOTE: this is not thread safe, callers should be holding the txsLock.
-func (rl *ReapList) push(hash string, tx []byte, gas uint64) {
-	rl.txs = append(rl.txs, &txWithHash{tx, hash, gas})
-	rl.txIndex[hash] = len(rl.txs) - 1
+func (rl *ReapList) push(entry *txWithHash) {
+	rl.txs = append(rl.txs, entry)
+	rl.txIndex[entry.hash] = len(rl.txs) - 1
 
 	metrics.RecordNumTxs(rl.txs)
 	metrics.RecordNumIndexTxs(rl.txIndex)
+}
+
+// atCapacityLocked reports whether the reap list is at its configured cap.
+// Tombstones (nil entries) count toward the cap; they hold memory until the
+// next Reap compacts them.
+//
+// NOTE: this is not thread safe, callers should be holding the txsLock.
+func (rl *ReapList) atCapacityLocked() bool {
+	if rl.maxSize == Unbounded {
+		return false
+	}
+	return len(rl.txs) >= rl.maxSize
 }
 
 // exists returns true if a hash is in the index, false otherwise.
@@ -240,6 +361,22 @@ func (rl *ReapList) drop(hash string) bool {
 	// reap list **including** tombstones. We will update numTxs when the
 	// tombstone is removed via the next `Reap` call.
 	return true
+}
+
+// evict tombstones the slot at idx and removes the hash from the index.
+// Increments the eviction metric for the given reason. Caller must hold
+// rl.txsLock and must invoke any associated dropCallback AFTER the lock is
+// released.
+//
+// NOTE: this is not thread safe, callers should be holding the txsLock.
+func (rl *ReapList) evict(idx int, reason string) {
+	tx := rl.txs[idx]
+	if tx == nil {
+		return
+	}
+	delete(rl.txIndex, tx.hash)
+	rl.txs[idx] = nil
+	metrics.TxEvicted(reason)
 }
 
 func cosmosHash(txBytes []byte) string {

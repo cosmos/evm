@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -146,7 +147,7 @@ func testEVMTx(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gas uint64) *t
 }
 
 func TestEmptyList(t *testing.T) {
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	result := rl.Reap(0, 0)
 
@@ -157,7 +158,7 @@ func TestSingleTransaction(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 	tx := testEVMTx(t, key, 0, 21000)
 	err = rl.PushEVMTx(tx)
 	require.NoError(t, err)
@@ -183,7 +184,7 @@ func TestNoLimits(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
@@ -202,7 +203,7 @@ func TestMaxBytesLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Each tx is 100 bytes
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 10 transactions
 	for i := uint64(0); i < 10; i++ {
@@ -225,7 +226,7 @@ func TestMaxGasLimit(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add transactions with varying gas
 	txGases := []uint64{21000, 30000, 40000, 50000, 60000}
@@ -251,7 +252,7 @@ func TestBothLimits(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add transactions with varying gas
 	txGases := []uint64{21000, 30000, 40000, 50000, 60000}
@@ -283,7 +284,7 @@ func TestExactBytesLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Each tx is 100 bytes
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 5 transactions
 	for i := uint64(0); i < 5; i++ {
@@ -302,7 +303,7 @@ func TestExactGasLimit(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add transactions with specific gas amounts
 	txGases := []uint64{21000, 30000, 40000}
@@ -326,7 +327,7 @@ func TestEncodingFailure(t *testing.T) {
 
 	// Create encoder that fails for nonce 1 and 3
 	failNonces := map[uint64]bool{1: true, 3: true}
-	rl := New(newFailingEVMEncoder(failNonces))
+	rl := New(newFailingEVMEncoder(failNonces), Unbounded, nil)
 
 	// Add 5 transactions (nonces 0-4)
 	// Nonces 1 and 3 will fail during Push, so only 0, 2, 4 will be added
@@ -367,7 +368,7 @@ func TestOrderPreservation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create encoder that embeds nonce in the bytes for verification
-	rl := New(&nonceEncoder{})
+	rl := New(&nonceEncoder{}, Unbounded, nil)
 
 	// Add transactions in specific order
 	var nonce uint64
@@ -393,7 +394,7 @@ func TestMultipleReaps(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 10 transactions
 	var nonce uint64
@@ -424,7 +425,7 @@ func TestPushAfterReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 5 transactions
 	var nonce uint64
@@ -454,7 +455,7 @@ func TestConcurrentPushAndReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	var wg sync.WaitGroup
 	var totalReaped int
@@ -499,22 +500,24 @@ func TestFirstTransactionExceedsLimit(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(1000, 1000))
+	rl := New(newDeterministicEncoder(1000, 1000), Unbounded, nil)
 
 	// Add transaction
 	tx := testEVMTx(t, key, 0, 21000)
 	err = rl.PushEVMTx(tx)
 	require.NoError(t, err)
 
-	// Try to reap with limit smaller than first tx
+	// Try to reap with limit smaller than the tx (1000 bytes vs 500 byte limit).
+	// Under HOL eviction (STACK-2669) the tx is permanently oversized for any
+	// block at this limit, so it is evicted from the reap list rather than
+	// retained.
 	result := rl.Reap(500, 0)
-
-	// Should return empty as first tx exceeds limit
 	require.Empty(t, result, "should return empty when first tx exceeds limit")
 
-	// Transaction should still be in list for next reap with higher limit
-	result = rl.Reap(1000, 0)
-	require.Len(t, result, 1, "transaction should still be available with higher limit")
+	// Even with a higher limit, the tx is gone -- it was evicted on the
+	// previous reap.
+	result = rl.Reap(2000, 0)
+	require.Empty(t, result, "evicted tx must not reappear in subsequent reaps")
 }
 
 // alwaysFailEncoder always returns an error for encoding
@@ -533,7 +536,7 @@ func TestAllTransactionsFailEncoding(t *testing.T) {
 	require.NoError(t, err)
 
 	// Encoder that always fails
-	rl := New(&alwaysFailEncoder{})
+	rl := New(&alwaysFailEncoder{}, Unbounded, nil)
 
 	// Add transactions - all will fail during Push
 	var nonce uint64
@@ -551,7 +554,7 @@ func TestAllTransactionsFailEncoding(t *testing.T) {
 // Tests for Cosmos transactions
 
 func TestPushCosmosTx(t *testing.T) {
-	rl := New(newDeterministicEncoder(100, 150))
+	rl := New(newDeterministicEncoder(100, 150), Unbounded, nil)
 
 	// Add Cosmos transactions
 	for i := 0; i < 5; i++ {
@@ -574,7 +577,7 @@ func TestMixedEVMAndCosmosTx(t *testing.T) {
 	require.NoError(t, err)
 
 	// EVM txs are 100 bytes, Cosmos txs are 150 bytes
-	rl := New(newDeterministicEncoder(100, 150))
+	rl := New(newDeterministicEncoder(100, 150), Unbounded, nil)
 
 	// Add mixed transactions
 	evmTx1 := testEVMTx(t, key, 0, 21000)
@@ -609,7 +612,7 @@ func TestMixedEVMAndCosmosTx(t *testing.T) {
 }
 
 func TestCosmosTxWithGasLimit(t *testing.T) {
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add Cosmos transactions with varying gas
 	txGases := []uint64{30000, 40000, 50000, 60000}
@@ -659,7 +662,7 @@ func TestCosmosEncodingFailure(t *testing.T) {
 	// Create encoder that fails for tx with id=1
 	failEncoder := &selectiveCosmosFailEncoder{failID: 1}
 
-	rl := New(failEncoder)
+	rl := New(failEncoder, Unbounded, nil)
 
 	// Add Cosmos transactions - tx with id=1 will fail
 	for i := 0; i < 5; i++ {
@@ -679,7 +682,7 @@ func TestDropEVMTx(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 5 EVM transactions
 	txs := make([]*types.Transaction, 5)
@@ -699,7 +702,7 @@ func TestDropEVMTx(t *testing.T) {
 }
 
 func TestDropCosmosTx(t *testing.T) {
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 5 Cosmos transactions
 	txs := make([]*mockCosmosTx, 5)
@@ -723,7 +726,7 @@ func TestDropAfterReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 5 transactions
 	txs := make([]*types.Transaction, 5)
@@ -753,7 +756,7 @@ func TestDropNonExistent(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100))
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
 	// Add 3 transactions
 	for i := uint64(0); i < 3; i++ {
@@ -775,7 +778,7 @@ func TestMixedDrops(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 150))
+	rl := New(newDeterministicEncoder(100, 150), Unbounded, nil)
 
 	// Add mixed transactions
 	evmTxs := make([]*types.Transaction, 3)
@@ -813,7 +816,7 @@ func TestConcurrentSameHashPush(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
-		rl := New(newDeterministicEncoder(100, 100))
+		rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 		tx := testEVMTx(t, key, 0, 21000)
 
 		var wg sync.WaitGroup
@@ -836,5 +839,317 @@ func TestConcurrentSameHashPush(t *testing.T) {
 			rl.DropEVMTx(tx)
 			_ = rl.Reap(0, 0)
 		}, "iter %d: drop after concurrent push must not orphan a slot", i)
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Capacity tests (STACK-2670)
+// -----------------------------------------------------------------------------
+
+func TestPushRefusedWhenAtCapacity(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	const cap = 3
+	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+
+	for i := uint64(0); i < cap; i++ {
+		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
+	}
+
+	// Next push must be refused with ErrReapListFull.
+	overflow := testEVMTx(t, key, uint64(cap), 21000)
+	err = rl.PushEVMTx(overflow)
+	require.ErrorIs(t, err, ErrReapListFull)
+
+	// Cosmos pushes are refused under the same cap.
+	require.ErrorIs(t, rl.PushCosmosTx(newMockCosmosTx(99, 21000)), ErrReapListFull)
+}
+
+func TestCapacityRecoversAfterReap(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	const cap = 2
+	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21000)))
+	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)), ErrReapListFull)
+
+	// Reap clears the slots and capacity recovers.
+	result := rl.Reap(0, 0)
+	require.Len(t, result, 2)
+
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 3, 21000)))
+}
+
+func TestCapacityRecoversAfterDrop(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	const cap = 2
+	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+
+	tx0 := testEVMTx(t, key, 0, 21000)
+	tx1 := testEVMTx(t, key, 1, 21000)
+	require.NoError(t, rl.PushEVMTx(tx0))
+	require.NoError(t, rl.PushEVMTx(tx1))
+
+	// Drop tombstones the slot but DOES NOT free capacity until the next
+	// Reap compacts. This matches the documented behavior: "tombstones count
+	// toward the cap".
+	rl.DropEVMTx(tx0)
+	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)), ErrReapListFull)
+
+	// After Reap, the tombstone is compacted away and capacity recovers.
+	_ = rl.Reap(0, 0)
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)))
+}
+
+func TestCapacityWithMixedEVMAndCosmos(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	const cap = 4
+	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
+	require.NoError(t, rl.PushCosmosTx(newMockCosmosTx(0, 21000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21000)))
+	require.NoError(t, rl.PushCosmosTx(newMockCosmosTx(1, 21000)))
+
+	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)), ErrReapListFull)
+	require.ErrorIs(t, rl.PushCosmosTx(newMockCosmosTx(2, 21000)), ErrReapListFull)
+}
+
+func TestUnboundedWhenCosmosUnbounded(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
+
+	// Push many txs; no cap should ever fire.
+	for i := uint64(0); i < 200; i++ {
+		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
+	}
+}
+
+func TestConcurrentPushAtCapacity(t *testing.T) {
+	const cap = 50
+	const workers = 16
+	const perWorker = 20
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+
+	var (
+		wg       sync.WaitGroup
+		start    = make(chan struct{})
+		accepted int64
+		mu       sync.Mutex
+	)
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			<-start
+			for i := 0; i < perWorker; i++ {
+				nonce := uint64(workerID*perWorker + i)
+				if err := rl.PushEVMTx(testEVMTx(t, key, nonce, 21000)); err == nil {
+					mu.Lock()
+					accepted++
+					mu.Unlock()
+				} else {
+					require.ErrorIs(t, err, ErrReapListFull)
+				}
+			}
+		}(w)
+	}
+	close(start)
+	wg.Wait()
+
+	// Cap must never be exceeded under contention.
+	require.LessOrEqual(t, accepted, int64(cap), "accepted txs must not exceed cap")
+	// And subsequent reap should return at most cap txs.
+	result := rl.Reap(0, 0)
+	require.LessOrEqual(t, len(result), cap)
+}
+
+// -----------------------------------------------------------------------------
+// Head-of-line eviction tests (STACK-2669)
+// -----------------------------------------------------------------------------
+
+func TestOversizedHeadEvicted_Bytes(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	// 1000 byte EVM txs; the first one is permanently too large for a 500
+	// byte block.
+	rl := New(newDeterministicEncoder(1000, 1000), Unbounded, nil)
+
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21000)))
+
+	// Reap with a byte limit smaller than a single tx -- both are oversized
+	// and both should be evicted.
+	result := rl.Reap(500, 0)
+	require.Empty(t, result)
+
+	// Subsequent reap must not see the evicted txs even when the limit
+	// would have accommodated them.
+	result = rl.Reap(0, 0)
+	require.Empty(t, result, "evicted oversized txs must not reappear")
+}
+
+func TestOversizedHeadEvicted_Gas(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
+
+	// First tx is 1_000_000 gas; second is 21_000.
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 1_000_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21_000)))
+
+	// Reap with a 100k gas budget. The head tx alone exceeds the budget and
+	// must be evicted; the second tx must still be reapable.
+	result := rl.Reap(0, 100_000)
+	require.Len(t, result, 1, "second tx should be reaped after head eviction")
+
+	// The evicted tx is gone permanently.
+	result = rl.Reap(0, 10_000_000)
+	require.Empty(t, result)
+}
+
+func TestOversizedMiddleEvicted(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
+
+	// Three txs with the middle one having huge gas.
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 5_000_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21_000)))
+
+	// Reap with 100k gas: tx0 fits, tx1 is oversized (evicted), tx2 fits.
+	result := rl.Reap(0, 100_000)
+	require.Len(t, result, 2, "tx0 and tx2 should be reaped, oversized tx1 evicted")
+}
+
+func TestMultipleConsecutiveOversized(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
+
+	// Three consecutive oversized-by-gas txs followed by one fitting tx.
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 5_000_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 5_000_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 5_000_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 3, 21_000)))
+
+	result := rl.Reap(0, 100_000)
+	require.Len(t, result, 1, "all three oversized evicted, last tx reaped")
+
+	// Subsequent reap is empty: all oversized are gone, the last was reaped.
+	result = rl.Reap(0, 10_000_000)
+	require.Empty(t, result)
+}
+
+func TestOversizedThenBudgetExceeded(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
+
+	// tx0: oversized for the budget (must be evicted)
+	// tx1: fits the budget
+	// tx2: would push us over the budget (must be retained, not evicted)
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 5_000_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 80_000)))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 80_000)))
+
+	result := rl.Reap(0, 100_000)
+	require.Len(t, result, 1, "only tx1 fits in this reap")
+
+	// tx2 is still in the list and reapable next time.
+	result = rl.Reap(0, 100_000)
+	require.Len(t, result, 1, "tx2 should reap on the next call")
+}
+
+func TestOversizedDropCallbackInvoked(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	type cbRecord struct {
+		hash  string
+		kind  TxKind
+		hasTx bool
+	}
+	var (
+		mu  sync.Mutex
+		got []cbRecord
+	)
+	cb := func(hash string, kind TxKind, tx sdk.Tx) {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, cbRecord{hash: hash, kind: kind, hasTx: tx != nil})
+	}
+
+	rl := New(newDeterministicEncoder(100, 100), Unbounded, cb)
+
+	evmTx := testEVMTx(t, key, 0, 5_000_000)
+	require.NoError(t, rl.PushEVMTx(evmTx))
+	cosmosTx := newMockCosmosTx(0, 5_000_000)
+	require.NoError(t, rl.PushCosmosTx(cosmosTx))
+
+	// Reap with 100k gas: both are oversized, both must invoke the callback.
+	_ = rl.Reap(0, 100_000)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, got, 2)
+
+	// Order must match insertion order (EVM, then Cosmos).
+	require.Equal(t, KindEVM, got[0].kind)
+	require.Equal(t, evmTx.Hash().String(), got[0].hash)
+	require.False(t, got[0].hasTx, "EVM eviction should not carry sdk.Tx")
+
+	require.Equal(t, KindCosmos, got[1].kind)
+	require.True(t, got[1].hasTx, "Cosmos eviction must carry sdk.Tx for sub-pool removal")
+}
+
+// TestEvictionDropCallbackReentrant verifies that the drop callback is invoked
+// after the reap list lock is released, so callbacks can safely call back
+// into the reap list (e.g. via DropEVMTx) without deadlock.
+func TestEvictionDropCallbackReentrant(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	var rl *ReapList
+	cb := func(hash string, kind TxKind, _ sdk.Tx) {
+		// Re-entering the reap list from the callback must not deadlock.
+		// Using a non-existent tx so this is a no-op drop.
+		fakeTx := testEVMTx(t, key, 999, 21000)
+		rl.DropEVMTx(fakeTx)
+	}
+	rl = New(newDeterministicEncoder(100, 100), Unbounded, cb)
+
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 5_000_000)))
+
+	done := make(chan struct{})
+	go func() {
+		_ = rl.Reap(0, 100_000)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("reap did not complete - drop callback likely caused a deadlock")
 	}
 }

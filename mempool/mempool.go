@@ -169,7 +169,39 @@ func NewMempool(
 		legacyConfig = *config.LegacyPoolConfig
 	}
 
-	reapList := reaplist.New(NewTxEncoder(txConfig))
+	// Reap list capacity is sized so it can hold every tx that could legally
+	// live in the two sub-pools simultaneously: the cosmos pool (resolved cap)
+	// plus the legacypool's pending+queued slots.
+	reapListCap := resolveReapListCap(cosmosPoolMaxTx, legacyConfig.GlobalSlots, legacyConfig.GlobalQueue)
+
+	// reapDropCallback is wired after both sub-pools are constructed. It is
+	// invoked when the reap list evicts a permanently-oversized tx so the
+	// owning sub-pool can also drop it. The closure reads the pool refs via
+	// pointers that are populated below once those pools exist; the reap list
+	// only invokes the callback during Reap, which can only happen after
+	// NewMempool returns.
+	var (
+		legacyPoolRef     *legacypool.LegacyPool
+		recheckCosmosPool *RecheckMempool
+	)
+	reapDropCallback := func(hash string, kind reaplist.TxKind, cosmosTx sdk.Tx) {
+		switch kind {
+		case reaplist.KindEVM:
+			if legacyPoolRef == nil {
+				return
+			}
+			legacyPoolRef.RemoveTx(common.HexToHash(hash), false, true, legacypool.RemovalReasonReapEvicted)
+		case reaplist.KindCosmos:
+			if recheckCosmosPool == nil || cosmosTx == nil {
+				return
+			}
+			if err := recheckCosmosPool.Remove(cosmosTx); err != nil {
+				logger.Debug("reap list eviction: failed to remove cosmos tx from sub-pool", "hash", hash, "err", err)
+			}
+		}
+	}
+
+	reapList := reaplist.New(NewTxEncoder(txConfig), reapListCap, reapDropCallback)
 	txTracker := txtracker.NewNoop()
 	if config.EnableTxTracker {
 		txTracker = txtracker.New()
@@ -182,6 +214,7 @@ func NewMempool(
 		txTracker,
 		legacypool.WithRecheck(evmRechecker),
 	)
+	legacyPoolRef = legacyPool
 
 	reservationTracker := reserver.NewReservationTracker()
 	txPool, err := txpool.New(uint64(0), blockchain, reservationTracker, []txpool.SubPool{legacyPool})
@@ -205,6 +238,7 @@ func NewMempool(
 		reapList,
 		blockchain,
 	)
+	recheckCosmosPool = recheckPool
 
 	mempool := &Mempool{
 		vmKeeper:                 vmKeeper,
@@ -681,4 +715,25 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason 
 	default:
 		return txpool.RemovalReason("")
 	}
+}
+
+// resolveReapListCap computes the reap list capacity from the cosmos pool's
+// configured cap and the legacypool's pending+queued slots. Sub-pools
+// individually enforce their own caps; the reap list cap is the sum so a
+// legitimate full state in both pools never trips ErrReapListFull.
+//
+// Semantics for cosmosPoolMaxTx:
+//   - 0  -> resolved to sdkmempool.DefaultMaxTx (matches the SDK convention)
+//   - <= 0 after resolution -> reap list is unbounded (operator opted into an
+//     unbounded cosmos pool, no new DOS surface).
+//   - otherwise -> cosmosPoolMaxTx + GlobalSlots + GlobalQueue.
+func resolveReapListCap(cosmosPoolMaxTx int, globalSlots, globalQueue uint64) int {
+	effective := cosmosPoolMaxTx
+	if effective == 0 {
+		effective = sdkmempool.DefaultMaxTx
+	}
+	if effective <= 0 {
+		return reaplist.Unbounded
+	}
+	return effective + int(globalSlots) + int(globalQueue)
 }

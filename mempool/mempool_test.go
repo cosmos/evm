@@ -607,6 +607,54 @@ func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
 	require.Len(t, txs, 0, "expected no txs to be reaped")
 }
 
+// TestMempool_ReapList_OversizedEvicted asserts the wiring between the reap
+// list and the legacypool: when a tx is evicted by the reap list during Reap
+// (because it is permanently oversized for any block under the supplied
+// limits), the drop callback configured by NewMempool must also remove it
+// from the legacypool. This is the wiring proof for STACK-2669 and the cap
+// plumbing for STACK-2670 (drop callback signature is exercised by the
+// eviction path).
+func TestMempool_ReapList_OversizedEvicted(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 1)
+	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
+
+	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	}))
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// Insert a tx with the standard test gas limit (txGasLimit = 50000).
+	tx := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
+	require.NoError(t, mp.Insert(sdk.Context{}.WithContext(context.Background()), tx))
+	require.NoError(t, mp.GetTxPool().Sync())
+	require.Equal(t, 1, mp.CountTx())
+
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+	pending, _ := legacyPool.ContentFrom(accounts[0].address)
+	require.Len(t, pending, 1, "tx should be in legacypool pending")
+
+	// Reap with a gas budget tighter than tx gas (50000). The tx is
+	// permanently oversized for this budget and the reap list must evict it
+	// AND, via the wired drop callback, instruct the legacypool to remove
+	// it.
+	reaped, err := mp.ReapNewValidTxs(0, 10_000)
+	require.NoError(t, err)
+	require.Empty(t, reaped, "oversized tx must not be returned by reap")
+
+	// Drain async work; the legacypool RemoveTx is invoked synchronously
+	// from within Reap (after the reap list lock is released), so by the
+	// time Reap returns the legacypool already reflects the eviction.
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	pending, queued := legacyPool.ContentFrom(accounts[0].address)
+	require.Empty(t, pending, "legacypool pending must drop evicted tx")
+	require.Empty(t, queued, "legacypool queued must drop evicted tx")
+}
+
 // Helper types and functions
 
 const (

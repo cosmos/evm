@@ -16,6 +16,7 @@ type reapListMetrics struct {
 	numIndexTxs metric.Int64Gauge
 	pushedTxs   metric.Int64Counter
 	droppedTxs  metric.Int64Counter
+	evictedTxs  metric.Int64Counter
 }
 
 var metrics = reapListMetrics{}
@@ -39,6 +40,13 @@ func (rlm *reapListMetrics) TxPushed(txType txType) {
 func (rlm *reapListMetrics) TxDropped(txType txType) {
 	attributes := attribute.NewSet(attribute.String("tx_type", string(txType)))
 	rlm.droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
+}
+
+// TxEvicted records that a tx was evicted from the reap list with the given
+// reason (e.g. "oversized_bytes", "oversized_gas", "cap_full").
+func (rlm *reapListMetrics) TxEvicted(reason string) {
+	attributes := attribute.NewSet(attribute.String("reason", reason))
+	rlm.evictedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
 }
 
 // RecordNumTxs records the number of entires in txs
@@ -81,6 +89,14 @@ func init() {
 	metrics.droppedTxs, err = meter.Int64Counter(
 		"reap_list.dropped_txs",
 		metric.WithDescription("Total number of transactions that have been dropped from the reap list"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	metrics.evictedTxs, err = meter.Int64Counter(
+		"reap_list.evicted_txs",
+		metric.WithDescription("Total number of transactions evicted from the reap list, by reason (oversized_bytes, oversized_gas, cap_full)"),
 	)
 	if err != nil {
 		panic(err)

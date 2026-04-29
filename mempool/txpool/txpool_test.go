@@ -89,7 +89,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
 	recheckGuard := make(chan struct{})
-	legacyPool := legacypool.New(legacypool.DefaultConfig, log.NewNopLogger(), legacyChain, reaplist.New(stubTxEncoder{}), txtracker.New(), legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
+	legacyPool := legacypool.New(legacypool.DefaultConfig, log.NewNopLogger(), legacyChain, reaplist.New(stubTxEncoder{}, reaplist.Unbounded, nil), txtracker.New(), legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
@@ -265,6 +265,7 @@ func TestTxPoolContent_EmptySubpools(t *testing.T) {
 	require.Empty(t, runnable)
 	require.Empty(t, blocked)
 }
+
 // minimal tx encoder to construct a testing reaplist
 type stubTxEncoder struct{}
 
