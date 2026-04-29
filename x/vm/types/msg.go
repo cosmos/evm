@@ -30,11 +30,11 @@ import (
 )
 
 var (
-	_ sdk.Msg        = &MsgEthereumTx{}
-	_ sdk.Tx         = &MsgEthereumTx{}
-	_ ante.GasTx     = &MsgEthereumTx{}
-	_ IMsgEthereumTx = &MsgEthereumTx{}
-	_ sdk.Msg        = &MsgUpdateParams{}
+	_ sdk.Msg           = &MsgEthereumTx{}
+	_ sdk.Tx            = &MsgEthereumTx{}
+	_ ante.GasTx        = &MsgEthereumTx{}
+	_ RPCMsgEthereumTxI = &MsgEthereumTx{}
+	_ sdk.Msg           = &MsgUpdateParams{}
 )
 
 // message type and route constants
