@@ -9,6 +9,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
@@ -64,6 +65,12 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	app.SetCheckTxHandler(checkTxHandler)
 
 	app.SetMempool(mempool)
+
+	app.SetPrepareCheckStater(func(_ sdk.Context) {
+		if !mempool.HasEventBus() {
+			mempool.NotifyNewBlock()
+		}
+	})
 
 	return nil
 }
