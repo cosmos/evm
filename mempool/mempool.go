@@ -170,17 +170,11 @@ func NewMempool(
 		legacyConfig = *config.LegacyPoolConfig
 	}
 
-	// Reap list capacity is sized so it can hold every tx that could legally
-	// live in the two sub-pools simultaneously: the cosmos pool (resolved cap)
-	// plus the legacypool's pending+queued slots.
+	// Sized to hold every tx that could legally live in both sub-pools at once.
 	reapListCap := resolveReapListCap(cosmosPoolMaxTx, legacyConfig.GlobalSlots, legacyConfig.GlobalQueue)
 
-	// reapDropCallback is wired after both sub-pools are constructed. It is
-	// invoked when the reap list evicts a permanently-oversized tx so the
-	// owning sub-pool can also drop it. The closure reads the pool refs via
-	// pointers that are populated below once those pools exist; the reap list
-	// only invokes the callback during Reap, which can only happen after
-	// NewMempool returns.
+	// Pool refs are populated below; the callback only fires from Reap, which
+	// can't run before NewMempool returns.
 	var (
 		legacyPoolRef     *legacypool.LegacyPool
 		recheckCosmosPool *RecheckMempool
@@ -718,16 +712,9 @@ func convertRemovalReason(caller sdkmempool.RemovalCaller) txpool.RemovalReason 
 	}
 }
 
-// resolveReapListCap computes the reap list capacity from the cosmos pool's
-// configured cap and the legacypool's pending+queued slots. Sub-pools
-// individually enforce their own caps; the reap list cap is the sum so a
-// legitimate full state in both pools never trips ErrReapListFull.
-//
-// Semantics for cosmosPoolMaxTx:
-//   - 0  -> resolved to sdkmempool.DefaultMaxTx (matches the SDK convention)
-//   - <= 0 after resolution -> reap list is unbounded (operator opted into an
-//     unbounded cosmos pool, no new DOS surface).
-//   - otherwise -> cosmosPoolMaxTx + GlobalSlots + GlobalQueue.
+// resolveReapListCap returns cosmosPoolMaxTx + GlobalSlots + GlobalQueue.
+// cosmosPoolMaxTx == 0 resolves to sdkmempool.DefaultMaxTx; <= 0 -> Unbounded.
+// Overflow falls back to Unbounded.
 func resolveReapListCap(cosmosPoolMaxTx int, globalSlots, globalQueue uint64) int {
 	effective := cosmosPoolMaxTx
 	if effective == 0 {
@@ -736,9 +723,6 @@ func resolveReapListCap(cosmosPoolMaxTx int, globalSlots, globalQueue uint64) in
 	if effective <= 0 {
 		return reaplist.Unbounded
 	}
-	// globalSlots and globalQueue are operator-supplied legacypool config
-	// values. Clamp to math.MaxInt to avoid overflow on 32-bit platforms or
-	// pathological configs; treat that as effectively unbounded.
 	const maxAdd = uint64(stdmath.MaxInt)
 	if globalSlots > maxAdd-uint64(effective) || globalQueue > maxAdd-uint64(effective)-globalSlots {
 		return reaplist.Unbounded

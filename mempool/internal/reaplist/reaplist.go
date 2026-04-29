@@ -13,14 +13,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// Unbounded is the sentinel value for ReapList.maxSize that disables the
-// capacity check, restoring legacy unbounded behavior.
+// Unbounded disables the capacity check.
 const Unbounded = 0
 
 // ErrReapListFull is returned by Push* when the reap list is at capacity.
 var ErrReapListFull = errors.New("reap list full")
 
-// Eviction reasons used by metrics and surfaced via the drop callback.
 const (
 	reasonOversizedBytes = "oversized_bytes"
 	reasonOversizedGas   = "oversized_gas"
@@ -37,15 +35,9 @@ const (
 	KindCosmos
 )
 
-// DropCallback is invoked from Reap when a tx is evicted from the reap list
-// (e.g. permanently oversized for any block). The callback should remove the
-// tx from its owning sub-pool. It is invoked AFTER the reap list lock has been
-// released so callbacks may safely re-enter the reap list.
-//
-// For KindCosmos evictions, cosmosTx is the original sdk.Tx (populated at
-// PushCosmosTx time) so callers can drive the cosmos pool's typed removal API
-// without re-decoding bytes. For KindEVM evictions, cosmosTx is nil and
-// callers should remove via the hash.
+// DropCallback is invoked after Reap evicts a tx so the owning sub-pool can
+// drop it too. cosmosTx is set for KindCosmos only; KindEVM removes via hash.
+// Invoked outside the reap list lock so callbacks may re-enter the reap list.
 type DropCallback func(hash string, kind TxKind, cosmosTx sdk.Tx)
 
 type EVMCosmosTxEncoder interface {
@@ -58,9 +50,7 @@ type txWithHash struct {
 	hash  string
 	gas   uint64
 	kind  TxKind
-	// cosmosTx is populated for KindCosmos entries only. The drop callback
-	// requires the original sdk.Tx to remove from the cosmos sub-pool, since
-	// the cosmos pool API takes sdk.Tx (not bytes/hash).
+	// cosmosTx is set for KindCosmos only; the cosmos pool's Remove takes sdk.Tx.
 	cosmosTx sdk.Tx
 }
 
@@ -80,25 +70,17 @@ type ReapList struct {
 	// txEncoder encodes evm and cosmos txs to bytes.
 	txEncoder EVMCosmosTxEncoder
 
-	// maxSize is the upper bound on the number of LIVE entries (non-nil slots)
-	// in txs. Tombstones do not count toward the cap, so a drop+push between
-	// Reaps cannot strand a promoted tx by transiently overshooting maxSize.
-	// If maxSize == Unbounded the cap check is skipped.
+	// maxSize bounds the number of live entries. Unbounded disables the cap.
 	maxSize int
 
-	// liveCount is the number of non-nil entries in txs. Maintained
-	// incrementally by push/drop/evict and reconciled to len(txs) at the end
-	// of Reap (post-compaction txs has no nils). Used by atCapacityLocked.
+	// liveCount is the count of non-nil entries in txs.
 	liveCount int
 
-	// dropCallback, if set, is invoked from Reap when a tx is evicted (e.g.
-	// permanently oversized) so the owning sub-pool can also drop it. May be
-	// nil; callers in tests can pass nil to disable the side effect.
+	// dropCallback notifies the owning sub-pool when Reap evicts a tx. May be nil.
 	dropCallback DropCallback
 }
 
-// New constructs a ReapList. Pass Unbounded for maxSize to disable the cap.
-// dropCallback may be nil.
+// New constructs a ReapList. Pass Unbounded to disable the cap; dropCallback may be nil.
 func New(txEncoder EVMCosmosTxEncoder, maxSize int, dropCallback DropCallback) *ReapList {
 	if maxSize < 0 {
 		maxSize = Unbounded
@@ -111,9 +93,6 @@ func New(txEncoder EVMCosmosTxEncoder, maxSize int, dropCallback DropCallback) *
 	}
 }
 
-// pendingDrop carries a deferred drop callback invocation collected during
-// Reap. Callbacks are invoked after the reap list lock is released so they
-// may safely re-enter the reap list.
 type pendingDrop struct {
 	hash string
 	kind TxKind
@@ -124,9 +103,8 @@ type pendingDrop struct {
 // list until either maxBytes or maxGas is reached for the list of transactions
 // being returned. If maxBytes and maxGas are both 0 all txs will be returned.
 //
-// Permanently oversized txs (txSize > maxBytes or txGas > maxGas) are evicted
-// from the reap list (and their owning sub-pool, via dropCallback) since they
-// can never fit in any block under the current limits.
+// Txs that exceed maxBytes or maxGas standalone are evicted (they can never fit
+// in any block) and the owning sub-pool is notified via dropCallback.
 func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	rl.txsLock.Lock()
 
@@ -149,9 +127,7 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		txSize := uint64(len(tx.bytes))
 		txGas := tx.gas
 
-		// Permanently oversized: tx alone exceeds the block limit. Evict so a
-		// single oversized tx at the head of the list cannot block subsequent
-		// reaps indefinitely.
+		// Standalone-oversized: evict so it can't wedge the head of the list.
 		oversizedBytes := maxBytes > 0 && txSize > maxBytes
 		oversizedGas := maxGas > 0 && txGas > maxGas
 		if oversizedBytes || oversizedGas {
@@ -166,15 +142,11 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 			}
 			rl.evict(idx, reason)
 			drops = append(drops, pendingDrop{hash: tx.hash, kind: tx.kind, tx: tx.cosmosTx})
-			// the slot is now nil; advance nextStart so we don't keep
-			// re-considering it on subsequent iterations (handled naturally
-			// since loop is over a fixed snapshot of rl.txs).
 			nextStart = idx + 1
 			continue
 		}
 
-		// Adding this tx would exceed the remaining budget. Stop here -- the
-		// tx itself fits, just not in this reap.
+		// Over the remaining budget; tx fits in some block, just not this reap.
 		if (maxBytes > 0 && totalBytes+txSize > maxBytes) || (maxGas > 0 && totalGas+txGas > maxGas) {
 			break
 		}
@@ -218,16 +190,12 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	}
 	metrics.RecordNumIndexTxs(rl.txIndex)
 
-	// After compaction txs has no nils, so live count equals slice length.
-	// Reconciles liveCount with reaped txs that were resliced away (those were
-	// live but never decremented in the loop) and acts as a defense-in-depth
-	// invariant against accounting drift in push/drop/evict.
+	// Post-compaction txs has no nils, so liveCount == len(txs).
 	rl.liveCount = len(rl.txs)
 
 	rl.txsLock.Unlock()
 
-	// Invoke drop callbacks AFTER releasing the lock so the sub-pool's drop
-	// path may safely re-enter the reap list (e.g. via DropCosmosTx -> drop).
+	// Callbacks fire outside the lock so they may safely re-enter the reap list.
 	if rl.dropCallback != nil {
 		for _, d := range drops {
 			rl.dropCallback(d.hash, d.kind, d.tx)
@@ -312,8 +280,6 @@ func (rl *ReapList) push(entry *txWithHash) {
 }
 
 // atCapacityLocked reports whether the reap list is at its configured cap.
-// Counts only live (non-nil) entries; tombstones do not count, so a
-// drop+push between Reaps does not transiently strand a promoted tx.
 //
 // NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) atCapacityLocked() bool {
@@ -384,9 +350,7 @@ func (rl *ReapList) drop(hash string) bool {
 }
 
 // evict tombstones the slot at idx and removes the hash from the index.
-// Increments the eviction metric for the given reason. Caller must hold
-// rl.txsLock and must invoke any associated dropCallback AFTER the lock is
-// released.
+// Caller must invoke any associated dropCallback AFTER the lock is released.
 //
 // NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) evict(idx int, reason string) {

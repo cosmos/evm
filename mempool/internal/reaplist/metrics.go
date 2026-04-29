@@ -42,8 +42,7 @@ func (rlm *reapListMetrics) TxDropped(txType txType) {
 	rlm.droppedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
 }
 
-// TxEvicted records that a tx was evicted from the reap list with the given
-// reason (e.g. "oversized_bytes", "oversized_gas", "cap_full").
+// TxEvicted records that a tx was evicted from the reap list with the given reason.
 func (rlm *reapListMetrics) TxEvicted(reason string) {
 	attributes := attribute.NewSet(attribute.String("reason", reason))
 	rlm.evictedTxs.Add(context.Background(), 1, metric.WithAttributeSet(attributes))
