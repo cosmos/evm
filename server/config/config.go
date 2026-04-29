@@ -189,6 +189,9 @@ type MempoolConfig struct {
 	// InsertQueueSize is the maximum number of transactions that can be in the
 	// insert queue at once (0 means unbounded)
 	InsertQueueSize int `mapstructure:"insert-queue-size"`
+	// EnableTxTracker enables per-tx lifecycle telemetry from the mempool
+	// (queued/pending/included latencies). Disabled by default.
+	EnableTxTracker bool `mapstructure:"enable-tx-tracker"`
 }
 
 // DefaultMempoolConfig returns the default mempool configuration
@@ -205,6 +208,7 @@ func DefaultMempoolConfig() MempoolConfig {
 		PendingTxProposalTimeout: 250 * time.Millisecond, // 250 milliseconds to wait for rechecks
 		CheckTxTimeout:           5 * time.Second,        // 5 seconds timeout for CheckTx handler.
 		InsertQueueSize:          5_000,                  // 5000 txs maximum in the insert queue
+		EnableTxTracker:          false,                  // tx lifecycle telemetry off by default
 	}
 }
 

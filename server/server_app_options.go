@@ -31,6 +31,7 @@ func ResolveMempoolConfig(anteHandler sdk.AnteHandler, appOpts servertypes.AppOp
 		MinTip:                   GetMinTip(appOpts, logger),
 		PendingTxProposalTimeout: GetPendingTxProposalTimeout(appOpts, logger),
 		InsertQueueSize:          GetMempoolInsertQueueSize(appOpts, logger),
+		EnableTxTracker:          GetMempoolEnableTxTracker(appOpts),
 	}
 }
 
@@ -177,6 +178,15 @@ func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger
 	}
 
 	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
+}
+
+// GetMempoolEnableTxTracker reads whether per-tx lifecycle telemetry should be
+// recorded by the mempool. Defaults to false when not set or appOpts is nil.
+func GetMempoolEnableTxTracker(appOpts servertypes.AppOptions) bool {
+	if appOpts == nil {
+		return false
+	}
+	return cast.ToBool(appOpts.Get(srvflags.EVMMempoolEnableTxTracker))
 }
 
 func GetMempoolCheckTxTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
