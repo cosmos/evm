@@ -22,7 +22,6 @@ import (
 
 	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/rpc/types/interfaces"
 	servertypes "github.com/cosmos/evm/server/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
@@ -54,7 +53,7 @@ func (b *Backend) GetTransactionByHash(ctx context.Context, txHash common.Hash) 
 	}
 
 	// the `res.MsgIndex` is inferred from tx index, should be within the bound.
-	msg, ok := tx.GetMsgs()[res.MsgIndex].(interfaces.IMsgEthereumTx)
+	msg, ok := tx.GetMsgs()[res.MsgIndex].(evmtypes.IMsgEthereumTx)
 	if !ok {
 		return nil, errors.New("invalid ethereum tx")
 	}
@@ -195,8 +194,8 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
-	ethMsg := tx.GetMsgs()[res.MsgIndex].(interfaces.IMsgEthereumTx)
-	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, []interfaces.IMsgEthereumTx{ethMsg})
+	ethMsg := tx.GetMsgs()[res.MsgIndex].(evmtypes.IMsgEthereumTx)
+	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, []evmtypes.IMsgEthereumTx{ethMsg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
@@ -392,7 +391,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(ctx context.Context, block *cmtr
 		return nil, nil
 	}
 
-	var msg interfaces.IMsgEthereumTx
+	var msg evmtypes.IMsgEthereumTx
 	// find in tx indexer
 	res, err := b.GetTxByTxIndex(ctx, block.Block.Height, uint(idx))
 	if err == nil {
@@ -404,7 +403,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(ctx context.Context, block *cmtr
 
 		var ok bool
 		// msgIndex is inferred from tx events, should be within bound.
-		msg, ok = tx.GetMsgs()[res.MsgIndex].(interfaces.IMsgEthereumTx)
+		msg, ok = tx.GetMsgs()[res.MsgIndex].(evmtypes.IMsgEthereumTx)
 		if !ok {
 			b.Logger.Debug("invalid ethereum tx", "height", block.Block.Header, "index", idx)
 			return nil, nil

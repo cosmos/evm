@@ -24,7 +24,6 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/rpc/types/interfaces"
 	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -499,7 +498,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			msgs := []interfaces.IMsgEthereumTx{
+			msgs := []evmtypes.IMsgEthereumTx{
 				buildMsgEthereumTx(t),
 			}
 			expectedTxResult := &servertypes.TxResult{
@@ -590,7 +589,7 @@ func TestReceiptsLogIndexBlockGlobal(t *testing.T) {
 	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
 
-	msgs := []interfaces.IMsgEthereumTx{msg0, msg1}
+	msgs := []evmtypes.IMsgEthereumTx{msg0, msg1}
 	receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
 	require.NoError(t, err)
 	require.Len(t, receipts, 2)

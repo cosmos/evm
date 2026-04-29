@@ -17,7 +17,6 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/rpc/types/interfaces"
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -107,10 +106,10 @@ func (b *Backend) EthMsgsFromCometBlock(
 	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-) []interfaces.IMsgEthereumTx {
+) []evmtypes.IMsgEthereumTx {
 	_, span := tracer.Start(ctx, "EthMsgsFromCometBlock")
 	defer span.End()
-	var result []interfaces.IMsgEthereumTx
+	var result []evmtypes.IMsgEthereumTx
 	block := resBlock.Block
 
 	txResults := blockRes.TxsResults
@@ -131,7 +130,7 @@ func (b *Backend) EthMsgsFromCometBlock(
 		}
 
 		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(interfaces.IMsgEthereumTx)
+			ethMsg, ok := msg.(evmtypes.IMsgEthereumTx)
 			if !ok {
 				continue
 			}
@@ -255,7 +254,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	msgs []interfaces.IMsgEthereumTx,
+	msgs []evmtypes.IMsgEthereumTx,
 ) (result []*ethtypes.Receipt, err error) {
 	ctx, span := tracer.Start(ctx, "ReceiptsFromCometBlock")
 	defer func() { evmtrace.EndSpanErr(span, err) }()
