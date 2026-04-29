@@ -144,7 +144,7 @@ func NewMempool(
 	}
 
 	reapList := reaplist.New(NewTxEncoder(txConfig))
-	var txTracker txtracker.Tracker = txtracker.NewNoop()
+	txTracker := txtracker.NewNoop()
 	if config.EnableTxTracker {
 		txTracker = txtracker.New()
 	}
