@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -83,10 +82,6 @@ type Keeper struct {
 	// Some of these precompiled contracts might not be active depending on the EVM
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
-
-	// evmMempool is the custom EVM appside mempool
-	// if it is nil, the default comet mempool will be used
-	evmMempool evmmempool.NotifiedMempool
 
 	// virtualFeeCollection enabling will use "Virtual" methods from the bank module to accumulate
 	// fees to the fee collector module in the endBlocker instead of using regular sends during tx execution.
@@ -414,12 +409,6 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 // KVStoreKeys returns KVStore keys injected to keeper
 func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
-}
-
-// SetMempool sets the mempool that is notified of new blocks via the
-// EndBlocker.
-func (k *Keeper) SetEvmMempool(evmMempool evmmempool.NotifiedMempool) {
-	k.evmMempool = evmMempool
 }
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.

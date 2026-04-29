@@ -212,8 +212,6 @@ func NewMempool(
 		config.InsertQueueSize,
 	)
 
-	vmKeeper.SetEvmMempool(mempool)
-
 	// Start the cosmos pool recheck loop
 	mempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
 

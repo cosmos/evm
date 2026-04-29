@@ -5,7 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	mempool "github.com/cosmos/evm/mempool"
 	common "github.com/ethereum/go-ethereum/common"
 
 	mock "github.com/stretchr/testify/mock"
@@ -234,11 +233,6 @@ func (_m *VMKeeperI) SetAccount(ctx types.Context, addr common.Address, account 
 // SetCode provides a mock function with given fields: ctx, codeHash, code
 func (_m *VMKeeperI) SetCode(ctx types.Context, codeHash []byte, code []byte) {
 	_m.Called(ctx, codeHash, code)
-}
-
-// SetEvmMempool provides a mock function with given fields: evmMempool
-func (_m *VMKeeperI) SetEvmMempool(evmMempool mempool.NotifiedMempool) {
-	_m.Called(evmMempool)
 }
 
 // SetState provides a mock function with given fields: ctx, addr, key, value
