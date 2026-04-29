@@ -96,7 +96,7 @@ func init() {
 
 	metrics.evictedTxs, err = meter.Int64Counter(
 		"reap_list.evicted_txs",
-		metric.WithDescription("Total number of transactions evicted from the reap list, by reason (oversized_bytes, oversized_gas, cap_full)"),
+		metric.WithDescription("Total number of transactions evicted from the reap list, by reason (oversized_bytes, oversized_gas, oversized_both, cap_full)"),
 	)
 	if err != nil {
 		panic(err)

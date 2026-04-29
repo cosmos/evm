@@ -24,6 +24,7 @@ var ErrReapListFull = errors.New("reap list full")
 const (
 	reasonOversizedBytes = "oversized_bytes"
 	reasonOversizedGas   = "oversized_gas"
+	reasonOversizedBoth  = "oversized_both"
 	reasonCapFull        = "cap_full"
 )
 
@@ -154,8 +155,13 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 		oversizedBytes := maxBytes > 0 && txSize > maxBytes
 		oversizedGas := maxGas > 0 && txGas > maxGas
 		if oversizedBytes || oversizedGas {
-			reason := reasonOversizedBytes
-			if oversizedGas && !oversizedBytes {
+			var reason string
+			switch {
+			case oversizedBytes && oversizedGas:
+				reason = reasonOversizedBoth
+			case oversizedBytes:
+				reason = reasonOversizedBytes
+			default:
 				reason = reasonOversizedGas
 			}
 			rl.evict(idx, reason)
