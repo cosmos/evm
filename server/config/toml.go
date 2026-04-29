@@ -66,6 +66,10 @@ check-tx-timeout = "{{ .EVM.Mempool.CheckTxTimeout }}"
 # InsertQueueSize is the maximum number of transactions that can be in the insert queue at once (0 means unbounded)
 insert-queue-size = "{{ .EVM.Mempool.InsertQueueSize }}"
 
+# EnableTxTracker enables per-tx lifecycle telemetry from the mempool
+# (queued/pending/included latencies). Disabled by default.
+enable-tx-tracker = {{ .EVM.Mempool.EnableTxTracker }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
