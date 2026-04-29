@@ -25,17 +25,17 @@ const (
 // createCosmosSendTransactionWithKey creates a simple bank send transaction
 // with the specified key, sending 1000aatom
 func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big.Int) sdk.Tx {
-	return s.createCosmosSendTxWithAmount(key, 1000, gasPrice)
+	return s.createCosmosSendTxWithAmount(key, big.NewInt(1000), gasPrice)
 }
 
 // createCosmosSendTransactionWithKey creates a simple bank send transaction
 // with the specified key and amount
-func (s *IntegrationTestSuite) createCosmosSendTxWithAmount(key keyring.Key, amt int64, gasPrice *big.Int) sdk.Tx {
+func (s *IntegrationTestSuite) createCosmosSendTxWithAmount(key keyring.Key, amt *big.Int, gasPrice *big.Int) sdk.Tx {
 	feeDenom := "aatom"
 
 	fromAddr := key.AccAddr
 	toAddr := s.keyring.GetKey(1).AccAddr
-	amount := sdk.NewCoins(sdk.NewInt64Coin(feeDenom, amt))
+	amount := sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(amt)))
 
 	bankMsg := banktypes.NewMsgSend(fromAddr, toAddr, amount)
 

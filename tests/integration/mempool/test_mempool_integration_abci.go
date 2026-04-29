@@ -2,7 +2,6 @@ package mempool
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -562,17 +561,15 @@ func (s *IntegrationTestSuite) TestRechecking() {
 			name: "recheck drops cosmos tx after attempted spend is no longer valid",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
-				var txs []sdk.Tx
 
-				// create two txs that will each spend half our balance
+				// cosmos tx that spends ~half the balance; becomes invalid
+				// once the network tx below also spends half the balance.
 				balance := network.PrefundedAccountInitialBalance.BigInt()
 				gasPrice := big.NewInt(1000000000)
 				gasCost := new(big.Int).Mul(big.NewInt(TxGas), gasPrice)
 				value := new(big.Int).Sub(new(big.Int).Quo(balance, big.NewInt(2)), gasCost)
-				txs = append(txs, s.createCosmosSendTxWithAmount(key, value.Int64(), gasPrice))
-				txs = append(txs, s.createCosmosSendTxWithAmount(key, value.Int64(), gasPrice))
 
-				return txs, s.getTxHashes(nil)
+				return []sdk.Tx{s.createCosmosSendTxWithAmount(key, value, gasPrice)}, s.getTxHashes(nil)
 			},
 			networkTxs: func() []sdk.Tx {
 				// create a new network tx spending just over half balance
@@ -587,9 +584,12 @@ func (s *IntegrationTestSuite) TestRechecking() {
 				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
 				pending, queued := legacyPool.Stats()
 
-				// expecting our tx to have been dropped
+				// the cosmos tx lives in the cosmos pool, not the EVM legacy
+				// pool. CountTx returns the sum, so subtracting EVM pending
+				// gives the cosmos pool count.
 				s.Require().Equal(0, pending, "expected no pending txs")
 				s.Require().Equal(0, queued, "expected no queued txs")
+				s.Require().Equal(0, mp.CountTx()-pending, "expected no cosmos txs")
 			},
 		},
 		{
@@ -614,12 +614,6 @@ func (s *IntegrationTestSuite) TestRechecking() {
 				// create a final tx that will spend a minimal amount. this is
 				// a valid tx even after the inclusion of the network tx.
 				txs = append(txs, s.createEVMValueTransferTx(key, 2, gasPrice))
-
-				// we are getting lucky that the above tx is getting demoted,
-				// it normally would not be demoted because it would fail
-				// recheck due to its nonce being incorrect, since the above tx
-				// failed recheck and didnt write its nonce increment, so this
-				// tx is now a nonce gap
 
 				return txs, s.getTxHashes(nil)
 			},
@@ -713,7 +707,6 @@ func (s *IntegrationTestSuite) TestRechecking() {
 				s.Require().NoError(err)
 				toFinalize = append(toFinalize, encoded)
 			}
-			fmt.Println("finalizing next block")
 			res, err := s.network.NextBlockWithTxs(toFinalize...)
 			s.Require().NoError(err)
 			for _, result := range res.GetTxResults() {
