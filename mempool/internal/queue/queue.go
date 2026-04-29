@@ -28,7 +28,7 @@ var (
 func init() {
 	var err error
 	queueSize, err = meter.Int64Gauge(
-		"mempool.inserter.queue_size",
+		"insert_queue.queue_size",
 		metric.WithDescription("Number of txs waiting in the inserter queue"),
 	)
 	if err != nil {
@@ -36,7 +36,7 @@ func init() {
 	}
 
 	insertDuration, err = meter.Float64Histogram(
-		"mempool.inserter.add_duration",
+		"insert_queue.add_duration",
 		metric.WithDescription("Time to insert a batch of txs into the underlying mempool"),
 		metric.WithUnit("ms"),
 	)
