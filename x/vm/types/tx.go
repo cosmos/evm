@@ -6,8 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // EvmTxArgs encapsulates all possible params to create all EVM txs types.
@@ -26,6 +29,18 @@ type EvmTxArgs struct {
 
 	// For SetCodeTxType
 	AuthorizationList []ethtypes.SetCodeAuthorization `json:"authorizationList"`
+}
+
+type IMsgEthereumTx interface {
+	FromEthereumTx(tx *ethtypes.Transaction)
+	FromSignedEthereumTx(tx *ethtypes.Transaction, signer ethtypes.Signer) error
+	GetFrom() sdk.AccAddress
+	GetGas() uint64
+	GetEffectiveFee(baseFee *big.Int) *big.Int
+	AsTransaction() *ethtypes.Transaction
+	GetSenderLegacy(signer ethtypes.Signer) (common.Address, error)
+	AsMessage(baseFee *big.Int) *core.Message
+	UnmarshalBinary(b []byte, signer ethtypes.Signer) error
 }
 
 // ToTxData converts the EvmTxArgs to TxData
