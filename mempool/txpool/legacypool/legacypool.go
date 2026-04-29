@@ -555,6 +555,13 @@ func (pool *LegacyPool) SetLatestNonce(sender common.Address, nonce uint64) {
 	}
 }
 
+// LatestNonce returns the most recently recorded latest-included nonce for
+// addr and whether an entry exists in the cache. Primarily useful for tests
+// and debugging.
+func (pool *LegacyPool) LatestNonce(addr common.Address) (uint64, bool) {
+	return pool.latestIncludedNonce.Get(addr)
+}
+
 // removeOlds removes txs that have been scheduled for removals from
 // list l for sender addr. Returns the txs successfully removed.
 func (pool *LegacyPool) removeOlds(addr common.Address, l *list, poolType PoolType) types.Transactions {
