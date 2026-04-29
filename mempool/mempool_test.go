@@ -936,8 +936,9 @@ func TestEvictsStaleTx(t *testing.T) {
 			targetIdx:   1,
 			seedNonces:  []uint64{0},
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 1)}
-				cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
@@ -950,8 +951,9 @@ func TestEvictsStaleTx(t *testing.T) {
 			targetIdx:   0,
 			seedNonces:  []uint64{0, 1},
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[0].key, 1)}
-				cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
