@@ -79,10 +79,16 @@ type ReapList struct {
 	// txEncoder encodes evm and cosmos txs to bytes.
 	txEncoder EVMCosmosTxEncoder
 
-	// maxSize is the upper bound on len(txs). Tombstones (nil entries) count
-	// toward the cap until the next Reap compacts them. If maxSize == Unbounded
-	// the cap check is skipped.
+	// maxSize is the upper bound on the number of LIVE entries (non-nil slots)
+	// in txs. Tombstones do not count toward the cap, so a drop+push between
+	// Reaps cannot strand a promoted tx by transiently overshooting maxSize.
+	// If maxSize == Unbounded the cap check is skipped.
 	maxSize int
+
+	// liveCount is the number of non-nil entries in txs. Maintained
+	// incrementally by push/drop/evict and reconciled to len(txs) at the end
+	// of Reap (post-compaction txs has no nils). Used by atCapacityLocked.
+	liveCount int
 
 	// dropCallback, if set, is invoked from Reap when a tx is evicted (e.g.
 	// permanently oversized) so the owning sub-pool can also drop it. May be
@@ -206,6 +212,12 @@ func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	}
 	metrics.RecordNumIndexTxs(rl.txIndex)
 
+	// After compaction txs has no nils, so live count equals slice length.
+	// Reconciles liveCount with reaped txs that were resliced away (those were
+	// live but never decremented in the loop) and acts as a defense-in-depth
+	// invariant against accounting drift in push/drop/evict.
+	rl.liveCount = len(rl.txs)
+
 	rl.txsLock.Unlock()
 
 	// Invoke drop callbacks AFTER releasing the lock so the sub-pool's drop
@@ -287,21 +299,22 @@ func (rl *ReapList) PushCosmosTx(tx sdk.Tx) error {
 func (rl *ReapList) push(entry *txWithHash) {
 	rl.txs = append(rl.txs, entry)
 	rl.txIndex[entry.hash] = len(rl.txs) - 1
+	rl.liveCount++
 
 	metrics.RecordNumTxs(rl.txs)
 	metrics.RecordNumIndexTxs(rl.txIndex)
 }
 
 // atCapacityLocked reports whether the reap list is at its configured cap.
-// Tombstones (nil entries) count toward the cap; they hold memory until the
-// next Reap compacts them.
+// Counts only live (non-nil) entries; tombstones do not count, so a
+// drop+push between Reaps does not transiently strand a promoted tx.
 //
 // NOTE: this is not thread safe, callers should be holding the txsLock.
 func (rl *ReapList) atCapacityLocked() bool {
 	if rl.maxSize == Unbounded {
 		return false
 	}
-	return len(rl.txs) >= rl.maxSize
+	return rl.liveCount >= rl.maxSize
 }
 
 // exists returns true if a hash is in the index, false otherwise.
@@ -357,6 +370,7 @@ func (rl *ReapList) drop(hash string) bool {
 	}
 
 	rl.txs[idx] = nil
+	rl.liveCount--
 	// NOTE: Not updating numTxs metric here since that reports the size of the
 	// reap list **including** tombstones. We will update numTxs when the
 	// tombstone is removed via the next `Reap` call.
@@ -376,6 +390,7 @@ func (rl *ReapList) evict(idx int, reason string) {
 	}
 	delete(rl.txIndex, tx.hash)
 	rl.txs[idx] = nil
+	rl.liveCount--
 	metrics.TxEvicted(reason)
 }
 

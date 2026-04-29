@@ -885,7 +885,7 @@ func TestCapacityRecoversAfterReap(t *testing.T) {
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 3, 21000)))
 }
 
-func TestCapacityRecoversAfterDrop(t *testing.T) {
+func TestCapacityFreesOnDrop(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
@@ -897,15 +897,14 @@ func TestCapacityRecoversAfterDrop(t *testing.T) {
 	require.NoError(t, rl.PushEVMTx(tx0))
 	require.NoError(t, rl.PushEVMTx(tx1))
 
-	// Drop tombstones the slot but DOES NOT free capacity until the next
-	// Reap compacts. This matches the documented behavior: "tombstones count
-	// toward the cap".
+	// Drop frees a live slot immediately. A subsequent push must succeed
+	// even before the next Reap compacts the tombstone -- otherwise a
+	// drop+promote sequence between Reaps could strand a promoted tx.
 	rl.DropEVMTx(tx0)
-	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)), ErrReapListFull)
-
-	// After Reap, the tombstone is compacted away and capacity recovers.
-	_ = rl.Reap(0, 0)
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)))
+
+	// Cap still holds: pushing past the live count fails.
+	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 3, 21000)), ErrReapListFull)
 }
 
 func TestCapacityWithMixedEVMAndCosmos(t *testing.T) {
