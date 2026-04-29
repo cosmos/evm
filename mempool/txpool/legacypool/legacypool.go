@@ -1826,9 +1826,6 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 
-	// Get a branch of the latest pending context for recheck
-	ctx, write := pool.rechecker.GetContext()
-
 	// Iterate over all accounts and promote any executable transactions
 	for _, addr := range accounts {
 		if isReorgCancelled(reset, cancelled) {
@@ -1849,23 +1846,26 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 			queuedRemovedOld.Add(context.Background(),int64(len(olds)))
 		}
 
-		// Drop all transactions that now fail the pools RecheckTxFn
-		//
-		// Note this is happening after the nonce removal above since this
-		// check is slower, we would like it to happen on the fewest txs as
-		// possible.
+		// Drop all transactions that now fail RecheckEVM with a non tolerated error
 		recheckStart := time.Now()
-		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.RecheckEVM(ctx, tx)
-			if !newCtx.IsZero() {
-				ctx = newCtx
-			}
+		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) (remove bool, stop bool) {
+			ctx, write := pool.rechecker.GetContext()
+			_, err := pool.rechecker.RecheckEVM(ctx, tx)
+
 			if err == nil && reset == nil {
 				// only write changes back to original context if we are not
 				// running in reset mode, i.e. a new block has not been seen
 				write()
 			}
-			return tolerateRecheckErr(err) != nil
+
+			// only remove the tx if it failed recheck due to a non tolerated error
+			remove = tolerateRecheckErr(err) != nil
+
+			// check all txs in the list, even if previous ones have failed,
+			// these future txs will all fail with a nonce gap error, however
+			// that error is tolerated for queued txs
+			stop = false
+			return remove, stop
 		})
 		for _, tx := range recheckDrops {
 			pool.all.Remove(tx.Hash())
@@ -2073,23 +2073,27 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		olds := pool.removeOlds(addr, list, Pending)
 		pendingRemovedOld.Add(context.Background(),int64(len(olds)))
 
-		// Drop all transactions that now fail the pools RecheckTxFn
-		//
-		// Note this is happening after the nonce removal above since this
-		// check is slower, we would like it to happen on the fewest txs as
-		// possible.
+		// Drop all transactions that now fail RecheckEVM with a non tolerated
+		// error
 		recheckStart := time.Now()
-		ctx, write := pool.rechecker.GetContext()
-		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
-			newCtx, err := pool.rechecker.RecheckEVM(ctx, tx)
-			if !newCtx.IsZero() {
-				ctx = newCtx
-			}
+		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) (remove bool, stop bool) {
+			ctx, write := pool.rechecker.GetContext()
+			_, err := pool.rechecker.RecheckEVM(ctx, tx)
 			if err == nil {
-				// always write changes back to the original context
 				write()
 			}
-			return tolerateRecheckErr(err) != nil
+
+			// when demoting, we want to remove **any** txs that fail recheck,
+			// no matter the error
+			remove = err != nil
+
+			// when demoting, we must also stop dropping txs for this sender
+			// based off of recheck once one has failed. at this point we
+			// should simply invalidate all of this accounts remaining txs and
+			// drop them to queued, since they are now all nonce gapped.
+			stop = err != nil
+
+			return remove, stop
 		})
 
 		for _, tx := range recheckDrops {
