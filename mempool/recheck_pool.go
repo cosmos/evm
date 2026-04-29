@@ -515,6 +515,8 @@ func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 // a higher nonce is dropped and rebuilt by the next recheck.
 func (m *RecheckMempool) markTxInserted(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) {
+		// If we invalidate any txs we can't execute this txn's antehandler sequence until the next rechecker.Update.
+		// This is because the invalidated txns have written their state to the Store's cache context already.
 		if store.InvalidateFrom(txn) > 0 {
 			return
 		}
