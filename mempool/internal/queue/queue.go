@@ -66,13 +66,15 @@ func (iq *Queue[Tx]) Push(tx *Tx) <-chan error {
 		close(sub)
 		return sub
 	}
-	if iq.isFull() {
+
+	iq.lock.Lock()
+	if iq.queue.Len() >= iq.maxSize {
+		iq.lock.Unlock()
 		sub <- ErrQueueFull
 		close(sub)
 		return sub
 	}
 
-	iq.lock.Lock()
 	iq.queue.PushBack(insertItem[Tx]{tx: tx, sub: sub})
 	iq.lock.Unlock()
 
@@ -162,14 +164,6 @@ func (iq *Queue[Tx]) insertTxs(txs []*Tx) []error {
 		panic(fmt.Errorf("expected a %d errors from insert but instead got %d", len(txs), len(errs)))
 	}
 	return errs
-}
-
-// isFull returns true if the queue is at capacity and cannot accept anymore
-// Tx's, false otherwise.
-func (iq *Queue[Tx]) isFull() bool {
-	iq.lock.RLock()
-	defer iq.lock.RUnlock()
-	return iq.queue.Len() >= iq.maxSize
 }
 
 // Close stops the main loop of the queue.
