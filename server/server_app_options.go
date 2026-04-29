@@ -38,14 +38,14 @@ func ResolveMempoolConfig(anteHandler sdk.AnteHandler, appOpts servertypes.AppOp
 // to extract the consensus block gas limit before InitChain is called.
 func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
 	if appOpts == nil {
-		logger.Error("app options is nil, using zero block gas limit")
-		return math.MaxUint64
+		logger.Error("app options is nil, using max int64 block gas limit")
+		return math.MaxInt64
 	}
 
 	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 	if homeDir == "" {
-		logger.Error("home directory not found in app options, using zero block gas limit")
-		return math.MaxUint64
+		logger.Error("home directory not found in app options, using max int64 block gas limit")
+		return math.MaxInt64
 	}
 	genesisPath := filepath.Join(homeDir, "config", "genesis.json")
 
@@ -67,8 +67,8 @@ func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 
 
 	maxGas := genDoc.ConsensusParams.Block.MaxGas
 	if maxGas == -1 {
-		logger.Warn("genesis max_gas is unlimited (-1), using max uint64")
-		return math.MaxUint64
+		logger.Warn("genesis max_gas is unlimited (-1), using max int64 block gas limit")
+		return math.MaxInt64
 	}
 	if maxGas < -1 {
 		logger.Error("invalid max_gas value in genesis, using zero block gas limit")
