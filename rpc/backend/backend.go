@@ -76,7 +76,7 @@ type EVMBackend interface {
 	CometBlockByHash(ctx context.Context, blockHash common.Hash) (*tmrpctypes.ResultBlock, error)
 	BlockNumberFromComet(ctx context.Context, blockNrOrHash types.BlockNumberOrHash) (types.BlockNumber, error)
 	BlockNumberFromCometByHash(ctx context.Context, blockHash common.Hash) (*big.Int, error)
-	EthMsgsFromCometBlock(ctx context.Context, block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []evmtypes.IMsgEthereumTx
+	EthMsgsFromCometBlock(ctx context.Context, block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []evmtypes.RPCMsgEthereumTxI
 	BlockBloomFromCometBlock(ctx context.Context, blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error)
 	HeaderByNumber(ctx context.Context, blockNum types.BlockNumber) (*ethtypes.Header, error)
 	HeaderByHash(ctx context.Context, blockHash common.Hash) (*ethtypes.Header, error)

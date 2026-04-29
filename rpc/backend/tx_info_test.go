@@ -498,7 +498,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			msgs := []evmtypes.IMsgEthereumTx{
+			msgs := []evmtypes.RPCMsgEthereumTxI{
 				buildMsgEthereumTx(t),
 			}
 			expectedTxResult := &servertypes.TxResult{
@@ -589,7 +589,7 @@ func TestReceiptsLogIndexBlockGlobal(t *testing.T) {
 	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
 
-	msgs := []evmtypes.IMsgEthereumTx{msg0, msg1}
+	msgs := []evmtypes.RPCMsgEthereumTxI{msg0, msg1}
 	receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
 	require.NoError(t, err)
 	require.Len(t, receipts, 2)

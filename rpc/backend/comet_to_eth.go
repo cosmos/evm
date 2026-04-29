@@ -106,10 +106,10 @@ func (b *Backend) EthMsgsFromCometBlock(
 	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-) []evmtypes.IMsgEthereumTx {
+) []evmtypes.RPCMsgEthereumTxI {
 	_, span := tracer.Start(ctx, "EthMsgsFromCometBlock")
 	defer span.End()
-	var result []evmtypes.IMsgEthereumTx
+	var result []evmtypes.RPCMsgEthereumTxI
 	block := resBlock.Block
 
 	txResults := blockRes.TxsResults
@@ -130,7 +130,7 @@ func (b *Backend) EthMsgsFromCometBlock(
 		}
 
 		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(evmtypes.IMsgEthereumTx)
+			ethMsg, ok := msg.(evmtypes.RPCMsgEthereumTxI)
 			if !ok {
 				continue
 			}
@@ -254,7 +254,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 	ctx context.Context,
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	msgs []evmtypes.IMsgEthereumTx,
+	msgs []evmtypes.RPCMsgEthereumTxI,
 ) (result []*ethtypes.Receipt, err error) {
 	ctx, span := tracer.Start(ctx, "ReceiptsFromCometBlock")
 	defer func() { evmtrace.EndSpanErr(span, err) }()
