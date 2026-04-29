@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	stdmath "math"
 	"math/big"
 	"sync"
 	"time"
@@ -735,5 +736,12 @@ func resolveReapListCap(cosmosPoolMaxTx int, globalSlots, globalQueue uint64) in
 	if effective <= 0 {
 		return reaplist.Unbounded
 	}
-	return effective + int(globalSlots) + int(globalQueue)
+	// globalSlots and globalQueue are operator-supplied legacypool config
+	// values. Clamp to math.MaxInt to avoid overflow on 32-bit platforms or
+	// pathological configs; treat that as effectively unbounded.
+	const maxAdd = uint64(stdmath.MaxInt)
+	if globalSlots > maxAdd-uint64(effective) || globalQueue > maxAdd-uint64(effective)-globalSlots {
+		return reaplist.Unbounded
+	}
+	return effective + int(globalSlots) + int(globalQueue) //nolint:gosec // bounded above
 }

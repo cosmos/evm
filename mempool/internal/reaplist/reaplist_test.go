@@ -850,19 +850,19 @@ func TestPushRefusedWhenAtCapacity(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	const cap = 3
-	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+	const capacity = 3
+	rl := New(newDeterministicEncoder(100, 100), capacity, nil)
 
-	for i := uint64(0); i < cap; i++ {
+	for i := uint64(0); i < capacity; i++ {
 		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
 	}
 
 	// Next push must be refused with ErrReapListFull.
-	overflow := testEVMTx(t, key, uint64(cap), 21000)
+	overflow := testEVMTx(t, key, uint64(capacity), 21000)
 	err = rl.PushEVMTx(overflow)
 	require.ErrorIs(t, err, ErrReapListFull)
 
-	// Cosmos pushes are refused under the same cap.
+	// Cosmos pushes are refused under the same capacity.
 	require.ErrorIs(t, rl.PushCosmosTx(newMockCosmosTx(99, 21000)), ErrReapListFull)
 }
 
@@ -870,8 +870,8 @@ func TestCapacityRecoversAfterReap(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	const cap = 2
-	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+	const capacity = 2
+	rl := New(newDeterministicEncoder(100, 100), capacity, nil)
 
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21000)))
@@ -889,8 +889,8 @@ func TestCapacityFreesOnDrop(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	const cap = 2
-	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+	const capacity = 2
+	rl := New(newDeterministicEncoder(100, 100), capacity, nil)
 
 	tx0 := testEVMTx(t, key, 0, 21000)
 	tx1 := testEVMTx(t, key, 1, 21000)
@@ -911,8 +911,8 @@ func TestCapacityWithMixedEVMAndCosmos(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	const cap = 4
-	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+	const capacity = 4
+	rl := New(newDeterministicEncoder(100, 100), capacity, nil)
 
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
 	require.NoError(t, rl.PushCosmosTx(newMockCosmosTx(0, 21000)))
@@ -929,21 +929,21 @@ func TestUnboundedWhenCosmosUnbounded(t *testing.T) {
 
 	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
-	// Push many txs; no cap should ever fire.
+	// Push many txs; no capacity should ever fire.
 	for i := uint64(0); i < 200; i++ {
 		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
 	}
 }
 
 func TestConcurrentPushAtCapacity(t *testing.T) {
-	const cap = 50
+	const capacity = 50
 	const workers = 16
 	const perWorker = 20
 
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	rl := New(newDeterministicEncoder(100, 100), cap, nil)
+	rl := New(newDeterministicEncoder(100, 100), capacity, nil)
 
 	var (
 		wg       sync.WaitGroup
@@ -957,7 +957,7 @@ func TestConcurrentPushAtCapacity(t *testing.T) {
 			defer wg.Done()
 			<-start
 			for i := 0; i < perWorker; i++ {
-				nonce := uint64(workerID*perWorker + i)
+				nonce := uint64(workerID*perWorker + i) //nolint:gosec // bounded by perWorker*workers, safe for test
 				if err := rl.PushEVMTx(testEVMTx(t, key, nonce, 21000)); err == nil {
 					mu.Lock()
 					accepted++
@@ -972,10 +972,10 @@ func TestConcurrentPushAtCapacity(t *testing.T) {
 	wg.Wait()
 
 	// Cap must never be exceeded under contention.
-	require.LessOrEqual(t, accepted, int64(cap), "accepted txs must not exceed cap")
-	// And subsequent reap should return at most cap txs.
+	require.LessOrEqual(t, accepted, int64(capacity), "accepted txs must not exceed capacity")
+	// And subsequent reap should return at most capacity txs.
 	result := rl.Reap(0, 0)
-	require.LessOrEqual(t, len(result), cap)
+	require.LessOrEqual(t, len(result), capacity)
 }
 
 // -----------------------------------------------------------------------------

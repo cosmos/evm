@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-
 	"github.com/cosmos/evm/mempool/internal/reaplist"
+
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 // TestResolveReapListCap verifies the wiring math for the reap list cap.
