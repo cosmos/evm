@@ -34,8 +34,22 @@ var (
 	pendingDurationKey = "pending_duration"
 )
 
-// TxTracker tracks timestamps about important events in a transactions
-// lifecycle and exposes metrics about these via prometheus.
+// Tracker tracks timestamps about important events in a transactions lifecycle
+// and exposes metrics about these via prometheus. A no-op implementation is
+// returned by NewNoop for use when tracking is disabled.
+type Tracker interface {
+	Track(hash common.Hash) error
+	EnteredQueued(hash common.Hash) error
+	ExitedQueued(hash common.Hash) error
+	EnteredPending(hash common.Hash) error
+	ExitedPending(hash common.Hash) error
+	IncludedInBlock(hash common.Hash) error
+	RemovedFromPending(hash common.Hash) error
+	RemovedFromQueue(hash common.Hash) error
+}
+
+// TxTracker is the active Tracker implementation that records lifecycle
+// timestamps and emits telemetry.
 type TxTracker struct {
 	txCheckpoints map[common.Hash]*checkpoints
 	lock          sync.RWMutex
@@ -157,3 +171,20 @@ type checkpoints struct {
 
 	LastEnteredPendingPoolAt time.Time
 }
+
+// noopTracker implements Tracker but performs no work. It is used when tx
+// tracking is disabled via config so that callers can keep an unconditional
+// tracker reference.
+type noopTracker struct{}
+
+// NewNoop returns a Tracker that records nothing.
+func NewNoop() Tracker { return noopTracker{} }
+
+func (noopTracker) Track(common.Hash) error              { return nil }
+func (noopTracker) EnteredQueued(common.Hash) error      { return nil }
+func (noopTracker) ExitedQueued(common.Hash) error       { return nil }
+func (noopTracker) EnteredPending(common.Hash) error     { return nil }
+func (noopTracker) ExitedPending(common.Hash) error      { return nil }
+func (noopTracker) IncludedInBlock(common.Hash) error    { return nil }
+func (noopTracker) RemovedFromPending(common.Hash) error { return nil }
+func (noopTracker) RemovedFromQueue(common.Hash) error   { return nil }
