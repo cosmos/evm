@@ -12,6 +12,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -30,7 +31,6 @@ import (
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -49,6 +49,32 @@ const (
 var AllowUnsafeSyncInsert = false
 
 var meter = otel.Meter("github.com/cosmos/evm/mempool")
+
+var (
+	selectByDuration      metric.Float64Histogram
+	buildIteratorDuration metric.Float64Histogram
+)
+
+func init() {
+	var err error
+	selectByDuration, err = meter.Float64Histogram(
+		"mempool.selectby_duration",
+		metric.WithDescription("Time spent in SelectBy iterating over txs"),
+		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	buildIteratorDuration, err = meter.Float64Histogram(
+		"mempool.builditerator_duration",
+		metric.WithDescription("Time spent building the unified mempool iterator"),
+		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 var _ sdkmempool.ExtMempool = (*Mempool)(nil)
 
@@ -198,6 +224,7 @@ func NewMempool(
 
 	// Setup queues
 	mempool.evmInsertQueue = queue.New(
+		"evm",
 		func(txs []*ethtypes.Transaction) []error {
 			return txPool.Add(txs, AllowUnsafeSyncInsert)
 		},
@@ -205,6 +232,7 @@ func NewMempool(
 	)
 
 	mempool.cosmosInsertQueue = queue.New(
+		"cosmos",
 		func(txs []*sdk.Tx) []error {
 			errs := make([]error, len(txs))
 			for i, tx := range txs {
@@ -335,7 +363,9 @@ func (m *Mempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator 
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
 func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
-	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_selectby_duration") }(time.Now()) //nolint:staticcheck
+	defer func(t0 time.Time) {
+		selectByDuration.Record(goCtx, float64(time.Since(t0).Milliseconds()))
+	}(time.Now())
 
 	iter := m.buildIterator(goCtx, txs)
 
@@ -347,7 +377,9 @@ func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.
 // buildIterator ensures that EVM mempool has checked txs for reorgs up to COMMITTED
 // block height and then returns a combined iterator over EVM & Cosmos txs.
 func (m *Mempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
-	defer func(t0 time.Time) { telemetry.MeasureSince(t0, "expmempool_builditerator_duration") }(time.Now()) //nolint:staticcheck
+	defer func(t0 time.Time) {
+		buildIteratorDuration.Record(ctx, float64(time.Since(t0).Milliseconds()))
+	}(time.Now())
 
 	evmIterator, cosmosIterator := m.getIterators(ctx, txs)
 
