@@ -10,14 +10,8 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// TestResolveReapListCap verifies the wiring math for the reap list cap.
-// Workstream A (STACK-2670): the cap must be the sum of the cosmos pool's
-// resolved cap and the legacypool's pending+queued slots, with the special
-// cases that an unbounded cosmos pool yields an unbounded reap list and a
-// configured-to-zero cosmos pool resolves to the SDK's DefaultMaxTx first.
 func TestResolveReapListCap(t *testing.T) {
-	// Snapshot the SDK default so the test does not depend on its current
-	// numeric value (it has flipped between -1 and 0 across SDK versions).
+	// Snapshot the SDK default; it has flipped between -1 and 0 across versions.
 	sdkDefault := sdkmempool.DefaultMaxTx
 
 	tests := []struct {

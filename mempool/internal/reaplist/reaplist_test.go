@@ -507,17 +507,13 @@ func TestFirstTransactionExceedsLimit(t *testing.T) {
 	err = rl.PushEVMTx(tx)
 	require.NoError(t, err)
 
-	// Try to reap with limit smaller than the tx (1000 bytes vs 500 byte limit).
-	// Under HOL eviction (STACK-2669) the tx is permanently oversized for any
-	// block at this limit, so it is evicted from the reap list rather than
-	// retained.
+	// Tx (1000 bytes) exceeds the 500-byte limit standalone, so it is evicted.
 	result := rl.Reap(500, 0)
-	require.Empty(t, result, "should return empty when first tx exceeds limit")
+	require.Empty(t, result)
 
-	// Even with a higher limit, the tx is gone -- it was evicted on the
-	// previous reap.
+	// Evicted tx must not reappear even when the limit grows.
 	result = rl.Reap(2000, 0)
-	require.Empty(t, result, "evicted tx must not reappear in subsequent reaps")
+	require.Empty(t, result)
 }
 
 // alwaysFailEncoder always returns an error for encoding
@@ -842,9 +838,7 @@ func TestConcurrentSameHashPush(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// Capacity tests (STACK-2670)
-// -----------------------------------------------------------------------------
+// Capacity tests
 
 func TestPushRefusedWhenAtCapacity(t *testing.T) {
 	key, err := crypto.GenerateKey()
@@ -857,12 +851,8 @@ func TestPushRefusedWhenAtCapacity(t *testing.T) {
 		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
 	}
 
-	// Next push must be refused with ErrReapListFull.
 	overflow := testEVMTx(t, key, uint64(capacity), 21000)
-	err = rl.PushEVMTx(overflow)
-	require.ErrorIs(t, err, ErrReapListFull)
-
-	// Cosmos pushes are refused under the same capacity.
+	require.ErrorIs(t, rl.PushEVMTx(overflow), ErrReapListFull)
 	require.ErrorIs(t, rl.PushCosmosTx(newMockCosmosTx(99, 21000)), ErrReapListFull)
 }
 
@@ -877,7 +867,6 @@ func TestCapacityRecoversAfterReap(t *testing.T) {
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21000)))
 	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)), ErrReapListFull)
 
-	// Reap clears the slots and capacity recovers.
 	result := rl.Reap(0, 0)
 	require.Len(t, result, 2)
 
@@ -897,13 +886,10 @@ func TestCapacityFreesOnDrop(t *testing.T) {
 	require.NoError(t, rl.PushEVMTx(tx0))
 	require.NoError(t, rl.PushEVMTx(tx1))
 
-	// Drop frees a live slot immediately. A subsequent push must succeed
-	// even before the next Reap compacts the tombstone -- otherwise a
-	// drop+promote sequence between Reaps could strand a promoted tx.
+	// Drop frees a live slot before the next Reap compacts the tombstone.
 	rl.DropEVMTx(tx0)
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21000)))
 
-	// Cap still holds: pushing past the live count fails.
 	require.ErrorIs(t, rl.PushEVMTx(testEVMTx(t, key, 3, 21000)), ErrReapListFull)
 }
 
@@ -929,7 +915,6 @@ func TestUnboundedWhenCosmosUnbounded(t *testing.T) {
 
 	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
-	// Push many txs; no capacity should ever fire.
 	for i := uint64(0); i < 200; i++ {
 		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
 	}
@@ -971,37 +956,29 @@ func TestConcurrentPushAtCapacity(t *testing.T) {
 	close(start)
 	wg.Wait()
 
-	// Cap must never be exceeded under contention.
-	require.LessOrEqual(t, accepted, int64(capacity), "accepted txs must not exceed capacity")
-	// And subsequent reap should return at most capacity txs.
+	require.LessOrEqual(t, accepted, int64(capacity))
 	result := rl.Reap(0, 0)
 	require.LessOrEqual(t, len(result), capacity)
 }
 
-// -----------------------------------------------------------------------------
-// Head-of-line eviction tests (STACK-2669)
-// -----------------------------------------------------------------------------
+// Head-of-line eviction tests
 
 func TestOversizedHeadEvicted_Bytes(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	// 1000 byte EVM txs; the first one is permanently too large for a 500
-	// byte block.
+	// 1000 byte txs vs a 500 byte block: both are oversized.
 	rl := New(newDeterministicEncoder(1000, 1000), Unbounded, nil)
 
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21000)))
 
-	// Reap with a byte limit smaller than a single tx -- both are oversized
-	// and both should be evicted.
 	result := rl.Reap(500, 0)
 	require.Empty(t, result)
 
-	// Subsequent reap must not see the evicted txs even when the limit
-	// would have accommodated them.
+	// Evicted txs must not reappear under a larger limit.
 	result = rl.Reap(0, 0)
-	require.Empty(t, result, "evicted oversized txs must not reappear")
+	require.Empty(t, result)
 }
 
 func TestOversizedHeadEvicted_Gas(t *testing.T) {
@@ -1010,16 +987,14 @@ func TestOversizedHeadEvicted_Gas(t *testing.T) {
 
 	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
-	// First tx is 1_000_000 gas; second is 21_000.
+	// Head tx exceeds the 100k gas budget standalone; second tx fits.
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 1_000_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 21_000)))
 
-	// Reap with a 100k gas budget. The head tx alone exceeds the budget and
-	// must be evicted; the second tx must still be reapable.
 	result := rl.Reap(0, 100_000)
-	require.Len(t, result, 1, "second tx should be reaped after head eviction")
+	require.Len(t, result, 1)
 
-	// The evicted tx is gone permanently.
+	// Evicted tx must not reappear.
 	result = rl.Reap(0, 10_000_000)
 	require.Empty(t, result)
 }
@@ -1030,14 +1005,13 @@ func TestOversizedMiddleEvicted(t *testing.T) {
 
 	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
-	// Three txs with the middle one having huge gas.
+	// tx1 is oversized; tx0 and tx2 fit.
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 5_000_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 21_000)))
 
-	// Reap with 100k gas: tx0 fits, tx1 is oversized (evicted), tx2 fits.
 	result := rl.Reap(0, 100_000)
-	require.Len(t, result, 2, "tx0 and tx2 should be reaped, oversized tx1 evicted")
+	require.Len(t, result, 2)
 }
 
 func TestMultipleConsecutiveOversized(t *testing.T) {
@@ -1046,16 +1020,15 @@ func TestMultipleConsecutiveOversized(t *testing.T) {
 
 	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
-	// Three consecutive oversized-by-gas txs followed by one fitting tx.
+	// Three oversized txs followed by one fitting tx.
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 5_000_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 5_000_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 5_000_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 3, 21_000)))
 
 	result := rl.Reap(0, 100_000)
-	require.Len(t, result, 1, "all three oversized evicted, last tx reaped")
+	require.Len(t, result, 1)
 
-	// Subsequent reap is empty: all oversized are gone, the last was reaped.
 	result = rl.Reap(0, 10_000_000)
 	require.Empty(t, result)
 }
@@ -1066,19 +1039,16 @@ func TestOversizedThenBudgetExceeded(t *testing.T) {
 
 	rl := New(newDeterministicEncoder(100, 100), Unbounded, nil)
 
-	// tx0: oversized for the budget (must be evicted)
-	// tx1: fits the budget
-	// tx2: would push us over the budget (must be retained, not evicted)
+	// tx0: oversized (evicted). tx1: fits. tx2: over remaining budget (retained).
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 5_000_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 1, 80_000)))
 	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 2, 80_000)))
 
 	result := rl.Reap(0, 100_000)
-	require.Len(t, result, 1, "only tx1 fits in this reap")
+	require.Len(t, result, 1)
 
-	// tx2 is still in the list and reapable next time.
 	result = rl.Reap(0, 100_000)
-	require.Len(t, result, 1, "tx2 should reap on the next call")
+	require.Len(t, result, 1)
 }
 
 func TestOversizedDropCallbackInvoked(t *testing.T) {
@@ -1107,33 +1077,29 @@ func TestOversizedDropCallbackInvoked(t *testing.T) {
 	cosmosTx := newMockCosmosTx(0, 5_000_000)
 	require.NoError(t, rl.PushCosmosTx(cosmosTx))
 
-	// Reap with 100k gas: both are oversized, both must invoke the callback.
 	_ = rl.Reap(0, 100_000)
 
 	mu.Lock()
 	defer mu.Unlock()
 	require.Len(t, got, 2)
 
-	// Order must match insertion order (EVM, then Cosmos).
+	// Order matches insertion order.
 	require.Equal(t, KindEVM, got[0].kind)
 	require.Equal(t, evmTx.Hash().String(), got[0].hash)
-	require.False(t, got[0].hasTx, "EVM eviction should not carry sdk.Tx")
+	require.False(t, got[0].hasTx)
 
 	require.Equal(t, KindCosmos, got[1].kind)
-	require.True(t, got[1].hasTx, "Cosmos eviction must carry sdk.Tx for sub-pool removal")
+	require.True(t, got[1].hasTx)
 }
 
-// TestEvictionDropCallbackReentrant verifies that the drop callback is invoked
-// after the reap list lock is released, so callbacks can safely call back
-// into the reap list (e.g. via DropEVMTx) without deadlock.
+// TestEvictionDropCallbackReentrant ensures the callback runs outside the lock
+// so re-entering the reap list cannot deadlock.
 func TestEvictionDropCallbackReentrant(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
 	var rl *ReapList
 	cb := func(hash string, kind TxKind, _ sdk.Tx) {
-		// Re-entering the reap list from the callback must not deadlock.
-		// Using a non-existent tx so this is a no-op drop.
 		fakeTx := testEVMTx(t, key, 999, 21000)
 		rl.DropEVMTx(fakeTx)
 	}
@@ -1149,6 +1115,6 @@ func TestEvictionDropCallbackReentrant(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		t.Fatal("reap did not complete - drop callback likely caused a deadlock")
+		t.Fatal("reap deadlocked")
 	}
 }
