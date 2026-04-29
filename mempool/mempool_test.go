@@ -633,23 +633,34 @@ type testMempoolDependencies struct {
 // AdvanceNonce updates the mock vmKeeper to return newNonce for GetNonce(addr)
 // and a matching Account from GetAccount. Used to simulate chain-state advance
 // between blocks so legacypool's reactive reset path can observe the change.
+//
+// Assumes prior GetNonce/GetAccount expectations were registered with a
+// concrete common.Address argument (as setupMempool does). Expectations
+// registered with mock.Anything or other non-Address matchers would not match
+// the type assertion below and would survive — leaving stale entries that race
+// with the new ones.
 func (s *testMempoolDependencies) AdvanceNonce(t *testing.T, addr common.Address, newNonce uint64) {
 	t.Helper()
-	filtered := make([]*mock.Call, 0, len(s.vmKeeper.ExpectedCalls))
+	var toUnset []*mock.Call
 	for _, c := range s.vmKeeper.ExpectedCalls {
-		if c.Method == "GetNonce" && len(c.Arguments) >= 1 {
-			if a, ok := c.Arguments[0].(common.Address); ok && a == addr {
-				continue
+		switch c.Method {
+		case "GetNonce":
+			if len(c.Arguments) >= 1 {
+				if a, ok := c.Arguments[0].(common.Address); ok && a == addr {
+					toUnset = append(toUnset, c)
+				}
+			}
+		case "GetAccount":
+			if len(c.Arguments) >= 2 {
+				if a, ok := c.Arguments[1].(common.Address); ok && a == addr {
+					toUnset = append(toUnset, c)
+				}
 			}
 		}
-		if c.Method == "GetAccount" && len(c.Arguments) >= 2 {
-			if a, ok := c.Arguments[1].(common.Address); ok && a == addr {
-				continue
-			}
-		}
-		filtered = append(filtered, c)
 	}
-	s.vmKeeper.ExpectedCalls = filtered
+	for _, c := range toUnset {
+		c.Unset() // acquires the mock's internal mutex
+	}
 	s.vmKeeper.On("GetNonce", addr).Return(newNonce).Maybe()
 	s.vmKeeper.On("GetAccount", mock.Anything, addr).Return(&statedb.Account{
 		Nonce:   newNonce,
@@ -856,7 +867,7 @@ func createMsgEthereum7702Tx(
 	senderKey *ecdsa.PrivateKey,
 	txNonce uint64,
 	auths []types.SetCodeAuthorization,
-) (sdk.Tx, *types.Transaction) {
+) sdk.Tx {
 	t.Helper()
 
 	chainID := vmtypes.GetEthChainConfig().ChainID
@@ -882,7 +893,7 @@ func createMsgEthereum7702Tx(
 	// option.
 	cosmosTx, err := evmtestutiltx.PrepareEthTx(txConfig, nil, msg)
 	require.NoError(t, err)
-	return cosmosTx, signedTx
+	return cosmosTx
 }
 
 // signSetCodeAuth is a small wrapper around types.SignSetCode for tests.
@@ -925,8 +936,9 @@ func TestEvictsStaleTx(t *testing.T) {
 			targetIdx:   1,
 			seedNonces:  []uint64{0},
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 1)}
-				cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
@@ -939,8 +951,9 @@ func TestEvictsStaleTx(t *testing.T) {
 			targetIdx:   0,
 			seedNonces:  []uint64{0, 1},
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[0].key, 1)}
-				cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
