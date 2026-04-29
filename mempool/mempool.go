@@ -246,8 +246,6 @@ func NewMempool(
 		config.InsertQueueSize,
 	)
 
-	vmKeeper.SetEvmMempool(mempool)
-
 	// Start the cosmos pool recheck loop
 	mempool.recheckCosmosPool.Start(blockchain.CurrentBlock())
 
@@ -509,13 +507,17 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		panic(err)
 	}
 	go func() {
-		bc := m.GetBlockchain()
 		for range sub.Out() {
-			bc.NotifyNewBlock()
-			// Trigger cosmos pool recheck on new block (non-blocking)
-			m.recheckCosmosPool.TriggerRecheck(bc.CurrentBlock())
+			m.NotifyNewBlock()
 		}
 	}()
+}
+
+// NotifyNewBlock manually notifies that there has been a new block produced
+// and it should update its internal data structures.
+func (m *Mempool) NotifyNewBlock() {
+	m.blockchain.NotifyNewBlock()
+	m.recheckCosmosPool.TriggerRecheck(m.blockchain.CurrentBlock())
 }
 
 // HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
