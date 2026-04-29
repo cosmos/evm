@@ -301,7 +301,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 
 		contractAddress := common.Address{}
 		if tx.To() == nil {
-			contractAddress = crypto.CreateAddress(common.Address(ethMsg.GetFrom().Bytes()), tx.Nonce())
+			contractAddress = crypto.CreateAddress(common.BytesToAddress(ethMsg.GetFrom().Bytes()), tx.Nonce())
 		}
 
 		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
