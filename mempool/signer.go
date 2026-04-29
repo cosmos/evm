@@ -21,8 +21,10 @@ func NewEthSignerExtractionAdapter(fallback mempool.SignerExtractionAdapter) Eth
 	return EthSignerExtractionAdapter{fallback}
 }
 
-// GetSigners implements the Adapter interface
-// NOTE: only the first item is used by the mempool
+// GetSigners returns the EVM tx sender. EIP-7702 authorities are NOT enumerated:
+// auth.Nonce is unverifiable from tx data, so eager signaling could falsely
+// evict pending txs. Async reset catches authority nonce advances instead.
+// Non-EVM cosmos txs fall through to the SDK default.
 func (s EthSignerExtractionAdapter) GetSigners(tx sdk.Tx) ([]mempool.SignerData, error) {
 	if txWithExtensions, ok := tx.(authante.HasExtensionOptionsTx); ok {
 		opts := txWithExtensions.GetExtensionOptions()
