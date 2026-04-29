@@ -644,6 +644,51 @@ func (s *IntegrationTestSuite) TestRechecking() {
 				s.Require().Equal(1, queued, "expected pending tx to be demoted to queued")
 			},
 		},
+		{
+			name: "invalid queue tx stays queue while gapped and dropped once filled",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+				var txs []sdk.Tx
+
+				gasPrice := big.NewInt(1000000000)
+
+				// queued tx that will be promoted once the nonce gap is filled
+				txs = append(txs, s.createEVMValueTransferTx(key, 1, gasPrice))
+
+				// queued tx that is invalid when taking into account the above
+				// tx, and will be dropped only once the above tx is promoted
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasCost := new(big.Int).Mul(big.NewInt(TxGas), gasPrice)
+				value := new(big.Int).Sub(new(big.Int).Quo(balance, big.NewInt(2)), gasCost)
+				txs = append(txs, s.createEVMValueTransferTxWithValue(key, 2, value, gasPrice))
+
+				// this tx is valid if we have removed the above tx, this
+				// should not be promoted (it will be gapped again once its
+				// parent is dropped), but it should stay in queued
+				txs = append(txs, s.createEVMValueTransferTx(key, 3, gasPrice))
+
+				return txs, s.getTxHashes([]sdk.Tx{txs[0]})
+			},
+			networkTxs: func() []sdk.Tx {
+				// create a new network tx spending just over half balance
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				value := new(big.Int).Quo(balance, big.NewInt(2))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(s.keyring.GetKey(0), 0, value, big.NewInt(1000000000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+
+				pending, queued := legacyPool.ContentFrom(s.keyring.GetKey(0).Addr)
+				s.Require().Len(pending, 1, "expected only 1 tx to have been promoted to pending")
+				s.Require().Len(queued, 1, "expected only 1 tx to have stayed in queued")
+
+				s.Require().Equal(uint64(0x1), pending[0].Nonce(), "expected nonce 1 tx to be in pending")
+				s.Require().Equal(uint64(0x3), queued[0].Nonce(), "expected nonce 3 tx to be in queued")
+			},
+		},
 	}
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
