@@ -898,193 +898,96 @@ func signSetCodeAuth(t *testing.T, key *ecdsa.PrivateKey, nonce uint64) types.Se
 	return auth
 }
 
-// Self-sponsored 7702: sender's nonce bumps twice on chain (tx + self-auth)
-// but eager only signals tx.Nonce(). A pending tx in the +1 gap is left for
-// async reset to evict.
-func TestRecordNonceAdvances_EIP7702_SenderIsAuthority_AuthBumpNotTrackedEagerly(t *testing.T) {
-	mp, s := setupMempoolWithAccounts(t, 1)
-	txConfig, accounts := s.txConfig, s.accounts
-
-	senderKey := accounts[0].key
-	senderAddr := accounts[0].address
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-
-	txNonce := uint64(0)
-	auths := []types.SetCodeAuthorization{signSetCodeAuth(t, senderKey, txNonce+1)}
-	cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, senderKey, txNonce, auths)
-
-	require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
-		Caller: mempooltypes.CallerRunTxFinalize,
-	}))
-
-	got, ok := legacyPool.LatestNonce(senderAddr)
-	require.True(t, ok)
-	require.Equal(t, txNonce, got)
-}
-
-// Cross-account 7702: authority's nonce bump is not tracked eagerly; async
-// reset picks it up on the next block-head event.
-func TestRecordNonceAdvances_EIP7702_AuthorityNotTrackedEagerly(t *testing.T) {
-	mp, s := setupMempoolWithAccounts(t, 2)
-	txConfig, accounts := s.txConfig, s.accounts
-
-	senderKey := accounts[0].key
-	senderAddr := accounts[0].address
-	authorityAddr := accounts[1].address
-	authorityKey := accounts[1].key
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-
-	txNonce := uint64(2)
-	authNonce := uint64(7)
-	auths := []types.SetCodeAuthorization{signSetCodeAuth(t, authorityKey, authNonce)}
-	cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, senderKey, txNonce, auths)
-
-	require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
-		Caller: mempooltypes.CallerRunTxFinalize,
-	}))
-
-	// Sender IS tracked eagerly via the standard recordNonceAdvances path.
-	gotSender, ok := legacyPool.LatestNonce(senderAddr)
-	require.True(t, ok, "expected LatestNonce to be recorded for sender")
-	require.Equal(t, txNonce, gotSender)
-
-	// Authority is NOT tracked eagerly. Async reset (block-head subscription)
-	// will pick up the on-chain advance later.
-	_, ok = legacyPool.LatestNonce(authorityAddr)
-	require.False(t, ok, "authority must not be tracked eagerly; rely on async reset")
-}
-
-// Reactive reset evicts a stale sender tx after the chain advances. Eager
-// mechanism not invoked; eviction is purely from legacypool.reset() reading
-// chain state on a new block-head event.
-func TestReactiveReset_EvictsStaleSenderTx(t *testing.T) {
-	mp, s := setupMempoolWithAccounts(t, 1)
-	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
-	sender := accounts[0]
-
-	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{Height: 1, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-	}))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	tx := createMsgEthereumTx(t, txConfig, sender.key, 0, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(context.Background(), tx))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	pending, _ := legacyPool.ContentFrom(sender.address)
-	require.Len(t, pending, 1)
-
-	// Advance chain state without calling RemoveWithReason: eager path stays silent.
-	s.InstallNonceCheckingRechecker(t)
-	s.AdvanceNonce(t, sender.address, 1)
-
-	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{Height: 2, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-	}))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	require.Eventually(t, func() bool {
-		p, q := legacyPool.ContentFrom(sender.address)
-		return len(p) == 0 && len(q) == 0
-	}, time.Second, 10*time.Millisecond, "reactive reset must evict stale sender tx")
-}
-
-// Cross-account 7702: authority's pending tx is evicted by reactive reset.
-// Eager only signals sender; authority eviction depends on legacypool.reset()
-// observing the chain advance.
-func TestReactiveReset_EvictsAuthorityTxAfter7702(t *testing.T) {
-	mp, s := setupMempoolWithAccounts(t, 2)
-	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
-	senderAcc := accounts[0]
-	authorityAcc := accounts[1]
-
-	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{Height: 1, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-	}))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	authorityTx := createMsgEthereumTx(t, txConfig, authorityAcc.key, 0, big.NewInt(1e8))
-	require.NoError(t, mp.Insert(context.Background(), authorityTx))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	pending, _ := legacyPool.ContentFrom(authorityAcc.address)
-	require.Len(t, pending, 1)
-
-	// Finalize a 7702 tx where authorityAcc authorizes a target. Eager fires
-	// for sender only; authority is not signaled.
-	txNonce := uint64(0)
-	auths := []types.SetCodeAuthorization{signSetCodeAuth(t, authorityAcc.key, 1)}
-	cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, senderAcc.key, txNonce, auths)
-	require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
-		Caller: mempooltypes.CallerRunTxFinalize,
-	}))
-	_, ok := legacyPool.LatestNonce(authorityAcc.address)
-	require.False(t, ok, "authority must not be eagerly tracked")
-
-	// Simulate the auth applying: authority's chain nonce now 1.
-	s.InstallNonceCheckingRechecker(t)
-	s.AdvanceNonce(t, authorityAcc.address, 1)
-
-	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{Height: 2, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-	}))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	require.Eventually(t, func() bool {
-		p, q := legacyPool.ContentFrom(authorityAcc.address)
-		return len(p) == 0 && len(q) == 0
-	}, time.Second, 10*time.Millisecond, "reactive reset must evict authority tx after 7702")
-}
-
-// Self-sponsored 7702: sender's tx in the +1 nonce gap is evicted by reactive
-// reset. Eager only signals tx.Nonce(); the auth-driven +1 bump is caught only
-// when reset reads chain state.
-func TestReactiveReset_EvictsSenderGapAfterSelfSponsored7702(t *testing.T) {
-	mp, s := setupMempoolWithAccounts(t, 1)
-	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
-	sender := accounts[0]
-
-	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{Height: 1, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-	}))
-	require.NoError(t, mp.GetTxPool().Sync())
-
-	// Pre-seed sender's pending txs at nonces 0 and 1.
-	for nonce := uint64(0); nonce < 2; nonce++ {
-		tx := createMsgEthereumTx(t, txConfig, sender.key, nonce, big.NewInt(1e8))
-		require.NoError(t, mp.Insert(context.Background(), tx))
+// TestEvictsStaleTx covers eviction of stale txs via demoteUnexecutables →
+// RecheckEVM during reset, across three scenarios where the eager mechanism
+// can't or doesn't catch the chain advance.
+func TestEvictsStaleTx(t *testing.T) {
+	type scenario struct {
+		name         string
+		numAccounts  int
+		targetIdx    int      // account whose pool should drain
+		seedNonces   []uint64 // nonces to pre-seed for accounts[targetIdx]
+		finalize7702 func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
+		advanceTo    uint64 // chain nonce to set for accounts[targetIdx]
 	}
-	require.NoError(t, mp.GetTxPool().Sync())
 
-	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-	pending, _ := legacyPool.ContentFrom(sender.address)
-	require.Len(t, pending, 2)
+	cases := []scenario{
+		{
+			name:        "stale-sender-no-7702",
+			numAccounts: 1,
+			targetIdx:   0,
+			seedNonces:  []uint64{0},
+			advanceTo:   1,
+		},
+		{
+			name:        "authority-after-cross-account-7702",
+			numAccounts: 2,
+			targetIdx:   1,
+			seedNonces:  []uint64{0},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 1)}
+				cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo: 1,
+		},
+		{
+			name:        "sender-+1-gap-after-self-sponsored-7702",
+			numAccounts: 1,
+			targetIdx:   0,
+			seedNonces:  []uint64{0, 1},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[0].key, 1)}
+				cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo: 2,
+		},
+	}
 
-	// Finalize a self-sponsored 7702 tx. Eager: SetLatestNonce(sender, 0).
-	// removeOlds drops nonce ≤ 0; sender@1 stays. The auth-driven +1 bump is
-	// invisible to eager.
-	txNonce := uint64(0)
-	auths := []types.SetCodeAuthorization{signSetCodeAuth(t, sender.key, txNonce+1)}
-	cosmosTx, _ := createMsgEthereum7702Tx(t, txConfig, sender.key, txNonce, auths)
-	require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
-		Caller: mempooltypes.CallerRunTxFinalize,
-	}))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp, s := setupMempoolWithAccounts(t, tc.numAccounts)
+			txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
+			target := accounts[tc.targetIdx]
 
-	// Simulate both bumps applied: chain nonce now 2.
-	s.InstallNonceCheckingRechecker(t)
-	s.AdvanceNonce(t, sender.address, 2)
+			require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+				Header: cmttypes.Header{Height: 1, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+			}))
+			require.NoError(t, mp.GetTxPool().Sync())
 
-	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-		Header: cmttypes.Header{Height: 2, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-	}))
-	require.NoError(t, mp.GetTxPool().Sync())
+			for _, n := range tc.seedNonces {
+				tx := createMsgEthereumTx(t, txConfig, target.key, n, big.NewInt(1e8))
+				require.NoError(t, mp.Insert(context.Background(), tx))
+			}
+			require.NoError(t, mp.GetTxPool().Sync())
 
-	require.Eventually(t, func() bool {
-		p, q := legacyPool.ContentFrom(sender.address)
-		return len(p) == 0 && len(q) == 0
-	}, time.Second, 10*time.Millisecond, "reactive reset must evict sender's +1 gap tx after self-sponsored 7702")
+			legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+			pending, _ := legacyPool.ContentFrom(target.address)
+			require.Len(t, pending, len(tc.seedNonces))
+
+			if tc.finalize7702 != nil {
+				tc.finalize7702(t, mp, txConfig, accounts)
+			}
+
+			s.InstallNonceCheckingRechecker(t)
+			s.AdvanceNonce(t, target.address, tc.advanceTo)
+
+			require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+				Header: cmttypes.Header{Height: 2, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+			}))
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			require.Eventually(t, func() bool {
+				p, q := legacyPool.ContentFrom(target.address)
+				return len(p) == 0 && len(q) == 0
+			}, time.Second, 10*time.Millisecond, "reset must evict stale tx")
+		})
+	}
 }
 
 // decodeTxBytes decodes transaction bytes returned from ReapNewValidTxs back into an Ethereum transaction
