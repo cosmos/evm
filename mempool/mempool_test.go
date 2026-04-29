@@ -920,6 +920,11 @@ func TestEvictsStaleTx(t *testing.T) {
 		seedNonces   []uint64 // nonces to pre-seed for accounts[targetIdx]
 		finalize7702 func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
 		advanceTo    uint64 // chain nonce to set for accounts[targetIdx]
+		// Expected eager-cache state for accounts[targetIdx] AFTER the test:
+		// expectsEager=false when no SetLatestNonce was triggered for the target;
+		// expectsEager=true with eagerNonce set when the eager path fired.
+		expectsEager bool
+		eagerNonce   uint64
 	}
 
 	cases := []scenario{
@@ -929,6 +934,8 @@ func TestEvictsStaleTx(t *testing.T) {
 			targetIdx:   0,
 			seedNonces:  []uint64{0},
 			advanceTo:   1,
+			// no RemoveWithReason call → eager cache untouched.
+			expectsEager: false,
 		},
 		{
 			name:        "authority-after-cross-account-7702",
@@ -944,6 +951,8 @@ func TestEvictsStaleTx(t *testing.T) {
 				}))
 			},
 			advanceTo: 1,
+			// Eager fires for sender (idx 0); authority (idx 1, the target) is invisible.
+			expectsEager: false,
 		},
 		{
 			name:        "sender-+1-gap-after-self-sponsored-7702",
@@ -959,6 +968,9 @@ func TestEvictsStaleTx(t *testing.T) {
 				}))
 			},
 			advanceTo: 2,
+			// Eager fires for sender (== target) at tx.Nonce()=0; the +1 bump is reactive.
+			expectsEager: true,
+			eagerNonce:   0,
 		},
 	}
 
@@ -999,6 +1011,14 @@ func TestEvictsStaleTx(t *testing.T) {
 				p, q := legacyPool.ContentFrom(target.address)
 				return len(p) == 0 && len(q) == 0
 			}, time.Second, 10*time.Millisecond, "reset must evict stale tx")
+
+			got, ok := legacyPool.LatestNonce(target.address)
+			if tc.expectsEager {
+				require.True(t, ok, "eager cache should have an entry for target")
+				require.Equal(t, tc.eagerNonce, got)
+			} else {
+				require.False(t, ok, "no eager signal expected; eviction proves reactive path")
+			}
 		})
 	}
 }
