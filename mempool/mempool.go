@@ -407,8 +407,13 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 
 // RemoveWithReason removes a transaction from the appropriate sdkmempool.
 //
-// NOTE: even if removal fails, side effects may have occurred like recording
+// NOTE #1: even if removal fails, side effects may have occurred like recording
 // nonce increments.
+//
+// NOTE #2: This method might be called multiple times for the same tx:
+//   - during tx re-execution by BlockSTM
+//   - during tx execution by OptimisticExecution that fails
+//     and then inside another finalizeBlock() (e.g. consensus round increment)
 func (m *Mempool) RemoveWithReason(_ context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
 	msgEthereumTx, err := evmTxFromCosmosTx(tx)
 	switch {
@@ -432,8 +437,7 @@ func (m *Mempool) removeCosmosTx(tx sdk.Tx, reason sdkmempool.RemoveReason) erro
 	}
 
 	if err := m.recheckCosmosPool.Remove(tx); err != nil {
-		m.logger.Error("Failed to remove Cosmos transaction", "error", err)
-		return fmt.Errorf("removing cosmos tx: %w", err)
+		return fmt.Errorf("recheckCosmosPool.Remove: %w", err)
 	}
 
 	m.logger.Debug("Cosmos transaction removed successfully")
