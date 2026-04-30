@@ -245,12 +245,22 @@ func NewExampleApp(
 	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 	tKeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey)
 
+	// EVMKeeper takes the non-transient stores (KV + Object); transient stores
+	// are passed separately via the tkeys map.
 	var nonTransientKeys []storetypes.StoreKey
 	for _, k := range keys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
+	}
+
+	// BlockSTM conflict detection requires every store the txs may touch —
+	// omitting any lets parallel incarnations read stale values without re-execution.
+	stmTrackedKeys := make([]storetypes.StoreKey, 0, len(nonTransientKeys)+len(tKeys))
+	stmTrackedKeys = append(stmTrackedKeys, nonTransientKeys...)
+	for _, k := range tKeys {
+		stmTrackedKeys = append(stmTrackedKeys, k)
 	}
 
 	// disable block gas meter
@@ -715,6 +725,7 @@ func NewExampleApp(
 	// initialize stores
 	app.MountKVStores(keys)
 	app.MountObjectStores(oKeys)
+	app.MountTransientStores(tKeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
@@ -782,7 +793,7 @@ func NewExampleApp(
 
 	vmrunner.SetRunner(bApp, txnrunner.NewSTMRunner(
 		txDecoder,
-		nonTransientKeys,
+		stmTrackedKeys,
 		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
 		true,
 		func(ms storetypes.MultiStore) string {

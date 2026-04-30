@@ -387,18 +387,18 @@ func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
 
 // GetTransientGasUsed returns the gas used by current cosmos tx.
 func (k Keeper) GetTransientGasUsed(ctx sdk.Context) uint64 {
-	store := ctx.ObjectStore(k.objectKey)
-	v := store.Get(types.ObjectGasUsedKey(ctx.TxIndex()))
-	if v == nil {
+	store := ctx.TransientStore(k.transientStoreKeys[types.TransientKey])
+	bz := store.Get(types.TransientGasUsedKey(ctx.TxIndex()))
+	if bz == nil {
 		return 0
 	}
-	return v.(uint64)
+	return sdk.BigEndianToUint64(bz)
 }
 
 // SetTransientGasUsed sets the gas used by current cosmos tx.
 func (k Keeper) SetTransientGasUsed(ctx sdk.Context, gasUsed uint64) {
-	store := ctx.ObjectStore(k.objectKey)
-	store.Set(types.ObjectGasUsedKey(ctx.TxIndex()), gasUsed)
+	store := ctx.TransientStore(k.transientStoreKeys[types.TransientKey])
+	store.Set(types.TransientGasUsedKey(ctx.TxIndex()), sdk.Uint64ToBigEndian(gasUsed))
 }
 
 // AddTransientGasUsed accumulate gas used by each eth msgs included in current cosmos tx.
