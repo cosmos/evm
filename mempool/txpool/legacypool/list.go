@@ -129,7 +129,7 @@ func (m *SortedMap) Filter(filter func(*types.Transaction) bool) types.Transacti
 // the operation is done. If you want to do several consecutive filterings,
 // it's therefore better to first do a .filterSorted(func1) followed by
 // .FilterSorted(func2) or reheap()
-func (m *SortedMap) FilterSorted(filter func(*types.Transaction) (remove bool, stop bool)) types.Transactions {
+func (m *SortedMap) FilterSorted(filter func(*types.Transaction) bool) types.Transactions {
 	removed := m.filterSorted(filter)
 	// If transactions were removed, the heap and cache are ruined
 	if len(removed) > 0 {
@@ -151,19 +151,15 @@ func (m *SortedMap) reheap() {
 
 // filterSorted is the same as filter, but iteration over the transactions goes
 // from lowest to highest nonce.
-func (m *SortedMap) filterSorted(filter func(*types.Transaction) (remove bool, stop bool)) types.Transactions {
+func (m *SortedMap) filterSorted(filter func(tx *types.Transaction) bool) types.Transactions {
 	var removed types.Transactions
 
 	// Flatten sorts txs by nonce in ascending order
 	sorted := m.flatten()
 	for _, tx := range sorted {
-		remove, stop := filter(tx)
-		if remove {
+		if filter(tx) {
 			removed = append(removed, tx)
 			delete(m.items, tx.Nonce())
-		}
-		if stop {
-			break
 		}
 	}
 	if len(removed) > 0 {
@@ -419,7 +415,7 @@ func (l *list) CostFilter(costLimit *uint256.Int, gasLimit uint64) (removed type
 
 // FilterSorted iterates over txs in ascending nonce order and filters them by
 // a filter function. If the filter fn returns true for a tx, it is removed.
-func (l *list) FilterSorted(filterFn func(tx *types.Transaction) (remove bool, stop bool)) (removed types.Transactions, invalids types.Transactions) {
+func (l *list) FilterSorted(filterFn func(tx *types.Transaction) bool) (removed types.Transactions, invalids types.Transactions) {
 	removed = l.txs.filterSorted(filterFn)
 	if len(removed) == 0 {
 		return nil, nil
