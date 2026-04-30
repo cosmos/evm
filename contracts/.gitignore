@@ -4,6 +4,9 @@ artifacts/
 # Precompiles build output (OpenZeppelin-style dist)
 dist/
 
+# Generated Solidity interface sources (published artifact)
+precompiles/
+
 # Wagmi/tsdown staging (generated inputs)
 .generated/
 
