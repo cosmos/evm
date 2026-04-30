@@ -911,9 +911,9 @@ func signSetCodeAuth(t *testing.T, key *ecdsa.PrivateKey, nonce uint64) types.Se
 
 // TestStaleNonceHandling covers pool behavior on chain advance across
 // scenarios where the eager mechanism can't or doesn't catch the new
-// nonce. Most cases assert reactive eviction via demoteUnexecutables →
-// RecheckEVM. The queued-promotion-lag case asserts the accepted 1-block
-// delay when a 7702 authority bump closes a queued tx's gap.
+// nonce. Cases assert reactive eviction via demoteUnexecutables →
+// RecheckEVM, or queued-tx promotion when a 7702 authority bump closes
+// a nonce gap.
 func TestStaleNonceHandling(t *testing.T) {
 	type expect struct {
 		pending int
@@ -927,9 +927,7 @@ func TestStaleNonceHandling(t *testing.T) {
 		seedQueuedNonces []uint64 // queued seeds (gapped from chain nonce)
 		finalize7702     func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
 		advanceTo        uint64 // chain nonce to set for accounts[targetIdx]
-		wantAfterReset   expect // expected counts after the first reset
-		secondReset      bool   // run a second reset and check wantAfterReset2
-		wantAfterReset2  expect
+		wantAfterReset   expect // expected counts after the reset
 		// Eager-cache state for accounts[targetIdx] AFTER the test:
 		// expectsEager=false when no SetLatestNonce was triggered for the target;
 		// expectsEager=true with eagerNonce set when the eager path fired.
@@ -1078,19 +1076,7 @@ func TestStaleNonceHandling(t *testing.T) {
 			require.Eventually(t, func() bool {
 				p, q := legacyPool.ContentFrom(target.address)
 				return len(p) == tc.wantAfterReset.pending && len(q) == tc.wantAfterReset.queued
-			}, time.Second, 10*time.Millisecond, "first reset state mismatch")
-
-			if tc.secondReset {
-				require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
-					Header: cmttypes.Header{Height: 3, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
-				}))
-				require.NoError(t, mp.GetTxPool().Sync())
-
-				require.Eventually(t, func() bool {
-					p, q := legacyPool.ContentFrom(target.address)
-					return len(p) == tc.wantAfterReset2.pending && len(q) == tc.wantAfterReset2.queued
-				}, time.Second, 10*time.Millisecond, "second reset state mismatch")
-			}
+			}, time.Second, 10*time.Millisecond, "reset state mismatch")
 
 			got, ok := legacyPool.LatestNonce(target.address)
 			if tc.expectsEager {

@@ -94,7 +94,7 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 
 // RunSetCode7702QueuedTxPromotion proves that a queued tx whose nonce gap
 // is closed by a self-sponsored 7702 actually promotes and lands. Submits
-// tx5 (gap of 4 from chain head), then a self-sponsored 7702 with 4
+// tx5 (5 nonces ahead of chain head), then a self-sponsored 7702 with 4
 // self-auths to bump the sender's chain nonce by 5. Asserts both land.
 func RunSetCode7702QueuedTxPromotion(t *testing.T, base *suite.BaseTestSuite) {
 	s := NewTestSuite(base)
@@ -114,7 +114,7 @@ func RunSetCode7702QueuedTxPromotion(t *testing.T, base *suite.BaseTestSuite) {
 		startNonce, err := s.NonceAt(nodeID, signer.ID)
 		require.NoError(t, err)
 
-		// Queued tx with gap of 4 from chain head.
+		// Queued tx 5 nonces ahead of chain head.
 		queuedTxInfo, err := s.SendTx(t, nodeID, signer.ID, 5, s.GasPriceMultiplier(10), big.NewInt(1))
 		require.NoError(t, err, "failed to send queued tx")
 		require.NoError(t, s.CheckTxsQueuedAsync([]*suite.TxInfo{queuedTxInfo}))
