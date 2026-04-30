@@ -1854,6 +1854,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address, cancelled 
 		}
 
 		// Drop all transactions that now fail RecheckEVM with a non tolerated error
+		//
+		// NOTE: this is happening after the nonce removal above since this
+		// check is slower, we would like it to happen on the fewest txs as
+		// possible.
 		recheckStart := time.Now()
 		recheckDrops, _ := list.FilterSorted(func(tx *types.Transaction) bool {
 			ctx, write := pool.rechecker.GetContext()
@@ -2075,8 +2079,11 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 		olds := pool.removeOlds(addr, list, Pending)
 		pendingRemovedOld.Add(context.Background(), int64(len(olds)))
 
-		// Drop all transactions that now fail RecheckEVM with a non tolerated
-		// error
+		// Drop all transactions that now fail RecheckEVM with a non tolerated error
+		//
+		// NOTE: this is happening after the nonce removal above since this
+		// check is slower, we would like it to happen on the fewest txs as
+		// possible.
 		recheckStart := time.Now()
 		var removedPrevious bool
 		recheckDrops, recheckInvalids := list.FilterSorted(func(tx *types.Transaction) bool {
