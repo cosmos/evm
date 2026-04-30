@@ -13,7 +13,7 @@
     "typescript": "^5.0.0"
   },
   "scripts": {
-    "build:precompiles": "wagmi generate && tsdown",
+    "build:precompiles": "pnpm exec hardhat compile && wagmi generate && tsdown",
     "prepublishOnly": "pnpm run build:precompiles"
   },
   "files": [
