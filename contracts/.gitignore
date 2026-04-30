@@ -4,6 +4,9 @@ artifacts/
 # Precompiles build output (OpenZeppelin-style dist)
 dist/
 
+# Wagmi/tsdown staging (generated inputs)
+.generated/
+
 # Cached files
 cache/
 
