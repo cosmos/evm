@@ -865,7 +865,6 @@ func createMsgEthereum7702Tx(
 	t *testing.T,
 	txConfig client.TxConfig,
 	senderKey *ecdsa.PrivateKey,
-	txNonce uint64,
 	auths []types.SetCodeAuthorization,
 ) sdk.Tx {
 	t.Helper()
@@ -874,7 +873,7 @@ func createMsgEthereum7702Tx(
 	to := common.Address{0x55}
 	signedTx := types.MustSignNewTx(senderKey, types.LatestSignerForChainID(chainID), &types.SetCodeTx{
 		ChainID:   uint256.MustFromBig(chainID),
-		Nonce:     txNonce,
+		Nonce:     0,
 		GasTipCap: uint256.NewInt(1),
 		GasFeeCap: uint256.NewInt(1e9),
 		Gas:       250000,
@@ -954,7 +953,7 @@ func TestStaleNonceHandling(t *testing.T) {
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
 				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 1)}
-				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
@@ -972,7 +971,7 @@ func TestStaleNonceHandling(t *testing.T) {
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
 				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[0].key, 1)}
-				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
@@ -1001,7 +1000,7 @@ func TestStaleNonceHandling(t *testing.T) {
 					signSetCodeAuth(t, accs[0].key, 3),
 					signSetCodeAuth(t, accs[0].key, 4),
 				}
-				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
@@ -1024,7 +1023,7 @@ func TestStaleNonceHandling(t *testing.T) {
 			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
 				t.Helper()
 				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 0)}
-				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
 				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
