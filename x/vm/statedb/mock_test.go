@@ -25,8 +25,10 @@ type MockAcount struct {
 }
 
 type MockKeeper struct {
-	accounts map[common.Address]MockAcount
-	codes    map[common.Hash][]byte
+	accounts           map[common.Address]MockAcount
+	codes              map[common.Hash][]byte
+	storeKeys          map[string]storetypes.StoreKey
+	transientStoreKeys map[string]*storetypes.TransientStoreKey
 }
 
 func (k MockKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash {
@@ -35,8 +37,10 @@ func (k MockKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash 
 
 func NewMockKeeper() *MockKeeper {
 	return &MockKeeper{
-		accounts: make(map[common.Address]MockAcount),
-		codes:    make(map[common.Hash][]byte),
+		accounts:           make(map[common.Address]MockAcount),
+		codes:              make(map[common.Hash][]byte),
+		storeKeys:          make(map[string]storetypes.StoreKey),
+		transientStoreKeys: make(map[string]*storetypes.TransientStoreKey),
 	}
 }
 
@@ -116,13 +120,15 @@ func (k MockKeeper) DeleteAccount(_ sdk.Context, addr common.Address) error {
 func (k MockKeeper) Clone() *MockKeeper {
 	accounts := maps.Clone(k.accounts)
 	codes := maps.Clone(k.codes)
-	return &MockKeeper{accounts, codes}
+	storeKeys := maps.Clone(k.storeKeys)
+	transientStoreKeys := maps.Clone(k.transientStoreKeys)
+	return &MockKeeper{accounts, codes, storeKeys, transientStoreKeys}
 }
 
 func (k MockKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
-	return make(map[string]storetypes.StoreKey)
+	return maps.Clone(k.storeKeys)
 }
 
 func (k MockKeeper) TransientStoreKeys() map[string]*storetypes.TransientStoreKey {
-	return nil
+	return maps.Clone(k.transientStoreKeys)
 }

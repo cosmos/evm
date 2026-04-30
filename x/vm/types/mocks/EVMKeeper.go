@@ -27,16 +27,18 @@ type Account struct {
 }
 
 type EVMKeeper struct {
-	accounts  map[common.Address]Account
-	codes     map[common.Hash][]byte
-	storeKeys map[string]*storetypes.KVStoreKey
+	accounts           map[common.Address]Account
+	codes              map[common.Hash][]byte
+	storeKeys          map[string]*storetypes.KVStoreKey
+	transientStoreKeys map[string]*storetypes.TransientStoreKey
 }
 
 func NewEVMKeeper() *EVMKeeper {
 	return &EVMKeeper{
-		accounts:  make(map[common.Address]Account),
-		codes:     make(map[common.Hash][]byte),
-		storeKeys: make(map[string]*storetypes.KVStoreKey),
+		accounts:           make(map[common.Address]Account),
+		codes:              make(map[common.Hash][]byte),
+		storeKeys:          make(map[string]*storetypes.KVStoreKey),
+		transientStoreKeys: make(map[string]*storetypes.TransientStoreKey),
 	}
 }
 
@@ -123,7 +125,8 @@ func (k EVMKeeper) Clone() *EVMKeeper {
 	accounts := maps.Clone(k.accounts)
 	codes := maps.Clone(k.codes)
 	storeKeys := maps.Clone(k.storeKeys)
-	return &EVMKeeper{accounts, codes, storeKeys}
+	transientStoreKeys := maps.Clone(k.transientStoreKeys)
+	return &EVMKeeper{accounts, codes, storeKeys, transientStoreKeys}
 }
 
 func (k EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
@@ -135,7 +138,11 @@ func (k EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
 }
 
 func (k EVMKeeper) TransientStoreKeys() map[string]*storetypes.TransientStoreKey {
-	return nil
+	result := make(map[string]*storetypes.TransientStoreKey, len(k.transientStoreKeys))
+	for name, v := range k.transientStoreKeys {
+		result[name] = v
+	}
+	return result
 }
 
 func (k EVMKeeper) GetCodeHash(_ sdk.Context, _ common.Address) common.Hash {
