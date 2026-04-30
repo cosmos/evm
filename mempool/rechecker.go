@@ -15,6 +15,10 @@ import (
 
 type TxConverter interface {
 	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
+	// CosmosTx returns the canonical cosmos-tx wire bytes. Used by the
+	// rechecker to enforce tx.Size() ≤ ConsensusParams.Block.MaxBytes when
+	// gov reduces MaxBytes below an admitted tx.
+	CosmosTx(tx sdk.Tx) ([]byte, error)
 }
 
 // TxRechecker runs recheckFn on pending and queued txs in the pool, given an
@@ -67,7 +71,9 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
 	}
-
+	if err := r.checkMaxBytes(ctx, cosmosTx); err != nil {
+		return ctx, err
+	}
 	return r.anteHandler(ctx, cosmosTx, false)
 }
 
@@ -76,7 +82,32 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
+	if err := r.checkMaxBytes(ctx, tx); err != nil {
+		return ctx, err
+	}
 	return r.anteHandler(ctx, tx, false)
+}
+
+// checkMaxBytes rejects txs whose encoded size exceeds the chain's current
+// consensus MaxBytes. Comet enforces this on initial admission, but txs
+// already in the mempool are not re-evaluated when gov lowers MaxBytes.
+// Without this check, a now-oversized tx wedges the head of the reap list
+// and blocks every later tx until lifetime expiry or nonce overtaking
+// removes it. Skipping when MaxBytes is unset preserves behavior on chains
+// without consensus params populated yet.
+func (r *TxRechecker) checkMaxBytes(ctx sdk.Context, tx sdk.Tx) error {
+	cp := ctx.ConsensusParams()
+	if cp.Block == nil || cp.Block.MaxBytes <= 0 {
+		return nil
+	}
+	bz, err := r.txConverter.CosmosTx(tx)
+	if err != nil {
+		return fmt.Errorf("encoding tx for size check: %w", err)
+	}
+	if int64(len(bz)) > cp.Block.MaxBytes {
+		return fmt.Errorf("tx size %d exceeds block max bytes %d", len(bz), cp.Block.MaxBytes)
+	}
+	return nil
 }
 
 // Update updates the base context for rechecks based on the latest chain
