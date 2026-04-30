@@ -689,6 +689,51 @@ func (s *IntegrationTestSuite) TestRechecking() {
 				s.Require().Equal(uint64(0x3), queued[0].Nonce(), "expected nonce 3 tx to be in queued")
 			},
 		},
+		{
+			name: "cosmos recheck does not leak failed txs partial writes",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				keyA := s.keyring.GetKey(2)
+				keyB := s.keyring.GetKey(3)
+
+				// create a tx for keyA nonce0. we will include a tx from the
+				// network that will also arrive with this nonce, causing this
+				// tx to fail recheck.
+				failingTxA := s.createCosmosSendTx(keyA, big.NewInt(2_000_000_000))
+
+				// create a tx from a new sender keyB nonce0. this will
+				// successfully pass recheck AFTER keyA since the gas price is
+				// less. this test is ensuring that having a successful recheck
+				// write state after a previous failure does not incorrectly
+				// persist the failure txs writes.
+				flushingTxB := s.createCosmosSendTx(keyB, big.NewInt(1_000_000_000))
+
+				return []sdk.Tx{failingTxA, flushingTxB}, s.getTxHashes([]sdk.Tx{flushingTxB})
+			},
+			networkTxs: func() []sdk.Tx {
+				keyA := s.keyring.GetKey(2)
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				// drain keyA's balance with a tx not in our mempool (but not
+				// enough to make failingTxA fail due to out of balance, it
+				// must write its balance change into its context to exercise
+				// this). NOTE: we are relying on the fact that nonce checks
+				// happen after balance checks in the ante handler sequence.
+				drainValue := new(big.Int).Sub(balance, big.NewInt(400_000_000_000_000))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(keyA, 0, drainValue, big.NewInt(1_000_000_000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				keyA := s.keyring.GetKey(2)
+
+				// try and insert a new tx. if failingTxA's balance writes were
+				// improperly persisted to the rechecker's context, then
+				// inserting this will fail with out of balance. if we have
+				// correctly discarded its writes, the insert will succeed.
+				tx := s.createCosmosSendTx(keyA, big.NewInt(1_000_000_000))
+				err := mpool.Insert(s.network.GetContext(), tx)
+				s.Require().NoError(err, "tx should have been successfully inserted after recheck")
+			},
+		},
 	}
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
