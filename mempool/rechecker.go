@@ -15,9 +15,6 @@ import (
 
 type TxConverter interface {
 	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
-	// CosmosTx returns the canonical cosmos-tx wire bytes. Used by the
-	// rechecker to enforce tx.Size() ≤ ConsensusParams.Block.MaxBytes when
-	// gov reduces MaxBytes below an admitted tx.
 	CosmosTx(tx sdk.Tx) ([]byte, error)
 }
 
@@ -88,13 +85,13 @@ func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, er
 	return r.anteHandler(ctx, tx, false)
 }
 
-// checkMaxBytes rejects txs whose encoded size exceeds the chain's current
-// consensus MaxBytes. Comet enforces this on initial admission, but txs
-// already in the mempool are not re-evaluated when gov lowers MaxBytes.
-// Without this check, a now-oversized tx wedges the head of the reap list
-// and blocks every later tx until lifetime expiry or nonce overtaking
-// removes it. Skipping when MaxBytes is unset preserves behavior on chains
-// without consensus params populated yet.
+// checkMaxBytes rejects txs whose encoded size exceeds the current
+// consensus MaxBytes. Comet enforces this at admission, but pool txs are
+// not re-evaluated when gov lowers MaxBytes — without this check, an
+// oversized tx wedges the head of the reap list.
+//
+// TODO: belongs in the cosmos ante alongside the gas-wanted check; living
+// here for now to avoid the DeliverTx-skip gate the ante version needs.
 func (r *TxRechecker) checkMaxBytes(ctx sdk.Context, tx sdk.Tx) error {
 	cp := ctx.ConsensusParams()
 	if cp.Block == nil || cp.Block.MaxBytes <= 0 {
