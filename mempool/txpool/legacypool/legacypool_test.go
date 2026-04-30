@@ -60,8 +60,7 @@ func (testTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 
 func (testTxEncoder) CosmosTx(sdk.Tx) ([]byte, error) { return nil, nil }
 
-// realSizeTxEncoder produces a payload whose length matches tx.Size(). Used
-// when a test needs the reaplist's byte accounting to track real tx sizes.
+// realSizeTxEncoder produces a payload sized to match tx.Size().
 type realSizeTxEncoder struct{}
 
 func (realSizeTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
@@ -70,7 +69,9 @@ func (realSizeTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 	return out, nil
 }
 
-func (realSizeTxEncoder) CosmosTx(sdk.Tx) ([]byte, error) { return nil, nil }
+func (realSizeTxEncoder) CosmosTx(sdk.Tx) ([]byte, error) {
+	return nil, errors.New("EVM-only test encoder")
+}
 
 var (
 	// testTxPoolConfig is a transaction pool configuration without stateful disk
