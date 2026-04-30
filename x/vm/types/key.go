@@ -39,7 +39,11 @@ const (
 // prefix bytes for the EVM object store
 const (
 	prefixObjectBloom = iota + 1
-	prefixObjectGasUsed
+)
+
+// prefix bytes for the EVM transient store
+const (
+	prefixTransientGasUsed = iota + 1
 )
 
 // KVStore key prefixes
@@ -53,8 +57,12 @@ var (
 
 // Object Store key prefixes
 var (
-	KeyPrefixObjectBloom   = []byte{prefixObjectBloom}
-	KeyPrefixObjectGasUsed = []byte{prefixObjectGasUsed}
+	KeyPrefixObjectBloom = []byte{prefixObjectBloom}
+)
+
+// Transient Store key prefixes
+var (
+	KeyPrefixTransientGasUsed = []byte{prefixTransientGasUsed}
 )
 
 // AddressStoragePrefix returns a prefix to iterate over a given account storage.
@@ -67,9 +75,9 @@ func StateKey(address common.Address, key []byte) []byte {
 	return append(AddressStoragePrefix(address), key...)
 }
 
-func ObjectGasUsedKey(txIndex int) []byte {
+func TransientGasUsedKey(txIndex int) []byte {
 	var key [1 + 8]byte
-	key[0] = prefixObjectGasUsed
+	key[0] = prefixTransientGasUsed
 	binary.BigEndian.PutUint64(key[1:], uint64(txIndex)) //nolint:gosec
 	return key[:]
 }
