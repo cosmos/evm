@@ -1013,6 +1013,28 @@ func TestStaleNonceHandling(t *testing.T) {
 			expectsEager:   true,
 			eagerNonce:     0,
 		},
+		{
+			// Cross-account: acc0 sends 7702 authorizing acc1; the auth
+			// bump closes acc1's queued tx gap. Extractor only sees acc0
+			// (sender), so acc1's eager LRU is never touched. tx1 promotes
+			// on first reset via the statedb fallback.
+			name:             "queued-promotes-after-cross-account-7702",
+			numAccounts:      2,
+			targetIdx:        1,
+			seedNonces:       nil,
+			seedQueuedNonces: []uint64{1},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 0)}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo:      1,
+			wantAfterReset: expect{pending: 1, queued: 0},
+			expectsEager:   false,
+		},
 	}
 
 	for _, tc := range cases {
