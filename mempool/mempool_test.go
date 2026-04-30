@@ -909,18 +909,28 @@ func signSetCodeAuth(t *testing.T, key *ecdsa.PrivateKey, nonce uint64) types.Se
 	return auth
 }
 
-// TestEvictsStaleTx covers eviction of stale txs via demoteUnexecutables →
-// RecheckEVM during reset, across three scenarios where the eager mechanism
-// can't or doesn't catch the chain advance.
-func TestEvictsStaleTx(t *testing.T) {
+// TestStaleNonceHandling covers pool behavior on chain advance across
+// scenarios where the eager mechanism can't or doesn't catch the new
+// nonce. Most cases assert reactive eviction via demoteUnexecutables →
+// RecheckEVM. The queued-promotion-lag case asserts the accepted 1-block
+// delay when a 7702 authority bump closes a queued tx's gap.
+func TestStaleNonceHandling(t *testing.T) {
+	type expect struct {
+		pending int
+		queued  int
+	}
 	type scenario struct {
-		name         string
-		numAccounts  int
-		targetIdx    int      // account whose pool should drain
-		seedNonces   []uint64 // nonces to pre-seed for accounts[targetIdx]
-		finalize7702 func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
-		advanceTo    uint64 // chain nonce to set for accounts[targetIdx]
-		// Expected eager-cache state for accounts[targetIdx] AFTER the test:
+		name             string
+		numAccounts      int
+		targetIdx        int      // account whose pool we observe
+		seedNonces       []uint64 // pending seeds (sequential, no gaps)
+		seedQueuedNonces []uint64 // queued seeds (gapped from chain nonce)
+		finalize7702     func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
+		advanceTo        uint64 // chain nonce to set for accounts[targetIdx]
+		wantAfterReset   expect // expected counts after the first reset
+		secondReset      bool   // run a second reset and check wantAfterReset2
+		wantAfterReset2  expect
+		// Eager-cache state for accounts[targetIdx] AFTER the test:
 		// expectsEager=false when no SetLatestNonce was triggered for the target;
 		// expectsEager=true with eagerNonce set when the eager path fired.
 		expectsEager bool
@@ -929,11 +939,12 @@ func TestEvictsStaleTx(t *testing.T) {
 
 	cases := []scenario{
 		{
-			name:        "stale-sender-no-7702",
-			numAccounts: 1,
-			targetIdx:   0,
-			seedNonces:  []uint64{0},
-			advanceTo:   1,
+			name:           "stale-sender-no-7702",
+			numAccounts:    1,
+			targetIdx:      0,
+			seedNonces:     []uint64{0},
+			advanceTo:      1,
+			wantAfterReset: expect{pending: 0, queued: 0},
 			// no RemoveWithReason call → eager cache untouched.
 			expectsEager: false,
 		},
@@ -950,7 +961,8 @@ func TestEvictsStaleTx(t *testing.T) {
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
 			},
-			advanceTo: 1,
+			advanceTo:      1,
+			wantAfterReset: expect{pending: 0, queued: 0},
 			// Eager fires for sender (idx 0); authority (idx 1, the target) is invisible.
 			expectsEager: false,
 		},
@@ -967,10 +979,39 @@ func TestEvictsStaleTx(t *testing.T) {
 					Caller: mempooltypes.CallerRunTxFinalize,
 				}))
 			},
-			advanceTo: 2,
+			advanceTo:      2,
+			wantAfterReset: expect{pending: 0, queued: 0},
 			// Eager fires for sender (== target) at tx.Nonce()=0; the +1 bump is reactive.
 			expectsEager: true,
 			eagerNonce:   0,
+		},
+		{
+			// Queued tx whose nonce gap is closed by a self-sponsored 7702.
+			// Sender +1 plus 4 self-auth bumps brings chain nonce 0 -> 5,
+			// matching tx5's nonce. With nothing else in pending, the
+			// noncer falls through to statedb on reset and tx5 promotes.
+			name:             "queued-promotes-after-self-sponsored-7702",
+			numAccounts:      1,
+			targetIdx:        0,
+			seedNonces:       nil,
+			seedQueuedNonces: []uint64{5},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{
+					signSetCodeAuth(t, accs[0].key, 1),
+					signSetCodeAuth(t, accs[0].key, 2),
+					signSetCodeAuth(t, accs[0].key, 3),
+					signSetCodeAuth(t, accs[0].key, 4),
+				}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo:      5,
+			wantAfterReset: expect{pending: 1, queued: 0},
+			expectsEager:   true,
+			eagerNonce:     0,
 		},
 	}
 
@@ -989,11 +1030,16 @@ func TestEvictsStaleTx(t *testing.T) {
 				tx := createMsgEthereumTx(t, txConfig, target.key, n, big.NewInt(1e8))
 				require.NoError(t, mp.Insert(context.Background(), tx))
 			}
+			for _, n := range tc.seedQueuedNonces {
+				tx := createMsgEthereumTx(t, txConfig, target.key, n, big.NewInt(1e8))
+				require.NoError(t, mp.Insert(context.Background(), tx))
+			}
 			require.NoError(t, mp.GetTxPool().Sync())
 
 			legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-			pending, _ := legacyPool.ContentFrom(target.address)
+			pending, queued := legacyPool.ContentFrom(target.address)
 			require.Len(t, pending, len(tc.seedNonces))
+			require.Len(t, queued, len(tc.seedQueuedNonces))
 
 			if tc.finalize7702 != nil {
 				tc.finalize7702(t, mp, txConfig, accounts)
@@ -1009,8 +1055,20 @@ func TestEvictsStaleTx(t *testing.T) {
 
 			require.Eventually(t, func() bool {
 				p, q := legacyPool.ContentFrom(target.address)
-				return len(p) == 0 && len(q) == 0
-			}, time.Second, 10*time.Millisecond, "reset must evict stale tx")
+				return len(p) == tc.wantAfterReset.pending && len(q) == tc.wantAfterReset.queued
+			}, time.Second, 10*time.Millisecond, "first reset state mismatch")
+
+			if tc.secondReset {
+				require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+					Header: cmttypes.Header{Height: 3, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+				}))
+				require.NoError(t, mp.GetTxPool().Sync())
+
+				require.Eventually(t, func() bool {
+					p, q := legacyPool.ContentFrom(target.address)
+					return len(p) == tc.wantAfterReset2.pending && len(q) == tc.wantAfterReset2.queued
+				}, time.Second, 10*time.Millisecond, "second reset state mismatch")
+			}
 
 			got, ok := legacyPool.LatestNonce(target.address)
 			if tc.expectsEager {

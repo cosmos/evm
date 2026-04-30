@@ -50,6 +50,10 @@ func TestMempoolCosmosTxsCompatibility(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility, suite.MempoolArgs()...)
 }
 
+func TestMempoolSetCode7702QueuedTxPromotion(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunSetCode7702QueuedTxPromotion, suite.MempoolArgs()...)
+}
+
 // /*
 // * EIP-712 Tests
 // */
