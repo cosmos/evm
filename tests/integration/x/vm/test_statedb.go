@@ -20,11 +20,11 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
-	"cosmossdk.io/store/prefix"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
@@ -39,17 +39,6 @@ func (s *KeeperTestSuite) TestCreateAccount() {
 		malleate func(vm.StateDB, common.Address)
 		callback func(vm.StateDB, common.Address)
 	}{
-		{
-			"reset account (keep balance)",
-			utiltx.GenerateAddress(),
-			func(vmdb vm.StateDB, addr common.Address) {
-				vmdb.AddBalance(addr, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
-				s.Require().NotZero(vmdb.GetBalance(addr).Uint64())
-			},
-			func(vmdb vm.StateDB, addr common.Address) {
-				s.Require().Equal(vmdb.GetBalance(addr).Uint64(), uint64(100))
-			},
-		},
 		{
 			"create account",
 			utiltx.GenerateAddress(),
@@ -247,7 +236,7 @@ func (s *KeeperTestSuite) TestGetCodeHash() {
 			s.Keyring.GetAddr(0),
 			crypto.Keccak256Hash([]byte("codeHash")),
 			func(vmdb vm.StateDB) {
-				vmdb.SetCode(s.Keyring.GetAddr(0), []byte("codeHash"))
+				vmdb.SetCode(s.Keyring.GetAddr(0), []byte("codeHash"), 0x0)
 			},
 		},
 	}
@@ -305,7 +294,7 @@ func (s *KeeperTestSuite) TestSetCode() {
 		s.Run(tc.name, func() {
 			vmdb := s.StateDB()
 			prev := vmdb.GetCode(tc.address)
-			vmdb.SetCode(tc.address, tc.code)
+			vmdb.SetCode(tc.address, tc.code, 0x0)
 			post := vmdb.GetCode(tc.address)
 
 			if tc.isNoOp {
@@ -467,7 +456,7 @@ func (s *KeeperTestSuite) TestSuicide() {
 	code := []byte("code")
 	db := s.Network.GetStateDB()
 	// Add code to account
-	db.SetCode(firstAddress, code)
+	db.SetCode(firstAddress, code, 0x0)
 	s.Require().Equal(code, db.GetCode(firstAddress))
 	// Add state to account
 	for i := 0; i < 5; i++ {
@@ -481,7 +470,7 @@ func (s *KeeperTestSuite) TestSuicide() {
 	db = s.Network.GetStateDB()
 
 	// Add code and state to account 2
-	db.SetCode(secondAddress, code)
+	db.SetCode(secondAddress, code, 0x0)
 	s.Require().Equal(code, db.GetCode(secondAddress))
 	for i := 0; i < 5; i++ {
 		db.SetState(
@@ -774,7 +763,6 @@ func (s *KeeperTestSuite) TestPrepareAccessList() {
 	}
 
 	rules := ethparams.Rules{
-		ChainID:          s.Network.GetEVMChainConfig().ChainID,
 		IsHomestead:      true,
 		IsEIP150:         true,
 		IsEIP155:         true,

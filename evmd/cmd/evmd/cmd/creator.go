@@ -12,10 +12,10 @@ import (
 	"github.com/cosmos/evm/evmd"
 
 	"cosmossdk.io/log/v2"
-	"cosmossdk.io/store"
-	"cosmossdk.io/store/snapshots"
-	snapshottypes "cosmossdk.io/store/snapshots/types"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/store/v2"
+	"github.com/cosmos/cosmos-sdk/store/v2/snapshots"
+	snapshottypes "github.com/cosmos/cosmos-sdk/store/v2/snapshots/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -92,7 +92,6 @@ func (a appCreator) newApp(
 	return evmd.NewExampleApp(
 		logger,
 		db,
-		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
 		baseappOptions...,
@@ -133,7 +132,6 @@ func (a appCreator) appExport(
 	evmApp = evmd.NewExampleApp(
 		logger,
 		db,
-		traceStore,
 		loadLatest,
 		appOpts,
 	)

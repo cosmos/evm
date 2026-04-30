@@ -1174,7 +1174,7 @@ func (s *TestSuite) TestEthMsgsFromCometBlock() {
 				TxsResults: []*types.ExecTxResult{
 					{
 						Code: 1,
-						Log:  ethrpc.ExceedBlockGasLimitError,
+						Log:  evmtypes.ExceedBlockGasLimitError,
 					},
 				},
 			},
@@ -1189,7 +1189,7 @@ func (s *TestSuite) TestEthMsgsFromCometBlock() {
 				TxsResults: []*types.ExecTxResult{
 					{
 						Code: 0,
-						Log:  ethrpc.ExceedBlockGasLimitError,
+						Log:  evmtypes.ExceedBlockGasLimitError,
 					},
 				},
 			},

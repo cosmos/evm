@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -27,14 +28,15 @@ import (
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/testutil/constants"
+	evmtestutiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	mempooltypes "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -42,8 +44,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-func TestKrakatoaMempool_Reserver(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_Reserver(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, accounts := s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
@@ -82,8 +84,8 @@ func TestKrakatoaMempool_Reserver(t *testing.T) {
 	require.ErrorIs(t, err, reserver.ErrAlreadyReserved)
 }
 
-func TestKrakatoaMempool_ReserverMultiSigner(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 4)
+func TestMempool_ReserverMultiSigner(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 4)
 	txConfig, accounts := s.txConfig, s.accounts
 
 	accountKey := accounts[0].key
@@ -111,8 +113,8 @@ func TestKrakatoaMempool_ReserverMultiSigner(t *testing.T) {
 
 // Ensures txs are not reaped multiple times when promoting and demoting the
 // same tx
-func TestKrakatoaMempool_ReapPromoteDemotePromote(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_ReapPromoteDemotePromote(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, rechecker, bus, accounts := s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -204,8 +206,8 @@ func TestKrakatoaMempool_ReapPromoteDemotePromote(t *testing.T) {
 	require.Equal(t, uint64(1), getTxNonce(t, txConfig, txs[0]))
 }
 
-func TestKrakatoaMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, rechecker, bus, accounts := s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -259,8 +261,8 @@ func TestKrakatoaMempool_QueueInvalidWhenUsingPendingState(t *testing.T) {
 	require.Len(t, queued, 0)
 }
 
-func TestKrakatoaMempool_ReapPromoteDemoteReap(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_ReapPromoteDemoteReap(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, rechecker, bus, accounts := s.txConfig, s.evmRechecker, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -328,8 +330,8 @@ func TestKrakatoaMempool_ReapPromoteDemoteReap(t *testing.T) {
 	require.Equal(t, uint64(0), getTxNonce(t, txConfig, txs[0]))
 }
 
-func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_ReapNewBlock(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	vmKeeper, txConfig, bus, accounts := s.vmKeeper, s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -359,9 +361,12 @@ func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
 		return len(pending) == 3 && len(queued) == 0 && mp.CountTx() == 3
 	}, time.Second, 10*time.Millisecond)
 
-	// simulate comet calling removeTx, a new height being published, and
-	// our accounts nonce increments to 1, so tx 0 will be invalidated
-	// after the next reset
+	// simulate comet calling removeTx with RunTxFinalize for tx0 (the included
+	// tx), a new height being published, and our account's nonce incrementing
+	// to 1. On the next reset, ScheduleForRemoval drives tx0 out of the pool.
+	require.NoError(t, mp.RemoveWithReason(context.Background(), tx0, mempooltypes.RemoveReason{
+		Caller: mempooltypes.CallerRunTxFinalize,
+	}))
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Unset()
 	vmKeeper.On("GetAccount", mock.Anything, accounts[0].address).Return(&statedb.Account{
 		Nonce:   1,
@@ -395,8 +400,63 @@ func TestKrakatoaMempool_ReapNewBlock(t *testing.T) {
 	require.GreaterOrEqual(t, getTxNonce(t, txConfig, txs[1]), uint64(1)) // 1 or 2
 }
 
-func TestKrakatoaMempool_InsertMultiMsgCosmosTx(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_CosmosNonceAdvanceDropsStaleEVM(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 1)
+	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
+	account := accounts[0]
+
+	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  1,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	}))
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// seed the pool with two pending EVM txs at nonces 0 and 1
+	for nonce := uint64(0); nonce < 2; nonce++ {
+		tx := createMsgEthereumTx(t, txConfig, account.key, nonce, big.NewInt(1e8))
+		require.NoError(t, mp.Insert(context.Background(), tx))
+	}
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// ensure initial state is correct
+	legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+	pending, queued := legacyPool.ContentFrom(account.address)
+	require.Equal(t, 2, len(pending), "expected 2 txs in the pending pool after setup")
+	require.Equal(t, 0, len(queued), "expected 0 txs in the queued pool after setup")
+
+	// mock that another val had a cosmos tx with nonce 1 and included that on
+	// chain (note that this will never be our node doing this, since the
+	// reserver prevents us from having an evm tx and cosmos tx with the same
+	// signer(s) in the both pools at the same time)
+	cosmosTx := createTestCosmosTx(t, txConfig, account.key, 1)
+	err := mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+		Caller: mempooltypes.CallerRunTxFinalize,
+	})
+	require.ErrorIs(t, err, mempooltypes.ErrTxNotFound)
+
+	// after we finish finalizing the above block, the chain will advance and
+	// the pool will reset
+	require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+		Header: cmttypes.Header{
+			Height:  2,
+			Time:    time.Now(),
+			ChainID: strconv.Itoa(constants.EighteenDecimalsChainID),
+		},
+	}))
+	require.NoError(t, mp.GetTxPool().Sync())
+
+	// using eventually here since publishing a new block happens async
+	require.Eventually(t, func() bool {
+		pending, queued := legacyPool.ContentFrom(account.address)
+		return len(pending) == 0 && len(queued) == 0
+	}, time.Second, 10*time.Millisecond, "expected pending and queued pools to drain after stale txs dropped")
+}
+
+func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus := s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -457,8 +517,8 @@ func TestKrakatoaMempool_InsertMultiMsgCosmosTx(t *testing.T) {
 	require.Len(t, txs, 1, "expected a single tx to be reaped")
 }
 
-func TestKrakatoaMempool_InsertSynchronous(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_InsertSynchronous(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
 		Header: cmttypes.Header{
@@ -497,8 +557,8 @@ func TestKrakatoaMempool_InsertSynchronous(t *testing.T) {
 	require.Contains(t, err.Error(), "insufficient funds", "error should indicate insufficient funds")
 }
 
-func TestKrakatoaMempool_InsertMultiMsgEthereumTx(t *testing.T) {
-	mp, s := setupKrakatoaMempoolWithAccounts(t, 3)
+func TestMempool_InsertMultiMsgEthereumTx(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus := s.txConfig, s.eventBus
 
 	err := bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
@@ -570,7 +630,74 @@ type testMempoolDependencies struct {
 	accounts        []testAccount
 }
 
-func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.KrakatoaMempool, testMempoolDependencies) {
+// AdvanceNonce updates the mock vmKeeper to return newNonce for GetNonce(addr)
+// and a matching Account from GetAccount. Used to simulate chain-state advance
+// between blocks so legacypool's reactive reset path can observe the change.
+//
+// Assumes prior GetNonce/GetAccount expectations were registered with a
+// concrete common.Address argument (as setupMempool does). Expectations
+// registered with mock.Anything or other non-Address matchers would not match
+// the type assertion below and would survive — leaving stale entries that race
+// with the new ones.
+func (s *testMempoolDependencies) AdvanceNonce(t *testing.T, addr common.Address, newNonce uint64) {
+	t.Helper()
+	var toUnset []*mock.Call
+	for _, c := range s.vmKeeper.ExpectedCalls {
+		switch c.Method {
+		case "GetNonce":
+			if len(c.Arguments) >= 1 {
+				if a, ok := c.Arguments[0].(common.Address); ok && a == addr {
+					toUnset = append(toUnset, c)
+				}
+			}
+		case "GetAccount":
+			if len(c.Arguments) >= 2 {
+				if a, ok := c.Arguments[1].(common.Address); ok && a == addr {
+					toUnset = append(toUnset, c)
+				}
+			}
+		}
+	}
+	for _, c := range toUnset {
+		c.Unset() // acquires the mock's internal mutex
+	}
+	s.vmKeeper.On("GetNonce", addr).Return(newNonce).Maybe()
+	s.vmKeeper.On("GetAccount", mock.Anything, addr).Return(&statedb.Account{
+		Nonce:   newNonce,
+		Balance: uint256.NewInt(1e18),
+	}).Maybe()
+}
+
+// InstallNonceCheckingRechecker wires the EVM rechecker to reject txs whose
+// nonce is below the mock's GetAccount(sender).Nonce. Simulates the ante
+// handler's sequence check during reset's demoteUnexecutables.
+func (s *testMempoolDependencies) InstallNonceCheckingRechecker(t *testing.T) {
+	t.Helper()
+	signer := types.LatestSignerForChainID(big.NewInt(int64(constants.EighteenDecimalsChainID)))
+	s.evmRechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		from, err := types.Sender(signer, tx)
+		if err != nil {
+			return ctx, nil
+		}
+		acc := s.vmKeeper.GetAccount(sdk.Context{}, from)
+		if acc == nil {
+			return ctx, nil
+		}
+		if tx.Nonce() < acc.Nonce {
+			return sdk.Context{}, fmt.Errorf("stale tx: nonce %d < chain %d", tx.Nonce(), acc.Nonce)
+		}
+		return ctx, nil
+	})
+}
+
+func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, testMempoolDependencies) {
+	t.Helper()
+
+	return setupMempool(t, numAccounts, 1000)
+}
+
+//nolint:unparam
+func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Mempool, testMempoolDependencies) {
 	t.Helper()
 
 	// Create accounts
@@ -647,6 +774,8 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
 	// Register vm types so MsgEthereumTx can be decoded
 	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	// Register bank types so cosmos MsgSend txs can be decoded
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	txConfig := encodingConfig.TxConfig
 
 	// Create client context
@@ -661,19 +790,17 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 	legacyConfig.PriceLimit = 1
 	legacyConfig.PriceBump = 10 // 10% price bump for replacement
 
-	krakatoaConfig := &mempool.KrakatoaMempoolConfig{
-		EVMMempoolConfig: mempool.EVMMempoolConfig{
-			LegacyPoolConfig: &legacyConfig,
-			BlockGasLimit:    30000000,
-			MinTip:           uint256.NewInt(0),
-		},
-		InsertQueueSize: 1000,
+	config := &mempool.Config{
+		LegacyPoolConfig: &legacyConfig,
+		BlockGasLimit:    30000000,
+		MinTip:           uint256.NewInt(0),
+		InsertQueueSize:  insertQueueSize,
 	}
 
 	// Create mempool
 	evmRechecker := &MockRechecker{}
 	cosmosRechecker := &MockRechecker{}
-	mp := mempool.NewKrakatoaMempool(
+	mp := mempool.NewMempool(
 		getCtxCallback,
 		log.NewNopLogger(),
 		mockVMKeeper,
@@ -681,7 +808,7 @@ func setupKrakatoaMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.K
 		txConfig,
 		evmRechecker,
 		cosmosRechecker,
-		krakatoaConfig,
+		config,
 		1000, // cosmos pool max tx
 	)
 	require.NotNil(t, mp)
@@ -711,34 +838,189 @@ func createMsgEthereumTx(
 ) sdk.Tx {
 	t.Helper()
 
-	tx := types.NewTransaction(
-		nonce,
-		common.Address{0x01}, // Send to a dummy address
-		big.NewInt(txValue),
-		txGasLimit,
-		gasPrice,
-		nil,
-	)
+	to := common.Address{0x01} // dummy recipient
+	chainID := new(big.Int).SetUint64(vmtypes.GetChainConfig().ChainId)
+	msg := vmtypes.NewTx(&vmtypes.EvmTxArgs{
+		ChainID:  chainID,
+		Nonce:    nonce,
+		To:       &to,
+		Amount:   big.NewInt(txValue),
+		GasLimit: txGasLimit,
+		GasPrice: gasPrice,
+	})
+	msg.From = crypto.PubkeyToAddress(key.PublicKey).Bytes()
 
-	chainID := vmtypes.GetChainConfig().ChainId
-	signer := types.LatestSignerForChainID(new(big.Int).SetUint64(chainID))
-	signedTx, err := types.SignTx(tx, signer, key)
+	priv := &ethsecp256k1.PrivKey{Key: crypto.FromECDSA(key)}
+	cosmosTx, err := evmtestutiltx.PrepareEthTx(txConfig, priv, msg)
 	require.NoError(t, err)
-
-	return wrapInCosmosSDKTx(t, txConfig, signedTx)
+	return cosmosTx
 }
 
-func wrapInCosmosSDKTx(t *testing.T, txConfig client.TxConfig, ethTx *types.Transaction) sdk.Tx {
+// createMsgEthereum7702Tx builds a cosmos-wrapped MsgEthereumTx of type-04
+// (EIP-7702 SetCode) signed by senderKey with the supplied authorization
+// list. Each `auths` entry is signed by its `key` field with the embedded
+// nonce. Returns the cosmos-signed sdk.Tx and the underlying ethereum tx
+// for assertion convenience.
+func createMsgEthereum7702Tx(
+	t *testing.T,
+	txConfig client.TxConfig,
+	senderKey *ecdsa.PrivateKey,
+	txNonce uint64,
+	auths []types.SetCodeAuthorization,
+) sdk.Tx {
 	t.Helper()
 
-	msg := &vmtypes.MsgEthereumTx{}
-	msg.FromEthereumTx(ethTx)
+	chainID := vmtypes.GetEthChainConfig().ChainID
+	to := common.Address{0x55}
+	signedTx := types.MustSignNewTx(senderKey, types.LatestSignerForChainID(chainID), &types.SetCodeTx{
+		ChainID:   uint256.MustFromBig(chainID),
+		Nonce:     txNonce,
+		GasTipCap: uint256.NewInt(1),
+		GasFeeCap: uint256.NewInt(1e9),
+		Gas:       250000,
+		To:        to,
+		Value:     uint256.NewInt(0),
+		AuthList:  auths,
+	})
 
-	txBuilder := txConfig.NewTxBuilder()
-	err := txBuilder.SetMsgs(msg)
+	msg := &vmtypes.MsgEthereumTx{
+		Raw:  vmtypes.EthereumTx{Transaction: signedTx},
+		From: crypto.PubkeyToAddress(senderKey.PublicKey).Bytes(),
+	}
+
+	// priv=nil → PrepareEthTx skips re-signing (we already have a signed eth
+	// tx) and just wraps the message into a cosmos tx with the EVM extension
+	// option.
+	cosmosTx, err := evmtestutiltx.PrepareEthTx(txConfig, nil, msg)
 	require.NoError(t, err)
+	return cosmosTx
+}
 
-	return txBuilder.GetTx()
+// signSetCodeAuth is a small wrapper around types.SignSetCode for tests.
+func signSetCodeAuth(t *testing.T, key *ecdsa.PrivateKey, nonce uint64) types.SetCodeAuthorization {
+	t.Helper()
+	chainID := vmtypes.GetEthChainConfig().ChainID
+	auth, err := types.SignSetCode(key, types.SetCodeAuthorization{
+		ChainID: *uint256.MustFromBig(chainID),
+		Address: common.Address{0x42},
+		Nonce:   nonce,
+	})
+	require.NoError(t, err)
+	return auth
+}
+
+// TestEvictsStaleTx covers eviction of stale txs via demoteUnexecutables →
+// RecheckEVM during reset, across three scenarios where the eager mechanism
+// can't or doesn't catch the chain advance.
+func TestEvictsStaleTx(t *testing.T) {
+	type scenario struct {
+		name         string
+		numAccounts  int
+		targetIdx    int      // account whose pool should drain
+		seedNonces   []uint64 // nonces to pre-seed for accounts[targetIdx]
+		finalize7702 func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
+		advanceTo    uint64 // chain nonce to set for accounts[targetIdx]
+		// Expected eager-cache state for accounts[targetIdx] AFTER the test:
+		// expectsEager=false when no SetLatestNonce was triggered for the target;
+		// expectsEager=true with eagerNonce set when the eager path fired.
+		expectsEager bool
+		eagerNonce   uint64
+	}
+
+	cases := []scenario{
+		{
+			name:        "stale-sender-no-7702",
+			numAccounts: 1,
+			targetIdx:   0,
+			seedNonces:  []uint64{0},
+			advanceTo:   1,
+			// no RemoveWithReason call → eager cache untouched.
+			expectsEager: false,
+		},
+		{
+			name:        "authority-after-cross-account-7702",
+			numAccounts: 2,
+			targetIdx:   1,
+			seedNonces:  []uint64{0},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 1)}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo: 1,
+			// Eager fires for sender (idx 0); authority (idx 1, the target) is invisible.
+			expectsEager: false,
+		},
+		{
+			name:        "sender-+1-gap-after-self-sponsored-7702",
+			numAccounts: 1,
+			targetIdx:   0,
+			seedNonces:  []uint64{0, 1},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[0].key, 1)}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, 0, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo: 2,
+			// Eager fires for sender (== target) at tx.Nonce()=0; the +1 bump is reactive.
+			expectsEager: true,
+			eagerNonce:   0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp, s := setupMempoolWithAccounts(t, tc.numAccounts)
+			txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
+			target := accounts[tc.targetIdx]
+
+			require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+				Header: cmttypes.Header{Height: 1, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+			}))
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			for _, n := range tc.seedNonces {
+				tx := createMsgEthereumTx(t, txConfig, target.key, n, big.NewInt(1e8))
+				require.NoError(t, mp.Insert(context.Background(), tx))
+			}
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+			pending, _ := legacyPool.ContentFrom(target.address)
+			require.Len(t, pending, len(tc.seedNonces))
+
+			if tc.finalize7702 != nil {
+				tc.finalize7702(t, mp, txConfig, accounts)
+			}
+
+			s.InstallNonceCheckingRechecker(t)
+			s.AdvanceNonce(t, target.address, tc.advanceTo)
+
+			require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+				Header: cmttypes.Header{Height: 2, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+			}))
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			require.Eventually(t, func() bool {
+				p, q := legacyPool.ContentFrom(target.address)
+				return len(p) == 0 && len(q) == 0
+			}, time.Second, 10*time.Millisecond, "reset must evict stale tx")
+
+			got, ok := legacyPool.LatestNonce(target.address)
+			if tc.expectsEager {
+				require.True(t, ok, "eager cache should have an entry for target")
+				require.Equal(t, tc.eagerNonce, got)
+			} else {
+				require.False(t, ok, "no eager signal expected; eviction proves reactive path")
+			}
+		})
+	}
 }
 
 // decodeTxBytes decodes transaction bytes returned from ReapNewValidTxs back into an Ethereum transaction

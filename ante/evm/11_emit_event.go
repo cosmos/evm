@@ -8,13 +8,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// EmitTxHashEvent emits the Ethereum tx
-//
-// FIXME: This is Technical debt. Ideally the sdk.Tx hash should be the Ethereum
-// tx hash (msg.Hash) instead of using events for indexing Eth txs.
+// EmitTxHashEvent emits the ethereum_tx event with the tx hash and the
+// cosmos-tx index from ctx.TxIndex(). Emitting from the ante handler ensures
+// expected-failure txs still produce the event for indexer lookups.
 func EmitTxHashEvent(ctx sdk.Context, msg *evmtypes.MsgEthereumTx, blockTxIndex uint64) {
-	// emit ethereum tx hash as an event so that it can be indexed by CometBFT for query purposes
-	// it's emitted in ante handler, so we can query failed transaction (out of block gas limit).
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
 			evmtypes.EventTypeEthereumTx,

@@ -8,6 +8,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -21,18 +22,31 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
 
+// ResolveMempoolConfig resolves the mempool configuration from the app options.
+func ResolveMempoolConfig(anteHandler sdk.AnteHandler, appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.Config {
+	return &evmmempool.Config{
+		AnteHandler:              anteHandler,
+		LegacyPoolConfig:         GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:            GetBlockGasLimit(appOpts, logger),
+		MinTip:                   GetMinTip(appOpts, logger),
+		PendingTxProposalTimeout: GetPendingTxProposalTimeout(appOpts, logger),
+		InsertQueueSize:          GetMempoolInsertQueueSize(appOpts, logger),
+		EnableTxTracker:          GetMempoolEnableTxTracker(appOpts),
+	}
+}
+
 // GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
 // to extract the consensus block gas limit before InitChain is called.
 func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
 	if appOpts == nil {
-		logger.Error("app options is nil, using zero block gas limit")
-		return math.MaxUint64
+		logger.Error("app options is nil, using max int64 block gas limit")
+		return math.MaxInt64
 	}
 
 	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 	if homeDir == "" {
-		logger.Error("home directory not found in app options, using zero block gas limit")
-		return math.MaxUint64
+		logger.Error("home directory not found in app options, using max int64 block gas limit")
+		return math.MaxInt64
 	}
 	genesisPath := filepath.Join(homeDir, "config", "genesis.json")
 
@@ -54,8 +68,8 @@ func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 
 
 	maxGas := genDoc.ConsensusParams.Block.MaxGas
 	if maxGas == -1 {
-		logger.Warn("genesis max_gas is unlimited (-1), using max uint64")
-		return math.MaxUint64
+		logger.Warn("genesis max_gas is unlimited (-1), using max int64 block gas limit")
+		return math.MaxInt64
 	}
 	if maxGas < -1 {
 		logger.Error("invalid max_gas value in genesis, using zero block gas limit")
@@ -138,20 +152,14 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	if globalQueue := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolGlobalQueue)); globalQueue != 0 {
 		legacyConfig.GlobalQueue = globalQueue
 	}
+	if includedNonceCacheSize := cast.ToInt(appOpts.Get(srvflags.EVMMempoolIncludedNonceCacheSize)); includedNonceCacheSize != 0 {
+		legacyConfig.IncludedNonceCacheSize = includedNonceCacheSize
+	}
 	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
 	}
 
 	return &legacyConfig
-}
-
-func GetShouldOperateExclusively(appOpts servertypes.AppOptions, logger log.Logger) bool {
-	if appOpts == nil {
-		logger.Error("app options is nil, assuming mempool is not operating exclusively")
-		return false
-	}
-
-	return cast.ToBool(appOpts.Get(srvflags.EVMMempoolOperateExclusively))
 }
 
 func GetPendingTxProposalTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
@@ -170,6 +178,30 @@ func GetMempoolInsertQueueSize(appOpts servertypes.AppOptions, logger log.Logger
 	}
 
 	return cast.ToInt(appOpts.Get(srvflags.EVMMempoolInsertQueueSize))
+}
+
+// GetMempoolEnableTxTracker reads whether per-tx lifecycle telemetry should be
+// recorded by the mempool. Defaults to false when not set or appOpts is nil.
+func GetMempoolEnableTxTracker(appOpts servertypes.AppOptions) bool {
+	if appOpts == nil {
+		return false
+	}
+	return cast.ToBool(appOpts.Get(srvflags.EVMMempoolEnableTxTracker))
+}
+
+func GetMempoolCheckTxTimeout(appOpts servertypes.AppOptions, logger log.Logger) time.Duration {
+	if appOpts == nil {
+		logger.Error("app options is nil, using check tx timeout of 5 seconds")
+		return 5 * time.Second
+	}
+
+	dur := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolCheckTxTimeout))
+	if dur <= 0 {
+		logger.Error("check tx timeout must be greater than 0, using 5 seconds")
+		return 5 * time.Second
+	}
+
+	return dur
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

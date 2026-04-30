@@ -61,16 +61,22 @@ func (k Keeper) InitEvmCoinInfo(ctx sdk.Context) (err error) {
 }
 
 // GetEvmCoinInfo returns the EVM Coin Info stored in the module
-func (k Keeper) GetEvmCoinInfo(ctx sdk.Context) (coinInfo types.EvmCoinInfo) {
+// Make sure to call this method ONLY after genesis block.
+func (k Keeper) GetEvmCoinInfo(ctx sdk.Context) types.EvmCoinInfo {
 	ctx, span := ctx.StartSpan(tracer, "GetEvmCoinInfo")
 	defer span.End()
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get(types.KeyPrefixEvmCoinInfo)
+
+	bz := ctx.KVStore(k.storeKey).Get(types.KeyPrefixEvmCoinInfo)
 	if bz == nil {
-		return k.defaultEvmCoinInfo
+		// fallback a global variable in case if
+		// ctx height doesn't contain evmCoinInfo.
+		return types.GetCoinInfo()
 	}
+
+	var coinInfo types.EvmCoinInfo
 	k.cdc.MustUnmarshal(bz, &coinInfo)
-	return
+
+	return coinInfo
 }
 
 // SetEvmCoinInfo sets the EVM Coin Info stored in the module

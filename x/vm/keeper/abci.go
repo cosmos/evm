@@ -44,12 +44,8 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) (err error) {
 func (k *Keeper) EndBlock(ctx sdk.Context) (err error) {
 	ctx, span := ctx.StartSpan(tracer, "EndBlock", trace.WithAttributes(attribute.Int64("block_num", ctx.BlockHeight())))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
-	if k.evmMempool != nil && !k.evmMempool.HasEventBus() {
-		k.evmMempool.GetBlockchain().NotifyNewBlock()
-	}
 
 	k.CollectTxBloom(ctx)
-	k.ResetTransientGasUsed(ctx)
 
 	return nil
 }

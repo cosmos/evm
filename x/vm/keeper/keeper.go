@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -25,10 +24,10 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
-	"cosmossdk.io/store/prefix"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -84,17 +83,9 @@ type Keeper struct {
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
 
-	// evmMempool is the custom EVM appside mempool
-	// if it is nil, the default comet mempool will be used
-	evmMempool evmmempool.NotifiedMempool
-
 	// virtualFeeCollection enabling will use "Virtual" methods from the bank module to accumulate
 	// fees to the fee collector module in the endBlocker instead of using regular sends during tx execution.
 	virtualFeeCollection bool
-
-	// defaultEvmCoinInfo is the default EVM coin info used when evmCoinInfo is not initialized in the state,
-	// mainly for historical queries.
-	defaultEvmCoinInfo types.EvmCoinInfo
 }
 
 // NewKeeper generates new evm module keeper
@@ -162,13 +153,6 @@ func (k *Keeper) EnableVirtualFeeCollection() {
 // Logger returns a module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", types.ModuleName)
-}
-
-// WithDefaultEvmCoinInfo set default EvmCoinInfo
-func (k *Keeper) WithDefaultEvmCoinInfo(coinInfo types.EvmCoinInfo) *Keeper {
-	k.defaultEvmCoinInfo = coinInfo
-	types.SetDefaultEvmCoinInfo(coinInfo)
-	return k
 }
 
 // ----------------------------------------------------------------------------
@@ -396,19 +380,6 @@ func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
 	return k.feeMarketWrapper.GetParams(ctx).MinGasPrice
 }
 
-// ResetTransientGasUsed reset gas used to prepare for execution of cosmos tx, called in EndBlocker.
-func (k Keeper) ResetTransientGasUsed(ctx sdk.Context) {
-	store := prefix.NewObjStore(ctx.ObjectStore(k.objectKey),
-		types.KeyPrefixObjectGasUsed)
-	it := store.Iterator(nil, nil)
-
-	defer it.Close()
-
-	for ; it.Valid(); it.Next() {
-		store.Delete(it.Key())
-	}
-}
-
 // GetTransientGasUsed returns the gas used by current cosmos tx.
 func (k Keeper) GetTransientGasUsed(ctx sdk.Context) uint64 {
 	store := ctx.ObjectStore(k.objectKey)
@@ -438,12 +409,6 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 // KVStoreKeys returns KVStore keys injected to keeper
 func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
-}
-
-// SetMempool sets the mempool that is notified of new blocks via the
-// EndBlocker.
-func (k *Keeper) SetEvmMempool(evmMempool evmmempool.NotifiedMempool) {
-	k.evmMempool = evmMempool
 }
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.

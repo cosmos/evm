@@ -374,17 +374,17 @@ test-rpc-compat-stop:
 
 .PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop mocks
 
-test-system: build-v05 build
+test-system: build-v06 build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
 	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
-build-v05:
-	mkdir -p ./tests/systemtests/binaries/v0.5
-	git checkout v0.5.1
+build-v06:
+	mkdir -p ./tests/systemtests/binaries/v0.6
+	git checkout v0.6.0
 	make build
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.5
+	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.6
 	git checkout -
 
 mocks:

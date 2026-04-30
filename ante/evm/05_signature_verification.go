@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -13,6 +14,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
+
+// EthSigVerificationResultCacheKey caches sig verification per incarnation,
+// since the result is a pure function of the tx bytes and signer.
+const EthSigVerificationResultCacheKey = "ante:EthSigVerificationResult"
 
 // EthSigVerificationDecorator validates an ethereum signatures
 type EthSigVerificationDecorator struct {
@@ -32,6 +37,17 @@ func NewEthSigVerificationDecorator(ek anteinterfaces.EVMKeeper) EthSigVerificat
 // Failure in RecheckTx will prevent tx to be included into block, especially when CheckTx succeed, in which case user
 // won't see the error message.
 func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
+	if v, ok := ctx.GetIncarnationCache(EthSigVerificationResultCacheKey); ok {
+		if v != nil {
+			cachedErr, ok := v.(error)
+			if !ok {
+				return ctx, fmt.Errorf("unexpected type %T cached under %s, want error", v, EthSigVerificationResultCacheKey)
+			}
+			return ctx, cachedErr
+		}
+		return next(ctx, tx, simulate)
+	}
+
 	ethCfg := evmtypes.GetEthChainConfig()
 	blockNum := big.NewInt(ctx.BlockHeight())
 	signer := ethtypes.MakeSigner(ethCfg, blockNum, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
@@ -44,14 +60,19 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 	for _, msg := range msgs {
 		msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
 		if !ok {
-			return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
+			err = errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
+			ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, err)
+			return ctx, err
 		}
 
-		err := SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer)
+		err = SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer)
 		if err != nil {
+			ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, err)
 			return ctx, err
 		}
 	}
+
+	ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, nil)
 
 	return next(ctx, tx, simulate)
 }

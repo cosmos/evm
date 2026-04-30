@@ -46,12 +46,12 @@ func TestGetBlockGasLimit(t *testing.T) {
 		expected uint64
 	}{
 		{
-			name: "empty home directory returns max uint64",
+			name: "empty home directory returns max int64",
 			setupFn: func() servertypes.AppOptions {
 				opts := newMockAppOptions()
 				return opts
 			},
-			expected: math.MaxUint64,
+			expected: math.MaxInt64,
 		},
 		{
 			name: "genesis file not found returns 0",
@@ -63,14 +63,14 @@ func TestGetBlockGasLimit(t *testing.T) {
 			expected: 0,
 		},
 		{
-			name: "valid genesis with max_gas = -1 returns max uint64",
+			name: "valid genesis with max_gas = -1 returns max int64",
 			setupFn: func() servertypes.AppOptions {
 				homeDir := createGenesisWithMaxGas(t, -1)
 				opts := newMockAppOptions()
 				opts.Set(flags.FlagHome, homeDir)
 				return opts
 			},
-			expected: math.MaxUint64,
+			expected: math.MaxInt64,
 		},
 		{
 			name: "valid genesis with max_gas < -1 returns 0",

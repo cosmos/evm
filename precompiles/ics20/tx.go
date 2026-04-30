@@ -11,15 +11,16 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	callbackstypes "github.com/cosmos/evm/x/ibc/callbacks/types"
 	"github.com/cosmos/evm/x/vm/statedb"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	connectiontypes "github.com/cosmos/ibc-go/v10/modules/core/03-connection/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	connectiontypes "github.com/cosmos/ibc-go/v11/modules/core/03-connection/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 
 	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -189,6 +190,11 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
+	// Marker is set in the callbacks keeper and propagates here via cacheCtx.
+	if callbackstypes.IsSourceCallbackExecution(ctx) {
+		return nil, callbackstypes.ErrNestedSourceCallbackTransfer
+	}
+
 	msg, sender, err := NewMsgTransfer(method, args)
 	if err != nil {
 		return nil, err

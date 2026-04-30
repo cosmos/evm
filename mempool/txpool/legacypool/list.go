@@ -18,6 +18,7 @@ package legacypool
 
 import (
 	"container/heap"
+	"context"
 	"math"
 	"math/big"
 	"slices"
@@ -547,7 +548,7 @@ func (l *list) subTotalCost(txs []*types.Transaction) {
 // then the heap is sorted based on the effective tip based on the given base fee.
 // If baseFee is nil then the sorting is based on gasFeeCap.
 type priceHeap struct {
-	baseFee *big.Int // heap should always be re-sorted after baseFee is changed
+	baseFee *uint256.Int // heap should always be re-sorted after baseFee is changed
 	list    []*types.Transaction
 }
 
@@ -743,12 +744,16 @@ func (l *pricedList) Reheap() {
 		l.floating.list[i] = heap.Pop(&l.urgent).(*types.Transaction)
 	}
 	heap.Init(&l.floating)
-	reheapTimer.Update(time.Since(start))
+	reheapTimer.Record(context.Background(), float64(time.Since(start).Milliseconds()))
 }
 
 // SetBaseFee updates the base fee and triggers a re-heap. Note that Removed is not
 // necessary to call right before SetBaseFee when processing a new block.
 func (l *pricedList) SetBaseFee(baseFee *big.Int) {
-	l.urgent.baseFee = baseFee
+	base := new(uint256.Int)
+	if baseFee != nil {
+		base.SetFromBig(baseFee)
+	}
+	l.urgent.baseFee = base
 	l.Reheap()
 }
