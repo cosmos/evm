@@ -587,15 +587,15 @@ func (s *IntegrationTestSuite) TestRechecking() {
 			},
 			verifyFunc: func(mpool mempool.Mempool) {
 				mp := mpool.(*evmmempool.Mempool)
-				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
-				pending, queued := legacyPool.Stats()
 
-				// the cosmos tx lives in the cosmos pool, not the EVM legacy
-				// pool. CountTx returns the sum, so subtracting EVM pending
-				// gives the cosmos pool count.
-				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, mp.CountTx(), "expected no txs in any pool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				_, queued := legacyPool.Stats()
+
+				// mp.CountTx does not include queued txs, so we explicitly
+				// ensure that no queued txs are present either
 				s.Require().Equal(0, queued, "expected no queued txs")
-				s.Require().Equal(0, mp.CountTx()-pending, "expected no cosmos txs")
 			},
 		},
 		{
