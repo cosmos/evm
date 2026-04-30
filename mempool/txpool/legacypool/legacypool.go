@@ -2084,7 +2084,9 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			_, err := pool.rechecker.RecheckEVM(ctx, tx)
 			if err == nil {
 				// successful recheck, make state changes available to
-				// rechecker's context.
+				// rechecker's context. we always write state changes here even
+				// if we are resetting since we always want run new rechecks
+				// off of pending state (queued, new inserts, etc).
 				write()
 				return false
 			}
