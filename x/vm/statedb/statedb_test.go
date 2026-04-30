@@ -17,6 +17,8 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types/mocks"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -136,6 +138,34 @@ func (suite *StateDBTestSuite) TestDBError() {
 			suite.Require().Error(db.Commit())
 		})
 	}
+}
+
+func (suite *StateDBTestSuite) TestCacheIncludesTransientStoreKeys() {
+	kvKey := storetypes.NewKVStoreKey("statedb-kv")
+	tKey := storetypes.NewTransientStoreKey("statedb-transient")
+	oKey := storetypes.NewObjectStoreKey("statedb-object")
+	testCtx := testutil.DefaultContextWithObjectStore(suite.T(), kvKey, tKey, oKey)
+
+	keeper := NewMockKeeper()
+	keeper.storeKeys[kvKey.Name()] = kvKey
+	keeper.storeKeys[oKey.Name()] = oKey
+	keeper.transientStoreKeys[tKey.Name()] = tKey
+
+	db := statedb.New(testCtx.Ctx, keeper, emptyTxConfig)
+	cacheCtx, err := db.GetCacheContext()
+	suite.Require().NoError(err)
+
+	key := []byte("gas-used")
+	cacheCtx.KVStore(kvKey).Set(key, []byte("kv-1"))
+	cacheCtx.TransientStore(tKey).Set(key, []byte("transient-1"))
+
+	snapshot := db.MultiStoreSnapshot()
+	cacheCtx.KVStore(kvKey).Set(key, []byte("kv-2"))
+	cacheCtx.TransientStore(tKey).Set(key, []byte("transient-2"))
+
+	db.RevertMultiStore(snapshot)
+	suite.Require().Equal([]byte("kv-1"), cacheCtx.KVStore(kvKey).Get(key))
+	suite.Require().Equal([]byte("transient-1"), cacheCtx.TransientStore(tKey).Get(key))
 }
 
 func (suite *StateDBTestSuite) TestBalance() {

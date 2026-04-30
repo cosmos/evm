@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/v2/cachekv"
 	"github.com/cosmos/cosmos-sdk/store/v2/dbadapter"
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	"github.com/cosmos/cosmos-sdk/testutil"
 )
 
 func setupStore() (*snapshotmulti.Store, *storetypes.KVStoreKey) {
@@ -151,6 +152,51 @@ func TestSnapshotMultiCacheMultiStoreWithVersion(t *testing.T) {
 
 	m, _ := snapshotStore.CacheMultiStoreWithVersion(1)
 	require.Equal(t, snapshotStore, m)
+}
+
+func TestSnapshotMultiTransientStore_RoutingAndSnapshot(t *testing.T) {
+	kvKey := storetypes.NewKVStoreKey("kv")
+	tKey := storetypes.NewTransientStoreKey("transient")
+	oKey := storetypes.NewObjectStoreKey("object")
+	tc := testutil.DefaultContextWithObjectStore(t, kvKey, tKey, oKey)
+	cacheCtx, _ := tc.Ctx.CacheContext()
+
+	keys := map[string]storetypes.StoreKey{
+		kvKey.Name(): kvKey,
+		tKey.Name():  tKey,
+	}
+	snap := snapshotmulti.NewStore(cacheCtx.MultiStore(), keys)
+
+	kv := snap.GetKVStore(kvKey)
+	tv := snap.GetKVStore(tKey)
+	require.NotNil(t, kv)
+	require.NotNil(t, tv)
+
+	kv.Set([]byte("k"), []byte("kv-1"))
+	tv.Set([]byte("k"), []byte("tx-1"))
+
+	idx := snap.Snapshot()
+	snap.GetKVStore(kvKey).Set([]byte("k"), []byte("kv-2"))
+	snap.GetKVStore(tKey).Set([]byte("k"), []byte("tx-2"))
+
+	snap.RevertToSnapshot(idx)
+	require.Equal(t, []byte("kv-1"), snap.GetKVStore(kvKey).Get([]byte("k")))
+	require.Equal(t, []byte("tx-1"), snap.GetKVStore(tKey).Get([]byte("k")))
+}
+
+func TestSnapshotMultiTransientStore_NotObjectStore(t *testing.T) {
+	kvKey := storetypes.NewKVStoreKey("kv")
+	tKey := storetypes.NewTransientStoreKey("transient")
+	oKey := storetypes.NewObjectStoreKey("object")
+	tc := testutil.DefaultContextWithObjectStore(t, kvKey, tKey, oKey)
+	cacheCtx, _ := tc.Ctx.CacheContext()
+
+	keys := map[string]storetypes.StoreKey{
+		tKey.Name(): tKey,
+	}
+	snap := snapshotmulti.NewStore(cacheCtx.MultiStore(), keys)
+
+	require.Panics(t, func() { snap.GetObjKVStore(tKey) })
 }
 
 func TestSnapshotMultiLatestVersion(t *testing.T) {

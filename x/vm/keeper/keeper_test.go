@@ -39,6 +39,9 @@ func TestKeeperTestSuite(t *testing.T) {
 }
 
 func (suite *KeeperTestSuite) SetupTest() {
+	// Chain config is global; reset between tests so re-running NewKeeper does not panic.
+	vmtypes.NewEVMConfigurator().ResetTestConfig()
+
 	key := storetypes.NewKVStoreKey(vmtypes.StoreKey)
 	oKey := storetypes.NewObjectStoreKey(vmtypes.ObjectKey)
 	allKeys := []storetypes.StoreKey{key, oKey}
@@ -75,6 +78,20 @@ func (suite *KeeperTestSuite) SetupTest() {
 		constants.EighteenDecimalsChainID,
 		"",
 	)
+}
+
+func (suite *KeeperTestSuite) TestTransientGasUsed_RoundtripThroughTransientStore() {
+	ctx := suite.ctx
+
+	suite.Require().Equal(uint64(0), suite.vmKeeper.GetTransientGasUsed(ctx))
+
+	suite.vmKeeper.SetTransientGasUsed(ctx, 21000)
+	suite.Require().Equal(uint64(21000), suite.vmKeeper.GetTransientGasUsed(ctx))
+
+	total, err := suite.vmKeeper.AddTransientGasUsed(ctx, 5000)
+	suite.Require().NoError(err)
+	suite.Require().Equal(uint64(26000), total)
+	suite.Require().Equal(uint64(26000), suite.vmKeeper.GetTransientGasUsed(ctx))
 }
 
 func (suite *KeeperTestSuite) TestAddPreinstalls() {
