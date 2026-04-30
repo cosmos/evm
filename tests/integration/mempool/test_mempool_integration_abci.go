@@ -388,6 +388,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			},
 		},
 		{
+			// NOTE: this test is implicitly relying on the fact that ante
+			// handlers will ensure balances before they check and increment
+			// nonces, if this ordering changes, this will need to be modified
 			name: "test queue txs do not propagate state changes after failed recheck",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
@@ -423,6 +426,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			},
 		},
 		{
+			// NOTE: this test is implicitly relying on the fact that ante
+			// handlers will ensure balances before they check and increment
+			// nonces, if this ordering changes, this will need to be modified
 			name: "test queued rechecks happen on pending state",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
