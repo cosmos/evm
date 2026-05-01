@@ -9,11 +9,11 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
+	cmtcfg "github.com/cometbft/cometbft/config"
+
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
-
-	cmtcfg "github.com/cometbft/cometbft/config"
 
 	"cosmossdk.io/log/v2"
 
@@ -46,7 +46,7 @@ func ValidateReapBounds(appOpts servertypes.AppOptions, blockGasLimit uint64) er
 	// admission limit is 1 MiB.
 	maxTxBytes := cast.ToUint64(appOpts.Get(cmtMempoolMaxTxBytesKey))
 	if maxTxBytes == 0 {
-		maxTxBytes = uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes)
+		maxTxBytes = uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes) // #nosec G115 -- comet default is positive (1 MiB)
 	}
 	reapMaxBytes := cast.ToUint64(appOpts.Get(cmtMempoolReapMaxBytesKey))
 	reapMaxGas := cast.ToUint64(appOpts.Get(cmtMempoolReapMaxGasKey))

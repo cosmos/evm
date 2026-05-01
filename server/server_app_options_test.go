@@ -336,17 +336,17 @@ func createInvalidGenesis(t *testing.T) string {
 func TestValidateReapBounds(t *testing.T) {
 	t.Parallel()
 
-	cometDefaultMaxTxBytes := uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes)
+	cometDefaultMaxTxBytes := uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes) // #nosec G115 -- comet default is positive (1 MiB)
 
 	tests := []struct {
-		name             string
-		omitMaxTxBytes   bool
-		maxTxBytes       uint64
-		reapMaxBytes     uint64
-		reapMaxGas       uint64
-		blockGasLimit    uint64
-		nilOpts          bool
-		wantErr          string
+		name           string
+		omitMaxTxBytes bool
+		maxTxBytes     uint64
+		reapMaxBytes   uint64
+		reapMaxGas     uint64
+		blockGasLimit  uint64
+		nilOpts        bool
+		wantErr        string
 	}{
 		{
 			name:    "nil app options is a no-op",
