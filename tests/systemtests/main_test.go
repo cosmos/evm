@@ -76,6 +76,10 @@ func TestAccountAbstractionEIP7702(t *testing.T) {
 	suite.RunWithSharedSuite(t, accountabstraction.RunEIP7702)
 }
 
+func TestAccountAbstractionEIP7702SameBlock(t *testing.T) {
+	suite.RunWithSharedSuite(t, accountabstraction.RunEIP7702SameBlock)
+}
+
 /*
 * Chain Upgrade Tests
  */
