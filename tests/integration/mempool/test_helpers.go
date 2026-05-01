@@ -7,7 +7,6 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -23,13 +22,20 @@ const (
 	TxGas = 100_000
 )
 
-// createCosmosSendTransactionWithKey creates a simple bank send transaction with the specified key
+// createCosmosSendTransactionWithKey creates a simple bank send transaction
+// with the specified key, sending 1000aatom
 func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big.Int) sdk.Tx {
+	return s.createCosmosSendTxWithAmount(key, big.NewInt(1000), gasPrice)
+}
+
+// createCosmosSendTransactionWithKey creates a simple bank send transaction
+// with the specified key and amount
+func (s *IntegrationTestSuite) createCosmosSendTxWithAmount(key keyring.Key, amt *big.Int, gasPrice *big.Int) sdk.Tx {
 	feeDenom := "aatom"
 
 	fromAddr := key.AccAddr
 	toAddr := s.keyring.GetKey(1).AccAddr
-	amount := sdk.NewCoins(sdk.NewInt64Coin(feeDenom, 1000))
+	amount := sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(amt)))
 
 	bankMsg := banktypes.NewMsgSend(fromAddr, toAddr, amount)
 
@@ -45,8 +51,15 @@ func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big
 	return tx
 }
 
-// createEVMTransaction creates an EVM transaction using the provided key
+// createEVMTransaction creates an EVM transaction using the provided key,
+// nonce, and gas price. Defaults to sending 1000 of the native gas token
 func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce int, gasPrice *big.Int) sdk.Tx {
+	return s.createEVMValueTransferTxWithValue(key, nonce, big.NewInt(1000), gasPrice)
+}
+
+// createEVMTransaction creates an EVM transaction using the provided key,
+// nonce, value, and gas price
+func (s *IntegrationTestSuite) createEVMValueTransferTxWithValue(key keyring.Key, nonce int, value *big.Int, gasPrice *big.Int) sdk.Tx {
 	to := s.keyring.GetKey(1).Addr
 
 	if nonce < 0 {
@@ -57,7 +70,7 @@ func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce i
 		// #nosec G115 -- nonce checked >= 0 above
 		Nonce:    uint64(nonce),
 		To:       &to,
-		Amount:   big.NewInt(1000),
+		Amount:   value,
 		GasLimit: TxGas,
 		GasPrice: gasPrice,
 		Input:    nil,
@@ -108,22 +121,11 @@ func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPri
 	return tx
 }
 
-// insertOrCheckTxs calls mempool Insert or or abci CheckTx depending on the
-// applications mempool type
-func (s *IntegrationTestSuite) insertOrCheckTxs(txs []sdk.Tx) error {
-	switch mp := s.network.App.GetMempool().(type) {
-	case *evmmempool.Mempool:
-		return s.insertTxs(txs)
-	default:
-		return fmt.Errorf("unknown mempool type: %T", mp)
-	}
-}
-
 // insertTxs call mempool Insert for multiple transactions
 func (s *IntegrationTestSuite) insertTxs(txs []sdk.Tx) error {
-	for _, tx := range txs {
+	for idx, tx := range txs {
 		if err := s.insertTx(tx); err != nil {
-			return fmt.Errorf("failed to Insert for tx: %s", s.getTxHash(tx))
+			return fmt.Errorf("failed to insert for tx at idx %d %s: %w", idx, s.getTxHash(tx), err)
 		}
 	}
 	return nil
