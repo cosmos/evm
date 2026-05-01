@@ -445,7 +445,7 @@ func (m *Mempool) removeCosmosTx(tx sdk.Tx, reason sdkmempool.RemoveReason) erro
 func (m *Mempool) removeEVMTx(tx sdk.Tx, msgEthereumTx *evmtypes.MsgEthereumTx, reason sdkmempool.RemoveReason) error {
 	m.logger.Debug("Removing EVM transaction")
 
-	hash := msgEthereumTx.Hash()
+	hash := msgEthereumTx.AsTransaction().Hash()
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		_ = m.txTracker.IncludedInBlock(hash)
 		m.recordNonceAdvances(tx)
