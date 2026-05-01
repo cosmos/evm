@@ -455,6 +455,7 @@ type LegacyPool struct {
 	rechecker           Rechecker                          // Checks a tx for validity against the current state
 
 	validPendingTxs *heightsync.HeightSync[TxStore] // Per height store of pending txs that have been validated
+	toReap          map[common.Hash]struct{}        // Transactions that should be reaped after their next recheck
 
 	pending map[common.Address]*list     // All currently processable transactions
 	queue   map[common.Address]*list     // Queued but non-processable transactions
@@ -529,6 +530,7 @@ func New(
 		reapList:            reapList,
 		tracker:             tracker,
 		validPendingTxs:     heightsync.New(chain.CurrentBlock().Number, NewTxStore, logger.With("pool", "legacypool")),
+		toReap:              make(map[common.Hash]struct{}),
 		reqResetCh:          make(chan *txpoolResetRequest),
 		reqPromoteCh:        make(chan *accountSet),
 		reqCancelResetCh:    make(chan struct{}),
@@ -2069,6 +2071,11 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		if isReorgCancelled(reset, cancelled) {
+			// NOTE: are explicitly not clearing the toReap lookup since that
+			// may contain txs that have not been rechecked yet and still need
+			// to be reaped that we did not reach during this call since we
+			// cancelled early. we will attempt to reap them next reset after
+			// verification.
 			pendingDemotedCancelled.Add(context.Background(), 1)
 			return
 		}
@@ -2149,12 +2156,33 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 			if _, ok := pool.queue[addr]; !ok {
 				pool.reserver.Release(addr)
 			}
-		} else {
-			pool.validPendingTxs.Do(func(store *TxStore) {
-				store.AddTxs(addr, list.Flatten())
-			})
+			continue
+		}
+
+		// list now contains only validated txs (txs that failed recheck have
+		// been dropped, and those now gapped have been moved back to queued)
+		validated := list.Flatten()
+
+		// push validated txs into the validPendingTxs for this height
+		pool.validPendingTxs.Do(func(store *TxStore) { store.AddTxs(addr, validated) })
+
+		// if any of the validated txs are pending reap, reap them now
+		for _, tx := range validated {
+			hash := tx.Hash()
+			if _, ok := pool.toReap[hash]; !ok {
+				// tx does not need deferred reap, continue
+				continue
+			}
+			if err := pool.reapList.PushEVMTx(tx); err != nil {
+				log.Error("failed to push tx pending reap onto reap list", "err", err, "hash", hash)
+			}
+			delete(pool.toReap, hash)
 		}
 	}
+
+	// we have removed txs that we have reaped, but there may be stale entires
+	// in cases where we replace a tx multiple times, clean them up here.
+	pool.toReap = make(map[common.Hash]struct{})
 }
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
@@ -2421,6 +2449,7 @@ func (pool *LegacyPool) Clear() {
 	pool.pending = make(map[common.Address]*list)
 	pool.queue = make(map[common.Address]*list)
 	pool.pendingNonces = newNoncer(pool.currentState)
+	pool.toReap = make(map[common.Hash]struct{})
 }
 
 // HasPendingAuth returns a flag indicating whether there are pending
@@ -2445,15 +2474,17 @@ func (pool *LegacyPool) markTxPromoted(addr common.Address, tx *types.Transactio
 	_ = pool.tracker.EnteredPending(hash)
 }
 
-// markTxReplaced runs the promotion side-effects for a tx that bypassed the
+// markTxReplaced runs the promotion side effects for a tx that bypassed the
 // queued pool (replaced an existing pending tx at the same nonce). It does
 // **not** include the tx in the valid pending txs set, since replacements
 // must be revalidated by the Rechecker before we rely on them.
 func (pool *LegacyPool) markTxReplaced(_ common.Address, tx *types.Transaction) {
-	if err := pool.reapList.PushEVMTx(tx); err != nil {
-		log.Error("could not push replaced evm tx to ReapList", "err", err, "hash", tx.Hash())
-	}
+	// we are explicitly not adding this tx to the reap list here. this
+	// replacement tx has not been verified via the rechecker. thus we are
+	// deferring the reap to happen only after is has been verified during the
+	// next call to demoteUnexecutables.
 	hash := tx.Hash()
+	pool.toReap[hash] = struct{}{}
 	_ = pool.tracker.ExitedQueued(hash)
 	_ = pool.tracker.EnteredPending(hash)
 }
