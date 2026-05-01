@@ -67,7 +67,6 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
 	}
-
 	return r.anteHandler(ctx, cosmosTx, false)
 }
 

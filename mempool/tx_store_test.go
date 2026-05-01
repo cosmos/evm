@@ -358,3 +358,45 @@ func TestCosmosTxStoreInvalidateFromCrossesSignerBuckets(t *testing.T) {
 	txs := store.Txs()
 	require.Equal(t, []sdk.Tx{bobTx4}, txs)
 }
+
+func TestCosmosTxStoreInvalidateFromMultiSignerEvictsSingleSigner(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	aliceKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	bobKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	carolKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	eveKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	alicePubKey := crypto.CompressPubkey(&aliceKey.PublicKey)
+	bobPubKey := crypto.CompressPubkey(&bobKey.PublicKey)
+	carolPubKey := crypto.CompressPubkey(&carolKey.PublicKey)
+	evePubKey := crypto.CompressPubkey(&eveKey.PublicKey)
+
+	aliceTx5 := newKeyedMockTxWithPubKey(alicePubKey, 5)
+	bobTx3 := newKeyedMockTxWithPubKey(bobPubKey, 3)     // below B-threshold; survives
+	bobTx5 := newKeyedMockTxWithPubKey(bobPubKey, 5)     // at B-threshold; evicted
+	carolTx7 := newKeyedMockTxWithPubKey(carolPubKey, 7) // above C-threshold; evicted
+	eveTx9 := newKeyedMockTxWithPubKey(evePubKey, 9)     // unrelated signer; survives
+
+	multiTx := newMultiKeyedMockTx(
+		[][]byte{alicePubKey, bobPubKey, carolPubKey},
+		[]uint64{5, 5, 5},
+	)
+
+	store.AddTx(aliceTx5)
+	store.AddTx(bobTx3)
+	store.AddTx(bobTx5)
+	store.AddTx(carolTx7)
+	store.AddTx(eveTx9)
+	store.AddTx(multiTx)
+
+	removed := store.InvalidateFrom(multiTx)
+	// evicted: aliceTx5 (A:5>=5), bobTx5 (B:5>=5), carolTx7 (C:7>=5), multiTx itself.
+	require.Equal(t, 4, removed)
+
+	require.ElementsMatch(t, []sdk.Tx{bobTx3, eveTx9}, store.Txs())
+}

@@ -50,6 +50,10 @@ func TestMempoolCosmosTxsCompatibility(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility, suite.MempoolArgs()...)
 }
 
+func TestMempoolSetCode7702QueuedTxPromotion(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunSetCode7702QueuedTxPromotion, suite.MempoolArgs()...)
+}
+
 // /*
 // * EIP-712 Tests
 // */
@@ -70,6 +74,10 @@ func TestEIP712MultipleBankSends(t *testing.T) {
  */
 func TestAccountAbstractionEIP7702(t *testing.T) {
 	suite.RunWithSharedSuite(t, accountabstraction.RunEIP7702)
+}
+
+func TestAccountAbstractionEIP7702SameBlock(t *testing.T) {
+	suite.RunWithSharedSuite(t, accountabstraction.RunEIP7702SameBlock)
 }
 
 /*
