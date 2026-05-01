@@ -41,6 +41,10 @@ const (
 	SubscriberName = "evm"
 	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
 	fallbackBlockGasLimit = 100_000_000
+
+	// cosmosReserverHandlerID is the id of the reserver handler for the cosmos pool
+	// 0+ are reserved for evm sub-pools
+	cosmosReserverHandlerID = -1
 )
 
 // AllowUnsafeSyncInsert indicates whether to perform synchronous inserts into the mempool
@@ -195,15 +199,21 @@ func NewMempool(
 		panic("tx pool should contain only legacypool")
 	}
 
+	heightSync := heightsync.New(
+		blockchain.CurrentBlock().Number,
+		NewCosmosTxStore,
+		logger.With("pool", "cosmos_recheck_mempool"),
+	)
+
 	recheckPool := NewRecheckMempool(
-		logger,
 		config.CosmosPoolConfig,
 		cosmosPoolMaxTx,
-		reservationTracker.NewHandle(-1),
+		reservationTracker.NewHandle(cosmosReserverHandlerID),
 		cosmosRechecker,
-		heightsync.New(blockchain.CurrentBlock().Number, NewCosmosTxStore, logger.With("pool", "cosmos_recheck_mempool")),
+		heightSync,
 		reapList,
 		blockchain,
+		logger,
 	)
 
 	mempool := &Mempool{

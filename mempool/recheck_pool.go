@@ -12,6 +12,8 @@ import (
 	"github.com/holiman/uint256"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/cometbft/cometbft/crypto/tmhash"
+
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/reaplist"
 	"github.com/cosmos/evm/mempool/reserver"
@@ -114,7 +116,6 @@ type RecheckMempool struct {
 
 // NewRecheckMempool creates a new RecheckMempool.
 func NewRecheckMempool(
-	logger log.Logger,
 	defaultCosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
 	maxTxs int,
 	reserver *reserver.ReservationHandle,
@@ -122,10 +123,15 @@ func NewRecheckMempool(
 	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
 	reapList *reaplist.ReapList,
 	blockchain *Blockchain,
+	logger log.Logger,
 ) *RecheckMempool {
-	priorityMempoolConfig := cosmosPoolConfig(reapList, blockchain, defaultCosmosPoolConfig, maxTxs)
+	var (
+		cosmosMempoolConfig = cosmosPoolConfig(reapList, blockchain, defaultCosmosPoolConfig, maxTxs)
+		cosmosMempool       = sdkmempool.NewPriorityMempool(cosmosMempoolConfig)
+	)
+
 	return &RecheckMempool{
-		ExtMempool:      sdkmempool.NewPriorityMempool(priorityMempoolConfig),
+		ExtMempool:      cosmosMempool,
 		reserver:        reserver,
 		rechecker:       rechecker,
 		blockchain:      blockchain,

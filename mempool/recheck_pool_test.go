@@ -185,8 +185,8 @@ func TestRecheckMempool_Insert(t *testing.T) {
 			rc := newMockRechecker(ctx, anteHandler)
 
 			mp := mempool.NewRecheckMempool(
-				log.NewNopLogger(), nil, 0, handle, rc,
-				newTestRecheckedTxs(), newTestReapList(), bc,
+				nil, 0, handle, rc,
+				newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 			)
 
 			tx := newRecheckTestTx(t, acc.key)
@@ -222,8 +222,8 @@ func TestRecheckMempool_Insert_PoolCapacity(t *testing.T) {
 
 	maxTxs := 1
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, maxTxs, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, maxTxs, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	firstAcc := newRecheckTestAccount(t)
@@ -249,8 +249,8 @@ func TestRecheckMempool_Remove(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	tx := newRecheckTestTx(t, acc.key)
@@ -273,8 +273,8 @@ func TestRecheckMempool_Remove_NotInPool(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	err := mp.Remove(newRecheckTestTx(t, acc.key))
@@ -296,8 +296,8 @@ func TestRecheckMempool_StartClose(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	mp.Start(testHeader(0))
@@ -323,8 +323,8 @@ func TestRecheckMempool_CloseIdempotent(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 
@@ -340,8 +340,8 @@ func TestRecheckMempool_TriggerRecheckAfterShutdown(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	require.NoError(t, mp.Close())
@@ -384,8 +384,8 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 	rc := newMockRechecker(ctx, anteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 
@@ -448,8 +448,8 @@ func TestRecheckMempool_GetCtxError(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
@@ -477,8 +477,8 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 	rc := newMockRechecker(ctx, noopAnteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
@@ -732,8 +732,8 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 			rc := newMockRechecker(ctx, anteHandler)
 
 			mp := mempool.NewRecheckMempool(
-				log.NewNopLogger(), nil, 0, handle, rc,
-				recheckedTxs, newTestReapList(), bc,
+				nil, 0, handle, rc,
+				recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
 			)
 			mp.Start(testHeader(0))
 			defer mp.Close()
@@ -799,8 +799,8 @@ func TestRecheckMempool_RecheckedTxsReset(t *testing.T) {
 			rc := newMockRechecker(ctx, noopAnteHandler)
 
 			mp := mempool.NewRecheckMempool(
-				log.NewNopLogger(), nil, 0, handle, rc,
-				recheckedTxs, newTestReapList(), bc,
+				nil, 0, handle, rc,
+				recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
 			)
 			mp.Start(testHeader(0))
 			defer mp.Close()
@@ -863,8 +863,8 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 	rc := newMockRechecker(ctx, anteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		recheckedTxs, newTestReapList(), bc,
+		nil, 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
@@ -924,8 +924,8 @@ func TestRecheckMempool_RecheckerNoContextOnInsert(t *testing.T) {
 
 	recheckedTxs := newTestRecheckedTxs()
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		recheckedTxs, newTestReapList(), bc,
+		nil, 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	tx := newRecheckTestTx(t, acc.key)
@@ -992,8 +992,8 @@ func TestRecheckMempool_InsertSequentialNonces(t *testing.T) {
 	rc := newMockRechecker(ctx, newNonceTrackingAnteHandler())
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	key, err := crypto.GenerateKey()
@@ -1017,8 +1017,8 @@ func TestRecheckMempool_InsertNonceGapFails(t *testing.T) {
 	rc := newMockRechecker(ctx, newNonceTrackingAnteHandler())
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 
 	key, err := crypto.GenerateKey()
@@ -1046,8 +1046,8 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 	rc := newMockRechecker(ctx, newNonceTrackingAnteHandler())
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	defer mp.Close()
@@ -1080,8 +1080,8 @@ func TestRecheckMempool_InsertReplacementInvalidatesRechecked(t *testing.T) {
 	recheckedTxs := newTestRecheckedTxs()
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		recheckedTxs, newTestReapList(), bc,
+		nil, 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	t.Cleanup(func() {
@@ -1148,8 +1148,8 @@ func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 	recheckedTxs := newTestRecheckedTxs()
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), customReplacementConfig(), 0, handle, rc,
-		recheckedTxs, newTestReapList(), bc,
+		customReplacementConfig(), 0, handle, rc,
+		recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	t.Cleanup(func() {
@@ -1204,8 +1204,8 @@ func TestRecheckMempool_RecheckDropsFromReapList(t *testing.T) {
 	rc := newMockRechecker(ctx, anteHandler)
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), reapList, bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), reapList, bc, log.NewNopLogger(),
 	)
 	mp.Start(testHeader(0))
 	t.Cleanup(func() { require.NoError(t, mp.Close()) })
@@ -1251,8 +1251,8 @@ func TestRecheckMempool_ReplacementDropsFromReapList(t *testing.T) {
 	reapList := newTestReapList()
 
 	mp := mempool.NewRecheckMempool(
-		log.NewNopLogger(), nil, 0, handle, rc,
-		newTestRecheckedTxs(), reapList, bc,
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), reapList, bc, log.NewNopLogger(),
 	)
 
 	key, err := crypto.GenerateKey()
