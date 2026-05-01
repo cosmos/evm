@@ -18,12 +18,11 @@ package reserver
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -32,6 +31,12 @@ import (
 // CosmosReserverHandlerID is the id of the reserver handler for the cosmos pool
 // 0+ are reserved for evm sub-pools
 const CosmosReserverHandlerID = -1
+
+// ErrAlreadyReserved is returned if the sender address has a pending transaction
+// in a different subpool. For example, this error is returned in response to any
+// input transaction of non-blob type when a blob transaction from this sender
+// remains pending (and vice-versa).
+var ErrAlreadyReserved = fmt.Errorf("address already reserved")
 
 var (
 	meter = otel.Meter("github.com/cosmos/evm/mempool/reserver")
@@ -90,55 +95,93 @@ type ReservationHandle struct {
 	id      int
 }
 
-// Hold implements the Reserver interface.
+// Hold atomically reserves all addresses or none.
+// Ensure addrs have NO duplicates.
+// In most cases addrs is a single item.
 func (h *ReservationHandle) Hold(addrs ...common.Address) error {
 	h.tracker.lock.Lock()
 	defer h.tracker.lock.Unlock()
 
+	// dry run
 	for _, addr := range addrs {
-		owner, exists := h.tracker.accounts[addr]
-		if exists {
-			if owner == h.id {
-				return nil // Address already reserved for this pool, nothing else to do
-			}
-			return ErrAlreadyReserved
+		if err := h.canHold(addr); err != nil {
+			return err
 		}
-		h.tracker.accounts[addr] = h.id
-		reservationsGauge.Add(context.Background(), 1, metric.WithAttributes(attribute.String("subpool_id", strconv.Itoa(h.id))))
 	}
+
+	for _, addr := range addrs {
+		// might be already owned by us
+		if _, ok := h.tracker.accounts[addr]; ok {
+			continue
+		}
+
+		h.tracker.accounts[addr] = h.id
+		h.incMetric(1)
+	}
+
 	return nil
 }
 
-// Release implements the Reserver interface.
+// Release atomically releases all addresses or none.
+// Ensure addrs have NO duplicates.
+// In most cases addrs is a single item.
 func (h *ReservationHandle) Release(addrs ...common.Address) error {
 	h.tracker.lock.Lock()
 	defer h.tracker.lock.Unlock()
 
+	// dry run
 	for _, addr := range addrs {
-		// Ensure Subpools only attempt to unreserve their own owned addresses,
-		// otherwise flag as a programming error.
-		owner, exists := h.tracker.accounts[addr]
-		if !exists {
-			log.Error("pool attempted to unreserve non-reserved address", "address", addr)
-			return errors.New("address not reserved")
+		if err := h.canRelease(addr); err != nil {
+			return err
 		}
-		if owner != h.id {
-			log.Error("pool attempted to unreserve non-owned address", "address", addr)
-			return errors.New("address not owned")
-		}
-		delete(h.tracker.accounts, addr)
-		reservationsGauge.Add(context.Background(), -1, metric.WithAttributes(attribute.String("subpool_id", strconv.Itoa(h.id))))
 	}
+
+	for _, addr := range addrs {
+		delete(h.tracker.accounts, addr)
+	}
+
+	h.incMetric(-len(addrs))
+
 	return nil
 }
 
-// Has implements the Reserver interface.
+// Has checks that address is already reserved by ANOTHER pool.
 func (h *ReservationHandle) Has(address common.Address) bool {
 	h.tracker.lock.RLock()
 	defer h.tracker.lock.RUnlock()
 
 	id, exists := h.tracker.accounts[address]
 	return exists && id != h.id
+}
+
+func (h *ReservationHandle) canHold(addr common.Address) error {
+	owner, exists := h.tracker.accounts[addr]
+
+	if exists && owner != h.id {
+		return fmt.Errorf("address %s: %w", addr.String(), ErrAlreadyReserved)
+	}
+
+	// doesn't exist or already owned by this pool
+	return nil
+}
+
+func (h *ReservationHandle) canRelease(addr common.Address) error {
+	owner, exists := h.tracker.accounts[addr]
+	if !exists {
+		return fmt.Errorf("address %s not reserved", addr.String())
+	}
+
+	if owner != h.id {
+		return fmt.Errorf("address %s not owned by sub-pool %d", addr.String(), h.id)
+	}
+
+	return nil
+}
+
+func (h *ReservationHandle) incMetric(v int) {
+	reservationsGauge.Add(context.Background(), int64(v), metric.WithAttributes(
+		attribute.String("subpool_id", strconv.Itoa(h.id))),
+	)
 }
 
 func init() {
