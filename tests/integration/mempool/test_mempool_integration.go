@@ -38,6 +38,32 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			},
 		},
 		{
+			name: "failed cosmos insert does not propagate state",
+			setupTx: func() sdk.Tx {
+				// create a tx that will use the entire balance of the sender
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasPrice := new(big.Int).Quo(balance, new(big.Int).SetUint64(TxGas/2))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), gasPrice)
+			},
+			wantError: true, // want the above tx to fail to insert
+			verifyFunc: func() {
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				// spend half the balance, ensure that the above tx spending
+				// our entire balance does not persist that state across
+				// inserts
+				gasPrice := new(big.Int).Quo(balance, new(big.Int).SetUint64(TxGas*2))
+
+				mpool := s.network.App.GetMempool()
+
+				// try to insert a valid tx for the sender, ensure this succeeds
+				tx := s.createCosmosSendTx(s.keyring.GetKey(0), gasPrice)
+				s.Require().NoError(mpool.Insert(s.network.GetContext(), tx))
+
+				// ensure it made it into the pool
+				s.Require().Equal(1, mpool.CountTx())
+			},
+		},
+		{
 			name: "EVM transaction success",
 			setupTx: func() sdk.Tx {
 				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))

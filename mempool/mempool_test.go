@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -629,6 +630,66 @@ type testMempoolDependencies struct {
 	accounts        []testAccount
 }
 
+// AdvanceNonce updates the mock vmKeeper to return newNonce for GetNonce(addr)
+// and a matching Account from GetAccount. Used to simulate chain-state advance
+// between blocks so legacypool's reactive reset path can observe the change.
+//
+// Assumes prior GetNonce/GetAccount expectations were registered with a
+// concrete common.Address argument (as setupMempool does). Expectations
+// registered with mock.Anything or other non-Address matchers would not match
+// the type assertion below and would survive — leaving stale entries that race
+// with the new ones.
+func (s *testMempoolDependencies) AdvanceNonce(t *testing.T, addr common.Address, newNonce uint64) {
+	t.Helper()
+	var toUnset []*mock.Call
+	for _, c := range s.vmKeeper.ExpectedCalls {
+		switch c.Method {
+		case "GetNonce":
+			if len(c.Arguments) >= 1 {
+				if a, ok := c.Arguments[0].(common.Address); ok && a == addr {
+					toUnset = append(toUnset, c)
+				}
+			}
+		case "GetAccount":
+			if len(c.Arguments) >= 2 {
+				if a, ok := c.Arguments[1].(common.Address); ok && a == addr {
+					toUnset = append(toUnset, c)
+				}
+			}
+		}
+	}
+	for _, c := range toUnset {
+		c.Unset() // acquires the mock's internal mutex
+	}
+	s.vmKeeper.On("GetNonce", addr).Return(newNonce).Maybe()
+	s.vmKeeper.On("GetAccount", mock.Anything, addr).Return(&statedb.Account{
+		Nonce:   newNonce,
+		Balance: uint256.NewInt(1e18),
+	}).Maybe()
+}
+
+// InstallNonceCheckingRechecker wires the EVM rechecker to reject txs whose
+// nonce is below the mock's GetAccount(sender).Nonce. Simulates the ante
+// handler's sequence check during reset's demoteUnexecutables.
+func (s *testMempoolDependencies) InstallNonceCheckingRechecker(t *testing.T) {
+	t.Helper()
+	signer := types.LatestSignerForChainID(big.NewInt(int64(constants.EighteenDecimalsChainID)))
+	s.evmRechecker.SetEVMRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		from, err := types.Sender(signer, tx)
+		if err != nil {
+			return ctx, nil
+		}
+		acc := s.vmKeeper.GetAccount(sdk.Context{}, from)
+		if acc == nil {
+			return ctx, nil
+		}
+		if tx.Nonce() < acc.Nonce {
+			return sdk.Context{}, fmt.Errorf("stale tx: nonce %d < chain %d", tx.Nonce(), acc.Nonce)
+		}
+		return ctx, nil
+	})
+}
+
 func setupMempoolWithAccounts(t *testing.T, numAccounts int) (*mempool.Mempool, testMempoolDependencies) {
 	t.Helper()
 
@@ -793,6 +854,238 @@ func createMsgEthereumTx(
 	cosmosTx, err := evmtestutiltx.PrepareEthTx(txConfig, priv, msg)
 	require.NoError(t, err)
 	return cosmosTx
+}
+
+// createMsgEthereum7702Tx builds a cosmos-wrapped MsgEthereumTx of type-04
+// (EIP-7702 SetCode) signed by senderKey with the supplied authorization
+// list. Each `auths` entry is signed by its `key` field with the embedded
+// nonce. Returns the cosmos-signed sdk.Tx and the underlying ethereum tx
+// for assertion convenience.
+func createMsgEthereum7702Tx(
+	t *testing.T,
+	txConfig client.TxConfig,
+	senderKey *ecdsa.PrivateKey,
+	auths []types.SetCodeAuthorization,
+) sdk.Tx {
+	t.Helper()
+
+	chainID := vmtypes.GetEthChainConfig().ChainID
+	to := common.Address{0x55}
+	signedTx := types.MustSignNewTx(senderKey, types.LatestSignerForChainID(chainID), &types.SetCodeTx{
+		ChainID:   uint256.MustFromBig(chainID),
+		Nonce:     0,
+		GasTipCap: uint256.NewInt(1),
+		GasFeeCap: uint256.NewInt(1e9),
+		Gas:       250000,
+		To:        to,
+		Value:     uint256.NewInt(0),
+		AuthList:  auths,
+	})
+
+	msg := &vmtypes.MsgEthereumTx{
+		Raw:  vmtypes.EthereumTx{Transaction: signedTx},
+		From: crypto.PubkeyToAddress(senderKey.PublicKey).Bytes(),
+	}
+
+	// priv=nil → PrepareEthTx skips re-signing (we already have a signed eth
+	// tx) and just wraps the message into a cosmos tx with the EVM extension
+	// option.
+	cosmosTx, err := evmtestutiltx.PrepareEthTx(txConfig, nil, msg)
+	require.NoError(t, err)
+	return cosmosTx
+}
+
+// signSetCodeAuth is a small wrapper around types.SignSetCode for tests.
+func signSetCodeAuth(t *testing.T, key *ecdsa.PrivateKey, nonce uint64) types.SetCodeAuthorization {
+	t.Helper()
+	chainID := vmtypes.GetEthChainConfig().ChainID
+	auth, err := types.SignSetCode(key, types.SetCodeAuthorization{
+		ChainID: *uint256.MustFromBig(chainID),
+		Address: common.Address{0x42},
+		Nonce:   nonce,
+	})
+	require.NoError(t, err)
+	return auth
+}
+
+// TestStaleNonceHandling covers pool behavior on chain advance across
+// scenarios where the eager mechanism can't or doesn't catch the new
+// nonce. Cases assert reactive eviction via demoteUnexecutables →
+// RecheckEVM, or queued-tx promotion when a 7702 authority bump closes
+// a nonce gap.
+func TestStaleNonceHandling(t *testing.T) {
+	type expect struct {
+		pending int
+		queued  int
+	}
+	type scenario struct {
+		name             string
+		numAccounts      int
+		targetIdx        int      // account whose pool we observe
+		seedNonces       []uint64 // pending seeds (sequential, no gaps)
+		seedQueuedNonces []uint64 // queued seeds (gapped from chain nonce)
+		finalize7702     func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount)
+		advanceTo        uint64 // chain nonce to set for accounts[targetIdx]
+		wantAfterReset   expect // expected counts after the reset
+		// Eager-cache state for accounts[targetIdx] AFTER the test:
+		// expectsEager=false when no SetLatestNonce was triggered for the target;
+		// expectsEager=true with eagerNonce set when the eager path fired.
+		expectsEager bool
+		eagerNonce   uint64
+	}
+
+	cases := []scenario{
+		{
+			name:           "stale-sender-no-7702",
+			numAccounts:    1,
+			targetIdx:      0,
+			seedNonces:     []uint64{0},
+			advanceTo:      1,
+			wantAfterReset: expect{pending: 0, queued: 0},
+			// no RemoveWithReason call → eager cache untouched.
+			expectsEager: false,
+		},
+		{
+			name:        "authority-after-cross-account-7702",
+			numAccounts: 2,
+			targetIdx:   1,
+			seedNonces:  []uint64{0},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 1)}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo:      1,
+			wantAfterReset: expect{pending: 0, queued: 0},
+			// Eager fires for sender (idx 0); authority (idx 1, the target) is invisible.
+			expectsEager: false,
+		},
+		{
+			name:        "sender-+1-gap-after-self-sponsored-7702",
+			numAccounts: 1,
+			targetIdx:   0,
+			seedNonces:  []uint64{0, 1},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[0].key, 1)}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo:      2,
+			wantAfterReset: expect{pending: 0, queued: 0},
+			// Eager fires for sender (== target) at tx.Nonce()=0; the +1 bump is reactive.
+			expectsEager: true,
+			eagerNonce:   0,
+		},
+		{
+			// Queued tx whose nonce gap is closed by a self-sponsored 7702.
+			// Sender +1 plus 4 self-auth bumps brings chain nonce 0 -> 5,
+			// matching tx5's nonce. With nothing else in pending, the
+			// noncer falls through to statedb on reset and tx5 promotes.
+			name:             "queued-promotes-after-self-sponsored-7702",
+			numAccounts:      1,
+			targetIdx:        0,
+			seedNonces:       nil,
+			seedQueuedNonces: []uint64{5},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{
+					signSetCodeAuth(t, accs[0].key, 1),
+					signSetCodeAuth(t, accs[0].key, 2),
+					signSetCodeAuth(t, accs[0].key, 3),
+					signSetCodeAuth(t, accs[0].key, 4),
+				}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo:      5,
+			wantAfterReset: expect{pending: 1, queued: 0},
+			expectsEager:   true,
+			eagerNonce:     0,
+		},
+		{
+			// Cross-account: acc0 sends 7702 authorizing acc1; the auth
+			// bump closes acc1's queued tx gap. Extractor only sees acc0
+			// (sender), so acc1's eager LRU is never touched. tx1 promotes
+			// on first reset via the statedb fallback.
+			name:             "queued-promotes-after-cross-account-7702",
+			numAccounts:      2,
+			targetIdx:        1,
+			seedNonces:       nil,
+			seedQueuedNonces: []uint64{1},
+			finalize7702: func(t *testing.T, mp *mempool.Mempool, txConfig client.TxConfig, accs []testAccount) {
+				t.Helper()
+				auths := []types.SetCodeAuthorization{signSetCodeAuth(t, accs[1].key, 0)}
+				cosmosTx := createMsgEthereum7702Tx(t, txConfig, accs[0].key, auths)
+				require.NoError(t, mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
+					Caller: mempooltypes.CallerRunTxFinalize,
+				}))
+			},
+			advanceTo:      1,
+			wantAfterReset: expect{pending: 1, queued: 0},
+			expectsEager:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp, s := setupMempoolWithAccounts(t, tc.numAccounts)
+			txConfig, bus, accounts := s.txConfig, s.eventBus, s.accounts
+			target := accounts[tc.targetIdx]
+
+			require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+				Header: cmttypes.Header{Height: 1, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+			}))
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			for _, n := range tc.seedNonces {
+				tx := createMsgEthereumTx(t, txConfig, target.key, n, big.NewInt(1e8))
+				require.NoError(t, mp.Insert(context.Background(), tx))
+			}
+			for _, n := range tc.seedQueuedNonces {
+				tx := createMsgEthereumTx(t, txConfig, target.key, n, big.NewInt(1e8))
+				require.NoError(t, mp.Insert(context.Background(), tx))
+			}
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+			pending, queued := legacyPool.ContentFrom(target.address)
+			require.Len(t, pending, len(tc.seedNonces))
+			require.Len(t, queued, len(tc.seedQueuedNonces))
+
+			if tc.finalize7702 != nil {
+				tc.finalize7702(t, mp, txConfig, accounts)
+			}
+
+			s.InstallNonceCheckingRechecker(t)
+			s.AdvanceNonce(t, target.address, tc.advanceTo)
+
+			require.NoError(t, bus.PublishEventNewBlockHeader(cmttypes.EventDataNewBlockHeader{
+				Header: cmttypes.Header{Height: 2, Time: time.Now(), ChainID: strconv.Itoa(constants.EighteenDecimalsChainID)},
+			}))
+			require.NoError(t, mp.GetTxPool().Sync())
+
+			require.Eventually(t, func() bool {
+				p, q := legacyPool.ContentFrom(target.address)
+				return len(p) == tc.wantAfterReset.pending && len(q) == tc.wantAfterReset.queued
+			}, time.Second, 10*time.Millisecond, "reset state mismatch")
+
+			got, ok := legacyPool.LatestNonce(target.address)
+			if tc.expectsEager {
+				require.True(t, ok, "eager cache should have an entry for target")
+				require.Equal(t, tc.eagerNonce, got)
+			} else {
+				require.False(t, ok, "no eager signal expected; eviction proves reactive path")
+			}
+		})
+	}
 }
 
 // decodeTxBytes decodes transaction bytes returned from ReapNewValidTxs back into an Ethereum transaction

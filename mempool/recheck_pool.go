@@ -431,12 +431,9 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	failedAtSequence := make(map[string]uint64)
 	removeTxs := make([]sdk.Tx, 0)
 
-	// Branch from the rechecker for iteration context. Each successful tx's
-	// state changes are committed back to the Rechecker immediately via
-	// write()
-	ctx, write := m.rechecker.GetContext()
-
-	iter := m.ExtMempool.Select(ctx, nil)
+	// context.Background() safe to use here since ExtMempool is a
+	// PriorityNonceMempool and ctx is unused
+	iter := m.ExtMempool.Select(context.Background(), nil)
 	for iter != nil {
 		if isCancelled(cancelled) {
 			m.logger.Debug("recheck cancelled - new block arrived")
@@ -465,11 +462,11 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		if !invalidTx {
+			ctx, write := m.rechecker.GetContext()
 			if _, err := m.rechecker.RecheckCosmos(ctx, txn); err == nil {
 				write()
 				m.markTxRechecked(txn)
 				iter = iter.Next()
-				ctx, write = m.rechecker.GetContext()
 				continue
 			}
 		}
@@ -515,6 +512,8 @@ func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 // a higher nonce is dropped and rebuilt by the next recheck.
 func (m *RecheckMempool) markTxInserted(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) {
+		// If we invalidate any txs we can't execute this txn's antehandler sequence until the next rechecker.Update.
+		// This is because the invalidated txns have written their state to the Store's cache context already.
 		if store.InvalidateFrom(txn) > 0 {
 			return
 		}

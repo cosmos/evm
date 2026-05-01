@@ -83,6 +83,7 @@ const (
 	EVMMempoolPendingTxProposalTimeout = "evm.mempool.pending-tx-proposal-timeout"
 	EVMMempoolCheckTxTimeout           = "evm.mempool.check-tx-timeout"
 	EVMMempoolInsertQueueSize          = "evm.mempool.insert-queue-size"
+	EVMMempoolEnableTxTracker          = "evm.mempool.enable-tx-tracker"
 )
 
 // TLS flags
