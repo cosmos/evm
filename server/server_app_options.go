@@ -13,6 +13,8 @@ import (
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
+	cmtcfg "github.com/cometbft/cometbft/config"
+
 	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -38,7 +40,14 @@ func ValidateReapBounds(appOpts servertypes.AppOptions, blockGasLimit uint64) er
 		return nil
 	}
 
+	// Fall back to Comet's default when max_tx_bytes is missing or 0 — viper
+	// returns nil for an absent key, cast.ToUint64(nil) is 0, and a 0 cap
+	// would silently bypass the comparison even though Comet's effective
+	// admission limit is 1 MiB.
 	maxTxBytes := cast.ToUint64(appOpts.Get(cmtMempoolMaxTxBytesKey))
+	if maxTxBytes == 0 {
+		maxTxBytes = uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes)
+	}
 	reapMaxBytes := cast.ToUint64(appOpts.Get(cmtMempoolReapMaxBytesKey))
 	reapMaxGas := cast.ToUint64(appOpts.Get(cmtMempoolReapMaxGasKey))
 

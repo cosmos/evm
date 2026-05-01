@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cmtcfg "github.com/cometbft/cometbft/config"
+
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
 
@@ -334,23 +336,26 @@ func createInvalidGenesis(t *testing.T) string {
 func TestValidateReapBounds(t *testing.T) {
 	t.Parallel()
 
+	cometDefaultMaxTxBytes := uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes)
+
 	tests := []struct {
-		name          string
-		maxTxBytes    uint64
-		reapMaxBytes  uint64
-		reapMaxGas    uint64
-		blockGasLimit uint64
-		wantErr       string
+		name             string
+		omitMaxTxBytes   bool
+		maxTxBytes       uint64
+		reapMaxBytes     uint64
+		reapMaxGas       uint64
+		blockGasLimit    uint64
+		nilOpts          bool
+		wantErr          string
 	}{
 		{
 			name:    "nil app options is a no-op",
-			wantErr: "",
+			nilOpts: true,
 		},
 		{
 			name:          "default reap caps (zero) accept any admission caps",
 			maxTxBytes:    1 << 20,
 			blockGasLimit: 100_000_000,
-			wantErr:       "",
 		},
 		{
 			name:          "max_tx_bytes equal to reap_max_bytes is allowed",
@@ -358,7 +363,6 @@ func TestValidateReapBounds(t *testing.T) {
 			reapMaxBytes:  500_000,
 			blockGasLimit: 100_000,
 			reapMaxGas:    100_000,
-			wantErr:       "",
 		},
 		{
 			name:         "max_tx_bytes above reap_max_bytes is rejected",
@@ -380,6 +384,13 @@ func TestValidateReapBounds(t *testing.T) {
 			reapMaxGas:    50_000_000,
 			wantErr:       "mempool.max_tx_bytes",
 		},
+		{
+			// Greptile P1: viper read returning 0 must not silently bypass the check.
+			name:           "missing max_tx_bytes falls back to comet default and is rejected against a smaller reap cap",
+			omitMaxTxBytes: true,
+			reapMaxBytes:   cometDefaultMaxTxBytes - 1,
+			wantErr:        fmt.Sprintf("mempool.max_tx_bytes (%d) must be", cometDefaultMaxTxBytes),
+		},
 	}
 
 	for _, tc := range tests {
@@ -387,9 +398,11 @@ func TestValidateReapBounds(t *testing.T) {
 			t.Parallel()
 
 			var opts servertypes.AppOptions
-			if tc.name != "nil app options is a no-op" {
+			if !tc.nilOpts {
 				m := newMockAppOptions()
-				m.Set(cmtMempoolMaxTxBytesKey, tc.maxTxBytes)
+				if !tc.omitMaxTxBytes {
+					m.Set(cmtMempoolMaxTxBytesKey, tc.maxTxBytes)
+				}
 				m.Set(cmtMempoolReapMaxBytesKey, tc.reapMaxBytes)
 				m.Set(cmtMempoolReapMaxGasKey, tc.reapMaxGas)
 				opts = m
