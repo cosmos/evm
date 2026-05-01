@@ -2477,8 +2477,8 @@ func (pool *LegacyPool) markTxReplaced(_ common.Address, tx *types.Transaction) 
 	// replacement tx has not been verified via the rechecker. thus we are
 	// deferring the reap to happen only after is has been verified during the
 	// next call to demoteUnexecutables.
-	pool.toReap[tx.Hash()] = struct{}{}
 	hash := tx.Hash()
+	pool.toReap[hash] = struct{}{}
 	_ = pool.tracker.ExitedQueued(hash)
 	_ = pool.tracker.EnteredPending(hash)
 }
