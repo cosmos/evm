@@ -15,7 +15,6 @@ import (
 
 type TxConverter interface {
 	EVMTxToCosmosTx(tx *ethtypes.Transaction) (sdk.Tx, error)
-	CosmosTx(tx sdk.Tx) ([]byte, error)
 }
 
 // TxRechecker runs recheckFn on pending and queued txs in the pool, given an
@@ -68,9 +67,6 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
 	}
-	if err := r.checkMaxBytes(ctx, cosmosTx); err != nil {
-		return ctx, err
-	}
 	return r.anteHandler(ctx, cosmosTx, false)
 }
 
@@ -79,32 +75,7 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if err := r.checkMaxBytes(ctx, tx); err != nil {
-		return ctx, err
-	}
 	return r.anteHandler(ctx, tx, false)
-}
-
-// checkMaxBytes rejects txs whose encoded size exceeds the current
-// consensus MaxBytes. Comet enforces this at admission, but pool txs are
-// not re-evaluated when gov lowers MaxBytes — without this check, an
-// oversized tx wedges the head of the reap list.
-//
-// TODO: belongs in the cosmos ante alongside the gas-wanted check; living
-// here for now to avoid the DeliverTx-skip gate the ante version needs.
-func (r *TxRechecker) checkMaxBytes(ctx sdk.Context, tx sdk.Tx) error {
-	cp := ctx.ConsensusParams()
-	if cp.Block == nil || cp.Block.MaxBytes <= 0 {
-		return nil
-	}
-	bz, err := r.txConverter.CosmosTx(tx)
-	if err != nil {
-		return fmt.Errorf("encoding tx for size check: %w", err)
-	}
-	if int64(len(bz)) > cp.Block.MaxBytes {
-		return fmt.Errorf("tx size %d exceeds block max bytes %d", len(bz), cp.Block.MaxBytes)
-	}
-	return nil
 }
 
 // Update updates the base context for rechecks based on the latest chain

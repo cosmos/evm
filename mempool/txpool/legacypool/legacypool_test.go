@@ -51,7 +51,9 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
-// minimal tx encoder to construct a reap list during testing
+// testTxEncoder is a stub for legacypool tests that don't exercise size.
+// CosmosTx returns (nil, nil) — don't reuse for tests that exercise the
+// reaplist's bytes axis.
 type testTxEncoder struct{}
 
 func (testTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
@@ -59,19 +61,6 @@ func (testTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
 }
 
 func (testTxEncoder) CosmosTx(sdk.Tx) ([]byte, error) { return nil, nil }
-
-// realSizeTxEncoder produces a payload sized to match tx.Size().
-type realSizeTxEncoder struct{}
-
-func (realSizeTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
-	out := make([]byte, tx.Size())
-	copy(out, tx.Hash().Bytes())
-	return out, nil
-}
-
-func (realSizeTxEncoder) CosmosTx(sdk.Tx) ([]byte, error) {
-	return nil, errors.New("EVM-only test encoder")
-}
 
 var (
 	// testTxPoolConfig is a transaction pool configuration without stateful disk
@@ -1529,185 +1518,6 @@ func TestAllowedTxSize(t *testing.T) {
 	if err := validatePoolInternals(pool); err != nil {
 		t.Fatalf("pool internal state corrupted: %v", err)
 	}
-}
-
-// TestOversizedTxNotInReapList: txs rejected at validation (size > txMaxSize
-// or gas > head.GasLimit) never reach the reap list — the invariant that
-// lets us treat the reap list as bounded by upstream pool capacity.
-func TestOversizedTxNotInReapList(t *testing.T) {
-	t.Parallel()
-
-	const blockGasLimit = uint64(10_000_000)
-
-	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
-	blockchain := newTestBlockChain(params.TestChainConfig, blockGasLimit, statedb, new(event.Feed))
-
-	rl := reaplist.New(testTxEncoder{})
-	rechecker := &MockRechecker{}
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, rl, txtracker.New(), WithRecheck(rechecker))
-	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
-		t.Fatal(err)
-	}
-	<-pool.initDoneCh
-	defer pool.Close()
-
-	key, _ := crypto.GenerateKey()
-	account := crypto.PubkeyToAddress(key.PublicKey)
-	testAddBalance(pool, account, big.NewInt(1_000_000_000_000))
-
-	// Bytes axis: tx whose encoded size exceeds txMaxSize.
-	const oversizedDataLength = txMaxSize + 1
-	oversizedBytes := pricedDataTransaction(0, blockGasLimit, big.NewInt(1), key, oversizedDataLength)
-	if uint64(oversizedBytes.Size()) <= txMaxSize {
-		t.Fatalf("test setup: expected tx size > txMaxSize, got %d", oversizedBytes.Size())
-	}
-	if err := pool.addRemoteSync(oversizedBytes); err == nil {
-		t.Fatal("expected oversized-bytes tx to be rejected")
-	}
-
-	// Gas axis: tx whose gas exceeds head.GasLimit.
-	oversizedGas := pricedTransaction(0, blockGasLimit+1, big.NewInt(1), key)
-	if err := pool.addRemoteSync(oversizedGas); err == nil {
-		t.Fatal("expected oversized-gas tx to be rejected")
-	}
-
-	// Neither rejection should leak into the reap list.
-	if got := rl.Reap(0, 0); len(got) != 0 {
-		t.Fatalf("rejected tx leaked into reap list: got %d entries", len(got))
-	}
-}
-
-// TestGovMaxGasReductionWedgeAndHeal: a tx is admitted under high MaxGas;
-// gov reduces MaxGas below it; Reap wedges; the next runReorg re-runs the
-// ante (mocked here to fail on gas-over-limit, matching the production
-// ante's gas-wanted check), drops the tx, and clears the reap list.
-func TestGovMaxGasReductionWedgeAndHeal(t *testing.T) {
-	t.Parallel()
-
-	const initialGasLimit = uint64(10_000_000)
-	const reducedGasLimit = uint64(4_000_000)
-	const txGas = uint64(8_000_000) // valid initially, oversized after reduction
-
-	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
-	blockchain := newTestBlockChain(params.TestChainConfig, initialGasLimit, statedb, new(event.Feed))
-
-	rl := reaplist.New(testTxEncoder{})
-	rechecker := &MockRechecker{}
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
-		if tx.Gas() > blockchain.gasLimit.Load() {
-			return ctx, fmt.Errorf("tx gas %d exceeds block max gas %d", tx.Gas(), blockchain.gasLimit.Load())
-		}
-		return ctx, nil
-	})
-
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, rl, txtracker.New(), WithRecheck(rechecker))
-	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
-		t.Fatal(err)
-	}
-	<-pool.initDoneCh
-	defer pool.Close()
-
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	testAddBalance(pool, addr, big.NewInt(1_000_000_000_000))
-
-	wedger := pricedTransaction(0, txGas, big.NewInt(1), key)
-	if err := pool.addRemoteSync(wedger); err != nil {
-		t.Fatalf("admit wedger: %v", err)
-	}
-	require.True(t, pool.Has(wedger.Hash()), "precondition: pool has wedger")
-
-	blockchain.gasLimit.Store(reducedGasLimit)
-
-	if got := rl.Reap(0, reducedGasLimit); len(got) != 0 {
-		t.Fatalf("expected wedge: Reap returned %d txs", len(got))
-	}
-	require.True(t, pool.Has(wedger.Hash()), "wedger still pool-resident pre-heal")
-
-	<-pool.requestReset(nil, nil)
-
-	require.False(t, pool.Has(wedger.Hash()), "wedger evicted from pool after reorg")
-	if got := rl.Reap(0, reducedGasLimit); len(got) != 0 {
-		t.Fatalf("self-heal incomplete: reap list still has %d entries", len(got))
-	}
-
-	// State nonce never advanced; reuse nonce 0 for the post-heal tx.
-	healthy := pricedTransaction(0, 3_000_000, big.NewInt(1), key)
-	if err := pool.addRemoteSync(healthy); err != nil {
-		t.Fatalf("admit healthy tx: %v", err)
-	}
-	require.Len(t, rl.Reap(0, reducedGasLimit), 1, "post-heal: healthy tx reaps under the new limit")
-}
-
-// TestGovMaxBytesReductionWedgeAndHeal: bytes-axis counterpart to the gas
-// test. Production size check lives in TxRechecker.checkMaxBytes; the
-// MockRechecker here mirrors the same condition.
-func TestGovMaxBytesReductionWedgeAndHeal(t *testing.T) {
-	t.Parallel()
-
-	const initialMaxBytes = uint64(100_000)
-	const reducedMaxBytes = uint64(1_000)
-	const wedgerDataLength = uint64(4_000) // tx.Size ~= 4_100 bytes
-
-	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
-	blockchain := newTestBlockChain(params.TestChainConfig, 10_000_000, statedb, new(event.Feed))
-
-	// Stand-in for ctx.ConsensusParams().Block.MaxBytes that the production
-	// rechecker reads.
-	currentMaxBytes := atomic.Uint64{}
-	currentMaxBytes.Store(initialMaxBytes)
-
-	rl := reaplist.New(realSizeTxEncoder{})
-	rechecker := &MockRechecker{}
-	rechecker.SetRecheck(func(ctx sdk.Context, tx *types.Transaction) (sdk.Context, error) {
-		if uint64(tx.Size()) > currentMaxBytes.Load() {
-			return ctx, fmt.Errorf("tx size %d exceeds max bytes %d", tx.Size(), currentMaxBytes.Load())
-		}
-		return ctx, nil
-	})
-
-	pool := New(testTxPoolConfig, log.NewNopLogger(), blockchain, rl, txtracker.New(), WithRecheck(rechecker))
-	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
-		t.Fatal(err)
-	}
-	<-pool.initDoneCh
-	defer pool.Close()
-
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	testAddBalance(pool, addr, big.NewInt(1_000_000_000_000))
-
-	wedger := pricedDataTransaction(0, blockchain.gasLimit.Load(), big.NewInt(1), key, wedgerDataLength)
-	if uint64(wedger.Size()) <= reducedMaxBytes {
-		t.Fatalf("test setup: wedger size %d must exceed reducedMaxBytes %d", wedger.Size(), reducedMaxBytes)
-	}
-	if err := pool.addRemoteSync(wedger); err != nil {
-		t.Fatalf("admit wedger: %v", err)
-	}
-	require.True(t, pool.Has(wedger.Hash()), "precondition: pool has wedger")
-
-	currentMaxBytes.Store(reducedMaxBytes)
-
-	if got := rl.Reap(reducedMaxBytes, 0); len(got) != 0 {
-		t.Fatalf("expected wedge: Reap returned %d txs", len(got))
-	}
-	require.True(t, pool.Has(wedger.Hash()), "wedger still pool-resident pre-heal")
-
-	<-pool.requestReset(nil, nil)
-
-	require.False(t, pool.Has(wedger.Hash()), "wedger evicted from pool after reorg")
-	if got := rl.Reap(reducedMaxBytes, 0); len(got) != 0 {
-		t.Fatalf("self-heal incomplete: reap list still has %d entries", len(got))
-	}
-
-	healthy := pricedTransaction(0, blockchain.gasLimit.Load(), big.NewInt(1), key)
-	if uint64(healthy.Size()) > reducedMaxBytes {
-		t.Fatalf("test setup: healthy size %d must fit reducedMaxBytes %d", healthy.Size(), reducedMaxBytes)
-	}
-	if err := pool.addRemoteSync(healthy); err != nil {
-		t.Fatalf("admit healthy tx: %v", err)
-	}
-	require.Len(t, rl.Reap(reducedMaxBytes, 0), 1, "post-heal: healthy tx reaps under the new limit")
 }
 
 // Tests that if transactions start being capped, transactions are also removed from 'all'

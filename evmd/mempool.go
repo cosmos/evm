@@ -34,6 +34,10 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
+	if err := server.ValidateReapBounds(appOpts, mpConfig.BlockGasLimit); err != nil {
+		return err
+	}
+
 	// create mempool
 	mempool := evmmempool.NewMempool(
 		app.CreateQueryContext,
