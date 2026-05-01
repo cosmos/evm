@@ -128,7 +128,7 @@ func NewRecheckMempool(
 		blockchain,
 		defaultCosmosPoolConfig,
 		maxTxs,
-		onTransactionReplace(reapList, signerExtractor, reserver),
+		onTransactionReplace(reapList, signerExtractor, reserver, logger),
 	)
 
 	return &RecheckMempool{
@@ -181,9 +181,11 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) (err error) {
 	}
 
 	defer func() {
-		if err != nil {
-			// best effort cleanup
-			_ = m.reserver.Release(addrs...)
+		if err == nil {
+			return
+		}
+		if errRelease := m.reserver.Release(addrs...); errRelease != nil {
+			m.logger.Error("Failed to release reservations (Insert)", "err", errRelease, "addrs", addrs)
 		}
 	}()
 
@@ -267,8 +269,9 @@ func (m *RecheckMempool) unreserveTx(tx sdk.Tx) error {
 		return fmt.Errorf("extractEVMAddresses: %w", err)
 	}
 
-	// best-effort cleanup
-	_ = m.reserver.Release(addrs...)
+	if err := m.reserver.Release(addrs...); err != nil {
+		m.logger.Error("Failed to release reservations (unreserveTx)", "err", err, "addrs", addrs)
+	}
 
 	return nil
 }
@@ -602,6 +605,7 @@ func onTransactionReplace(
 	reapList *reaplist.ReapList,
 	signerExtractor sdkmempool.SignerExtractionAdapter,
 	reserver *reserver.ReservationHandle,
+	logger log.Logger,
 ) func(oldTx, newTx sdk.Tx) {
 	return func(oldTx, _ sdk.Tx) {
 		// tx is being replaced, we need to drop the tx that is going to be removed
@@ -614,8 +618,9 @@ func onTransactionReplace(
 			return
 		}
 
-		// best effort cleanup
-		_ = reserver.Release(addrs...)
+		if err := reserver.Release(addrs...); err != nil {
+			logger.Error("Failed to release reservations (onTransactionReplace)", "err", err, "addrs", addrs)
+		}
 	}
 }
 
