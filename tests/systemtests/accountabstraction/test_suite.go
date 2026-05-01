@@ -48,7 +48,18 @@ func (s *TestSuite) SetPrimaryAccount(acc *suite.TestAccount) {
 
 // SetupTest setup test suite and deploy test contracts
 func (s *TestSuite) SetupTest(t *testing.T) {
-	s.BaseTestSuite.SetupTest(t)
+	s.setupWithOpts(t)
+}
+
+// SetupTestWithTimeoutCommit is like SetupTest but configures the chain with the
+// supplied timeout_commit so the caller can widen the window for racing two txs
+// into the same block.
+func (s *TestSuite) SetupTestWithTimeoutCommit(t *testing.T, tc time.Duration) {
+	s.setupWithOpts(t, suite.WithTimeoutCommit(tc))
+}
+
+func (s *TestSuite) setupWithOpts(t *testing.T, opts ...suite.TestSetupConfigOption) {
+	s.BaseTestSuite.SetupTest(t, opts...)
 
 	if s.primaryAccountID == "" {
 		s.primaryAccountID = s.AccID(0)
@@ -109,8 +120,14 @@ func (s *TestSuite) GetCounterAddr() common.Address {
 	return s.counterAddress
 }
 
-// SendSetCodeTx sends SetCodeTx
+// SendSetCodeTx sends SetCodeTx with default fees.
 func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeAuthorization) (common.Hash, error) {
+	return s.SendSetCodeTxWithFees(accID, uint256.NewInt(1_000_000), uint256.NewInt(1_000_000_000), signedAuths...)
+}
+
+// SendSetCodeTxWithFees sends a SetCodeTx with explicit fee caps so callers can
+// bias proposer ordering against competing txs.
+func (s *TestSuite) SendSetCodeTxWithFees(accID string, gasTipCap, gasFeeCap *uint256.Int, signedAuths ...ethtypes.SetCodeAuthorization) (common.Hash, error) {
 	ctx := context.Background()
 	ethCli := s.EthClient.Clients["node0"]
 	acc := s.EthAccount(accID)
@@ -133,8 +150,8 @@ func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeA
 	txdata := &ethtypes.SetCodeTx{
 		ChainID:    uint256.MustFromBig(chainID),
 		Nonce:      nonce,
-		GasTipCap:  uint256.NewInt(1_000_000),
-		GasFeeCap:  uint256.NewInt(1_000_000_000),
+		GasTipCap:  gasTipCap,
+		GasFeeCap:  gasFeeCap,
 		Gas:        100_000,
 		To:         common.Address{},
 		Value:      uint256.NewInt(0),
