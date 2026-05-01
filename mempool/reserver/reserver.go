@@ -28,10 +28,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-// CosmosReserverHandlerID is the id of the reserver handler for the cosmos pool
-// 0+ are reserved for evm sub-pools
-const CosmosReserverHandlerID = -1
-
 // ErrAlreadyReserved is returned if the sender address has a pending transaction
 // in a different subpool. For example, this error is returned in response to any
 // input transaction of non-blob type when a blob transaction from this sender
@@ -53,9 +49,13 @@ var (
 // the account and ensure that one address cannot initiate transactions, authorizations,
 // and other state-changing behaviors in different pools at the same time.
 type ReservationTracker struct {
+	// map account => subpool id
 	accounts map[common.Address]int
 	lock     sync.RWMutex
 }
+
+// HandlerOpt is an option for creating a ReservationHandle.
+type HandlerOpt func(*ReservationHandle)
 
 // NewReservationTracker initializes the account reservation tracker.
 func NewReservationTracker() *ReservationTracker {
@@ -64,10 +64,26 @@ func NewReservationTracker() *ReservationTracker {
 	}
 }
 
+func WithRefCounter() HandlerOpt {
+	return func(h *ReservationHandle) {
+		h.enableRefCount = true
+		h.refsCounter = make(map[common.Address]int)
+	}
+}
+
 // NewHandle creates a named handle on the ReservationTracker. The handle
 // identifies the subpool so ownership of reservations can be determined.
-func (r *ReservationTracker) NewHandle(id int) *ReservationHandle {
-	return &ReservationHandle{r, id}
+func (r *ReservationTracker) NewHandle(id int, opts ...HandlerOpt) *ReservationHandle {
+	h := &ReservationHandle{
+		tracker: r,
+		id:      id,
+	}
+
+	for _, opt := range opts {
+		opt(h)
+	}
+
+	return h
 }
 
 // Reserver is an interface for creating and releasing owned reservations in the
@@ -86,13 +102,21 @@ type Reserver interface {
 	Has(address common.Address) bool
 }
 
-// ReservationHandle is a named handle on ReservationTracker. It is held by Subpools to
-// make reservations for accounts it is tracking. The id is used to determine
-// which pool owns an address and disallows non-owners to hold or release
+// ReservationHandle is a named handle on ReservationTracker. It is held by sub-pools
+// to make reservations for accounts it is tracking. The id is used to determine
+// which sub-pool owns an address and disallows non-owners to hold or release
 // addresses it doesn't own.
+//
+// Additionally, with enableRefCount, the handler will track the refs
+// to an address and will only release the address when refs==0
 type ReservationHandle struct {
 	tracker *ReservationTracker
 	id      int
+
+	enableRefCount bool
+
+	// map account => ref count
+	refsCounter map[common.Address]int
 }
 
 // Hold atomically reserves all addresses or none.
@@ -110,13 +134,15 @@ func (h *ReservationHandle) Hold(addrs ...common.Address) error {
 	}
 
 	for _, addr := range addrs {
-		// might be already owned by us
-		if _, ok := h.tracker.accounts[addr]; ok {
-			continue
+		// add only if not already owned by us
+		if _, exists := h.tracker.accounts[addr]; !exists {
+			h.tracker.accounts[addr] = h.id
+			h.incReservations(1)
 		}
 
-		h.tracker.accounts[addr] = h.id
-		h.incMetric(1)
+		if h.enableRefCount {
+			h.refsCounter[addr]++
+		}
 	}
 
 	return nil
@@ -137,10 +163,23 @@ func (h *ReservationHandle) Release(addrs ...common.Address) error {
 	}
 
 	for _, addr := range addrs {
-		delete(h.tracker.accounts, addr)
-	}
+		// simple release
+		if !h.enableRefCount {
+			delete(h.tracker.accounts, addr)
+			h.incReservations(-1)
+			continue
+		}
 
-	h.incMetric(-len(addrs))
+		// release with refsCounter check
+		if refs, exists := h.refsCounter[addr]; !exists || refs <= 1 {
+			delete(h.tracker.accounts, addr)
+			delete(h.refsCounter, addr)
+			h.incReservations(-1)
+		} else {
+			// just decrease the ref count, don't release yet
+			h.refsCounter[addr]--
+		}
+	}
 
 	return nil
 }
@@ -178,8 +217,8 @@ func (h *ReservationHandle) canRelease(addr common.Address) error {
 	return nil
 }
 
-func (h *ReservationHandle) incMetric(v int) {
-	reservationsGauge.Add(context.Background(), int64(v), metric.WithAttributes(
+func (h *ReservationHandle) incReservations(n int) {
+	reservationsGauge.Add(context.Background(), int64(n), metric.WithAttributes(
 		attribute.String("subpool_id", strconv.Itoa(h.id))),
 	)
 }
