@@ -3,6 +3,7 @@ package statedb
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 
@@ -238,10 +239,15 @@ func (s *StateDB) cache() error {
 
 	// Get KVStores for modules wired to app
 	cms := s.cacheCtx.MultiStore()
-	storeKeys := s.keeper.KVStoreKeys()
+	mergedStoreKeys := maps.Clone(s.keeper.KVStoreKeys())
+
+	// Merge transient store keys into storeKeys map
+	for name, tkey := range s.keeper.TransientStoreKeys() {
+		mergedStoreKeys[name] = tkey
+	}
 
 	// Create and set snapshot store to stateDB
-	snapshotStore := snapshotmulti.NewStore(cms, storeKeys)
+	snapshotStore := snapshotmulti.NewStore(cms, mergedStoreKeys)
 	s.snapshotter = snapshotStore
 	s.cacheCtx = s.cacheCtx.WithMultiStore(snapshotStore)
 	s.writeCache = func() {

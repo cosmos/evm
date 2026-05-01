@@ -28,6 +28,7 @@ type VMKeeperI interface {
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
 	KVStoreKeys() map[string]storetypes.StoreKey
+	TransientStoreKeys() map[string]*storetypes.TransientStoreKey
 }
 
 type FeeMarketKeeperI interface {

@@ -50,6 +50,9 @@ type Keeper struct {
 	// Store Keys for modules wired to app
 	storeKeys map[string]storetypes.StoreKey
 
+	// Transient Store Keys for modules wired to app
+	transientStoreKeys map[string]*storetypes.TransientStoreKey
+
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
 
@@ -93,6 +96,7 @@ func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey, objectKey storetypes.StoreKey,
 	keys []storetypes.StoreKey,
+	tkeys map[string]*storetypes.TransientStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
@@ -128,18 +132,19 @@ func NewKeeper(
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
-		cdc:              cdc,
-		authority:        authority,
-		accountKeeper:    ak,
-		bankWrapper:      bankWrapper,
-		stakingKeeper:    sk,
-		feeMarketWrapper: feeMarketWrapper,
-		storeKey:         storeKey,
-		objectKey:        objectKey,
-		tracer:           tracer,
-		consensusKeeper:  consensusKeeper,
-		erc20Keeper:      erc20Keeper,
-		storeKeys:        storeKeys,
+		cdc:                cdc,
+		authority:          authority,
+		accountKeeper:      ak,
+		bankWrapper:        bankWrapper,
+		stakingKeeper:      sk,
+		feeMarketWrapper:   feeMarketWrapper,
+		storeKey:           storeKey,
+		objectKey:          objectKey,
+		tracer:             tracer,
+		consensusKeeper:    consensusKeeper,
+		erc20Keeper:        erc20Keeper,
+		storeKeys:          storeKeys,
+		transientStoreKeys: tkeys,
 	}
 }
 
@@ -382,18 +387,18 @@ func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
 
 // GetTransientGasUsed returns the gas used by current cosmos tx.
 func (k Keeper) GetTransientGasUsed(ctx sdk.Context) uint64 {
-	store := ctx.ObjectStore(k.objectKey)
-	v := store.Get(types.ObjectGasUsedKey(ctx.TxIndex()))
-	if v == nil {
+	store := ctx.TransientStore(k.transientStoreKeys[types.TransientKey])
+	bz := store.Get(types.TransientGasUsedKey(ctx.TxIndex()))
+	if bz == nil {
 		return 0
 	}
-	return v.(uint64)
+	return sdk.BigEndianToUint64(bz)
 }
 
 // SetTransientGasUsed sets the gas used by current cosmos tx.
 func (k Keeper) SetTransientGasUsed(ctx sdk.Context, gasUsed uint64) {
-	store := ctx.ObjectStore(k.objectKey)
-	store.Set(types.ObjectGasUsedKey(ctx.TxIndex()), gasUsed)
+	store := ctx.TransientStore(k.transientStoreKeys[types.TransientKey])
+	store.Set(types.TransientGasUsedKey(ctx.TxIndex()), sdk.Uint64ToBigEndian(gasUsed))
 }
 
 // AddTransientGasUsed accumulate gas used by each eth msgs included in current cosmos tx.
@@ -409,6 +414,11 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 // KVStoreKeys returns KVStore keys injected to keeper
 func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
+}
+
+// TransientStoreKeys returns transient store keys injected to keeper
+func (k Keeper) TransientStoreKeys() map[string]*storetypes.TransientStoreKey {
+	return k.transientStoreKeys
 }
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.
