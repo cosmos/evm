@@ -20,10 +20,15 @@ if ! command -v forge >/dev/null 2>&1; then
 	foundryup
 fi
 
-# Install Node.js and npm if missing
-if ! command -v npm >/dev/null 2>&1; then
+# Install Node.js and pnpm if missing
+if ! command -v node >/dev/null 2>&1; then
 	curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
 	sudo apt-get install -y nodejs
+fi
+if ! command -v pnpm >/dev/null 2>&1; then
+	corepack enable 2>/dev/null || true
+	npm install -g corepack 2>/dev/null || true
+	corepack enable && corepack prepare pnpm@latest --activate
 fi
 
 # -----------------------------------------------------------------------------
@@ -63,18 +68,14 @@ if [ -d "$COMPAT_DIR/hardhat" ]; then
 				git submodule update
 			fi
 
-			# Only install npm dependencies if node_modules doesn't exist
-			if [ ! -d "node_modules" ]; then
-				echo "Installing npm dependencies for hardhat/$subproject..."
-				npm install
-			else
-				echo "npm dependencies already installed for hardhat/$subproject, skipping..."
-			fi
+			# Install dependencies (ensures pnpm layout for pnpm exec)
+			echo "Installing dependencies for hardhat/$subproject..."
+			pnpm install
 
 			# Only compile if build artifacts don't exist
 			if [ ! -d "artifacts" ] && [ ! -d "cache" ]; then
 				echo "Compiling hardhat contracts for $subproject..."
-				npx hardhat compile
+				pnpm exec hardhat compile
 			else
 				echo "Hardhat contracts already compiled for $subproject, skipping..."
 			fi
@@ -85,17 +86,13 @@ if [ -d "$COMPAT_DIR/hardhat" ]; then
 fi
 
 # Node based projects (viem, web3.js, sdk examples)
-for dir in "$COMPAT_DIR"/sdk/* "$COMPAT_DIR"/viem "$COMPAT_DIR"/web3js; do
+for dir in "$COMPAT_DIR"/sdk/* "$COMPAT_DIR"/viem "$COMPAT_DIR"/web3.js; do
 	if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
 		pushd "$dir" >/dev/null
 
-		# Only install npm dependencies if node_modules doesn't exist
-		if [ ! -d "node_modules" ]; then
-			echo "Installing npm dependencies for $(basename "$dir")..."
-			npm install
-		else
-			echo "npm dependencies already installed for $(basename "$dir"), skipping..."
-		fi
+		# Install dependencies (ensures pnpm layout for pnpm exec)
+		echo "Installing dependencies for $(basename "$dir")..."
+		pnpm install
 
 		popd >/dev/null
 	fi

@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "@account-abstraction/contracts/interfaces/IAccount.sol";
+import "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import "@account-abstraction/contracts/core/EntryPoint.sol";
 
 contract SimpleSmartWallet is IAccount {
@@ -16,7 +17,7 @@ contract SimpleSmartWallet is IAccount {
     }
 
     function validateUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 /* missingAccountFunds */
     ) external view override returns (uint256 validationData) {
