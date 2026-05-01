@@ -2071,6 +2071,11 @@ func (pool *LegacyPool) demoteUnexecutables(cancelled chan struct{}, reset *txpo
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		if isReorgCancelled(reset, cancelled) {
+			// NOTE: are explicitly not clearing the toReap lookup since that
+			// may contain txs that have not been rechecked yet and still need
+			// to be reaped that we did not reach during this call since we
+			// cancelled early. we will attempt to reap them next reset after
+			// verification.
 			pendingDemotedCancelled.Add(context.Background(), 1)
 			return
 		}
