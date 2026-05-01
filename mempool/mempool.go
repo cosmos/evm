@@ -41,10 +41,6 @@ const (
 	SubscriberName = "evm"
 	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
 	fallbackBlockGasLimit = 100_000_000
-
-	// cosmosReserverHandlerID is the id of the reserver handler for the cosmos pool
-	// 0+ are reserved for evm sub-pools
-	cosmosReserverHandlerID = -1
 )
 
 // AllowUnsafeSyncInsert indicates whether to perform synchronous inserts into the mempool
@@ -208,7 +204,7 @@ func NewMempool(
 	recheckPool := NewRecheckMempool(
 		config.CosmosPoolConfig,
 		cosmosPoolMaxTx,
-		reservationTracker.NewHandle(cosmosReserverHandlerID),
+		reservationTracker.NewHandle(reserver.CosmosReserverHandlerID),
 		cosmosRechecker,
 		heightSync,
 		reapList,

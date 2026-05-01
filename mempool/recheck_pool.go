@@ -12,8 +12,6 @@ import (
 	"github.com/holiman/uint256"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/cometbft/cometbft/crypto/tmhash"
-
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/reaplist"
 	"github.com/cosmos/evm/mempool/reserver"

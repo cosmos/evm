@@ -29,25 +29,20 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-var meter = otel.Meter("github.com/cosmos/evm/mempool/reserver")
+// CosmosReserverHandlerID is the id of the reserver handler for the cosmos pool
+// 0+ are reserved for evm sub-pools
+const CosmosReserverHandlerID = -1
 
-// reservationsGauge is a per-subpool address reservation count, tagged with
-// the subpool id.
-//
-// This is mostly a sanity metric to ensure there's no bug that would make
-// some subpool hog all the reservations due to mis-accounting.
-var reservationsGauge metric.Int64UpDownCounter
+var (
+	meter = otel.Meter("github.com/cosmos/evm/mempool/reserver")
 
-func init() {
-	var err error
-	reservationsGauge, err = meter.Int64UpDownCounter(
-		"txpool.reservations",
-		metric.WithDescription("Number of addresses currently reserved by a subpool"),
-	)
-	if err != nil {
-		panic(err)
-	}
-}
+	// reservationsGauge is a per-subpool address reservation count, tagged with
+	// the subpool id.
+	//
+	// This is mostly a sanity metric to ensure there's no bug that would make
+	// some subpool hog all the reservations due to mis-accounting.
+	reservationsGauge metric.Int64UpDownCounter
+)
 
 // ReservationTracker is a struct shared between different Subpools. It is used to reserve
 // the account and ensure that one address cannot initiate transactions, authorizations,
@@ -144,4 +139,15 @@ func (h *ReservationHandle) Has(address common.Address) bool {
 
 	id, exists := h.tracker.accounts[address]
 	return exists && id != h.id
+}
+
+func init() {
+	var err error
+	reservationsGauge, err = meter.Int64UpDownCounter(
+		"txpool.reservations",
+		metric.WithDescription("Number of addresses currently reserved by a subpool"),
+	)
+	if err != nil {
+		panic(err)
+	}
 }
