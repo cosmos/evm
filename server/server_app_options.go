@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
 	"time"
@@ -21,6 +22,42 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
+
+const (
+	cmtMempoolMaxTxBytesKey   = "mempool.max_tx_bytes"
+	cmtMempoolReapMaxBytesKey = "mempool.reap_max_bytes"
+	cmtMempoolReapMaxGasKey   = "mempool.reap_max_gas"
+)
+
+// ValidateReapBounds errors when an admission cap exceeds the matching reap
+// cap. A tx admitted via CheckTx that's larger than reap_max_bytes (or whose
+// gas exceeds reap_max_gas) would wedge the head of the reap list. A zero reap
+// cap means "no limit" on Comet's side — skip.
+func ValidateReapBounds(appOpts servertypes.AppOptions, blockGasLimit uint64) error {
+	if appOpts == nil {
+		return nil
+	}
+
+	maxTxBytes := cast.ToUint64(appOpts.Get(cmtMempoolMaxTxBytesKey))
+	reapMaxBytes := cast.ToUint64(appOpts.Get(cmtMempoolReapMaxBytesKey))
+	reapMaxGas := cast.ToUint64(appOpts.Get(cmtMempoolReapMaxGasKey))
+
+	if reapMaxBytes > 0 && maxTxBytes > reapMaxBytes {
+		return fmt.Errorf(
+			"mempool.max_tx_bytes (%d) must be <= mempool.reap_max_bytes (%d): "+
+				"a tx admitted via CheckTx that exceeds reap_max_bytes would wedge the reap list",
+			maxTxBytes, reapMaxBytes,
+		)
+	}
+	if reapMaxGas > 0 && blockGasLimit > reapMaxGas {
+		return fmt.Errorf(
+			"genesis consensus block.max_gas (%d) must be <= mempool.reap_max_gas (%d): "+
+				"a tx admitted with gas up to block.max_gas that exceeds reap_max_gas would wedge the reap list",
+			blockGasLimit, reapMaxGas,
+		)
+	}
+	return nil
+}
 
 // ResolveMempoolConfig resolves the mempool configuration from the app options.
 func ResolveMempoolConfig(anteHandler sdk.AnteHandler, appOpts servertypes.AppOptions, logger log.Logger) *evmmempool.Config {

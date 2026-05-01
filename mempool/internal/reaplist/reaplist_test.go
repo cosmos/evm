@@ -320,6 +320,43 @@ func TestExactGasLimit(t *testing.T) {
 	require.Len(t, result, 2, "should reap exactly 2 transactions with exact gas limit")
 }
 
+// A tx whose size exceeds Reap's maxBytes wedges the queue: Reap returns
+// nothing until that tx is dropped, even though smaller txs behind it fit.
+func TestReapWedgesOnOversizedHead_Bytes(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	const reapMaxBytes = uint64(500)
+
+	rl := New(newDeterministicEncoder(reapMaxBytes+1, 0))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, 21000)))
+
+	rl.txEncoder = newDeterministicEncoder(100, 0)
+	for i := uint64(1); i < 4; i++ {
+		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
+	}
+
+	require.Empty(t, rl.Reap(reapMaxBytes, 0))
+	require.Len(t, rl.Reap(0, 0), 4, "uncapped Reap returns all queued txs")
+}
+
+// Gas-axis counterpart to TestReapWedgesOnOversizedHead_Bytes.
+func TestReapWedgesOnOversizedHead_Gas(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	const reapMaxGas = uint64(50_000)
+
+	rl := New(newDeterministicEncoder(100, 0))
+	require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, 0, reapMaxGas+1)))
+	for i := uint64(1); i < 4; i++ {
+		require.NoError(t, rl.PushEVMTx(testEVMTx(t, key, i, 21000)))
+	}
+
+	require.Empty(t, rl.Reap(0, reapMaxGas))
+	require.Len(t, rl.Reap(0, 0), 4, "uncapped Reap returns all queued txs")
+}
+
 func TestEncodingFailure(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)

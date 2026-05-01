@@ -330,3 +330,78 @@ func createInvalidGenesis(t *testing.T) string {
 
 	return tempDir
 }
+
+func TestValidateReapBounds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		maxTxBytes    uint64
+		reapMaxBytes  uint64
+		reapMaxGas    uint64
+		blockGasLimit uint64
+		wantErr       string
+	}{
+		{
+			name:    "nil app options is a no-op",
+			wantErr: "",
+		},
+		{
+			name:          "default reap caps (zero) accept any admission caps",
+			maxTxBytes:    1 << 20,
+			blockGasLimit: 100_000_000,
+			wantErr:       "",
+		},
+		{
+			name:          "max_tx_bytes equal to reap_max_bytes is allowed",
+			maxTxBytes:    500_000,
+			reapMaxBytes:  500_000,
+			blockGasLimit: 100_000,
+			reapMaxGas:    100_000,
+			wantErr:       "",
+		},
+		{
+			name:         "max_tx_bytes above reap_max_bytes is rejected",
+			maxTxBytes:   1 << 20,
+			reapMaxBytes: 500_000,
+			wantErr:      "mempool.max_tx_bytes (1048576) must be <= mempool.reap_max_bytes (500000)",
+		},
+		{
+			name:          "block_gas_limit above reap_max_gas is rejected",
+			blockGasLimit: 100_000_000,
+			reapMaxGas:    50_000_000,
+			wantErr:       "genesis consensus block.max_gas (100000000) must be <= mempool.reap_max_gas (50000000)",
+		},
+		{
+			name:          "bytes-axis fires before gas-axis when both are misconfigured",
+			maxTxBytes:    1 << 20,
+			reapMaxBytes:  500_000,
+			blockGasLimit: 100_000_000,
+			reapMaxGas:    50_000_000,
+			wantErr:       "mempool.max_tx_bytes",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var opts servertypes.AppOptions
+			if tc.name != "nil app options is a no-op" {
+				m := newMockAppOptions()
+				m.Set(cmtMempoolMaxTxBytesKey, tc.maxTxBytes)
+				m.Set(cmtMempoolReapMaxBytesKey, tc.reapMaxBytes)
+				m.Set(cmtMempoolReapMaxGasKey, tc.reapMaxGas)
+				opts = m
+			}
+
+			err := ValidateReapBounds(opts, tc.blockGasLimit)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
