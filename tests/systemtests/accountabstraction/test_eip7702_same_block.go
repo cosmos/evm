@@ -88,8 +88,10 @@ func RunEIP7702SameBlock(t *testing.T, base *suite.BaseTestSuite) {
 				strings.Contains(strings.ToLower(bankRes.log), "nonce"),
 			"expected sequence/nonce error in bank log, got: %s", bankRes.log)
 
-		setCodeTip := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(1)))
-		setCodeFeeCap := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(10)))
+		t.Logf("SetCode-first: block=%d delegation=installed bankCode=%d log=%q",
+			receipt.BlockNumber.Uint64(), bankRes.code, bankRes.log)
+	})
+
 	// Bank-first: bias the bank tx's tip so the proposer iterator emits
 	// it before the SetCode tx inside the same block.
 	t.Run("Bank-first execution: bank commits, auth silently skipped, no delegation", func(t *testing.T) {
@@ -98,7 +100,10 @@ func RunEIP7702SameBlock(t *testing.T, base *suite.BaseTestSuite) {
 		counterAddr := s.GetCounterAddr()
 		baseFee := s.GasPriceMultiplier(1)
 		setCodeTip := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(1)))
-		setCodeFeeCap := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(2)))
+		// 10× base fee absorbs any drift between GetLatestBaseFee and inclusion
+		// so the SetCode tx still passes its fee cap check when the iterator
+		// emits it after the bank tx.
+		setCodeFeeCap := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(10)))
 		bankPrice := new(big.Int).Mul(baseFee, big.NewInt(100))
 
 		receipt, bankRes := submitSameBlock(t, s, relayerID, userID, counterAddr, setCodeTip, setCodeFeeCap, bankPrice)
