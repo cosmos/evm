@@ -88,10 +88,8 @@ func RunEIP7702SameBlock(t *testing.T, base *suite.BaseTestSuite) {
 				strings.Contains(strings.ToLower(bankRes.log), "nonce"),
 			"expected sequence/nonce error in bank log, got: %s", bankRes.log)
 
-		t.Logf("SetCode-first: block=%d delegation=installed bankCode=%d log=%q",
-			receipt.BlockNumber.Uint64(), bankRes.code, bankRes.log)
-	})
-
+		setCodeTip := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(1)))
+		setCodeFeeCap := uint256.MustFromBig(new(big.Int).Mul(baseFee, big.NewInt(10)))
 	// Bank-first: bias the bank tx's tip so the proposer iterator emits
 	// it before the SetCode tx inside the same block.
 	t.Run("Bank-first execution: bank commits, auth silently skipped, no delegation", func(t *testing.T) {
