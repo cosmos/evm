@@ -51,6 +51,11 @@ func New(txEncoder EVMCosmosTxEncoder) *ReapList {
 // Reap returns a list of the oldest to newest transactions bytes from the reap
 // list until either maxBytes or maxGas is reached for the list of transactions
 // being returned. If maxBytes and maxGas are both 0 all txs will be returned.
+//
+// Callers MUST pass maxBytes >= comet's mempool.max_tx_bytes and maxGas >=
+// consensus block.max_gas (or 0 for "no limit"). A tx larger than maxBytes/
+// maxGas wedges the head: Reap stops at it and returns nothing, even though
+// txs behind it would fit. server.ValidateReapBounds enforces this at boot.
 func (rl *ReapList) Reap(maxBytes uint64, maxGas uint64) [][]byte {
 	rl.txsLock.Lock()
 	defer rl.txsLock.Unlock()

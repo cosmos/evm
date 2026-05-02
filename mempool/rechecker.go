@@ -67,7 +67,6 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
 	}
-
 	return r.anteHandler(ctx, cosmosTx, false)
 }
 
@@ -88,8 +87,11 @@ func (r *TxRechecker) Update(ctx sdk.Context, header *ethtypes.Header) {
 	cached = cached.WithBlockGasMeter(storetypes.NewGasMeter(header.GasLimit))
 	cached = cached.WithGasMeter(storetypes.NewInfiniteGasMeter())
 	if cached.ConsensusParams().Block == nil {
-		// set the latest blocks gas limit as the max gas in cp. this is
-		// necessary to validate each tx's gas wanted
+		// On freshly-initialized contexts Block can be nil e.g.
+		// * the Start path before consensus params are populated
+		// * the EVM-side path where the ctx didn't come from CometBFT
+		// That would result in either dereference-panic or skipping the gas-wanted check during antehandler.
+		// Set the latest blocks gas limit as the max gas in cp to avoid this.
 		maxGas, err := utils.SafeInt64(header.GasLimit)
 		if err != nil {
 			panic(fmt.Errorf("converting evm block gas limit to int64: %w", err))

@@ -1,41 +1,78 @@
 package txtracker
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/cosmos/cosmos-sdk/telemetry"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 )
 
+var meter = otel.Meter("github.com/cosmos/evm/mempool/internal/txtracker")
+
 var (
-	// chainInclusionLatencyKey measures how long it takes for a transaction to go
-	// from initially being tracked to being included on chain
-	chainInclusionLatencyKey = "chain_inclusion_latency"
+	// chainInclusionLatency measures how long it takes for a transaction to go
+	// from initially being tracked to being included on chain.
+	chainInclusionLatency metric.Float64Histogram
 
-	// queuedInclusionLatencyKey measures how long it takes for a transaction to go
-	// from initially being tracked to being included in queued
-	queuedInclusionLatencyKey = "queued_inclusion_latency"
+	// queuedInclusionLatency measures how long it takes for a transaction to
+	// go from initially being tracked to being included in queued.
+	queuedInclusionLatency metric.Float64Histogram
 
-	// pendingInclusionLatencyKey measures how long it takes for a transaction to
-	// go from initially being tracked to being included in pending
-	pendingInclusionLatencyKey = "pending_inclusion_latency"
+	// pendingInclusionLatency measures how long it takes for a transaction to
+	// go from initially being tracked to being included in pending.
+	pendingInclusionLatency metric.Float64Histogram
 
 	// queuedDuration is how long a transaction is in the queued pool for
 	// before exiting. Only recorded on exit (if a tx stays in the pool
 	// forever, this will not be recorded).
-	queuedDurationKey = "queued_duration"
+	queuedDuration metric.Float64Histogram
 
 	// pendingDuration is how long a transaction is in the pending pool for
 	// before exiting. Only recorded on exit (if a tx stays in the pool
 	// forever, this will not be recorded).
-	pendingDurationKey = "pending_duration"
+	pendingDuration metric.Float64Histogram
 )
 
+// Tracker tracks timestamps about important events in a transactions lifecycle
+// and exposes metrics about these via prometheus. A no-op implementation is
+// returned by NewNoop for use when tracking is disabled.
+type Tracker interface {
+	Track(hash common.Hash) error
+	EnteredQueued(hash common.Hash) error
+	ExitedQueued(hash common.Hash) error
+	EnteredPending(hash common.Hash) error
+	ExitedPending(hash common.Hash) error
+	IncludedInBlock(hash common.Hash) error
+	RemovedFromPending(hash common.Hash) error
+	RemovedFromQueue(hash common.Hash) error
+}
+
+func init() {
+	timer := func(name, desc string) metric.Float64Histogram {
+		m, err := meter.Float64Histogram(name, metric.WithDescription(desc), metric.WithUnit("ms"))
+		if err != nil {
+			panic(err)
+		}
+		return m
+	}
+
+	chainInclusionLatency = timer("txpool.tracker.chain_inclusion_latency", "Time from initial tracking to inclusion on chain")
+	queuedInclusionLatency = timer("txpool.tracker.queued_inclusion_latency", "Time from initial tracking to entering the queued pool")
+	pendingInclusionLatency = timer("txpool.tracker.pending_inclusion_latency", "Time from initial tracking to entering the pending pool")
+	queuedDuration = timer("txpool.tracker.queued_duration", "Time spent in the queued pool before exit")
+	pendingDuration = timer("txpool.tracker.pending_duration", "Time spent in the pending pool before exit")
+}
+
+func recordSince(h metric.Float64Histogram, start time.Time) {
+	h.Record(context.Background(), float64(time.Since(start).Milliseconds()))
+}
+
 // TxTracker tracks timestamps about important events in a transactions
-// lifecycle and exposes metrics about these via prometheus.
+// lifecycle and exposes metrics about these via otel.
 type TxTracker struct {
 	txCheckpoints map[common.Hash]*checkpoints
 	lock          sync.RWMutex
@@ -69,7 +106,7 @@ func (t *TxTracker) EnteredQueued(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredQueuedPoolAt = time.Now()
-	telemetry.MeasureSince(checkpoints.TrackedAt, queuedInclusionLatencyKey) //nolint:staticcheck
+	recordSince(queuedInclusionLatency, checkpoints.TrackedAt)
 	return nil
 }
 
@@ -85,7 +122,7 @@ func (t *TxTracker) ExitedQueued(hash common.Hash) error {
 		// dont record the duration
 		return nil
 	}
-	telemetry.MeasureSince(checkpoints.LastEnteredQueuedPoolAt, queuedDurationKey) //nolint:staticcheck
+	recordSince(queuedDuration, checkpoints.LastEnteredQueuedPoolAt)
 	return nil
 }
 
@@ -96,7 +133,7 @@ func (t *TxTracker) EnteredPending(hash common.Hash) error {
 	}
 
 	checkpoints.LastEnteredPendingPoolAt = time.Now()
-	telemetry.MeasureSince(checkpoints.TrackedAt, pendingInclusionLatencyKey) //nolint:staticcheck
+	recordSince(pendingInclusionLatency, checkpoints.TrackedAt)
 	return nil
 }
 
@@ -106,7 +143,7 @@ func (t *TxTracker) ExitedPending(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	telemetry.MeasureSince(checkpoints.LastEnteredPendingPoolAt, pendingDurationKey) //nolint:staticcheck
+	recordSince(pendingDuration, checkpoints.LastEnteredPendingPoolAt)
 	return nil
 }
 
@@ -116,7 +153,7 @@ func (t *TxTracker) IncludedInBlock(hash common.Hash) error {
 		return fmt.Errorf("getting checkpoints for hash %s: %w", hash, err)
 	}
 
-	telemetry.MeasureSince(checkpoints.TrackedAt, chainInclusionLatencyKey) //nolint:staticcheck
+	recordSince(chainInclusionLatency, checkpoints.TrackedAt)
 	return nil
 }
 
@@ -157,3 +194,20 @@ type checkpoints struct {
 
 	LastEnteredPendingPoolAt time.Time
 }
+
+// noopTracker implements Tracker but performs no work. It is used when tx
+// tracking is disabled via config so that callers can keep an unconditional
+// tracker reference.
+type noopTracker struct{}
+
+// NewNoop returns a Tracker that records nothing.
+func NewNoop() Tracker { return noopTracker{} }
+
+func (noopTracker) Track(common.Hash) error              { return nil }
+func (noopTracker) EnteredQueued(common.Hash) error      { return nil }
+func (noopTracker) ExitedQueued(common.Hash) error       { return nil }
+func (noopTracker) EnteredPending(common.Hash) error     { return nil }
+func (noopTracker) ExitedPending(common.Hash) error      { return nil }
+func (noopTracker) IncludedInBlock(common.Hash) error    { return nil }
+func (noopTracker) RemovedFromPending(common.Hash) error { return nil }
+func (noopTracker) RemovedFromQueue(common.Hash) error   { return nil }

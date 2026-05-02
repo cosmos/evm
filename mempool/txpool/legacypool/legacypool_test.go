@@ -51,7 +51,9 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
-// minimal tx encoder to construct a reap list during testing
+// testTxEncoder is a stub for legacypool tests that don't exercise size.
+// CosmosTx returns (nil, nil) — don't reuse for tests that exercise the
+// reaplist's bytes axis.
 type testTxEncoder struct{}
 
 func (testTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) {
@@ -3263,6 +3265,184 @@ func TestRecheckedFutureHeight(t *testing.T) {
 	if result != nil {
 		t.Fatalf("expected nil from Pending when HeightSync times out, got %v", result)
 	}
+}
+
+func TestReplacementReapDeferral(t *testing.T) {
+	gasP := func(g int64) *int64 { return &g }
+
+	cases := []struct {
+		name                string
+		replacements        func(key *ecdsa.PrivateKey) []*types.Transaction
+		failRecheckGasPrice *int64
+		presentGasPrice     *int64
+	}{
+		{
+			name: "replacement tx that fails recheck is never reaped",
+			replacements: func(key *ecdsa.PrivateKey) []*types.Transaction {
+				return []*types.Transaction{
+					pricedTransaction(0, 100000, big.NewInt(2), key),
+				}
+			},
+			failRecheckGasPrice: gasP(2),
+		},
+		{
+			name: "replacement tx that passes recheck is reaped",
+			replacements: func(key *ecdsa.PrivateKey) []*types.Transaction {
+				return []*types.Transaction{
+					pricedTransaction(0, 100000, big.NewInt(2), key),
+				}
+			},
+			presentGasPrice: gasP(2),
+		},
+		{
+			// Chain of replacements within one block: each supersedes the
+			// previous in pending. Exactly one push happens at demote
+			// time, for the latest hash; earlier hashes are silently
+			// discarded when toReap is cleared.
+			name: "multi replacement txs only reaps latest",
+			replacements: func(key *ecdsa.PrivateKey) []*types.Transaction {
+				return []*types.Transaction{
+					pricedTransaction(0, 100000, big.NewInt(2), key),
+					pricedTransaction(0, 100000, big.NewInt(3), key),
+					pricedTransaction(0, 100000, big.NewInt(4), key),
+					pricedTransaction(0, 100000, big.NewInt(5), key),
+				}
+			},
+			presentGasPrice: gasP(5),
+		},
+	}
+
+	// findByGasPrice returns the tx in txs whose gas price matches.
+	// Replacements within a chain have unique gas prices, so this picks
+	// out exactly one tx.
+	findByGasPrice := func(txs []*types.Transaction, gasPrice int64) *types.Transaction {
+		target := big.NewInt(gasPrice)
+		for _, tx := range txs {
+			if tx.GasPrice().Cmp(target) == 0 {
+				return tx
+			}
+		}
+		return nil
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pool, rechecker, key := setupPool()
+			defer pool.Close()
+
+			addr := crypto.PubkeyToAddress(key.PublicKey)
+			testAddBalance(pool, addr, big.NewInt(100000000000000))
+
+			replacements := tc.replacements(key)
+
+			// base tx that replacements will be replacing
+			base := pricedTransaction(0, 100000, big.NewInt(1), key)
+			directPromoteToPending(t, pool, addr, base)
+			_ = reapAllHashes(pool) // drain initial promote push
+
+			if tc.failRecheckGasPrice != nil {
+				fail := big.NewInt(*tc.failRecheckGasPrice)
+				rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+					if tx.GasPrice().Cmp(fail) == 0 {
+						return sdk.Context{}, errors.New("recheck fails for gas price")
+					}
+					return sdk.Context{}, nil
+				})
+			}
+
+			for _, r := range replacements {
+				replaced, err := pool.add(r)
+				require.NoError(t, err)
+				require.True(t, replaced)
+				require.Contains(t, pool.toReap, r.Hash())
+			}
+			require.Empty(t, reapAllHashes(pool), "replacements must be deferred until next demote")
+
+			pool.Reset(nil, nil)
+
+			reaped := reapAllHashes(pool)
+			require.Empty(t, pool.toReap)
+
+			if tc.presentGasPrice != nil {
+				want := findByGasPrice(replacements, *tc.presentGasPrice)
+				require.NotNil(t, pool.all.Get(want.Hash()), "tx at presentGasPrice should remain in pool.all")
+				require.Contains(t, reaped, want.Hash(), "tx at presentGasPrice should be on the reap list")
+			}
+
+			if tc.failRecheckGasPrice != nil {
+				want := findByGasPrice(replacements, *tc.failRecheckGasPrice)
+				require.Nil(t, pool.all.Get(want.Hash()), "tx at failRecheckGasPrice should be removed from pool.all")
+				require.NotContains(t, reaped, want.Hash(), "tx at failRecheckGasPrice should not be on the reap list")
+			}
+		})
+	}
+}
+
+func TestReplacementDemotedToQueueReapsViaPromote(t *testing.T) {
+	pool, rechecker, key := setupPool()
+	defer pool.Close()
+
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	testAddBalance(pool, addr, big.NewInt(100000000000000))
+
+	tx0 := pricedTransaction(0, 100000, big.NewInt(1), key)
+	tx1 := pricedTransaction(1, 100000, big.NewInt(1), key)
+	directPromoteToPending(t, pool, addr, tx0)
+	directPromoteToPending(t, pool, addr, tx1)
+	_ = reapAllHashes(pool)
+
+	replacement := pricedTransaction(1, 100000, big.NewInt(2), key)
+	replaced, err := pool.add(replacement)
+	require.NoError(t, err)
+	require.True(t, replaced)
+	require.Contains(t, pool.toReap, replacement.Hash())
+	require.Empty(t, reapAllHashes(pool))
+
+	rechecker.SetRecheck(func(_ sdk.Context, tx *types.Transaction) (sdk.Context, error) {
+		if tx.Hash() == tx0.Hash() {
+			return sdk.Context{}, errors.New("tx0 fails")
+		}
+		return sdk.Context{}, nil
+	})
+	pool.Reset(nil, nil)
+
+	require.Nil(t, pool.all.Get(tx0.Hash()))
+	require.NotNil(t, pool.all.Get(replacement.Hash()))
+	require.Nil(t, pool.pending[addr])
+	require.NotNil(t, pool.queue[addr])
+	require.Equal(t, 1, pool.queue[addr].Len())
+	require.Empty(t, pool.toReap)
+	require.Empty(t, reapAllHashes(pool), "replacement must not be reaped after demotion")
+
+	// advance state nonce so the replacement is ready on the next reset.
+	testSetNonce(pool, addr, 1)
+	rechecker.SetRecheck(nil)
+	pool.Reset(nil, nil)
+
+	// ensure we now reap the valid promoted tx
+	require.Equal(t, []common.Hash{replacement.Hash()}, reapAllHashes(pool))
+	require.Empty(t, pool.toReap)
+}
+
+func reapAllHashes(pool *LegacyPool) []common.Hash {
+	raw := pool.reapList.Reap(0, 0)
+	out := make([]common.Hash, 0, len(raw))
+	for _, b := range raw {
+		out = append(out, common.BytesToHash(b))
+	}
+	return out
+}
+
+func directPromoteToPending(t *testing.T, pool *LegacyPool, addr common.Address, tx *types.Transaction) {
+	t.Helper()
+	if _, hasPending := pool.pending[addr]; !hasPending {
+		if _, hasQueue := pool.queue[addr]; !hasQueue {
+			require.NoError(t, pool.reserver.Hold(addr))
+		}
+	}
+	pool.all.Add(tx)
+	pool.priced.Put(tx)
+	pool.promoteTx(addr, tx.Hash(), tx)
 }
 
 // Benchmarks the speed of validating the contents of the pending queue of the
