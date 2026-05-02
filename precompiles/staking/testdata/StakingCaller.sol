@@ -70,7 +70,7 @@ contract StakingCaller is DelegationManager{
     /// delegator must call this function with the native coin value he wants to delegate.
     /// @param _validatorAddr The validator address to delegate to.
     function testDelegate(
-        string memory _validatorAddr
+        address _validatorAddr
     ) public payable {
         _dequeueUnbondingDelegation();
         bool success = staking.STAKING_CONTRACT.delegate(
@@ -86,7 +86,7 @@ contract StakingCaller is DelegationManager{
     /// @param _validatorAddr The validator address to delegate to.
     /// @param _amount The amount to delegate.
     function testUndelegate(
-        string memory _validatorAddr,
+        address _validatorAddr,
         uint256 _amount
     ) public {
         _checkDelegation(_validatorAddr, _amount);
@@ -101,8 +101,8 @@ contract StakingCaller is DelegationManager{
     /// @param _validatorDstAddr The validator address to delegate to.
     /// @param _amount The amount to delegate.
     function testRedelegate(
-        string memory _validatorSrcAddr,
-        string memory _validatorDstAddr,
+        address _validatorSrcAddr,
+        address _validatorDstAddr,
         uint256 _amount
     ) public {
         _checkDelegation(_validatorSrcAddr, _amount);
@@ -122,7 +122,7 @@ contract StakingCaller is DelegationManager{
     /// @param _amount The amount to delegate.
     /// @param _creationHeight The creation height of the unbonding delegation.
     function testCancelUnbonding(
-        string memory _validatorAddr,
+        address _validatorAddr,
         uint256 _amount,
         uint256 _creationHeight
     ) public {
@@ -173,7 +173,7 @@ contract StakingCaller is DelegationManager{
     /// @return balance The balance of the delegation.
     function getDelegation(
         address _delegatorAddr,
-        string memory _validatorAddr
+        address _validatorAddr
     ) public view returns (uint256 shares, staking.Coin memory balance) {
         return staking.STAKING_CONTRACT.delegation(_delegatorAddr, _validatorAddr);
     }
@@ -185,8 +185,8 @@ contract StakingCaller is DelegationManager{
     /// @return redelegation The redelegation output.
     function getRedelegation(
         address _delegatorAddr,
-        string memory _validatorSrcAddr,
-        string memory _validatorDstAddr
+        address _validatorSrcAddr,
+        address _validatorDstAddr
     ) public view returns (staking.RedelegationOutput memory redelegation) {
         return
             staking.STAKING_CONTRACT.redelegation(
@@ -204,8 +204,8 @@ contract StakingCaller is DelegationManager{
     /// @return response The redelegation response.
     function getRedelegations(
         address _delegatorAddr,
-        string memory _validatorSrcAddr,
-        string memory _validatorDstAddr,
+        address _validatorSrcAddr,
+        address _validatorDstAddr,
         staking.PageRequest memory _pageRequest
     )
     public
@@ -230,7 +230,7 @@ contract StakingCaller is DelegationManager{
     /// @return unbondingDelegation The unbonding delegation output.
     function getUnbondingDelegation(
         address _delegatorAddr,
-        string memory _validatorAddr
+        address _validatorAddr
     )
     public
     view
@@ -247,14 +247,14 @@ contract StakingCaller is DelegationManager{
     /// @param _amount The amount to undelegate.
     /// @param _calltype The opcode to use.
     function testCallUndelegate(
-        string memory _validatorAddr,
+        address _validatorAddr,
         uint256 _amount,
         string memory _calltype
     ) public {
         _dequeueUnbondingDelegation();
         address calledContractAddress = staking.STAKING_PRECOMPILE_ADDRESS;
         bytes memory payload = abi.encodeWithSignature(
-            "undelegate(address,string,uint256)",
+            "undelegate(address,address,uint256)",
             address(this),
             _validatorAddr,
             _amount
@@ -311,12 +311,12 @@ contract StakingCaller is DelegationManager{
     /// @param _calltype The opcode to use.
     function testCallDelegation(
         address _delegatorAddr,
-        string memory _validatorAddr,
+        address _validatorAddr,
         string memory _calltype
     ) public returns (uint256 shares, staking.Coin memory coin) {
         address calledContractAddress = staking.STAKING_PRECOMPILE_ADDRESS;
         bytes memory payload = abi.encodeWithSignature(
-            "delegation(address,string)",
+            "delegation(address,address)",
             _delegatorAddr,
             _validatorAddr
         );
@@ -340,16 +340,13 @@ contract StakingCaller is DelegationManager{
             (shares, coin) = abi.decode(data, (uint256, staking.Coin));
         } else if (calltypeHash == keccak256(abi.encodePacked("callcode"))) {
             //Function signature
-            bytes4 sig = bytes4(keccak256(bytes("delegation(address,string)")));
-            // Length of the input data is 164 bytes on 32bytes chunks:
+            bytes4 sig = bytes4(keccak256(bytes("delegation(address,address)")));
+            // Length of the input data is 68 bytes on 32bytes chunks:
             //                          Memory location
             // 0 - 4 byte signature     x
             // 1 - 0x0000..address		x + 0x04
-            // 2 - 0x0000..00			x + 0x24
-            // 3 - 0x40..0000			x + 0x44
-            // 4 - val_addr_chunk1		x + 0x64
-            // 5 - val_addr_chunk2..000	x + 0x84
-            uint256 len = 164;
+            // 2 - 0x0000..address		x + 0x24
+            uint256 len = 68;
             // Coin type includes denom & amount
             // need to get these separately from the bytes response
             string memory denom;
@@ -357,17 +354,11 @@ contract StakingCaller is DelegationManager{
 
             // NOTE: callcode is deprecated and now only available via inline assembly
             assembly {
-                let chunk1 := mload(add(_validatorAddr, 32)) // first 32 bytes of validator address string
-                let chunk2 := mload(add(add(_validatorAddr, 32), 32)) // remaining 19 bytes of val address string
-
             // Load the function signature and argument data onto the stack
                 let x := mload(0x40) // Find empty storage location using "free memory pointer"
                 mstore(x, sig) // Place function signature at beginning of empty storage
                 mstore(add(x, 0x04), _delegatorAddr) // Place the address (input param) after the function sig
-                mstore(add(x, 0x24), 0x40) // These are needed for
-                mstore(add(x, 0x44), 0x33) // bytes unpacking
-                mstore(add(x, 0x64), chunk1) // Place the validator address in 2 chunks (input param)
-                mstore(add(x, 0x84), chunk2) // because mstore stores 32bytes
+                mstore(add(x, 0x24), _validatorAddr) // Place the validator address after delegator
 
             // Invoke the contract at calledContractAddress in the context of the current contract
             // using CALLCODE opcode and the loaded function signature and argument data
@@ -413,7 +404,7 @@ contract StakingCaller is DelegationManager{
     /// the EVM.
     /// @param _validatorAddr Address of the validator to delegate to
     function testDelegateIncrementCounter(
-        string memory _validatorAddr
+        address _validatorAddr
     ) public payable {
         _dequeueUnbondingDelegation();
         bool success = staking.STAKING_CONTRACT.delegate(
@@ -429,7 +420,7 @@ contract StakingCaller is DelegationManager{
     /// @dev This function is suppose to fail because the amount to delegate is
     /// higher than the amount transfered.
     function testDelegateAndFailCustomLogic(
-        string memory _validatorAddr
+        address _validatorAddr
     ) public payable {
         _dequeueUnbondingDelegation();
         bool success = staking.STAKING_CONTRACT.delegate(
@@ -454,7 +445,7 @@ contract StakingCaller is DelegationManager{
     /// @param _validatorAddr Address of the validator to delegate to
     function callERC20AndDelegate(
         address _contract,
-        string memory _validatorAddr,
+        address _validatorAddr,
         uint256 _amount
     ) public payable {
         _dequeueUnbondingDelegation();

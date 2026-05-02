@@ -115,14 +115,14 @@ interface DistributionI {
     /// @return amount The amount of Coin withdrawn
     function withdrawDelegatorRewards(
         address delegatorAddress,
-        string memory validatorAddress
+        address validatorAddress
     ) external returns (Coin[] calldata amount);
 
     /// @dev Withdraws the rewards commission of a validator.
     /// @param validatorAddress The address of the validator
     /// @return amount The amount of Coin withdrawn
     function withdrawValidatorCommission(
-        string memory validatorAddress
+        address validatorAddress
     ) external returns (Coin[] calldata amount);
 
     /// @dev fundCommunityPool defines a method to allow an account to directly
@@ -143,7 +143,7 @@ interface DistributionI {
     /// @return success Whether the transaction was successful or not
     function depositValidatorRewardsPool(
         address depositor,
-        string memory validatorAddress,
+        address validatorAddress,
         Coin[] memory amount
     ) external returns (bool success);
 
@@ -152,7 +152,7 @@ interface DistributionI {
     /// @param validatorAddress The address of the validator
     /// @return distributionInfo The validator's distribution info
     function validatorDistributionInfo(
-        string memory validatorAddress
+        address validatorAddress
     )
         external
         view
@@ -162,14 +162,14 @@ interface DistributionI {
     /// @param validatorAddress The address of the validator
     /// @return rewards The validator's outstanding rewards
     function validatorOutstandingRewards(
-        string memory validatorAddress
+        address validatorAddress
     ) external view returns (DecCoin[] calldata rewards);
 
     /// @dev Queries the accumulated commission for a validator.
     /// @param validatorAddress The address of the validator
     /// @return commission The validator's commission
     function validatorCommission(
-        string memory validatorAddress
+        address validatorAddress
     ) external view returns (DecCoin[] calldata commission);
 
     /// @dev Queries the slashing events for a validator in a given height interval
@@ -181,7 +181,7 @@ interface DistributionI {
     /// @return slashes The validator's slash events
     /// @return pageResponse The pagination response for the query
     function validatorSlashes(
-        string memory validatorAddress,
+        address validatorAddress,
         uint64 startingHeight,
         uint64 endingHeight,
         PageRequest calldata pageRequest
@@ -199,7 +199,7 @@ interface DistributionI {
     /// @return rewards The total rewards accrued by a delegation.
     function delegationRewards(
         address delegatorAddress,
-        string memory validatorAddress
+        address validatorAddress
     ) external view returns (DecCoin[] calldata rewards);
 
     /// @dev Queries the total rewards accrued by each validator, that a given

@@ -26,7 +26,7 @@ describe('Staking – edge case revert test', function () {
         });
         await waitWithTimeout(stakingReverter.deploymentTransaction(), 20000, RETRY_DELAY_FUNC)
 
-        validatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql';
+        validatorAddress = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E';
         
         console.log('StakingReverter deployed at:', await stakingReverter.getAddress());
         console.log('Using validator address:', validatorAddress);

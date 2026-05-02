@@ -25,7 +25,7 @@ contract SequentialOperationsTester {
         address token,
         address recipient,
         uint256 amount,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount
     ) external {
         // 1. Transfer ERC20
@@ -62,7 +62,7 @@ contract SequentialOperationsTester {
         address token,
         address recipient,
         uint256 amount,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount
     ) external {
         // 1. Transfer ERC20
@@ -100,7 +100,7 @@ contract SequentialOperationsTester {
     function scenario3_nativeTransferDelegateNativeTransfer(
         address payable recipient,
         uint256 amount,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount
     ) external payable {
         // 1. Transfer native tokens
@@ -131,7 +131,7 @@ contract SequentialOperationsTester {
     function scenario4_nativeTransferDelegateRevertNativeTransfer(
         address payable recipient,
         uint256 amount,
-        string memory validatorAddr,
+        address validatorAddr,
         uint256 delegateAmount
     ) external payable {
         // 1. Transfer native tokens

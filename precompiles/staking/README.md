@@ -86,29 +86,29 @@ function editValidator(
 // Delegate tokens to a validator
 function delegate(
     address delegatorAddress,
-    string memory validatorAddress,
+    address validatorAddress,
     uint256 amount
 ) external returns (bool success);
 
 // Undelegate tokens from a validator
 function undelegate(
     address delegatorAddress,
-    string memory validatorAddress,
+    address validatorAddress,
     uint256 amount
 ) external returns (int64 completionTime);
 
 // Redelegate tokens between validators
 function redelegate(
     address delegatorAddress,
-    string memory validatorSrcAddress,
-    string memory validatorDstAddress,
+    address validatorSrcAddress,
+    address validatorDstAddress,
     uint256 amount
 ) external returns (int64 completionTime);
 
 // Cancel an unbonding delegation
 function cancelUnbondingDelegation(
     address delegatorAddress,
-    string memory validatorAddress,
+    address validatorAddress,
     uint256 amount,
     uint256 creationHeight
 ) external returns (bool success);
@@ -120,13 +120,13 @@ function cancelUnbondingDelegation(
 // Query delegation info
 function delegation(
     address delegatorAddress,
-    string memory validatorAddress
+    address validatorAddress
 ) external view returns (uint256 shares, Coin calldata balance);
 
 // Query unbonding delegation
 function unbondingDelegation(
     address delegatorAddress,
-    string memory validatorAddress
+    address validatorAddress
 ) external view returns (UnbondingDelegationOutput calldata unbondingDelegation);
 
 // Query validator info
@@ -146,8 +146,8 @@ function validators(
 // Query redelegation info
 function redelegation(
     address delegatorAddress,
-    string memory srcValidatorAddress,
-    string memory dstValidatorAddress
+    address srcValidatorAddress,
+    address dstValidatorAddress
 ) external view returns (RedelegationOutput calldata redelegation);
 ```
 
@@ -179,7 +179,7 @@ The precompile uses standard gas configuration for storage operations.
 
 ### Address Formats
 
-- **Validator addresses**: Can be either Ethereum hex or Cosmos bech32 format
+- **Validator addresses**: Ethereum hex addresses
 - **Delegator addresses**: Ethereum hex addresses
 - **Consensus pubkey**: Base64 encoded ed25519 public key
 
@@ -205,29 +205,29 @@ event EditValidator(
 
 event Delegate(
     address indexed delegatorAddress,
-    string indexed validatorAddress,
+    address indexed validatorAddress,
     uint256 amount,
     uint256 shares
 );
 
 event Unbond(
     address indexed delegatorAddress,
-    string indexed validatorAddress,
+    address indexed validatorAddress,
     uint256 amount,
     int64 completionTime
 );
 
 event Redelegate(
     address indexed delegatorAddress,
-    string indexed validatorSrcAddress,
-    string indexed validatorDstAddress,
+    address indexed validatorSrcAddress,
+    address indexed validatorDstAddress,
     uint256 amount,
     int64 completionTime
 );
 
 event CancelUnbondingDelegation(
     address indexed delegatorAddress,
-    string indexed validatorAddress,
+    address indexed validatorAddress,
     uint256 amount,
     uint256 creationHeight
 );
@@ -278,7 +278,7 @@ bool success = staking.createValidator(
 StakingI staking = StakingI(STAKING_PRECOMPILE_ADDRESS);
 
 // Delegate 100 tokens to a validator
-string memory validatorAddr = "evmosvaloper1..."; // Bech32 validator address
+address validatorAddr = 0x1234567890123456789012345678901234567890; // Validator EVM address
 bool success = staking.delegate(msg.sender, validatorAddr, 100e18);
 
 // Query delegation
@@ -292,7 +292,7 @@ bool success = staking.delegate(msg.sender, validatorAddr, 100e18);
 int64 completionTime = staking.undelegate(msg.sender, validatorAddr, 50e18);
 
 // Redelegate to another validator (no unbonding period)
-string memory newValidator = "evmosvaloper2...";
+address newValidator = 0xabcdefabcdefabcdefabcdefabcdefabcdefabcd;
 int64 redelegationTime = staking.redelegate(
     msg.sender,
     validatorAddr,
@@ -315,5 +315,5 @@ staking.cancelUnbondingDelegation(
 - The precompile integrates directly with the Cosmos SDK staking module
 - All staking parameters and rules from the chain apply
 - Amounts use the bond denomination precision (typically 18 decimals)
-- Validator addresses can be provided in either hex or bech32 format
+- Validator addresses are provided as Ethereum hex addresses
 - Commission rates are integers where 10000 = 100%

@@ -8,7 +8,7 @@ import "../../common/Types.sol" as types;
 interface IGovCaller {
     function testFundCommunityPool(
         address depositor,
-        string memory validatorAddress,
+        address validatorAddress,
         types.Coin[] memory amount
     ) external returns (bool success);
 }
@@ -224,7 +224,7 @@ contract GovCaller {
         address payable depositor,
         uint64 _proposalId,
         bytes calldata denom,
-        string memory validatorAddress
+        address validatorAddress
     ) public payable returns (bool success) {
         IGovCaller govDepositor = IGovCaller(depositor);
         counter++;
@@ -260,7 +260,7 @@ contract GovCaller {
     /// @return success Whether the transaction was successful or not
     function testFundCommunityPool(
         address depositor,
-        string memory validatorAddress,
+        address validatorAddress,
         types.Coin[] memory amount
     ) public returns (bool success) {
         counter += 1;

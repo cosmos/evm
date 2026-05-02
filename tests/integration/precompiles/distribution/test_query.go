@@ -79,7 +79,7 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			"fail - existent validator but without self delegation",
 			func() []interface{} {
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func([]byte) {},
@@ -103,7 +103,7 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 				_, err = s.network.App.GetStakingKeeper().Delegate(ctx, valAddr.Bytes(), amt, stakingtypes.Unspecified, s.network.GetValidators()[0], true)
 				s.Require().NoError(err)
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func(bz []byte) {
@@ -174,7 +174,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			"success - existent validator, no outstanding rewards",
 			func() []interface{} {
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func(bz []byte) {
@@ -199,7 +199,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 				s.Require().NoError(err)
 
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func(bz []byte) {
@@ -267,7 +267,7 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			"success - existent validator, no accumulated commission",
 			func() []interface{} {
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func(bz []byte) {
@@ -358,7 +358,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			"fail - invalid starting height type",
 			func() []interface{} {
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					int64(1), uint64(5),
 					query.PageRequest{},
 				}
@@ -373,7 +373,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			"fail - starting height greater than ending height",
 			func() []interface{} {
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					uint64(6), uint64(5),
 					query.PageRequest{},
 				}
@@ -412,7 +412,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			"success - existent validator, no slashes",
 			func() []interface{} {
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					uint64(1),
 					uint64(5),
 					query.PageRequest{},
@@ -437,7 +437,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 				err = s.network.App.GetDistrKeeper().SetValidatorSlashEvent(ctx, valAddr, 2, 1, types.ValidatorSlashEvent{ValidatorPeriod: 1, Fraction: math.LegacyNewDec(5)})
 				s.Require().NoError(err)
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					uint64(1), uint64(5),
 					query.PageRequest{},
 				}
@@ -463,7 +463,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 				err = s.network.App.GetDistrKeeper().SetValidatorSlashEvent(ctx, valAddr, 2, 1, types.ValidatorSlashEvent{ValidatorPeriod: 1, Fraction: math.LegacyNewDec(5)})
 				s.Require().NoError(err)
 				return []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					uint64(1),
 					uint64(5),
 					query.PageRequest{Limit: 1, CountTotal: true},
@@ -548,7 +548,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 				newAddr, _ := testutiltx.NewAddrKey()
 				return []interface{}{
 					newAddr,
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func([]byte) {},
@@ -561,7 +561,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func(bz []byte) {
@@ -581,7 +581,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 				s.Require().NoError(err, "failed to prepare staking rewards", err)
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 			},
 			func(bz []byte) {

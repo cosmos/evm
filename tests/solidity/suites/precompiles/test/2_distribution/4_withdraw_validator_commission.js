@@ -16,9 +16,10 @@ describe('Distribution – withdraw validator commission', function () {
 
     it('withdraws validator commission and emits proper event', async function () {
         const valBech32     = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql'
+        const valHex        = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E'
 
         // 1) query commission before withdrawal
-        const beforeRes = await distribution.validatorCommission(valBech32)
+        const beforeRes = await distribution.validatorCommission(valHex)
         const beforeAmt = beforeRes.length
             ? BigInt(beforeRes[0].amount.toString())
             : 0n
@@ -26,7 +27,7 @@ describe('Distribution – withdraw validator commission', function () {
         // 2) withdraw commission
         const tx      = await distribution
             .connect(validator)
-            .withdrawValidatorCommission(valBech32, { gasLimit: GAS_LIMIT })
+            .withdrawValidatorCommission(valHex, { gasLimit: GAS_LIMIT })
         const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
 
         // 3) parse the event
@@ -47,7 +48,7 @@ describe('Distribution – withdraw validator commission', function () {
         expect(commission).to.be.gte(beforeAmt)
 
         // 6) query commission after withdrawal
-        const afterRes = await distribution.validatorCommission(valBech32)
+        const afterRes = await distribution.validatorCommission(valHex)
         const afterAmt = afterRes.length
             ? BigInt(afterRes[0].amount.toString())
             : 0n

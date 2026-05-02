@@ -8,7 +8,7 @@ contract StakingReverter {
 
     constructor() payable {}
 
-    function run(uint numTimes, string calldata validatorAddress) external {
+    function run(uint numTimes, address validatorAddress) external {
         counter++;
 
         for (uint i = 0; i < numTimes; i++) {
@@ -22,7 +22,7 @@ contract StakingReverter {
 
     function multipleDelegations(
         uint numTimes,
-        string calldata validatorAddress
+        address validatorAddress
     ) external {
         counter++;
 
@@ -35,7 +35,7 @@ contract StakingReverter {
     /// before and after an intentionally ignored revert correctly modify the state.
     /// This method assumes that the StakingReverter.sol contract holds a native balance. 
     /// Therefore, in order to call this method, the contract must be funded with a balance in advance.
-    function callPrecompileBeforeAndAfterRevert(uint numTimes, string calldata validatorAddress) external {
+    function callPrecompileBeforeAndAfterRevert(uint numTimes, address validatorAddress) external {
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
 
         for (uint i = 0; i < numTimes; i++) {
@@ -54,7 +54,7 @@ contract StakingReverter {
     /// outside the reverting scope should persist.
     ///
     /// Expected successful delegations: 1 (before loop) + outerTimes (after each catch) + 1 (after loop)
-    function nestedTryCatchDelegations(uint outerTimes, uint innerTimes, string calldata validatorAddress) external {
+    function nestedTryCatchDelegations(uint outerTimes, uint innerTimes, address validatorAddress) external {
         // Initial successful delegate before any nested reverts
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
 
@@ -79,13 +79,13 @@ contract StakingReverter {
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
     }
 
-    function performDelegation(string calldata validatorAddress) external {
+    function performDelegation(address validatorAddress) external {
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
         revert();
     }
 
     function getCurrentStake(
-        string calldata validatorAddress
+        address validatorAddress
     ) external view returns (uint256 shares, Coin memory balance) {
         return STAKING_CONTRACT.delegation(address(this), validatorAddress);
     }

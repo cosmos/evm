@@ -48,14 +48,14 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
 
     it('should delegate, undelegate, then cancel unbonding and emit correct events', async function () {
         const valBech32 = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql'
+        const hexValAddr = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E'
         const amount = hre.ethers.parseEther('0.001')
 
         // DELEGATE
-        const delegateTx = await staking.connect(signer).delegate(signer.address, valBech32, amount, {gasLimit: GAS_LIMIT})
+        const delegateTx = await staking.connect(signer).delegate(signer.address, hexValAddr, amount, {gasLimit: GAS_LIMIT})
         const delegateReceipt = await waitWithTimeout(delegateTx, 20000, RETRY_DELAY_FUNC)
         console.log('Delegate tx hash:', delegateTx.hash, 'gas used:', delegateReceipt.gasUsed.toString())
 
-        const hexValAddr = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E'
         const delegateEvt = findEvent(delegateReceipt.logs, staking.interface, 'Delegate')
         expect(delegateEvt, 'Delegate event should be emitted').to.exist
         expect(delegateEvt.args.delegatorAddress).to.equal(signer.address)
@@ -63,11 +63,11 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
         expect(delegateEvt.args.amount).to.equal(amount)
 
         // COUNT UNBONDING ENTRIES BEFORE
-        const beforeRaw = await staking.unbondingDelegation(signer.address, valBech32)
+        const beforeRaw = await staking.unbondingDelegation(signer.address, hexValAddr)
         const entriesBefore = formatUnbondingDelegation(beforeRaw).entries.length
 
         // UNDELEGATE
-        const undelegateTx = await staking.connect(signer).undelegate(signer.address, valBech32, amount, {gasLimit: GAS_LIMIT})
+        const undelegateTx = await staking.connect(signer).undelegate(signer.address, hexValAddr, amount, {gasLimit: GAS_LIMIT})
         const undelegateReceipt = await waitWithTimeout(undelegateTx, 20000, RETRY_DELAY_FUNC)
         console.log('Undelegate tx hash:', undelegateTx.hash, 'gas used:', undelegateReceipt.gasUsed.toString())
 
@@ -80,7 +80,7 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
         expect(completionTime > 0n, 'completionTime should be positive').to.be.true
 
         // COUNT UNBONDING ENTRIES AFTER
-        const afterRaw = await staking.unbondingDelegation(signer.address, valBech32)
+        const afterRaw = await staking.unbondingDelegation(signer.address, hexValAddr)
         const afterUnbonding = formatUnbondingDelegation(afterRaw)
         console.log('Unbonding Delegation:', afterUnbonding)
         const entriesAfter = afterUnbonding.entries.length
@@ -98,7 +98,7 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
         const entryToCancel = afterUnbonding.entries[0]
         const cancelTx = await staking.connect(signer).cancelUnbondingDelegation(
             signer.address,
-            valBech32,
+            hexValAddr,
             amount,
             entryToCancel.creationHeight,
             {gasLimit: GAS_LIMIT}
@@ -114,7 +114,7 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
         expect(cancelEvt.args.creationHeight).to.equal(entryToCancel.creationHeight)
 
         // VERIFY ENTRY REMOVAL
-        const finalRaw = await staking.unbondingDelegation(signer.address, valBech32)
+        const finalRaw = await staking.unbondingDelegation(signer.address, hexValAddr)
         const finalEntries = formatUnbondingDelegation(finalRaw).entries.length
         console.log('Unbonding Delegation after cancel:', finalRaw)
         expect(finalEntries).to.equal(

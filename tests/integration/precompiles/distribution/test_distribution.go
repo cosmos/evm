@@ -123,7 +123,7 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				input, err := s.precompile.Pack(
 					distribution.WithdrawValidatorCommissionMethod,
-					valAddr.String(),
+					valHexFromValAddress(valAddr),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return caller, input
@@ -348,7 +348,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 
 				input, err := s.precompile.Pack(
 					distribution.WithdrawValidatorCommissionMethod,
-					valAddr.String(),
+					valHexFromValAddress(valAddr),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				return caller, input

@@ -142,7 +142,7 @@ contract ERC20RecursiveNonRevertingPrecompileCall is Context, AccessControlEnume
     }
 
     function delegate(
-        string memory validatorAddress,
+        address validatorAddress,
         uint256 amount
     ) external {
         bool ok = staking.STAKING_CONTRACT.delegate(address(this), validatorAddress, amount);

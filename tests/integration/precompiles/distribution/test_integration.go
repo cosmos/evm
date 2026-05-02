@@ -55,6 +55,17 @@ var (
 	minExpRewardOrCommission = sdk.NewDecCoins(sdk.NewDecCoin(testconstants.ExampleAttoDenom, testRewardsAmt))
 )
 
+func valHex(operatorAddress string) common.Address {
+	validatorAddress, err := sdk.ValAddressFromBech32(operatorAddress)
+	Expect(err).To(BeNil(), fmt.Sprintf("invalid validator address %s", operatorAddress))
+
+	return common.BytesToAddress(validatorAddress.Bytes())
+}
+
+func valHexFromValAddress(validatorAddress sdk.ValAddress) common.Address {
+	return common.BytesToAddress(validatorAddress.Bytes())
+}
+
 func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	_ = Describe("Calling distribution precompile from EOA", func() {
 		s := NewPrecompileTestSuite(create, options...)
@@ -179,7 +190,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return error if the msg.sender is different than the delegator", func() {
 				callArgs.Args = []interface{}{
 					differentAddr,
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				withdrawalCheck := defaultLogCheck.WithErrContains(
@@ -208,7 +219,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				withdrawalCheck := passCheck.
@@ -269,7 +280,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				withdrawalCheck := passCheck.
@@ -348,7 +359,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				withdrawalCheck := passCheck.
@@ -412,7 +423,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return error if the provided gasLimit is too low", func() {
 				txArgs.GasLimit = 50000
 				callArgs.Args = []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
@@ -426,7 +437,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("should return error if the msg.sender is different than the validator", func() {
 				callArgs.Args = []interface{}{
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				validatorHexAddr := common.BytesToAddress(s.validatorsKeys[0].AccAddr)
@@ -454,7 +465,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expCommAmt := commRes.Commission.Commission.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				withdrawalCheck := passCheck.
@@ -525,7 +536,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expCommAmt := commRes.Commission.Commission.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				withdrawalCheck := passCheck.
@@ -656,7 +667,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should revert if the msg.sender is different from the depositor", func() {
 				callArgs.Args = []interface{}{
 					differentAddr, // depositor
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
 					},
@@ -684,7 +695,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					[]cmn.Coin{{Denom: s.bondDenom, Amount: excessAmount.BigInt()}},
 				}
 
@@ -707,7 +718,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0), // depositor
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
 					},
@@ -750,7 +761,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0), // depositor
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
 						{Denom: s.otherDenoms[0], Amount: big.NewInt(1_000_001)},
@@ -958,13 +969,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				opAddr := s.network.GetValidators()[0].OperatorAddress
 				// use the validator priv key
 				// make a self delegation
-				err = s.factory.Delegate(s.validatorsKeys[0].Priv, opAddr, sdk.NewCoin(s.bondDenom, math.NewInt(1)))
+				err = s.factory.Delegate(s.validatorsKeys[0].Priv, s.network.GetValidators()[0].OperatorAddress, sdk.NewCoin(s.bondDenom, math.NewInt(1)))
 				Expect(err).To(BeNil())
 				// persist changes
 				Expect(s.network.NextBlock()).To(BeNil())
 
 				callArgs.MethodName = distribution.ValidatorDistributionInfoMethod
-				callArgs.Args = []interface{}{opAddr}
+				callArgs.Args = []interface{}{valHex(opAddr)}
 				txArgs.GasLimit = 200_000
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -994,7 +1005,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error waiting to accrue rewards")
 
 				callArgs.MethodName = distribution.ValidatorOutstandingRewardsMethod
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1032,7 +1043,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error waiting to accrue rewards")
 
 				callArgs.MethodName = distribution.ValidatorCommissionMethod
-				callArgs.Args = []interface{}{opAddr}
+				callArgs.Args = []interface{}{valHex(opAddr)}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1065,7 +1076,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should get validator slashing events (default pagination)", func() {
 					callArgs.MethodName = distribution.ValidatorSlashesMethod
 					callArgs.Args = []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
+						valHex(s.network.GetValidators()[0].OperatorAddress),
 						uint64(1), uint64(5),
 						query.PageRequest{},
 					}
@@ -1094,7 +1105,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should get validator slashing events - query w/pagination limit = 1)", func() {
 					callArgs.MethodName = distribution.ValidatorSlashesMethod
 					callArgs.Args = []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
+						valHex(s.network.GetValidators()[0].OperatorAddress),
 						uint64(1), uint64(5),
 						query.PageRequest{
 							Limit:      1,
@@ -1126,7 +1137,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.MethodName = distribution.DelegationRewardsMethod
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1150,7 +1161,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.MethodName = distribution.DelegationRewardsMethod
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1366,7 +1377,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					ContractABI: distrCallerContract.ABI,
 					MethodName:  "testDelegateFromContract",
 					Args: []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
+						valHex(s.network.GetValidators()[0].OperatorAddress),
 						delegateAmt,
 					},
 				},
@@ -1510,7 +1521,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				differentAddrInitialBalance := balRes.Balance
 
 				callArgs.Args = []interface{}{
-					differentAddr, s.network.GetValidators()[0].OperatorAddress,
+					differentAddr, valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(
@@ -1548,7 +1559,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				initBalanceAmt := balRes.Balance.Amount
 
 				callArgs.Args = []interface{}{
-					contractAddr, s.network.GetValidators()[0].OperatorAddress,
+					contractAddr, valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				rwRes, err := s.grpcHandler.GetDelegationRewards(contractAccAddr.String(), s.network.GetValidators()[0].OperatorAddress)
@@ -1606,7 +1617,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.MethodName = "testWithdrawDelegatorReward"
 				callArgs.Args = []interface{}{
-					contractAddr, s.network.GetValidators()[0].OperatorAddress,
+					contractAddr, valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				logCheckArgs = passCheck.
@@ -1696,7 +1707,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
 						callArgs.Args = []interface{}{
-							s.network.GetValidators()[0].OperatorAddress, tc.before, tc.after,
+							valHex(s.network.GetValidators()[0].OperatorAddress), tc.before, tc.after,
 						}
 
 						logCheckArgs := passCheck.
@@ -1804,7 +1815,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// update args to call the corresponding contract method
 					callArgs.MethodName = "revertWithdrawRewardsAndTransfer"
 					callArgs.Args = []interface{}{
-						s.keyring.GetAddr(0), *tc.withdrawer, s.network.GetValidators()[0].OperatorAddress, true,
+						s.keyring.GetAddr(0), *tc.withdrawer, valHex(s.network.GetValidators()[0].OperatorAddress), true,
 					}
 
 					res, _, err := s.factory.CallContractAndCheckLogs(
@@ -1884,7 +1895,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: distrCallerContract.ABI,
 						MethodName:  "testDelegateFromContract",
 						Args: []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
+							valHex(s.network.GetValidators()[0].OperatorAddress),
 							big.NewInt(1e18),
 						},
 					},
@@ -1909,7 +1920,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should withdraw rewards successfully", func() {
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 
 				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
@@ -1959,7 +1970,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				accruedRewardsAmt = rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 				txArgs.GasLimit = 300_000
@@ -2016,7 +2027,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 
 				txArgs.GasLimit = 500_000
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2070,7 +2081,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: distrCallerContract.ABI,
 						MethodName:  "testDelegateFromContract",
 						Args: []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
+							valHex(s.network.GetValidators()[0].OperatorAddress),
 							big.NewInt(1e18),
 						},
 					},
@@ -2337,7 +2348,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: distrCallerContract.ABI,
 						MethodName:  "testDelegateFromContract",
 						Args: []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
+							valHex(s.network.GetValidators()[0].OperatorAddress),
 							big.NewInt(1e18),
 						},
 					},
@@ -2478,7 +2489,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should fail to deposit rewards to the validator rewards pool", func() {
 					callArgs.Args = []interface{}{
 						differentAddr,
-						s.network.GetValidators()[0].OperatorAddress,
+						valHex(s.network.GetValidators()[0].OperatorAddress),
 						[]cmn.Coin{
 							{Denom: s.bondDenom, Amount: depositAmt},
 						},
@@ -2528,7 +2539,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						txSenderInitialBalance := balRes.Balance
 
 						callArgs.Args = []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
+							valHex(s.network.GetValidators()[0].OperatorAddress),
 							[]cmn.Coin{
 								{Denom: s.bondDenom, Amount: depositAmt},
 							},
@@ -2621,7 +2632,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should deposit rewards to the validator rewards pool", func() {
 				callArgs.Args = []interface{}{
 					contractAddr,
-					s.network.GetValidators()[0].OperatorAddress,
+					valHex(s.network.GetValidators()[0].OperatorAddress),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: depositAmt},
 					},
@@ -2659,7 +2670,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.MethodName = "testRevertState"
 				callArgs.Args = []interface{}{
-					differentAddr.String(), differentAddr, s.network.GetValidators()[0].OperatorAddress,
+					differentAddr.String(), differentAddr, valHex(s.network.GetValidators()[0].OperatorAddress),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(
@@ -2749,13 +2760,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				opAddr := s.network.GetValidators()[0].OperatorAddress
 				// use the validator priv key
 				// make a self delegation
-				err = s.factory.Delegate(s.validatorsKeys[0].Priv, opAddr, sdk.NewCoin(s.bondDenom, math.NewInt(1)))
+				err = s.factory.Delegate(s.validatorsKeys[0].Priv, s.network.GetValidators()[0].OperatorAddress, sdk.NewCoin(s.bondDenom, math.NewInt(1)))
 				Expect(err).To(BeNil())
 				// persist changes
 				Expect(s.network.NextBlock()).To(BeNil())
 
 				callArgs.MethodName = "getValidatorDistributionInfo"
-				callArgs.Args = []interface{}{opAddr}
+				callArgs.Args = []interface{}{valHex(opAddr)}
 				txArgs.GasLimit = 200_000
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2780,7 +2791,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should get validator outstanding rewards", func() {
 				opAddr := s.network.GetValidators()[0].OperatorAddress
 				callArgs.MethodName = "getValidatorOutstandingRewards"
-				callArgs.Args = []interface{}{opAddr}
+				callArgs.Args = []interface{}{valHex(opAddr)}
 
 				_, err := utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 				Expect(err).To(BeNil(), "error while calling the precompile")
@@ -2811,7 +2822,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Context("get validator commission", func() {
 				BeforeEach(func() {
 					callArgs.MethodName = "getValidatorCommission"
-					callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+					callArgs.Args = []interface{}{valHex(s.network.GetValidators()[0].OperatorAddress)}
 				})
 
 				// // TODO: currently does not work because the minting happens on the Beginning of each block
@@ -2878,7 +2889,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				BeforeEach(func() {
 					callArgs.MethodName = "getValidatorSlashes"
 					callArgs.Args = []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
+						valHex(s.network.GetValidators()[0].OperatorAddress),
 						uint64(1), uint64(5),
 						query.PageRequest{},
 					}
@@ -2934,7 +2945,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should get slashing events - validator with slashes w/pagination", func() {
 					// set pagination
 					callArgs.Args = []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
+						valHex(s.network.GetValidators()[0].OperatorAddress),
 						uint64(1), uint64(5),
 						query.PageRequest{
 							Limit:      1,
@@ -2964,7 +2975,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Context("get delegation rewards", func() {
 				BeforeEach(func() {
 					callArgs.MethodName = "getDelegationRewards"
-					callArgs.Args = []interface{}{s.keyring.GetAddr(0), s.network.GetValidators()[0].OperatorAddress}
+					callArgs.Args = []interface{}{s.keyring.GetAddr(0), valHex(s.network.GetValidators()[0].OperatorAddress)}
 				})
 
 				// // TODO: currently does not work because the minting happens on the Beginning of each block

@@ -181,9 +181,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "internalType": "uint256",
@@ -303,9 +303,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "internalType": "uint256",
@@ -332,9 +332,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "delegation",
@@ -434,14 +434,14 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorSrcAddress",
-        "type": "string"
+        "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorDstAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "internalType": "uint256",
@@ -468,14 +468,14 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "srcValidatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "dstValidatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "redelegation",
@@ -541,14 +541,14 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "srcValidatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "dstValidatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "components": [
@@ -709,9 +709,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "unbondingDelegation",
@@ -782,9 +782,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "internalType": "uint256",

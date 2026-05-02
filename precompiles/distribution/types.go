@@ -58,6 +58,15 @@ type EventDepositValidatorRewardsPool struct {
 	Amount           *big.Int
 }
 
+func validatorBech32Address(arg interface{}) (string, error) {
+	validatorAddress, ok := arg.(common.Address)
+	if !ok || validatorAddress == (common.Address{}) {
+		return "", fmt.Errorf(cmn.ErrInvalidValidator, arg)
+	}
+
+	return sdk.ValAddress(validatorAddress.Bytes()).String(), nil
+}
+
 // parseClaimRewardsArgs parses the arguments for the ClaimRewards method.
 func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
 	if len(args) != 2 {
@@ -122,7 +131,10 @@ func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorAddress, _ := args[1].(string)
+	validatorAddress, err := validatorBech32Address(args[1])
+	if err != nil {
+		return nil, common.Address{}, err
+	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
@@ -142,7 +154,10 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
 
-	validatorAddress, _ := args[0].(string)
+	validatorAddress, err := validatorBech32Address(args[0])
+	if err != nil {
+		return nil, common.Address{}, err
+	}
 
 	msg := &distributiontypes.MsgWithdrawValidatorCommission{
 		ValidatorAddress: validatorAddress,
@@ -201,7 +216,10 @@ func NewMsgDepositValidatorRewardsPool(args []interface{}, addrCdc address.Codec
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
 	}
 
-	validatorAddress, _ := args[1].(string)
+	validatorAddress, err := validatorBech32Address(args[1])
+	if err != nil {
+		return nil, common.Address{}, err
+	}
 
 	coins, err := cmn.ToCoins(args[2])
 	if err != nil {
@@ -234,7 +252,10 @@ func NewValidatorDistributionInfoRequest(args []interface{}) (*distributiontypes
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
 
-	validatorAddress, _ := args[0].(string)
+	validatorAddress, err := validatorBech32Address(args[0])
+	if err != nil {
+		return nil, err
+	}
 
 	return &distributiontypes.QueryValidatorDistributionInfoRequest{
 		ValidatorAddress: validatorAddress,
@@ -248,7 +269,10 @@ func NewValidatorOutstandingRewardsRequest(args []interface{}) (*distributiontyp
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
 
-	validatorAddress, _ := args[0].(string)
+	validatorAddress, err := validatorBech32Address(args[0])
+	if err != nil {
+		return nil, err
+	}
 
 	return &distributiontypes.QueryValidatorOutstandingRewardsRequest{
 		ValidatorAddress: validatorAddress,
@@ -262,7 +286,10 @@ func NewValidatorCommissionRequest(args []interface{}) (*distributiontypes.Query
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
 
-	validatorAddress, _ := args[0].(string)
+	validatorAddress, err := validatorBech32Address(args[0])
+	if err != nil {
+		return nil, err
+	}
 
 	return &distributiontypes.QueryValidatorCommissionRequest{
 		ValidatorAddress: validatorAddress,
@@ -289,7 +316,7 @@ func NewValidatorSlashesRequest(method *abi.Method, args []interface{}) (*distri
 	}
 
 	return &distributiontypes.QueryValidatorSlashesRequest{
-		ValidatorAddress: input.ValidatorAddress,
+		ValidatorAddress: sdk.ValAddress(input.ValidatorAddress.Bytes()).String(),
 		StartingHeight:   input.StartingHeight,
 		EndingHeight:     input.EndingHeight,
 		Pagination:       &input.PageRequest,
@@ -308,7 +335,10 @@ func NewDelegationRewardsRequest(args []interface{}, addrCdc address.Codec) (*di
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
-	validatorAddress, _ := args[1].(string)
+	validatorAddress, err := validatorBech32Address(args[1])
+	if err != nil {
+		return nil, err
+	}
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
@@ -427,7 +457,7 @@ type ValidatorSlashEvent struct {
 // ValidatorSlashesInput is a struct to represent the key information
 // to perform a ValidatorSlashes query.
 type ValidatorSlashesInput struct {
-	ValidatorAddress string
+	ValidatorAddress common.Address
 	StartingHeight   uint64
 	EndingHeight     uint64
 	PageRequest      query.PageRequest

@@ -30,7 +30,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 	method := s.precompile.Methods[distribution.SetWithdrawAddressMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress common.Address) []interface{}
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -38,7 +38,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(string) []interface{} {
+			func(common.Address) []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					s.keyring.GetAddr(0).String(),
@@ -77,7 +77,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.SetWithdrawAddress(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+		_, err := s.precompile.SetWithdrawAddress(ctx, contract, stDB, &method, tc.malleate(valHex(s.network.GetValidators()[0].OperatorAddress)))
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -186,7 +186,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 		{
 			"success - the correct event is emitted",
 			func(operatorAddress string) []interface{} {
-				valAddr, err := sdk.ValAddressFromBech32(operatorAddress)
+				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(constants.ExampleAttoDenom, math.LegacyNewDecFromInt(amt))}
 				// set outstanding rewards
@@ -198,7 +198,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 				err = s.mintCoinsForDistrMod(ctx, coins)
 				s.Require().NoError(err)
 				return []interface{}{
-					operatorAddress,
+					valHex(operatorAddress),
 				}
 			},
 			func() {
@@ -383,7 +383,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) ([]interface{}, sdk.Coins)
+		malleate    func(operatorAddress common.Address) ([]interface{}, sdk.Coins)
 		postCheck   func(sdk.Coins)
 		gas         uint64
 		expError    bool
@@ -391,7 +391,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(operatorAddress string) ([]interface{}, sdk.Coins) {
+			func(operatorAddress common.Address) ([]interface{}, sdk.Coins) {
 				coins := []cmn.Coin{
 					{
 						Denom:  constants.ExampleAttoDenom,
@@ -434,7 +434,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		},
 		{
 			"success - the correct event is emitted for multiple coins",
-			func(operatorAddress string) ([]interface{}, sdk.Coins) {
+			func(operatorAddress common.Address) ([]interface{}, sdk.Coins) {
 				coins := []cmn.Coin{
 					{
 						Denom:  constants.ExampleAttoDenom,
@@ -494,7 +494,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		var contract *vm.Contract
 		contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-		args, sdkCoins := tc.malleate(s.network.GetValidators()[0].OperatorAddress)
+		args, sdkCoins := tc.malleate(valHex(s.network.GetValidators()[0].OperatorAddress))
 		_, err := s.precompile.DepositValidatorRewardsPool(ctx, contract, stDB, &method, args)
 
 		if tc.expError {

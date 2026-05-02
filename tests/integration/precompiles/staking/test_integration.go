@@ -114,7 +114,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				prevDelegation := qRes.DelegationResponse.Balance
 				// try to call the precompile
 				callArgs.MethodName = staking.DelegateMethod
-				callArgs.Args = []interface{}{delegator.Addr, valAddr.String(), big.NewInt(2e18)}
+				callArgs.Args = []interface{}{delegator.Addr, valHex(valAddr), big.NewInt(2e18)}
 
 				// Contract should not be called but the transaction should be successful
 				// This is the expected behavior in Ethereum where there is a contract call
@@ -144,7 +144,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.MethodName = staking.DelegateMethod
 				callArgs.Args = []interface{}{
 					delegator.Addr,
-					valAddr.String(),
+					valHex(valAddr),
 					big.NewInt(2e18),
 				}
 				txArgs.GasLimit = 30000
@@ -365,7 +365,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(2e18),
+						delegator.Addr, valHex(valAddr), big.NewInt(2e18),
 					}
 
 					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeDelegate)
@@ -393,7 +393,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					// try to delegate more than left in account
 					callArgs.Args = []interface{}{
-						common.BytesToAddress(newAddr), valAddr.String(), big.NewInt(1e18),
+						common.BytesToAddress(newAddr), valHex(valAddr), big.NewInt(1e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains("insufficient funds")
@@ -434,7 +434,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr := testutiltx.GenerateAddress()
 
 					callArgs.Args = []interface{}{
-						differentAddr, valAddr.String(), big.NewInt(2e18),
+						differentAddr, valHex(valAddr), big.NewInt(2e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
@@ -469,7 +469,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(res.UnbondingResponses).To(HaveLen(0), "expected no unbonding delegations before test")
 
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(1e18),
+						delegator.Addr, valHex(valAddr), big.NewInt(1e18),
 					}
 
 					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeUnbond)
@@ -491,7 +491,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(2e18),
+						delegator.Addr, valHex(valAddr), big.NewInt(2e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains("invalid shares amount")
@@ -529,7 +529,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						differentAddr, valAddr.String(), big.NewInt(1e18),
+						differentAddr, valHex(valAddr), big.NewInt(1e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
@@ -556,7 +556,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(1e18),
+						delegator.Addr, valHex(valAddr), valHex(valAddr2), big.NewInt(1e18),
 					}
 
 					logCheckArgs := passCheck.
@@ -583,7 +583,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(2e18),
+						delegator.Addr, valHex(valAddr), valHex(valAddr2), big.NewInt(2e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains("invalid shares amount")
@@ -602,7 +602,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), nonExistingValAddr.String(), big.NewInt(1e18),
+						delegator.Addr, valHex(valAddr), valHex(nonExistingValAddr), big.NewInt(1e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains("redelegation destination validator not found")
@@ -622,7 +622,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.Args = []interface{}{
-						differentAddr, valAddr.String(), valAddr2.String(), big.NewInt(1e18),
+						differentAddr, valHex(valAddr), valHex(valAddr2), big.NewInt(1e18),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
@@ -649,7 +649,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					ContractABI: s.precompile.ABI,
 					MethodName:  staking.UndelegateMethod,
 					Args: []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(1e18),
+						delegator.Addr, valHex(valAddr), big.NewInt(1e18),
 					},
 				}
 
@@ -688,7 +688,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					creationHeight := s.network.GetContext().BlockHeight()
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(1e18), big.NewInt(creationHeight),
+						delegator.Addr, valHex(valAddr), big.NewInt(1e18), big.NewInt(creationHeight),
 					}
 
 					logCheckArgs := passCheck.
@@ -719,7 +719,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					creationHeight := s.network.GetContext().BlockHeight()
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(2e18), big.NewInt(creationHeight),
+						delegator.Addr, valHex(valAddr), big.NewInt(2e18), big.NewInt(creationHeight),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains("amount is greater than the unbonding delegation entry balance")
@@ -742,7 +742,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					creationHeight := s.network.GetContext().BlockHeight()
 					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(1e18), big.NewInt(creationHeight + 1),
+						delegator.Addr, valHex(valAddr), big.NewInt(1e18), big.NewInt(creationHeight + 1),
 					}
 
 					logCheckArgs := defaultLogCheck.WithErrContains("unbonding delegation entry is not found at block height")
@@ -934,7 +934,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					delegator.Addr,
-					valAddr.String(),
+					valHex(valAddr),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -991,7 +991,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					ContractABI: s.precompile.ABI,
 					MethodName:  staking.UndelegateMethod,
 					Args: []interface{}{
-						delegator.Addr, valAddr.String(), undelAmount,
+						delegator.Addr, valHex(valAddr), undelAmount,
 					},
 				}
 
@@ -1015,7 +1015,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					delegator.Addr,
-					valAddr.String(),
+					valHex(valAddr),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1040,7 +1040,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					delegator.Addr,
-					valAddr2.String(),
+					valHex(valAddr2),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1071,7 +1071,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					ContractABI: s.precompile.ABI,
 					MethodName:  staking.RedelegateMethod,
 					Args: []interface{}{
-						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(1e17),
+						delegator.Addr, valHex(valAddr), valHex(valAddr2), big.NewInt(1e17),
 					},
 				}
 
@@ -1088,8 +1088,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// query the redelegation
 				callArgs.Args = []interface{}{
 					delegator.Addr,
-					valAddr.String(),
-					valAddr2.String(),
+					valHex(valAddr),
+					valHex(valAddr2),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1112,8 +1112,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{
 					delegator.Addr,
-					valAddr.String(),
-					valAddr2.String(),
+					valHex(valAddr),
+					valHex(valAddr2),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1148,14 +1148,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: s.precompile.ABI,
 						MethodName:  staking.RedelegateMethod,
 						Args: []interface{}{
-							delegator.Addr, valAddr.String(), valAddr2.String(), delAmt,
+							delegator.Addr, valHex(valAddr), valHex(valAddr2), delAmt,
 						},
 					},
 					{
 						ContractABI: s.precompile.ABI,
 						MethodName:  staking.RedelegateMethod,
 						Args: []interface{}{
-							delegator.Addr, valAddr.String(), valAddr2.String(), delAmt,
+							delegator.Addr, valHex(valAddr), valHex(valAddr2), delAmt,
 						},
 					},
 				}
@@ -1279,7 +1279,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				//   --> filtering for all redelegations with the given combination of delegator, source and destination validator
 				callArgs.Args = []interface{}{
 					common.Address{}, // passing in an empty address to filter for all redelegations from valAddr2
-					valAddr2.String(),
+					valHex(valAddr2),
 					"",
 					query.PageRequest{},
 				}
@@ -1317,7 +1317,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			callArgs.MethodName = staking.DelegateMethod
 			callArgs.Args = []interface{}{
 				delegator.Addr,
-				valAddr.String(),
+				valHex(valAddr),
 				delAmt,
 			}
 
@@ -1486,7 +1486,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// try to call the precompile
 				callArgs.MethodName = "testDelegate"
 				callArgs.Args = []interface{}{
-					valAddr.String(),
+					valHex(valAddr),
 				}
 
 				txArgs.Amount = big.NewInt(1e9)
@@ -1759,7 +1759,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// initial delegation via contract
 				callArgs.MethodName = "testDelegate"
 				callArgs.Args = []interface{}{
-					valAddr.String(),
+					valHex(valAddr),
 				}
 
 				logCheckArgs := passCheck.
@@ -1791,7 +1791,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					txArgs.Amount = big.NewInt(1e18)
 
 					callArgs.Args = []interface{}{
-						valAddr.String(),
+						valHex(valAddr),
 					}
 
 					logCheckArgs := passCheck.
@@ -1836,7 +1836,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 							ContractABI: stakingReverterContract.ABI,
 							MethodName:  "run",
 							Args: []interface{}{
-								big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
+								big.NewInt(5), validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 							},
 						}
 
@@ -1878,7 +1878,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 							ContractABI: stakingReverterContract.ABI,
 							MethodName:  "multipleDelegations",
 							Args: []interface{}{
-								big.NewInt(int64(evmtypes.MaxPrecompileCalls + 2)), s.network.GetValidators()[0].OperatorAddress,
+								big.NewInt(int64(evmtypes.MaxPrecompileCalls + 2)), validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 							},
 						}
 
@@ -1914,7 +1914,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 							ContractABI: stakingReverterContract.ABI,
 							MethodName:  "callPrecompileBeforeAndAfterRevert",
 							Args: []interface{}{
-								big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
+								big.NewInt(5), validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 							},
 						}
 
@@ -1966,7 +1966,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 							ContractABI: stakingReverterContract.ABI,
 							MethodName:  "nestedTryCatchDelegations",
 							Args: []interface{}{
-								big.NewInt(outerTimes), big.NewInt(innerTimes), s.network.GetValidators()[0].OperatorAddress,
+								big.NewInt(outerTimes), big.NewInt(innerTimes), validatorHexAddress(s.network.GetValidators()[0].OperatorAddress),
 							},
 						}
 
@@ -2045,7 +2045,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					DescribeTable("should delegate and update balances accordingly", func(tc testCase) {
 						args.Args = []interface{}{
-							valAddr.String(), tc.before, tc.after,
+							valHex(valAddr), tc.before, tc.after,
 						}
 
 						// This is the amount of tokens transferred from the contract to the delegator
@@ -2121,7 +2121,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						args.MethodName = "testDelegateWithTransfer"
 						args.Args = []interface{}{
 							common.BytesToAddress(bondedTokensPoolAccAddr),
-							s.keyring.GetAddr(0), valAddr.String(), true, true,
+							s.keyring.GetAddr(0), valHex(valAddr), true, true,
 						}
 
 						txArgs.To = &contractTwoAddr
@@ -2161,7 +2161,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					txArgs.Amount = big.NewInt(1e18)
 
 					callArgs.Args = []interface{}{
-						nonExistingVal.String(),
+						valHex(nonExistingVal),
 					}
 
 					reverReasonCheck := execRevertedCheck.WithErrContains(
@@ -2206,7 +2206,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr.String(),
+							valHex(valAddr),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -2222,7 +2222,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					valAddr.String(), big.NewInt(1e18),
+					valHex(valAddr), big.NewInt(1e18),
 				}
 
 				logCheckArgs := defaultLogCheck.
@@ -2246,7 +2246,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					nonExistingVal.String(), big.NewInt(1e18),
+					valHex(nonExistingVal), big.NewInt(1e18),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
@@ -2268,7 +2268,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				differentSender := s.keyring.GetKey(1)
 
 				callArgs.Args = []interface{}{
-					valAddr.String(), big.NewInt(1e18),
+					valHex(valAddr), big.NewInt(1e18),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
@@ -2307,7 +2307,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr.String(),
+							valHex(valAddr),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -2323,7 +2323,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					valAddr.String(), valAddr2.String(), big.NewInt(1e18),
+					valHex(valAddr), valHex(valAddr2), big.NewInt(1e18),
 				}
 
 				logCheckArgs := defaultLogCheck.
@@ -2350,7 +2350,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					nonExistingVal.String(), valAddr2.String(), big.NewInt(1e18),
+					valHex(nonExistingVal), valHex(valAddr2), big.NewInt(1e18),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
@@ -2372,7 +2372,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				differentSender := s.keyring.GetKey(1)
 
 				callArgs.Args = []interface{}{
-					valAddr.String(), valAddr2.String(), big.NewInt(1e18),
+					valHex(valAddr), valHex(valAddr2), big.NewInt(1e18),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
@@ -2394,7 +2394,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					valAddr.String(), nonExistingVal.String(), big.NewInt(1e18),
+					valHex(valAddr), valHex(nonExistingVal), big.NewInt(1e18),
 				}
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(stakingtypes.ErrBadRedelegationDst.Error())
@@ -2436,7 +2436,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr.String(),
+							valHex(valAddr),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -2450,7 +2450,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				undelegateArgs := testutiltypes.CallArgs{
 					ContractABI: stakingCallerContract.ABI,
 					MethodName:  "testUndelegate",
-					Args:        []interface{}{valAddr.String(), big.NewInt(1e18)},
+					Args:        []interface{}{valHex(valAddr), big.NewInt(1e18)},
 				}
 
 				logCheckArgs := defaultLogCheck.
@@ -2481,7 +2481,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					valAddr.String(), big.NewInt(1e18), big.NewInt(expCreationHeight),
+					valHex(valAddr), big.NewInt(1e18), big.NewInt(expCreationHeight),
 				}
 
 				txArgs.GasLimit = 1e9
@@ -2505,7 +2505,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					nonExistingVal.String(),
+					valHex(nonExistingVal),
 					big.NewInt(1e18),
 					big.NewInt(expCreationHeight),
 				}
@@ -2719,7 +2719,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					nonExistingAddr, valAddr.String(),
+					nonExistingAddr, valHex(valAddr),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2740,7 +2740,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					delegator.Addr, valAddr.String(),
+					delegator.Addr, valHex(valAddr),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2780,7 +2780,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr.String(),
+							valHex(valAddr),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -2793,7 +2793,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					delegator.Addr, valAddr.String(), nonExistingVal.String(),
+					delegator.Addr, valHex(valAddr), valHex(nonExistingVal),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2816,7 +2816,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				redelegateArgs := testutiltypes.CallArgs{
 					ContractABI: stakingCallerContract.ABI,
 					MethodName:  "testRedelegate",
-					Args:        []interface{}{valAddr.String(), valAddr2.String(), big.NewInt(1)},
+					Args:        []interface{}{valHex(valAddr), valHex(valAddr2), big.NewInt(1)},
 				}
 
 				redelegateCheck := passCheck.
@@ -2841,7 +2841,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// query redelegation
 				callArgs.Args = []interface{}{
-					contractAddr, valAddr.String(), valAddr2.String(),
+					contractAddr, valHex(valAddr), valHex(valAddr2),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2879,7 +2879,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr.String(),
+							valHex(valAddr),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -2895,7 +2895,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				redelegateArgs := testutiltypes.CallArgs{
 					ContractABI: stakingCallerContract.ABI,
 					MethodName:  "testRedelegate",
-					Args:        []interface{}{valAddr.String(), valAddr2.String(), big.NewInt(1)},
+					Args:        []interface{}{valHex(valAddr), valHex(valAddr2), big.NewInt(1)},
 				}
 
 				redelegateCheck := passCheck.
@@ -2919,7 +2919,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// query redelegations by delegator address
 				callArgs.Args = []interface{}{
-					contractAddr, "", "", query.PageRequest{Limit: 1, CountTotal: true},
+					contractAddr, common.Address{}, common.Address{}, query.PageRequest{Limit: 1, CountTotal: true},
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2962,7 +2962,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr.String(),
+							valHex(valAddr),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -2974,7 +2974,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				undelegateArgs := testutiltypes.CallArgs{
 					ContractABI: stakingCallerContract.ABI,
 					MethodName:  "testUndelegate",
-					Args:        []interface{}{valAddr.String(), big.NewInt(1e18)},
+					Args:        []interface{}{valHex(valAddr), big.NewInt(1e18)},
 				}
 
 				logCheckArgs := passCheck.
@@ -3001,7 +3001,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					delegator.Addr, valAddr2.String(),
+					delegator.Addr, valHex(valAddr2),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -3019,7 +3019,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.Args = []interface{}{
-					contractAddr, valAddr.String(),
+					contractAddr, valHex(valAddr),
 				}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -3054,7 +3054,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							valAddr2.String(),
+							valHex(valAddr2),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -3086,7 +3086,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					callArgs.MethodName = "testCallUndelegate"
 					callArgs.Args = []interface{}{
-						valAddr2.String(), big.NewInt(1e18), testcase.calltype,
+						valHex(valAddr2), big.NewInt(1e18), testcase.calltype,
 					}
 
 					checkArgs := execRevertedCheck.WithErrNested(fmt.Sprintf("failed %s to precompile", testcase.calltype))
@@ -3119,7 +3119,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					callArgs.MethodName = "testCallDelegation"
-					callArgs.Args = []interface{}{contractAddr, valAddr2.String(), testcase.calltype}
+					callArgs.Args = []interface{}{contractAddr, valHex(valAddr2), testcase.calltype}
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -3171,7 +3171,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.MethodName = "testDelegateIncrementCounter"
-				callArgs.Args = []interface{}{valAddr.String()}
+				callArgs.Args = []interface{}{valHex(valAddr)}
 				txArgs.GasLimit = 1e9
 				txArgs.Amount = delegationAmount
 
@@ -3219,7 +3219,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// delegate
 				callArgs.MethodName = "testDelegateAndFailCustomLogic"
-				callArgs.Args = []interface{}{valAddr.String()}
+				callArgs.Args = []interface{}{valHex(valAddr)}
 
 				txArgs.Amount = delegationAmount
 				txArgs.GasLimit = 1e9
@@ -3251,7 +3251,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				callArgs.MethodName = "testDelegateAndFailCustomLogic"
-				callArgs.Args = []interface{}{valAddr.String()}
+				callArgs.Args = []interface{}{valHex(valAddr)}
 
 				txArgs.Amount = big.NewInt(2e18)
 				txArgs.GasLimit = 1e9
@@ -3438,7 +3438,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ContractABI: stakingCallerContract.ABI,
 						MethodName:  "testDelegate",
 						Args: []interface{}{
-							validator.String(),
+							valHex(validator),
 						},
 					},
 					passCheck.WithExpEvents(staking.EventTypeDelegate),
@@ -3506,7 +3506,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// NOTE: trying to transfer more than the balance of the contract should fail in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
 				moreThanMintedAmount := new(big.Int).Add(mintAmount, big.NewInt(1))
-				callArgs.Args = []interface{}{erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, moreThanMintedAmount}
+				callArgs.Args = []interface{}{erc20ContractAddr, validatorHexAddress(s.network.GetValidators()[0].OperatorAddress), moreThanMintedAmount}
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3552,7 +3552,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// NOTE: trying to transfer more than the balance of the contract should fail in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
-				callArgs.Args = []interface{}{erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, transferredAmount}
+				callArgs.Args = []interface{}{erc20ContractAddr, validatorHexAddress(s.network.GetValidators()[0].OperatorAddress), transferredAmount}
 
 				// Build combined map of ABI events to check for both ERC20 Transfer event as well as precompile events
 				combinedABIEvents := s.precompile.Events

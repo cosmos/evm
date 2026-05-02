@@ -199,9 +199,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "delegationRewards",
@@ -348,9 +348,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "components": [
@@ -444,9 +444,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "validatorCommission",
@@ -480,9 +480,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "validatorDistributionInfo",
@@ -550,9 +550,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "validatorOutstandingRewards",
@@ -586,9 +586,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       },
       {
         "internalType": "uint64",
@@ -693,9 +693,9 @@
         "type": "address"
       },
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "withdrawDelegatorRewards",
@@ -724,9 +724,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "address",
         "name": "validatorAddress",
-        "type": "string"
+        "type": "address"
       }
     ],
     "name": "withdrawValidatorCommission",

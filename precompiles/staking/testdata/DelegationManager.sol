@@ -5,7 +5,7 @@ contract DelegationManager {
 
     /// The delegation mapping is used to associate the EOA address that 
     /// actually made the delegate request with its corresponding delegation information. 
-    mapping(address => mapping(string => uint256)) public delegations;
+    mapping(address => mapping(address => uint256)) public delegations;
      
     /// The unbonding queue is used to store the unbonding operations that are in progress.
     mapping(address => UnbondingDelegation[]) public unbondingDelegations;
@@ -14,25 +14,25 @@ contract DelegationManager {
     /// It contains information about the validator and the amount of tokens that are being unbonded.
     struct UnbondingDelegation {
         /// @dev The validator address is the address of the validator that is being unbonded.
-        string validator;
+        address validator;
         /// @dev The amount of tokens that are being unbonded.
         uint256 amount;
         /// @dev The creation height is the height at which the unbonding operation was created.
         uint256 creationHeight;
         /// @dev The completion time is the time at which the unbonding operation will complete.
         int64 completionTime;
-    }
+}
 
-    function _increaseAmount(address _delegator, string memory _validator, uint256 _amount) internal {
+    function _increaseAmount(address _delegator, address _validator, uint256 _amount) internal {
         delegations[_delegator][_validator] += _amount;
     }
 
-    function _decreaseAmount(address _delegator, string memory _validator, uint256 _amount) internal {
+    function _decreaseAmount(address _delegator, address _validator, uint256 _amount) internal {
         require(delegations[_delegator][_validator] >= _amount, "Insufficient delegation amount");
         delegations[_delegator][_validator] -= _amount;
     }
 
-    function _undelegate(string memory _validatorAddr, uint256 _amount, int64 completionTime) internal {
+    function _undelegate(address _validatorAddr, uint256 _amount, int64 completionTime) internal {
         unbondingDelegations[msg.sender].push(UnbondingDelegation({
             validator: _validatorAddr,
             amount: _amount,
@@ -80,19 +80,19 @@ contract DelegationManager {
         }
     }
 
-    function _checkDelegation(string memory _validatorAddr, uint256 _delegateAmount) internal view {
+    function _checkDelegation(address _validatorAddr, uint256 _delegateAmount) internal view {
         require(
             delegations[msg.sender][_validatorAddr] >= _delegateAmount, 
             "Delegation does not exist or insufficient delegation amount"
         );
     }
 
-    function _checkUnbondingDelegation(address _delegatorAddr, string memory _validatorAddr) internal view {
+    function _checkUnbondingDelegation(address _delegatorAddr, address _validatorAddr) internal view {
         bool found;
         for (uint256 i = 0; i < unbondingDelegations[_delegatorAddr].length; i++) {
             UnbondingDelegation storage entry = unbondingDelegations[_delegatorAddr][i];
             if (
-                _equalStrings(entry.validator, _validatorAddr) && 
+                entry.validator == _validatorAddr && 
                 uint256(int256(entry.completionTime)) > block.timestamp
             ) {
                 found = true;
@@ -102,7 +102,4 @@ contract DelegationManager {
         require(found == true, "Unbonding delegation does not exist");
     }
 
-    function _equalStrings(string memory a, string memory b) internal pure returns (bool) {
-        return keccak256(bytes(a)) == keccak256(bytes(b));
     }
-}
