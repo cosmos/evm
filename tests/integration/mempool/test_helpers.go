@@ -20,7 +20,8 @@ import (
 
 // Constants
 const (
-	TxGas = 100_000
+	TxGas    = 100_000
+	feeDenom = "aatom"
 )
 
 // createCosmosSendTransactionWithKey creates a simple bank send transaction
@@ -32,8 +33,6 @@ func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big
 // createCosmosSendTransactionWithKey creates a simple bank send transaction
 // with the specified key and amount
 func (s *IntegrationTestSuite) createCosmosSendTxWithAmount(key keyring.Key, amt *big.Int, gasPrice *big.Int) sdk.Tx {
-	feeDenom := "aatom"
-
 	fromAddr := key.AccAddr
 	toAddr := s.keyring.GetKey(1).AccAddr
 	amount := sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(amt)))
@@ -58,8 +57,6 @@ func (s *IntegrationTestSuite) createCosmosSendTxWithAmount(key keyring.Key, amt
 // Requires a custom gasLimit to be set to prevent simulation of the tx in
 // order to fetch the gas limit (since this will fail due to a nonce mismatch).
 func (s *IntegrationTestSuite) createCosmosSendTxWithNonceAndGas(key keyring.Key, nonce uint64, amt *big.Int, gasLimit uint64, gasPrice *big.Int) sdk.Tx {
-	feeDenom := "aatom"
-
 	fromAddr := key.AccAddr
 	toAddr := s.keyring.GetKey(1).AccAddr
 	amount := sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(amt)))
@@ -89,7 +86,6 @@ func (s *IntegrationTestSuite) createMultiSignerCosmosSendTxWithAmount(amt *big.
 		panic("no keys provided")
 	}
 
-	feeDenom := "aatom"
 	toAddr := s.keyring.GetKey(9).AccAddr
 	amount := sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(amt)))
 
