@@ -236,12 +236,12 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) (err error) {
 func (m *RecheckMempool) Remove(tx sdk.Tx) error {
 	// NOTE: processing the removal here produces a subtle bug for cosmos txs
 	// with multiple signers. the underlying mempool here (priority nonce
-	// mempool) identifies txs by only the first signer of mutli signer txs. so
+	// mempool) identifies txs by only the first signer of multi signer txs. so
 	// when we see a tx included in a block (currently the only spot where we
 	// care about remove being called for this mempool) with for example,
 	// signer A at nonce 0, and we have a different tx in the mempool with
 	// signer A at nonce 0 and signer B at nonce 0, removing the tx in the
-	// block with only signer A will remove the tx in the mempool with bother
+	// block with only signer A will remove the tx in the mempool with both
 	// signers A and B. the priority nonce mempool gives us no hook to see what
 	// tx was actually removed. to account for this, we must not remove during
 	// FinalizeBlock, and process the removal during recheck where the multi
@@ -488,10 +488,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			// nonce of this tx became too low compared to the chain state. we
 			// rerun ante handlers on insert to this pool, so at insert time,
 			// we know the nonce of the tx was not too high. since nonces only
-			// increase, ErrWrongSequence seen here must mean that the txs
-			// nonce became too low. we do not want to remove this since this
-			// singers tx at nonce+1 may still be valid and at the correct
-			// nonce now.
+			// increase, ErrWrongSequence seen here must mean that the tx's
+			// nonce became too low. we still remove this tx, but we do not
+			// want to cascade and evict the signer's tx at nonce+1 since
+			// that may still be valid at the correct nonce.
 			if errors.Is(err, sdkerrors.ErrWrongSequence) {
 				dropFuturesOnError = false
 			}
