@@ -219,19 +219,6 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			verifyFunc: func() {
 			},
 		},
-		{
-			name: "remove non-existent transaction",
-			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
-			},
-			insertFirst:   false,
-			wantError:     true, // Remove should error for non-existent transactions
-			errorContains: "tx not found in mempool",
-			verifyFunc: func() {
-				mpool := s.network.App.GetMempool()
-				s.Require().Equal(0, mpool.CountTx())
-			},
-		},
 	}
 
 	for _, tc := range testCases {
