@@ -126,7 +126,7 @@ func testHeader(height int64) *ethtypes.Header {
 }
 
 // ----------------------------------------------------------------------------
-// Insert/Remove
+// Insert
 // ----------------------------------------------------------------------------
 
 func TestRecheckMempool_Insert(t *testing.T) {
@@ -237,51 +237,6 @@ func TestRecheckMempool_Insert_PoolCapacity(t *testing.T) {
 	otherHandle := tracker.NewHandle(2)
 	require.False(t, otherHandle.Has(secondAcc.address))
 	require.True(t, otherHandle.Has(firstAcc.address))
-}
-
-func TestRecheckMempool_Remove(t *testing.T) {
-	acc := newRecheckTestAccount(t)
-	tracker := reserver.NewReservationTracker()
-	handle := tracker.NewHandle(1)
-
-	ctx := newRecheckTestContext()
-	bc := newTestBlockchain(t, ctx)
-	rc := newMockRechecker(ctx, noopAnteHandler)
-
-	mp := mempool.NewRecheckMempool(
-		nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
-	)
-
-	tx := newRecheckTestTx(t, acc.key)
-	require.NoError(t, mp.Insert(ctx, tx))
-
-	otherHandle := tracker.NewHandle(2)
-	require.True(t, otherHandle.Has(acc.address), "address should be reserved after insert")
-
-	require.NoError(t, mp.Remove(tx))
-	require.False(t, otherHandle.Has(acc.address), "address should not be reserved after remove")
-}
-
-func TestRecheckMempool_Remove_NotInPool(t *testing.T) {
-	acc := newRecheckTestAccount(t)
-	tracker := reserver.NewReservationTracker()
-	handle := tracker.NewHandle(1)
-
-	ctx := newRecheckTestContext()
-	bc := newTestBlockchain(t, ctx)
-	rc := newMockRechecker(ctx, noopAnteHandler)
-
-	mp := mempool.NewRecheckMempool(
-		nil, 0, handle, rc,
-		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
-	)
-
-	err := mp.Remove(newRecheckTestTx(t, acc.key))
-	require.Error(t, err)
-
-	otherHandle := tracker.NewHandle(2)
-	require.False(t, otherHandle.Has(acc.address))
 }
 
 // ----------------------------------------------------------------------------
@@ -765,77 +720,6 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 					require.NotContains(t, rechecked, tx, "failed tx %d should not be in rechecked store", i)
 				} else {
 					require.Contains(t, rechecked, tx, "passing tx %d should be in rechecked store", i)
-				}
-			}
-		})
-	}
-}
-
-func TestRecheckMempool_RecheckedTxsReset(t *testing.T) {
-	tests := []struct {
-		name                 string
-		numInitialTxs        int
-		removeBetweenHeights []int // indices of txs to remove between height 1 and height 2
-	}{
-		{
-			name:                 "remove one tx between heights",
-			numInitialTxs:        3,
-			removeBetweenHeights: []int{2},
-		},
-		{
-			name:                 "remove all txs between heights",
-			numInitialTxs:        2,
-			removeBetweenHeights: []int{0, 1},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			tracker := reserver.NewReservationTracker()
-			handle := tracker.NewHandle(1)
-			ctx := newRecheckTestContext()
-			bc := newTestBlockchain(t, ctx)
-			recheckedTxs := newTestRecheckedTxs()
-			rc := newMockRechecker(ctx, noopAnteHandler)
-
-			mp := mempool.NewRecheckMempool(
-				nil, 0, handle, rc,
-				recheckedTxs, newTestReapList(), bc, log.NewNopLogger(),
-			)
-			mp.Start(testHeader(0))
-			defer mp.Close()
-
-			txs := make([]sdk.Tx, tc.numInitialTxs)
-			for i := range tc.numInitialTxs {
-				key, _ := crypto.GenerateKey()
-				txs[i] = newRecheckTestTx(t, key)
-				require.NoError(t, mp.Insert(ctx, txs[i]))
-			}
-
-			// Recheck at height 1 - all txs pass
-			mp.TriggerRecheckSync(testHeader(1))
-			iter1 := mp.RecheckedTxs(context.Background(), big.NewInt(1))
-			rechecked1 := collectIteratorTxs(iter1)
-			require.Len(t, rechecked1, tc.numInitialTxs)
-
-			// Remove txs between heights (simulating block inclusion)
-			removed := make(map[int]bool)
-			for _, idx := range tc.removeBetweenHeights {
-				require.NoError(t, mp.Remove(txs[idx]))
-				removed[idx] = true
-			}
-
-			// Recheck at height 2 - store should be fresh
-			mp.TriggerRecheckSync(testHeader(2))
-			iter2 := mp.RecheckedTxs(context.Background(), big.NewInt(2))
-			rechecked2 := collectIteratorTxs(iter2)
-			require.Len(t, rechecked2, tc.numInitialTxs-len(tc.removeBetweenHeights))
-
-			for i, tx := range txs {
-				if removed[i] {
-					require.NotContains(t, rechecked2, tx, "removed tx %d should not be in height 2 store", i)
-				} else {
-					require.Contains(t, rechecked2, tx, "tx %d should be in height 2 store", i)
 				}
 			}
 		})

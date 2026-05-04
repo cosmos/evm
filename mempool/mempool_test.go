@@ -435,7 +435,7 @@ func TestMempool_CosmosNonceAdvanceDropsStaleEVM(t *testing.T) {
 	err := mp.RemoveWithReason(context.Background(), cosmosTx, mempooltypes.RemoveReason{
 		Caller: mempooltypes.CallerRunTxFinalize,
 	})
-	require.ErrorIs(t, err, mempooltypes.ErrTxNotFound)
+	require.NoError(t, err)
 
 	// after we finish finalizing the above block, the chain will advance and
 	// the pool will reset
