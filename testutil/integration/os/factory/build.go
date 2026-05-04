@@ -75,6 +75,20 @@ func (tf *IntegrationTxFactory) GenerateSignedEthTx(privKey cryptotypes.PrivKey,
 	return tf.buildSignedTx(signedMsg)
 }
 
+// GenerateSignedEthTxWithChainID generates an Ethereum tx with the provided private key, txArgs, and Chain ID, but does not broadcast it.
+func (tf *IntegrationTxFactory) GenerateSignedEthTxWithChainID(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, eip155ChainID *big.Int) (signing.Tx, error) {
+	signedMsg, err := tf.GenerateSignedMsgEthereumTxWithChainID(privKey, txArgs, eip155ChainID)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to generate signed MsgEthereumTx")
+	}
+	// Validate the transaction to avoid unrealistic behavior
+	if err = signedMsg.ValidateBasic(); err != nil {
+		return nil, errorsmod.Wrap(err, "failed to validate transaction")
+	}
+
+	return tf.buildSignedTx(signedMsg)
+}
+
 // GenerateSignedMsgEthereumTx generates an MsgEthereumTx signed with the provided private key and txArgs.
 func (tf *IntegrationTxFactory) GenerateSignedMsgEthereumTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (evmtypes.MsgEthereumTx, error) {
 	msgEthereumTx, err := tf.GenerateMsgEthereumTx(privKey, txArgs)
@@ -83,6 +97,16 @@ func (tf *IntegrationTxFactory) GenerateSignedMsgEthereumTx(privKey cryptotypes.
 	}
 
 	return tf.SignMsgEthereumTx(privKey, msgEthereumTx)
+}
+
+// GenerateSignedMsgEthereumTxWithChainID generates an MsgEthereumTx signed with the provided private key, txArgs, and Chain ID.
+func (tf *IntegrationTxFactory) GenerateSignedMsgEthereumTxWithChainID(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, eip155ChainID *big.Int) (evmtypes.MsgEthereumTx, error) {
+	msgEthereumTx, err := tf.GenerateMsgEthereumTx(privKey, txArgs)
+	if err != nil {
+		return evmtypes.MsgEthereumTx{}, errorsmod.Wrap(err, "failed to create ethereum tx")
+	}
+
+	return tf.SignMsgEthereumTxWithChainID(privKey, msgEthereumTx, eip155ChainID)
 }
 
 // GenerateMsgEthereumTx creates a new MsgEthereumTx with the provided arguments.
@@ -106,7 +130,7 @@ func (tf *IntegrationTxFactory) GenerateMsgEthereumTx(
 func (tf *IntegrationTxFactory) GenerateGethCoreMsg(
 	privKey cryptotypes.PrivKey,
 	txArgs evmtypes.EvmTxArgs,
-) (core.Message, error) {
+) (*core.Message, error) {
 	msg, err := tf.GenerateMsgEthereumTx(privKey, txArgs)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to generate ethereum tx")
@@ -124,7 +148,7 @@ func (tf *IntegrationTxFactory) GenerateGethCoreMsg(
 	signer := gethtypes.LatestSignerForChainID(
 		tf.network.GetEIP155ChainID(),
 	)
-	return signedMsg.AsMessage(signer, baseFeeResp.BaseFee.BigInt())
+	return core.TransactionToMessage(signedMsg.AsTransaction(), signer, baseFeeResp.BaseFee.BigInt())
 }
 
 // GenerateContractCallArgs generates the txArgs for a contract call.

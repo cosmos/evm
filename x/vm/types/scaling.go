@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/holiman/uint256"
+
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -23,6 +25,14 @@ func ConvertAmountTo18DecimalsBigInt(amt *big.Int) *big.Int {
 	evmCoinDecimal := GetEVMCoinDecimals()
 
 	return new(big.Int).Mul(amt, evmCoinDecimal.ConversionFactor().BigInt())
+}
+
+// ConvertAmountTo18Decimals256Int convert the given amount into a 18 decimals
+// representation.
+func ConvertAmountTo18Decimals256Int(amt *uint256.Int) *uint256.Int {
+	evmCoinDecimal := GetEVMCoinDecimals()
+
+	return new(uint256.Int).Mul(amt, uint256.NewInt(evmCoinDecimal.ConversionFactor().Uint64()))
 }
 
 // ConvertBigIntFrom18DecimalsToLegacyDec converts the given amount into a LegacyDec

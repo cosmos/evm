@@ -116,7 +116,7 @@ func CreateEthTx(
 		Nonce:     nonce,
 		To:        &toAddr,
 		Amount:    amount,
-		GasLimit:  100000,
+		GasLimit:  1_000_000,
 		GasFeeCap: baseFee,
 		GasPrice:  big.NewInt(0),
 		GasTipCap: big.NewInt(0),

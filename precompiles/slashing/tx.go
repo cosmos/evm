@@ -26,7 +26,7 @@ func (p Precompile) Unjail(
 	ctx sdk.Context,
 	method *abi.Method,
 	stateDB vm.StateDB,
-	_ *vm.Contract,
+	contract *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
 	if len(args) != 1 {
@@ -36,6 +36,11 @@ func (p Precompile) Unjail(
 	validatorAddress, ok := args[0].(common.Address)
 	if !ok {
 		return nil, fmt.Errorf("invalid validator hex address")
+	}
+
+	msgSender := contract.Caller()
+	if msgSender != validatorAddress {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorAddress.String())
 	}
 
 	msg := &types.MsgUnjail{

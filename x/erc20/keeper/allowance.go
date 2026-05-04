@@ -167,7 +167,13 @@ func (k Keeper) deleteAllowances(ctx sdk.Context, erc20 common.Address) {
 	iterator := storetypes.KVStorePrefixIterator(store, erc20.Bytes())
 	defer iterator.Close()
 
+	var keys [][]byte
+
 	for ; iterator.Valid(); iterator.Next() {
-		store.Delete(iterator.Key())
+		keys = append(keys, iterator.Key())
+	}
+
+	for _, key := range keys {
+		store.Delete(key)
 	}
 }

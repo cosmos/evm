@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -79,7 +80,7 @@ func (suite *KeeperTestSuite) TestGetAccountStorage() {
 					return false
 				}
 
-				address, err := utils.Bech32ToHexAddr(acc.Address)
+				address, err := utils.HexAddressFromBech32String(acc.Address)
 				if err != nil {
 					// NOTE: we panic in the test to see any potential problems
 					// instead of skipping to the next account
@@ -110,7 +111,7 @@ func (suite *KeeperTestSuite) TestGetAccountStorage() {
 func (suite *KeeperTestSuite) TestGetAccountOrEmpty() {
 	ctx := suite.network.GetContext()
 	empty := statedb.Account{
-		Balance:  new(big.Int),
+		Balance:  new(uint256.Int),
 		CodeHash: evmtypes.EmptyCodeHash,
 	}
 

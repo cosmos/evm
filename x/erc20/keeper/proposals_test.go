@@ -24,6 +24,7 @@ const (
 	contractMinterBurner = iota + 1
 	contractDirectBalanceManipulation
 	contractMaliciousDelayed
+	contractBytes32Metadata
 )
 
 const (
@@ -66,6 +67,8 @@ func (suite *KeeperTestSuite) setupRegisterERC20Pair(contractType int) (common.A
 		contract, err = suite.DeployContractDirectBalanceManipulation()
 	case contractMaliciousDelayed:
 		contract, err = suite.DeployContractMaliciousDelayed()
+	case contractBytes32Metadata:
+		contract, err = suite.DeployBytes32MetadataTokenContract(erc20Name, erc20Symbol)
 	default:
 		contract, err = suite.DeployContract(erc20Name, erc20Symbol, erc20Decimals)
 	}
@@ -95,6 +98,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 	testCases := []struct {
 		name     string
 		malleate func()
+		signer   string
 		expPass  bool
 	}{
 		{
@@ -102,6 +106,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			func() {
 				suite.network.App.Erc20Keeper.SetERC20Map(ctx, pair.GetERC20Contract(), pair.GetID())
 			},
+			suite.keyring.GetAccAddr(0).String(),
 			false,
 		},
 		{
@@ -109,6 +114,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			func() {
 				suite.network.App.Erc20Keeper.SetDenomMap(ctx, pair.Denom, pair.GetID())
 			},
+			suite.keyring.GetAccAddr(0).String(),
 			false,
 		},
 		{
@@ -116,11 +122,35 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			func() {
 				suite.network.App.Erc20Keeper.CreateCoinMetadata(ctx, contractAddr) //nolint:errcheck
 			},
+			suite.keyring.GetAccAddr(0).String(),
 			false,
 		},
 		{
-			"ok",
+			"ok - governance, permissionless false",
+			func() {
+				suite.network.App.Erc20Keeper.SetPermissionlessRegistration(ctx, false)
+			},
+			authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+			true,
+		},
+		{
+			"ok - governance, permissionless true",
 			func() {},
+			authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+			true,
+		},
+		{
+			"fail - non-governance, permissionless false",
+			func() {
+				suite.network.App.Erc20Keeper.SetPermissionlessRegistration(ctx, false)
+			},
+			suite.keyring.GetAccAddr(0).String(),
+			false,
+		},
+		{
+			"ok - non-governance, permissionless true",
+			func() {},
+			suite.keyring.GetAccAddr(0).String(),
 			true,
 		},
 		{
@@ -139,6 +169,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced CallEVM error"))
 				mockEVMKeeper.On("ApplyMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 			},
+			suite.keyring.GetAccAddr(0).String(),
 			false,
 		},
 	}
@@ -166,7 +197,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			tc.malleate()
 
 			_, err = suite.network.App.Erc20Keeper.RegisterERC20(ctx, &types.MsgRegisterERC20{
-				Signer:         suite.keyring.GetAccAddr(0).String(),
+				Signer:         tc.signer,
 				Erc20Addresses: []string{contractAddr.Hex()},
 			})
 			metadata, found := suite.network.App.BankKeeper.GetDenomMetaData(ctx, coinName)

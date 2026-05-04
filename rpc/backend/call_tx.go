@@ -40,7 +40,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	// signers to be backwards-compatible with old transactions.
 	cfg := b.ChainConfig()
 	if cfg == nil {
-		cfg = evmtypes.DefaultChainConfig(b.clientCtx.ChainID).EthereumConfig(nil)
+		cfg = evmtypes.DefaultChainConfig(b.chainID.Uint64()).EthereumConfig(nil)
 	}
 
 	signer := ethtypes.LatestSigner(cfg)
@@ -107,9 +107,14 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 
 	// check the local node config in case unprotected txs are disabled
-	if !b.UnprotectedAllowed() && !tx.Protected() {
-		// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
-		return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
+	if !b.UnprotectedAllowed() {
+		if !tx.Protected() {
+			// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
+			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
+		}
+		if tx.ChainId().Uint64() != b.chainID.Uint64() {
+			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.chainID, tx.ChainId())
+		}
 	}
 
 	ethereumTx := &evmtypes.MsgEthereumTx{}

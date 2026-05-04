@@ -87,12 +87,12 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(_ *server.Context, clientCtx client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
 					Version:   apiVersion,
-					Service:   net.NewPublicAPI(clientCtx),
+					Service:   net.NewPublicAPI(ctx, clientCtx),
 					Public:    true,
 				},
 			}
@@ -134,7 +134,7 @@ func init() {
 				{
 					Namespace: DebugNamespace,
 					Version:   apiVersion,
-					Service:   debug.NewAPI(ctx, evmBackend),
+					Service:   debug.NewAPI(ctx, evmBackend, evmBackend.GetConfig().JSONRPC.EnableProfiling),
 					Public:    true,
 				},
 			}

@@ -20,28 +20,21 @@ message Params {
     (gogoproto.customname) = "ExtraEIPs",
     (gogoproto.moretags) = "yaml:\"extra_eips\""
   ];
-  // chain_config defines the EVM chain configuration parameters
-  ChainConfig chain_config = 5 [
-    (gogoproto.moretags) = "yaml:\"chain_config\"",
-    (gogoproto.nullable) = false,
-    (amino.dont_omitempty) = true
-  ];
-
   // allow_unprotected_txs defines if replay-protected (i.e non EIP155
   // signed) transactions can be executed on the state machine.
-  bool allow_unprotected_txs = 6;
+  bool allow_unprotected_txs = 5;
   // renamed active_precompiles to active_static_precompiles
-  reserved 7;
+  reserved 6;
   // evm_channels is the list of channel identifiers from EVM compatible chains
-  repeated string evm_channels = 8 [ (gogoproto.customname) = "EVMChannels" ];
+  repeated string evm_channels = 7 [ (gogoproto.customname) = "EVMChannels" ];
   // access_control defines the permission policy of the EVM
-  AccessControl access_control = 9 [
+  AccessControl access_control = 8 [
     (gogoproto.customname) = "AccessControl",
     (gogoproto.nullable) = false
   ];
   // active_static_precompiles defines the slice of hex addresses of the
   // precompiled contracts that are active
-  repeated string active_static_precompiles = 10;
+  repeated string active_static_precompiles = 9;
 }
 
 // AccessControl defines the permission policy of the EVM
@@ -115,12 +108,8 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"eip150_block\""
   ];
-  // eip150_hash: EIP150 HF hash (needed for header only clients as only gas
-  // pricing changed)
-  string eip150_hash = 5 [
-    (gogoproto.customname) = "EIP150Hash",
-    (gogoproto.moretags) = "yaml:\"byzantium_block\""
-  ];
+  // DEPRECATED: EIP-150_HASH
+  reserved 5;
   // eip155_block: EIP155Block HF block
   string eip155_block = 6 [
     (gogoproto.customname) = "EIP155Block",
@@ -167,9 +156,6 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"berlin_block\""
   ];
-  // DEPRECATED: EWASM, YOLOV3 and Catalyst block have been deprecated
-  reserved 14, 15, 16;
-  reserved "yolo_v3_block", "ewasm_block", "catalyst_block";
   // london_block: London switch block (nil = no fork, 0 = already on london)
   string london_block = 17 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
@@ -181,10 +167,6 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"arrow_glacier_block\""
   ];
-  // DEPRECATED: merge fork block was deprecated:
-  // https://github.com/ethereum/go-ethereum/pull/24904
-  reserved 19;
-  reserved "merge_fork_block";
   // gray_glacier_block: EIP-5133 (bomb delay) switch block (nil = no fork, 0 =
   // already activated)
   string gray_glacier_block = 20 [
@@ -197,22 +179,42 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"merge_netsplit_block\""
   ];
-  // shanghai_block switch block (nil = no fork, 0 = already on shanghai)
-  string shanghai_block = 22 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.moretags) = "yaml:\"shanghai_block\""
-  ];
-  // cancun_block switch block (nil = no fork, 0 = already on cancun)
-  string cancun_block = 23 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.moretags) = "yaml:\"cancun_block\""
-  ];
+  // DEPRECATED: shanghai_block & cancun_block - switched from block to
+  // timestamp
+  reserved 22, 23;
   // chain_id is the id of the chain (EIP-155)
   uint64 chain_id = 24;
   // denom is the denomination used on the EVM
   string denom = 25;
   // decimals is the real decimal precision of the denomination used on the EVM
   uint64 decimals = 26;
+
+  // shanghai_time: Shanghai switch time (nil = no fork, 0 = already on
+  // shanghai)
+  string shanghai_time = 27 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"shanghai_time\""
+  ];
+  // cancun_time: Cancun switch time (nil = no fork, 0 = already on cancun)
+  string cancun_time = 28 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"cancun_time\""
+  ];
+  // prague_time: Prague switch time (nil = no fork, 0 = already on prague)
+  string prague_time = 29 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"prague_time\""
+  ];
+  // verkle_time: Verkle switch time (nil = no fork, 0 = already on verkle)
+  string verkle_time = 30 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"verkle_time\""
+  ];
+  // osaka_time: Osaka switch time (nil = no fork, 0 = already on osaka)
+  string osaka_time = 31 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"osaka_time\""
+  ];
 }
 
 // State represents a single Storage key value pair item.

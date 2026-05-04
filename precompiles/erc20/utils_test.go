@@ -1,6 +1,7 @@
 package erc20_test
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -15,13 +16,13 @@ import (
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	network "github.com/cosmos/evm/testutil/integration/os/network"
-	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -66,12 +67,12 @@ func (is *IntegrationTestSuite) setAllowanceForContract(
 ) {
 	// NOTE: When using the caller contract, erc20 contract must be called instead of caller contract.
 	// This is because caller of erc20 contract becomes the owner of allowance.
-	switch {
-	case callType == erc20V5CallerCall:
+	switch callType {
+	case erc20V5CallerCall:
 		callType = erc20V5Call
-	case callType == contractCall:
+	case contractCall:
 		callType = directCall
-	case callType == contractCallToken2:
+	case contractCallToken2:
 		callType = directCallToken2
 	}
 
@@ -122,7 +123,7 @@ func (s *PrecompileTestSuite) requireOut(
 		if ok {
 			bigOut, ok := out[0].(*big.Int)
 			s.Require().True(ok, "expected output to be a big.Int")
-			s.Require().Equal(bigExp.Int64(), bigOut.Int64(), "expected different value")
+			s.Require().Zero(bigExp.Cmp(bigOut), "expected different value")
 		} else {
 			s.Require().Equal(expValue, out[0], "expected different value")
 		}
@@ -137,20 +138,23 @@ func (s *PrecompileTestSuite) requireOut(
 func (s *PrecompileTestSuite) requireAllowance(erc20Addr, owner, spender common.Address, amount *big.Int) {
 	allowance, err := s.network.App.Erc20Keeper.GetAllowance(s.network.GetContext(), erc20Addr, owner, spender)
 	s.Require().NoError(err, "expected no error unpacking the allowance")
-	s.Require().Equal(allowance.Int64(), amount.Int64(), "expected different allowance")
+	s.Require().Equal(allowance.String(), amount.String(), "expected different allowance")
 }
 
 // setupERC20Precompile is a helper function to set up an instance of the ERC20 precompile for
 // a given token denomination, set the token pair in the ERC20 keeper and adds the precompile
 // to the available and active precompiles.
-func (s *PrecompileTestSuite) setupERC20Precompile(denom string) *erc20.Precompile {
+func (s *PrecompileTestSuite) setupERC20Precompile(denom string) (*erc20.Precompile, error) {
 	tokenPair := erc20types.NewTokenPair(utiltx.GenerateAddress(), denom, erc20types.OWNER_MODULE)
-	s.network.App.Erc20Keeper.SetToken(s.network.GetContext(), tokenPair)
+	err := s.network.App.Erc20Keeper.SetToken(s.network.GetContext(), tokenPair)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to set token")
+	}
 
 	precompile, err := setupERC20PrecompileForTokenPair(*s.network, tokenPair)
 	s.Require().NoError(err, "failed to set up %q erc20 precompile", tokenPair.Denom)
 
-	return precompile
+	return precompile, nil
 }
 
 // setupERC20Precompile is a helper function to set up an instance of the ERC20 precompile for
@@ -192,7 +196,7 @@ func setupERC20PrecompileForTokenPair(
 		return nil, errorsmod.Wrapf(err, "failed to create %q erc20 precompile", tokenPair.Denom)
 	}
 
-	err = unitNetwork.App.Erc20Keeper.EnableDynamicPrecompiles(
+	err = unitNetwork.App.Erc20Keeper.EnableDynamicPrecompile(
 		unitNetwork.GetContext(),
 		precompile.Address(),
 	)
@@ -206,37 +210,31 @@ func setupERC20PrecompileForTokenPair(
 // setupNewERC20PrecompileForTokenPair is a helper function to set up an instance of the ERC20 precompile for
 // a given token pair and adds the precompile to the available and active precompiles.
 // This function should be used for integration tests
-func setupNewERC20PrecompileForTokenPair(
-	privKey cryptotypes.PrivKey,
-	unitNetwork *network.UnitTestNetwork,
-	tf factory.TxFactory, tokenPair erc20types.TokenPair,
+func (is *IntegrationTestSuite) setupNewERC20PrecompileForTokenPair(
+	tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
-		unitNetwork.App.BankKeeper,
-		unitNetwork.App.Erc20Keeper,
-		unitNetwork.App.TransferKeeper,
+		is.network.App.BankKeeper,
+		is.network.App.Erc20Keeper,
+		is.network.App.TransferKeeper,
 	)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to create %q erc20 precompile", tokenPair.Denom)
 	}
 
 	// Update the params via gov proposal
-	params := unitNetwork.App.Erc20Keeper.GetParams(unitNetwork.GetContext())
-	params.DynamicPrecompiles = append(params.DynamicPrecompiles, precompile.Address().Hex())
-	slices.Sort(params.DynamicPrecompiles)
-
-	if err := params.Validate(); err != nil {
+	if err := is.network.App.Erc20Keeper.EnableDynamicPrecompile(is.network.GetContext(), precompile.Address()); err != nil {
 		return nil, err
 	}
 
-	if err := testutils.UpdateERC20Params(testutils.UpdateParamsInput{
-		Pk:      privKey,
-		Tf:      tf,
-		Network: unitNetwork,
-		Params:  params,
-	}); err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to add %q erc20 precompile to EVM extensions", tokenPair.Denom)
+	// We must directly commit keeper calls to state, otherwise they get
+	// fully wiped when the next block finalizes.
+	store := is.network.GetContext().MultiStore()
+	if cms, ok := store.(storetypes.CacheMultiStore); ok {
+		cms.Write()
+	} else {
+		return nil, errors.New("store is not a CacheMultiStore")
 	}
 
 	return precompile, nil

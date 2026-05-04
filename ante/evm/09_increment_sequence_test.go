@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"github.com/cosmos/evm/ante/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
@@ -13,7 +14,10 @@ import (
 func (suite *EvmAnteTestSuite) TestIncrementSequence() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)

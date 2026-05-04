@@ -101,6 +101,16 @@ func (l LogCheckArgs) WithErrContains(errContains string, printArgs ...interface
 	return l
 }
 
+// WithErrNested append the ErrContains field of LogCheckArgs.
+// If any printArgs are provided, they are used to format the error message.
+func (l LogCheckArgs) WithErrNested(errContains string, printArgs ...interface{}) LogCheckArgs {
+	if len(printArgs) > 0 {
+		errContains = fmt.Sprintf(errContains, printArgs...)
+	}
+	l.ErrContains = fmt.Sprint(l.ErrContains, ": ", errContains)
+	return l
+}
+
 // WithExpEvents sets the ExpEvents field of LogCheckArgs.
 func (l LogCheckArgs) WithExpEvents(expEvents ...string) LogCheckArgs {
 	l.ExpEvents = expEvents

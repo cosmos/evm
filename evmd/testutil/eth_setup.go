@@ -69,17 +69,18 @@ var EthDefaultConsensusParams = &cmtypes.ConsensusParams{
 }
 
 // EthSetup initializes a new Cosmos EVM application. A Nop logger is set in EVMD.
-func EthSetup(isCheckTx bool, chainID string, patchGenesis func(*exampleapp.EVMD, cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState) *exampleapp.EVMD {
-	return EthSetupWithDB(isCheckTx, chainID, patchGenesis, dbm.NewMemDB())
+func EthSetup(isCheckTx bool, chainID string, evmChainID uint64, patchGenesis func(*exampleapp.EVMD, cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState) *exampleapp.EVMD {
+	return EthSetupWithDB(isCheckTx, chainID, evmChainID, patchGenesis, dbm.NewMemDB())
 }
 
 // EthSetupWithDB initializes a new EVMD. A Nop logger is set in EVMD.
-func EthSetupWithDB(isCheckTx bool, chainID string, patchGenesis func(*exampleapp.EVMD, cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState, db dbm.DB) *exampleapp.EVMD {
+func EthSetupWithDB(isCheckTx bool, chainID string, evmChainID uint64, patchGenesis func(*exampleapp.EVMD, cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState, db dbm.DB) *exampleapp.EVMD {
 	app := exampleapp.NewExampleApp(log.NewNopLogger(),
 		db,
 		nil,
 		true,
 		simtestutil.NewAppOptionsWithFlagHome(exampleapp.DefaultNodeHome),
+		evmChainID,
 		exampleapp.EvmAppOptions,
 		baseapp.SetChainID(chainID),
 	)

@@ -50,7 +50,7 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 		return nil, err
 	}
 
-	newCtx := n.app.BaseApp.NewContextLegacy(false, header)
+	newCtx := n.app.NewContextLegacy(false, header)
 
 	// Update context header
 	newCtx = newCtx.WithMinGasPrices(n.ctx.MinGasPrices())

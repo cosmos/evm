@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -11,8 +12,17 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/store/prefix"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+type PrecompileType int
+
+const (
+	PrecompileTypeNative PrecompileType = iota
+	PrecompileTypeDynamic
 )
 
 // GetERC20PrecompileInstance returns the precompile instance for the given address.
@@ -20,13 +30,12 @@ func (k Keeper) GetERC20PrecompileInstance(
 	ctx sdk.Context,
 	address common.Address,
 ) (contract vm.PrecompiledContract, found bool, err error) {
-	params := k.GetParams(ctx)
+	isNative := k.IsNativePrecompileAvailable(ctx, address)
+	isDynamic := k.IsDynamicPrecompileAvailable(ctx, address)
 
-	if !k.IsAvailableERC20Precompile(&params, address) {
+	if available := isNative || isDynamic; !available {
 		return nil, false, nil
 	}
-
-	isNative := params.IsNativePrecompile(address)
 
 	precompile, err := k.InstantiateERC20Precompile(ctx, address, isNative)
 	if err != nil {
@@ -59,11 +68,103 @@ func (k Keeper) InstantiateERC20Precompile(ctx sdk.Context, contractAddr common.
 	return erc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper)
 }
 
-// IsAvailableERC20Precompile returns true if the given precompile address
-// is contained in the params of the erc20 module.
-// The available ERC-20 precompiles consist of the dynamic precompiles and the native
-// ones.
-func (k Keeper) IsAvailableERC20Precompile(params *types.Params, address common.Address) bool {
-	return params.IsNativePrecompile(address) ||
-		params.IsDynamicPrecompile(address)
+// RegisterCodeHash checks if a new precompile already exists and registers the code hash it is not
+func (k Keeper) RegisterCodeHash(ctx sdk.Context, addr common.Address, pType PrecompileType) error {
+	shouldRegister := false
+	switch pType {
+	case PrecompileTypeNative:
+		shouldRegister = !k.IsNativePrecompileAvailable(ctx, addr)
+	case PrecompileTypeDynamic:
+		shouldRegister = !k.IsDynamicPrecompileAvailable(ctx, addr)
+	default:
+		return fmt.Errorf("invalid precompile type: %v", pType)
+	}
+
+	if shouldRegister {
+		if err := k.RegisterERC20CodeHash(ctx, addr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// EnableNativePrecompile adds the address of the given precompile to the prefix store
+func (k Keeper) EnableNativePrecompile(ctx sdk.Context, addr common.Address) error {
+	k.Logger(ctx).Info("Added new precompiles", "addresses", addr)
+	if err := k.RegisterCodeHash(ctx, addr, PrecompileTypeNative); err != nil {
+		return err
+	}
+	k.SetNativePrecompile(ctx, addr)
+	return nil
+}
+
+// Only to be used by ExportGenesis, not to be directly used
+func (k Keeper) GetNativePrecompiles(ctx sdk.Context) []string {
+	iterator := storetypes.KVStorePrefixIterator(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
+	defer iterator.Close()
+
+	nps := make([]string, 0)
+	for ; iterator.Valid(); iterator.Next() {
+		key := iterator.Key()[len(types.KeyPrefixNativePrecompiles):]
+		nps = append(nps, string(key))
+	}
+
+	slices.Sort(nps)
+	return nps
+}
+
+func (k Keeper) IsNativePrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
+	return store.Has([]byte(precompile.Hex()))
+}
+
+func (k Keeper) SetNativePrecompile(ctx sdk.Context, precompile common.Address) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
+	store.Set([]byte(precompile.Hex()), isTrue)
+}
+
+func (k Keeper) DeleteNativePrecompile(ctx sdk.Context, precompile common.Address) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
+	store.Delete([]byte(precompile.Hex()))
+}
+
+// EnableDynamicPrecompile adds the address of the given precompile to the prefix store
+func (k Keeper) EnableDynamicPrecompile(ctx sdk.Context, address common.Address) error {
+	k.Logger(ctx).Info("Added new precompiles", "addresses", address)
+	if err := k.RegisterCodeHash(ctx, address, PrecompileTypeDynamic); err != nil {
+		return err
+	}
+	k.SetDynamicPrecompile(ctx, address)
+	return nil
+}
+
+// Only to be used by ExportGenesis, not to be directly used
+func (k Keeper) GetDynamicPrecompiles(ctx sdk.Context) []string {
+	iterator := storetypes.KVStorePrefixIterator(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
+	defer iterator.Close()
+
+	dps := make([]string, 0)
+	for ; iterator.Valid(); iterator.Next() {
+		key := iterator.Key()[len(types.KeyPrefixDynamicPrecompiles):]
+		dps = append(dps, string(key))
+	}
+
+	slices.Sort(dps)
+	return dps
+}
+
+func (k Keeper) IsDynamicPrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
+	return store.Has([]byte(precompile.Hex()))
+}
+
+func (k Keeper) SetDynamicPrecompile(ctx sdk.Context, precompile common.Address) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
+	store.Set([]byte(precompile.Hex()), isTrue)
+}
+
+func (k Keeper) DeleteDynamicPrecompile(ctx sdk.Context, precompile common.Address) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
+	store.Delete([]byte(precompile.Hex()))
 }

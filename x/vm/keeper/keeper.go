@@ -5,10 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
@@ -37,6 +40,9 @@ type Keeper struct {
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey
 
+	// KVStore Keys for modules wired to app
+	storeKeys map[string]*storetypes.KVStoreKey
+
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
 
@@ -53,6 +59,11 @@ type Keeper struct {
 	feeMarketWrapper *wrappers.FeeMarketWrapper
 	// erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
+	// consensusKeeper is used to get consensus params during query contexts.
+	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
+	// grpc query router. This query router builds a context WITHOUT consensus params, so we manually supply the context
+	// with consensus params when not set in context.
+	consensusKeeper types.ConsensusParamsKeeper
 
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
@@ -70,11 +81,13 @@ type Keeper struct {
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey, transientKey storetypes.StoreKey,
+	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
 	sk types.StakingKeeper,
 	fmk types.FeeMarketKeeper,
+	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
 ) *Keeper {
@@ -102,7 +115,9 @@ func NewKeeper(
 		storeKey:         storeKey,
 		transientKey:     transientKey,
 		tracer:           tracer,
+		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
+		storeKeys:        keys,
 	}
 }
 
@@ -184,7 +199,12 @@ func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
 
 // PostTxProcessing delegates the call to the hooks.
 // If no hook has been registered, this function returns with a `nil` error
-func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (k *Keeper) PostTxProcessing(
+	ctx sdk.Context,
+	sender common.Address,
+	msg core.Message,
+	receipt *ethtypes.Receipt,
+) error {
 	if k.hooks == nil {
 		return nil
 	}
@@ -229,8 +249,8 @@ func (k Keeper) GetAccountStorage(ctx sdk.Context, address common.Address) types
 // ----------------------------------------------------------------------------
 
 // Tracer return a default vm.Tracer based on current keeper state
-func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) vm.EVMLogger {
-	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight())
+func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) *tracing.Hooks {
+	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight(), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 }
 
 // GetAccountWithoutBalance load nonce and codehash without balance,
@@ -259,7 +279,7 @@ func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb
 
 	// empty account
 	return statedb.Account{
-		Balance:  new(big.Int),
+		Balance:  new(uint256.Int),
 		CodeHash: types.EmptyCodeHash,
 	}
 }
@@ -275,14 +295,34 @@ func (k *Keeper) GetNonce(ctx sdk.Context, addr common.Address) uint64 {
 	return acct.GetSequence()
 }
 
+// SpendableCoin load account's balance of gas token.
+func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
+}
+
 // GetBalance load account's balance of gas token.
-func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *big.Int {
+func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	return coin.Amount.BigInt()
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 // GetBaseFee returns current base fee, return values:
@@ -340,4 +380,9 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 	}
 	k.SetTransientGasUsed(ctx, result)
 	return result, nil
+}
+
+// KVStoreKeys returns KVStore keys injected to keeper
+func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
+	return k.storeKeys
 }

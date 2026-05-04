@@ -55,8 +55,8 @@ func signMsg(msg []byte, priv *ecdsa.PrivateKey) []byte {
 	copy(input[0:32], hash)
 	copy(input[32:64], rInt.Bytes())
 	copy(input[64:96], sInt.Bytes())
-	copy(input[96:128], priv.PublicKey.X.Bytes())
-	copy(input[128:160], priv.PublicKey.Y.Bytes())
+	copy(input[96:128], priv.X.Bytes())
+	copy(input[128:160], priv.Y.Bytes())
 
 	return input
 }

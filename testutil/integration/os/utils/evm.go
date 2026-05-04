@@ -42,7 +42,7 @@ func GetERC20Balance(nw network.Network, tokenAddress, accountAddress common.Add
 		return nil, err
 	}
 
-	fmt.Println("got ret: ", ethRes.Ret)
+	fmt.Println("got ret: ", string(ethRes.Ret))
 	fmt.Println("got eth call logs: ", ethRes.Logs)
 	fmt.Println("got eth call error: ", ethRes.VmError)
 

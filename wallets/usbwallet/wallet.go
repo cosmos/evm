@@ -319,7 +319,7 @@ func (w *wallet) signHash(_ accounts.Account, _ []byte) ([]byte, error) {
 // SignData signs keccak256(data). The mimetype parameter describes the type of data being signed
 func (w *wallet) signData(account accounts.Account, mimeType string, data []byte) ([]byte, error) {
 	// Unless we are doing 712 signing, simply dispatch to signHash
-	if !(mimeType == gethaccounts.MimetypeTypedData && len(data) == 66 && data[0] == 0x19 && data[1] == 0x01) {
+	if mimeType != gethaccounts.MimetypeTypedData || len(data) != 66 || data[0] != 0x19 || data[1] != 0x01 {
 		return w.signHash(account, crypto.Keccak256(data))
 	}
 

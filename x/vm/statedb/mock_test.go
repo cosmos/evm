@@ -6,18 +6,18 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
-	_             statedb.Keeper = &MockKeeper{}
-	errAddress    common.Address = common.BigToAddress(big.NewInt(100))
-	emptyCodeHash                = crypto.Keccak256(nil)
+	_          statedb.Keeper = &MockKeeper{}
+	errAddress common.Address = common.BigToAddress(big.NewInt(100))
 )
 
 type MockAcount struct {
@@ -114,4 +114,8 @@ func (k MockKeeper) Clone() *MockKeeper {
 	accounts := maps.Clone(k.accounts)
 	codes := maps.Clone(k.codes)
 	return &MockKeeper{accounts, codes}
+}
+
+func (k MockKeeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
+	return make(map[string]*storetypes.KVStoreKey)
 }

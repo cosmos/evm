@@ -1,22 +1,40 @@
 package ibc
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
+	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
+
+const (
+	FeeAmt    = 10000000000
+	BaseDenom = "aatom"
+)
+
+func FeeCoins() sdk.Coins {
+	// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
+	// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
+	sdkExp := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
+	return sdk.Coins{sdk.NewInt64Coin(BaseDenom, new(big.Int).Mul(big.NewInt(FeeAmt), sdkExp).Int64())}
+}
 
 // NativeErc20Info holds details about a deployed ERC20 token.
 type NativeErc20Info struct {
@@ -89,4 +107,31 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain) *NativeErc20
 		Account:      common.BytesToAddress(senderAcc),
 		InitialBal:   big.NewInt(sendAmt.Int64()),
 	}
+}
+
+// SetupNativeErc20 deploys, registers, and mints a native ERC20 token on an EVM-based chain.
+func DeployContract(t *testing.T, chain *evmibctesting.TestChain, deploymentData factory.ContractDeploymentData) (common.Address, error) {
+	t.Helper()
+
+	// Get account's nonce to create contract hash
+	from := common.BytesToAddress(chain.SenderPrivKey.PubKey().Address().Bytes())
+	account := chain.App.(*evmd.EVMD).EVMKeeper.GetAccount(chain.GetContext(), from)
+	if account == nil {
+		return common.Address{}, errors.New("account not found")
+	}
+
+	ctorArgs, err := deploymentData.Contract.ABI.Pack("", deploymentData.ConstructorArgs...)
+	if err != nil {
+		return common.Address{}, errorsmod.Wrap(err, "failed to pack constructor arguments")
+	}
+
+	data := deploymentData.Contract.Bin
+	data = append(data, ctorArgs...)
+
+	_, err = chain.App.(*evmd.EVMD).EVMKeeper.CallEVMWithData(chain.GetContext(), from, nil, data, true)
+	if err != nil {
+		return common.Address{}, errorsmod.Wrapf(err, "failed to deploy contract")
+	}
+
+	return crypto.CreateAddress(from, account.Nonce), nil
 }

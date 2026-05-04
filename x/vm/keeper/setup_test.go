@@ -95,15 +95,16 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.handler = gh
 	suite.keyring = keys
 
-	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetChainID())
+	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 	if !suite.enableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt
 		chainConfig.ArrowGlacierBlock = &maxInt
 		chainConfig.GrayGlacierBlock = &maxInt
 		chainConfig.MergeNetsplitBlock = &maxInt
-		chainConfig.ShanghaiBlock = &maxInt
-		chainConfig.CancunBlock = &maxInt
+		chainConfig.ShanghaiTime = &maxInt
+		chainConfig.CancunTime = &maxInt
+		chainConfig.PragueTime = &maxInt
 	}
 	// get the denom and decimals set on chain initialization
 	// because we'll need to set them again when resetting the chain config

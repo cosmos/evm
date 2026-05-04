@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -200,12 +199,6 @@ func (suite *KeeperIntegrationTestSuite) TestBurnCoins() {
 				"unexpected balance after minting %s to %s",
 			)
 
-			// Ensure reserve is backing all minted fractions
-			allInvariantsFn := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-			res, stop := allInvariantsFn(suite.network.GetContext())
-			suite.Require().False(stop, "invariant should not be broken")
-			suite.Require().Empty(res, "unexpected invariant message: %s", res)
-
 			intCoinAmt := tt.burnCoins.AmountOf(types.IntegerCoinDenom()).
 				Mul(types.ConversionFactor())
 
@@ -320,11 +313,6 @@ func (suite *KeeperIntegrationTestSuite) TestBurnCoins_Remainder() {
 			break
 		}
 	}
-
-	// Run Invariants to ensure remainder is backing all fractions correctly
-	res, stop := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)(suite.network.GetContext())
-	suite.Require().False(stop, "invariant should not be broken")
-	suite.Require().Empty(res, "unexpected invariant message: %s", res)
 }
 
 func (suite *KeeperIntegrationTestSuite) TestBurnCoins_Spread_Remainder() {
@@ -435,18 +423,13 @@ func (suite *KeeperIntegrationTestSuite) TestBurnCoins_Spread_Remainder() {
 			reserveBalAfter.Amount.String(),
 			"reserve should be updated by remainder and borrowing",
 		)
-
-		// Run Invariants to ensure remainder is backing all fractions correctly
-		res, stop := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)(suite.network.GetContext())
-		suite.Require().False(stop, "invariant should not be broken")
-		suite.Require().Empty(res, "unexpected invariant message: %s", res)
 	}
 }
 
 func (suite *KeeperIntegrationTestSuite) TestBurnCoins_RandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "6 decimals",
@@ -522,12 +505,6 @@ func (suite *KeeperIntegrationTestSuite) TestBurnCoins_RandomValueMultiDecimals(
 			// Check remainder
 			remainder := suite.network.App.PreciseBankKeeper.GetRemainderAmount(suite.network.GetContext())
 			suite.Equal(remainder.BigInt().Cmp(big.NewInt(0)), 0, "remainder should be zero (expected: %s, actual: %s)", big.NewInt(0), remainder)
-
-			// Check invariants
-			inv := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-			res, stop := inv(suite.network.GetContext())
-			suite.False(stop, "invariant broken")
-			suite.Empty(res, "unexpected invariant error: %s", res)
 		})
 	}
 }
@@ -590,11 +567,5 @@ func FuzzBurnCoins(f *testing.F) {
 			"all coins should be burned, got %d",
 			balAfter.Amount.Int64(),
 		)
-
-		// Run Invariants to ensure remainder is backing all fractions correctly
-		allInvariantsFn := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-		res, stop := allInvariantsFn(suite.network.GetContext())
-		suite.Require().False(stop, "invariant should not be broken")
-		suite.Require().Empty(res, "unexpected invariant message: %s", res)
 	})
 }

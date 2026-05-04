@@ -10,7 +10,6 @@ import (
 
 	"github.com/cosmos/evm/evmd"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -431,11 +430,6 @@ func (suite *KeeperIntegrationTestSuite) TestSendCoins() {
 				recipientBalAfter,
 			)
 
-			invariantFn := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-			res, stop := invariantFn(suite.network.GetContext())
-			suite.Require().False(stop, "invariants should not stop")
-			suite.Require().Empty(res, "invariants should not return any messages")
-
 			// Check events
 
 			// FULL aatom equivalent, including uatom only/mixed sends
@@ -583,11 +577,6 @@ func (suite *KeeperIntegrationTestSuite) TestSendCoins_Matrix() {
 						recipientBalBefore.Add(sendAmtNormalized...),
 						recipientBalAfter,
 					)
-
-					invariantFn := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-					res, stop := invariantFn(suite.network.GetContext())
-					suite.Require().False(stop, "invariants should not stop")
-					suite.Require().Empty(res, "invariants should not return any messages")
 				})
 			}
 		}
@@ -729,7 +718,7 @@ func (suite *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccount() {
 func (suite *KeeperIntegrationTestSuite) TestSendCoins_RandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "6 decimals",
@@ -801,12 +790,6 @@ func (suite *KeeperIntegrationTestSuite) TestSendCoins_RandomValueMultiDecimals(
 
 			suite.Equal(expectedInt.BigInt().Cmp(intReceived.BigInt()), 0, "integer carry mismatch (expected: %s, received: %s)", expectedInt, intReceived)
 			suite.Equal(expectedFrac.BigInt().Cmp(fracReceived.BigInt()), 0, "fractional balance mismatch (expected: %s, received: %s)", expectedFrac, fracReceived)
-
-			// Check invariants
-			inv := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-			res, stop := inv(suite.network.GetContext())
-			suite.False(stop, "invariant broken")
-			suite.Empty(res, "unexpected invariant error: %s", res)
 		})
 	}
 }
@@ -868,12 +851,89 @@ func FuzzSendCoins(f *testing.F) {
 			startBalReceiver+sendAmount,
 			balReceiver.AmountOf(types.ExtendedCoinDenom()).Uint64(),
 		)
-
-		// Run Invariants to ensure remainder is backing all minted fractions
-		// and in a valid state
-		allInvariantsFn := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-		res, stop := allInvariantsFn(suite.network.GetContext())
-		suite.Require().False(stop, "invariant should not be broken")
-		suite.Require().Empty(res, "unexpected invariant message: %s", res)
 	})
+}
+
+func (suite *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() {
+	tests := []struct {
+		name    string
+		chainID testconstants.ChainID
+	}{
+		{
+			name:    "6 decimals",
+			chainID: testconstants.SixDecimalsChainID,
+		},
+		{
+			name:    "12 decimals",
+			chainID: testconstants.TwelveDecimalsChainID,
+		},
+		{
+			name:    "2 decimals",
+			chainID: testconstants.TwoDecimalsChainID,
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.SetupTestWithChainID(tt.chainID)
+
+			sender := sdk.AccAddress([]byte{1})
+			recipient := sdk.AccAddress([]byte{2})
+
+			// Initial balance large enough to cover many small sends
+			initialBalance := types.ConversionFactor().MulRaw(100)
+			suite.MintToAccount(sender, cs(ci(types.ExtendedCoinDenom(), initialBalance)))
+
+			// Setup test parameters
+			maxSendUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			r := rand.New(rand.NewSource(SEED))
+
+			totalSent := sdkmath.ZeroInt()
+			sentCount := 0
+
+			// Continue transfers as long as sender has balance remaining
+			for {
+				// Check current sender balance
+				senderAmount := suite.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+				if senderAmount.IsZero() {
+					break
+				}
+
+				// Generate random amount within the range of max possible send amount
+				maxPossibleSend := maxSendUnit
+				if maxPossibleSend.GT(senderAmount) {
+					maxPossibleSend = senderAmount
+				}
+				randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, maxPossibleSend.BigInt())).AddRaw(1)
+
+				sendAmount := cs(ci(types.ExtendedCoinDenom(), randAmount))
+				msgSend := banktypes.MsgSend{
+					FromAddress: sender.String(),
+					ToAddress:   recipient.String(),
+					Amount:      sendAmount,
+				}
+				_, err := suite.network.App.PreciseBankKeeper.Send(suite.network.GetContext(), &msgSend)
+				suite.NoError(err)
+				totalSent = totalSent.Add(randAmount)
+				sentCount++
+			}
+
+			suite.T().Logf("Completed %d random sends, total sent: %s", sentCount, totalSent.String())
+
+			// Check sender balance
+			senderAmount := suite.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+			suite.Equal(senderAmount.BigInt().Cmp(big.NewInt(0)), 0, "sender balance should be zero")
+
+			// Check recipient balance
+			recipientBal := suite.GetAllBalances(recipient)
+			intReceived := recipientBal.AmountOf(types.ExtendedCoinDenom()).Quo(types.ConversionFactor())
+			fracReceived := suite.network.App.PreciseBankKeeper.GetFractionalBalance(suite.network.GetContext(), recipient)
+
+			expectedInt := totalSent.Quo(types.ConversionFactor())
+			expectedFrac := totalSent.Mod(types.ConversionFactor())
+
+			suite.Equal(expectedInt.BigInt().Cmp(intReceived.BigInt()), 0, "integer carry mismatch (expected: %s, received: %s)", expectedInt, intReceived)
+			suite.Equal(expectedFrac.BigInt().Cmp(fracReceived.BigInt()), 0, "fractional balance mismatch (expected: %s, received: %s)", expectedFrac, fracReceived)
+		})
+	}
 }

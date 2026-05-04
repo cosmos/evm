@@ -245,12 +245,12 @@ func (suite *EvmAnteTestSuite) TestCheckTxFee() {
 		},
 	}
 
-	for _, chainID := range []string{
+	for _, chainID := range []testconstants.ChainID{
 		testconstants.ExampleChainID,
 		testconstants.SixDecimalsChainID,
 	} {
 		for _, tc := range testCases {
-			suite.Run(fmt.Sprintf("%s, %s", chainID, tc.name), func() {
+			suite.Run(fmt.Sprintf("%s, %s", chainID.ChainID, tc.name), func() {
 				// Call the configurator to set the EVM coin required for the
 				// function to be tested.
 				configurator := evmtypes.NewEVMConfigurator()

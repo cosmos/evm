@@ -96,12 +96,18 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 
 	// Check evm call response
 	var unpackedRet types.ERC20BoolResponse
-	if err := erc20.UnpackIntoInterface(&unpackedRet, "transfer", res.Ret); err != nil {
-		return nil, err
-	}
-
-	if !unpackedRet.Value {
-		return nil, sdkerrors.Wrap(errortypes.ErrLogic, "failed to execute transfer")
+	if len(res.Ret) == 0 {
+		// if the token does not return a value, check for the transfer event in logs
+		if err := validateTransferEventExists(res.Logs, contract); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := erc20.UnpackIntoInterface(&unpackedRet, "transfer", res.Ret); err != nil {
+			return nil, err
+		}
+		if !unpackedRet.Value {
+			return nil, sdkerrors.Wrap(errortypes.ErrLogic, "failed to execute transfer")
+		}
 	}
 
 	// Check expected escrow balance after transfer execution
@@ -143,11 +149,6 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 			"invalid coin balance - expected: %v, actual: %v",
 			expCoin, balanceCoinAfter,
 		)
-	}
-
-	// Check for unexpected `Approval` event in logs
-	if err := k.monitorApprovalEvent(res); err != nil {
-		return nil, err
 	}
 
 	defer func() {
@@ -266,12 +267,18 @@ func (k Keeper) ConvertCoinNativeERC20(
 
 	// Check unpackedRet execution
 	var unpackedRet types.ERC20BoolResponse
-	if err := erc20.UnpackIntoInterface(&unpackedRet, "transfer", res.Ret); err != nil {
-		return err
-	}
-
-	if !unpackedRet.Value {
-		return sdkerrors.Wrap(errortypes.ErrLogic, "failed to execute unescrow tokens from user")
+	if len(res.Ret) == 0 {
+		// if the token does not return a value, check for the transfer event in logs
+		if err := validateTransferEventExists(res.Logs, contract); err != nil {
+			return err
+		}
+	} else {
+		if err := erc20.UnpackIntoInterface(&unpackedRet, "transfer", res.Ret); err != nil {
+			return err
+		}
+		if !unpackedRet.Value {
+			return sdkerrors.Wrap(errortypes.ErrLogic, "failed to execute unescrow tokens from user")
+		}
 	}
 
 	// Check expected Receiver balance after transfer execution
@@ -295,8 +302,7 @@ func (k Keeper) ConvertCoinNativeERC20(
 		return sdkerrors.Wrap(err, "failed to burn coins")
 	}
 
-	// Check for unexpected `Approval` event in logs
-	return k.monitorApprovalEvent(res)
+	return nil
 }
 
 // UpdateParams implements the gRPC MsgServer interface. After a successful governance vote
@@ -319,6 +325,15 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 // register a native ERC20 contract to map to a Cosmos Coin.
 func (k *Keeper) RegisterERC20(goCtx context.Context, req *types.MsgRegisterERC20) (*types.MsgRegisterERC20Response, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	params := k.GetParams(ctx)
+
+	if !params.PermissionlessRegistration {
+		if err := k.validateAuthority(req.Signer); err != nil {
+			return nil, err
+		}
+	}
+
 	// Check if the conversion is globally enabled
 	if !k.IsERC20Enabled(ctx) {
 		return nil, types.ErrERC20Disabled.Wrap("registration is currently disabled by governance")

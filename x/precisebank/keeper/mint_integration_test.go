@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -322,11 +321,6 @@ func (suite *KeeperIntegrationTestSuite) TestMintCoins() {
 					"unexpected balance after minting %s to %s",
 				)
 
-				// Ensure reserve is backing all minted fractions
-				allInvariantsFn := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-				msg, stop := allInvariantsFn(suite.network.GetContext())
-				suite.Require().Falsef(stop, "invariant should not be broken: %s", msg)
-
 				// Get event for minted coins
 				intCoinAmt := mt.mintAmount.AmountOf(types.IntegerCoinDenom()).
 					Mul(types.ConversionFactor())
@@ -364,7 +358,7 @@ func (suite *KeeperIntegrationTestSuite) TestMintCoins() {
 func (suite *KeeperIntegrationTestSuite) TestMintCoins_RandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "6 decimals",
@@ -433,12 +427,6 @@ func (suite *KeeperIntegrationTestSuite) TestMintCoins_RandomValueMultiDecimals(
 			// Check remainder
 			remainder := suite.network.App.PreciseBankKeeper.GetRemainderAmount(suite.network.GetContext())
 			suite.Equal(remainder.BigInt().Cmp(big.NewInt(0)), 0, "remainder should be zero (expected: %s, actual: %s)", big.NewInt(0), remainder)
-
-			// Check invariants
-			inv := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)
-			res, stop := inv(suite.network.GetContext())
-			suite.False(stop, "invariant broken")
-			suite.Empty(res, "unexpected invariant error: %s", res)
 		})
 	}
 }
@@ -494,11 +482,5 @@ func FuzzMintCoins(f *testing.F) {
 			amount,
 			mintCount,
 		)
-
-		// Run Invariants to ensure remainder is backing all minted fractions
-		// and in a valid state
-		res, stop := keeper.AllInvariants(suite.network.App.PreciseBankKeeper)(suite.network.GetContext())
-		suite.False(stop, "invariant should not be broken")
-		suite.Empty(res, "unexpected invariant message")
 	})
 }

@@ -34,7 +34,7 @@ const (
 // EmitCreateValidatorEvent creates a new create validator event emitted on a CreateValidator transaction.
 func (p Precompile) EmitCreateValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgCreateValidator, validatorAddr common.Address) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeCreateValidator]
+	event := p.Events[EventTypeCreateValidator]
 
 	topics, err := p.createEditValidatorTxTopics(2, event, validatorAddr)
 	if err != nil {
@@ -58,7 +58,7 @@ func (p Precompile) EmitCreateValidatorEvent(ctx sdk.Context, stateDB vm.StateDB
 // EmitEditValidatorEvent creates a new edit validator event emitted on a EditValidator transaction.
 func (p Precompile) EmitEditValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgEditValidator, validatorAddr common.Address) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeEditValidator]
+	event := p.Events[EventTypeEditValidator]
 
 	topics, err := p.createEditValidatorTxTopics(2, event, validatorAddr)
 	if err != nil {
@@ -108,7 +108,7 @@ func (p Precompile) EmitDelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg *
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeDelegate]
+	event := p.Events[EventTypeDelegate]
 	topics, err := p.createStakingTxTopics(3, event, delegatorAddr, common.BytesToAddress(valAddr.Bytes()))
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *st
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeUnbond]
+	event := p.Events[EventTypeUnbond]
 	topics, err := p.createStakingTxTopics(3, event, delegatorAddr, common.BytesToAddress(valAddr.Bytes()))
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func (p Precompile) EmitRedelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeRedelegate]
+	event := p.Events[EventTypeRedelegate]
 	topics, err := p.createStakingTxTopics(4, event, delegatorAddr, common.BytesToAddress(valSrcAddr.Bytes()))
 	if err != nil {
 		return err
@@ -205,7 +205,7 @@ func (p Precompile) EmitCancelUnbondingDelegationEvent(ctx sdk.Context, stateDB 
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeCancelUnbondingDelegation]
+	event := p.Events[EventTypeCancelUnbondingDelegation]
 	topics, err := p.createStakingTxTopics(3, event, delegatorAddr, common.BytesToAddress(valAddr.Bytes()))
 	if err != nil {
 		return err

@@ -22,8 +22,8 @@ type testData struct {
 	ctx      sdk.Context
 	keeper   keeper.Keeper
 	storeKey *storetypes.KVStoreKey
-	bk       *mocks.MockBankKeeper
-	ak       *mocks.MockAccountKeeper
+	bk       *mocks.BankKeeper
+	ak       *mocks.AccountKeeper
 }
 
 // newMockedTestData creates a new testData instance with mocked bank and
@@ -36,8 +36,8 @@ func newMockedTestData(t *testing.T) testData {
 	tKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, tKey)
 
-	bk := mocks.NewMockBankKeeper(t)
-	ak := mocks.NewMockAccountKeeper(t)
+	bk := mocks.NewBankKeeper(t)
+	ak := mocks.NewAccountKeeper(t)
 
 	nw := network.NewUnitTestNetwork(
 		network.WithChainID(testconstants.SixDecimalsChainID),

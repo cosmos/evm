@@ -31,8 +31,53 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
+
+func (suite *KeeperTestSuite) TestContextSetConsensusParams() {
+	// set new value of max gas in consensus params
+	maxGas := int64(123456789)
+	res, err := s.network.App.ConsensusParamsKeeper.Params(s.network.GetContext(), &consensustypes.QueryParamsRequest{})
+	s.Require().NoError(err)
+	consParams := res.Params
+	consParams.Block.MaxGas = maxGas
+	_, err = s.network.App.ConsensusParamsKeeper.UpdateParams(s.network.GetContext(), &consensustypes.MsgUpdateParams{
+		Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		Block:     consParams.Block,
+		Evidence:  consParams.Evidence,
+		Validator: consParams.Validator,
+		Abci:      consParams.Abci,
+	})
+	s.Require().NoError(err)
+
+	queryContext := s.network.GetQueryContext()
+	proposerAddress := queryContext.BlockHeader().ProposerAddress
+	cfg, err := s.network.App.EVMKeeper.EVMConfig(queryContext, proposerAddress)
+	s.Require().NoError(err)
+
+	sender := suite.keyring.GetKey(0)
+	recipient := suite.keyring.GetAddr(1)
+	msg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+		To:     &recipient,
+		Amount: big.NewInt(100),
+	})
+	suite.Require().NoError(err)
+
+	// evm should query the max gas from consensus keeper, yielding the number set above.
+	vm := s.network.App.EVMKeeper.NewEVM(queryContext, *msg, cfg, nil, s.network.GetStateDB())
+	//nolint:gosec
+	s.Require().Equal(vm.Context.GasLimit, uint64(maxGas))
+
+	// if we explicitly set the consensus params in context, like when Cosmos builds a transaction context,
+	// we should use that value, and not query the consensus params from the keeper.
+	consParams.Block.MaxGas = 54321
+	queryContext = queryContext.WithConsensusParams(*consParams)
+	vm = s.network.App.EVMKeeper.NewEVM(queryContext, *msg, cfg, nil, s.network.GetStateDB())
+	//nolint:gosec
+	s.Require().Equal(vm.Context.GasLimit, uint64(consParams.Block.MaxGas))
+}
 
 func (suite *KeeperTestSuite) TestGetHashFn() {
 	suite.SetupTest()
@@ -188,7 +233,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 		expGas             uint64
 	}{
 		{
-			"no data, no accesslist, not contract creation, not homestead, not istanbul",
+			"no data, no accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			nil,
 			nil,
 			1,
@@ -197,7 +242,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas,
 		},
 		{
-			"with one zero data, no accesslist, not contract creation, not homestead, not istanbul",
+			"with one zero data, no accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			[]byte{0},
 			nil,
 			1,
@@ -206,7 +251,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxDataZeroGas*1,
 		},
 		{
-			"with one non zero data, no accesslist, not contract creation, not homestead, not istanbul",
+			"with one non zero data, no accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			[]byte{1},
 			nil,
 			1,
@@ -215,7 +260,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxDataNonZeroGasFrontier*1,
 		},
 		{
-			"no data, one accesslist, not contract creation, not homestead, not istanbul",
+			"no data, one accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			nil,
 			[]gethtypes.AccessTuple{
 				{},
@@ -226,7 +271,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxAccessListAddressGas,
 		},
 		{
-			"no data, one accesslist with one storageKey, not contract creation, not homestead, not istanbul",
+			"no data, one accesslist with one storageKey, not contract creation, not homestead, not istanbul, not shanghai",
 			nil,
 			[]gethtypes.AccessTuple{
 				{StorageKeys: make([]common.Hash, 1)},
@@ -237,7 +282,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxAccessListAddressGas + params.TxAccessListStorageKeyGas*1,
 		},
 		{
-			"no data, no accesslist, is contract creation, is homestead, not istanbul",
+			"no data, no accesslist, is contract creation, is homestead, not istanbul, not shanghai",
 			nil,
 			nil,
 			2,
@@ -246,7 +291,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGasContractCreation,
 		},
 		{
-			"with one zero data, no accesslist, not contract creation, is homestead, is istanbul",
+			"with one zero data, no accesslist, not contract creation, is homestead, is istanbul, not shanghai",
 			[]byte{1},
 			nil,
 			3,
@@ -262,6 +307,10 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			ethCfg.HomesteadBlock = big.NewInt(2)
 			ethCfg.IstanbulBlock = big.NewInt(3)
 			signer := gethtypes.LatestSignerForChainID(ethCfg.ChainID)
+
+			// in the future, fork not enabled
+			shanghaiTime := uint64(suite.network.GetContext().BlockTime().Unix()) + 10000 //#nosec G115 -- int overflow is not a concern here
+			ethCfg.ShanghaiTime = &shanghaiTime
 
 			ctx := suite.network.GetContext().WithBlockHeight(tc.height)
 
@@ -284,7 +333,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			// Function being tested
 			gas, err := suite.network.App.EVMKeeper.GetEthIntrinsicGas(
 				ctx,
-				m,
+				*m,
 				ethCfg,
 				tc.isContractCreation,
 			)
@@ -448,7 +497,7 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 				},
 			)
 			suite.Require().NoError(err)
-			transactionGas := coreMsg.Gas()
+			transactionGas := coreMsg.GasLimit
 
 			vmdb := unitNetwork.GetStateDB()
 			vmdb.AddRefund(params.TxGas)
@@ -464,7 +513,7 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 
 			err = unitNetwork.App.EVMKeeper.RefundGas(
 				unitNetwork.GetContext(),
-				coreMsg,
+				*coreMsg,
 				refund,
 				gasUsed,
 				baseFee,
@@ -552,7 +601,6 @@ func (suite *KeeperTestSuite) TestEVMConfig() {
 	suite.Require().Equal(defaultChainEVMParams, cfg.Params)
 	// london hardfork is enabled by default
 	suite.Require().Equal(big.NewInt(0), cfg.BaseFee)
-	suite.Require().Equal(types.GetEthChainConfig(), cfg.ChainConfig)
 
 	validators := suite.network.GetValidators()
 	proposerHextAddress := utils.ValidatorConsAddressToHex(validators[0].OperatorAddress)
@@ -614,13 +662,6 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 	defer func() { suite.enableFeemarket = false }()
 	suite.SetupTest()
 
-	proposerAddress := suite.network.GetContext().BlockHeader().ProposerAddress
-	config, err := suite.network.App.EVMKeeper.EVMConfig(
-		suite.network.GetContext(),
-		proposerAddress,
-	)
-	suite.Require().NoError(err)
-
 	// Generate a transfer tx message
 	sender := suite.keyring.GetKey(0)
 	recipient := suite.keyring.GetAddr(1)
@@ -636,15 +677,10 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 
 	tracer := suite.network.App.EVMKeeper.Tracer(
 		suite.network.GetContext(),
-		coreMsg,
-		config.ChainConfig,
+		*coreMsg,
+		types.GetEthChainConfig(),
 	)
-	res, err := suite.network.App.EVMKeeper.ApplyMessage(
-		suite.network.GetContext(),
-		coreMsg,
-		tracer,
-		true,
-	)
+	res, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), *coreMsg, tracer, true, false)
 	suite.Require().NoError(err)
 	suite.Require().False(res.Failed())
 
@@ -676,7 +712,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Amount: big.NewInt(100),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			types.DefaultParams,
 			feemarkettypes.DefaultParams,
@@ -695,7 +731,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Input:  []byte("contract_data"),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			func() types.Params {
 				defaultParams := types.DefaultParams()
@@ -720,7 +756,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Input:  []byte("contract_data"),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			func() types.Params {
 				defaultParams := types.DefaultParams()
@@ -746,7 +782,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Amount: big.NewInt(100),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			types.DefaultParams,
 			func() feemarkettypes.Params {
@@ -790,14 +826,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 			suite.Require().NoError(err)
 
 			// Function being tested
-			res, err := suite.network.App.EVMKeeper.ApplyMessageWithConfig(
-				suite.network.GetContext(),
-				msg,
-				nil,
-				true,
-				config,
-				txConfig,
-			)
+			res, err := suite.network.App.EVMKeeper.ApplyMessageWithConfig(suite.network.GetContext(), msg, nil, true, config, txConfig, false)
 
 			if tc.expErr {
 				suite.Require().Error(err)
@@ -856,4 +885,49 @@ func (suite *KeeperTestSuite) TestGetProposerAddress() {
 			)
 		})
 	}
+}
+
+func (suite *KeeperTestSuite) TestApplyMessageWithNegativeAmount() {
+	suite.enableFeemarket = true
+	defer func() { suite.enableFeemarket = false }()
+	suite.SetupTest()
+
+	// Generate a transfer tx message
+	sender := suite.keyring.GetKey(0)
+	recipient := suite.keyring.GetAddr(1)
+	amt, _ := big.NewInt(0).SetString("-115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	transferArgs := types.EvmTxArgs{
+		To:     &recipient,
+		Amount: amt,
+	}
+	coreMsg, err := suite.factory.GenerateGethCoreMsg(
+		sender.Priv,
+		transferArgs,
+	)
+	suite.Require().NoError(err)
+
+	tracer := suite.network.App.EVMKeeper.Tracer(
+		suite.network.GetContext(),
+		*coreMsg,
+		types.GetEthChainConfig(),
+	)
+
+	ctx := suite.network.GetContext()
+	balance0Before := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(0), "aatom")
+	balance1Before := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(1), "aatom")
+	res, err := suite.network.App.EVMKeeper.ApplyMessage(
+		suite.network.GetContext(),
+		*coreMsg,
+		tracer,
+		true,
+		false,
+	)
+	suite.Require().Nil(res)
+	suite.Require().Error(err)
+
+	balance0After := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(0), "aatom")
+	balance1After := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(1), "aatom")
+
+	suite.Require().Equal(balance0Before, balance0After)
+	suite.Require().Equal(balance1Before, balance1After)
 }

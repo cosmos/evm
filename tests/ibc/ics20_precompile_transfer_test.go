@@ -10,12 +10,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -45,6 +47,7 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
 	suite.chainAPrecompile, _ = ics20.NewPrecompile(
 		*evmAppA.StakingKeeper,
+		evmAppA.BankKeeper,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
 		evmAppA.EVMKeeper,
@@ -52,6 +55,7 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
 	suite.chainBPrecompile, _ = ics20.NewPrecompile(
 		*evmAppB.StakingKeeper,
+		evmAppA.BankKeeper,
 		evmAppB.TransferKeeper,
 		evmAppB.IBCKeeper.ChannelKeeper,
 		evmAppB.EVMKeeper,
@@ -151,7 +155,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
 
-			data, err := suite.chainAPrecompile.ABI.Pack("transfer",
+			data, err := suite.chainAPrecompile.Pack("transfer",
 				pathAToB.EndpointA.ChannelConfig.PortID,
 				pathAToB.EndpointA.ChannelID,
 				originalCoin.Denom,
@@ -272,7 +276,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(denomResponse.Denom, transfertypes.Denom{Base: "", Trace: []transfertypes.Hop{}})
 
 			// denom query method invalid error case
-			_, err = evmAppB.EVMKeeper.CallEVM(
+			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
 				suite.chainBPrecompile.ABI,
 				chainBAddr,
@@ -281,7 +285,10 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				ics20.DenomMethod,
 				"INVALID-DENOM-HASH",
 			)
-			suite.Require().ErrorContains(err, "invalid denom trace hash")
+			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
+			revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
+			suite.Require().Contains(revertErr.ErrorData(), "invalid denom trace hash")
+			ctxB.GasMeter().RefundGas(ctxB.GasMeter().Limit(), "refund after error")
 
 			// denomHash query method
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
@@ -315,7 +322,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(denomHashResponse.Hash, "")
 
 			// denomHash query method invalid error case
-			_, err = evmAppB.EVMKeeper.CallEVM(
+			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
 				suite.chainBPrecompile.ABI,
 				chainBAddr,
@@ -324,7 +331,10 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				ics20.DenomHashMethod,
 				"",
 			)
-			suite.Require().ErrorContains(err, "invalid denomination for cross-chain transfer")
+			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
+			revertErr = evmtypes.NewExecErrorWithReason(evmRes.Ret)
+			suite.Require().Contains(revertErr.ErrorData(), "invalid denomination for cross-chain transfer")
+			ctxB.GasMeter().RefundGas(ctxB.GasMeter().Limit(), "refund after error")
 		})
 	}
 }

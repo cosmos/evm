@@ -16,6 +16,12 @@ tracer = "{{ .EVM.Tracer }}"
 # MaxTxGasWanted defines the gas wanted for each eth tx returned in ante handler in check tx mode.
 max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 
+# EnablePreimageRecording enables tracking of SHA3 preimages in the VM
+cache-preimage = {{ .EVM.EnablePreimageRecording }}
+
+# EVMChainID defines the EVM chain ID.
+evm-chain-id = {{ .EVM.EVMChainID }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
@@ -30,6 +36,10 @@ address = "{{ .JSONRPC.Address }}"
 
 # Address defines the EVM WebSocket server address to bind to.
 ws-address = "{{ .JSONRPC.WsAddress }}"
+
+# WSOrigins defines the allowed origins for WebSocket connections.
+# Example: ["localhost", "127.0.0.1", "myapp.example.com"]
+ws-origins = [{{range $index, $elmt := .JSONRPC.WSOrigins}}{{if $index}}, {{end}}"{{$elmt}}"{{end}}]
 
 # API defines a list of JSON-RPC namespaces that should be enabled
 # Example: "eth,txpool,personal,net,debug,web3"
@@ -82,6 +92,9 @@ metrics-address = "{{ .JSONRPC.MetricsAddress }}"
 
 # Upgrade height for fix of revert gas refund logic when transaction reverted.
 fix-revert-gas-refund-height = {{ .JSONRPC.FixRevertGasRefundHeight }}
+
+# Enabled profiling in the debug namespace
+enable-profiling = {{ .JSONRPC.EnableProfiling }}
 
 ###############################################################################
 ###                             TLS Configuration                           ###

@@ -34,7 +34,10 @@ func (k Keeper) registerERC20(
 	}
 
 	pair := types.NewTokenPair(contract, metadata.Name, types.OWNER_EXTERNAL)
-	k.SetToken(ctx, pair)
+	err = k.SetToken(ctx, pair)
+	if err != nil {
+		return nil, err
+	}
 	return &pair, nil
 }
 

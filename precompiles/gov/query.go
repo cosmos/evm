@@ -25,6 +25,8 @@ const (
 	GetProposalsMethod = "getProposals"
 	// GetParamsMethod defines the method name for the get params precompile request.
 	GetParamsMethod = "getParams"
+	// GetConstitutionMethod defines the method name for the get constitution precompile request.
+	GetConstitutionMethod = "getConstitution"
 )
 
 // GetVotes implements the query logic for getting votes for a proposal.
@@ -203,4 +205,24 @@ func (p *Precompile) GetParams(
 
 	output := new(ParamsOutput).FromResponse(res)
 	return method.Outputs.Pack(output)
+}
+
+// GetConstitution implements the query logic for getting the constitution
+func (p *Precompile) GetConstitution(
+	ctx sdk.Context,
+	method *abi.Method,
+	_ *vm.Contract,
+	args []interface{},
+) ([]byte, error) {
+	req, err := BuildQueryConstitutionRequest(args)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := govkeeper.NewQueryServer(&p.govKeeper).Constitution(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return method.Outputs.Pack(res.Constitution)
 }

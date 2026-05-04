@@ -23,6 +23,7 @@ import (
 
 type EIP712TxArgs struct {
 	CosmosTxArgs       CosmosTxArgs
+	EVMChainID         uint64
 	UseLegacyTypedData bool
 }
 
@@ -65,12 +66,6 @@ func PrepareEIP712CosmosTx(
 ) (client.TxBuilder, error) {
 	txArgs := args.CosmosTxArgs
 
-	pc, err := types.ParseChainID(txArgs.ChainID)
-	if err != nil {
-		return nil, err
-	}
-	chainIDNum := pc.Uint64()
-
 	from := sdk.AccAddress(txArgs.Priv.PubKey().Address().Bytes())
 	accNumber := exampleApp.AccountKeeper.GetAccount(ctx, from).GetAccountNumber()
 
@@ -86,7 +81,7 @@ func PrepareEIP712CosmosTx(
 	data := legacytx.StdSignBytes(ctx.ChainID(), accNumber, nonce, 0, fee, msgs, "")
 
 	typedDataArgs := typedDataArgs{
-		chainID:        chainIDNum,
+		chainID:        args.EVMChainID,
 		data:           data,
 		legacyFeePayer: from,
 		legacyMsg:      msgs[0],

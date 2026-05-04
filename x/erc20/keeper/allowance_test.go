@@ -43,7 +43,8 @@ func (suite *KeeperTestSuite) TestGetAllowance() {
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
 				pair.Enabled = false
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				expRes = common.Big0
 			},
 			true,
@@ -53,7 +54,8 @@ func (suite *KeeperTestSuite) TestGetAllowance() {
 			"pass - allowance does not exist",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				expRes = common.Big0
 			},
 			true,
@@ -64,10 +66,11 @@ func (suite *KeeperTestSuite) TestGetAllowance() {
 			func() {
 				// Set TokenPair
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 
 				// Set Allowance
-				err := suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
+				err = suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
 				suite.Require().NoError(err)
 				expRes = value
 			},
@@ -129,7 +132,8 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
 				pair.Enabled = false
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 			},
 			false,
 			types.ErrERC20TokenPairDisabled.Error(),
@@ -138,7 +142,8 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			"fail - zero owner address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				owner = common.HexToAddress("0x0")
 			},
 			false,
@@ -148,7 +153,8 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			"fail - zero spender address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				spender = common.HexToAddress("0x0")
 			},
 			false,
@@ -158,7 +164,8 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			"fail - negative value",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				value = big.NewInt(-100)
 			},
 			false,
@@ -168,7 +175,8 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			"pass - zero value",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				value = big.NewInt(0)
 			},
 			true,
@@ -178,7 +186,8 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			"pass - positive value",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				value = big.NewInt(100)
 			},
 			true,
@@ -238,7 +247,8 @@ func (suite *KeeperTestSuite) TestUnsafeSetAllowance() {
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
 				pair.Enabled = false
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 			},
 			true,
 			"",
@@ -247,7 +257,8 @@ func (suite *KeeperTestSuite) TestUnsafeSetAllowance() {
 			"fail - zero owner address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				owner = common.HexToAddress("0x0")
 			},
 			false,
@@ -257,7 +268,8 @@ func (suite *KeeperTestSuite) TestUnsafeSetAllowance() {
 			"fail - zero spender address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				spender = common.HexToAddress("0x0")
 			},
 			false,
@@ -267,7 +279,8 @@ func (suite *KeeperTestSuite) TestUnsafeSetAllowance() {
 			"fail - negative value",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				value = big.NewInt(-100)
 			},
 			false,
@@ -277,7 +290,8 @@ func (suite *KeeperTestSuite) TestUnsafeSetAllowance() {
 			"pass - zero value",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				value = big.NewInt(0)
 			},
 			true,
@@ -287,7 +301,8 @@ func (suite *KeeperTestSuite) TestUnsafeSetAllowance() {
 			"pass - positive value",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				value = big.NewInt(100)
 			},
 			true,
@@ -345,7 +360,8 @@ func (suite *KeeperTestSuite) TestDeleteAllowance() {
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
 				pair.Enabled = false
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 			},
 			false,
 			types.ErrERC20TokenPairDisabled.Error(),
@@ -354,7 +370,8 @@ func (suite *KeeperTestSuite) TestDeleteAllowance() {
 			"fail - zero owner address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				owner = common.HexToAddress("0x0")
 			},
 			false,
@@ -364,7 +381,8 @@ func (suite *KeeperTestSuite) TestDeleteAllowance() {
 			"fail - zero spender address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 				spender = common.HexToAddress("0x0")
 			},
 			false,
@@ -374,7 +392,8 @@ func (suite *KeeperTestSuite) TestDeleteAllowance() {
 			"pass - for non-existing allowance",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 			},
 			true,
 			"",
@@ -421,9 +440,10 @@ func (suite *KeeperTestSuite) TestGetAllowances() {
 			"pass - even if token pair were deleted, allowances are deleted together and returns empty allowances",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 
-				err := suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
+				err = suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
 				suite.Require().NoError(err)
 
 				// Delete TokenPair
@@ -439,13 +459,18 @@ func (suite *KeeperTestSuite) TestGetAllowances() {
 			"pass - even if token pair is disabled, return allowances",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 
-				err := suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
+				err = suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
 				suite.Require().NoError(err)
 
 				pair.Enabled = false
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.network.App.Erc20Keeper.SetTokenPair(ctx, pair)
+				pairID := suite.network.App.Erc20Keeper.GetDenomMap(ctx, pair.Denom)
+				pair, ok := suite.network.App.Erc20Keeper.GetTokenPair(ctx, pairID)
+				suite.Require().True(ok)
+				suite.Require().False(pair.Enabled)
 
 				expRes = []types.Allowance{
 					{
@@ -467,9 +492,10 @@ func (suite *KeeperTestSuite) TestGetAllowances() {
 			"pass",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				err := suite.network.App.Erc20Keeper.SetToken(ctx, pair)
+				suite.Require().NoError(err)
 
-				err := suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
+				err = suite.network.App.Erc20Keeper.SetAllowance(ctx, erc20Addr, owner, spender, value)
 				suite.Require().NoError(err)
 
 				expRes = []types.Allowance{

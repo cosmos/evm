@@ -6,8 +6,6 @@ import (
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -16,17 +14,20 @@ import (
 )
 
 var (
-	protoCodec codec.ProtoCodecMarshaler
-	aminoCodec *codec.LegacyAmino
+	protoCodec    codec.ProtoCodecMarshaler
+	aminoCodec    *codec.LegacyAmino
+	eip155ChainID uint64
 )
 
 // SetEncodingConfig set the encoding config to the singleton codecs (Amino and Protobuf).
 // The process of unmarshaling SignDoc bytes into a SignDoc object requires having a codec
 // populated with all relevant message types. As a result, we must call this method on app
 // initialization with the app's encoding config.
-func SetEncodingConfig(cdc *codec.LegacyAmino, interfaceRegistry types.InterfaceRegistry) {
+func SetEncodingConfig(cdc *codec.LegacyAmino, interfaceRegistry types.InterfaceRegistry, evmChainID uint64) {
 	aminoCodec = cdc
 	protoCodec = codec.NewProtoCodec(interfaceRegistry)
+	// Since these transactions require a Cosmos chain ID, we can instead derive the EIP155 chain ID from the config. Replays are of no worry here.
+	eip155ChainID = evmChainID
 }
 
 // GetEIP712BytesForMsg returns the EIP-712 object bytes for the given SignDoc bytes by decoding the bytes into
@@ -100,13 +101,8 @@ func decodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		return apitypes.TypedData{}, err
 	}
 
-	chainID, err := cosmosevmtypes.ParseChainID(aminoDoc.ChainID)
-	if err != nil {
-		return apitypes.TypedData{}, errors.New("invalid chain ID passed as argument")
-	}
-
 	typedData, err := WrapTxToTypedData(
-		chainID.Uint64(),
+		eip155ChainID,
 		signDocBytes,
 	)
 	if err != nil {
@@ -164,11 +160,6 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 
 	signerInfo := authInfo.SignerInfos[0]
 
-	chainID, err := cosmosevmtypes.ParseChainID(signDoc.ChainId)
-	if err != nil {
-		return apitypes.TypedData{}, fmt.Errorf("invalid chain ID passed as argument: %w", err)
-	}
-
 	stdFee := &legacytx.StdFee{
 		Amount: authInfo.Fee.Amount,
 		Gas:    authInfo.Fee.GasLimit,
@@ -186,7 +177,7 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 	)
 
 	typedData, err := WrapTxToTypedData(
-		chainID.Uint64(),
+		eip155ChainID,
 		signBytes,
 	)
 	if err != nil {

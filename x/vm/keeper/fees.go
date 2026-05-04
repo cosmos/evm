@@ -70,7 +70,7 @@ func VerifyFee(
 	txData types.TxData,
 	denom string,
 	baseFee *big.Int,
-	homestead, istanbul, isCheckTx bool,
+	homestead, istanbul, shanghai, isCheckTx bool,
 ) (sdk.Coins, error) {
 	isContractCreation := txData.GetTo() == nil
 
@@ -81,7 +81,14 @@ func VerifyFee(
 		accessList = txData.GetAccessList()
 	}
 
-	intrinsicGas, err := core.IntrinsicGas(txData.GetData(), accessList, isContractCreation, homestead, istanbul)
+	var authList []ethtypes.SetCodeAuthorization
+	ethTx := ethtypes.NewTx(txData.AsEthereumData())
+	if ethTx != nil {
+		authList = ethTx.SetCodeAuthorizations()
+	}
+
+	intrinsicGas, err := core.IntrinsicGas(txData.GetData(), accessList, authList, isContractCreation, homestead,
+		istanbul, shanghai)
 	if err != nil {
 		return nil, errorsmod.Wrapf(
 			err,

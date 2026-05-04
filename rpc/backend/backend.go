@@ -32,6 +32,8 @@ import (
 // BackendI implements the Cosmos and EVM backend.
 type BackendI interface { //nolint: revive
 	EVMBackend
+
+	GetConfig() config.Config
 }
 
 // EVMBackend implements the functionality shared within ethereum namespaces
@@ -75,6 +77,7 @@ type EVMBackend interface {
 	RPCBlockFromTendermintBlock(resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults, fullTx bool) (map[string]interface{}, error)
 	EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Block, error)
 	EthBlockFromTendermintBlock(resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) (*ethtypes.Block, error)
+	GetBlockReceipts(blockNrOrHash rpctypes.BlockNumberOrHash) ([]map[string]interface{}, error)
 
 	// Account Info
 	GetCode(address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error)
@@ -91,7 +94,7 @@ type EVMBackend interface {
 	CurrentHeader() (*ethtypes.Header, error)
 	PendingTransactions() ([]*sdk.Tx, error)
 	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
 	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
@@ -137,6 +140,10 @@ type Backend struct {
 	indexer             cosmosevmtypes.EVMTxIndexer
 }
 
+func (b *Backend) GetConfig() config.Config {
+	return b.cfg
+}
+
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
 func NewBackend(
 	ctx *server.Context,
@@ -145,11 +152,6 @@ func NewBackend(
 	allowUnprotectedTxs bool,
 	indexer cosmosevmtypes.EVMTxIndexer,
 ) *Backend {
-	chainID, err := cosmosevmtypes.ParseChainID(clientCtx.ChainID)
-	if err != nil {
-		panic(err)
-	}
-
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
 		panic(err)
@@ -166,7 +168,7 @@ func NewBackend(
 		rpcClient:           rpcClient,
 		queryClient:         rpctypes.NewQueryClient(clientCtx),
 		logger:              logger.With("module", "backend"),
-		chainID:             chainID,
+		chainID:             big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
 		cfg:                 appConf,
 		allowUnprotectedTxs: allowUnprotectedTxs,
 		indexer:             indexer,

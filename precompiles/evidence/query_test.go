@@ -87,7 +87,7 @@ func (s *PrecompileTestSuite) TestEvidence() {
 			"",
 			func(e *evidence.EquivocationData) {
 				s.Require().Equal(int64(1), e.Height)
-				s.Require().Equal(uint64(1234567890), e.Time)
+				s.Require().Equal(int64(1234567890), e.Time)
 				s.Require().Equal(int64(1000), e.Power)
 				s.Require().NotEmpty(e.ConsensusAddress)
 			},
@@ -100,7 +100,7 @@ func (s *PrecompileTestSuite) TestEvidence() {
 
 			evidenceHash := tc.setupEvidence()
 
-			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.Evidence(ctx, &method, tc.malleate(evidenceHash))
 
@@ -194,7 +194,7 @@ func (s *PrecompileTestSuite) TestGetAllEvidence() {
 			func(evidenceList []evidence.EquivocationData, _ *query.PageResponse) {
 				s.Require().Len(evidenceList, 1)
 				s.Require().Equal(int64(1), evidenceList[0].Height)
-				s.Require().Equal(uint64(1234567890), evidenceList[0].Time)
+				s.Require().Equal(int64(1234567890), evidenceList[0].Time)
 				s.Require().Equal(int64(1000), evidenceList[0].Power)
 				s.Require().NotEmpty(evidenceList[0].ConsensusAddress)
 			},
@@ -207,7 +207,7 @@ func (s *PrecompileTestSuite) TestGetAllEvidence() {
 
 			tc.setupEvidence()
 
-			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetAllEvidence(ctx, &method, tc.malleate())
 

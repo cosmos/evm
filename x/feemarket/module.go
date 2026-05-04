@@ -26,15 +26,14 @@ import (
 )
 
 // consensusVersion defines the current x/feemarket module consensus version.
-const consensusVersion = 5
+const consensusVersion = 1
 
 var (
 	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 
-	_ appmodule.HasEndBlocker   = AppModule{}
-	_ appmodule.HasBeginBlocker = AppModule{}
-	_ module.HasABCIGenesis     = AppModule{}
+	_ appmodule.HasEndBlocker = AppModule{}
+	_ module.HasABCIGenesis   = AppModule{}
 )
 
 // AppModuleBasic defines the basic application module used by the fee market module.
@@ -113,21 +112,11 @@ func (AppModule) Name() string {
 	return types.ModuleName
 }
 
-// RegisterInvariants interface for registering invariants. Performs a no-op
-// as the fee market module doesn't expose invariants.
-func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
-
 // RegisterServices registers the GRPC query service and migrator service to respond to the
 // module-specific GRPC queries and handle the upgrade store migration for the module.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 	types.RegisterMsgServer(cfg.MsgServer(), &am.keeper)
-}
-
-// BeginBlock returns the begin block for the fee market module.
-func (am AppModule) BeginBlock(ctx context.Context) error {
-	c := sdk.UnwrapSDKContext(ctx)
-	return am.keeper.BeginBlock(c)
 }
 
 // EndBlock returns the end blocker for the fee market module. It returns no validator

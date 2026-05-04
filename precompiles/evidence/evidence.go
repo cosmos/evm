@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -41,6 +42,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	evidenceKeeper evidencekeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -49,9 +51,10 @@ func NewPrecompile(
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  abi,
-			KvGasConfig:          storetypes.KVGasConfig(),
-			TransientKVGasConfig: storetypes.TransientGasConfig(),
+			ABI:                   abi,
+			KvGasConfig:           storetypes.KVGasConfig(),
+			TransientKVGasConfig:  storetypes.TransientGasConfig(),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		evidenceKeeper: evidenceKeeper,
 	}
@@ -81,45 +84,65 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract evidence methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	bz, err = p.run(evm, contract, readOnly)
+	if err != nil {
+		return cmn.ReturnRevertError(evm, err)
+	}
+
+	return bz, nil
+}
+
+func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
+	// Start the balance change handler before executing the precompile.
+	var balanceHandler *cmn.BalanceHandler
+	if p.BalanceHandlerFactory != nil {
+		balanceHandler = p.BalanceHandlerFactory.NewBalanceHandler()
+	}
+
+	if balanceHandler != nil {
+		balanceHandler.BeforeBalanceChange(ctx)
+	}
+
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		switch method.Name {
-		// evidence transactions
-		case SubmitEvidenceMethod:
-			bz, err = p.SubmitEvidence(ctx, evm.Origin, contract, stateDB, method, args)
-		// evidence queries
-		case EvidenceMethod:
-			bz, err = p.Evidence(ctx, method, args)
-		case GetAllEvidenceMethod:
-			bz, err = p.GetAllEvidence(ctx, method, args)
-		default:
-			return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-		}
+	switch method.Name {
+	// evidence transactions
+	case SubmitEvidenceMethod:
+		bz, err = p.SubmitEvidence(ctx, contract, stateDB, method, args)
+	// evidence queries
+	case EvidenceMethod:
+		bz, err = p.Evidence(ctx, method, args)
+	case GetAllEvidenceMethod:
+		bz, err = p.GetAllEvidence(ctx, method, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
 
-		if err != nil {
+	if err != nil {
+		return nil, err
+	}
+
+	cost := ctx.GasMeter().GasConsumed() - initialGas
+
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	// Process the native balance changes after the method execution.
+	if balanceHandler != nil {
+		if err := balanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
 			return nil, err
 		}
+	}
 
-		cost := ctx.GasMeter().GasConsumed() - initialGas
-
-		if !contract.UseGas(cost) {
-			return nil, vm.ErrOutOfGas
-		}
-
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
-
-		return bz, nil
-	})
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

@@ -4,24 +4,118 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
 
 const (
+	// SubmitProposalMethod defines the ABI method name for the gov SubmitProposal transaction.
+	SubmitProposalMethod = "submitProposal"
+	// DepositMethod defines the ABI method name for the gov Deposit transaction.
+	DepositMethod = "deposit"
+	// DepositProposalMethod defines the ABI method name for the gov DepositProposal transaction.
+	CancelProposalMethod = "cancelProposal"
 	// VoteMethod defines the ABI method name for the gov Vote transaction.
 	VoteMethod = "vote"
 	// VoteWeightedMethod defines the ABI method name for the gov VoteWeighted transaction.
 	VoteWeightedMethod = "voteWeighted"
 )
 
+// SubmitProposal defines a method to submit a proposal.
+func (p *Precompile) SubmitProposal(
+	ctx sdk.Context,
+	contract *vm.Contract,
+	stateDB vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	msg, proposerHexAddr, err := NewMsgSubmitProposal(args, p.codec)
+	if err != nil {
+		return nil, err
+	}
+
+	msgSender := contract.Caller()
+	if msgSender != proposerHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), proposerHexAddr.String())
+	}
+
+	res, err := govkeeper.NewMsgServerImpl(&p.govKeeper).SubmitProposal(ctx, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = p.EmitSubmitProposalEvent(ctx, stateDB, proposerHexAddr, res.ProposalId); err != nil {
+		return nil, err
+	}
+
+	return method.Outputs.Pack(res.ProposalId)
+}
+
+// Deposit defines a method to add a deposit on a specific proposal.
+func (p *Precompile) Deposit(
+	ctx sdk.Context,
+	contract *vm.Contract,
+	stateDB vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	msg, depositorHexAddr, err := NewMsgDeposit(args)
+	if err != nil {
+		return nil, err
+	}
+
+	msgSender := contract.Caller()
+	if msgSender != depositorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), depositorHexAddr.String())
+	}
+
+	if _, err = govkeeper.NewMsgServerImpl(&p.govKeeper).Deposit(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	if err = p.EmitDepositEvent(ctx, stateDB, depositorHexAddr, msg.ProposalId, msg.Amount); err != nil {
+		return nil, err
+	}
+
+	return method.Outputs.Pack(true)
+}
+
+// CancelProposal defines a method to cancel a proposal.
+func (p *Precompile) CancelProposal(
+	ctx sdk.Context,
+	contract *vm.Contract,
+	stateDB vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	msg, proposerHexAddr, err := NewMsgCancelProposal(args)
+	if err != nil {
+		return nil, err
+	}
+
+	msgSender := contract.Caller()
+	if msgSender != proposerHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), proposerHexAddr.String())
+	}
+
+	if _, err = govkeeper.NewMsgServerImpl(&p.govKeeper).CancelProposal(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	if err = p.EmitCancelProposalEvent(ctx, stateDB, proposerHexAddr, msg.ProposalId); err != nil {
+		return nil, err
+	}
+
+	return method.Outputs.Pack(true)
+}
+
 // Vote defines a method to add a vote on a specific proposal.
 func (p Precompile) Vote(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -32,11 +126,9 @@ func (p Precompile) Vote(
 		return nil, err
 	}
 
-	// If the contract is the voter, we don't need an origin check
-	// Otherwise check if the origin matches the voter address
-	isContractVoter := contract.CallerAddress == voterHexAddr && contract.CallerAddress != origin
-	if !isContractVoter && origin != voterHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), voterHexAddr.String())
+	msgSender := contract.Caller()
+	if msgSender != voterHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), voterHexAddr.String())
 	}
 
 	msgSrv := govkeeper.NewMsgServerImpl(&p.govKeeper)
@@ -54,7 +146,6 @@ func (p Precompile) Vote(
 // VoteWeighted defines a method to add a vote on a specific proposal.
 func (p Precompile) VoteWeighted(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -65,11 +156,9 @@ func (p Precompile) VoteWeighted(
 		return nil, err
 	}
 
-	// If the contract is the voter, we don't need an origin check
-	// Otherwise check if the origin matches the voter address
-	isContractVoter := contract.CallerAddress == voterHexAddr && contract.CallerAddress != origin
-	if !isContractVoter && origin != voterHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), voterHexAddr.String())
+	msgSender := contract.Caller()
+	if msgSender != voterHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), voterHexAddr.String())
 	}
 
 	msgSrv := govkeeper.NewMsgServerImpl(&p.govKeeper)

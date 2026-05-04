@@ -263,18 +263,6 @@ func (suite *EIP712TestSuite) TestEIP712() {
 			expectSuccess: false,
 		},
 		{
-			title:   "Fails - Invalid ChainID",
-			chainID: "invalidchainid",
-			msgs: []sdk.Msg{
-				govtypes.NewMsgVote(
-					suite.createTestAddress(),
-					5,
-					govtypes.OptionNo,
-				),
-			},
-			expectSuccess: false,
-		},
-		{
 			title: "Fails - Includes TimeoutHeight",
 			msgs: []sdk.Msg{
 				govtypes.NewMsgVote(
@@ -345,7 +333,7 @@ func (suite *EIP712TestSuite) TestEIP712() {
 				err = txBuilder.SetSignatures([]signing.SignatureV2{txSig}...)
 				suite.Require().NoError(err)
 
-				chainID := constants.ExampleChainID
+				chainID := constants.ExampleChainID.ChainID
 				if tc.chainID != "" {
 					chainID = tc.chainID
 				}
@@ -554,7 +542,7 @@ func (suite *EIP712TestSuite) TestTypedDataErrorHandling() {
 
 	messagesArr.WriteString("[")
 	for i := 0; i < maxRecursionDepth; i++ {
-		messagesArr.WriteString(fmt.Sprintf(`{ "type": "msgType", "value": { "field%v": 10 } }`, i))
+		fmt.Fprintf(messagesArr, `{ "type": "msgType", "value": { "field%v": 10 } }`, i)
 		if i != maxRecursionDepth-1 {
 			messagesArr.WriteString(",")
 		}

@@ -28,7 +28,7 @@ func (s *PrecompileTestSuite) TestSubmitEvidence() {
 			},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
 		},
 		{
 			"success - submit equivocation evidence",
@@ -44,11 +44,12 @@ func (s *PrecompileTestSuite) TestSubmitEvidence() {
 
 				evidenceData := evidence.EquivocationData{
 					Height:           1,
-					Time:             uint64(time.Now().UTC().Unix()), //nolint:gosec // G115
+					Time:             time.Now().UTC().Unix(),
 					Power:            1000,
 					ConsensusAddress: types.ConsAddress(valConsAddr).String(),
 				}
 				return []interface{}{
+					s.keyring.GetAddr(0),
 					evidenceData,
 				}
 			},
@@ -62,9 +63,9 @@ func (s *PrecompileTestSuite) TestSubmitEvidence() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			bytes, err := s.precompile.SubmitEvidence(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
+			bytes, err := s.precompile.SubmitEvidence(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)

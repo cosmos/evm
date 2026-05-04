@@ -6,9 +6,10 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/server/config"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/server"
 )
 
 // PublicAPI is the eth_ prefixed set of APIs in the Web3 JSON-RPC spec.
@@ -18,15 +19,13 @@ type PublicAPI struct {
 }
 
 // NewPublicAPI creates an instance of the public Net Web3 API.
-func NewPublicAPI(clientCtx client.Context) *PublicAPI {
-	// parse the chainID from a integer string
-	chainIDEpoch, err := types.ParseChainID(clientCtx.ChainID)
+func NewPublicAPI(ctx *server.Context, clientCtx client.Context) *PublicAPI {
+	cfg, err := config.GetConfig(ctx.Viper)
 	if err != nil {
 		panic(err)
 	}
-
 	return &PublicAPI{
-		networkVersion: chainIDEpoch.Uint64(),
+		networkVersion: cfg.EVM.EVMChainID,
 		tmClient:       clientCtx.Client.(rpcclient.Client),
 	}
 }

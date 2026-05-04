@@ -89,8 +89,7 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
 		return errorsmod.Wrap(err, "Invalid authority address")
 	}
-
-	return m.Params.Validate()
+	return nil
 }
 
 // GetSignBytes implements the LegacyMsg interface.

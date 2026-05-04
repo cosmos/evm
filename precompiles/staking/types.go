@@ -155,8 +155,8 @@ func NewMsgCreateValidator(args []interface{}, denom string) (*stakingtypes.MsgC
 		},
 		Commission: stakingtypes.CommissionRates{
 			Rate:          math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
-			MaxRate:       math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
-			MaxChangeRate: math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
+			MaxRate:       math.LegacyNewDecFromBigIntWithPrec(commission.MaxRate, math.LegacyPrecision),
+			MaxChangeRate: math.LegacyNewDecFromBigIntWithPrec(commission.MaxChangeRate, math.LegacyPrecision),
 		},
 		MinSelfDelegation: math.NewIntFromBigInt(minSelfDelegation),
 		DelegatorAddress:  sdk.AccAddress(validatorAddress.Bytes()).String(),
@@ -619,7 +619,7 @@ func (vo *ValidatorOutput) FromResponse(res *stakingtypes.QueryValidatorResponse
 			Description:       res.Validator.Description.Details,
 			UnbondingHeight:   res.Validator.UnbondingHeight,
 			UnbondingTime:     res.Validator.UnbondingTime.UTC().Unix(),
-			Commission:        res.Validator.Commission.CommissionRates.Rate.BigInt(),
+			Commission:        res.Validator.Commission.Rate.BigInt(),
 			MinSelfDelegation: res.Validator.MinSelfDelegation.BigInt(),
 		},
 	}
@@ -657,7 +657,7 @@ func (vo *ValidatorsOutput) FromResponse(res *stakingtypes.QueryValidatorsRespon
 				Description:       v.Description.Details,
 				UnbondingHeight:   v.UnbondingHeight,
 				UnbondingTime:     v.UnbondingTime.UTC().Unix(),
-				Commission:        v.Commission.CommissionRates.Rate.BigInt(),
+				Commission:        v.Commission.Rate.BigInt(),
 				MinSelfDelegation: v.MinSelfDelegation.BigInt(),
 			}
 		}

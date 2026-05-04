@@ -7,8 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/constants"
@@ -32,8 +34,8 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 			true,
 		},
 		{
-			distribution.WithdrawDelegatorRewardsMethod,
-			s.precompile.Methods[distribution.WithdrawDelegatorRewardsMethod],
+			distribution.WithdrawDelegatorRewardMethod,
+			s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod],
 			true,
 		},
 		{
@@ -143,7 +145,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
 				input, err := s.precompile.Pack(
-					distribution.WithdrawDelegatorRewardsMethod,
+					distribution.WithdrawDelegatorRewardMethod,
 					s.keyring.GetAddr(0),
 					val.OperatorAddress,
 				)
@@ -185,7 +187,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -195,12 +202,25 @@ func (s *PrecompileTestSuite) TestRun() {
 			expPass:  true,
 		},
 		{
-			name: "pass - fund community pool transaction",
+			name: "pass - fund multi coins community pool transaction",
 			malleate: func() (common.Address, []byte) {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "foo",
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "bar",
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -221,7 +241,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			// malleate testcase
 			caller, input := tc.malleate()
 
-			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, big.NewInt(0), uint64(1e6))
+			contract := vm.NewPrecompile(caller, s.precompile.Address(), uint256.NewInt(0), uint64(1e6))
 			contract.Input = input
 
 			contractAddr := contract.Address()
@@ -255,13 +275,13 @@ func (s *PrecompileTestSuite) TestRun() {
 
 			// Instantiate EVM
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, s.network.GetStateDB(),
+				ctx, *msg, cfg, nil, s.network.GetStateDB(),
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)
 			s.Require().NoError(err, "failed to instantiate precompile")
 			s.Require().True(found, "not found precompile")
-			evm.WithPrecompiles(precompiles.Map, precompiles.Addresses)
+			evm.WithPrecompiles(precompiles.Map)
 			// Run precompiled contract
 			bz, err := s.precompile.Run(evm, contract, tc.readOnly)
 
@@ -352,7 +372,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
 				input, err := s.precompile.Pack(
-					distribution.WithdrawDelegatorRewardsMethod,
+					distribution.WithdrawDelegatorRewardMethod,
 					s.keyring.GetAddr(0),
 					val.OperatorAddress,
 				)
@@ -392,7 +412,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -401,12 +426,25 @@ func (s *PrecompileTestSuite) TestCMS() {
 			expPass: true,
 		},
 		{
-			name: "pass - fund community pool transaction",
+			name: "pass - fund multi coins community pool transaction",
 			malleate: func() (common.Address, []byte) {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "foo",
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "bar",
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -431,7 +469,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 
 			// malleate testcase
 			caller, input := tc.malleate()
-			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, big.NewInt(0), uint64(1e6))
+			contract := vm.NewPrecompile(caller, s.precompile.Address(), uint256.NewInt(0), uint64(1e6))
 
 			contractAddr := contract.Address()
 			// Build and sign Ethereum transaction
@@ -459,13 +497,18 @@ func (s *PrecompileTestSuite) TestCMS() {
 			if tc.expPass {
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(resp.Ret, "expected returned bytes not to be nil")
-				testutil.ValidateWrites(s.T(), cms, 2)
+				// NOTES: After stack-based snapshot mechanism is added for precompile call,
+				// CacheMultiStore.Write() is always called once when tx succeeds.
+				// It is because CacheMultiStore() is not called when creating snapshot for MultiStore,
+				// Count of Write() is not accumulated.
+				testutil.ValidateWrites(s.T(), cms, 1)
 			} else {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
 				s.Require().Nil(resp.Ret, "expected returned bytes to be nil")
 				s.Require().ErrorContains(err, tc.errContains)
-				// Writes once because of gas usage
-				testutil.ValidateWrites(s.T(), cms, 1)
+				// NOTES: After stack-based snapshot mechanism is added for precompile call,
+				// CacheMultiStore.Write() is not called when tx fails.
+				testutil.ValidateWrites(s.T(), cms, 0)
 			}
 		})
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/math"
 
@@ -22,8 +23,8 @@ type EventSetWithdrawAddress struct {
 	WithdrawerAddress string
 }
 
-// EventWithdrawDelegatorRewards defines the event data for the WithdrawDelegatorRewards transaction.
-type EventWithdrawDelegatorRewards struct {
+// EventWithdrawDelegatorReward defines the event data for the WithdrawDelegatorReward transaction.
+type EventWithdrawDelegatorReward struct {
 	DelegatorAddress common.Address
 	ValidatorAddress common.Address
 	Amount           *big.Int
@@ -44,7 +45,16 @@ type EventClaimRewards struct {
 // EventFundCommunityPool defines the event data for the FundCommunityPool transaction.
 type EventFundCommunityPool struct {
 	Depositor common.Address
+	Denom     string
 	Amount    *big.Int
+}
+
+// EventDepositValidatorRewardsPool defines the event data for the DepositValidatorRewardsPool transaction.
+type EventDepositValidatorRewardsPool struct {
+	Depositor        common.Address
+	ValidatorAddress common.Address
+	Denom            string
+	Amount           *big.Int
 }
 
 // parseClaimRewardsArgs parses the arguments for the ClaimRewards method.
@@ -129,7 +139,7 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 		ValidatorAddress: validatorAddress,
 	}
 
-	validatorHexAddr, err := cmn.HexAddressFromBech32String(msg.ValidatorAddress)
+	validatorHexAddr, err := utils.HexAddressFromBech32String(msg.ValidatorAddress)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
@@ -138,9 +148,39 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 }
 
 // NewMsgFundCommunityPool creates a new NewMsgFundCommunityPool message.
-func NewMsgFundCommunityPool(denom string, args []interface{}) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+func NewMsgFundCommunityPool(args []interface{}) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+	emptyAddr := common.Address{}
 	if len(args) != 2 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+	}
+
+	depositorAddress, ok := args[0].(common.Address)
+	if !ok || depositorAddress == emptyAddr {
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
+	}
+
+	coins, err := cmn.ToCoins(args[1])
+	if err != nil {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+	}
+
+	amt, err := cmn.NewSdkCoinsFromCoins(coins)
+	if err != nil {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+	}
+
+	msg := &distributiontypes.MsgFundCommunityPool{
+		Depositor: sdk.AccAddress(depositorAddress.Bytes()).String(),
+		Amount:    amt,
+	}
+
+	return msg, depositorAddress, nil
+}
+
+// NewMsgDepositValidatorRewardsPool creates a new MsgDepositValidatorRewardsPool message.
+func NewMsgDepositValidatorRewardsPool(args []interface{}) (*distributiontypes.MsgDepositValidatorRewardsPool, common.Address, error) {
+	if len(args) != 3 {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
 	}
 
 	depositorAddress, ok := args[0].(common.Address)
@@ -148,14 +188,22 @@ func NewMsgFundCommunityPool(denom string, args []interface{}) (*distributiontyp
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
 	}
 
-	amount, ok := args[1].(*big.Int)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[1])
+	validatorAddress, _ := args[1].(string)
+
+	coins, err := cmn.ToCoins(args[2])
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
 	}
 
-	msg := &distributiontypes.MsgFundCommunityPool{
-		Depositor: sdk.AccAddress(depositorAddress.Bytes()).String(),
-		Amount:    sdk.Coins{sdk.Coin{Denom: denom, Amount: math.NewIntFromBigInt(amount)}},
+	amount, err := cmn.NewSdkCoinsFromCoins(coins)
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, err.Error())
+	}
+
+	msg := &distributiontypes.MsgDepositValidatorRewardsPool{
+		Depositor:        sdk.AccAddress(depositorAddress.Bytes()).String(),
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
 	}
 
 	return msg, depositorAddress, nil
@@ -301,6 +349,16 @@ func NewDelegatorWithdrawAddressRequest(args []interface{}) (*distributiontypes.
 	}, nil
 }
 
+// NewCommunityPoolRequest creates a new QueryCommunityPoolRequest instance and does sanity
+// checks on the provided arguments.
+func NewCommunityPoolRequest(args []interface{}) (*distributiontypes.QueryCommunityPoolRequest, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	return &distributiontypes.QueryCommunityPoolRequest{}, nil
+}
+
 // ValidatorDistributionInfo is a struct to represent the key information from
 // a ValidatorDistributionInfoResponse.
 type ValidatorDistributionInfo struct {
@@ -404,4 +462,21 @@ func (dtr *DelegationTotalRewardsOutput) FromResponse(res *distributiontypes.Que
 // Pack packs a given slice of abi arguments into a byte array.
 func (dtr *DelegationTotalRewardsOutput) Pack(args abi.Arguments) ([]byte, error) {
 	return args.Pack(dtr.Rewards, dtr.Total)
+}
+
+// CommunityPoolOutput is a struct to represent the key information from
+// a CommunityPool response.
+type CommunityPoolOutput struct {
+	Pool []cmn.DecCoin
+}
+
+// FromResponse populates the CommunityPoolOutput from a QueryCommunityPoolResponse.
+func (cp *CommunityPoolOutput) FromResponse(res *distributiontypes.QueryCommunityPoolResponse) *CommunityPoolOutput {
+	cp.Pool = cmn.NewDecCoinsResponse(res.Pool)
+	return cp
+}
+
+// Pack packs a given slice of abi arguments into a byte array.
+func (cp *CommunityPoolOutput) Pack(args abi.Arguments) ([]byte, error) {
+	return args.Pack(cp.Pool)
 }

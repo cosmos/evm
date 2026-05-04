@@ -23,7 +23,8 @@ func TestWithChainID(t *testing.T) {
 
 	testCases := []struct {
 		name            string
-		chainID         string
+		chainID         testconstants.ChainID
+		evmChainID      uint64
 		coinInfo        evmtypes.EvmCoinInfo
 		expBaseFee      math.LegacyDec
 		expCosmosAmount math.Int

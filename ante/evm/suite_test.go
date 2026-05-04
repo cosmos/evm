@@ -16,18 +16,20 @@ type EvmAnteTestSuite struct {
 	suite.Suite
 
 	// To make sure that every tests is run with all the tx types
-	ethTxType int
-	chainID   string
+	ethTxType  int
+	chainID    string
+	evmChainID uint64
 }
 
 func TestEvmAnteTestSuite(t *testing.T) {
 	txTypes := []int{gethtypes.DynamicFeeTxType, gethtypes.LegacyTxType, gethtypes.AccessListTxType}
-	chainIDs := []string{testconstants.ExampleChainID, testconstants.SixDecimalsChainID}
+	chainIDs := []testconstants.ChainID{testconstants.ExampleChainID, testconstants.SixDecimalsChainID}
 	for _, txType := range txTypes {
 		for _, chainID := range chainIDs {
 			suite.Run(t, &EvmAnteTestSuite{
-				ethTxType: txType,
-				chainID:   chainID,
+				ethTxType:  txType,
+				chainID:    chainID.ChainID,
+				evmChainID: chainID.EVMChainID,
 			})
 		}
 	}

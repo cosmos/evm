@@ -7,7 +7,6 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func (suite *KeeperTestSuite) TestMintingEnabled() {
@@ -54,12 +53,7 @@ func (suite *KeeperTestSuite) TestMintingEnabled() {
 				suite.network.App.Erc20Keeper.SetDenomMap(ctx, expPair.Denom, id)
 				suite.network.App.Erc20Keeper.SetERC20Map(ctx, expPair.GetERC20Contract(), id)
 
-				params := banktypes.DefaultParams()
-				params.SendEnabled = []*banktypes.SendEnabled{ //nolint:staticcheck
-					{Denom: expPair.Denom, Enabled: false},
-				}
-				err := suite.network.App.BankKeeper.SetParams(ctx, params)
-				suite.Require().NoError(err)
+				suite.network.App.BankKeeper.SetSendEnabled(ctx, expPair.Denom, false)
 			},
 			false,
 		},

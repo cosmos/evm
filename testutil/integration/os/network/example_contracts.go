@@ -8,14 +8,14 @@ import (
 // address in hex format from the chain ID.
 //
 // TODO: refactor to define this in the example chain initialization and pass as function argument
-var chainsWEVMOSHex = map[string]string{
+var chainsWEVMOSHex = map[testconstants.ChainID]string{
 	testconstants.ExampleChainID: testconstants.WEVMOSContractMainnet,
 }
 
 // GetWEVMOSContractHex returns the hex format of address for the WEVMOS contract
 // given the chainID. If the chainID is not found, it defaults to the mainnet
 // address.
-func GetWEVMOSContractHex(chainID string) string {
+func GetWEVMOSContractHex(chainID testconstants.ChainID) string {
 	address, found := chainsWEVMOSHex[chainID]
 
 	// default to mainnet address

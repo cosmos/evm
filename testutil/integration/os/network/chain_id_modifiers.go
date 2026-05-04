@@ -5,8 +5,11 @@
 package network
 
 import (
+	"github.com/cosmos/evm/cmd/evmd/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/precisebank/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
@@ -25,26 +28,30 @@ func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState) b
 func generateBankGenesisMetadata() banktypes.Metadata {
 	return banktypes.Metadata{
 		Description: "The native EVM, governance and staking token of the Cosmos EVM example chain",
-		Base:        "aatom",
+		Base:        evmtypes.GetEVMCoinDenom(),
 		DenomUnits: []*banktypes.DenomUnit{
 			{
-				Denom:    testconstants.ExampleAttoDenom,
+				Denom:    evmtypes.GetEVMCoinDenom(),
+				Exponent: uint32(types.ConversionFactor().Int64()), //#nosec G115 -- int overflow is not a concern here -- the conversion factor shouldn't be anything higher than 18.
+			},
+			{
+				Denom:    types.ExtendedCoinDenom(),
 				Exponent: 0,
 			},
 			{
-				Denom:    testconstants.ExampleDisplayDenom,
-				Exponent: 18,
+				Denom:    config.DisplayDenom,
+				Exponent: uint32(evmtypes.GetEVMCoinDecimals()),
 			},
 		},
 		Name:    "Cosmos EVM",
 		Symbol:  "ATOM",
-		Display: testconstants.ExampleDisplayDenom,
+		Display: config.DisplayDenom,
 	}
 }
 
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // erc20 module on the testing suite depending on the chainID.
-func updateErc20GenesisStateForChainID(chainID string, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
+func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
 	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
 
 	return erc20GenesisState
@@ -52,7 +59,7 @@ func updateErc20GenesisStateForChainID(chainID string, erc20GenesisState erc20ty
 
 // updateErc20TokenPairs modifies the erc20 token pairs to use the correct
 // WEVMOS depending on ChainID
-func updateErc20TokenPairs(chainID string, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
+func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	testnetAddress := GetWEVMOSContractHex(chainID)
 	coinInfo := testconstants.ExampleChainCoinInfo[chainID]
 

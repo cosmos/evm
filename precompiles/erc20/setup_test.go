@@ -63,8 +63,13 @@ func (s *PrecompileTestSuite) SetupTest() {
 	//
 	// NOTE: This has to be done AFTER assigning the suite fields.
 	s.tokenDenom = "xmpl"
-	s.precompile = s.setupERC20Precompile(s.tokenDenom)
+	s.precompile, err = s.setupERC20Precompile(s.tokenDenom)
+	s.Require().NoError(err)
 
-	// Instantiate the precompile2 with the bond denom.
-	s.precompile2 = s.setupERC20Precompile(s.bondDenom)
+	// Instantiate the precompile2 with the bond denom (the token pair was already set up in genesis).
+	tokenPairID := s.network.App.Erc20Keeper.GetDenomMap(s.network.GetContext(), bondDenom)
+	tokenPair, found := s.network.App.Erc20Keeper.GetTokenPair(s.network.GetContext(), tokenPairID)
+	s.Require().True(found)
+	s.precompile2, err = erc20precompile.NewPrecompile(tokenPair, s.network.App.BankKeeper, s.network.App.Erc20Keeper, s.network.App.TransferKeeper)
+	s.Require().NoError(err)
 }

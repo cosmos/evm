@@ -50,7 +50,7 @@ func NewKVIndexer(db dbm.DB, logger log.Logger, clientCtx client.Context) *KVInd
 // - Iterates over all the messages of the Tx
 // - Builds and stores a indexer.TxResult based on parsed events for every message
 func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxResult) error {
-	height := block.Header.Height
+	height := block.Height
 
 	batch := kv.db.NewBatch()
 	defer batch.Close()

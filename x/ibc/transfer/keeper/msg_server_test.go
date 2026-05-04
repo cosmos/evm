@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/stretchr/testify/mock"
 
@@ -250,6 +251,45 @@ func (suite *KeeperTestSuite) TestTransfer() {
 			},
 			false,
 		},
+		{
+			"pass - verify correct prefix trimming for ERC20 native tokens",
+			func() *types.MsgTransfer {
+				contractAddr, err := suite.DeployContract("coin", "token", uint8(6))
+				suite.Require().NoError(err)
+
+				pair, err := testutils.RegisterERC20(suite.factory, suite.network, testutils.ERC20RegistrationData{
+					Addresses:    []string{contractAddr.Hex()},
+					ProposerPriv: sender.Priv,
+				})
+				suite.Require().NoError(err)
+				suite.Require().True(len(pair) == 1)
+
+				// Mint ERC20 tokens
+				amt := math.NewInt(10)
+				_, err = suite.MintERC20Token(contractAddr, sender.Addr, amt.BigInt())
+				suite.Require().NoError(err)
+
+				// Create a denom with erc20: prefix
+				erc20Denom := erc20types.CreateDenom(contractAddr.String())
+				suite.Require().Equal(erc20types.Erc20NativeCoinDenomPrefix+contractAddr.String(), erc20Denom)
+
+				// Verify that GetTokenPairID works correctly with the contract address (hex string)
+				pairIDFromAddress := suite.network.App.Erc20Keeper.GetTokenPairID(ctx, contractAddr.String())
+				suite.Require().NotEmpty(pairIDFromAddress)
+
+				// Verify that GetTokenPairID works correctly with the full denom
+				pairIDFromDenom := suite.network.App.Erc20Keeper.GetTokenPairID(ctx, erc20Denom)
+				suite.Require().NotEmpty(pairIDFromDenom)
+
+				// Both should return the same pair ID
+				suite.Require().Equal(pairIDFromAddress, pairIDFromDenom)
+
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(erc20Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+
+				return transferMsg
+			},
+			true,
+		},
 
 		// STRV2
 		// native coin - perform normal ibc transfer
@@ -291,6 +331,159 @@ func (suite *KeeperTestSuite) TestTransfer() {
 			false,
 		},
 	}
+	for _, tc := range testCases {
+		suite.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			suite.SetupTest()
+			sender = suite.keyring.GetKey(0)
+			ctx = suite.network.GetContext()
+
+			suite.network.App.TransferKeeper = keeper.NewKeeper(
+				suite.network.App.AppCodec(),
+				runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
+				suite.network.App.GetSubspace(types.ModuleName),
+				&MockICS4Wrapper{}, // ICS4 Wrapper
+				mockChannelKeeper,
+				suite.network.App.MsgServiceRouter(),
+				suite.network.App.AccountKeeper,
+				suite.network.App.BankKeeper,
+				suite.network.App.Erc20Keeper, // Add ERC20 Keeper for ERC20 transfers
+				authAddr,
+			)
+			msg := tc.malleate()
+
+			// get updated context with the latest changes
+			ctx = suite.network.GetContext()
+
+			_, err := suite.network.App.TransferKeeper.Transfer(ctx, msg)
+			if tc.expPass {
+				suite.Require().NoError(err)
+			} else {
+				suite.Require().Error(err)
+			}
+		})
+	}
+}
+
+// TestPrefixTrimming tests that the Transfer method correctly trims the erc20: prefix
+// This test specifically catches the bug where "erc20/" was being trimmed instead of "erc20:"
+func (suite *KeeperTestSuite) TestPrefixTrimming() {
+	var (
+		ctx    sdk.Context
+		sender keyring.Key
+	)
+	mockChannelKeeper := &MockChannelKeeper{}
+	mockICS4Wrapper := &MockICS4Wrapper{}
+	mockChannelKeeper.On("GetNextSequenceSend", mock.Anything, mock.Anything, mock.Anything).Return(1, true)
+	mockChannelKeeper.On("GetChannel", mock.Anything, mock.Anything, mock.Anything).Return(channeltypes.Channel{Counterparty: channeltypes.NewCounterparty("transfer", "channel-1")}, true)
+	mockICS4Wrapper.On("SendPacket", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	authAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
+	receiver := sdk.AccAddress([]byte("receiver"))
+	chan0 := "channel-0"
+
+	testCases := []struct {
+		name        string
+		malleate    func() *types.MsgTransfer
+		expPass     bool
+		description string
+	}{
+		{
+			name: "pass - correct prefix trimming erc20:",
+			malleate: func() *types.MsgTransfer {
+				contractAddr, err := suite.DeployContract("coin", "token", uint8(6))
+				suite.Require().NoError(err)
+
+				pair, err := testutils.RegisterERC20(suite.factory, suite.network, testutils.ERC20RegistrationData{
+					Addresses:    []string{contractAddr.Hex()},
+					ProposerPriv: sender.Priv,
+				})
+				suite.Require().NoError(err)
+				suite.Require().True(len(pair) == 1)
+
+				// Mint ERC20 tokens
+				amt := math.NewInt(10)
+				_, err = suite.MintERC20Token(contractAddr, sender.Addr, amt.BigInt())
+				suite.Require().NoError(err)
+
+				// Create a denom with erc20: prefix
+				erc20Denom := erc20types.CreateDenom(contractAddr.String())
+				suite.Require().Equal(erc20types.Erc20NativeCoinDenomPrefix+contractAddr.String(), erc20Denom)
+
+				// TEST: Verify that the prefix trimming works correctly
+				// The Transfer method should trim "erc20:" prefix to get the hex address
+				expectedTrimmed := strings.TrimPrefix(erc20Denom, erc20types.Erc20NativeCoinDenomPrefix)
+				suite.Require().Equal(contractAddr.String(), expectedTrimmed)
+
+				// Verify that GetTokenPairID works correctly with the contract address (hex string)
+				pairIDFromAddress := suite.network.App.Erc20Keeper.GetTokenPairID(ctx, contractAddr.String())
+				suite.Require().NotEmpty(pairIDFromAddress)
+
+				// Verify that GetTokenPairID works correctly with the full denom
+				pairIDFromDenom := suite.network.App.Erc20Keeper.GetTokenPairID(ctx, erc20Denom)
+				suite.Require().NotEmpty(pairIDFromDenom)
+
+				// Both should return the same pair ID
+				suite.Require().Equal(pairIDFromAddress, pairIDFromDenom)
+
+				// TEST: Verify that incorrect prefix trimming would fail
+				// If we incorrectly trim "erc20/" instead of "erc20:", we'd get the wrong string
+				incorrectTrimmed := strings.TrimPrefix(erc20Denom, erc20types.ModuleName+"/")
+				suite.Require().NotEqual(contractAddr.String(), incorrectTrimmed)
+				suite.Require().Equal(erc20Denom, incorrectTrimmed) // Since "erc20/" is not in the string, it returns unchanged
+
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(erc20Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+
+				return transferMsg
+			},
+			expPass:     true,
+			description: "Test that verifies correct prefix trimming for ERC20 native tokens",
+		},
+		{
+			name: "pass - demonstrate bug impact",
+			malleate: func() *types.MsgTransfer {
+				contractAddr, err := suite.DeployContract("coin2", "token2", uint8(6))
+				suite.Require().NoError(err)
+
+				pair, err := testutils.RegisterERC20(suite.factory, suite.network, testutils.ERC20RegistrationData{
+					Addresses:    []string{contractAddr.Hex()},
+					ProposerPriv: sender.Priv,
+				})
+				suite.Require().NoError(err)
+				suite.Require().True(len(pair) == 1)
+
+				// Mint ERC20 tokens
+				amt := math.NewInt(10)
+				_, err = suite.MintERC20Token(contractAddr, sender.Addr, amt.BigInt())
+				suite.Require().NoError(err)
+
+				// Create a denom with erc20: prefix
+				erc20Denom := erc20types.CreateDenom(contractAddr.String())
+
+				// TEST: Demonstrate the bug's impact
+				// With correct prefix trimming ("erc20:"), we get the hex address
+				correctTrimmed := strings.TrimPrefix(erc20Denom, erc20types.Erc20NativeCoinDenomPrefix)
+				suite.Require().Equal(contractAddr.String(), correctTrimmed)
+
+				// With incorrect prefix trimming ("erc20/"), we get the full denom (no change)
+				incorrectTrimmed := strings.TrimPrefix(erc20Denom, erc20types.ModuleName+"/")
+				suite.Require().Equal(erc20Denom, incorrectTrimmed)
+
+				// Both lookups should work due to dual mapping, but use different code paths
+				pairIDFromCorrect := suite.network.App.Erc20Keeper.GetTokenPairID(ctx, correctTrimmed)
+				pairIDFromIncorrect := suite.network.App.Erc20Keeper.GetTokenPairID(ctx, incorrectTrimmed)
+
+				suite.Require().NotEmpty(pairIDFromCorrect)
+				suite.Require().NotEmpty(pairIDFromIncorrect)
+				suite.Require().Equal(pairIDFromCorrect, pairIDFromIncorrect)
+
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(erc20Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+
+				return transferMsg
+			},
+			expPass:     true,
+			description: "Test that demonstrates why the bug wasn't caught - both lookups work",
+		},
+	}
+
 	for _, tc := range testCases {
 		suite.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			suite.SetupTest()

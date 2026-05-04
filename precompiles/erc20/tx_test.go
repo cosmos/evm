@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
@@ -11,7 +12,11 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 
+	"cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 var (
@@ -70,6 +75,47 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			erc20.ErrTransferAmountExceedsBalance.Error(),
 		},
 		{
+			"fail - not enough balance, sent amount is being vested",
+			func() []interface{} {
+				ctx := s.network.GetContext()
+				accAddr := sdk.AccAddress(fromAddr.Bytes())
+				err := s.network.App.BankKeeper.SendCoins(ctx, s.keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.network.GetBaseDenom(), math.NewInt(2e18))))
+				s.Require().NoError(err)
+				// replace with vesting account
+				balanceResp, err := s.grpcHandler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+
+				baseAccount := s.network.App.AccountKeeper.GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.network.GetBaseDenom()
+				currTime := s.network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.network.App.AccountKeeper.SetAccount(ctx, acc)
+
+				spendable := s.network.App.BankKeeper.SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.grpcHandler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				tb, overflow := uint256.FromBig(s.network.App.BankKeeper.GetBalance(ctx, accAddr, baseDenom).Amount.BigInt())
+				s.Require().False(overflow)
+				s.Require().Equal(tb.ToBig(), balance.BigInt())
+
+				return []interface{}{
+					toAddr, big.NewInt(2e18),
+				}
+			},
+			func() {},
+			true,
+			erc20.ErrTransferAmountExceedsBalance.Error(),
+		},
+		{
 			"pass",
 			func() []interface{} {
 				return []interface{}{toAddr, big.NewInt(100)}
@@ -89,7 +135,7 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			stateDB := s.network.GetStateDB()
 
 			var contract *vm.Contract
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), fromAddr, s.precompile, 0)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), fromAddr, s.precompile.Address(), 0)
 
 			// Mint some coins to the module account and then send to the from address
 			err := s.network.App.BankKeeper.MintCoins(s.network.GetContext(), erc20types.ModuleName, XMPLCoin)
@@ -249,7 +295,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			stDB = s.network.GetStateDB()
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, spender.Addr, s.precompile, 0)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, spender.Addr, s.precompile.Address(), 0)
 
 			// Mint some coins to the module account and then send to the from address
 			err := s.network.App.BankKeeper.MintCoins(ctx, erc20types.ModuleName, XMPLCoin)

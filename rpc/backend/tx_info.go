@@ -38,7 +38,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 	blockRes, err := b.rpcClient.BlockResults(b.ctx, &block.Block.Height)
 	if err != nil {
 		b.logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block result not found: %w", err)
 	}
 
 	var ethMsg *evmtypes.MsgEthereumTx
@@ -160,13 +160,13 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	res, additional, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
-		return nil, nil
+		return nil, err
 	}
 
 	resBlock, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		b.logger.Debug("block not found", "height", res.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block not found at height %d: %w", res.Height, err)
 	}
 
 	var txData evmtypes.TxData
@@ -207,7 +207,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	blockRes, err := b.rpcClient.BlockResults(b.ctx, &res.Height)
 	if err != nil {
 		b.logger.Debug("failed to retrieve block results", "height", res.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
 	for _, txResult := range blockRes.TxsResults[0:res.TxIndex] {
@@ -272,11 +272,20 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, errors.New("can't find index of ethereum tx")
 	}
 
+	// create the logs bloom
+	var bin ethtypes.Bloom
+	for _, log := range logs {
+		bin.Add(log.Address.Bytes())
+		for _, b := range log.Topics {
+			bin.Add(b[:])
+		}
+	}
+
 	receipt := map[string]interface{}{
 		// Consensus fields: These fields are defined by the Yellow Paper
 		"status":            status,
 		"cumulativeGasUsed": hexutil.Uint64(cumulativeGasUsed),
-		"logsBloom":         ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),
+		"logsBloom":         ethtypes.BytesToBloom(bin.Bytes()),
 		"logs":              logs,
 
 		// Implementation fields: These fields are added by geth when processing a transaction.
