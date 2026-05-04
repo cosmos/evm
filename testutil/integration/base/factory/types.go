@@ -16,6 +16,8 @@ type CosmosTxArgs struct {
 	GasPrice *sdkmath.Int
 	// Fees is the fee to be used on the tx (amount and denom)
 	Fees sdktypes.Coins
+	// Nonce is an optional custom nonce to use for the fee payer
+	Nonce *uint64
 	// FeeGranter is the account address of the fee granter
 	FeeGranter sdktypes.AccAddress
 	// Msgs slice of messages to include on the tx

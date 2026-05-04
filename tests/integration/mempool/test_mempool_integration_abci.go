@@ -8,8 +8,10 @@ import (
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
+	"github.com/cosmos/evm/testutil/keyring"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
@@ -747,6 +749,316 @@ func (s *IntegrationTestSuite) TestRechecking() {
 			// insert txs given by setup
 			err := s.insertTxs(txs)
 			s.Require().NoError(err)
+
+			// commit a block with network txs
+			networkTxs := tc.networkTxs()
+			s.T().Logf("including %d txs from the network", len(networkTxs))
+
+			var toFinalize [][]byte
+			for _, tx := range networkTxs {
+				encoded, err := s.factory.EncodeTx(tx)
+				s.Require().NoError(err)
+				toFinalize = append(toFinalize, encoded)
+			}
+			res, err := s.network.NextBlockWithTxs(toFinalize...)
+			s.Require().NoError(err)
+			for _, result := range res.GetTxResults() {
+				s.Require().Equal(uint32(0x0), result.GetCode())
+			}
+
+			// call PrepareProposal for the next block (H+1) after recheck at height H.
+			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
+				MaxTxBytes: 1_000_000,
+				Height:     s.network.GetContext().BlockHeight() + 1,
+			})
+			s.Require().NoError(err)
+
+			// run custom verify func
+			tc.verifyFunc(s.network.App.GetMempool())
+
+			// check whether expected transactions are selected by PrepareProposal
+			txHashes := make([]string, 0)
+			for _, txBytes := range prepareProposalRes.Txs {
+				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
+				txHashes = append(txHashes, txHash)
+			}
+			s.Require().Equal(expTxHashes, txHashes)
+		})
+	}
+}
+
+func (s *IntegrationTestSuite) TestMultiPoolInteractions() {
+	type insertWithResults struct {
+		tx  sdk.Tx
+		err error
+	}
+	testCases := []struct {
+		name       string
+		setupTxs   func() ([]insertWithResults, []string)
+		networkTxs func() []sdk.Tx
+		verifyFunc func(mpool mempool.Mempool)
+	}{
+		{
+			name: "same signer rejected from multi pool insert",
+			setupTxs: func() ([]insertWithResults, []string) {
+				key := s.keyring.GetKey(0)
+				var results []insertWithResults
+
+				// cosmos tx automatically created with nonce 0
+				results = append(results, insertWithResults{s.createCosmosSendTx(key, big.NewInt(5000000000)), nil})
+
+				// create two evm txs from the same key, both not allowed to be
+				// inserted according to reserver rules
+
+				// evm tx from same key at nonce 0, this is invalid if we take
+				// into account cosmos pending state, but valid if not
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(key, 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+
+				// evm tx from same key at nonce 1, this is valid if we take
+				// into account cosmos pending state, but invalid if not
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+
+				return results, s.getTxHashes([]sdk.Tx{results[0].tx})
+			},
+			networkTxs: func() []sdk.Tx { return nil },
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				s.Require().Equal(1, mp.CountTx(), "expected only a single tx in the mempool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// no evm txs should be allowed since they were all from the
+				// same sender that has a cosmos tx in the pool already
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "multi signer cosmos tx reserves all signers",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				// create multi signer cosmos tx to reserve keys 0,1,2 for the
+				// cosmos pool
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				// all should fail since each signer is being held by the
+				// cosmos pool
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+
+				return results, s.getTxHashes([]sdk.Tx{results[0].tx})
+			},
+			networkTxs: func() []sdk.Tx { return nil },
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				s.Require().Equal(1, mp.CountTx(), "expected only a single tx in the mempool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// no evm txs should be allowed since they were all from a
+				// sender that already a cosmos tx in the pool already
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "multi signer cosmos tx atomically fails reservations",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				// insert evm tx with key 0
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)), nil})
+
+				// create multi signer cosmos tx to reserve keys 0,1,2 for the
+				// cosmos pool
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), reserver.ErrAlreadyReserved})
+
+				// expecting the above tx to fail insert, make sure that after
+				// the failure it does not create any new reservations
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(0), 1, big.NewInt(1000000000)), nil})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)), nil})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)), nil})
+
+				return results, s.getTxHashes([]sdk.Tx{results[0].tx, results[2].tx, results[3].tx, results[4].tx})
+			},
+			networkTxs: func() []sdk.Tx { return nil },
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				s.Require().Equal(4, mp.CountTx(), "expected 4 txs in the mempool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// all txs should be in the evm tx pending pool
+				s.Require().Equal(4, pending, "expected 4 pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "same network tx properly releases reservations",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				return results, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// same tx that is in our cosmos pool is included in a block
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				tx := s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...)
+				return []sdk.Tx{tx}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				// expect a completely empty mempool
+				s.Require().Equal(0, mp.CountTx(), "expected no txs in the mempool")
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+
+				// ensure that we can insert txs for the signers that were
+				// evicted from the cosmos pool into the evm pool
+				var txs []sdk.Tx
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)))
+				s.Require().NoError(s.insertTxs(txs))
+
+				s.Require().Equal(3, mp.CountTx(), "expected 3 txs in the mempool")
+				pending, queued = legacyPool.Stats()
+				s.Require().Equal(3, pending, "expected 3 pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "cosmos multi signer recheck failure properly releases all reservations",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				return results, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// include a tx from the network that will cause the tx in our
+				// cosmos pool to fail recheck (bumping key 0's nonce)
+
+				// NOTE: we are also testing an interesting property of how
+				// removals work for cosmos txs. the cosmos pool is built on
+				// top of the priority nonce mempool and that only looks at the
+				// first signer of mutli signer txs. so the tx below and the
+				// one already in the mempool look identical to it. so when
+				// including this tx from the network, it will remove the one
+				// in the mempool if we process the removal during finalize
+				// block. however, this gives us no way to determine that our
+				// original tx had multiple signers and we need to release all
+				// of those address reservations. so, we must not remove during
+				// finalize block, and process the removal during recheck where
+				// the tx will be dropped due to a nonce too low error on
+				// signer 0. during recheck we know exactly which tx we are
+				// removing and why, and can properly unreserve the signers
+				// reservations.
+				tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))
+				return []sdk.Tx{tx}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				// expect a completely empty mempool
+				s.Require().Equal(0, mp.CountTx(), "expected no txs in the mempool")
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+
+				// ensure that we can insert txs for the signers that were
+				// evicted from the cosmos pool into the evm pool
+				var txs []sdk.Tx
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)))
+				s.Require().NoError(s.insertTxs(txs))
+
+				s.Require().Equal(3, mp.CountTx(), "expected 3 txs in the mempool")
+				pending, queued = legacyPool.Stats()
+				s.Require().Equal(3, pending, "expected 3 pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "cosmos signer reserved twice is not unreserved on first removal",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				// create a multi signer tx that will be dropped
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				// reserve signer 0 a second time with a new tx at its next
+				// nonce (given the above tx)
+				var nextNonce uint64 = 1
+				var gasLimit uint64 = 100000000
+				results = append(results, insertWithResults{
+					s.createCosmosSendTxWithNonceAndGas(s.keyring.GetKey(0), nextNonce, big.NewInt(1000), gasLimit, big.NewInt(5000000000)),
+					nil,
+				})
+
+				return results, s.getTxHashes([]sdk.Tx{results[1].tx})
+			},
+			networkTxs: func() []sdk.Tx {
+				// bump signer 0's nonce on chain so that the multi signer tx
+				// will be dropped, the single signer tx at nonce 1 will remain
+				tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))
+				return []sdk.Tx{tx}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				// expect a single tx in the mempool
+				s.Require().Equal(1, mp.CountTx(), "expected a single tx in the mempool")
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+
+				// ensure signers 1 and 2 were unreserved
+				var txs []sdk.Tx
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)))
+				s.Require().NoError(s.insertTxs(txs))
+
+				// ensure signer 0 remains reserved since it has another cosmos
+				// tx still in the pool
+				err := s.insertTx(s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)))
+				s.Require().ErrorIs(err, reserver.ErrAlreadyReserved)
+			},
+		},
+	}
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// clean up previous test's resources before resetting
+			s.TearDownTest()
+			s.SetupTest()
+
+			insertResults, expTxHashes := tc.setupTxs()
+			s.T().Logf("inserting %d txs into local mempool", len(insertResults))
+
+			// insert txs given by setup
+			for _, result := range insertResults {
+				err := s.insertTx(result.tx)
+				s.Require().ErrorIs(err, result.err)
+			}
 
 			// commit a block with network txs
 			networkTxs := tc.networkTxs()
