@@ -50,7 +50,7 @@ func TestRequiredGas(t *testing.T) {
 				require.NoError(t, err)
 				return in
 			},
-			isWrite: true,
+			isWrite: false,
 		},
 		{
 			name: VerifyNonMembershipMethod,
@@ -66,7 +66,7 @@ func TestRequiredGas(t *testing.T) {
 				require.NoError(t, err)
 				return in
 			},
-			isWrite: true,
+			isWrite: false,
 		},
 		{
 			name: GetClientStateMethod,
