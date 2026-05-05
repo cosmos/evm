@@ -57,8 +57,8 @@ func NewPrecompile(
 	return &Precompile{
 		cdc: cdc,
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.GasConfig{},
-			TransientKVGasConfig: storetypes.GasConfig{},
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 			ContractAddress:      common.HexToAddress(evmtypes.ICS02PrecompileAddress),
 		},
 		ABI:          ABI,
