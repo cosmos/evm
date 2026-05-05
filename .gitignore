@@ -38,4 +38,4 @@ tests/systemtests/binaries
 tests/systemtests/testnet
 .testnets
 
-.claude/worktrees/
+.claude/
