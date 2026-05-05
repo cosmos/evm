@@ -3,6 +3,12 @@
 ## UNRELEASED
 
 ### DEPENDENCIES
+### API-BREAKING
+### IMPROVEMENTS
+### FEATURES
+### BUG FIXES
+
+## v0.6.0
 
 ### API-BREAKING
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead. 
@@ -25,6 +31,7 @@
 
 ### FEATURES
 
+- New application evm+cosmos mempool ("Krakatoa")
 - [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
