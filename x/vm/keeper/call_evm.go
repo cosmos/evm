@@ -70,16 +70,21 @@ func (k Keeper) CallEVMWithData(
 		AccessList: ethtypes.AccessList{},
 	}
 
-	res, err := k.ApplyMessage(ctx, msg, nil, commit, true)
+	// Use a cache context so that a reverting EVM call does not corrupt the
+	// parent gas meter. On success we commit the cache and charge the actual
+	// gas used; on revert we discard the cache and leave the parent meter
+	// untouched (matching DerivedEVMCallWithData semantics).
+	tmpCtx, commitState := ctx.CacheContext()
+	res, err := k.ApplyMessage(tmpCtx, msg, nil, commit, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if res.Failed() {
-		k.ResetGasMeterAndConsumeGas(ctx, ctx.GasMeter().Limit())
 		return res, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
 	}
 
+	commitState()
 	ctx.GasMeter().ConsumeGas(res.GasUsed, "apply evm message")
 
 	return res, nil
