@@ -472,7 +472,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			}
 		}
 
-		dropFuturesOnError := true
+		keepFuturesOnError := false
 		if !invalidTx {
 			ctx, write := m.rechecker.GetContext()
 			_, err := m.rechecker.RecheckCosmos(ctx, txn)
@@ -493,13 +493,13 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			// want to cascade and evict the signer's tx at nonce+1 since
 			// that may still be valid at the correct nonce.
 			if errors.Is(err, sdkerrors.ErrWrongSequence) {
-				dropFuturesOnError = false
+				keepFuturesOnError = true
 			}
 		}
 
 		removeTxs = append(removeTxs, txn)
 
-		if !dropFuturesOnError {
+		if keepFuturesOnError {
 			iter = iter.Next()
 			continue
 		}
