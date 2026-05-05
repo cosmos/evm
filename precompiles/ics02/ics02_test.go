@@ -28,6 +28,7 @@ func TestRequiredGas(t *testing.T) {
 		{
 			name: UpdateClientMethod,
 			pack: func(t *testing.T) []byte {
+				t.Helper()
 				in, err := p.Pack(UpdateClientMethod, "07-tendermint-0", []byte{0x01, 0x02, 0x03})
 				require.NoError(t, err)
 				return in
@@ -37,6 +38,7 @@ func TestRequiredGas(t *testing.T) {
 		{
 			name: VerifyMembershipMethod,
 			pack: func(t *testing.T) []byte {
+				t.Helper()
 				in, err := p.Pack(
 					VerifyMembershipMethod,
 					"07-tendermint-0",
@@ -53,6 +55,7 @@ func TestRequiredGas(t *testing.T) {
 		{
 			name: VerifyNonMembershipMethod,
 			pack: func(t *testing.T) []byte {
+				t.Helper()
 				in, err := p.Pack(
 					VerifyNonMembershipMethod,
 					"07-tendermint-0",
@@ -68,6 +71,7 @@ func TestRequiredGas(t *testing.T) {
 		{
 			name: GetClientStateMethod,
 			pack: func(t *testing.T) []byte {
+				t.Helper()
 				in, err := p.Pack(GetClientStateMethod, "07-tendermint-0")
 				require.NoError(t, err)
 				return in
@@ -102,4 +106,3 @@ func TestRequiredGas(t *testing.T) {
 		require.Equal(t, uint64(0), p.RequiredGas([]byte{0xde, 0xad, 0xbe, 0xef}))
 	})
 }
-
