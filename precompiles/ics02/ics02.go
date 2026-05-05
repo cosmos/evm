@@ -116,16 +116,14 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
-//
-// Only UpdateClient mutates state. VerifyMembership and VerifyNonMembership
-// perform proof verification reads against existing client state and are
-// classified as queries so they (a) bill at the read tier in RequiredGas and
-// (b) are callable from STATICCALL contexts.
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
-	case UpdateClientMethod:
+	case UpdateClientMethod,
+		VerifyMembershipMethod,
+		VerifyNonMembershipMethod:
 		return true
 	default:
+		// GetClientStateMethod is the only query method.
 		return false
 	}
 }
