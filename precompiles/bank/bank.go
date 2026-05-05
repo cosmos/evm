@@ -66,10 +66,12 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper cmn.ERC20Keeper,
 ) *Precompile {
+	// NOTE: we set an empty gas configuration to avoid extra gas costs
+	// during the run execution
 	return &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.KVGasConfig(),
-			TransientKVGasConfig: storetypes.TransientGasConfig(),
+			KvGasConfig:          storetypes.GasConfig{},
+			TransientKVGasConfig: storetypes.GasConfig{},
 			ContractAddress:      common.HexToAddress(evmtypes.BankPrecompileAddress),
 		},
 		ABI:         ABI,
