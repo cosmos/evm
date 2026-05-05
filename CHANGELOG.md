@@ -8,7 +8,9 @@
 ### FEATURES
 ### BUG FIXES
 
-## v0.6.0
+## v0.7.0
+
+Follow the [migration document](docs/migrations/v0.6.x_to_v0.7.0.md) for upgrade instructions.
 
 ### API-BREAKING
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead. 
