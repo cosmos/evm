@@ -351,7 +351,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			// setup
 			tc.malleate()
 
-			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 200_000)
+			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 500_000)
 			if expErr {
 				s.Require().Error(err)
 				return
