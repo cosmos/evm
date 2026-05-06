@@ -559,17 +559,18 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 	txBz := suite.signAndEncodeEthTx(msgEthereumTx)
 
 	testCases := []struct {
-		name         string
-		registerMock func()
-		tx           *evmtypes.MsgEthereumTx
-		block        *types.Block
-		blockResult  []*abci.ExecTxResult
-		expPass      bool
-		expErr       error
+		name          string
+		registerMock  func()
+		tx            *evmtypes.MsgEthereumTx
+		block         *types.Block
+		blockResult   []*abci.ExecTxResult
+		expPass       bool
+		expNilResult  bool // true when nil,nil is expected (pending/not-found tx — Ethereum standard)
+		expErr        error
 	}{
 		// TODO test happy path
 		{
-			name:         "fail - tx not found",
+			name:         "pending - tx not found",
 			registerMock: func() {},
 			block:        &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
 			tx:           msgEthereumTx2,
@@ -588,8 +589,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 					},
 				},
 			},
-			expPass: false,
-			expErr:  fmt.Errorf("tx not found, hash: %s", txHash.Hex()),
+			expNilResult: true,
 		},
 		{
 			name: "fail - block not found",
@@ -647,8 +647,8 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 			expErr:  fmt.Errorf("block result not found at height 1: some error"),
 		},
 		{
-			"happy path",
-			func() {
+			name: "happy path",
+			registerMock: func() {
 				var header metadata.MD
 				queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
 				client := suite.backend.clientCtx.Client.(*mocks.Client)
@@ -658,9 +658,9 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 				_, err = RegisterBlockResults(client, 1)
 				suite.Require().NoError(err)
 			},
-			msgEthereumTx,
-			&types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
-			[]*abci.ExecTxResult{
+			tx:    msgEthereumTx,
+			block: &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
+			blockResult: []*abci.ExecTxResult{
 				{
 					Code: 0,
 					Events: []abci.Event{
@@ -675,8 +675,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 					},
 				},
 			},
-			true,
-			nil,
+			expPass: true,
 		},
 	}
 
@@ -700,6 +699,10 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 					suite.Require().NotNil(res[field], "field was empty %s", field)
 				}
 				suite.Require().Nil(res["contractAddress"]) // no contract creation
+				suite.Require().NoError(err)
+			} else if tc.expNilResult {
+				// Ethereum standard: pending/not-found tx returns null (nil,nil), not an error
+				suite.Require().Nil(res)
 				suite.Require().NoError(err)
 			} else {
 				suite.Require().Error(err)
