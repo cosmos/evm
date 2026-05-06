@@ -33,6 +33,10 @@ const (
 	ErrInvalidDescription = "invalid description: %v"
 	// ErrInvalidCommission is raised when the input commission cannot be cast to stakingtypes.CommissionRates{}.
 	ErrInvalidCommission = "invalid commission: %v"
+	// ErrUnknownSolidityCustomError is raised when the ABI does not contain the provided custom error.
+	ErrUnknownSolidityCustomError = "unknown solidity custom error: %s"
+	// ErrPackSolidityCustomErrorFailed is raised when ABI packing custom error args fails.
+	ErrPackSolidityCustomErrorFailed = "failed to pack solidity custom error %s: %s"
 
 	// SolidityErrInvalidNumberOfArgs is invalid number of arguments
 	SolidityErrInvalidNumberOfArgs = "InvalidNumberOfArgs"

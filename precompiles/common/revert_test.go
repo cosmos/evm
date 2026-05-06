@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
@@ -35,4 +36,21 @@ func TestReturnRevertError_WithStringFallback(t *testing.T) {
 
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	require.NotEmpty(t, ret)
+}
+
+func TestReturnRevertError_WhenSolidityErrorPackFails_FallsBackToErrorStringRevert(t *testing.T) {
+	stateDB := statedbmocks.NewStateDB(t)
+	evm := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1), Time: 1}, stateDB, params.TestChainConfig, vm.Config{})
+
+	// RequesterIsNotMsgSender(address,address) expects 2 args; provide 1 wrong-typed arg to force ABI pack failure.
+	customErr := cmn.NewRevertWithSolidityError(staking.ABI, "RequesterIsNotMsgSender", 123)
+	ret, err := cmn.ReturnRevertError(evm, customErr)
+
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	require.NotEmpty(t, ret)
+	require.Equal(t, ret, evm.ReturnData())
+
+	reason, unpackErr := abi.UnpackRevert(ret)
+	require.NoError(t, unpackErr)
+	require.Contains(t, reason, "failed to pack solidity custom error RequesterIsNotMsgSender")
 }
