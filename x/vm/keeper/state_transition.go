@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -293,7 +294,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
 		if err != nil {
 			// If hooks returns an error, revert the whole tx.
-			if rdp, ok := err.(types.RevertError); ok {
+			var rdp *types.RevertError
+			if errors.As(err, &rdp) {
 				res.VmError = vm.ErrExecutionReverted.Error()
 				res.Ret = rdp.RevertData()
 			} else {
