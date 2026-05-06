@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -33,7 +34,7 @@ func (e *RevertWithData) RevertData() []byte {
 func NewRevertWithSolidityError(moduleABI abi.ABI, errorName string, args ...interface{}) error {
 	customErr, ok := moduleABI.Errors[errorName]
 	if !ok {
-		reason := "unknown solidity custom error: " + errorName
+		reason := fmt.Sprintf(ErrUnknownSolidityCustomError, errorName)
 		revertReasonBz, encErr := evmtypes.RevertReasonBytes(reason)
 		if encErr != nil {
 			return errors.New(reason)
@@ -43,7 +44,12 @@ func NewRevertWithSolidityError(moduleABI abi.ABI, errorName string, args ...int
 
 	data, err := customErr.Inputs.Pack(args...)
 	if err != nil {
-		return err
+		reason := fmt.Sprintf(ErrPackSolidityCustomErrorFailed, errorName, err.Error())
+		revertReasonBz, encErr := evmtypes.RevertReasonBytes(reason)
+		if encErr != nil {
+			return errors.New(reason)
+		}
+		return &RevertWithData{data: revertReasonBz}
 	}
 	return &RevertWithData{data: append(customErr.ID[:4], data...)}
 }
