@@ -7,11 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -108,9 +110,9 @@ func (p *Precompile) transfer(
 
 	msgSrv := NewMsgServerImpl(p.BankKeeper)
 	if err = msgSrv.Send(ctx, msg); err != nil {
-		spendable := p.BankKeeper.SpendableCoin(ctx, from.Bytes(), p.tokenPair.Denom)
-		bal := spendable.Amount.BigInt()
-		if amount.Cmp(bal) > 0 {
+		if errorsmod.IsOf(err, sdkerrors.ErrInsufficientFunds) {
+			spendable := p.BankKeeper.SpendableCoin(ctx, from.Bytes(), p.tokenPair.Denom)
+			bal := spendable.Amount.BigInt()
 			return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InsufficientBalance, from, bal, amount)
 		}
 		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, method.Name, err.Error())
