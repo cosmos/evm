@@ -160,7 +160,9 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	res, additional, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
-		return nil, err
+		// Return null (no error) for not-found txs so Ethereum clients treat
+		// the tx as pending and keep polling rather than aborting.
+		return nil, nil
 	}
 
 	resBlock, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(res.Height))
