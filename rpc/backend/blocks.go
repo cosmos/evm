@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 
@@ -164,7 +165,10 @@ func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpc
 		if err != nil {
 			return nil, err
 		}
-		height = int64(n) //#nosec G115 -- checked for int overflow already
+		if n > math.MaxInt64 {
+			return nil, errors.New("block number overflow")
+		}
+		height = int64(n)
 	}
 	resBlock, err := b.rpcClient.Block(b.ctx, &height)
 	if err != nil {

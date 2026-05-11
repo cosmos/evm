@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	stdmath "math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -156,7 +157,10 @@ func (b *Backend) FeeHistory(
 		if err != nil {
 			return nil, err
 		}
-		blockEnd = int64(blockNumber) //#nosec G115 -- checked for int overflow already
+		if blockNumber > stdmath.MaxInt64 {
+			return nil, fmt.Errorf("block number overflow")
+		}
+		blockEnd = int64(blockNumber)
 	}
 
 	blocks := int64(userBlockCount)                     // #nosec G115 -- checked for int overflow already
