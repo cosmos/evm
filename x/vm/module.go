@@ -27,7 +27,9 @@ import (
 )
 
 // consensusVersion defines the current x/evm module consensus version.
-const consensusVersion = 1
+// Bumped to 2 for the v0.2.x → v0.3.x Params proto migration (ChainConfig
+// removed from field 5; allow_unprotected_txs and following fields shifted).
+const consensusVersion = 2
 
 var (
 	_ module.AppModuleBasic = AppModuleBasic{}
@@ -127,6 +129,11 @@ func (AppModule) Name() string {
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
+
+	m := keeper.NewMigrator(*am.keeper)
+	if err := cfg.RegisterMigration(types.ModuleName, 1, m.Migrate1to2); err != nil {
+		panic(fmt.Sprintf("failed to register x/%s migration from version 1 to 2: %v", types.ModuleName, err))
+	}
 }
 
 // BeginBlock returns the begin blocker for the evm module.
