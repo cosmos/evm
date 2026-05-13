@@ -400,7 +400,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 
 	ctx, span := ctx.StartSpan(tracer, "ApplyMessageWithConfig", trace.WithAttributes(
 		attribute.String("hash", txConfig.TxHash.String()),
-		attribute.Int("tx_index", int(txConfig.TxIndex)), //nolint:gosec // G115
+		attribute.Int("tx_index", int(txConfig.TxIndex)),
 		attribute.Bool("commit", commit),
 		attribute.Bool("internal", internal),
 	))
