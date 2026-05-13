@@ -114,28 +114,28 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 
 func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 	testCases := []struct {
-		name    string
-		amt     *uint256.Int
+		name string
+		amt  *uint256.Int
 	}{
 		{
-			name:    "smallest amount",
-			amt:     uint256.NewInt(1),
+			name: "smallest amount",
+			amt:  uint256.NewInt(1),
 		},
 		{
-			name:    "almost 1: 0.99999...",
-			amt:     uint256.NewInt(999999999999),
+			name: "almost 1: 0.99999...",
+			amt:  uint256.NewInt(999999999999),
 		},
 		{
-			name:    "half of the minimum uint",
-			amt:     uint256.NewInt(5e11),
+			name: "half of the minimum uint",
+			amt:  uint256.NewInt(5e11),
 		},
 		{
-			name:    "one int",
-			amt:     uint256.NewInt(1e12),
+			name: "one int",
+			amt:  uint256.NewInt(1e12),
 		},
 		{
-			name:    "one 'ether'",
-			amt:     uint256.NewInt(1e18),
+			name: "one 'ether'",
+			amt:  uint256.NewInt(1e18),
 		},
 	}
 
@@ -153,18 +153,18 @@ func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 
 func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 	testCases := []struct {
-		name    string
-		amt     *big.Int
+		name     string
+		amt      *big.Int
 		expected *big.Int
 	}{
 		{
-			name:    "one int",
-			amt:     big.NewInt(1),
+			name:     "one int",
+			amt:      big.NewInt(1),
 			expected: big.NewInt(1),
 		},
 		{
-			name:    "one 'ether'",
-			amt:     big.NewInt(1e6),
+			name:     "one 'ether'",
+			amt:      big.NewInt(1e6),
 			expected: big.NewInt(1e6),
 		},
 	}
