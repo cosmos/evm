@@ -136,8 +136,8 @@ vulncheck:
 ###                           Tests & Simulation                            ###
 ###############################################################################
 
-PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation' | grep -v '/contrib/x/precisebank')
-PACKAGES_UNIT := $(shell go list ./... | grep -v '/tests/e2e$$' | grep -v '/simulation' | grep -v '/contrib/x/precisebank')
+PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation')
+PACKAGES_UNIT := $(shell go list ./... | grep -v '/tests/e2e$$' | grep -v '/simulation')
 PACKAGES_EVMD := $(shell cd evmd && go list ./... | grep -v '/simulation')
 COVERPKG_EVM  := $(shell go list ./... | grep -v '/tests/e2e$$' | grep -v '/simulation' | paste -sd, -)
 COVERPKG_ALL  := $(COVERPKG_EVM)
