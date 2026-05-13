@@ -334,14 +334,15 @@ func (suite *BackendTestSuite) TestSendRawTransaction() {
 			func() []byte {
 				from, priv := utiltx.NewAddrKey()
 				signer := utiltx.NewSigner(priv)
+				invalidEthSigner := ethtypes.LatestSignerForChainID(big.NewInt(1))
 				invalidChainIDTx.From = from.String()
-				err := invalidChainIDTx.Sign(ethSigner, signer)
+				err := invalidChainIDTx.Sign(invalidEthSigner, signer)
 				suite.Require().NoError(err)
 				bytes, _ := rlp.EncodeToBytes(invalidChainIDTx.AsTransaction())
 				return bytes
 			},
 			common.Hash{},
-			fmt.Errorf("incorrect chain-id; expected %d, got %d", 262144, big.NewInt(1)).Error(),
+			fmt.Errorf("incorrect chain-id; expected %d, got %d", suite.backend.chainID, big.NewInt(1)).Error(),
 			false,
 		},
 		{

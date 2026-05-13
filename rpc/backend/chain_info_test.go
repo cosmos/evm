@@ -154,11 +154,9 @@ func (suite *BackendTestSuite) TestBaseFee() {
 }
 
 func (suite *BackendTestSuite) TestChainId() {
-	expChainID := (*hexutil.Big)(big.NewInt(262144))
 	testCases := []struct {
 		name         string
 		registerMock func()
-		expChainID   *hexutil.Big
 		expPass      bool
 	}{
 		{
@@ -168,7 +166,6 @@ func (suite *BackendTestSuite) TestChainId() {
 				queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParamsInvalidHeight(queryClient, &header, int64(1))
 			},
-			expChainID,
 			true,
 		},
 	}
@@ -181,7 +178,7 @@ func (suite *BackendTestSuite) TestChainId() {
 			chainID, err := suite.backend.ChainID()
 			if tc.expPass {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expChainID, chainID)
+				suite.Require().Equal((*hexutil.Big)(suite.backend.chainID), chainID)
 			} else {
 				suite.Require().Error(err)
 			}
