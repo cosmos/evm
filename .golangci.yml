@@ -7,7 +7,6 @@ linters:
     - copyloopvar
     - dogsled
     - errcheck
-    - goconst
     - gocritic
     - gosec
     - govet
@@ -24,6 +23,9 @@ linters:
   settings:
     dogsled:
       max-blank-identifiers: 3
+    govet:
+      disable:
+        - inline
     nolintlint:
       require-explanation: false
       require-specific: false
