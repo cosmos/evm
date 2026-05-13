@@ -96,12 +96,14 @@ func TestParseAddress(t *testing.T) {
 func TestParseAmount(t *testing.T) {
 	testCases := []struct {
 		name     string
+		coinInfo evmtypes.EvmCoinInfo
 		maleate  func() sdk.Event
 		expAmt   *uint256.Int
 		expError bool
 	}{
 		{
-			name: "valid amount",
+			name:     "valid amount",
+			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 			maleate: func() sdk.Event {
 				coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 5)).String()
 				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
@@ -109,14 +111,43 @@ func TestParseAmount(t *testing.T) {
 			expAmt: uint256.NewInt(5),
 		},
 		{
-			name: "missing amount",
+			name:     "base denom scales on six-decimal chains",
+			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			maleate: func() sdk.Event {
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 1)).String()
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
+			},
+			expAmt: uint256.NewInt(1_000_000_000_000),
+		},
+		{
+			name:     "extended denom does not scale on six-decimal chains",
+			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			maleate: func() sdk.Event {
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinExtendedDenom(), 1)).String()
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
+			},
+			expAmt: uint256.NewInt(1),
+		},
+		{
+			name:     "unrelated denom is ignored",
+			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			maleate: func() sdk.Event {
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin("foobar", 7)).String()
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
+			},
+			expAmt: uint256.NewInt(0),
+		},
+		{
+			name:     "missing amount",
+			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 			maleate: func() sdk.Event {
 				return sdk.NewEvent("bank")
 			},
 			expError: true,
 		},
 		{
-			name: "invalid coins",
+			name:     "invalid coins",
+			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 			maleate: func() sdk.Event {
 				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, "invalid"))
 			},
@@ -126,7 +157,10 @@ func TestParseAmount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			setupBalanceHandlerTest(t)
+			sdk.GetConfig().SetBech32PrefixForAccount(testconstants.ExampleBech32Prefix, "")
+			configurator := evmtypes.NewEVMConfigurator()
+			configurator.ResetTestConfig()
+			require.NoError(t, configurator.WithEVMCoinInfo(tc.coinInfo).Configure())
 
 			amt, err := cmn.ParseAmount(tc.maleate())
 			if tc.expError {
