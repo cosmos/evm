@@ -216,7 +216,7 @@ func (s *TestSuite) TestTraceCall() {
 		registerMock  func()
 		args          evmtypes.TransactionArgs
 		blockNrOrHash rpctypes.BlockNumberOrHash
-		config        *rpctypes.TraceConfig
+		config        *rpctypes.TraceCallConfig
 		expResult     interface{}
 		expPass       bool
 	}{
@@ -241,7 +241,7 @@ func (s *TestSuite) TestTraceCall() {
 					return &bn
 				}(),
 			},
-			&rpctypes.TraceConfig{},
+			&rpctypes.TraceCallConfig{},
 			map[string]interface{}{"test": "trace_call"},
 			true,
 		},
@@ -268,7 +268,7 @@ func (s *TestSuite) TestTraceCall() {
 					return &h
 				}(),
 			},
-			&rpctypes.TraceConfig{},
+			&rpctypes.TraceCallConfig{},
 			map[string]interface{}{"test": "trace_call"},
 			true,
 		},
@@ -293,12 +293,41 @@ func (s *TestSuite) TestTraceCall() {
 					return &bn
 				}(),
 			},
-			&rpctypes.TraceConfig{
-				TraceConfig: evmtypes.TraceConfig{
-					Tracer: "callTracer",
+			&rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: evmtypes.TraceConfig{
+						Tracer: "callTracer",
+					},
 				},
 			},
 			map[string]interface{}{"type": "CALL"},
+			true,
+		},
+		{
+			"pass - trace call with state overrides",
+			func() {
+				var (
+					QueryClient = s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+					client      = s.backend.ClientCtx.Client.(*mocks.Client)
+					height      = int64(1)
+				)
+				RegisterHeader(client, &height, nil)
+				RegisterTraceCallWithOverrides(QueryClient, []byte(`{"0x0000000000000000000000000000000000000002":{"code":"0x00"}}`))
+			},
+			evmtypes.TransactionArgs{
+				From: &common.Address{0x1},
+				To:   &common.Address{0x2},
+			},
+			rpctypes.BlockNumberOrHash{
+				BlockNumber: func() *rpctypes.BlockNumber {
+					bn := rpctypes.BlockNumber(1)
+					return &bn
+				}(),
+			},
+			&rpctypes.TraceCallConfig{
+				StateOverrides: []byte(`{"0x0000000000000000000000000000000000000002":{"code":"0x00"}}`),
+			},
+			map[string]interface{}{"test": "trace_call"},
 			true,
 		},
 		{
