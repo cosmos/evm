@@ -35,11 +35,18 @@ message Params {
   // active_static_precompiles defines the slice of hex addresses of the
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
+  // history_serve_window defines the block range for serving historical EVM
+  // state
   uint64 history_serve_window = 10;
+  // extended_denom_options defines the extended denom options for the EVM
   ExtendedDenomOptions extended_denom_options = 11;
 }
 
-message ExtendedDenomOptions { string extended_denom = 1; }
+// ExtendedDenomOptions defines the extended denom options for the EVM
+message ExtendedDenomOptions {
+  // extended_denom defines the extended denom used by the EVM
+  string extended_denom = 1;
+}
 
 // AccessControl defines the permission policy of the EVM
 // for creating and calling contracts
@@ -352,9 +359,13 @@ message Preinstall {
   string code = 3;
 }
 
+// EvmCoinInfo defines the EVM coin denomination metadata
 message EvmCoinInfo {
+  // denom defines the base coin denomination
   string denom = 1;
+  // extended_denom defines the extended EVM coin denomination
   string extended_denom = 2;
+  // display_denom defines the display denomination
   string display_denom = 3;
   // decimals is now deprecated and will be removed in a future release. When it
   // is removed we will assume the evm token denom is 18 decimal precision.
