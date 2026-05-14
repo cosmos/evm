@@ -61,6 +61,7 @@
 - [\#1061](https://github.com/cosmos/evm/pull/1061) Block nested ICS20 forwarding in source callbacks.
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
+- [\#1182](https://github.com/cosmos/evm/pull/1182) Fix `eth_estimateGas` under-reporting gas on native precompile calls by preserving `KvGasConfig` for precompile recipients in simulation context.
 
 
 ## v0.6.0
