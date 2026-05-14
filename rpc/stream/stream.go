@@ -71,8 +71,13 @@ func (s *Stream[V]) Add(vs ...V) int {
 func (s *Stream[V]) Subscribe(ctx context.Context, callback func([]V, int) error) error {
 	var (
 		items  []V
-		offset = -1
+		offset int
 	)
+
+	s.mutex.RLock()
+	offset = s.lastID()
+	s.mutex.RUnlock()
+
 	for {
 		items, offset = s.ReadBlocking(ctx, offset)
 		if len(items) == 0 {
@@ -130,8 +135,9 @@ func (s *Stream[V]) ReadBlocking(ctx context.Context, offset int) ([]V, int) {
 			return items, offset
 		}
 
+		ch := s.cond.Channel()
 		s.mutex.RUnlock()
-		r := s.cond.Wait(ctx)
+		r := s.cond.WaitChannel(ctx, ch)
 		s.mutex.RLock()
 
 		if !r {
