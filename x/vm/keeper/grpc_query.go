@@ -773,8 +773,17 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	}
 	msg := args.ToMessage(baseFee, true, true)
 
+	// Get state overrides
+	var overrides *rpctypes.StateOverride
+	if len(req.Overrides) > 0 {
+		overrides = new(rpctypes.StateOverride)
+		if err = json.Unmarshal(req.Overrides, overrides); err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state overrides format: %s", err.Error()))
+		}
+	}
+
 	// trace call
-	result, err := k.traceTxWithMsg(ctx, cfg, txConfig, msg, req.GetTraceConfig(), false)
+	result, err := k.traceTxWithMsg(ctx, cfg, txConfig, msg, req.GetTraceConfig(), false, overrides)
 	if err != nil {
 		// error will be returned with detail status from traceTx
 		return nil, err
@@ -809,7 +818,7 @@ func (k *Keeper) traceTx(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return k.traceTxWithMsg(ctx, cfg, txConfig, msg, traceConfig, commitMessage)
+	return k.traceTxWithMsg(ctx, cfg, txConfig, msg, traceConfig, commitMessage, nil)
 }
 
 // traceTxWithMsg do trace on one Ethereum message, it returns a tuple: (traceResult, error).
@@ -820,6 +829,7 @@ func (k *Keeper) traceTxWithMsg(
 	msg *core.Message,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
+	overrides *rpctypes.StateOverride,
 ) (_ *any, err error) {
 	ctx, span := ctx.StartSpan(tracer, "traceTxWithMsg", trace.WithAttributes(
 		attribute.String("tx_hash", txConfig.TxHash.Hex()),
@@ -830,7 +840,7 @@ func (k *Keeper) traceTxWithMsg(
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer           *tracers.Tracer
-		overrides        *ethparams.ChainConfig
+		chainOverrides   *ethparams.ChainConfig
 		jsonTracerConfig json.RawMessage
 		timeout          = defaultTraceTimeout
 	)
@@ -845,7 +855,7 @@ func (k *Keeper) traceTxWithMsg(
 	}
 
 	if traceConfig.Overrides != nil {
-		overrides = traceConfig.Overrides.EthereumConfig(types.GetEthChainConfig().ChainID)
+		chainOverrides = traceConfig.Overrides.EthereumConfig(types.GetEthChainConfig().ChainID)
 	}
 
 	logConfig := logger.Config{
@@ -854,7 +864,7 @@ func (k *Keeper) traceTxWithMsg(
 		DisableStack:     traceConfig.DisableStack,
 		EnableReturnData: traceConfig.EnableReturnData,
 		Limit:            int(traceConfig.Limit),
-		Overrides:        overrides,
+		Overrides:        chainOverrides,
 	}
 
 	sLogger := logger.NewStructLogger(&logConfig)
@@ -902,7 +912,7 @@ func (k *Keeper) traceTxWithMsg(
 	// Build EVM execution context
 	ctx = buildTraceCtx(ctx, msg.GasLimit)
 	stateDB := statedb.New(ctx, k, txConfig)
-	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, nil)
+	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, overrides)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
