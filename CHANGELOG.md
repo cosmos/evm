@@ -31,6 +31,7 @@
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
 - [\#1082](https://github.com/cosmos/evm/pull/1082) Enable incarnation cache for verify result.
 - [\#1096](https://github.com/cosmos/evm/pull/1096) Allow eth_call overrides work with static precompiles.
+- [\#1181](https://github.com/cosmos/evm/pull/1181) Support state overrides in `debug_traceCall`.
 
 ### BUG FIXES
 
