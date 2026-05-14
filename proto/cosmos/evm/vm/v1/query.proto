@@ -369,6 +369,8 @@ message QueryTraceCallRequest {
       [ (gogoproto.nullable) = false, (gogoproto.stdtime) = true ];
   // chain_id is the the eip155 chain id parsed from the requested block header
   int64 chain_id = 8;
+  // overrides contains state overrides in JSON format
+  bytes overrides = 9;
 }
 
 // QueryTraceCallResponse defines TraceCall response
