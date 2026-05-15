@@ -4,6 +4,8 @@ import (
 	stdmath "math"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -11,6 +13,16 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+func buildFuzzInputCoins(evmDenom string, amount uint64, includeOtherDenom bool) sdk.Coins {
+	input := sdk.NewCoins(sdk.NewCoin(evmDenom, math.NewIntFromUint64(amount)))
+	// Guard against uint64 wraparound for amount+1 when amount == MaxUint64.
+	if includeOtherDenom && amount < stdmath.MaxUint64 {
+		input = input.Add(sdk.NewCoin("other", math.NewIntFromUint64(amount+1))).Sort()
+	}
+
+	return input
+}
 
 func FuzzConvertCoinsDenomToExtendedDenomWithEvmParams(f *testing.F) {
 	f.Add(uint64(0), false)
@@ -27,10 +39,7 @@ func FuzzConvertCoinsDenomToExtendedDenomWithEvmParams(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, amount uint64, includeOtherDenom bool) {
-		input := sdk.NewCoins(sdk.NewCoin(coinInfo.Denom, math.NewIntFromUint64(amount)))
-		if includeOtherDenom && amount < stdmath.MaxUint64 {
-			input = input.Add(sdk.NewCoin("other", math.NewIntFromUint64(amount+1))).Sort()
-		}
+		input := buildFuzzInputCoins(coinInfo.Denom, amount, includeOtherDenom)
 
 		converted := evmtypes.ConvertCoinsDenomToExtendedDenomWithEvmParams(input, params)
 		convertedAgain := evmtypes.ConvertCoinsDenomToExtendedDenomWithEvmParams(converted, params)
@@ -50,4 +59,14 @@ func FuzzConvertCoinsDenomToExtendedDenomWithEvmParams(f *testing.F) {
 			t.Fatalf("unexpected non-evm denom amount: %s", converted.AmountOf("other"))
 		}
 	})
+}
+
+func TestBuildFuzzInputCoinsMaxUint64Guard(t *testing.T) {
+	coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+
+	inputAtMax := buildFuzzInputCoins(coinInfo.Denom, stdmath.MaxUint64, true)
+	require.Equal(t, "0", inputAtMax.AmountOf("other").String())
+
+	inputBelowMax := buildFuzzInputCoins(coinInfo.Denom, stdmath.MaxUint64-1, true)
+	require.Equal(t, math.NewIntFromUint64(stdmath.MaxUint64).String(), inputBelowMax.AmountOf("other").String())
 }
