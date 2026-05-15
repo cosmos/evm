@@ -62,16 +62,16 @@ func (s *KeeperTestSuite) TestRandomizedConvertRoundTripInvariant() {
 				}
 
 				if convertFromERC20 {
-					max := erc20Bal.Int64()
-					amount := int64(rng.Intn(int(max)) + 1)
+					maxAmount := erc20Bal.Int64()
+					amount := int64(rng.Intn(int(maxAmount)) + 1)
 					_, err = erc20Keeper.ConvertERC20(
 						ctx,
 						types.NewMsgConvertERC20(math.NewInt(amount), senderAcc, contractAddr, senderHex),
 					)
 					s.Require().NoError(err)
 				} else {
-					max := coinBal.Int64()
-					amount := int64(rng.Intn(int(max)) + 1)
+					maxAmount := coinBal.Int64()
+					amount := int64(rng.Intn(int(maxAmount)) + 1)
 					_, err = erc20Keeper.ConvertCoin(
 						ctx,
 						types.NewMsgConvertCoin(sdk.NewCoin(denom, math.NewInt(amount)), senderHex, senderAcc),

@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	stdmath "math"
 	"testing"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -27,7 +28,7 @@ func FuzzConvertCoinsDenomToExtendedDenomWithEvmParams(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, amount uint64, includeOtherDenom bool) {
 		input := sdk.NewCoins(sdk.NewCoin(coinInfo.Denom, math.NewIntFromUint64(amount)))
-		if includeOtherDenom {
+		if includeOtherDenom && amount < stdmath.MaxUint64 {
 			input = input.Add(sdk.NewCoin("other", math.NewIntFromUint64(amount+1))).Sort()
 		}
 
@@ -45,7 +46,7 @@ func FuzzConvertCoinsDenomToExtendedDenomWithEvmParams(f *testing.F) {
 		}
 
 		// Non-EVM denoms should be preserved.
-		if includeOtherDenom && converted.AmountOf("other").String() != math.NewIntFromUint64(amount+1).String() {
+		if includeOtherDenom && amount < stdmath.MaxUint64 && converted.AmountOf("other").String() != math.NewIntFromUint64(amount+1).String() {
 			t.Fatalf("unexpected non-evm denom amount: %s", converted.AmountOf("other"))
 		}
 	})
