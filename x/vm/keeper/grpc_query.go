@@ -976,11 +976,15 @@ func (k Keeper) shouldPreserveKVGasConfig(ctx sdk.Context, to *common.Address) b
 	return false
 }
 
-// buildTraceCtx builds a context for simulating or tracing transactions.
-// KV gas configs are preserved only for native precompile recipients so
-// precompile keeper/store operations are charged consistently with real
-// execution; the cosmos-sdk meter is kept infinite — EVM-level gas accounting
-// is managed by the precompile's own RunSetup meter and contract.UseGas.
+// buildTraceCtx prepares a simulation/tracing ctx. The outer cosmos meter
+// stays infinite — EVM gas is accounted by each precompile's own RunSetup
+// meter and contract.UseGas.
+//
+// preserveKVGasConfig=true (msg.To is a native precompile) lets pre-precompile
+// cosmos-sdk ops accumulate into initialGas at precompile.RunSetup so binary
+// search reserves enough budget for precompile to enter. Non-precompile
+// recipients zero KV — otherwise an indirect sub-call would over-count the
+// caller's StateDB flush, which is free on real chain (ante zeroes KV).
 func buildTraceCtx(ctx sdk.Context, gasLimit uint64, preserveKVGasConfig bool) sdk.Context {
 	if !preserveKVGasConfig {
 		ctx = evmante.BuildEvmExecutionCtx(ctx)
