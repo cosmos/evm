@@ -268,6 +268,12 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 		}
 	}
 
+	// Align eth_call's KV gas accounting with deliverTx: clear KV/transient gas
+	// configs so EVM-internal cosmos-sdk store ops (e.g. precompile.FlushToCacheCtx)
+	// don't charge gas. Otherwise eth_call would report a stricter floor than
+	// real broadcast for txs reaching native precompiles.
+	ctx = evmante.BuildEvmExecutionCtx(ctx)
+
 	var args types.TransactionArgs
 	err = json.Unmarshal(req.Args, &args)
 	if err != nil {
@@ -439,13 +445,13 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 				return true, nil, err
 			}
 			// resetting the gasMeter after increasing the sequence to have an accurate gas estimation on EVM extensions transactions
-			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit, k.shouldPreserveKVGasConfig(tmpCtx, msg.To))
+			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit)
 		}
 		// pass false to not commit StateDB
 		stateDB := statedb.New(tmpCtx, &k, txConfig)
 		rsp, err = k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, nil, false, false, cfg, txConfig, false, overrides)
 		if err != nil {
-			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas) || errors.Is(err, vm.ErrOutOfGas) {
+			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas) {
 				return true, nil, nil // Special case, raise gas limit
 			}
 			return true, nil, err // Bail out
@@ -587,7 +593,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 	// need to reset gas meter per transaction to be consistent with tx execution
 	// and avoid stacking the gas used of every predecessor in the same gas meter
 
-	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(maxPredecessorGas))
+	ctx = evmante.BuildEvmExecutionCtx(ctx).
+		WithGasMeter(storetypes.NewGasMeter(maxPredecessorGas))
 	for i, tx := range req.Predecessors {
 		ethTx := tx.AsTransaction()
 		msg, err := core.TransactionToMessage(ethTx, signer, cfg.BaseFee)
@@ -598,7 +605,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 		txConfig.TxHash = ethTx.Hash()
 		txConfig.TxIndex = uint(i)
 
-		ctx = buildTraceCtx(ctx, msg.GasLimit, k.shouldPreserveKVGasConfig(ctx, msg.To))
+		ctx = buildTraceCtx(ctx, msg.GasLimit)
 		// we ignore the error here. this endpoint, ideally, is called internally from the ETH backend, which will call this query
 		// using all previous txs in the trace transaction's block. some of those _could_ be invalid transactions.
 		stateDB := statedb.New(ctx, &k, txConfig)
@@ -899,7 +906,7 @@ func (k *Keeper) traceTxWithMsg(
 	}()
 
 	// Build EVM execution context
-	ctx = buildTraceCtx(ctx, msg.GasLimit, k.shouldPreserveKVGasConfig(ctx, msg.To))
+	ctx = buildTraceCtx(ctx, msg.GasLimit)
 	stateDB := statedb.New(ctx, k, txConfig)
 	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, nil)
 	if err != nil {
@@ -952,42 +959,10 @@ func (k Keeper) Config(ctx context.Context, _ *types.QueryConfigRequest) (*types
 	return &types.QueryConfigResponse{Config: config}, nil
 }
 
-func (k Keeper) shouldPreserveKVGasConfig(ctx sdk.Context, to *common.Address) bool {
-	if to == nil {
-		return false
-	}
-
-	params := k.GetParams(ctx)
-	if k.IsAvailableStaticPrecompile(&params, *to) {
-		return true
-	}
-
-	if k.erc20Keeper != nil {
-		_, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, *to)
-		if err != nil {
-			k.Logger(ctx).Error("ERC20 precompile lookup failed, falling back to preserve=false", "address", to.Hex(), "error", err)
-			return false
-		}
-		if found {
-			return true
-		}
-	}
-
-	return false
-}
-
-// buildTraceCtx prepares a simulation/tracing ctx. The outer cosmos meter
-// stays infinite — EVM gas is accounted by each precompile's own RunSetup
-// meter and contract.UseGas.
-//
-// preserveKVGasConfig=true (msg.To is a native precompile) lets pre-precompile
-// cosmos-sdk ops accumulate into initialGas at precompile.RunSetup so binary
-// search reserves enough budget for precompile to enter. Non-precompile
-// recipients zero KV — otherwise an indirect sub-call would over-count the
-// caller's StateDB flush, which is free on real chain (ante zeroes KV).
-func buildTraceCtx(ctx sdk.Context, gasLimit uint64, preserveKVGasConfig bool) sdk.Context {
-	if !preserveKVGasConfig {
-		ctx = evmante.BuildEvmExecutionCtx(ctx)
-	}
-	return ctx.WithGasMeter(types.NewInfiniteGasMeterWithLimit(gasLimit))
+// buildTraceCtx builds a context for simulating or tracing transactions by:
+// 1. assigning a new infinite gas meter with the provided gasLimit
+// 2. calling BuildEvmExecutionCtx to set up gas configs consistent with Ethereum transaction execution.
+func buildTraceCtx(ctx sdk.Context, gasLimit uint64) sdk.Context {
+	return evmante.BuildEvmExecutionCtx(ctx).
+		WithGasMeter(types.NewInfiniteGasMeterWithLimit(gasLimit))
 }
