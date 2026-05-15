@@ -587,8 +587,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 	// need to reset gas meter per transaction to be consistent with tx execution
 	// and avoid stacking the gas used of every predecessor in the same gas meter
 
-	ctx = evmante.BuildEvmExecutionCtx(ctx).
-		WithGasMeter(storetypes.NewGasMeter(maxPredecessorGas))
+	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(maxPredecessorGas))
 	for i, tx := range req.Predecessors {
 		ethTx := tx.AsTransaction()
 		msg, err := core.TransactionToMessage(ethTx, signer, cfg.BaseFee)
