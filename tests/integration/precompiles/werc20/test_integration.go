@@ -533,8 +533,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 		})
 	},
-		Entry("6 decimals chain", testconstants.SixDecimalsChainID),
-		Entry("12 decimals chain", testconstants.TwelveDecimalsChainID),
 		Entry("18 decimals chain", testconstants.ExampleChainID),
 	)
 

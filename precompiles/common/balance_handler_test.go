@@ -109,6 +109,14 @@ func TestParseAmount(t *testing.T) {
 			expAmt: uint256.NewInt(5),
 		},
 		{
+			name: "unrelated denom is ignored",
+			maleate: func() sdk.Event {
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin("foobar", 7)).String()
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
+			},
+			expAmt: uint256.NewInt(0),
+		},
+		{
 			name: "missing amount",
 			maleate: func() sdk.Event {
 				return sdk.NewEvent("bank")

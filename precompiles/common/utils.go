@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/holiman/uint256"
 
@@ -38,8 +39,18 @@ func ParseAmount(event sdk.Event) (*uint256.Int, error) {
 		return nil, fmt.Errorf("failed to parse coins from %q: %w", amountAttr.Value, err)
 	}
 
-	amountBigInt := amountCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()
-	amount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amountBigInt))
+	baseAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()
+	extendedAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinExtendedDenom()).BigInt()
+
+	var amountBigInt *big.Int
+	if baseAmount.Sign() > 0 {
+		amountBigInt = evmtypes.ConvertAmountTo18DecimalsBigInt(baseAmount)
+	} else {
+		// The extended denom is already represented in 18 decimals.
+		amountBigInt = extendedAmount
+	}
+
+	amount, err := utils.Uint256FromBigInt(amountBigInt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert coin amount to Uint256: %w", err)
 	}

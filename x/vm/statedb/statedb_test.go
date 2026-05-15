@@ -139,7 +139,6 @@ func (suite *StateDBTestSuite) TestDBError() {
 }
 
 func (suite *StateDBTestSuite) TestBalance() {
-	// NOTE: no need to test overflow/underflow, that is guaranteed by evm implementation.
 	testCases := []struct {
 		name       string
 		malleate   func(*statedb.StateDB)
@@ -176,6 +175,16 @@ func (suite *StateDBTestSuite) TestBalance() {
 			suite.Require().Equal(tc.expBalance, keeper.GetAccount(ctx, address).Balance)
 		})
 	}
+}
+
+func (suite *StateDBTestSuite) TestSubBalanceUnderflowPanics() {
+	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
+	db.AddBalance(address, uint256.NewInt(1), tracing.BalanceChangeUnspecified)
+
+	expectedPanic := fmt.Sprintf("state balance underflow for %s: have=%s sub=%s", address.Hex(), "1", "2")
+	suite.Require().PanicsWithValue(expectedPanic, func() {
+		db.SubBalance(address, uint256.NewInt(2), tracing.BalanceChangeUnspecified)
+	})
 }
 
 func (suite *StateDBTestSuite) TestState() {

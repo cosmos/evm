@@ -114,10 +114,12 @@ func setTestingEVMCoinInfo(eci EvmCoinInfo) error {
 		return errors.New("testing EVM coin info already set. Make sure you run the configurator's ResetTestConfig before trying to set a new evm coin info")
 	}
 
-	if eci.Decimals == EighteenDecimals.Uint32() {
-		if eci.Denom != eci.ExtendedDenom {
-			return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
-		}
+	if eci.Decimals != EighteenDecimals.Uint32() {
+		return fmt.Errorf("unsupported EVM decimals: %d (only 18 is supported)", eci.Decimals)
+	}
+
+	if eci.Denom != eci.ExtendedDenom {
+		return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
 	}
 
 	testingEvmCoinInfo = new(EvmCoinInfo)

@@ -24,7 +24,7 @@ import (
 
 func TestSetBalance(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -108,7 +108,7 @@ func TestSetBalance(t *testing.T) {
 
 func TestSendCoinsFromModuleToAccount(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -269,7 +269,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 
 func TestSendCoinsFromAccountToModule(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -432,7 +432,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 
 func TestGetBalance(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 
 	maxInt64 := int64(9223372036854775807)
 	account := sdk.AccAddress([]byte("test_address"))
@@ -579,7 +579,7 @@ func TestGetBalance(t *testing.T) {
 
 func TestSppendableCoin(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 
 	maxInt64 := int64(9223372036854775807)
 	account := sdk.AccAddress([]byte("test_address"))

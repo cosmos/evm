@@ -1,7 +1,6 @@
 package ante
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -238,41 +237,37 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 		},
 	}
 
-	for _, chainID := range []testconstants.ChainID{
-		testconstants.ExampleChainID,
-		testconstants.SixDecimalsChainID,
-	} {
-		for _, tc := range testCases {
-			s.Run(fmt.Sprintf("%s, %s", chainID.ChainID, tc.name), func() {
-				// Call the configurator to set the EVM coin required for the
-				// function to be tested.
-				configurator := evmtypes.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				s.Require().NoError(configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainID]).Configure())
+	coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Call the configurator to set the EVM coin required for the
+			// function to be tested.
+			configurator := evmtypes.NewEVMConfigurator()
+			configurator.ResetTestConfig()
+			s.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Configure())
 
-				// If decimals is not 18 decimals, we have to convert txFeeInfo to original
-				// decimals representation.
-				evmExtendedDenom := evmtypes.GetEVMCoinExtendedDenom()
+			// If decimals is not 18 decimals, we have to convert txFeeInfo to original
+			// decimals representation.
+			evmExtendedDenom := evmtypes.GetEVMCoinExtendedDenom()
 
-				coins := sdktypes.Coins{sdktypes.Coin{Denom: evmExtendedDenom, Amount: amount}}
+			coins := sdktypes.Coins{sdktypes.Coin{Denom: evmExtendedDenom, Amount: amount}}
 
-				// This struct should hold values in the original representation
-				txFeeInfo := &tx.Fee{
-					Amount:   coins,
-					GasLimit: gasLimit,
-				}
+			// This struct should hold values in the original representation
+			txFeeInfo := &tx.Fee{
+				Amount:   coins,
+				GasLimit: gasLimit,
+			}
 
-				// Function under test
-				err := evm.CheckTxFee(txFeeInfo, tc.txFee, tc.txGasLimit)
+			// Function under test
+			err := evm.CheckTxFee(txFeeInfo, tc.txFee, tc.txGasLimit)
 
-				if tc.expError != nil {
-					s.Require().Error(err)
-					s.Contains(err.Error(), tc.expError.Error())
-				} else {
-					s.Require().NoError(err)
-				}
-			})
-		}
+			if tc.expError != nil {
+				s.Require().Error(err)
+				s.Contains(err.Error(), tc.expError.Error())
+			} else {
+				s.Require().NoError(err)
+			}
+		})
 	}
 }
 

@@ -9,6 +9,9 @@ Cosmos EVM is a plug-and-play solution that adds EVM compatibility and customiza
 
 Cosmos EVM is customizable for your business use case, chain architecture, and performance needs.
 
+> [!IMPORTANT]
+> Cosmos EVM supports 18-decimal EVM gas-token chains. Non-18-decimal configurations are not supported.
+
 **Please note**: This repo is undergoing changes while the code is being audited and tested. For the time being we will
 be making v0.x releases. Some breaking changes might occur. Cosmos Labs will only mark the Cosmos EVM repository as stable with a v1
 release after the audit, key stability features and benchmarking are completed.
