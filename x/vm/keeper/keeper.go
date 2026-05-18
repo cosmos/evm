@@ -343,7 +343,6 @@ func (k *Keeper) lockedCoin(ctx sdk.Context, addr common.Address) *big.Int {
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
-	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	lockedCoins := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
 	lockedGasCoin := lockedCoins.AmountOf(types.GetEVMCoinDenom())
 

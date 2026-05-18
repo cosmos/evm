@@ -163,8 +163,8 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 	return k.SetBalanceWithLocked(ctx, addr, amount, lockedCoin.BigInt())
 }
 
-// SetBalance updates an account's balance, compare with current balance first,
-// then decide to mint or burn.
+// SetBalanceWithLocked updates an account's balance, compare with current
+// balance first, then decide to mint or burn.
 //
 // Locked must be non nil and is used to compute the final balance instead of
 // looking it up from state at set time. If you do not know the locked balance
@@ -173,6 +173,7 @@ func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amou
 	if amount == nil {
 		return nil
 	}
+
 	ctx, span := ctx.StartSpan(tracer, "SetBalanceWithLocked", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
