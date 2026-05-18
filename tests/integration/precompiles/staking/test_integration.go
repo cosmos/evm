@@ -35,7 +35,11 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 )
 
 var (
@@ -425,6 +429,90 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+				})
+			})
+
+			Context("from a vesting account", func() {
+				var (
+					vestAddr     sdk.AccAddress
+					vestPriv     *ethsecp256k1.PrivKey
+					amtLocked    math.Int
+					amtSpendable math.Int
+					preBal       math.Int
+					preSupply    math.Int
+				)
+
+				BeforeEach(func() {
+					// setup vesting account to delegate from
+					vestAddr, vestPriv = testutiltx.NewAccAddressAndKey()
+					amtLocked = math.NewInt(2e18)
+					amtSpendable = math.NewInt(2e18)
+
+					funder := s.keyring.GetKey(0)
+					startTime := s.network.GetContext().BlockTime().Unix()
+					createMsg := &vestingtypes.MsgCreateVestingAccount{
+						FromAddress: funder.AccAddr.String(),
+						ToAddress:   vestAddr.String(),
+						Amount:      sdk.NewCoins(sdk.NewCoin(s.bondDenom, amtLocked)),
+						EndTime:     startTime + 365*24*3600,
+						Delayed:     false,
+					}
+					sendMsg := banktypes.NewMsgSend(
+						funder.AccAddr, vestAddr,
+						sdk.NewCoins(sdk.NewCoin(s.bondDenom, amtSpendable)),
+					)
+					_, err := s.factory.CommitCosmosTx(funder.Priv, basefactory.CosmosTxArgs{
+						Msgs: []sdk.Msg{createMsg, sendMsg},
+					})
+					Expect(err).To(BeNil(), "error while submitting vesting setup tx")
+
+					ctx := s.network.GetContext()
+					_, ok := s.network.App.GetAccountKeeper().GetAccount(ctx, vestAddr).(*vestingtypes.ContinuousVestingAccount)
+					Expect(ok).To(BeTrue(), "expected vesting account to persist after tx commit")
+					spendable := s.network.App.GetBankKeeper().SpendableCoin(ctx, vestAddr, s.bondDenom).Amount
+					Expect(spendable).To(Equal(amtSpendable), "unexpected spendable balance after vesting setup")
+
+					preBalRes, err := s.grpcHandler.GetBalanceFromBank(vestAddr, s.bondDenom)
+					Expect(err).To(BeNil(), "error while getting pre balance")
+					preBal = preBalRes.Balance.Amount
+					Expect(preBal).To(Equal(amtLocked.Add(amtSpendable)), "expected vester pre bank balance to equal OV + extra")
+
+					preSupplyRes, err := s.grpcHandler.GetTotalSupply()
+					Expect(err).To(BeNil(), "error while getting pre supply")
+					preSupply = preSupplyRes.Supply.AmountOf(s.bondDenom)
+				})
+
+				It("should preserve bank balance and total supply when delegating within spendable", func() {
+					// delegating less than spendable balance and less than
+					// locked balance
+					delAmt := big.NewInt(1e18)
+					gasPrice := big.NewInt(1e9)
+
+					callArgs.Args = []interface{}{
+						common.BytesToAddress(vestAddr), valAddr.String(), delAmt,
+					}
+					delTxArgs := txArgs
+					delTxArgs.GasPrice = gasPrice
+
+					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeDelegate)
+					res, _, err := s.factory.CallContractAndCheckLogs(
+						vestPriv, delTxArgs, callArgs, logCheckArgs,
+					)
+					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+					Expect(s.network.NextBlock()).To(BeNil())
+
+					postBalRes, err := s.grpcHandler.GetBalanceFromBank(vestAddr, s.bondDenom)
+					Expect(err).To(BeNil(), "error while getting post balance")
+					postSupplyRes, err := s.grpcHandler.GetTotalSupply()
+					Expect(err).To(BeNil(), "error while getting post supply")
+					postBal := postBalRes.Balance.Amount
+					postSupply := postSupplyRes.Supply.AmountOf(s.bondDenom)
+
+					gasCost := new(big.Int).Mul(gasPrice, big.NewInt(res.GasUsed))
+					expBalDrop := new(big.Int).Add(delAmt, gasCost)
+					actualBalDrop := preBal.Sub(postBal).BigInt()
+					Expect(actualBalDrop).To(Equal(expBalDrop), "vesting bank balance dropped by more than delegation amount + gas")
+					Expect(postSupply).To(Equal(preSupply), "unexpected total supply after delegating from vesting account")
 				})
 			})
 

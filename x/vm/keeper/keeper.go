@@ -337,6 +337,19 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 	return result
 }
 
+// lockedCoin loads account's locked balance of the gas token.
+func (k *Keeper) lockedCoin(ctx sdk.Context, addr common.Address) *big.Int {
+	ctx, span := ctx.StartSpan(tracer, "LockedCoin", trace.WithAttributes(attribute.String("address", addr.Hex())))
+	defer span.End()
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
+	lockedCoins := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
+	lockedGasCoin := lockedCoins.AmountOf(types.GetEVMCoinDenom())
+
+	return lockedGasCoin.BigInt()
+}
+
 // GetBalance load account's balance of gas token.
 func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	ctx, span := ctx.StartSpan(tracer, "GetBalance", trace.WithAttributes(attribute.String("address", addr.Hex())))
