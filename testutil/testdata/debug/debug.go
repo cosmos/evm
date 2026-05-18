@@ -30,9 +30,8 @@ const DebugPrecompileAddress = "0x0000000000000000000000000000000000000799"
 func NewPrecompile(bankKeeper cmn.BankKeeper, evmKeeper EVMKeeper) *Precompile {
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:           storetypes.KVGasConfig(),
-			TransientKVGasConfig:  storetypes.TransientGasConfig(),
-			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		evmKeeper: evmKeeper,
 	}
@@ -76,14 +75,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 	}
 
 	// Start the balance change handler before executing the precompile.
-	var balanceHandler *cmn.BalanceHandler
-	if p.BalanceHandlerFactory != nil {
-		balanceHandler = p.BalanceHandlerFactory.NewBalanceHandler()
-	}
-
-	if balanceHandler != nil {
-		balanceHandler.BeforeBalanceChange(ctx)
-	}
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
 
 	initialGas := ctx.GasMeter().GasConsumed()
 
@@ -115,10 +107,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 	}
 
 	// Process the native balance changes after the method execution.
-	if balanceHandler != nil {
-		if err := balanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
-			return nil, err
-		}
+	if err := p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
 	}
 
 	return res, nil
@@ -144,7 +134,7 @@ func (p Precompile) Call0(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Cont
 	data := append(selector, args...)
 
 	caller := contract.Caller()
-	fmt.Printf("Execute debug precompile %s, %p\n", caller.String(), p.BalanceHandlerFactory)
+	fmt.Printf("Execute debug precompile %s\n", caller.String())
 	rsp, err := p.evmKeeper.CallEVMWithData(ctx, p.Address(), &caller, data, true)
 	fmt.Println("callback response:", rsp.Ret, err)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	errorsmod "cosmossdk.io/errors"
@@ -122,7 +123,7 @@ func NewExecErrorWithReason(revertReason []byte) *RevertError {
 	}
 	return &RevertError{
 		error:  err,
-		reason: reason,
+		reason: result,
 	}
 }
 
@@ -130,7 +131,7 @@ func NewExecErrorWithReason(revertReason []byte) *RevertError {
 // code and a binary data blob.
 type RevertError struct {
 	error
-	reason string // revert reason hex encoded
+	reason []byte // raw revert data
 }
 
 // ErrorCode returns the JSON error code for a revert.
@@ -141,5 +142,5 @@ func (e *RevertError) ErrorCode() int {
 
 // ErrorData returns the hex encoded revert reason.
 func (e *RevertError) ErrorData() interface{} {
-	return e.reason
+	return hexutil.Encode(e.reason)
 }

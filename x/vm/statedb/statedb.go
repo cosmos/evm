@@ -137,6 +137,9 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 
 // New creates a new state from a given trie.
 func New(ctx sdk.Context, keeper Keeper, txConfig TxConfig) *StateDB {
+	if ctx.EventManager() == nil {
+		ctx = ctx.WithEventManager(sdk.NewEventManager())
+	}
 	return &StateDB{
 		keeper:           keeper,
 		ctx:              ctx,
