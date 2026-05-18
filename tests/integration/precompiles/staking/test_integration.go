@@ -22,6 +22,7 @@ import (
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
 	cosmosevmutil "github.com/cosmos/evm/testutil/constants"
+	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
@@ -38,8 +39,6 @@ import (
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
-	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 )
 
 var (
