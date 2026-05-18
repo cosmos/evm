@@ -13,8 +13,8 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/slashing/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
+	"github.com/cosmos/evm/testutil/integration/evm/factory"
+	testutils "github.com/cosmos/evm/testutil/integration/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"

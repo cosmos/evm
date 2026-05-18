@@ -108,7 +108,6 @@ func NewAvailableStaticPrecompiles(
 
 	distributionPrecompile, err := distprecompile.NewPrecompile(
 		distributionKeeper,
-		bankKeeper,
 		stakingKeeper,
 		evmKeeper,
 		options.AddressCodec,
@@ -120,7 +119,6 @@ func NewAvailableStaticPrecompiles(
 	ibcTransferPrecompile, err := ics20precompile.NewPrecompile(
 		bankKeeper,
 		stakingKeeper,
-		bankKeeper,
 		transferKeeper,
 		channelKeeper,
 		evmKeeper,

@@ -5,11 +5,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	debugprecompile "github.com/cosmos/evm/evmd/tests/testdata/debug"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	"github.com/cosmos/evm/testutil/integration/os/grpc"
-	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
-	"github.com/cosmos/evm/testutil/integration/os/network"
+	debugprecompile "github.com/cosmos/evm/testutil/testdata/debug"
+	"github.com/cosmos/evm/testutil/integration/evm/factory"
+	"github.com/cosmos/evm/testutil/integration/evm/grpc"
+	testkeyring "github.com/cosmos/evm/testutil/keyring"
+	"github.com/cosmos/evm/testutil/integration/evm/network"
 
 	storetypes "cosmossdk.io/store/types"
 )
