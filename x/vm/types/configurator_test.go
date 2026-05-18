@@ -21,6 +21,21 @@ func TestEVMConfigurator(t *testing.T) {
 	require.Contains(t, err.Error(), "already sealed", "expected different error")
 }
 
+func TestEVMConfiguratorRejectsNon18Decimals(t *testing.T) {
+	for _, coinInfo := range []types.EvmCoinInfo{
+		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+		testconstants.ExampleChainCoinInfo[testconstants.TwelveDecimalsChainID],
+	} {
+		t.Run(coinInfo.DisplayDenom, func(t *testing.T) {
+			ec := types.NewEVMConfigurator().WithEVMCoinInfo(coinInfo)
+			ec.ResetTestConfig()
+
+			err := ec.Configure()
+			require.ErrorContains(t, err, "only 18 is supported")
+		})
+	}
+}
+
 func TestExtendedEips(t *testing.T) {
 	testCases := []struct {
 		name        string
