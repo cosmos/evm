@@ -13,6 +13,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/store/types"
 
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
@@ -32,15 +33,16 @@ type Precompile struct {
 	distributionKeeper distributionkeeper.Keeper
 	stakingKeeper      stakingkeeper.Keeper
 	evmKeeper          *evmkeeper.Keeper
+	addrCdc            address.Codec
 }
 
 // NewPrecompile creates a new distribution Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
 	distributionKeeper distributionkeeper.Keeper,
-	bankKeeper cmn.BankKeeper,
 	stakingKeeper stakingkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
+	addrCdc address.Codec,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
@@ -49,14 +51,14 @@ func NewPrecompile(
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                   newAbi,
-			KvGasConfig:           storetypes.KVGasConfig(),
-			TransientKVGasConfig:  storetypes.TransientGasConfig(),
-			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
+			ABI:                  newAbi,
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,
 		evmKeeper:          evmKeeper,
+		addrCdc:            addrCdc,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.
@@ -102,14 +104,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	// Start the balance change handler before executing the precompile.
-	var balanceHandler *cmn.BalanceHandler
-	if p.BalanceHandlerFactory != nil {
-		balanceHandler = p.BalanceHandlerFactory.NewBalanceHandler()
-	}
-
-	if balanceHandler != nil {
-		balanceHandler.BeforeBalanceChange(ctx)
-	}
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
@@ -162,10 +157,8 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	// Process the native balance changes after the method execution.
-	if balanceHandler != nil {
-		if err := balanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
-			return nil, err
-		}
+	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
 	}
 
 	return bz, nil

@@ -63,6 +63,7 @@ const (
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
+	// DefaultEVMChainID is the default EVM Chain ID if one is not provided
 	DefaultEVMChainID = 262144
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
@@ -99,9 +100,11 @@ const (
 	DefaultAllowUnprotectedTxs = false
 
 	// DefaultBatchRequestLimit is the default maximum batch request limit.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L67
 	DefaultBatchRequestLimit = 1000
 
 	// DefaultBatchResponseMaxSize is the default maximum batch response size.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L68
 	DefaultBatchResponseMaxSize = 25 * 1000 * 1000
 
 	// DefaultMaxOpenConnections represents the amount of open connections (unlimited = 0)

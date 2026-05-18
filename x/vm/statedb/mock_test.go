@@ -30,6 +30,10 @@ type MockKeeper struct {
 	codes    map[common.Hash][]byte
 }
 
+func (k MockKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash {
+	return common.HexToHash(addr.Hex())
+}
+
 func NewMockKeeper() *MockKeeper {
 	return &MockKeeper{
 		accounts: make(map[common.Address]MockAcount),

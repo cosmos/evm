@@ -73,6 +73,9 @@ func (p *Precompile) TransferFrom(
 // transfer is a common function that handles transfers for the ERC-20 Transfer
 // and TransferFrom methods. It executes a bank Send message. If the spender isn't
 // the sender of the transfer, it checks the allowance and updates it accordingly.
+// transfer is a common function that handles transfers for the ERC-20 Transfer
+// and TransferFrom methods. It executes a bank Send message. If the spender isn't
+// the sender of the transfer, it checks the allowance and updates it accordingly.
 func (p *Precompile) transfer(
 	ctx sdk.Context,
 	contract *vm.Contract,

@@ -20,10 +20,10 @@ import (
 // precompile needs to run which includes the ABI, Gas config.
 type Precompile struct {
 	abi.ABI
-	KvGasConfig           storetypes.GasConfig
-	TransientKVGasConfig  storetypes.GasConfig
-	address               common.Address
-	BalanceHandlerFactory *BalanceHandlerFactory
+	KvGasConfig          storetypes.GasConfig
+	TransientKVGasConfig storetypes.GasConfig
+	address              common.Address
+	balanceHandler       *BalanceHandler
 }
 
 // Operation is a type that defines if the precompile call
@@ -223,4 +223,11 @@ func (p Precompile) standardCallData(contract *vm.Contract) (method *abi.Method,
 	}
 
 	return method, nil
+}
+
+func (p *Precompile) GetBalanceHandler() *BalanceHandler {
+	if p.balanceHandler == nil {
+		p.balanceHandler = NewBalanceHandler()
+	}
+	return p.balanceHandler
 }

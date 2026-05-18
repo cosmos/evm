@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -192,7 +192,7 @@ func ParseTxResult(result *abci.ExecTxResult, tx sdk.Tx) (*ParsedTxs, error) {
 
 // ParseTxIndexerResult parse tm tx result to a format compatible with the custom tx indexer.
 func ParseTxIndexerResult(
-	txResult *tmrpctypes.ResultTx,
+	txResult *cmtrpctypes.ResultTx,
 	tx sdk.Tx,
 	getter func(*ParsedTxs) *ParsedTx,
 ) (*types.TxResult, *TxResultAdditionalFields, error) {

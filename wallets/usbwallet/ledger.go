@@ -298,7 +298,7 @@ func (w *ledgerDriver) ledgerSignTypedMessage(derivationPath gethaccounts.Deriva
 	for i, component := range derivationPath {
 		binary.BigEndian.PutUint32(path[1+4*i:], component)
 	}
-	// Create the 712 message
+	// create the 712 message
 	var payload []byte
 	payload = append(payload, path...)
 	payload = append(payload, domainHash...)

@@ -186,13 +186,13 @@ func (suite *StateDBTestSuite) TestAccount() {
 			suite.Require().NotNil(acc)
 			keeper.ForEachStorage(ctx, address, func(key, value common.Hash) bool {
 				suite.Require().Greater(len(value.Bytes()), 0)
-				return true
+				return len(value) == 0
 			})
 		}},
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
+			ctx := sdk.Context{}
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(ctx, db)
@@ -266,7 +266,7 @@ func (suite *StateDBTestSuite) TestBalance() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
+			ctx := sdk.Context{}
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -321,7 +321,7 @@ func (suite *StateDBTestSuite) TestState() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
+			ctx := sdk.Context{}
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -431,7 +431,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
+			ctx := sdk.Context{}
 			keeper := mocks.NewEVMKeeper()
 
 			{
@@ -470,7 +470,7 @@ func (suite *StateDBTestSuite) TestNestedSnapshot() {
 	value1 := common.BigToHash(big.NewInt(1))
 	value2 := common.BigToHash(big.NewInt(2))
 
-	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 
 	rev1 := db.Snapshot()
 	db.SetState(address, key, value1)
@@ -656,7 +656,7 @@ func (suite *StateDBTestSuite) TestRefund() {
 }
 
 func (suite *StateDBTestSuite) TestIterateStorage() {
-	ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
+	ctx := sdk.Context{}
 
 	key1 := common.BigToHash(big.NewInt(1))
 	value1 := common.BigToHash(big.NewInt(2))

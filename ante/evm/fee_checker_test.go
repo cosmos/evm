@@ -10,8 +10,9 @@ import (
 
 	"github.com/cosmos/evm/ante/evm"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/testutil/integration/os/network"
 	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -56,8 +57,11 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      with extension option
 	//      without extension option
 	//      london hardfork enableness
-	nw := network.New()
-	encodingConfig := nw.GetEncodingConfig()
+	chainID := uint64(config.EighteenDecimalsChainID)
+	encodingConfig := encoding.MakeConfig(chainID)
+	err := config.EvmAppOptions(chainID)
+	require.NoError(t, err)
+
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	minGasPrices := sdk.NewDecCoins(sdk.NewDecCoin(evmDenom, math.NewInt(10)))
 

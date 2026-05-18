@@ -1,7 +1,10 @@
 package evm
 
 import (
+	"math"
+
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	"github.com/cosmos/evm/mempool"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -16,20 +19,34 @@ func IncrementNonce(
 	account sdk.AccountI,
 	txNonce uint64,
 ) error {
-	nonce := account.GetSequence()
-	// we merged the nonce verification to nonce increment, so when tx includes multiple messages
+	accountNonce := account.GetSequence()
+	// we merged the accountNonce verification to accountNonce increment, so when tx includes multiple messages
 	// with same sender, they'll be accepted.
-	if txNonce != nonce {
+	if txNonce != accountNonce {
+		if txNonce > accountNonce {
+			return errorsmod.Wrapf(
+				mempool.ErrNonceGap,
+				"tx nonce: %d, account accountNonce: %d", txNonce, accountNonce,
+			)
+		}
 		return errorsmod.Wrapf(
 			errortypes.ErrInvalidSequence,
-			"invalid nonce; got %d, expected %d", txNonce, nonce,
+			"invalid nonce; got %d, expected %d", txNonce, accountNonce,
 		)
 	}
 
-	nonce++
+	// EIP-2681 / state safety: refuse to overflow beyond 2^64-1.
+	if accountNonce == math.MaxUint64 {
+		return errorsmod.Wrap(
+			errortypes.ErrInvalidSequence,
+			"nonce overflow: increment beyond 2^64-1 violates EIP-2681",
+		)
+	}
 
-	if err := account.SetSequence(nonce); err != nil {
-		return errorsmod.Wrapf(err, "failed to set sequence to %d", nonce)
+	accountNonce++
+
+	if err := account.SetSequence(accountNonce); err != nil {
+		return errorsmod.Wrapf(err, "failed to set sequence to %d", accountNonce)
 	}
 
 	accountKeeper.SetAccount(ctx, account)

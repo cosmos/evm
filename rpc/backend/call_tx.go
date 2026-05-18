@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -40,12 +42,12 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	// signers to be backwards-compatible with old transactions.
 	cfg := b.ChainConfig()
 	if cfg == nil {
-		cfg = evmtypes.DefaultChainConfig(b.chainID.Uint64()).EthereumConfig(nil)
+		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64()).EthereumConfig(nil)
 	}
 
 	signer := ethtypes.LatestSigner(cfg)
 
-	matchTx := args.ToTransaction().AsTransaction()
+	matchTx := args.ToTransaction(ethtypes.LegacyTxType)
 
 	// Before replacing the old transaction, ensure the _new_ transaction fee is reasonable.
 	price := matchTx.GasPrice()
@@ -102,7 +104,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	// RLP decode raw transaction bytes
 	tx := &ethtypes.Transaction{}
 	if err := tx.UnmarshalBinary(data); err != nil {
-		b.logger.Error("transaction decoding failed", "error", err.Error())
+		b.Logger.Error("transaction decoding failed", "error", err.Error())
 		return common.Hash{}, err
 	}
 
@@ -112,47 +114,54 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
 			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
 		}
-		if tx.ChainId().Uint64() != b.chainID.Uint64() {
-			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.chainID, tx.ChainId())
+		if tx.ChainId().Uint64() != b.EvmChainID.Uint64() {
+			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.EvmChainID, tx.ChainId())
 		}
 	}
 
 	ethereumTx := &evmtypes.MsgEthereumTx{}
-	if err := ethereumTx.FromEthereumTx(tx); err != nil {
-		b.logger.Error("transaction converting failed", "error", err.Error())
-		return common.Hash{}, err
+	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
+	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
+		b.Logger.Error("transaction converting failed", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to convert ethereum transaction: %w", err)
 	}
 
 	if err := ethereumTx.ValidateBasic(); err != nil {
-		b.logger.Debug("tx failed basic validation", "error", err.Error())
-		return common.Hash{}, err
+		b.Logger.Debug("tx failed basic validation", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to validate transaction: %w", err)
 	}
 
 	baseDenom := evmtypes.GetEVMCoinDenom()
 
-	cosmosTx, err := ethereumTx.BuildTx(b.clientCtx.TxConfig.NewTxBuilder(), baseDenom)
+	cosmosTx, err := ethereumTx.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
 	if err != nil {
-		b.logger.Error("failed to build cosmos tx", "error", err.Error())
-		return common.Hash{}, err
+		b.Logger.Error("failed to build cosmos tx", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to build cosmos tx: %w", err)
 	}
 
 	// Encode transaction by default Tx encoder
-	txBytes, err := b.clientCtx.TxConfig.TxEncoder()(cosmosTx)
+	txBytes, err := b.ClientCtx.TxConfig.TxEncoder()(cosmosTx)
 	if err != nil {
-		b.logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
-		return common.Hash{}, err
+		b.Logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
 	txHash := ethereumTx.AsTransaction().Hash()
 
-	syncCtx := b.clientCtx.WithBroadcastMode(flags.BroadcastSync)
+	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
 	if err != nil {
-		b.logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, err
+		// Check if this is a nonce gap error that was successfully queued
+		if strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
+			// Transaction was successfully queued due to nonce gap, return success to client
+			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
+			return txHash, nil
+		}
+		b.Logger.Error("failed to broadcast tx", "error", err.Error())
+		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
 	return txHash, nil
@@ -226,7 +235,7 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 	if args.Nonce == nil {
 		// get the nonce from the account retriever
 		// ignore error in case tge account doesn't exist yet
-		nonce, _ := b.getAccountNonce(*args.From, true, 0, b.logger) // #nosec G703s
+		nonce, _ := b.getAccountNonce(*args.From, true, 0, b.Logger) // #nosec G703s
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 
@@ -276,11 +285,11 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 			return args, err
 		}
 		args.Gas = &estimated
-		b.logger.Debug("estimate gas usage automatically", "gas", args.Gas)
+		b.Logger.Debug("estimate gas usage automatically", "gas", args.Gas)
 	}
 
 	if args.ChainID == nil {
-		args.ChainID = (*hexutil.Big)(b.chainID)
+		args.ChainID = (*hexutil.Big)(b.EvmChainID)
 	}
 
 	return args, nil
@@ -298,7 +307,7 @@ func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rp
 		return 0, err
 	}
 
-	header, err := b.TendermintBlockByNumber(blockNr)
+	header, err := b.CometHeaderByNumber(blockNr)
 	if err != nil {
 		// the error message imitates geth behavior
 		return 0, errors.New("header not found")
@@ -307,14 +316,14 @@ func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rp
 	req := evmtypes.EthCallRequest{
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
-		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
-		ChainId:         b.chainID.Int64(),
+		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
+		ChainId:         b.EvmChainID.Int64(),
 	}
 
 	// From ContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
-	res, err := b.queryClient.EstimateGas(rpctypes.ContextWithHeight(blockNr.Int64()), &req)
+	res, err := b.QueryClient.EstimateGas(rpctypes.ContextWithHeight(blockNr.Int64()), &req)
 	if err != nil {
 		return 0, err
 	}
@@ -333,7 +342,7 @@ func (b *Backend) DoCall(
 	if err != nil {
 		return nil, err
 	}
-	header, err := b.TendermintBlockByNumber(blockNr)
+	header, err := b.CometHeaderByNumber(blockNr)
 	if err != nil {
 		// the error message imitates geth behavior
 		return nil, errors.New("header not found")
@@ -342,8 +351,8 @@ func (b *Backend) DoCall(
 	req := evmtypes.EthCallRequest{
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
-		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
-		ChainId:         b.chainID.Int64(),
+		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
+		ChainId:         b.EvmChainID.Int64(),
 	}
 
 	// From ContextWithHeight: if the provided height is 0,
@@ -365,7 +374,7 @@ func (b *Backend) DoCall(
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	res, err := b.queryClient.EthCall(ctx, &req)
+	res, err := b.QueryClient.EthCall(ctx, &req)
 	if err != nil {
 		return nil, err
 	}

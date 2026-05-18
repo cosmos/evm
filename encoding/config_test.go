@@ -26,7 +26,7 @@ func TestTxEncoding(t *testing.T) {
 		Input:     []byte{},
 	}
 	msg := evmtypes.NewTx(&ethTxParams)
-	msg.From = addr.Hex()
+	msg.From = addr.Bytes()
 
 	ethSigner := ethtypes.LatestSignerForChainID(big.NewInt(1))
 	err := msg.Sign(ethSigner, signer)
@@ -37,7 +37,7 @@ func TestTxEncoding(t *testing.T) {
 	_, err = cfg.TxConfig.TxEncoder()(msg)
 	require.Error(t, err, "encoding failed")
 
-	// FIXME: transaction hashing is hardcoded on Tendermint:
+	// FIXME: transaction hashing is hardcoded on CometBFT:
 	// See https://github.com/cometbft/cometbft/issues/6539 for reference
 	// txHash := msg.AsTransaction().Hash()
 	// tmTx := cmttypes.Tx(bz)

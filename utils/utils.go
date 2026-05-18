@@ -1,19 +1,25 @@
 package utils
 
 import (
+	"cmp"
 	"fmt"
 	"math/big"
 	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"golang.org/x/exp/constraints"
+	"github.com/pkg/errors"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	errorsmod "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -22,6 +28,34 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
+// EthHexToCosmosAddr takes a given Hex string and derives a Cosmos SDK account address
+// from it.
+func EthHexToCosmosAddr(hexAddr string) sdk.AccAddress {
+	return EthToCosmosAddr(common.HexToAddress(hexAddr))
+}
+
+// EthToCosmosAddr converts a given Ethereum style address to an SDK address.
+func EthToCosmosAddr(addr common.Address) sdk.AccAddress {
+	return addr.Bytes()
+}
+
+// Bech32ToHexAddr converts a given Bech32 address string and converts it to
+// an Ethereum address.
+func Bech32ToHexAddr(bech32Addr string) (common.Address, error) {
+	accAddr, err := sdk.AccAddressFromBech32(bech32Addr)
+	if err != nil {
+		return common.Address{}, errorsmod.Wrapf(err, "failed to convert bech32 string to address")
+	}
+
+	return CosmosToEthAddr(accAddr), nil
+}
+
+// CosmosToEthAddr converts a given SDK account address to
+// an Ethereum address.
+func CosmosToEthAddr(accAddr sdk.AccAddress) common.Address {
+	return common.BytesToAddress(accAddr.Bytes())
+}
+
 // Bech32StringFromHexAddress takes a given Hex string and derives a Cosmos SDK account address
 // from it.
 func Bech32StringFromHexAddress(hexAddr string) string {
@@ -29,21 +63,40 @@ func Bech32StringFromHexAddress(hexAddr string) string {
 }
 
 // HexAddressFromBech32String converts a hex address to a bech32 encoded address.
-func HexAddressFromBech32String(addr string) (res common.Address, err error) {
-	if strings.Contains(addr, sdk.PrefixValidator) {
-		valAddr, err := sdk.ValAddressFromBech32(addr)
-		if err != nil {
-			return res, err
+func HexAddressFromBech32String(addr string) (common.Address, error) {
+	decodeFns := []func(string) ([]byte, error){
+		func(s string) ([]byte, error) {
+			accAddr, err := sdk.AccAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return accAddr.Bytes(), nil
+		},
+		func(s string) ([]byte, error) {
+			valAddr, err := sdk.ValAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return valAddr.Bytes(), nil
+		},
+		func(s string) ([]byte, error) {
+			consAddr, err := sdk.ConsAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return consAddr.Bytes(), nil
+		},
+	}
+
+	var lastErr error
+	for _, fn := range decodeFns {
+		bz, err := fn(addr)
+		if err == nil {
+			return common.BytesToAddress(bz), nil
 		}
-		return common.BytesToAddress(valAddr.Bytes()), nil
+		lastErr = err
 	}
-
-	accAddr, err := sdk.AccAddressFromBech32(addr)
-	if err != nil {
-		return res, err
-	}
-
-	return common.BytesToAddress(accAddr), nil
+	return common.Address{}, errorsmod.Wrapf(lastErr, "failed to convert bech32 string to address")
 }
 
 // IsSupportedKey returns true if the pubkey type is supported by the chain
@@ -137,7 +190,7 @@ func GetIBCDenomAddress(denom string) (common.Address, error) {
 }
 
 // SortSlice sorts a slice of any ordered type.
-func SortSlice[T constraints.Ordered](slice []T) {
+func SortSlice[T cmp.Ordered](slice []T) {
 	sort.Slice(slice, func(i, j int) bool {
 		return slice[i] < slice[j]
 	})
@@ -152,6 +205,52 @@ func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
 		return nil, fmt.Errorf("overflow trying to convert *big.Int (%d) to uint256.Int (%s)", i, result)
 	}
 	return result, nil
+}
+
+// CalcBaseFee calculates the basefee of the header.
+func CalcBaseFee(config *params.ChainConfig, parent *ethtypes.Header, p feemarkettypes.Params) (*big.Int, error) {
+	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
+	if !config.IsLondon(parent.Number) {
+		return new(big.Int).SetUint64(params.InitialBaseFee), nil
+	}
+	if p.ElasticityMultiplier == 0 {
+		return nil, errors.New("ElasticityMultiplier cannot be 0 as it's checked in the params validation")
+	}
+	parentGasTarget := parent.GasLimit / uint64(p.ElasticityMultiplier)
+
+	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+	minGasPrice := p.MinGasPrice.Mul(sdkmath.LegacyNewDecFromInt(factor))
+	return CalcGasBaseFee(
+		parent.GasUsed, parentGasTarget, uint64(p.BaseFeeChangeDenominator),
+		sdkmath.LegacyNewDecFromBigInt(parent.BaseFee), sdkmath.LegacyOneDec(), minGasPrice,
+	).TruncateInt().BigInt(), nil
+}
+
+func CalcGasBaseFee(gasUsed, gasTarget, baseFeeChangeDenom uint64, baseFee, minUnitGas, minGasPrice sdkmath.LegacyDec) sdkmath.LegacyDec {
+	// If the parent gasUsed is the same as the target, the baseFee remains unchanged.
+	if gasUsed == gasTarget {
+		return baseFee
+	}
+
+	if gasTarget == 0 {
+		return sdkmath.LegacyZeroDec()
+	}
+
+	num := sdkmath.LegacyNewDecFromInt(sdkmath.NewIntFromUint64(gasUsed).Sub(sdkmath.NewIntFromUint64(gasTarget)).Abs())
+	num = num.Mul(baseFee)
+	num = num.QuoInt(sdkmath.NewIntFromUint64(gasTarget))
+	num = num.QuoInt(sdkmath.NewIntFromUint64(baseFeeChangeDenom))
+
+	if gasUsed > gasTarget {
+		// If the parent block used more gas than its target, the baseFee should increase.
+		// max(1, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
+		baseFeeDelta := sdkmath.LegacyMaxDec(num, minUnitGas)
+		return baseFee.Add(baseFeeDelta)
+	}
+
+	// Otherwise if the parent block used less gas than its target, the baseFee should decrease.
+	// max(minGasPrice, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
+	return sdkmath.LegacyMaxDec(baseFee.Sub(num), minGasPrice)
 }
 
 // Bytes32ToString converts a bytes32 value to string by trimming null bytes

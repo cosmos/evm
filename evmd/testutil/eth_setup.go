@@ -1,53 +1,27 @@
 package testutil
 
 import (
-	"encoding/json"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmtypes "github.com/cometbft/cometbft/types"
 
-	dbm "github.com/cosmos/cosmos-db"
-	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
-	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil/mock"
-	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// DefaultConsensusParams defines the default Tendermint consensus params used in
-// Cosmos EVM testing.
-var DefaultConsensusParams = &tmproto.ConsensusParams{
-	Block: &tmproto.BlockParams{
-		MaxBytes: 200000,
-		MaxGas:   -1, // no limit
-	},
-	Evidence: &tmproto.EvidenceParams{
-		MaxAgeNumBlocks: 302400,
-		MaxAgeDuration:  504 * time.Hour, // 3 weeks is the max duration
-		MaxBytes:        10000,
-	},
-	Validator: &tmproto.ValidatorParams{
-		PubKeyTypes: []string{
-			cmtypes.ABCIPubKeyTypeEd25519,
-		},
-	},
-}
-
-// EthDefaultConsensusParams defines the default Tendermint consensus params used in
+// EthDefaultConsensusParams defines the default CometBFT consensus params used in
 // Cosmos EVM app testing.
 //
 // TODO: currently not used
@@ -68,58 +42,13 @@ var EthDefaultConsensusParams = &cmtypes.ConsensusParams{
 	},
 }
 
-// EthSetup initializes a new Cosmos EVM application. A Nop logger is set in EVMD.
-func EthSetup(isCheckTx bool, chainID string, evmChainID uint64, patchGenesis func(*exampleapp.EVMD, cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState) *exampleapp.EVMD {
-	return EthSetupWithDB(isCheckTx, chainID, evmChainID, patchGenesis, dbm.NewMemDB())
-}
-
-// EthSetupWithDB initializes a new EVMD. A Nop logger is set in EVMD.
-func EthSetupWithDB(isCheckTx bool, chainID string, evmChainID uint64, patchGenesis func(*exampleapp.EVMD, cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState, db dbm.DB) *exampleapp.EVMD {
-	app := exampleapp.NewExampleApp(log.NewNopLogger(),
-		db,
-		nil,
-		true,
-		simtestutil.NewAppOptionsWithFlagHome(exampleapp.DefaultNodeHome),
-		evmChainID,
-		exampleapp.EvmAppOptions,
-		baseapp.SetChainID(chainID),
-	)
-	if !isCheckTx {
-		// init chain must be called to stop deliverState from being nil
-		genesisState := NewTestGenesisState(app)
-		if patchGenesis != nil {
-			genesisState = patchGenesis(app, genesisState)
-		}
-
-		stateBytes, err := json.MarshalIndent(genesisState, "", " ")
-		if err != nil {
-			panic(err)
-		}
-
-		// Initialize the chain
-		_, err = app.InitChain(
-			&abci.RequestInitChain{
-				ChainId:         chainID,
-				Validators:      []abci.ValidatorUpdate{},
-				ConsensusParams: DefaultConsensusParams,
-				AppStateBytes:   stateBytes,
-			},
-		)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return app
-}
-
 // NewTestGenesisState generate genesis state with single validator
 //
 // It is also setting up the EVM parameters to use sensible defaults.
 //
 // TODO: are these different genesis functions necessary or can they all be refactored into one?
 // there's also other genesis state functions; some like app.DefaultGenesis() or others in test helpers only.
-func NewTestGenesisState(app *exampleapp.EVMD) cosmosevmtypes.GenesisState {
+func NewTestGenesisState(app evm.EvmApp) cosmosevmtypes.GenesisState {
 	privVal := mock.NewPV()
 	pubKey, err := privVal.GetPubKey()
 	if err != nil {

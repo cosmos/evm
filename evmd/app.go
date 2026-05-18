@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"os"
-	"sort"
 
-	corevm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
+	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
@@ -20,11 +18,12 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	cosmosevmante "github.com/cosmos/evm/ante/evm"
+	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
-	chainante "github.com/cosmos/evm/evmd/ante"
+	"github.com/cosmos/evm/evmd/ante"
+	evmmempool "github.com/cosmos/evm/mempool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
-	cosmosevmutils "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -32,7 +31,11 @@ import (
 	"github.com/cosmos/evm/x/feemarket"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	"github.com/cosmos/evm/x/ibc/transfer" // NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
+
+	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
 	"github.com/cosmos/evm/x/precisebank"
@@ -42,6 +45,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
+	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibc "github.com/cosmos/ibc-go/v10/modules/core"
@@ -57,7 +61,6 @@ import (
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
-	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
@@ -86,6 +89,7 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	testdata_pulsar "github.com/cosmos/cosmos-sdk/testutil/testdata/testpb"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -130,48 +134,25 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	cosmosevmserver "github.com/cosmos/evm/server"
 )
 
 func init() {
 	// manually update the power reduction by replacing micro (u) -> atto (a) evmos
 	sdk.DefaultPowerReduction = cosmosevmtypes.AttoPowerReduction
 
-	// get the user's home directory
-	var err error
-	DefaultNodeHome, err = clienthelpers.GetNodeHomeDirectory(".evmd")
-	if err != nil {
-		panic(err)
-	}
+	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
 }
 
 const appName = "evmd"
 
-var (
-	// DefaultNodeHome default home directories for the application daemon
-	DefaultNodeHome string
-
-	// module account permissions
-	maccPerms = map[string][]string{
-		authtypes.FeeCollectorName:     nil,
-		distrtypes.ModuleName:          nil,
-		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
-		minttypes.ModuleName:           {authtypes.Minter},
-		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
-		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
-		govtypes.ModuleName:            {authtypes.Burner},
-
-		// Cosmos EVM modules
-		evmtypes.ModuleName:         {authtypes.Minter, authtypes.Burner},
-		feemarkettypes.ModuleName:   nil,
-		erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},
-		precisebanktypes.ModuleName: {authtypes.Minter, authtypes.Burner},
-	}
-)
+// defaultNodeHome default home directories for the application daemon
+var defaultNodeHome string
 
 var (
-	_ runtime.AppI            = (*EVMD)(nil)
-	_ servertypes.Application = (*EVMD)(nil)
-	_ ibctesting.TestingApp   = (*EVMD)(nil)
+	_ runtime.AppI                = (*EVMD)(nil)
+	_ cosmosevmserver.Application = (*EVMD)(nil)
+	_ ibctesting.TestingApp       = (*EVMD)(nil)
 )
 
 // EVMD extends an ABCI application, but with most of its parameters exported.
@@ -182,6 +163,9 @@ type EVMD struct {
 	appCodec          codec.Codec
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
+	clientCtx         client.Context
+
+	pendingTxListeners []evmante.PendingTxListener
 
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
@@ -206,12 +190,14 @@ type EVMD struct {
 	// IBC keepers
 	IBCKeeper      *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	TransferKeeper transferkeeper.Keeper
+	CallbackKeeper ibccallbackskeeper.ContractKeeper
 
 	// Cosmos EVM keepers
 	FeeMarketKeeper   feemarketkeeper.Keeper
 	EVMKeeper         *evmkeeper.Keeper
 	Erc20Keeper       erc20keeper.Keeper
 	PreciseBankKeeper precisebankkeeper.Keeper
+	EVMMempool        *evmmempool.ExperimentalEVMMempool
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -232,7 +218,7 @@ func NewExampleApp(
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	evmChainID uint64,
-	evmAppOptions EVMOptionsFn,
+	evmAppOptions evmconfig.EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	encodingConfig := evmosencoding.MakeConfig(evmChainID)
@@ -250,7 +236,7 @@ func NewExampleApp(
 	// Example:
 	//
 	// bApp := baseapp.NewBaseApp(...)
-	// nonceMempool := mempool.NewSenderNonceMempool()
+	// nonceMempool := evmmempool.NewSenderNonceMempool()
 	// abciPropHandler := NewDefaultProposalHandler(nonceMempool, bApp)
 	//
 	// bApp.SetMempool(nonceMempool)
@@ -337,7 +323,7 @@ func NewExampleApp(
 	// add keepers
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
-		authtypes.ProtoBaseAccount, maccPerms,
+		authtypes.ProtoBaseAccount, evmdconfig.GetMaccPerms(),
 		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 		authAddr,
@@ -347,7 +333,7 @@ func NewExampleApp(
 		appCodec,
 		runtime.NewKVStoreService(keys[banktypes.StoreKey]),
 		app.AccountKeeper,
-		BlockedAddresses(),
+		evmdconfig.BlockedAddresses(),
 		authAddr,
 		logger,
 	)
@@ -536,21 +522,29 @@ func NewExampleApp(
 		Create Transfer Stack
 
 		transfer stack contains (from bottom to top):
+			- IBC Callbacks Middleware (with EVM ContractKeeper)
 			- ERC-20 Middleware
 			- IBC Transfer
 
 		SendPacket, since it is originating from the application to core IBC:
-		 	transferKeeper.SendPacket -> erc20.SendPacket -> channel.SendPacket
+		 	transferKeeper.SendPacket ->  erc20.SendPacket -> callbacks.SendPacket -> channel.SendPacket
 
 		RecvPacket, message that originates from core IBC and goes down to app, the flow is the other way
-			channel.RecvPacket -> erc20.OnRecvPacket -> transfer.OnRecvPacket
+			channel.RecvPacket -> callbacks.OnRecvPacket -> erc20.OnRecvPacket -> transfer.OnRecvPacket
 	*/
 
 	// create IBC module from top to bottom of stack
 	var transferStack porttypes.IBCModule
 
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
+	maxCallbackGas := uint64(1_000_000)
 	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
+	app.CallbackKeeper = ibccallbackskeeper.NewKeeper(
+		app.AccountKeeper,
+		app.EVMKeeper,
+		app.Erc20Keeper,
+	)
+	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -586,7 +580,6 @@ func NewExampleApp(
 			app.EVMKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
-			app.EvidenceKeeper,
 			app.AppCodec(),
 		),
 	)
@@ -768,6 +761,31 @@ func NewExampleApp(
 
 	app.setAnteHandler(app.txConfig, maxGasWanted)
 
+	// set the EVM priority nonce mempool
+	// If you wish to use the noop mempool, remove this codeblock
+	if evmtypes.GetChainConfig() != nil {
+		// TODO: Get the actual block gas limit from consensus parameters
+		mempoolConfig := &evmmempool.EVMMempoolConfig{
+			AnteHandler:   app.GetAnteHandler(),
+			BlockGasLimit: 100_000_000,
+		}
+
+		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
+		app.EVMMempool = evmMempool
+
+		// Set the global mempool for RPC access
+		if err := evmmempool.SetGlobalEVMMempool(evmMempool); err != nil {
+			panic(err)
+		}
+		app.SetMempool(evmMempool)
+		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
+		app.SetCheckTxHandler(checkTxHandler)
+
+		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
+		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	}
+
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
 	// defined as a chain, and have the same signature as antehandlers.
@@ -812,7 +830,7 @@ func NewExampleApp(
 }
 
 func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
-	options := chainante.HandlerOptions{
+	options := evmante.HandlerOptions{
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
@@ -825,12 +843,24 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
 		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {
 		panic(err)
 	}
 
-	app.SetAnteHandler(chainante.NewAnteHandler(options))
+	app.SetAnteHandler(ante.NewAnteHandler(options))
+}
+
+func (app *EVMD) onPendingTx(hash common.Hash) {
+	for _, listener := range app.pendingTxListeners {
+		listener(hash)
+	}
+}
+
+// RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
+func (app *EVMD) RegisterPendingTxListener(listener func(common.Hash)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
 
 func (app *EVMD) setPostHandler() {
@@ -973,7 +1003,7 @@ func (app *EVMD) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfi
 	// Register new tx routes from grpc-gateway.
 	authtx.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
-	// Register new tendermint queries routes from grpc-gateway.
+	// Register new cometbft queries routes from grpc-gateway.
 	cmtservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
 	// Register node gRPC service for grpc-gateway.
@@ -1026,9 +1056,97 @@ func (app *EVMD) GetIBCKeeper() *ibckeeper.Keeper {
 	return app.IBCKeeper
 }
 
+func (app *EVMD) GetEVMKeeper() *evmkeeper.Keeper {
+	return app.EVMKeeper
+}
+
+func (app *EVMD) GetErc20Keeper() *erc20keeper.Keeper {
+	return &app.Erc20Keeper
+}
+
+func (app *EVMD) SetErc20Keeper(erc20Keeper erc20keeper.Keeper) {
+	app.Erc20Keeper = erc20Keeper
+}
+
+func (app *EVMD) GetGovKeeper() govkeeper.Keeper {
+	return app.GovKeeper
+}
+
+func (app *EVMD) GetEvidenceKeeper() *evidencekeeper.Keeper {
+	return &app.EvidenceKeeper
+}
+
+func (app *EVMD) GetSlashingKeeper() slashingkeeper.Keeper {
+	return app.SlashingKeeper
+}
+
+func (app *EVMD) GetBankKeeper() bankkeeper.Keeper {
+	return app.BankKeeper
+}
+
+func (app *EVMD) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
+	return &app.FeeMarketKeeper
+}
+
+func (app *EVMD) GetFeeGrantKeeper() feegrantkeeper.Keeper {
+	return app.FeeGrantKeeper
+}
+
+func (app *EVMD) GetConsensusParamsKeeper() consensusparamkeeper.Keeper {
+	return app.ConsensusParamsKeeper
+}
+
+func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
+	return app.AccountKeeper
+}
+
+func (app *EVMD) GetAuthzKeeper() authzkeeper.Keeper {
+	return app.AuthzKeeper
+}
+
+func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
+	return app.DistrKeeper
+}
+
+func (app *EVMD) GetStakingKeeper() *stakingkeeper.Keeper {
+	return app.StakingKeeper
+}
+
+func (app *EVMD) GetMintKeeper() mintkeeper.Keeper {
+	return app.MintKeeper
+}
+
+func (app *EVMD) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
+	return &app.PreciseBankKeeper
+}
+
+func (app *EVMD) GetCallbackKeeper() ibccallbackskeeper.ContractKeeper {
+	return app.CallbackKeeper
+}
+
+func (app *EVMD) GetTransferKeeper() transferkeeper.Keeper {
+	return app.TransferKeeper
+}
+
+func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
+	app.TransferKeeper = transferKeeper
+}
+
+func (app *EVMD) GetMempool() sdkmempool.ExtMempool {
+	return app.EVMMempool
+}
+
+func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
+	return app.BaseApp.AnteHandler()
+}
+
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
+}
+
+func (app *EVMD) SetClientCtx(clientCtx client.Context) {
+	app.clientCtx = clientCtx
 }
 
 // AutoCliOpts returns the autocli options for the app.
@@ -1052,42 +1170,7 @@ func (app *EVMD) AutoCliOpts() autocli.AppOptions {
 	}
 }
 
-// GetMaccPerms returns a copy of the module account permissions
-func GetMaccPerms() map[string][]string {
-	return maps.Clone(maccPerms)
-}
 
-// BlockedAddresses returns all the app's blocked account addresses.
-//
-// Note, this includes:
-//   - module accounts
-//   - Ethereum's native precompiled smart contracts
-//   - Cosmos EVM' available static precompiled contracts
-func BlockedAddresses() map[string]bool {
-	blockedAddrs := make(map[string]bool)
-
-	maccPerms := GetMaccPerms()
-	accs := make([]string, 0, len(maccPerms))
-	for acc := range maccPerms {
-		accs = append(accs, acc)
-	}
-	sort.Strings(accs)
-
-	for _, acc := range accs {
-		blockedAddrs[authtypes.NewModuleAddress(acc).String()] = true
-	}
-
-	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
-	for _, addr := range corevm.PrecompiledAddressesPrague {
-		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
-	}
-
-	for _, precompile := range blockedPrecompilesHex {
-		blockedAddrs[cosmosevmutils.Bech32StringFromHexAddress(precompile)] = true
-	}
-
-	return blockedAddrs
-}
 
 // initParamsKeeper init params keeper and its subspaces
 func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino, key, tkey storetypes.StoreKey) paramskeeper.Keeper { //nolint:staticcheck

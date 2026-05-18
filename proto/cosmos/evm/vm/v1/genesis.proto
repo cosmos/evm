@@ -3,8 +3,8 @@ syntax = "proto3";
 package cosmos.evm.vm.v1;
 
 import "amino/amino.proto";
-import "gogoproto/gogo.proto";
 import "cosmos/evm/vm/v1/evm.proto";
+import "gogoproto/gogo.proto";
 
 option go_package = "github.com/cosmos/evm/x/vm/types";
 
@@ -15,6 +15,9 @@ message GenesisState {
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
   // params defines all the parameters of the module.
   Params params = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // preinstalls defines a set of predefined contracts
+  repeated Preinstall preinstalls = 3
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 

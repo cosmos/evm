@@ -19,7 +19,7 @@ max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 # EnablePreimageRecording enables tracking of SHA3 preimages in the VM
 cache-preimage = {{ .EVM.EnablePreimageRecording }}
 
-# EVMChainID defines the EVM chain ID.
+# EVMChainID is the EIP-155 compatible replay protection chain ID. This is separate from the Cosmos chain ID.
 evm-chain-id = {{ .EVM.EVMChainID }}
 
 ###############################################################################
@@ -92,6 +92,13 @@ metrics-address = "{{ .JSONRPC.MetricsAddress }}"
 
 # Upgrade height for fix of revert gas refund logic when transaction reverted.
 fix-revert-gas-refund-height = {{ .JSONRPC.FixRevertGasRefundHeight }}
+
+# Maximum number of requests in a batch.
+batch-request-limit = {{ .JSONRPC.BatchRequestLimit }}
+
+# Maximum number of bytes returned from a batched call.
+batch-response-max-size = {{ .JSONRPC.BatchResponseMaxSize }}
+
 
 # Enabled profiling in the debug namespace
 enable-profiling = {{ .JSONRPC.EnableProfiling }}

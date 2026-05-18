@@ -93,7 +93,7 @@ func (p Precompile) SetWithdrawAddress(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, delegatorHexAddr, err := NewMsgSetWithdrawAddress(args)
+	msg, delegatorHexAddr, err := NewMsgSetWithdrawAddress(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (p *Precompile) WithdrawDelegatorReward(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, delegatorHexAddr, err := NewMsgWithdrawDelegatorReward(args)
+	msg, delegatorHexAddr, err := NewMsgWithdrawDelegatorReward(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (p *Precompile) FundCommunityPool(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, depositorHexAddr, err := NewMsgFundCommunityPool(args)
+	msg, depositorHexAddr, err := NewMsgFundCommunityPool(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (p *Precompile) DepositValidatorRewardsPool(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, depositorHexAddr, err := NewMsgDepositValidatorRewardsPool(args)
+	msg, depositorHexAddr, err := NewMsgDepositValidatorRewardsPool(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}

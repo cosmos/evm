@@ -12,6 +12,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
@@ -32,6 +33,7 @@ type Precompile struct {
 	cmn.Precompile
 	govKeeper govkeeper.Keeper
 	codec     codec.Codec
+	addrCdc   address.Codec
 }
 
 // LoadABI loads the gov ABI from the embedded abi.json file
@@ -44,8 +46,8 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	govKeeper govkeeper.Keeper,
-	bankKeeper cmn.BankKeeper,
 	codec codec.Codec,
+	addrCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -54,13 +56,13 @@ func NewPrecompile(
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                   abi,
-			KvGasConfig:           storetypes.KVGasConfig(),
-			TransientKVGasConfig:  storetypes.TransientGasConfig(),
-			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
+			ABI:                  abi,
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		govKeeper: govKeeper,
 		codec:     codec,
+		addrCdc:   addrCdc,
 	}
 
 	// SetAddress defines the address of the gov precompiled contract.
@@ -103,14 +105,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	// Start the balance change handler before executing the precompile.
-	var balanceHandler *cmn.BalanceHandler
-	if p.BalanceHandlerFactory != nil {
-		balanceHandler = p.BalanceHandlerFactory.NewBalanceHandler()
-	}
-
-	if balanceHandler != nil {
-		balanceHandler.BeforeBalanceChange(ctx)
-	}
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
@@ -163,10 +158,9 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	// Process the native balance changes after the method execution.
-	if balanceHandler != nil {
-		if err := balanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
-			return nil, err
-		}
+	err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB)
+	if err != nil {
+		return nil, err
 	}
 
 	return bz, nil

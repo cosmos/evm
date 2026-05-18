@@ -1,11 +1,24 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.17;
 
+import "../../distribution/DistributionI.sol" as distribution;
 import "../../gov/IGov.sol" as gov;
 import "../../common/Types.sol" as types;
 
+interface IGovCaller {
+    function testFundCommunityPool(
+        address depositor,
+        string memory validatorAddress,
+        types.Coin[] memory amount
+    ) external returns (bool success);
+}
+
+
 contract GovCaller {
     int64 public counter;
+
+    // Enables ETH to be received with no data
+    receive() external payable {}
 
     function testSubmitProposal(
         address _proposerAddr,
@@ -205,5 +218,58 @@ contract GovCaller {
             (bool sent, ) = _randomAddr.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
+    }
+
+    function testTransferCancelFund(
+        address payable depositor,
+        uint64 _proposalId,
+        bytes calldata denom,
+        string memory validatorAddress
+    ) public payable returns (bool success) {
+        IGovCaller govDepositor = IGovCaller(depositor);
+        counter++;
+        // Send 1 wei to depositor
+        (bool sent, ) = depositor.call{value: 1}("");
+        require(sent, "Failed to send Ether to depositor");
+        // Cancel the Proposal
+        try gov.GOV_CONTRACT.cancelProposal(address(this), _proposalId) returns (bool res) {
+            require(res, "cancelProposal returned false");
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("cancelProposal failed: ", reason)));
+        } catch {
+            revert("cancelProposal failed silently");
+        }
+        // Deposit 2 wei to validator pool from proposer
+        counter++;
+        types.Coin[] memory coins = new types.Coin[](1);
+        coins[0] = types.Coin(string(denom), 2);
+        try govDepositor.testFundCommunityPool(address(depositor), validatorAddress, coins) returns (bool res) {
+            require(res, "fundCommunityPool returned false");
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("fundCommunityPool failed: ", reason)));
+        } catch {
+            revert("fundCommunityPool failed silently");
+        }
+        success = true;
+    }
+
+    /// @dev testFundCommunityPool defines a method to allow an account to directly
+    /// fund the community pool.
+    /// @param depositor The address of the depositor
+    /// @param amount The amount of coin fund community pool
+    /// @return success Whether the transaction was successful or not
+    function testFundCommunityPool(
+        address depositor,
+        string memory validatorAddress,
+        types.Coin[] memory amount
+    ) public returns (bool success) {
+        counter += 1;
+        success = distribution.DISTRIBUTION_CONTRACT.depositValidatorRewardsPool(
+            depositor,
+            validatorAddress,
+            amount
+        );
+        counter -= 1;
+        return success;
     }
 }

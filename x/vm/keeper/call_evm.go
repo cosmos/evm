@@ -26,6 +26,7 @@ func (k Keeper) CallEVM(
 	abi abi.ABI,
 	from, contract common.Address,
 	commit bool,
+	gasCap *big.Int,
 	method string,
 	args ...interface{},
 ) (*types.MsgEthereumTxResponse, error) {
@@ -37,7 +38,7 @@ func (k Keeper) CallEVM(
 		)
 	}
 
-	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit)
+	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit, gasCap)
 	if err != nil {
 		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
@@ -51,6 +52,7 @@ func (k Keeper) CallEVMWithData(
 	contract *common.Address,
 	data []byte,
 	commit bool,
+	gasCap *big.Int,
 ) (*types.MsgEthereumTxResponse, error) {
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
@@ -309,6 +311,8 @@ func (k Keeper) DerivedEVMCallWithData(
 	if res.Failed() {
 		return res, errorsmod.Wrapf(types.ErrVMExecution, "%s: ret 0x%x", res.VmError, res.Ret)
 	}
+
+	ctx.GasMeter().ConsumeGas(res.GasUsed, "apply evm message")
 
 	return res, nil
 }

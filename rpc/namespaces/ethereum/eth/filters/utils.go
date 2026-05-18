@@ -2,10 +2,10 @@ package filters
 
 import (
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"golang.org/x/exp/slices"
 )
 
 // FilterLogs creates a slice of logs matching the given criteria.

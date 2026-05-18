@@ -6,9 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	"github.com/cosmos/evm"
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/ethereum/eip712"
-	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -45,12 +45,12 @@ type signatureV2Args struct {
 // It returns the signed transaction and an error
 func CreateEIP712CosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args EIP712TxArgs,
 ) (sdk.Tx, error) {
 	builder, err := PrepareEIP712CosmosTx(
 		ctx,
-		exampleApp,
+		evmApp,
 		args,
 	)
 	return builder.GetTx(), err
@@ -61,15 +61,15 @@ func CreateEIP712CosmosTx(
 // It returns the tx builder with the signed transaction and an error
 func PrepareEIP712CosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args EIP712TxArgs,
 ) (client.TxBuilder, error) {
 	txArgs := args.CosmosTxArgs
 
 	from := sdk.AccAddress(txArgs.Priv.PubKey().Address().Bytes())
-	accNumber := exampleApp.AccountKeeper.GetAccount(ctx, from).GetAccountNumber()
+	accNumber := evmApp.GetAccountKeeper().GetAccount(ctx, from).GetAccountNumber()
 
-	nonce, err := exampleApp.AccountKeeper.GetSequence(ctx, from)
+	nonce, err := evmApp.GetAccountKeeper().GetSequence(ctx, from)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func PrepareEIP712CosmosTx(
 
 	return signCosmosEIP712Tx(
 		ctx,
-		exampleApp,
+		evmApp,
 		args,
 		builder,
 		typedData,
@@ -118,7 +118,7 @@ func PrepareEIP712CosmosTx(
 // the provided private key and the typed data
 func signCosmosEIP712Tx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args EIP712TxArgs,
 	builder authtx.ExtensionOptionsTxBuilder,
 	data apitypes.TypedData,
@@ -126,7 +126,7 @@ func signCosmosEIP712Tx(
 	priv := args.CosmosTxArgs.Priv
 
 	from := sdk.AccAddress(priv.PubKey().Address().Bytes())
-	nonce, err := exampleApp.AccountKeeper.GetSequence(ctx, from)
+	nonce, err := evmApp.GetAccountKeeper().GetSequence(ctx, from)
 	if err != nil {
 		return nil, err
 	}

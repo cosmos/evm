@@ -103,6 +103,20 @@ func (k Keeper) mintExtendedCoin(
 ) error {
 	moduleAddr := k.ak.GetModuleAddress(recipientModuleName)
 
+	// Don't create fractional balances for the precisebank module account itself
+	// The precisebank module account is the reserve and should not have fractional balances
+	if recipientModuleName == types.ModuleName {
+		// For the precisebank module account, just mint the integer coins directly
+		integerMintAmount := amt.Quo(types.ConversionFactor())
+		if integerMintAmount.IsPositive() {
+			integerMintCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerMintAmount)
+			if err := k.bk.MintCoins(ctx, recipientModuleName, sdk.NewCoins(integerMintCoin)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	// Get current module account fractional balance - 0 if not found
 	fractionalAmount := k.GetFractionalBalance(ctx, moduleAddr)
 

@@ -10,6 +10,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/utils"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -77,7 +78,7 @@ func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
 }
 
 // NewMsgSetWithdrawAddress creates a new MsgSetWithdrawAddress instance.
-func NewMsgSetWithdrawAddress(args []interface{}) (*distributiontypes.MsgSetWithdrawAddress, common.Address, error) {
+func NewMsgSetWithdrawAddress(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgSetWithdrawAddress, common.Address, error) {
 	if len(args) != 2 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -98,8 +99,12 @@ func NewMsgSetWithdrawAddress(args []interface{}) (*distributiontypes.MsgSetWith
 		}
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &distributiontypes.MsgSetWithdrawAddress{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 		WithdrawAddress:  withdrawerAddress,
 	}
 
@@ -107,7 +112,7 @@ func NewMsgSetWithdrawAddress(args []interface{}) (*distributiontypes.MsgSetWith
 }
 
 // NewMsgWithdrawDelegatorReward creates a new MsgWithdrawDelegatorReward instance.
-func NewMsgWithdrawDelegatorReward(args []interface{}) (*distributiontypes.MsgWithdrawDelegatorReward, common.Address, error) {
+func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgWithdrawDelegatorReward, common.Address, error) {
 	if len(args) != 2 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -119,8 +124,12 @@ func NewMsgWithdrawDelegatorReward(args []interface{}) (*distributiontypes.MsgWi
 
 	validatorAddress, _ := args[1].(string)
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &distributiontypes.MsgWithdrawDelegatorReward{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 		ValidatorAddress: validatorAddress,
 	}
 
@@ -148,7 +157,7 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 }
 
 // NewMsgFundCommunityPool creates a new NewMsgFundCommunityPool message.
-func NewMsgFundCommunityPool(args []interface{}) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+func NewMsgFundCommunityPool(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
 	emptyAddr := common.Address{}
 	if len(args) != 2 {
 		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
@@ -169,8 +178,12 @@ func NewMsgFundCommunityPool(args []interface{}) (*distributiontypes.MsgFundComm
 		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
 	}
 
+	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
+	}
 	msg := &distributiontypes.MsgFundCommunityPool{
-		Depositor: sdk.AccAddress(depositorAddress.Bytes()).String(),
+		Depositor: depAddr,
 		Amount:    amt,
 	}
 
@@ -178,7 +191,7 @@ func NewMsgFundCommunityPool(args []interface{}) (*distributiontypes.MsgFundComm
 }
 
 // NewMsgDepositValidatorRewardsPool creates a new MsgDepositValidatorRewardsPool message.
-func NewMsgDepositValidatorRewardsPool(args []interface{}) (*distributiontypes.MsgDepositValidatorRewardsPool, common.Address, error) {
+func NewMsgDepositValidatorRewardsPool(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgDepositValidatorRewardsPool, common.Address, error) {
 	if len(args) != 3 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
 	}
@@ -200,8 +213,13 @@ func NewMsgDepositValidatorRewardsPool(args []interface{}) (*distributiontypes.M
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, err.Error())
 	}
 
+	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
+	}
+
 	msg := &distributiontypes.MsgDepositValidatorRewardsPool{
-		Depositor:        sdk.AccAddress(depositorAddress.Bytes()).String(),
+		Depositor:        depAddr,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
 	}
@@ -280,7 +298,7 @@ func NewValidatorSlashesRequest(method *abi.Method, args []interface{}) (*distri
 
 // NewDelegationRewardsRequest creates a new QueryDelegationRewardsRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegationRewardsRequest(args []interface{}) (*distributiontypes.QueryDelegationRewardsRequest, error) {
+func NewDelegationRewardsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegationRewardsRequest, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -292,15 +310,19 @@ func NewDelegationRewardsRequest(args []interface{}) (*distributiontypes.QueryDe
 
 	validatorAddress, _ := args[1].(string)
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegationRewardsRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 		ValidatorAddress: validatorAddress,
 	}, nil
 }
 
 // NewDelegationTotalRewardsRequest creates a new QueryDelegationTotalRewardsRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegationTotalRewardsRequest(args []interface{}) (*distributiontypes.QueryDelegationTotalRewardsRequest, error) {
+func NewDelegationTotalRewardsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegationTotalRewardsRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -310,14 +332,18 @@ func NewDelegationTotalRewardsRequest(args []interface{}) (*distributiontypes.Qu
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegationTotalRewardsRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 	}, nil
 }
 
 // NewDelegatorValidatorsRequest creates a new QueryDelegatorValidatorsRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegatorValidatorsRequest(args []interface{}) (*distributiontypes.QueryDelegatorValidatorsRequest, error) {
+func NewDelegatorValidatorsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegatorValidatorsRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -327,14 +353,18 @@ func NewDelegatorValidatorsRequest(args []interface{}) (*distributiontypes.Query
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegatorValidatorsRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 	}, nil
 }
 
 // NewDelegatorWithdrawAddressRequest creates a new QueryDelegatorWithdrawAddressRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegatorWithdrawAddressRequest(args []interface{}) (*distributiontypes.QueryDelegatorWithdrawAddressRequest, error) {
+func NewDelegatorWithdrawAddressRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegatorWithdrawAddressRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -344,8 +374,12 @@ func NewDelegatorWithdrawAddressRequest(args []interface{}) (*distributiontypes.
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegatorWithdrawAddressRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 	}, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -19,11 +20,11 @@ import (
 
 // TraceTransaction returns the structured logs created during the execution of EVM
 // and returns them as a JSON object.
-func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfig) (interface{}, error) {
+func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfig) (interface{}, error) {
 	// Get transaction by hash
 	transaction, additional, err := b.GetTxByEthHash(hash)
 	if err != nil {
-		b.logger.Debug("tx not found", "hash", hash)
+		b.Logger.Debug("tx not found", "hash", hash)
 		return nil, err
 	}
 
@@ -32,9 +33,9 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		return nil, errors.New("genesis is not traceable")
 	}
 
-	blk, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(transaction.Height))
+	blk, err := b.CometBlockByNumber(rpctypes.BlockNumber(transaction.Height))
 	if err != nil {
-		b.logger.Debug("block not found", "height", transaction.Height)
+		b.Logger.Debug("block not found", "height", transaction.Height)
 		return nil, err
 	}
 
@@ -44,7 +45,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	}
 	txsLen := uint32(len(blk.Block.Txs)) // #nosec G115 -- checked for int overflow already
 	if txsLen < transaction.TxIndex {
-		b.logger.Debug("tx index out of bounds", "index", transaction.TxIndex, "hash", hash.String(), "height", blk.Block.Height)
+		b.Logger.Debug("tx index out of bounds", "index", transaction.TxIndex, "hash", hash.String(), "height", blk.Block.Height)
 		return nil, fmt.Errorf("transaction not included in block %v", blk.Block.Height)
 	}
 
@@ -52,7 +53,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	for i := 0; i < int(transaction.TxIndex); i++ {
 		predecessorTx, txAdditional, err := b.GetTxByTxIndex(blk.Block.Height, uint(i))
 		if err != nil {
-			b.logger.Debug("failed to get tx by index",
+			b.Logger.Debug("failed to get tx by index",
 				"height", blk.Block.Height,
 				"index", i,
 				"error", err.Error())
@@ -61,10 +62,10 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 
 		if txAdditional != nil {
 			// This is a derived tx, fetch all derived txs from events in this Cosmos tx
-			blockRes, err := b.rpcClient.BlockResults(b.ctx, &blk.Block.Height)
+			blockRes, err := b.RPCClient.BlockResults(b.Ctx, &blk.Block.Height)
 			if err == nil && i < len(blockRes.TxsResults) {
 				txResult := blockRes.TxsResults[i]
-				cosmosTx, err := b.clientCtx.TxConfig.TxDecoder()(blk.Block.Txs[i])
+				cosmosTx, err := b.ClientCtx.TxConfig.TxDecoder()(blk.Block.Txs[i])
 				if err == nil {
 					parsedTxs, err := rpctypes.ParseTxResult(txResult, cosmosTx)
 					if err == nil {
@@ -99,9 +100,9 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		}
 
 		// Fallback: decode as normal Cosmos tx
-		tx, err := b.clientCtx.TxConfig.TxDecoder()(blk.Block.Txs[i])
+		tx, err := b.ClientCtx.TxConfig.TxDecoder()(blk.Block.Txs[i])
 		if err != nil {
-			b.logger.Debug("failed to decode transaction in block",
+			b.Logger.Debug("failed to decode transaction in block",
 				"height", blk.Block.Height,
 				"index", i,
 				"error", err.Error())
@@ -119,9 +120,9 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		}
 	}
 
-	tx, err := b.clientCtx.TxConfig.TxDecoder()(blk.Block.Txs[transaction.TxIndex])
+	tx, err := b.ClientCtx.TxConfig.TxDecoder()(blk.Block.Txs[transaction.TxIndex])
 	if err != nil {
-		b.logger.Debug("tx not found", "hash", hash)
+		b.Logger.Debug("tx not found", "hash", hash)
 		return nil, err
 	}
 
@@ -140,7 +141,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	// For derived transactions, parse all derived txs from the current Cosmos tx's events
 	if additional != nil {
 		// This is a derived tx, fetch all derived txs from events in this Cosmos tx
-		blockRes, err := b.rpcClient.BlockResults(b.ctx, &blk.Block.Height)
+		blockRes, err := b.RPCClient.BlockResults(b.Ctx, &blk.Block.Height)
 		if err == nil && int(transaction.TxIndex) < len(blockRes.TxsResults) {
 			txResult := blockRes.TxsResults[transaction.TxIndex]
 			parsedTxs, err := rpctypes.ParseTxResult(txResult, tx)
@@ -180,23 +181,23 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	if additional == nil {
 		ethMessage, ok = tx.GetMsgs()[transaction.MsgIndex].(*evmtypes.MsgEthereumTx)
 		if !ok {
-			b.logger.Debug("invalid transaction type", "type", fmt.Sprintf("%T", tx.GetMsgs()[transaction.MsgIndex]))
+			b.Logger.Debug("invalid transaction type", "type", fmt.Sprintf("%T", tx.GetMsgs()[transaction.MsgIndex]))
 			return nil, fmt.Errorf("invalid transaction type %T", tx.GetMsgs()[transaction.MsgIndex])
 		}
 	} else {
 		ethMessage = b.parseDerivedTxFromAdditionalFields(additional)
 		if ethMessage == nil {
-			b.logger.Error("failed to get derived eth msg from additional fields")
+			b.Logger.Error("failed to get derived eth msg from additional fields")
 			return nil, fmt.Errorf("failed to get derived eth msg from additional fields")
 		}
 	}
 
-	nc, ok := b.clientCtx.Client.(tmrpcclient.NetworkClient)
+	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
 		return nil, errors.New("invalid rpc client")
 	}
 
-	cp, err := nc.ConsensusParams(b.ctx, &blk.Block.Height)
+	cp, err := nc.ConsensusParams(b.Ctx, &blk.Block.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -208,12 +209,12 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		BlockTime:       blk.Block.Time,
 		BlockHash:       common.Bytes2Hex(blk.BlockID.Hash),
 		ProposerAddress: sdk.ConsAddress(blk.Block.ProposerAddress),
-		ChainId:         b.chainID.Int64(),
+		ChainId:         b.EvmChainID.Int64(),
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
 	if config != nil {
-		traceTxRequest.TraceConfig = config
+		traceTxRequest.TraceConfig = b.convertConfig(config)
 	}
 
 	// minus one to get the context of block beginning
@@ -222,7 +223,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		// 0 is a special value in `ContextWithHeight`
 		contextHeight = 1
 	}
-	traceResult, err := b.queryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
+	traceResult, err := b.QueryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -238,11 +239,20 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	return decodedResult, nil
 }
 
+func (b *Backend) convertConfig(config *rpctypes.TraceConfig) *evmtypes.TraceConfig {
+	if config == nil {
+		return &evmtypes.TraceConfig{}
+	}
+	cfg := config.TraceConfig
+	cfg.TracerJsonConfig = string(config.TracerConfig)
+	return &cfg
+}
+
 // TraceBlock configures a new tracer according to the provided configuration, and
 // executes all the transactions contained within. The return value will be one item
 // per transaction, dependent on the requested tracer.
 func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
-	config *evmtypes.TraceConfig,
+	config *rpctypes.TraceConfig,
 	block *tmrpctypes.ResultBlock,
 ) ([]*evmtypes.TxTraceResult, error) {
 	txs := block.Block.Txs
@@ -253,13 +263,22 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		return []*evmtypes.TxTraceResult{}, nil
 	}
 
-	txDecoder := b.clientCtx.TxConfig.TxDecoder()
+	blockRes, err := b.CometBlockResultByNumber(&block.Block.Height)
+	if err != nil {
+		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
+		return nil, nil
+	}
+	txDecoder := b.ClientCtx.TxConfig.TxDecoder()
 
 	var txsMessages []*evmtypes.MsgEthereumTx
 	for i, tx := range txs {
+		if !rpctypes.TxSucessOrExpectedFailure(blockRes.TxsResults[i]) {
+			b.Logger.Debug("invalid tx result code", "cosmos-hash", hexutil.Encode(tx.Hash()))
+			continue
+		}
 		decodedTx, err := txDecoder(tx)
 		if err != nil {
-			b.logger.Error("failed to decode transaction", "hash", txs[i].Hash(), "error", err.Error())
+			b.Logger.Error("failed to decode transaction", "hash", txs[i].Hash(), "error", err.Error())
 			continue
 		}
 
@@ -281,28 +300,28 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 	}
 	ctxWithHeight := rpctypes.ContextWithHeight(int64(contextHeight))
 
-	nc, ok := b.clientCtx.Client.(tmrpcclient.NetworkClient)
+	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
 		return nil, errors.New("invalid rpc client")
 	}
 
-	cp, err := nc.ConsensusParams(b.ctx, &block.Block.Height)
+	cp, err := nc.ConsensusParams(b.Ctx, &block.Block.Height)
 	if err != nil {
 		return nil, err
 	}
 
 	traceBlockRequest := &evmtypes.QueryTraceBlockRequest{
 		Txs:             txsMessages,
-		TraceConfig:     config,
+		TraceConfig:     b.convertConfig(config),
 		BlockNumber:     block.Block.Height,
 		BlockTime:       block.Block.Time,
 		BlockHash:       common.Bytes2Hex(block.BlockID.Hash),
 		ProposerAddress: sdk.ConsAddress(block.Block.ProposerAddress),
-		ChainId:         b.chainID.Int64(),
+		ChainId:         b.EvmChainID.Int64(),
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
-	res, err := b.queryClient.TraceBlock(ctxWithHeight, traceBlockRequest)
+	res, err := b.QueryClient.TraceBlock(ctxWithHeight, traceBlockRequest)
 	if err != nil {
 		return nil, err
 	}

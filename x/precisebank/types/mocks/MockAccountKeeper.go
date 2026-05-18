@@ -231,7 +231,8 @@ func (_c *AccountKeeper_GetSequence_Call) RunAndReturn(run func(context.Context,
 func NewAccountKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *AccountKeeper {
+},
+) *AccountKeeper {
 	mock := &AccountKeeper{}
 	mock.Mock.Test(t)
 

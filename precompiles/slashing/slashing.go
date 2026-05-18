@@ -12,9 +12,11 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
@@ -30,6 +32,8 @@ var f embed.FS
 type Precompile struct {
 	cmn.Precompile
 	slashingKeeper slashingkeeper.Keeper
+	consCodec      runtime.ConsensusAddressCodec
+	valCodec       runtime.ValidatorAddressCodec
 }
 
 // LoadABI loads the slashing ABI from the embedded abi.json file
@@ -42,7 +46,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	slashingKeeper slashingkeeper.Keeper,
-	bankKeeper cmn.BankKeeper,
+	valCdc, consCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -51,12 +55,13 @@ func NewPrecompile(
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                   abi,
-			KvGasConfig:           storetypes.KVGasConfig(),
-			TransientKVGasConfig:  storetypes.TransientGasConfig(),
-			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
+			ABI:                  abi,
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		slashingKeeper: slashingKeeper,
+		valCodec:       valCdc,
+		consCodec:      consCdc,
 	}
 
 	// SetAddress defines the address of the slashing precompiled contract.
@@ -99,14 +104,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	// Start the balance change handler before executing the precompile.
-	var balanceHandler *cmn.BalanceHandler
-	if p.BalanceHandlerFactory != nil {
-		balanceHandler = p.BalanceHandlerFactory.NewBalanceHandler()
-	}
-
-	if balanceHandler != nil {
-		balanceHandler.BeforeBalanceChange(ctx)
-	}
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
@@ -121,6 +119,8 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		bz, err = p.GetSigningInfo(ctx, method, contract, args)
 	case GetSigningInfosMethod:
 		bz, err = p.GetSigningInfos(ctx, method, contract, args)
+	case GetParamsMethod:
+		bz, err = p.GetParams(ctx, method, contract, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
@@ -136,10 +136,8 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	// Process the native balance changes after the method execution.
-	if balanceHandler != nil {
-		if err := balanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
-			return nil, err
-		}
+	if err := p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
 	}
 
 	return bz, nil

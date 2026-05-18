@@ -44,7 +44,7 @@ func (p Precompile) CreateValidator(
 	if err != nil {
 		return nil, err
 	}
-	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom)
+	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (p *Precompile) Delegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (p Precompile) Undelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (p Precompile) Redelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func (p Precompile) CancelUnbondingDelegation(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}

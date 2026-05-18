@@ -10,8 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
-	rpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-
+	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/server/config"
 
 	"cosmossdk.io/log"
@@ -32,7 +31,7 @@ func newTestWebsocketServer() *websocketsServer {
 		wsAddr:         cfg.JSONRPC.WsAddress,
 		certFile:       cfg.TLS.CertificatePath,
 		keyFile:        cfg.TLS.KeyPath,
-		api:            newPubSubAPI(client.Context{}, log.NewNopLogger(), &rpcclient.WSClient{}),
+		api:            newPubSubAPI(client.Context{}, log.NewNopLogger(), &stream.RPCStream{}),
 		logger:         log.NewNopLogger(),
 		allowedOrigins: []string{"*"},
 	}

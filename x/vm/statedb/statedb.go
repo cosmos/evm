@@ -178,8 +178,6 @@ func (s *StateDB) MultiStoreSnapshot() int {
 func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
 	s.snapshotter.RevertToSnapshot(snapshot)
 	s.writeCache = func() {
-		// rollback the events to the ones
-		// on the snapshot
 		s.ctx.EventManager().EmitEvents(events)
 		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}
@@ -315,6 +313,15 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 		return stateObject.GetCommittedState(hash)
 	}
 	return common.Hash{}
+}
+
+// GetStateAndCommittedState returns the current value and the original value.
+func (s *StateDB) GetStateAndCommittedState(addr common.Address, hash common.Hash) (common.Hash, common.Hash) {
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.GetState(hash), stateObject.GetCommittedState(hash)
+	}
+	return common.Hash{}, common.Hash{}
 }
 
 // GetRefund returns the current value of the refund counter.

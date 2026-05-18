@@ -3,7 +3,7 @@ package evmd
 import (
 	"encoding/json"
 
-	"github.com/cosmos/evm/cmd/evmd/config"
+	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -23,11 +23,12 @@ type GenesisState map[string]json.RawMessage
 
 // NewEVMGenesisState returns the default genesis state for the EVM module.
 //
-// NOTE: for the example chain implementation we need to set the default EVM denomination
-// and enable ALL precompiles.
+// NOTE: for the example chain implementation we need to set the default EVM denomination,
+// enable ALL precompiles, and include default preinstalls.
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Preinstalls = evmtypes.DefaultPreinstalls
 
 	return evmGenState
 }

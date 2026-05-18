@@ -4,11 +4,11 @@ package cosmos.evm.vm.v1;
 
 import "amino/amino.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/evm/vm/v1/evm.proto";
+import "cosmos/evm/vm/v1/tx.proto";
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
-import "cosmos/evm/vm/v1/evm.proto";
-import "cosmos/evm/vm/v1/tx.proto";
 
 option go_package = "github.com/cosmos/evm/x/vm/types";
 

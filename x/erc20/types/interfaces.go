@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,15 +44,15 @@ type EVMKeeper interface {
 	ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit, internal bool) (*evmtypes.MsgEthereumTxResponse, error)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
 	IsAvailableStaticPrecompile(params *evmtypes.Params, address common.Address) bool
-	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
-	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetCode(ctx sdk.Context, hash common.Hash) []byte
 	SetCode(ctx sdk.Context, hash []byte, bytecode []byte)
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
 }
 
-type ERC20Keeper interface {
+type Erc20Keeper interface {
 	OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet, ack exported.Acknowledgement) exported.Acknowledgement
 	OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Packet, data transfertypes.FungibleTokenPacketData, ack channeltypes.Acknowledgement) error
 	OnTimeoutPacket(ctx sdk.Context, packet channeltypes.Packet, data transfertypes.FungibleTokenPacketData) error

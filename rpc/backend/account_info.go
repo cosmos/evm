@@ -24,7 +24,7 @@ import (
 
 // GetCode returns the contract code at the given address and block number.
 func (b *Backend) GetCode(address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
-	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (b *Backend) GetCode(address common.Address, blockNrOrHash rpctypes.BlockNu
 		Address: address.String(),
 	}
 
-	res, err := b.queryClient.Code(rpctypes.ContextWithHeight(blockNum.Int64()), req)
+	res, err := b.QueryClient.Code(rpctypes.ContextWithHeight(blockNum.Int64()), req)
 	if err != nil {
 		return nil, err
 	}
@@ -43,14 +43,14 @@ func (b *Backend) GetCode(address common.Address, blockNrOrHash rpctypes.BlockNu
 
 // GetProof returns an account object with proof and any storage proofs
 func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccountResult, error) {
-	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
 
 	height := int64(blockNum)
 
-	_, err = b.TendermintBlockByNumber(blockNum)
+	_, err = b.CometHeaderByNumber(blockNum)
 	if err != nil {
 		// the error message imitates geth behavior
 		return nil, errors.New("header not found")
@@ -71,14 +71,14 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 	}
 
 	ctx := rpctypes.ContextWithHeight(height)
-	clientCtx := b.clientCtx.WithHeight(height)
+	clientCtx := b.ClientCtx.WithHeight(height)
 
 	// query storage proofs
 	storageProofs := make([]rpctypes.StorageResult, len(storageKeys))
 
 	for i, key := range storageKeys {
 		hexKey := common.HexToHash(key)
-		valueBz, proof, err := b.queryClient.GetProof(clientCtx, evmtypes.StoreKey, evmtypes.StateKey(address, hexKey.Bytes()))
+		valueBz, proof, err := b.QueryClient.GetProof(clientCtx, evmtypes.StoreKey, evmtypes.StateKey(address, hexKey.Bytes()))
 		if err != nil {
 			return nil, err
 		}
@@ -95,14 +95,14 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 		Address: address.String(),
 	}
 
-	res, err := b.queryClient.Account(ctx, req)
+	res, err := b.QueryClient.Account(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	// query account proofs
 	accountKey := bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, address.Bytes()...))
-	_, proof, err := b.queryClient.GetProof(clientCtx, authtypes.StoreKey, accountKey)
+	_, proof, err := b.QueryClient.GetProof(clientCtx, authtypes.StoreKey, accountKey)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 
 // GetStorageAt returns the contract storage at the given address, block number, and key.
 func (b *Backend) GetStorageAt(address common.Address, key string, blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
-	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (b *Backend) GetStorageAt(address common.Address, key string, blockNrOrHash
 		Key:     key,
 	}
 
-	res, err := b.queryClient.Storage(rpctypes.ContextWithHeight(blockNum.Int64()), req)
+	res, err := b.QueryClient.Storage(rpctypes.ContextWithHeight(blockNum.Int64()), req)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (b *Backend) GetStorageAt(address common.Address, key string, blockNrOrHash
 
 // GetBalance returns the provided account's *spendable* balance up to the provided block number.
 func (b *Backend) GetBalance(address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (*hexutil.Big, error) {
-	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
@@ -155,12 +155,12 @@ func (b *Backend) GetBalance(address common.Address, blockNrOrHash rpctypes.Bloc
 		Address: address.String(),
 	}
 
-	_, err = b.TendermintBlockByNumber(blockNum)
+	_, err = b.CometHeaderByNumber(blockNum)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := b.queryClient.Balance(rpctypes.ContextWithHeight(blockNum.Int64()), req)
+	res, err := b.QueryClient.Balance(rpctypes.ContextWithHeight(blockNum.Int64()), req)
 	if err != nil {
 		return nil, err
 	}
@@ -187,10 +187,7 @@ func (b *Backend) GetTransactionCount(address common.Address, blockNum rpctypes.
 	}
 	height := blockNum.Int64()
 
-	if bn > math.MaxInt64 {
-		return &n, errors.New("block number overflow")
-	}
-	currentHeight := int64(bn)
+	currentHeight := int64(bn) //#nosec G115 -- checked for int overflow already
 	if height > currentHeight {
 		return &n, errorsmod.Wrapf(
 			sdkerrors.ErrInvalidHeight,
@@ -200,16 +197,16 @@ func (b *Backend) GetTransactionCount(address common.Address, blockNum rpctypes.
 	}
 	// Get nonce (sequence) from account
 	from := sdk.AccAddress(address.Bytes())
-	accRet := b.clientCtx.AccountRetriever
+	accRet := b.ClientCtx.AccountRetriever
 
-	err = accRet.EnsureExists(b.clientCtx, from)
+	err = accRet.EnsureExists(b.ClientCtx, from)
 	if err != nil {
 		// account doesn't exist yet, return 0
 		return &n, nil
 	}
 
 	includePending := blockNum == rpctypes.EthPendingBlockNumber
-	nonce, err := b.getAccountNonce(address, includePending, blockNum.Int64(), b.logger)
+	nonce, err := b.getAccountNonce(address, includePending, blockNum.Int64(), b.Logger)
 	if err != nil {
 		return nil, err
 	}

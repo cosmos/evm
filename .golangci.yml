@@ -64,6 +64,9 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - revive
+        text: avoid meaningless package names
+      - linters:
           - gosec
         text: Use of weak random number generator
       - linters:
@@ -82,8 +85,16 @@ linters:
           - staticcheck
         path: migrations
         text: 'SA1019:'
+      - linters:
+          - staticcheck
+        path: ^tests/integration/
+      - linters:
+          - stylecheck
+        text: 'ST1001:'
     paths:
       - x/vm/core
+      - mempool/txpool
+      - mempool/miner
       - third_party$
       - builtin$
       - examples$
@@ -112,6 +123,8 @@ formatters:
     generated: lax
     paths:
       - x/vm/core
+      - mempool/txpool
+      - mempool/miner
       - third_party$
       - builtin$
       - examples$

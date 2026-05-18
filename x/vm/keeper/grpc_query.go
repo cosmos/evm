@@ -29,6 +29,7 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -40,6 +41,8 @@ const (
 	// maxTracePredecessors is the maximum amount of transaction predecessors to be included in a trace Tx request.
 	// This limit is chosen as a sensible default to prevent unbounded predecessor iteration.
 	maxTracePredecessors = 10_000
+
+	maxPredecessorGas = uint64(50_000_000)
 )
 
 // Account implements the Query/Account gRPC method. The method returns the
@@ -245,15 +248,15 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, false, false)
-	if err != nil {
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	msg := args.ToMessage(cfg.BaseFee, false, false)
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// pass false to not commit StateDB
-	res, err := k.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig, false)
+	res, err := k.ApplyMessageWithConfig(ctx, *msg, nil, false, cfg, txConfig, false)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -325,11 +328,15 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
-	// convert the tx args to an ethereum message
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, true, true)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	if args.Gas == nil {
+		args.Gas = new(hexutil.Uint64)
 	}
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	// convert the tx args to an ethereum message
+	msg := args.ToMessage(cfg.BaseFee, true, true)
 
 	// Recap the highest gas limit with account's available balance.
 	if msg.GasFeeCap.BitLen() != 0 {
@@ -362,25 +369,10 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	// NOTE: the errors from the executable below should be consistent with go-ethereum,
 	// so we don't wrap them with the gRPC status code
 
-	// Create a helper to check if a gas allowance results in an executable transaction
+	// create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (vmError bool, rsp *types.MsgEthereumTxResponse, err error) {
 		// update the message with the new gas value
-		msg = core.Message{
-			From:             msg.From,
-			To:               msg.To,
-			Nonce:            msg.Nonce,
-			Value:            msg.Value,
-			GasLimit:         gas,
-			GasPrice:         msg.GasPrice,
-			GasFeeCap:        msg.GasFeeCap,
-			GasTipCap:        msg.GasTipCap,
-			Data:             msg.Data,
-			AccessList:       msg.AccessList,
-			BlobGasFeeCap:    msg.BlobGasFeeCap,
-			BlobHashes:       msg.BlobHashes,
-			SkipNonceChecks:  msg.SkipNonceChecks,
-			SkipFromEOACheck: msg.SkipFromEOACheck,
-		}
+		msg.GasLimit = gas
 
 		tmpCtx := ctx
 		if fromType == types.RPC {
@@ -404,7 +396,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit)
 		}
 		// pass false to not commit StateDB
-		rsp, err = k.ApplyMessageWithConfig(tmpCtx, msg, nil, false, cfg, txConfig, false)
+		rsp, err = k.ApplyMessageWithConfig(tmpCtx, *msg, nil, false, cfg, txConfig, false)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -448,7 +440,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 // executes the given message in the provided environment. The return value will
 // be tracer-dependent.
 func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*types.QueryTraceTxResponse, error) {
-	if req == nil {
+	if req == nil || req.Msg == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
@@ -461,14 +453,23 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	}
 
 	// get the context of block beginning
-	contextHeight := req.BlockNumber
-	if contextHeight < 1 {
+	requestedHeight := req.BlockNumber
+	if requestedHeight < 1 {
 		// 0 is a special value in `ContextWithHeight`
-		contextHeight = 1
+		requestedHeight = 1
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
-	ctx = ctx.WithBlockHeight(contextHeight)
+	// the caller sets the `ctx.BlockHeight()` to be `requestedHeight - 1`, so we can get the context of block beginning
+	if requestedHeight > ctx.BlockHeight()+1 {
+		return nil, status.Errorf(codes.FailedPrecondition, "requested height [%d] must be less than or equal to current height [%d]", requestedHeight, ctx.BlockHeight())
+	}
+	// TODO: ideally, this query should validate that the block hash, predecessor transactions, and main trace tx actually existed in the block requested.
+	// These fields should not be defined by a user.
+	// For now, since the backend uses this query to run its traces, we cannot do much here. This needs to be refactored
+	// so that backend isn't using this method over gRPC, but directly.
+	// see: https://linear.app/cosmoslabs/issue/EVM-149/some-xvm-queries-are-meant-to-be-internal
+	ctx = ctx.WithBlockHeight(requestedHeight)
 	ctx = ctx.WithBlockTime(req.BlockTime)
 	ctx = ctx.WithHeaderHash(common.Hex2Bytes(req.BlockHash))
 
@@ -495,6 +496,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	// need to reset gas meter per transaction to be consistent with tx execution
 	// and avoid stacking the gas used of every predecessor in the same gas meter
 
+	ctx = evmante.BuildEvmExecutionCtx(ctx).
+		WithGasMeter(storetypes.NewGasMeter(maxPredecessorGas))
 	for i, tx := range req.Predecessors {
 		ethTx := tx.AsTransaction()
 
@@ -509,16 +512,18 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 			derivedMsg := unsignedTxAsMessage(common.BytesToAddress(req.Msg.GetFrom()), ethTx, cfg.BaseFee)
 			msg = &derivedMsg
 		}
-
+		msg.GasLimit = min(msg.GasLimit, maxPredecessorGas)
 		txConfig.TxHash = ethTx.Hash()
 		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
 
 		ctx = buildTraceCtx(ctx, msg.GasLimit)
-		rsp, err := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig, false)
-		if err != nil {
-			continue
+		// we ignore the error here. this endpoint, ideally, is called internally from the ETH backend, which will call this query
+		// using all previous txs in the trace transaction's block. some of those _could_ be invalid transactions.
+		rsp, _ := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig, false)
+		if rsp != nil {
+			ctx.GasMeter().ConsumeGas(rsp.GasUsed, "evm predecessor tx")
+			txConfig.LogIndex += uint(len(rsp.Logs))
 		}
-		txConfig.LogIndex += uint(len(rsp.Logs))
 	}
 
 	tx := req.Msg.AsTransaction()
@@ -681,7 +686,11 @@ func (k *Keeper) traceTx(
 	}
 
 	if traceConfig.Tracer != "" {
-		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, jsonTracerConfig,
+		var cfg json.RawMessage
+		if traceConfig.TracerJsonConfig != "" {
+			cfg = json.RawMessage(traceConfig.TracerJsonConfig)
+		}
+		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, cfg,
 			types.GetEthChainConfig()); err != nil {
 			return nil, 0, status.Error(codes.Internal, err.Error())
 		}

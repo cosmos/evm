@@ -150,6 +150,21 @@ func (k Keeper) sendExtendedCoins(
 	from, to sdk.AccAddress,
 	amt sdkmath.Int,
 ) error {
+	// Don't create fractional balances for the precisebank module account
+	// The precisebank module account is the reserve and should not have fractional balances
+	moduleAddr := k.ak.GetModuleAddress(types.ModuleName)
+	if from.Equals(moduleAddr) || to.Equals(moduleAddr) {
+		// For transfers involving the precisebank module account, just do the integer transfer
+		integerAmt := amt.Quo(types.ConversionFactor())
+		if integerAmt.IsPositive() {
+			transferCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerAmt)
+			if err := k.bk.SendCoins(ctx, from, to, sdk.NewCoins(transferCoin)); err != nil {
+				return k.updateInsufficientFundsError(ctx, from, amt, err)
+			}
+		}
+		return nil
+	}
+
 	// If we do not return early here, the following issue occurs:
 	// - `senderNewFracBal` will be calculated by subtracting fractional `amt` from the sender's fractional balance.
 	// - `recipientNewFracBal` will be calculated by adding fractional `amt` to the recipient's fractional balance.

@@ -16,17 +16,20 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-var _ porttypes.IBCModule = &IBCMiddleware{}
+var (
+	_ porttypes.IBCModule             = &IBCMiddleware{}
+	_ porttypes.PacketDataUnmarshaler = &IBCMiddleware{}
+)
 
 // IBCMiddleware implements the ICS26 callbacks for the transfer middleware given
 // the erc20 keeper and the underlying application.
 type IBCMiddleware struct {
 	*ibc.Module
-	keeper erc20types.ERC20Keeper
+	keeper erc20types.Erc20Keeper
 }
 
 // NewIBCMiddleware creates a new IBCMiddleware given the keeper and underlying application
-func NewIBCMiddleware(k erc20types.ERC20Keeper, app porttypes.IBCModule) IBCMiddleware {
+func NewIBCMiddleware(k erc20types.Erc20Keeper, app porttypes.IBCModule) IBCMiddleware {
 	if app == nil {
 		panic(errors.New("underlying application cannot be nil"))
 	}
@@ -109,4 +112,13 @@ func (im IBCMiddleware) OnTimeoutPacket(
 	}
 
 	return im.keeper.OnTimeoutPacket(ctx, packet, data)
+}
+
+// UnmarshalPacketa implements the PacketDataUnmarshaler interface.
+func (im IBCMiddleware) UnmarshalPacketData(
+	ctx sdk.Context,
+	portID, channelID string,
+	data []byte,
+) (any, string, error) {
+	return im.Module.UnmarshalPacketData(ctx, portID, channelID, data)
 }
