@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -915,6 +916,32 @@ func (s *KeeperTestSuite) TestApplyMessage() {
 	}
 }
 
+// TestApplyMessageInternalFloor verifies EIP-7623 floor is charged on internal calls.
+func (s *KeeperTestSuite) TestApplyMessageInternalFloor() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+	s.SetupTest()
+
+	sender := s.Keyring.GetKey(0)
+	recipient := s.Keyring.GetAddr(1)
+	calldata := bytes.Repeat([]byte{0x01}, 2048)
+	coreMsg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+		To:       &recipient,
+		Amount:   big.NewInt(100),
+		Input:    calldata,
+		GasLimit: 110_000,
+	})
+	s.Require().NoError(err)
+
+	stateDB := statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	// internal=true: the path used by x/vm/keeper.CallEVM.
+	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(s.Network.GetContext(), stateDB, *coreMsg, nil, true, false, true)
+	s.Require().NoError(err)
+	s.Require().False(res.Failed())
+	floorDataGas := params.TxGas + params.TxCostFloorPerToken*params.TxTokenPerNonZeroByte*uint64(len(calldata))
+	s.Require().Equal(floorDataGas, res.GasUsed)
+}
+
 func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
@@ -937,6 +964,8 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			MovePrecompileTo: &movedStaticPrecompileAddr,
 		},
 	}
+
+	calldata := bytes.Repeat([]byte{0x01}, 2048)
 
 	testCases := []struct {
 		name               string
@@ -1133,6 +1162,30 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			expErr:             false,
 			expVMErr:           false,
 			expectedGasUsed:    params.TxGas,
+		},
+		{
+			// EIP-7623: calldata floor clamps gasUsed when it exceeds intrinsic
+			// and the Cosmos minGasMultiplier floor.
+			name: "success - EIP-7623 floor data gas binds gas used",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &recipient,
+					Amount:   big.NewInt(100),
+					Input:    calldata,
+					GasLimit: 110_000,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas + params.TxCostFloorPerToken*params.TxTokenPerNonZeroByte*uint64(len(calldata)),
+			postCheck:          nil,
 		},
 		{
 			name: "call contract tx with config param EnableCall = false",
