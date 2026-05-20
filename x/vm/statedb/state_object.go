@@ -2,11 +2,7 @@ package statedb
 
 import (
 	"bytes"
-<<<<<<< HEAD
-=======
-	"fmt"
 	"math/big"
->>>>>>> 008c171 (fix(statedb): snapshot locked balance on statedb account  (#1187))
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"

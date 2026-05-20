@@ -25,15 +25,8 @@ var _ statedb.Keeper = &Keeper{}
 
 // GetAccount returns nil if account is not exist
 func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account {
-<<<<<<< HEAD
-	acct := k.GetAccountWithoutBalance(ctx, addr)
-=======
-	ctx, span := ctx.StartSpan(tracer, "GetAccount", trace.WithAttributes(attribute.String("address", addr.Hex())))
-	defer span.End()
-
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
->>>>>>> 008c171 (fix(statedb): snapshot locked balance on statedb account  (#1187))
 	if acct == nil {
 		return nil
 	}
@@ -120,13 +113,6 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 	}
 }
 
-<<<<<<< HEAD
-// SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
-func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) error {
-	if amount == nil {
-		return nil
-	}
-=======
 // SetAccountBalance update account's balance, compare with current balance first,
 // then decide to mint or burn.
 //
@@ -143,31 +129,30 @@ func (k *Keeper) SetAccountBalance(ctx sdk.Context, addr common.Address, account
 
 // SetBalance updates an account's balance, compare with current balance first,
 // then decide to mint or burn.
-func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) (err error) {
+func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) error {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	lockedCoin := k.bankWrapper.LockedCoins(ctx, cosmosAddr).AmountOf(types.GetEVMCoinDenom())
 	return k.SetBalanceWithLocked(ctx, addr, amount, lockedCoin.BigInt())
 }
 
-// SetBalanceWithLocked updates an account's balance, compare with current
-// balance first, then decide to mint or burn.
+// SetBalanceWithLocked updates an account's balance using the provided locked
+// value to reconstruct the bank balance, instead of re-reading LockedCoins from
+// state.
 //
 // Locked must be non nil and is used to compute the final balance instead of
 // looking it up from state at set time. If you do not know the locked balance
 // already, use SetBalance in order to look it up from state at set time.
-func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amount *uint256.Int, locked *big.Int) (err error) {
+func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amount *uint256.Int, locked *big.Int) error {
 	if amount == nil {
 		return nil
 	}
-
-	ctx, span := ctx.StartSpan(tracer, "SetBalanceWithLocked", trace.WithAttributes(attribute.String("address", addr.Hex()), attribute.String("amount", amount.String())))
-	defer func() { evmtrace.EndSpanErr(span, err) }()
->>>>>>> 008c171 (fix(statedb): snapshot locked balance on statedb account  (#1187))
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	balance := coin.Amount.BigInt()
-	delta := new(big.Int).Sub(amount.ToBig(), balance)
+	// Reconstruct the target bank balance as spendable + locked snapshot,
+	// then mint or burn the delta against the current bank balance.
+	target := new(big.Int).Add(amount.ToBig(), locked)
+	current := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom()).Amount.BigInt()
+	delta := new(big.Int).Sub(target, current)
 	switch delta.Sign() {
 	case 1:
 		// mint
@@ -182,13 +167,7 @@ func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amou
 	default:
 		// not changed
 	}
-<<<<<<< HEAD
 	return nil
-=======
-
-	newBalance := new(big.Int).Add(amount.ToBig(), locked)
-	return k.bankWrapper.SetBalance(ctx, cosmosAddr, newBalance)
->>>>>>> 008c171 (fix(statedb): snapshot locked balance on statedb account  (#1187))
 }
 
 // SetAccount updates nonce/balance/codeHash together.
