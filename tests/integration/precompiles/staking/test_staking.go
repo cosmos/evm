@@ -392,7 +392,11 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
+<<<<<<< HEAD
 			21295, // use enough gas to avoid out of gas error
+=======
+			25000, // use enough gas to avoid out of gas error
+>>>>>>> 008c171 (fix(statedb): snapshot locked balance on statedb account  (#1187))
 			true,
 			false,
 			true,
@@ -403,7 +407,11 @@ func (s *PrecompileTestSuite) TestRun() {
 			func(_ keyring.Key) []byte {
 				return []byte("invalid")
 			},
+<<<<<<< HEAD
 			21295, // use enough gas to avoid out of gas error
+=======
+			25000, // use enough gas to avoid out of gas error
+>>>>>>> 008c171 (fix(statedb): snapshot locked balance on statedb account  (#1187))
 			false,
 			false,
 			true,
