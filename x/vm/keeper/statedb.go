@@ -141,7 +141,7 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 	}
 }
 
-// SetBalance update account's balance, compare with current balance first,
+// SetAccountBalance update account's balance, compare with current balance first,
 // then decide to mint or burn.
 //
 // If account has a Locked balance specified within it, that value is used in
