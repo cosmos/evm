@@ -531,6 +531,55 @@ func (_c *BankKeeper_IterateTotalSupply_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// LockedCoins provides a mock function with given fields: ctx, addr
+func (_m *BankKeeper) LockedCoins(ctx context.Context, addr types.AccAddress) types.Coins {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockedCoins")
+	}
+
+	var r0 types.Coins
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress) types.Coins); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.Coins)
+		}
+	}
+
+	return r0
+}
+
+// BankKeeper_LockedCoins_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LockedCoins'
+type BankKeeper_LockedCoins_Call struct {
+	*mock.Call
+}
+
+// LockedCoins is a helper method to define mock.On call
+//   - ctx context.Context
+//   - addr types.AccAddress
+func (_e *BankKeeper_Expecter) LockedCoins(ctx interface{}, addr interface{}) *BankKeeper_LockedCoins_Call {
+	return &BankKeeper_LockedCoins_Call{Call: _e.mock.On("LockedCoins", ctx, addr)}
+}
+
+func (_c *BankKeeper_LockedCoins_Call) Run(run func(ctx context.Context, addr types.AccAddress)) *BankKeeper_LockedCoins_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(types.AccAddress))
+	})
+	return _c
+}
+
+func (_c *BankKeeper_LockedCoins_Call) Return(_a0 types.Coins) *BankKeeper_LockedCoins_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BankKeeper_LockedCoins_Call) RunAndReturn(run func(context.Context, types.AccAddress) types.Coins) *BankKeeper_LockedCoins_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MintCoins provides a mock function with given fields: ctx, moduleName, amt
 func (_m *BankKeeper) MintCoins(ctx context.Context, moduleName string, amt types.Coins) error {
 	ret := _m.Called(ctx, moduleName, amt)

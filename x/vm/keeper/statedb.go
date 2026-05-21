@@ -25,13 +25,18 @@ var _ statedb.Keeper = &Keeper{}
 
 // GetAccount returns nil if account is not exist
 func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account {
-	acct := k.GetAccountWithoutBalance(ctx, addr)
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
 	if acct == nil {
 		return nil
 	}
 
-	acct.Balance = k.SpendableCoin(ctx, addr)
-	return acct
+	return statedb.NewAccount(
+		acct.GetSequence(),
+		k.SpendableCoin(ctx, addr),
+		k.lockedCoin(ctx, addr),
+		k.GetCodeHash(ctx, addr).Bytes(),
+	)
 }
 
 // GetState loads contract state from database.
@@ -108,16 +113,46 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 	}
 }
 
-// SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
+// SetAccountBalance update account's balance, compare with current balance first,
+// then decide to mint or burn.
+//
+// If account has a Locked balance specified within it, that value is used in
+// order to compute the final balance. If Locked is nil, account's locked
+// balance is fetched from state first in order to compute the final balance.
+func (k *Keeper) SetAccountBalance(ctx sdk.Context, addr common.Address, account statedb.Account) error {
+	locked := account.LockedBalanceSnapshot()
+	if locked == nil {
+		return k.SetBalance(ctx, addr, account.Balance)
+	}
+	return k.SetBalanceWithLocked(ctx, addr, account.Balance, locked)
+}
+
+// SetBalance updates an account's balance, compare with current balance first,
+// then decide to mint or burn.
 func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) error {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	lockedCoin := k.bankWrapper.LockedCoins(ctx, cosmosAddr).AmountOf(types.GetEVMCoinDenom())
+	return k.SetBalanceWithLocked(ctx, addr, amount, lockedCoin.BigInt())
+}
+
+// SetBalanceWithLocked updates an account's balance using the provided locked
+// value to reconstruct the bank balance, instead of re-reading LockedCoins from
+// state.
+//
+// Locked must be non nil and is used to compute the final balance instead of
+// looking it up from state at set time. If you do not know the locked balance
+// already, use SetBalance in order to look it up from state at set time.
+func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amount *uint256.Int, locked *big.Int) error {
 	if amount == nil {
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	balance := coin.Amount.BigInt()
-	delta := new(big.Int).Sub(amount.ToBig(), balance)
+	// Reconstruct the target bank balance as spendable + locked snapshot,
+	// then mint or burn the delta against the current bank balance.
+	target := new(big.Int).Add(amount.ToBig(), locked)
+	current := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom()).Amount.BigInt()
+	delta := new(big.Int).Sub(target, current)
 	switch delta.Sign() {
 	case 1:
 		// mint
@@ -154,7 +189,7 @@ func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account stated
 	}
 	k.accountKeeper.SetAccount(ctx, acct)
 
-	if err := k.SetBalance(ctx, addr, account.Balance); err != nil {
+	if err := k.SetAccountBalance(ctx, addr, account); err != nil {
 		return err
 	}
 
@@ -164,6 +199,7 @@ func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account stated
 		"nonce", account.Nonce,
 		"codeHash", common.BytesToHash(account.CodeHash).Hex(),
 		"balance", account.Balance,
+		"locked-balance", account.LockedBalanceSnapshot(),
 	)
 	return nil
 }
@@ -262,8 +298,7 @@ func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address) error {
 	baseAccount := k.accountKeeper.GetAccount(ctx, cosmosAddr)
 	k.accountKeeper.SetAccount(ctx, authtypes.NewBaseAccount(cosmosAddr, baseAccount.GetPubKey(), baseAccount.GetAccountNumber(), baseAccount.GetSequence()))
 
-	// clear balance
-	if err := k.SetBalance(ctx, addr, new(uint256.Int)); err != nil {
+	if err := k.SetBalanceWithLocked(ctx, addr, new(uint256.Int), new(big.Int)); err != nil {
 		return err
 	}
 
