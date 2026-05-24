@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -74,6 +75,12 @@ func (p *Precompile) transfer(
 	from, to common.Address,
 	amount *big.Int,
 ) (data []byte, err error) {
+	// Validate that the recipient is not the zero address (ERC-20 requirement).
+	// Transfers to address(0) would result in permanent token loss.
+	if to == (common.Address{}) {
+		return nil, fmt.Errorf("%w: %s", erc20.ErrERC20, "transfer to zero address")
+	}
+
 	coins := sdk.Coins{{Denom: p.tokenPair.Denom, Amount: math.NewIntFromBigInt(amount)}}
 
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
