@@ -37,6 +37,7 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	sdktxsigning "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -130,7 +131,7 @@ func BenchmarkEVMMempoolIterator(b *testing.B) {
 
 					tx, err := msgEthTx.BuildTx(txConfig.NewTxBuilder(), benchBondDenom)
 					require.NoError(b, err)
-					require.NoError(b, mpool.Insert(ctx, tx))
+					require.NoError(b, mpool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 				}
 			}
 
@@ -145,7 +146,7 @@ func BenchmarkEVMMempoolIterator(b *testing.B) {
 
 				tx, err := buildBenchCosmosTx(txConfig, cosmosPrivKey, msg, gasPrice)
 				require.NoError(b, err)
-				require.NoError(b, mpool.Insert(ctx, tx))
+				require.NoError(b, mpool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 			}
 
 			expectedCount := tc.numEVM + tc.numCosmos
@@ -161,7 +162,7 @@ func BenchmarkEVMMempoolIterator(b *testing.B) {
 			b.StartTimer()
 
 			for b.Loop() {
-				mpool.SelectBy(selectCtx, nil, func(sdk.Tx) bool { return true })
+				mpool.SelectBy(selectCtx, nil, func(sdkmempool.PooledTx) bool { return true })
 			}
 		})
 	}

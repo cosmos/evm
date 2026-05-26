@@ -63,6 +63,11 @@ func (r *TxRechecker) GetContext() (sdk.Context, func()) {
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
+	// Pre-Update(): a zero ctx would panic inside the ante's ctx.StartSpan.
+	// Returning nil tells the caller "still valid" until Update() arrives.
+	if ctx.MultiStore() == nil {
+		return ctx, nil
+	}
 	cosmosTx, err := r.txConverter.EVMTxToCosmosTx(tx)
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
@@ -75,6 +80,9 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
+	if ctx.MultiStore() == nil {
+		return ctx, nil
+	}
 	return r.anteHandler(ctx, tx, false)
 }
 

@@ -78,6 +78,7 @@ func ResolveMempoolConfig(anteHandler sdk.AnteHandler, appOpts servertypes.AppOp
 		PendingTxProposalTimeout: GetPendingTxProposalTimeout(appOpts, logger),
 		InsertQueueSize:          GetMempoolInsertQueueSize(appOpts, logger),
 		EnableTxTracker:          GetMempoolEnableTxTracker(appOpts),
+		MaxTxGasWanted:           cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),
 	}
 }
 

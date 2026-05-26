@@ -175,7 +175,7 @@ func (m *RecheckMempool) Close() error {
 
 // Insert adds a transaction to the pool after running the ante handler.
 // This is the main entry point for new cosmos transactions.
-func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) (err error) {
+func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx, opt sdkmempool.InsertOption) (err error) {
 	// Reserve addresses to prevent conflicts with EVM pool
 	addrs, err := m.reserveTx(tx)
 	if err != nil {
@@ -214,7 +214,7 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) (err error) {
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
 
-	if err := m.ExtMempool.Insert(ctx, tx); err != nil {
+	if err := m.ExtMempool.Insert(ctx, tx, opt); err != nil {
 		return err
 	}
 
@@ -451,7 +451,8 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			return
 		}
 
-		txn := iter.Tx()
+		pooled := iter.Tx()
+		txn := pooled.Tx
 		if txn == nil {
 			break
 		}

@@ -118,17 +118,17 @@ func (_c *Mempool_GetTxPool_Call) RunAndReturn(run func() *txpool.TxPool) *Mempo
 	return _c
 }
 
-// Insert provides a mock function with given fields: _a0, _a1
-func (_m *Mempool) Insert(_a0 context.Context, _a1 types.Tx) error {
-	ret := _m.Called(_a0, _a1)
+// Insert provides a mock function with given fields: _a0, _a1, _a2
+func (_m *Mempool) Insert(_a0 context.Context, _a1 types.Tx, _a2 mempool.InsertOption) error {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Insert")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.Tx) error); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context, types.Tx, mempool.InsertOption) error); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -144,13 +144,14 @@ type Mempool_Insert_Call struct {
 // Insert is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 types.Tx
-func (_e *Mempool_Expecter) Insert(_a0 interface{}, _a1 interface{}) *Mempool_Insert_Call {
-	return &Mempool_Insert_Call{Call: _e.mock.On("Insert", _a0, _a1)}
+//   - _a2 mempool.InsertOption
+func (_e *Mempool_Expecter) Insert(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Mempool_Insert_Call {
+	return &Mempool_Insert_Call{Call: _e.mock.On("Insert", _a0, _a1, _a2)}
 }
 
-func (_c *Mempool_Insert_Call) Run(run func(_a0 context.Context, _a1 types.Tx)) *Mempool_Insert_Call {
+func (_c *Mempool_Insert_Call) Run(run func(_a0 context.Context, _a1 types.Tx, _a2 mempool.InsertOption)) *Mempool_Insert_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(types.Tx))
+		run(args[0].(context.Context), args[1].(types.Tx), args[2].(mempool.InsertOption))
 	})
 	return _c
 }
@@ -160,7 +161,7 @@ func (_c *Mempool_Insert_Call) Return(_a0 error) *Mempool_Insert_Call {
 	return _c
 }
 
-func (_c *Mempool_Insert_Call) RunAndReturn(run func(context.Context, types.Tx) error) *Mempool_Insert_Call {
+func (_c *Mempool_Insert_Call) RunAndReturn(run func(context.Context, types.Tx, mempool.InsertOption) error) *Mempool_Insert_Call {
 	_c.Call.Return(run)
 	return _c
 }

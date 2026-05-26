@@ -15,6 +15,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -192,7 +193,7 @@ func (s *IntegrationTestSuite) insertTxs(txs []sdk.Tx) error {
 
 // insertTx call mempool Insert for a transaction
 func (s *IntegrationTestSuite) insertTx(tx sdk.Tx) error {
-	return s.network.App.GetMempool().Insert(s.network.GetContext(), tx)
+	return s.network.App.GetMempool().Insert(s.network.GetContext(), tx, sdkmempool.InsertOption{})
 }
 
 // getTxHashes returns transaction hashes for multiple transactions

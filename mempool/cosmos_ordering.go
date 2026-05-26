@@ -91,11 +91,16 @@ func NewCosmosTransactionsByPriceAndNonce(
 	}
 }
 
-func (t *CosmosTransactionsByPriceAndNonce) Tx() sdk.Tx {
+func (t *CosmosTransactionsByPriceAndNonce) Tx() sdkmempool.PooledTx {
 	if len(t.heads) == 0 {
-		return nil
+		return sdkmempool.PooledTx{}
 	}
-	return t.heads[0].tx.tx
+	tx := t.heads[0].tx.tx
+	var gasWanted uint64
+	if gt, ok := tx.(sdk.GasTx); ok {
+		gasWanted = gt.GetGas()
+	}
+	return sdkmempool.NewPooledTx(tx, gasWanted)
 }
 
 func (t *CosmosTransactionsByPriceAndNonce) Next() sdkmempool.Iterator {

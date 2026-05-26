@@ -66,10 +66,13 @@ func NewBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), logg
 		feeMarketKeeper: feeMarketKeeper,
 		chainHeadFeed:   new(event.Feed),
 		blockGasLimit:   blockGasLimit,
-		// Used as a placeholder for the first block, before the context is available.
+		// GasLimit must be set: legacypool's ValidateTransaction checks
+		// `head.GasLimit < tx.Gas()` and the post-restart window can hit this
+		// header before the first NotifyNewBlock arrives.
 		zeroHeader: &types.Header{
 			Difficulty: big.NewInt(0),
 			Number:     big.NewInt(0),
+			GasLimit:   blockGasLimit,
 		},
 	}
 }
@@ -91,10 +94,14 @@ func (b *Blockchain) CurrentBlock() *types.Header {
 	}
 
 	blockHeight := ctx.BlockHeight()
-	// prevent the reorg from triggering after a restart since previousHeaderHash is stored as an in-memory variable
 	previousHeaderHash := b.getPreviousHeaderHash()
+	// previousHeaderHash is in-memory only and is zero after restart. Seed it
+	// from the cosmos header's LastBlockId so the synthesised header is
+	// distinct from zeroHeader (otherwise StateAt-by-Root resolves to a nil
+	// StateDB and crashes validateTx).
 	if blockHeight > 1 && previousHeaderHash == (common.Hash{}) {
-		return b.zeroHeader
+		previousHeaderHash = common.BytesToHash(ctx.BlockHeader().LastBlockId.Hash)
+		b.setPreviousHeaderHash(previousHeaderHash)
 	}
 
 	blockTime := ctx.BlockTime().Unix()
@@ -202,16 +209,15 @@ func (b *Blockchain) NotifyNewBlock() {
 func (b *Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	b.logger.Debug("StateAt called", "requested_hash", hash.Hex())
 
-	// This is returned at block 0, before the context is available.
-	if hash == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000") || hash == types.EmptyCodeHash {
-		b.logger.Debug("returning nil StateDB for zero hash or empty code hash")
-		return vm.StateDB(nil), nil
-	}
-
-	// Always get the latest context to avoid stale nonce state.
+	// Always use the latest context — historical state is never required and
+	// returning the real StateDB even for zero/empty hashes avoids a nil
+	// StateDB sneaking past the post-restart window (zeroHeader.Root is empty).
 	ctx, err := b.GetLatestContext()
 	if err != nil {
-		// If we can't get the latest context for blocks past 1, something is seriously wrong with the chain state
+		// Pre-genesis: no context yet. legacypool Init retries with EmptyRootHash.
+		if hash == (common.Hash{}) || hash == types.EmptyCodeHash {
+			return vm.StateDB(nil), nil
+		}
 		return nil, fmt.Errorf("failed to get latest context for StateAt: %w", err)
 	}
 

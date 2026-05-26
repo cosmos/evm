@@ -211,7 +211,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			}
 			iterator := mpool.Select(ctx.WithBlockHeight(ctx.BlockHeight()+1), nil)
 			for _, txHash := range expTxHashes {
-				actualTxHash := s.getTxHash(iterator.Tx())
+				actualTxHash := s.getTxHash(iterator.Tx().Tx)
 				s.Require().Equal(txHash, actualTxHash)
 
 				iterator = iterator.Next()
@@ -506,7 +506,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			for _, txHash := range expTxHashes {
-				actualTxHash := s.getTxHash(iterator.Tx())
+				actualTxHash := s.getTxHash(iterator.Tx().Tx)
 				s.Require().Equal(txHash, actualTxHash)
 
 				iterator = iterator.Next()
@@ -732,7 +732,7 @@ func (s *IntegrationTestSuite) TestRechecking() {
 				// inserting this will fail with out of balance. if we have
 				// correctly discarded its writes, the insert will succeed.
 				tx := s.createCosmosSendTx(keyA, big.NewInt(1_000_000_000))
-				err := mpool.Insert(s.network.GetContext(), tx)
+				err := mpool.Insert(s.network.GetContext(), tx, mempool.InsertOption{})
 				s.Require().NoError(err, "tx should have been successfully inserted after recheck")
 			},
 		},

@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/evm/rpc/backend/mocks"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 func NewEvmMempoolMock(t *testing.T) *mocks.Mempool {
@@ -40,7 +41,7 @@ func NewEvmMempoolMock(t *testing.T) *mocks.Mempool {
 func RegisterMempoolInsert(t *testing.T, mempool *mocks.Mempool, expect sdk.Tx, err error) {
 	t.Helper()
 
-	doReturn := func(_ context.Context, actual sdk.Tx) error {
+	doReturn := func(_ context.Context, actual sdk.Tx, _ sdkmempool.InsertOption) error {
 		if err == nil {
 			requireTxEqual(t, expect, actual)
 		}
@@ -48,13 +49,13 @@ func RegisterMempoolInsert(t *testing.T, mempool *mocks.Mempool, expect sdk.Tx, 
 		return err
 	}
 
-	mempool.On("Insert", mock.Anything, mock.Anything).Return(doReturn)
+	mempool.On("Insert", mock.Anything, mock.Anything, mock.Anything).Return(doReturn)
 }
 
 func requireTxEqual(t *testing.T, expected, actual sdk.Tx) {
 	t.Helper()
 
-	require.NotNil(t, actual, "tx mempool.Insert(ctx, tx) is nil")
+	require.NotNil(t, actual, "tx mempool.Insert(ctx, tx, sdkmempool.InsertOption{}) is nil")
 	require.NotNil(t, expected, "expected tx is nil")
 
 	require.Equal(t, len(expected.GetMsgs()), len(actual.GetMsgs()), "txs have different msgs")

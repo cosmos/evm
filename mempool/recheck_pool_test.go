@@ -190,7 +190,7 @@ func TestRecheckMempool_Insert(t *testing.T) {
 			)
 
 			tx := newRecheckTestTx(t, acc.key)
-			err := mp.Insert(ctx, tx)
+			err := mp.Insert(ctx, tx, sdkmempool.InsertOption{})
 
 			if tc.expectErr != nil {
 				require.Error(t, err)
@@ -227,10 +227,10 @@ func TestRecheckMempool_Insert_PoolCapacity(t *testing.T) {
 	)
 
 	firstAcc := newRecheckTestAccount(t)
-	require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, firstAcc.key)))
+	require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, firstAcc.key), sdkmempool.InsertOption{}))
 
 	secondAcc := newRecheckTestAccount(t)
-	err := mp.Insert(ctx, newRecheckTestTx(t, secondAcc.key))
+	err := mp.Insert(ctx, newRecheckTestTx(t, secondAcc.key), sdkmempool.InsertOption{})
 	require.Error(t, err)
 
 	// Second signer should not remain reserved after failed insert.
@@ -347,7 +347,7 @@ func TestRecheckMempool_ShutdownDuringRecheck(t *testing.T) {
 	for range numTxsToInsert {
 		key, _ := crypto.GenerateKey()
 		tx := newRecheckTestTx(t, key)
-		require.NoError(t, mp.Insert(ctx, tx))
+		require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	recheckDone := mp.TriggerRecheck(testHeader(1))
@@ -411,7 +411,7 @@ func TestRecheckMempool_GetCtxError(t *testing.T) {
 
 	acc := newRecheckTestAccount(t)
 	tx := newRecheckTestTx(t, acc.key)
-	require.NoError(t, mp.Insert(ctx, tx))
+	require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	require.Equal(t, 1, mp.CountTx())
 
 	getCtxFail.Store(true)
@@ -442,7 +442,7 @@ func TestRecheckMempool_ConcurrentTriggers(t *testing.T) {
 	for range numTxs {
 		key, _ := crypto.GenerateKey()
 		tx := newRecheckTestTx(t, key)
-		require.NoError(t, mp.Insert(ctx, tx))
+		require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	var wg sync.WaitGroup
@@ -602,7 +602,7 @@ func TestMempool_Recheck(t *testing.T) {
 
 			for _, tx := range tc.insertTxs {
 				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
-				require.NoError(t, mp.Insert(context.Background(), cosmosTx))
+				require.NoError(t, mp.Insert(context.Background(), cosmosTx, sdkmempool.InsertOption{}))
 			}
 
 			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")
@@ -697,7 +697,7 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 			for i := range tc.numTxs {
 				key, _ := crypto.GenerateKey()
 				txs[i] = newRecheckTestTx(t, key)
-				require.NoError(t, mp.Insert(ctx, txs[i]))
+				require.NoError(t, mp.Insert(ctx, txs[i], sdkmempool.InsertOption{}))
 			}
 
 			for _, idx := range tc.failTxIndices {
@@ -754,7 +754,7 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 	defer mp.Close()
 
 	tx := newRecheckTestTx(t, acc.key)
-	require.NoError(t, mp.Insert(ctx, tx))
+	require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 
 	header := testHeader(1)
 	recheckDone := mp.TriggerRecheck(header)
@@ -813,7 +813,7 @@ func TestRecheckMempool_RecheckerNoContextOnInsert(t *testing.T) {
 	)
 
 	tx := newRecheckTestTx(t, acc.key)
-	require.NoError(t, mp.Insert(ctx, tx))
+	require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	require.Equal(t, 1, mp.CountTx())
 }
 
@@ -885,7 +885,7 @@ func TestRecheckMempool_InsertSequentialNonces(t *testing.T) {
 
 	for nonce := uint64(0); nonce < 3; nonce++ {
 		tx := newRecheckTestTxWithNonce(t, key, nonce)
-		err := mp.Insert(ctx, tx)
+		err := mp.Insert(ctx, tx, sdkmempool.InsertOption{})
 		require.NoError(t, err, "insert nonce %d should succeed", nonce)
 	}
 	require.Equal(t, 3, mp.CountTx())
@@ -908,9 +908,9 @@ func TestRecheckMempool_InsertNonceGapFails(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 0)))
+	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 0), sdkmempool.InsertOption{}))
 
-	err = mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 2))
+	err = mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 2), sdkmempool.InsertOption{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "expected nonce 1, got 2")
 	require.Equal(t, 1, mp.CountTx())
@@ -939,8 +939,8 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 0)))
-	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 1)))
+	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 0), sdkmempool.InsertOption{}))
+	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 1), sdkmempool.InsertOption{}))
 	require.Equal(t, 2, mp.CountTx())
 
 	// Reset the ante handler — recheck must re-validate from nonce 0.
@@ -951,7 +951,7 @@ func TestRecheckMempool_InsertAfterRecheck(t *testing.T) {
 
 	// Insert nonce 2 — should succeed because the recheck re-established
 	// nonces 0→1, so the tracker now expects 2.
-	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 2)))
+	require.NoError(t, mp.Insert(ctx, newRecheckTestTxWithNonce(t, key, 2), sdkmempool.InsertOption{}))
 	require.Equal(t, 3, mp.CountTx())
 }
 
@@ -986,7 +986,7 @@ func TestRecheckMempool_InsertReplacementInvalidatesRechecked(t *testing.T) {
 	})
 
 	replacement := newRecheckTestTxWithNonce(t, key, 4)
-	require.NoError(t, mp.Insert(ctx, replacement))
+	require.NoError(t, mp.Insert(ctx, replacement, sdkmempool.InsertOption{}))
 
 	iter := mp.RecheckedTxs(context.Background(), big.NewInt(0))
 	rechecked := collectIteratorTxs(iter)
@@ -1050,11 +1050,11 @@ func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 	replacement := newRecheckTestTxWithGasPrice(t, key, 4, 2)
 
 	for _, tx := range []sdk.Tx{tx3, tx4, tx5, tx6} {
-		require.NoError(t, mp.Insert(ctx, tx))
+		require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	// insert the replacement, which should invalidate the other txs in the pool with greater nonce.
-	require.NoError(t, mp.Insert(ctx, replacement))
+	require.NoError(t, mp.Insert(ctx, replacement, sdkmempool.InsertOption{}))
 
 	iter := mp.RecheckedTxs(context.Background(), big.NewInt(0))
 	rechecked := collectIteratorTxs(iter)
@@ -1100,7 +1100,7 @@ func TestRecheckMempool_RecheckDropsFromReapList(t *testing.T) {
 	keepB := newRecheckTestTx(t, mustGenKey(t))
 
 	for _, tx := range []sdk.Tx{keepA, doomed, keepB} {
-		require.NoError(t, mp.Insert(ctx, tx))
+		require.NoError(t, mp.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	// Flip the doomed tx to fail on recheck.
@@ -1143,11 +1143,11 @@ func TestRecheckMempool_ReplacementDropsFromReapList(t *testing.T) {
 	require.NoError(t, err)
 
 	original := newRecheckTestTxWithGasPrice(t, key, 5, 1)
-	require.NoError(t, mp.Insert(ctx, original))
+	require.NoError(t, mp.Insert(ctx, original, sdkmempool.InsertOption{}))
 
 	// same sender + nonce, new gas price
 	replacement := newRecheckTestTxWithGasPrice(t, key, 5, 2)
-	require.NoError(t, mp.Insert(ctx, replacement))
+	require.NoError(t, mp.Insert(ctx, replacement, sdkmempool.InsertOption{}))
 
 	require.Equal(t, 1, mp.CountTx(), "pool should hold exactly one tx after replacement")
 
@@ -1262,7 +1262,7 @@ func newTestRecheckedTxs() *heightsync.HeightSync[mempool.CosmosTxStore] {
 func collectIteratorTxs(iter sdkmempool.Iterator) []sdk.Tx {
 	var txs []sdk.Tx
 	for iter != nil {
-		tx := iter.Tx()
+		tx := iter.Tx().Tx
 		if tx == nil {
 			break
 		}

@@ -63,6 +63,10 @@ type EVMMempoolIterator struct {
 	logger   log.Logger
 	txConfig client.TxConfig
 
+	// gasLookup returns the gas wanted recorded at Insert time so Tx() can
+	// surface the ante-capped value (rather than the raw tx.GetGas()).
+	gasLookup func(sdk.Tx) (uint64, bool)
+
 	/** Chain Params **/
 	bondDenom string
 	chainID   *big.Int
@@ -80,9 +84,10 @@ func NewEVMMempoolIterator(
 	logger log.Logger,
 	txConfig client.TxConfig,
 	blockchain *Blockchain,
+	gasLookup func(sdk.Tx) (uint64, bool),
 ) mempool.Iterator {
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
-	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
+	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx().Tx != nil
 
 	if !hasEVM && !hasCosmos {
 		return nil
@@ -95,6 +100,7 @@ func NewEVMMempoolIterator(
 		nextCosmosAction: none,
 		logger:           logger,
 		txConfig:         txConfig,
+		gasLookup:        gasLookup,
 		bondDenom:        blockchain.GetCoinDenom(),
 		chainID:          blockchain.Config().ChainID,
 		ethSigner:        ethtypes.LatestSignerForChainID(blockchain.Config().ChainID),
@@ -164,9 +170,22 @@ func (i *EVMMempoolIterator) handleNextCosmosAction() {
 	i.nextCosmosAction = none
 }
 
-// Tx returns the current transaction from the iterator.
-func (i *EVMMempoolIterator) Tx() sdk.Tx {
-	return i.currentTx
+// Tx returns the current transaction. Prefers the gas wanted recorded at
+// Insert time (so PrepareProposal sees the ante-capped value); falls back
+// to tx.GetGas() if not tracked.
+func (i *EVMMempoolIterator) Tx() mempool.PooledTx {
+	var gasWanted uint64
+	if i.gasLookup != nil {
+		if g, ok := i.gasLookup(i.currentTx); ok {
+			gasWanted = g
+		}
+	}
+	if gasWanted == 0 {
+		if gt, ok := i.currentTx.(sdk.GasTx); ok {
+			gasWanted = gt.GetGas()
+		}
+	}
+	return mempool.NewPooledTx(i.currentTx, gasWanted)
 }
 
 // resolveCurrentTx determines the preferred transaction between the EVM and Cosmos
@@ -247,7 +266,8 @@ func (i *EVMMempoolIterator) peekCosmos() (sdk.Tx, *uint256.Int) {
 		return nil, nil
 	}
 
-	tx := i.cosmosIterator.Tx()
+	pooled := i.cosmosIterator.Tx()
+	tx := pooled.Tx
 	if tx == nil {
 		return nil, nil
 	}

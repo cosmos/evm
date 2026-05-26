@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/cometbft/cometbft/crypto/tmhash"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
@@ -103,6 +104,10 @@ type Config struct {
 	// EnableTxTracker controls whether the mempool records per-tx lifecycle
 	// telemetry (queued/pending/included latencies). Defaults to false.
 	EnableTxTracker bool
+	// MaxTxGasWanted mirrors the ante's `--evm.max-tx-gas-wanted` cap. Insert
+	// applies it so the EVM RPC path (which bypasses the ante) still stores
+	// a capped value for PrepareProposal. Zero disables the cap.
+	MaxTxGasWanted uint64
 }
 
 // Mempool is an application side mempool implementation that operates
@@ -138,6 +143,13 @@ type Mempool struct {
 	/** Transaction Inserting **/
 	cosmosInsertQueue *queue.Queue[sdk.Tx]
 	evmInsertQueue    *queue.Queue[ethtypes.Transaction]
+
+	/** Gas wanted tracking **/
+	// txGases stores the ante-reported gas wanted (from InsertOption.GasWanted),
+	// keyed by tx identifier, so the iterator can return the capped value to
+	// PrepareProposal instead of tx.GetGas().
+	txGases        sync.Map // map[string]uint64
+	maxTxGasWanted uint64   // cf. Config.MaxTxGasWanted
 
 	/** Signer extraction **/
 	signerExtractor sdkmempool.SignerExtractionAdapter
@@ -232,6 +244,7 @@ func NewMempool(
 		reapList:                 reapList,
 		txTracker:                txTracker,
 		signerExtractor:          NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()),
+		maxTxGasWanted:           config.MaxTxGasWanted,
 	}
 
 	// Setup queues
@@ -251,7 +264,11 @@ func NewMempool(
 				if tx == nil {
 					continue
 				}
-				errs[i] = recheckPool.Insert(context.Background(), *tx)
+				var gasWanted uint64
+				if gt, ok := (*tx).(sdk.GasTx); ok {
+					gasWanted = gt.GetGas()
+				}
+				errs[i] = recheckPool.Insert(context.Background(), *tx, sdkmempool.InsertOption{GasWanted: gasWanted})
 			}
 			return errs
 		},
@@ -281,10 +298,53 @@ func (m *Mempool) SetClientCtx(clientCtx client.Context) {
 	m.clientCtx = clientCtx
 }
 
+// txGasKey returns the txGases lookup key: the eth tx hash for EVM txs, or
+// the tmhash of the encoded bytes for cosmos txs.
+func (m *Mempool) txGasKey(tx sdk.Tx) (string, bool) {
+	if ethMsg, err := evmTxFromCosmosTx(tx); err == nil {
+		return ethMsg.Hash().String(), true
+	}
+	bz, err := m.txConfig.TxEncoder()(tx)
+	if err != nil {
+		return "", false
+	}
+	return fmt.Sprintf("%X", tmhash.Sum(bz)), true
+}
+
+// lookupGasWanted returns the gas wanted recorded by the most recent Insert,
+// or (0, false) if not tracked.
+func (m *Mempool) lookupGasWanted(tx sdk.Tx) (uint64, bool) {
+	key, ok := m.txGasKey(tx)
+	if !ok {
+		return 0, false
+	}
+	if v, ok := m.txGases.Load(key); ok {
+		return v.(uint64), true
+	}
+	return 0, false
+}
+
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
 // EVM transactions are routed to the EVM transaction pool, while all other
-// transactions are inserted into the Cosmos sdkmempool.
-func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
+// transactions are inserted into the Cosmos sdkmempool. The InsertOption
+// carries the ante-handler-reported gas wanted used for block gas selection.
+func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx, opt sdkmempool.InsertOption) error {
+	// Re-apply the ante's `min(gas, maxGasWanted)` here so the EVM RPC path —
+	// which skips CheckTx — also gets the capped value. The cap is scoped
+	// to EVM txs (mirrors mono_decorator and the `--evm.max-tx-gas-wanted`
+	// flag); cosmos txs keep their ante-reported value to avoid
+	// under-accounting in PrepareProposal.
+	gasWanted := opt.GasWanted
+	_, evmErr := evmTxFromCosmosTx(tx)
+	if evmErr == nil && m.maxTxGasWanted > 0 && (gasWanted == 0 || gasWanted > m.maxTxGasWanted) {
+		gasWanted = m.maxTxGasWanted
+	}
+	// Record before insert so concurrent SelectBy never sees the tx without a gas entry.
+	if gasWanted > 0 {
+		if key, ok := m.txGasKey(tx); ok {
+			m.txGases.Store(key, gasWanted)
+		}
+	}
 	errC, err := m.insert(tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
@@ -372,7 +432,7 @@ func (m *Mempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator 
 // SelectBy iterates through transactions until the provided filter function returns false.
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
-func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
+func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdkmempool.PooledTx) bool) {
 	defer func(t0 time.Time) {
 		selectByDuration.Record(goCtx, float64(time.Since(t0).Milliseconds()))
 	}(time.Now())
@@ -399,6 +459,7 @@ func (m *Mempool) buildIterator(ctx context.Context, txs [][]byte) sdkmempool.It
 		m.logger,
 		m.txConfig,
 		m.blockchain,
+		m.lookupGasWanted,
 	)
 }
 
@@ -427,6 +488,9 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 //   - during tx execution by OptimisticExecution that fails
 //     and then inside another finalizeBlock() (e.g. consensus round increment)
 func (m *Mempool) RemoveWithReason(_ context.Context, tx sdk.Tx, reason sdkmempool.RemoveReason) error {
+	if key, ok := m.txGasKey(tx); ok {
+		m.txGases.Delete(key)
+	}
 	msgEthereumTx, err := evmTxFromCosmosTx(tx)
 	switch {
 	case errors.Is(err, ErrNoMessages):

@@ -893,6 +893,20 @@ func (pool *LegacyPool) ValidateTxBasics(tx *types.Transaction) error {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *LegacyPool) validateTx(tx *types.Transaction) error {
+	// Self-heal the post-init window where StateAt returned a typed nil
+	// (head.Root was empty before the first NotifyNewBlock). validateTx
+	// runs under pool.mu via addTxsLocked, so the field writes are safe.
+	if pool.currentState == nil {
+		if head := pool.currentHead.Load(); head != nil {
+			if statedb, err := pool.chain.StateAt(head.Root); err == nil && statedb != nil {
+				pool.currentState = statedb
+				pool.pendingNonces = newNoncer(statedb)
+			}
+		}
+		if pool.currentState == nil {
+			return fmt.Errorf("tx pool not ready: chain state not yet available")
+		}
+	}
 	opts := &txpool.ValidationOptionsWithState{
 		State: pool.currentState,
 

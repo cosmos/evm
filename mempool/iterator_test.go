@@ -41,14 +41,14 @@ const (
 
 func TestNewEVMMempoolIterator_BothEmpty(t *testing.T) {
 	txConfig, b := setupIteratorTest(t)
-	iter := NewEVMMempoolIterator(nil, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(nil, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.Nil(t, iter)
 }
 
 func TestNewEVMMempoolIterator_EmptyEVMIterator(t *testing.T) {
 	txConfig, b := setupIteratorTest(t)
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.Nil(t, iter)
 }
 
@@ -59,7 +59,7 @@ func TestNewEVMMempoolIterator_NilCosmosIterator(t *testing.T) {
 	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{addr: {tx}}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 }
 
@@ -71,7 +71,7 @@ func TestNewEVMMempoolIterator_NilEVMWithCosmosOnly(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, key, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 }
 
@@ -82,7 +82,7 @@ func TestIterator_EVMOnly_SingleTx(t *testing.T) {
 	tx := buildEVMTx(t, key, 0, big.NewInt(2_000_000_000), big.NewInt(2_000_000_000), b.Config().ChainID)
 
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{addr: {tx}}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -101,7 +101,7 @@ func TestIterator_EVMOnly_MultipleTxsSameAccount(t *testing.T) {
 	}
 
 	evmIter := makeEVMIterator(map[common.Address][]*txpool.LazyTransaction{addr: lazyTxs}, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -121,7 +121,7 @@ func TestIterator_EVMOnly_MultipleAccounts(t *testing.T) {
 	}
 
 	evmIter := makeEVMIterator(txsByAddr, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -139,7 +139,7 @@ func TestIterator_EVMMultipleAccountsDifferentPrices(t *testing.T) {
 	}
 
 	evmIter := makeEVMIterator(txsByAddr, nil)
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -158,7 +158,7 @@ func TestIterator_CosmosOnly_SingleTx(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, key, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -176,12 +176,12 @@ func TestIterator_CosmosOnly_MultipleTxs(t *testing.T) {
 		_, key := newAddrKey(t)
 		tx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -202,13 +202,13 @@ func TestIterator_CosmosOnlyWithBaseFee(t *testing.T) {
 		_, key := newAddrKey(t)
 		tx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
 	bc := makeBlockchain(t, baseFee)
-	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, bc)
+	iter := NewEVMMempoolIterator(nil, cosmosIter, log.NewNopLogger(), txConfig, bc, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -233,7 +233,7 @@ func TestIterator_Mixed_EVMHigherFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -258,7 +258,7 @@ func TestIterator_Mixed_CosmosHigherFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 10_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -283,7 +283,7 @@ func TestIterator_Mixed_EqualFees_PrefersEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 5_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -313,12 +313,12 @@ func TestIterator_Mixed_InterleavedByFee(t *testing.T) {
 		_, key := newAddrKey(t)
 		tx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -351,7 +351,7 @@ func TestIterator_CosmosZeroFee_PrefersEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 0, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -375,7 +375,7 @@ func TestIterator_CosmosWrongDenom_PrefersEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 100_000_000_000, testGas, "uosmo")
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -405,7 +405,7 @@ func TestIterator_WithBaseFee_CosmosEffectiveTip(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 5_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -432,7 +432,7 @@ func TestIterator_WithBaseFee_CosmosBelowBaseFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 2_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -459,7 +459,7 @@ func TestIterator_WithBaseFee_CosmosEqualToBaseFee(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 5_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -484,7 +484,7 @@ func TestIterator_NoBaseFee_CosmosGasPriceUsedDirectly(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 10_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -509,7 +509,7 @@ func TestIterator_NilBaseFeeInHeader(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 10_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -537,7 +537,7 @@ func TestIterator_MixedWithBaseFee_OrderingCorrect(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 7_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, bc, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -563,7 +563,7 @@ func TestIterator_CosmosExhaustedFirstThenEVM(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 50_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -592,12 +592,12 @@ func TestIterator_EVMExhaustedFirstThenCosmos(t *testing.T) {
 		_, key := newAddrKey(t)
 		cosmosTx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, cosmosTx))
+		require.NoError(t, pool.Insert(ctx, cosmosTx, sdkmempool.InsertOption{}))
 	}
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	result := collectAll(t, iter)
@@ -624,13 +624,13 @@ func TestIterator_Tx_CalledMultipleTimesReturnsSameType(t *testing.T) {
 	cosmosTx := buildCosmosTx(t, txConfig, cosmosKey, 1_000_000_000, testGas, testBondDenom)
 	cosmosIter := insertCosmosTxs(t, pool, cosmosTx)
 
-	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, cosmosIter, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 
 	// Tx() should be idempotent
-	tx1 := iter.Tx()
-	tx2 := iter.Tx()
-	tx3 := iter.Tx()
+	tx1 := iter.Tx().Tx
+	tx2 := iter.Tx().Tx
+	tx3 := iter.Tx().Tx
 	require.True(t, isEVMTx(tx1))
 	require.True(t, isEVMTx(tx2))
 	require.True(t, isEVMTx(tx3))
@@ -645,7 +645,7 @@ func TestIterator_NextReturnsNilWhenExhausted(t *testing.T) {
 		addr: {tx},
 	}, nil)
 
-	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
+	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b, nil)
 	require.NotNil(t, iter)
 	require.NotNil(t, iter.Tx())
 
@@ -774,7 +774,7 @@ func insertCosmosTxs(t *testing.T, pool sdkmempool.ExtMempool, txs ...authsignin
 	t.Helper()
 	ctx := sdk.Context{}.WithContext(context.Background())
 	for _, tx := range txs {
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 	return pool.Select(ctx, nil)
 }
@@ -836,7 +836,7 @@ func collectAll(t *testing.T, iter sdkmempool.Iterator) []sdk.Tx {
 	t.Helper()
 	var result []sdk.Tx
 	for iter != nil {
-		tx := iter.Tx()
+		tx := iter.Tx().Tx
 		if tx == nil {
 			break
 		}

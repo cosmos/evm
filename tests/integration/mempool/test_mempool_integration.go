@@ -57,7 +57,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 
 				// try to insert a valid tx for the sender, ensure this succeeds
 				tx := s.createCosmosSendTx(s.keyring.GetKey(0), gasPrice)
-				s.Require().NoError(mpool.Insert(s.network.GetContext(), tx))
+				s.Require().NoError(mpool.Insert(s.network.GetContext(), tx, mempool.InsertOption{}))
 
 				// ensure it made it into the pool
 				s.Require().Equal(1, mpool.CountTx())
@@ -168,7 +168,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			tx := tc.setupTx()
 			mpool := s.network.App.GetMempool()
 
-			err := mpool.Insert(s.network.GetContext(), tx)
+			err := mpool.Insert(s.network.GetContext(), tx, mempool.InsertOption{})
 
 			if tc.wantError {
 				require.Error(s.T(), err)
@@ -232,7 +232,7 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			mp := s.network.App.GetMempool()
 
 			if tc.insertFirst {
-				err := mp.Insert(s.network.GetContext(), tx)
+				err := mp.Insert(s.network.GetContext(), tx, mempool.InsertOption{})
 				require.NoError(s.T(), err)
 				require.Equal(s.T(), 1, mp.CountTx())
 			}
@@ -278,12 +278,12 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				s.Require().NotNil(iterator)
-				tx := iterator.Tx()
+				tx := iterator.Tx().Tx
 				s.Require().NotNil(tx)
 			},
 		},
@@ -293,12 +293,12 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				s.Require().NotNil(iterator)
-				tx := iterator.Tx()
+				tx := iterator.Tx().Tx
 				s.Require().NotNil(tx)
 
 				// Verify it's an EVM transaction
@@ -357,11 +357,11 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
-				tx := iterator.Tx()
+				tx := iterator.Tx().Tx
 				s.Require().NotNil(tx)
 			},
 		},
@@ -370,11 +370,11 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
-				tx := iterator.Tx()
+				tx := iterator.Tx().Tx
 				s.Require().NotNil(tx)
 
 				// Verify it's an EVM transaction
@@ -392,17 +392,17 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 				mpool := s.network.App.GetMempool()
 
 				cosmosTx1 := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
-				err := mpool.Insert(s.network.GetContext(), cosmosTx1)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx1, mempool.InsertOption{})
 				s.Require().NoError(err)
 
 				cosmosTx2 := s.createCosmosSendTx(s.keyring.GetKey(1), big.NewInt(2000000000))
-				err = mpool.Insert(s.network.GetContext(), cosmosTx2)
+				err = mpool.Insert(s.network.GetContext(), cosmosTx2, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// Should get at least one transaction
 				s.Require().NotNil(iterator)
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 
 				// Move to next
@@ -418,18 +418,18 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 				// Add EVM transaction (use key 0)
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000))
 
-				err := mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 
 				// Add Cosmos transaction (use key 2 to avoid address reservation conflict)
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(2), big.NewInt(2000000000))
-				err = mpool.Insert(s.network.GetContext(), cosmosTx)
+				err = mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// Should get at least one transaction
 				s.Require().NotNil(iterator)
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 
 				// Move to next
@@ -484,18 +484,18 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert in non-priority order
-				err := mpool.Insert(s.network.GetContext(), lowFeeCosmosTx)
+				err := mpool.Insert(s.network.GetContext(), lowFeeCosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highGasPriceEVMTx)
+				err = mpool.Insert(s.network.GetContext(), highGasPriceEVMTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), mediumFeeCosmosTx)
+				err = mpool.Insert(s.network.GetContext(), mediumFeeCosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highFeeCosmosTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeCosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// First transaction should be EVM with highest gas price (5 gaatom = 5000000000 aatom)
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 
 				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
@@ -506,7 +506,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Second transaction should be Cosmos with high fee (25000 aatom gas price)
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx2 := iterator.Tx()
+				tx2 := iterator.Tx().Tx
 				s.Require().NotNil(tx2)
 
 				// Should be Cosmos transaction with high fee
@@ -527,14 +527,14 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert low fee transaction first
-				err := mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
+				err := mpool.Insert(s.network.GetContext(), lowFeeEVMTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// First transaction should be high fee
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
@@ -557,14 +557,14 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert low fee transaction first
-				err := mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
+				err := mpool.Insert(s.network.GetContext(), lowFeeEVMTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// First transaction should be high fee
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
@@ -572,7 +572,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().Equal(big.NewInt(5000000000), ethTx.GasPrice())
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx2 := iterator.Tx()
+				tx2 := iterator.Tx().Tx
 				s.Require().NotNil(tx2)
 				ethMsg, ok = tx2.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
@@ -594,28 +594,28 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert in random order
-				err := mpool.Insert(s.network.GetContext(), mediumFeeTx)
+				err := mpool.Insert(s.network.GetContext(), mediumFeeTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), lowFeeTx)
+				err = mpool.Insert(s.network.GetContext(), lowFeeTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highFeeTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// Should get transactions ordered by fee: high, medium, low
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 				feeTx1 := tx1.(sdk.FeeTx)
 				s.Require().Equal(big.NewInt(5000000000), s.calculateCosmosGasPrice(feeTx1.GetFee().AmountOf("aatom").Int64(), feeTx1.GetGas()))
 
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				feeTx2 := iterator.Tx().(sdk.FeeTx)
+				feeTx2 := iterator.Tx().Tx.(sdk.FeeTx)
 				s.Require().Equal(big.NewInt(3000000000), s.calculateCosmosGasPrice(feeTx2.GetFee().AmountOf("aatom").Int64(), feeTx2.GetGas()))
 
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				feeTx3 := iterator.Tx().(sdk.FeeTx)
+				feeTx3 := iterator.Tx().Tx.(sdk.FeeTx)
 				s.Require().Equal(big.NewInt(1000000000), s.calculateCosmosGasPrice(feeTx3.GetFee().AmountOf("aatom").Int64(), feeTx3.GetGas()))
 
 				iterator = iterator.Next()
@@ -635,15 +635,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert Cosmos first, then EVM
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				err = mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// Both transactions have equal effective tip, so either could be first
 				// But EVM should be preferred when effective tips are equal
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 
 				// Check if first transaction is EVM (preferred when effective tips are equal)
@@ -657,7 +657,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Second transaction should be the other type
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx2 := iterator.Tx()
+				tx2 := iterator.Tx().Tx
 				s.Require().NotNil(tx2)
 
 				feeTx := tx2.(sdk.FeeTx)
@@ -677,14 +677,14 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert Cosmos first, then EVM
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				err = mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// EVM should be first due to higher effective tip
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 
 				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
@@ -696,7 +696,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Second transaction should be Cosmos
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx2 := iterator.Tx()
+				tx2 := iterator.Tx().Tx
 				s.Require().NotNil(tx2)
 
 				feeTx := tx2.(sdk.FeeTx)
@@ -716,14 +716,14 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert EVM first, then Cosmos
-				err := mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), cosmosTx)
+				err = mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
 				// Cosmos should be first due to higher effective tip
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 
 				feeTx := tx1.(sdk.FeeTx)
@@ -733,7 +733,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Second transaction should be EVM
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx2 := iterator.Tx()
+				tx2 := iterator.Tx().Tx
 				s.Require().NotNil(tx2)
 
 				ethMsg, ok := tx2.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
@@ -761,17 +761,17 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert in random order
-				err := mpool.Insert(s.network.GetContext(), cosmosLow)
+				err := mpool.Insert(s.network.GetContext(), cosmosLow, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), evmMedium)
+				err = mpool.Insert(s.network.GetContext(), evmMedium, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), cosmosHigh)
+				err = mpool.Insert(s.network.GetContext(), cosmosHigh, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), evmLow)
+				err = mpool.Insert(s.network.GetContext(), evmLow, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), cosmosMedium)
+				err = mpool.Insert(s.network.GetContext(), cosmosMedium, mempool.InsertOption{})
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), evmHigh)
+				err = mpool.Insert(s.network.GetContext(), evmHigh, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -784,7 +784,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// 6. Cosmos 1 gaatom/gas
 
 				// First: EVM 8
-				tx1 := iterator.Tx()
+				tx1 := iterator.Tx().Tx
 				s.Require().NotNil(tx1)
 				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "First transaction should be EVM with highest gas price")
@@ -794,7 +794,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Second: Cosmos 6
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx2 := iterator.Tx()
+				tx2 := iterator.Tx().Tx
 				s.Require().NotNil(tx2)
 				feeTx2 := tx2.(sdk.FeeTx)
 				cosmosGasPrice2 := s.calculateCosmosGasPrice(feeTx2.GetFee().AmountOf("aatom").Int64(), feeTx2.GetGas())
@@ -803,7 +803,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Third: EVM 4
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx3 := iterator.Tx()
+				tx3 := iterator.Tx().Tx
 				s.Require().NotNil(tx3)
 				ethMsg3, ok := tx3.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "Third transaction should be EVM")
@@ -813,7 +813,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Fourth: Cosmos 3
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx4 := iterator.Tx()
+				tx4 := iterator.Tx().Tx
 				s.Require().NotNil(tx4)
 				feeTx4 := tx4.(sdk.FeeTx)
 				cosmosGasPrice4 := s.calculateCosmosGasPrice(feeTx4.GetFee().AmountOf("aatom").Int64(), feeTx4.GetGas())
@@ -822,7 +822,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Fifth: EVM 2
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx5 := iterator.Tx()
+				tx5 := iterator.Tx().Tx
 				s.Require().NotNil(tx5)
 				ethMsg5, ok := tx5.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "Fifth transaction should be EVM")
@@ -832,7 +832,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Sixth: Cosmos 1
 				iterator = iterator.Next()
 				s.Require().NotNil(iterator)
-				tx6 := iterator.Tx()
+				tx6 := iterator.Tx().Tx
 				s.Require().NotNil(tx6)
 				feeTx6 := tx6.(sdk.FeeTx)
 				cosmosGasPrice6 := s.calculateCosmosGasPrice(feeTx6.GetFee().AmountOf("aatom").Int64(), feeTx6.GetGas())
@@ -893,7 +893,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			filterFunc: func(tx sdk.Tx) bool {
@@ -906,7 +906,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			setupTxs: func() {
 				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			},
 			filterFunc: func(tx sdk.Tx) bool {
@@ -922,7 +922,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 				// Add transactions with different fees (gas prices above base fee)
 				for i := 1; i < 6; i++ { // Use different keys for different transactions
 					cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(i), big.NewInt(int64(i)*1000000000))
-					err := mpool.Insert(s.network.GetContext(), cosmosTx)
+					err := mpool.Insert(s.network.GetContext(), cosmosTx, mempool.InsertOption{})
 					s.Require().NoError(err)
 				}
 			},
@@ -950,7 +950,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 					// Use the helper method with specific nonce
 					evmTx := s.createEVMValueTransferTx(key, 0, big.NewInt(int64(i)*100000000000))
-					err := mpool.Insert(s.network.GetContext(), evmTx)
+					err := mpool.Insert(s.network.GetContext(), evmTx, mempool.InsertOption{})
 					s.Require().NoError(err)
 				}
 			},
@@ -988,13 +988,13 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 			// Track filter function calls to ensure we don't have infinite loops
 			callCount := 0
-			wrappedFilter := func(tx sdk.Tx) bool {
+			wrappedFilter := func(pt mempool.PooledTx) bool {
 				callCount++
 				// Prevent infinite loops by failing test if too many calls
 				if callCount > 1000 {
 					s.T().Fatal("Possible infinite loop detected - filter called more than 1000 times")
 				}
-				return tc.filterFunc(tx)
+				return tc.filterFunc(pt.Tx)
 			}
 
 			// Test SelectBy directly
@@ -1033,7 +1033,7 @@ func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
 	tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
 
 	// Should fail because mempool requires block height >= 2
-	err = mpool.Insert(nw.GetContext(), tx)
+	err = mpool.Insert(nw.GetContext(), tx, mempool.InsertOption{})
 	// The mempool might not enforce height requirements in this context
 	// Just check that the operation completes (either success or error)
 	s.Require().True(err == nil || err != nil)
@@ -1112,7 +1112,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			tx := tc.setupTx()
 			mpool := s.network.App.GetMempool()
 
-			err := mpool.Insert(s.network.GetContext(), tx)
+			err := mpool.Insert(s.network.GetContext(), tx, mempool.InsertOption{})
 
 			if tc.wantError {
 				require.Error(s.T(), err)
@@ -1324,7 +1324,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 			mpool := s.network.App.GetMempool()
 
 			for _, tx := range txs {
-				err := mpool.Insert(s.network.GetContext(), tx)
+				err := mpool.Insert(s.network.GetContext(), tx, mempool.InsertOption{})
 				s.Require().NoError(err)
 			}
 
