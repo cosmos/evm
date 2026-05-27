@@ -3,6 +3,7 @@ package erc20
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
@@ -117,6 +118,15 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			func() {},
 			true,
 			erc20.ErrTransferAmountExceedsBalance.Error(),
+		},
+		{
+			"fail - transfer to zero address",
+			func() []interface{} {
+				return []interface{}{common.Address{}, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"transfer to zero address",
 		},
 		{
 			"pass",
@@ -251,6 +261,24 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			true,
 			"",
+		},
+		{
+			"fail - transfer to zero address",
+			func() []interface{} {
+				return []interface{}{owner.Addr, common.Address{}, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"transfer to zero address",
+		},
+		{
+			"fail - transfer from zero address",
+			func() []interface{} {
+				return []interface{}{common.Address{}, toAddr, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"insufficient allowance",
 		},
 		{
 			"pass - spend on behalf of own account with allowance",
