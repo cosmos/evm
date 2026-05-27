@@ -3,6 +3,7 @@ package statedb
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,11 @@ type Account struct {
 	Nonce    uint64
 	Balance  *uint256.Int
 	CodeHash []byte
+
+	// lockedBalance is a snapshot of Account's LockedCoins at load time. Note
+	// that this is simply a constant offset to recover the full bank balance
+	// from spendable Balance at commit, not a live updating value.
+	lockedBalance *big.Int
 }
 
 // NewEmptyAccount returns an empty account.
@@ -27,9 +33,28 @@ func NewEmptyAccount() *Account {
 	}
 }
 
+// NewAccount returns a new account instance.
+func NewAccount(nonce uint64, balance *uint256.Int, lockedBalance *big.Int, codeHash []byte) *Account {
+	return &Account{
+		Nonce:         nonce,
+		Balance:       balance,
+		CodeHash:      codeHash,
+		lockedBalance: lockedBalance,
+	}
+}
+
 // IsContract returns if the account contains contract code.
 func (acct Account) HasCodeHash() bool {
 	return !types.IsEmptyCodeHash(acct.CodeHash)
+}
+
+// LockedBalanceSnapshot returns a copy of the LockedCoins value observed when
+// the account was loaded, or nil if no snapshot was recorded.
+func (acct Account) LockedBalanceSnapshot() *big.Int {
+	if acct.lockedBalance == nil {
+		return nil
+	}
+	return new(big.Int).Set(acct.lockedBalance)
 }
 
 // Storage represents in-memory cache/buffer of contract storage.
