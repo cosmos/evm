@@ -195,7 +195,6 @@ type Backend struct {
 	EvmChainID          *big.Int
 	Cfg                 config.Config
 	AllowUnprotectedTxs bool
-	UseAppMempool       bool
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             Mempool
@@ -207,12 +206,6 @@ type Opt func(*Backend)
 // WithUnprotectedTxs sets whether to allow unprotected transactions.
 func WithUnprotectedTxs(value bool) Opt {
 	return func(b *Backend) { b.AllowUnprotectedTxs = value }
-}
-
-// WithAppMempool sets whether to use the app-side mempool instead of
-// broadcasting the tx to cometbft mempool.
-func WithAppMempool(value bool) Opt {
-	return func(b *Backend) { b.UseAppMempool = value }
 }
 
 // WithLogger sets the logger for the backend.
@@ -245,7 +238,6 @@ func NewBackend(
 		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
 		Cfg:                 appConf,
 		AllowUnprotectedTxs: false,
-		UseAppMempool:       false,
 		Indexer:             indexer,
 		Mempool:             mempool,
 		Logger:              log.NewNopLogger(),

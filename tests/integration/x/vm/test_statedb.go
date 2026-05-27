@@ -20,11 +20,11 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
-	"cosmossdk.io/store/prefix"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
@@ -39,17 +39,6 @@ func (s *KeeperTestSuite) TestCreateAccount() {
 		malleate func(vm.StateDB, common.Address)
 		callback func(vm.StateDB, common.Address)
 	}{
-		{
-			"reset account (keep balance)",
-			utiltx.GenerateAddress(),
-			func(vmdb vm.StateDB, addr common.Address) {
-				vmdb.AddBalance(addr, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
-				s.Require().NotZero(vmdb.GetBalance(addr).Uint64())
-			},
-			func(vmdb vm.StateDB, addr common.Address) {
-				s.Require().Equal(vmdb.GetBalance(addr).Uint64(), uint64(100))
-			},
-		},
 		{
 			"create account",
 			utiltx.GenerateAddress(),
@@ -247,7 +236,7 @@ func (s *KeeperTestSuite) TestGetCodeHash() {
 			s.Keyring.GetAddr(0),
 			crypto.Keccak256Hash([]byte("codeHash")),
 			func(vmdb vm.StateDB) {
-				vmdb.SetCode(s.Keyring.GetAddr(0), []byte("codeHash"))
+				vmdb.SetCode(s.Keyring.GetAddr(0), []byte("codeHash"), 0x0)
 			},
 		},
 	}
@@ -305,7 +294,7 @@ func (s *KeeperTestSuite) TestSetCode() {
 		s.Run(tc.name, func() {
 			vmdb := s.StateDB()
 			prev := vmdb.GetCode(tc.address)
-			vmdb.SetCode(tc.address, tc.code)
+			vmdb.SetCode(tc.address, tc.code, 0x0)
 			post := vmdb.GetCode(tc.address)
 
 			if tc.isNoOp {
@@ -467,7 +456,7 @@ func (s *KeeperTestSuite) TestSuicide() {
 	code := []byte("code")
 	db := s.Network.GetStateDB()
 	// Add code to account
-	db.SetCode(firstAddress, code)
+	db.SetCode(firstAddress, code, 0x0)
 	s.Require().Equal(code, db.GetCode(firstAddress))
 	// Add state to account
 	for i := 0; i < 5; i++ {
@@ -481,7 +470,7 @@ func (s *KeeperTestSuite) TestSuicide() {
 	db = s.Network.GetStateDB()
 
 	// Add code and state to account 2
-	db.SetCode(secondAddress, code)
+	db.SetCode(secondAddress, code, 0x0)
 	s.Require().Equal(code, db.GetCode(secondAddress))
 	for i := 0; i < 5; i++ {
 		db.SetState(
@@ -774,7 +763,6 @@ func (s *KeeperTestSuite) TestPrepareAccessList() {
 	}
 
 	rules := ethparams.Rules{
-		ChainID:          s.Network.GetEVMChainConfig().ChainID,
 		IsHomestead:      true,
 		IsEIP150:         true,
 		IsEIP155:         true,
@@ -923,6 +911,68 @@ func (s *KeeperTestSuite) TestAddSlotToAccessList() {
 // 	}
 // }
 
+// TestGetAccountLocked verifies Keeper.GetAccount snapshots LockedCoins for
+// the EVM denom into the Account at load time. The snapshot powers the commit
+// path's bank-balance reconstruction without re-reading LockedCoins after a
+// precompile may have mutated DelegatedVesting on a vesting account.
+func (s *KeeperTestSuite) TestGetAccountLocked() {
+	addr := utiltx.GenerateAddress()
+	bondDenom := s.Network.GetBaseDenom()
+
+	testCases := []struct {
+		name      string
+		malleate  func()
+		expLocked *big.Int
+	}{
+		{
+			"non-existent account returns nil",
+			func() {},
+			nil, // GetAccount returns nil entirely; checked separately
+		},
+		{
+			"base account has zero Locked snapshot",
+			func() {
+				ctx := s.Network.GetContext()
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), addr.Bytes(), sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(100))))
+				s.Require().NoError(err)
+			},
+			big.NewInt(0),
+		},
+		{
+			"vesting account snapshots OriginalVesting at start time",
+			func() {
+				ctx := s.Network.GetContext()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(100))))
+				s.Require().NoError(err)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				currTime := ctx.BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(100))), currTime, currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+			},
+			big.NewInt(100),
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			tc.malleate()
+			acc := s.Network.App.GetEVMKeeper().GetAccount(s.Network.GetContext(), addr)
+			if tc.expLocked == nil {
+				s.Require().Nil(acc, "expected nil account")
+				return
+			}
+			s.Require().NotNil(acc, "expected non-nil account")
+			locked := acc.LockedBalanceSnapshot()
+			s.Require().NotNil(locked, "expected Locked snapshot to be populated")
+			s.Require().Zero(tc.expLocked.Cmp(locked), "Locked snapshot mismatch: want %s got %s", tc.expLocked, locked)
+		})
+	}
+}
+
 func (s *KeeperTestSuite) TestSetBalance() {
 	amount := common.U2560
 	totalBalance := common.U2560
@@ -1056,6 +1106,96 @@ func (s *KeeperTestSuite) TestSetBalance() {
 				spendable := s.Network.App.GetEVMKeeper().SpendableCoin(s.Network.GetContext(), tc.addr)
 				s.Require().Equal(amount, spendable)
 			}
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestSetBalanceWithLocked() {
+	amount := common.U2560
+	var locked *big.Int
+	addr := utiltx.GenerateAddress()
+
+	testCases := []struct {
+		name           string
+		addr           common.Address
+		malleate       func()
+		expErr         bool
+		expTotalAmount func() *uint256.Int
+		expSpendable   func() *uint256.Int
+	}{
+		{
+			"non vesting account: locked overrides reread",
+			addr,
+			func() {
+				amount = uint256.NewInt(100)
+				locked = big.NewInt(50)
+			},
+			false,
+			func() *uint256.Int {
+				return uint256.NewInt(150)
+			},
+			func() *uint256.Int {
+				// All funds are spendable on a non base account, the snapshot
+				// only inflates the bank balance reconstruction.
+				return uint256.NewInt(150)
+			},
+		},
+		{
+			"vesting account: locked snapshot beats current LockedCoins re-read",
+			addr,
+			func() {
+				ctx := s.Network.GetContext()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))))
+				s.Require().NoError(err)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+
+				// setup vesting account with 40 locked to simulate a spend
+				acc, err := vestingtypes.NewContinuousVestingAccount(
+					baseAccount,
+					sdk.NewCoins(sdk.NewCoin(baseDenom, math.NewInt(40))),
+					currTime, currTime+100,
+				)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				amount = uint256.NewInt(100)
+
+				// override locked to 100
+				locked = big.NewInt(100)
+			},
+			false,
+			func() *uint256.Int {
+				// ensure we used the override of 100
+				return uint256.NewInt(200)
+			},
+			func() *uint256.Int {
+				// spendable = bank balance − current LockedCoins = 200 − 40 = 160.
+				return uint256.NewInt(160)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			tc.malleate()
+			err := s.Network.App.GetEVMKeeper().SetBalanceWithLocked(s.Network.GetContext(), tc.addr, amount, locked)
+			if tc.expErr {
+				s.Require().Error(err)
+				return
+			}
+
+			balance := s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), tc.addr)
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expTotalAmount(), balance)
+
+			spendable := s.Network.App.GetEVMKeeper().SpendableCoin(s.Network.GetContext(), tc.addr)
+			s.Require().Equal(tc.expSpendable(), spendable)
 		})
 	}
 }

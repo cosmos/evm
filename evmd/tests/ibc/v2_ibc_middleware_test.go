@@ -18,11 +18,11 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	v2 "github.com/cosmos/evm/x/erc20/v2"
 	"github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-	ibcmockv2 "github.com/cosmos/ibc-go/v10/testing/mock/v2"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v11/modules/core/04-channel/v2/types"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	ibcmockv2 "github.com/cosmos/ibc-go/v11/testing/mock/v2"
 
 	"cosmossdk.io/math"
 

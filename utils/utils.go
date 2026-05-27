@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	errorsmod "cosmossdk.io/errors"
 

@@ -17,8 +17,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/types/mocks"
 
-	storetypes "cosmossdk.io/store/types"
-
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -108,6 +107,14 @@ func TestParseAmount(t *testing.T) {
 				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
 			},
 			expAmt: uint256.NewInt(5),
+		},
+		{
+			name: "unrelated denom is ignored",
+			maleate: func() sdk.Event {
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin("foobar", 7)).String()
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
+			},
+			expAmt: uint256.NewInt(0),
 		},
 		{
 			name: "missing amount",

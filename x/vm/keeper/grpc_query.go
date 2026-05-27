@@ -31,8 +31,8 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -823,7 +823,7 @@ func (k *Keeper) traceTxWithMsg(
 ) (_ *any, err error) {
 	ctx, span := ctx.StartSpan(tracer, "traceTxWithMsg", trace.WithAttributes(
 		attribute.String("tx_hash", txConfig.TxHash.Hex()),
-		attribute.Int("tx_index", int(txConfig.TxIndex)), //nolint:gosec // G115
+		attribute.Int("tx_index", int(txConfig.TxIndex)),
 		attribute.String("from", msg.From.Hex()),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()

@@ -2,20 +2,20 @@ package evmd
 
 import (
 	"context"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 )
 
 // UpgradeName defines the on-chain upgrade name for the sample EVMD upgrade
-// from v0.5.0 to v0.6.0.
+// from v0.6.0 to v0.7.0.
 //
 // NOTE: This upgrade defines a reference implementation of what an upgrade
 // could look like when an application is migrating from EVMD version
-// v0.4.0 to v0.5.x
-const UpgradeName = "v0.5.0-to-v0.6.0"
+// v0.6.x to v0.7.0.
+const UpgradeName = "v0.6.0-to-v0.7.0"
 
 func (app EVMD) RegisterUpgradeHandlers() {
 	app.UpgradeKeeper.SetUpgradeHandler(

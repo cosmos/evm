@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 
@@ -159,8 +160,20 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 5. signature verification
-	if err := SignatureVerification(ethMsg, ethTx, decUtils.Signer); err != nil {
-		return ctx, err
+	if v, ok := ctx.GetIncarnationCache(EthSigVerificationResultCacheKey); ok {
+		if v != nil {
+			cachedErr, ok := v.(error)
+			if !ok {
+				return ctx, fmt.Errorf("unexpected type %T cached under %s, want error", v, EthSigVerificationResultCacheKey)
+			}
+			return ctx, cachedErr
+		}
+	} else {
+		err = SignatureVerification(ethMsg, ethTx, decUtils.Signer)
+		ctx.SetIncarnationCache(EthSigVerificationResultCacheKey, err)
+		if err != nil {
+			return ctx, err
+		}
 	}
 
 	from := ethMsg.GetFrom()
@@ -257,8 +270,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	// Emit event unconditionally - ctx.TxIndex() will be valid during block execution
-	EmitTxHashEvent(ctx, ethMsg, uint64(ctx.TxIndex())) // #nosec G115 -- no overlfow here
+	EmitTxHashEvent(ctx, ethMsg, uint64(ctx.TxIndex())) // #nosec G115 -- no overflow here
 
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
 		return ctx, err

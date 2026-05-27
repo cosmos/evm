@@ -4,7 +4,7 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 func (s *EvmAnteTestSuite) TestBuildEvmExecutionCtx() {

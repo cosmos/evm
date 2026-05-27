@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"sync"
 
@@ -391,9 +392,7 @@ func (p *TxPool) Add(txs []*types.Transaction, sync bool) []error {
 func (p *TxPool) Pending(ctx context.Context, filter PendingFilter) map[common.Address][]*LazyTransaction {
 	txs := make(map[common.Address][]*LazyTransaction)
 	for _, subpool := range p.Subpools {
-		for addr, set := range subpool.Pending(ctx, filter) {
-			txs[addr] = set
-		}
+		maps.Copy(txs, subpool.Pending(ctx, filter))
 	}
 	return txs
 }
@@ -406,9 +405,7 @@ func (p *TxPool) Pending(ctx context.Context, filter PendingFilter) map[common.A
 func (p *TxPool) Rechecked(ctx context.Context, height *big.Int, filter PendingFilter) map[common.Address][]*LazyTransaction {
 	txs := make(map[common.Address][]*LazyTransaction)
 	for _, subpool := range p.Subpools {
-		for addr, set := range subpool.Rechecked(ctx, height, filter) {
-			txs[addr] = set
-		}
+		maps.Copy(txs, subpool.Rechecked(ctx, height, filter))
 	}
 	return txs
 }
@@ -470,12 +467,8 @@ func (p *TxPool) Content() (map[common.Address][]*types.Transaction, map[common.
 	for _, subpool := range p.Subpools {
 		run, block := subpool.Content()
 
-		for addr, txs := range run {
-			runnable[addr] = txs
-		}
-		for addr, txs := range block {
-			blocked[addr] = txs
-		}
+		maps.Copy(runnable, run)
+		maps.Copy(blocked, block)
 	}
 	return runnable, blocked
 }

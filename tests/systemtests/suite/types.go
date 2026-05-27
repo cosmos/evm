@@ -12,7 +12,6 @@ const (
 	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
 	NodeArgsMaxTxs                     = "--mempool.max-txs=0"
 
-	NodeArgOperateExclusively       = "--evm.mempool.operate-exclusively=true"
 	NodeArgPendingTxProposalTimeout = "--evm.mempool.pending-tx-proposal-timeout=200ms"
 	NodeArgInsertQueueSize          = "--evm.mempool.insert-queue-size=1000"
 )
@@ -59,26 +58,27 @@ func MinimumGasPriceZeroArgs() []string {
 	// Remove the default minimum gas price argument
 	var args []string
 	for _, arg := range defaultArgs {
-		if arg != NodeArgsMinimumGasPrice {
-			args = append(args, arg)
+		if arg == NodeArgsMinimumGasPrice {
+			continue
 		}
+
+		args = append(args, arg)
 	}
+
 	// Add the zero minimum gas price argument
-	return append(DefaultNodeArgs(), "--minimum-gas-prices=0atest")
+	return append(args, "--minimum-gas-prices=0atest")
 }
 
-// ExlcusiveMempoolArgs returns the node arguments to run with an exclusive app
-// mempool.
-func ExlcusiveMempoolArgs() []string {
-	return append(DefaultNodeArgs(),
-		NodeArgOperateExclusively,
+// MempoolArgs returns the node arguments to run with the mempool.
+func MempoolArgs() []string {
+	return append(
+		DefaultNodeArgs(),
 		NodeArgInsertQueueSize,
 		NodeArgPendingTxProposalTimeout,
 	)
 }
 
-// ExlcusiveMempoolArgs returns the node arguments to run with an exclusive app
-// mempool and no min gas price.
-func ExlcusiveMempoolMinGasPriceZeroArgs() []string {
-	return append(ExlcusiveMempoolArgs(), "--minimum-gas-prices=0atest")
+// MempoolMinGasPriceZeroArgs returns the node arguments to run with the mempool with no min gas price.
+func MempoolMinGasPriceZeroArgs() []string {
+	return append(MempoolArgs(), "--minimum-gas-prices=0atest")
 }

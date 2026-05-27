@@ -40,6 +40,10 @@ const (
 // See https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md for details.
 type Precompile struct{}
 
+func (Precompile) Name() string {
+	return "p256"
+}
+
 // Address defines the address of the p256 precompiled contract.
 func (Precompile) Address() common.Address {
 	return common.HexToAddress(evmtypes.P256PrecompileAddress)

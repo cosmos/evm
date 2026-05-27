@@ -15,12 +15,12 @@ import (
 	"github.com/cosmos/evm/precompiles/ics02"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/gogoproto/proto"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
-	ibchost "github.com/cosmos/ibc-go/v10/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	commitmenttypesv2 "github.com/cosmos/ibc-go/v11/modules/core/23-commitment/types/v2"
+	ibchost "github.com/cosmos/ibc-go/v11/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 )
 
 type ICS02ClientTestSuite struct {
@@ -351,7 +351,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			// setup
 			tc.malleate()
 
-			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 200_000)
+			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 500_000)
 			if expErr {
 				s.Require().Error(err)
 				return

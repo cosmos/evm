@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	commitmenttypesv2 "github.com/cosmos/ibc-go/v11/modules/core/23-commitment/types/v2"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
 
 	errorsmod "cosmossdk.io/errors"
 

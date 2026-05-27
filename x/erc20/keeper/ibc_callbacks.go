@@ -8,12 +8,11 @@ import (
 
 	"github.com/cosmos/evm/ibc"
 	"github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v10/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v11/modules/core/exported"
 
 	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -211,11 +210,6 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 
 	// Case 2. if pair is native ERC20 -> unescrow
 	case pair.IsNativeERC20():
-		// use a zero gas config to avoid extra costs for the relayers
-		ctx = ctx.
-			WithKVGasConfig(storetypes.GasConfig{}).
-			WithTransientKVGasConfig(storetypes.GasConfig{})
-
 		params := k.GetParams(ctx)
 		if !params.EnableErc20 || !k.IsDenomRegistered(ctx, coin.Denom) {
 			// no-op, ERC20s are disabled or the denom is not registered

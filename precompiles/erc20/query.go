@@ -38,7 +38,7 @@ const (
 // Name returns the name of the token. If the token metadata is registered in the
 // bank module, it returns its name. Otherwise, it returns the base denomination of
 // the token capitalized (e.g. uatom -> Atom).
-func (p Precompile) Name(
+func (p Precompile) TokenName(
 	ctx sdk.Context,
 	_ *vm.Contract,
 	_ vm.StateDB,

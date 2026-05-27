@@ -21,7 +21,6 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func (s *TestSuite) TestResend() {
@@ -293,7 +292,7 @@ func (s *TestSuite) TestResend() {
 }
 
 func (s *TestSuite) TestSendRawTransaction() {
-	ethTx, bz := s.buildEthereumTx()
+	ethTx, _ := s.buildEthereumTx()
 
 	emptyEvmChainIDTx := s.buildEthereumTxWithChainID(nil)
 	invalidChainID := big.NewInt(1)
@@ -315,27 +314,18 @@ func (s *TestSuite) TestSendRawTransaction() {
 		expPass      bool
 	}{
 		{
-			"fail - empty bytes",
-			func() {},
-			func() []byte { return []byte{} },
-			common.Hash{},
-			"",
-			false,
+			name:         "fail - empty bytes",
+			registerMock: func() {},
+			rawTx:        func() []byte { return []byte{} },
+			expHash:      common.Hash{},
+			expError:     "",
 		},
 		{
-			"fail - no RLP encoded bytes",
-			func() {},
-			func() []byte { return bz },
-			common.Hash{},
-			"",
-			false,
-		},
-		{
-			"fail - invalid chain-id",
-			func() {
+			name: "fail - invalid chain-id",
+			registerMock: func() {
 				s.backend.AllowUnprotectedTxs = false
 			},
-			func() []byte {
+			rawTx: func() []byte {
 				from, priv := utiltx.NewAddrKey()
 				signer := utiltx.NewSigner(priv)
 				invalidEvmChainIDTx := s.buildEthereumTxWithChainID(invalidChainID)
@@ -345,55 +335,47 @@ func (s *TestSuite) TestSendRawTransaction() {
 				bytes, _ := rlp.EncodeToBytes(invalidEvmChainIDTx.AsTransaction())
 				return bytes
 			},
-			common.Hash{},
-			fmt.Errorf("incorrect chain-id; expected %d, got %d", constants.ExampleChainID.EVMChainID, invalidChainID).Error(),
-			false,
+			expHash:  common.Hash{},
+			expError: fmt.Errorf("incorrect chain-id; expected %d, got %d", constants.ExampleChainID.EVMChainID, invalidChainID).Error(),
 		},
 		{
-			"fail - unprotected tx",
-			func() {
+			name: "fail - unprotected tx",
+			registerMock: func() {
 				s.backend.AllowUnprotectedTxs = false
 			},
-			func() []byte {
+			rawTx: func() []byte {
 				bytes, _ := rlp.EncodeToBytes(emptyEvmChainIDTx.AsTransaction())
 				return bytes
 			},
-			common.Hash{},
-			errors.New("only replay-protected (EIP-155) transactions allowed over RPC").Error(),
-			false,
+			expHash:  common.Hash{},
+			expError: errors.New("only replay-protected (EIP-155) transactions allowed over RPC").Error(),
 		},
 		{
-			"fail - failed to broadcast transaction",
-			func() {
+			name: "fail - queue is full",
+			registerMock: func() {
 				cosmosTx, _ := ethTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), evmDenom)
-				txBytes, _ := s.backend.ClientCtx.TxConfig.TxEncoder()(cosmosTx)
 
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.AllowUnprotectedTxs = true
-				RegisterBroadcastTxError(client, txBytes)
+				RegisterMempoolInsert(s.T(), s.Mempool(), cosmosTx, errors.New("queue is full"))
 			},
-			func() []byte {
+			rawTx: func() []byte {
 				bytes, _ := rlp.EncodeToBytes(ethTx.AsTransaction())
 				return bytes
 			},
-			ethTx.Hash(),
-			errortypes.ErrInvalidRequest.Error(),
-			false,
+			expHash:  ethTx.Hash(),
+			expError: "queue is full",
 		},
 		{
-			"pass - Gets the correct transaction hash of the eth transaction",
-			func() {
+			name: "pass - Gets the correct transaction hash of the eth transaction",
+			registerMock: func() {
 				cosmosTx, _ := ethTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), evmDenom)
-				txBytes, _ := s.backend.ClientCtx.TxConfig.TxEncoder()(cosmosTx)
-
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.AllowUnprotectedTxs = true
-				RegisterBroadcastTx(client, txBytes)
+
+				RegisterMempoolInsert(s.T(), s.Mempool(), cosmosTx, nil)
 			},
-			func() []byte { return rlpEncodedBz },
-			ethTx.Hash(),
-			"",
-			true,
+			rawTx:   func() []byte { return rlpEncodedBz },
+			expHash: ethTx.Hash(),
+			expPass: true,
 		},
 	}
 
@@ -407,8 +389,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 			if tc.expPass {
 				s.Require().Equal(tc.expHash, hash)
 			} else {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.expError)
+				s.Require().ErrorContains(err, tc.expError)
 			}
 		})
 	}

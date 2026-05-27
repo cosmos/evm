@@ -9,7 +9,7 @@ import (
 
 	evmmempool "github.com/cosmos/evm/mempool"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 // NextBlock is a private helper function that runs the EndBlocker logic, commits the changes,
@@ -89,7 +89,7 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	// Acquire commit lock to prevent mempool background readers from accessing
 	// IAVL concurrently during commit in tests, then commit changes.
 	if mp := n.app.GetMempool(); mp != nil {
-		if evmMp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
+		if evmMp, ok := mp.(*evmmempool.Mempool); ok {
 			if bc := evmMp.GetBlockchain(); bc != nil {
 				bc.BeginCommit()
 				defer bc.EndCommit()

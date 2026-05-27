@@ -15,9 +15,9 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -57,13 +57,17 @@ func NewPrecompile(
 	return &Precompile{
 		cdc: cdc,
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.GasConfig{},
-			TransientKVGasConfig: storetypes.GasConfig{},
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 			ContractAddress:      common.HexToAddress(evmtypes.ICS02PrecompileAddress),
 		},
 		ABI:          ABI,
 		clientKeeper: clientKeeper,
 	}
+}
+
+func (Precompile) Name() string {
+	return "ics02"
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.

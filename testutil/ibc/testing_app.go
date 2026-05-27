@@ -12,13 +12,12 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/ibc-go/v10/modules/core/keeper"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-	"github.com/cosmos/ibc-go/v10/testing/simapp"
+	"github.com/cosmos/ibc-go/v11/modules/core/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	"github.com/cosmos/ibc-go/v11/testing/simapp"
 
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -26,6 +25,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"

@@ -13,8 +13,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 
-	storetypes "cosmossdk.io/store/types"
-
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -88,6 +87,10 @@ func NewPrecompile(
 		erc20Keeper:    erc20Keeper,
 		transferKeeper: transferKeeper,
 	}
+}
+
+func (p Precompile) Name() string {
+	return "erc20"
 }
 
 // RequiredGas calculates the contract gas used for the
@@ -185,7 +188,7 @@ func (p *Precompile) HandleMethod(
 		bz, err = p.Approve(ctx, contract, stateDB, method, args)
 	// ERC-20 queries
 	case NameMethod:
-		bz, err = p.Name(ctx, contract, stateDB, method, args)
+		bz, err = p.TokenName(ctx, contract, stateDB, method, args)
 	case SymbolMethod:
 		bz, err = p.Symbol(ctx, contract, stateDB, method, args)
 	case DecimalsMethod:

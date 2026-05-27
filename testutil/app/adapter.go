@@ -9,13 +9,12 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
-	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
-	storetypes "cosmossdk.io/store/types"
+	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
@@ -38,9 +37,9 @@ func NewEvmAppAdapter(app evm.TestApp) *EvmAppAdapter {
 // ToEvmAppCreator validates that the provided factory returns an app
 // implementing the desired interface T and then wraps it behind the keeper
 // adapter so downstream helpers can keep using evm.EvmApp.
-func ToEvmAppCreator[T any](create func(string, uint64, bool, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, bool, ...func(*baseapp.BaseApp)) evm.EvmApp {
-	return func(chainID string, evmChainID uint64, excluisveMempool bool, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
-		app := create(chainID, evmChainID, excluisveMempool, customBaseAppOptions...)
+func ToEvmAppCreator[T any](create func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+		app := create(chainID, evmChainID, customBaseAppOptions...)
 		if _, ok := app.(T); !ok {
 			panic(fmt.Sprintf("CreateEvmApp must implement %s", ifaceName))
 		}

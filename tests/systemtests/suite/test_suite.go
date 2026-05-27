@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -20,7 +19,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 
-	"github.com/cosmos/cosmos-sdk/testutil/systemtests"
+	"github.com/cosmos/cosmos-sdk/tools/systemtests"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -180,12 +179,7 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 		s.ResetChain(t)
 	}
 
-	if s.IsExclusiveMempool() {
-		s.ModifyCometMempool(t, "app")
-	} else {
-		// if not set, default to flood mempool
-		s.ModifyCometMempool(t, "flood")
-	}
+	s.ModifyCometMempool(t, "app")
 
 	if cfg.timeoutCommit > time.Duration(0) {
 		s.ModifyConsensusTimeout(t, cfg.timeoutCommit.String())
@@ -197,11 +191,6 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, opts ...TestSetupConfigOption) {
 	s.StartChain(t, s.nodeStartArgs...)
 	s.currentNodeConfig = cfg
 	s.AwaitNBlocks(t, 2)
-}
-
-// IsExclusiveMempool returns true if the node was started with the operate-exclusively flag
-func (s *BaseTestSuite) IsExclusiveMempool() bool {
-	return strings.Contains(strings.Join(s.nodeStartArgs, " "), "operate-exclusively")
 }
 
 // LockChain acquires exclusive control over the underlying chain lifecycle.

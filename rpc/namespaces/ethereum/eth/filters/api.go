@@ -17,6 +17,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/rpc/types"
+	evmsrvconfig "github.com/cosmos/evm/server/config"
 	evmtrace "github.com/cosmos/evm/trace"
 
 	"cosmossdk.io/log/v2"
@@ -55,13 +56,14 @@ type Backend interface {
 
 	BloomStatus() (uint64, uint64)
 
-	RPCFilterCap() int32
 	RPCLogsCap() int32
 	RPCBlockRangeCap() int32
 }
 
 // consider a filter inactive if it has not been polled for within deadline
 const defaultDeadline = 5 * time.Minute
+
+const defaultCleanupInterval = 30 * time.Second
 
 // filter is a helper struct that holds meta information over the filter type
 // and associated subscription in the event system.
@@ -82,6 +84,11 @@ type PublicFilterAPI struct {
 	filtersMu sync.Mutex
 	filters   map[rpc.ID]*filter
 	deadline  time.Duration
+
+	cleanupInterval time.Duration
+
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
 // NewPublicAPI returns a new PublicFilterAPI instance.
@@ -91,8 +98,20 @@ func NewPublicAPI(
 	stream *stream.RPCStream,
 	backend Backend,
 ) *PublicFilterAPI {
-	api := NewPublicAPIWithDeadline(logger, clientCtx, stream, backend, defaultDeadline)
-	return api
+	deadline := defaultDeadline
+	cleanupInterval := defaultCleanupInterval
+
+	if cfgBackend, ok := backend.(interface{ GetConfig() evmsrvconfig.Config }); ok {
+		jsonRPC := cfgBackend.GetConfig().JSONRPC
+		if jsonRPC.FilterTimeout > 0 {
+			deadline = jsonRPC.FilterTimeout
+		}
+		if jsonRPC.FilterCleanupInterval > 0 {
+			cleanupInterval = jsonRPC.FilterCleanupInterval
+		}
+	}
+
+	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, cleanupInterval)
 }
 
 // NewPublicAPIWithDeadline returns a new PublicFilterAPI instance with the given deadline.
@@ -103,14 +122,27 @@ func NewPublicAPIWithDeadline(
 	backend Backend,
 	deadline time.Duration,
 ) *PublicFilterAPI {
+	return newPublicAPIWithOptions(logger, clientCtx, stream, backend, deadline, defaultCleanupInterval)
+}
+
+func newPublicAPIWithOptions(
+	logger log.Logger,
+	clientCtx client.Context,
+	stream *stream.RPCStream,
+	backend Backend,
+	deadline time.Duration,
+	cleanupInterval time.Duration,
+) *PublicFilterAPI {
 	logger = logger.With("api", "filter")
 	api := &PublicFilterAPI{
-		logger:    logger,
-		clientCtx: clientCtx,
-		backend:   backend,
-		filters:   make(map[rpc.ID]*filter),
-		events:    stream,
-		deadline:  deadline,
+		logger:          logger,
+		clientCtx:       clientCtx,
+		backend:         backend,
+		filters:         make(map[rpc.ID]*filter),
+		events:          stream,
+		deadline:        deadline,
+		cleanupInterval: cleanupInterval,
+		stop:            make(chan struct{}),
 	}
 
 	go api.timeoutLoop()
@@ -118,26 +150,67 @@ func NewPublicAPIWithDeadline(
 	return api
 }
 
-// timeoutLoop runs every 5 minutes and deletes filters that have not been recently used.
-// Tt is started when the api is created.
+// Stop terminates the filter timeout goroutine. Safe to call multiple times.
+func (api *PublicFilterAPI) Stop() {
+	api.stopOnce.Do(func() {
+		close(api.stop)
+	})
+}
+
+// timeoutLoop runs every cleanupInterval and deletes filters that have not been recently used.
+// It is started when the api is created.
 func (api *PublicFilterAPI) timeoutLoop() {
-	ticker := time.NewTicker(api.deadline)
+	ticker := time.NewTicker(api.cleanupInterval)
 	defer ticker.Stop()
 
 	for {
-		<-ticker.C
+		select {
+		case <-api.stop:
+			return
+		case <-ticker.C:
+		}
 		api.filtersMu.Lock()
 		// #nosec G705
 		for id, f := range api.filters {
 			select {
 			case <-f.deadline.C:
-				delete(api.filters, id)
+				api.deleteFilterLocked(id)
 			default:
 				continue
 			}
 		}
 		api.filtersMu.Unlock()
 	}
+}
+
+func stopAndDrainTimer(timer *time.Timer) {
+	if timer == nil {
+		return
+	}
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+}
+
+func (api *PublicFilterAPI) resetFilterTimer(timer *time.Timer) {
+	if timer == nil {
+		return
+	}
+	stopAndDrainTimer(timer)
+	timer.Reset(api.deadline)
+}
+
+func (api *PublicFilterAPI) deleteFilterLocked(id rpc.ID) bool {
+	f, found := api.filters[id]
+	if !found {
+		return false
+	}
+	delete(api.filters, id)
+	stopAndDrainTimer(f.deadline)
+	return true
 }
 
 // NewPendingTransactionFilter creates a filter that fetches pending transaction hashes
@@ -150,10 +223,6 @@ func (api *PublicFilterAPI) timeoutLoop() {
 func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
-
-	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return rpc.ID("error creating pending tx filter: max limit reached")
-	}
 
 	id := rpc.NewID()
 	_, offset := api.events.PendingTxStream().ReadNonBlocking(-1)
@@ -173,10 +242,6 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
-
-	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return rpc.ID("error creating block filter: max limit reached")
-	}
 
 	id := rpc.NewID()
 	_, offset := api.events.HeaderStream().ReadNonBlocking(-1)
@@ -205,10 +270,6 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()
-
-	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return "", fmt.Errorf("error creating filter: max limit reached")
-	}
 
 	id := rpc.NewID()
 	_, offset := api.events.LogStream().ReadNonBlocking(-1)
@@ -265,10 +326,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCrit
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_uninstallfilter
 func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 	api.filtersMu.Lock()
-	_, found := api.filters[id]
-	if found {
-		delete(api.filters, id)
-	}
+	found := api.deleteFilterLocked(id)
 	api.filtersMu.Unlock()
 
 	return found
@@ -334,12 +392,7 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		return nil, fmt.Errorf("filter %s not found", id)
 	}
 
-	if !f.deadline.Stop() {
-		// timer expired but filter is not yet removed in timeout loop
-		// receive timer value and reset timer
-		<-f.deadline.C
-	}
-	f.deadline.Reset(api.deadline)
+	api.resetFilterTimer(f.deadline)
 
 	switch f.typ {
 	case filters.PendingTransactionsSubscription:

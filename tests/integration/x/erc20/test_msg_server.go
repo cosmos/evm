@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/mock/gomock"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	"github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -468,4 +470,104 @@ func (s *KeeperTestSuite) TestUpdateParams() {
 			}
 		})
 	}
+}
+
+// TestUpdateParamsAuthority verifies that the erc20 keeper resolves the
+// authority through the consensus AuthorityParams when set, and otherwise
+// falls back to the keeper's authority. Covers UpdateParams, RegisterERC20
+// (when permissionless registration is disabled) and ToggleConversion, all
+// of which share the same validateAuthority helper.
+func (s *KeeperTestSuite) TestUpdateParamsAuthority() {
+	s.SetupTest()
+
+	keeperAuthority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
+	overrideAuthority := sdk.AccAddress("override_authority___").String()
+	s.Require().NotEqual(keeperAuthority, overrideAuthority)
+
+	s.Run("UpdateParams: fallback to keeper authority when consensus authority is unset", func() {
+		ctx := s.network.GetContext()
+
+		_, err := s.network.App.GetErc20Keeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: keeperAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().NoError(err)
+
+		_, err = s.network.App.GetErc20Keeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: overrideAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "invalid authority")
+	})
+
+	s.Run("UpdateParams: consensus authority takes precedence over keeper authority", func() {
+		ctx := s.network.GetContext().WithConsensusParams(cmtproto.ConsensusParams{
+			Authority: &cmtproto.AuthorityParams{Authority: overrideAuthority},
+		})
+
+		_, err := s.network.App.GetErc20Keeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: overrideAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().NoError(err)
+
+		_, err = s.network.App.GetErc20Keeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: keeperAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "invalid authority")
+	})
+
+	s.Run("RegisterERC20: consensus authority takes precedence when permissionless registration is disabled", func() {
+		s.SetupTest()
+		baseCtx := s.network.GetContext()
+		s.network.App.GetErc20Keeper().SetPermissionlessRegistration(baseCtx, false)
+
+		ctx := s.network.GetContext().WithConsensusParams(cmtproto.ConsensusParams{
+			Authority: &cmtproto.AuthorityParams{Authority: overrideAuthority},
+		})
+
+		// keeper authority is rejected once consensus authority is set
+		_, err := s.network.App.GetErc20Keeper().RegisterERC20(ctx, &types.MsgRegisterERC20{
+			Signer:         keeperAuthority,
+			Erc20Addresses: []string{},
+		})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "invalid authority")
+
+		// consensus authority is accepted (validation passes; an empty
+		// erc20 address list short-circuits with no further error).
+		_, err = s.network.App.GetErc20Keeper().RegisterERC20(ctx, &types.MsgRegisterERC20{
+			Signer:         overrideAuthority,
+			Erc20Addresses: []string{},
+		})
+		s.Require().NoError(err)
+	})
+
+	s.Run("ToggleConversion: consensus authority takes precedence over keeper authority", func() {
+		s.SetupTest()
+		ctx := s.network.GetContext().WithConsensusParams(cmtproto.ConsensusParams{
+			Authority: &cmtproto.AuthorityParams{Authority: overrideAuthority},
+		})
+
+		// keeper authority is rejected by validateAuthority once consensus
+		// authority is set
+		_, err := s.network.App.GetErc20Keeper().ToggleConversion(ctx, &types.MsgToggleConversion{
+			Authority: keeperAuthority,
+			Token:     "missing",
+		})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "invalid authority")
+
+		// consensus authority is accepted; token-pair lookup fails afterwards,
+		// proving authority validation succeeded.
+		_, err = s.network.App.GetErc20Keeper().ToggleConversion(ctx, &types.MsgToggleConversion{
+			Authority: overrideAuthority,
+			Token:     "missing",
+		})
+		s.Require().Error(err)
+		s.Require().NotContains(err.Error(), "invalid authority")
+	})
 }

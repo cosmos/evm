@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -13,13 +14,15 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cosmos/evm/mempool/internal/heightsync"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
 	"github.com/cosmos/evm/mempool/reserver"
 
 	"cosmossdk.io/log/v2"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 var (
@@ -73,13 +76,6 @@ type Rechecker interface {
 	Update(ctx sdk.Context, header *ethtypes.Header)
 }
 
-// LatestContextProvider provides the minimal methods needed by RecheckMempool
-// for context management during rechecks.
-type LatestContextProvider interface {
-	GetLatestContext() (sdk.Context, error)
-	CurrentBlock() *ethtypes.Header
-}
-
 // RecheckMempool wraps an ExtMempool and provides block-driven rechecking
 // of transactions when new blocks are committed. It mirrors the legacypool
 // pattern but simplified for Cosmos mempool behavior (no reorgs, no queued/pending management).
@@ -98,7 +94,8 @@ type RecheckMempool struct {
 	reserver *reserver.ReservationHandle
 
 	rechecker       Rechecker
-	contextProvider LatestContextProvider
+	blockchain      *Blockchain
+	signerExtractor sdkmempool.SignerExtractionAdapter
 	logger          log.Logger
 
 	// event channels
@@ -112,28 +109,42 @@ type RecheckMempool struct {
 	// have been rechecked at a height, and discard of them once the chain.
 	recheckedTxs *heightsync.HeightSync[CosmosTxStore]
 
+	reapList *reaplist.ReapList
+
 	wg sync.WaitGroup
 }
 
-// NewRecheckMempool creates a new RecheckMempool wrapping the given pool.
+// NewRecheckMempool creates a new RecheckMempool.
 func NewRecheckMempool(
-	logger log.Logger,
-	pool sdkmempool.ExtMempool,
+	defaultCosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
+	maxTxs int,
 	reserver *reserver.ReservationHandle,
 	rechecker Rechecker,
 	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
-	contextProvider LatestContextProvider,
+	reapList *reaplist.ReapList,
+	blockchain *Blockchain,
+	logger log.Logger,
 ) *RecheckMempool {
+	signerExtractor := sdkmempool.NewDefaultSignerExtractionAdapter()
+	cosmosMempoolConfig := cosmosPoolConfig(
+		blockchain,
+		defaultCosmosPoolConfig,
+		maxTxs,
+		onTransactionReplace(reapList, signerExtractor, reserver, logger),
+	)
+
 	return &RecheckMempool{
-		ExtMempool:      pool,
+		ExtMempool:      sdkmempool.NewPriorityMempool(cosmosMempoolConfig),
 		reserver:        reserver,
 		rechecker:       rechecker,
-		contextProvider: contextProvider,
+		blockchain:      blockchain,
+		signerExtractor: signerExtractor,
 		logger:          logger.With(log.ModuleKey, "RecheckMempool"),
 		reqRecheckCh:    make(chan *recheckRequest),
 		recheckDoneCh:   make(chan chan struct{}),
 		shutdownCh:      make(chan struct{}),
 		recheckShutdown: make(chan struct{}),
+		reapList:        reapList,
 		recheckedTxs:    recheckedTxs,
 	}
 }
@@ -142,7 +153,7 @@ func NewRecheckMempool(
 // context to the latest chain state. The initialHead is used for the first
 // Rechecker.Update call before any recheck has been triggered.
 func (m *RecheckMempool) Start(initialHead *ethtypes.Header) {
-	ctx, err := m.contextProvider.GetLatestContext()
+	ctx, err := m.blockchain.GetLatestContext()
 	if err != nil {
 		m.logger.Error("failed to initialize rechecker context", "err", err)
 	} else {
@@ -164,15 +175,21 @@ func (m *RecheckMempool) Close() error {
 
 // Insert adds a transaction to the pool after running the ante handler.
 // This is the main entry point for new cosmos transactions.
-func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
+func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) (err error) {
 	// Reserve addresses to prevent conflicts with EVM pool
-	addrs, err := signerAddressesFromTx(tx)
+	addrs, err := m.reserveTx(tx)
 	if err != nil {
-		return err
+		return fmt.Errorf("acquiring reservations for tx: %w", err)
 	}
-	if err := m.reserver.Hold(addrs...); err != nil {
-		return fmt.Errorf("reserving %d addresses for cosmos recheck pool: %w", len(addrs), err)
-	}
+
+	defer func() {
+		if err == nil {
+			return
+		}
+		if errRelease := m.reserver.Release(addrs...); errRelease != nil {
+			m.logger.Error("Failed to release reservations (Insert)", "err", errRelease, "addrs", addrs)
+		}
+	}()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -184,57 +201,91 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) error {
 		m.logger.Warn("no context found in rechecker on insert, updating to latest")
 		// if this happens, we have not rechecked any txs yet, so this is safe
 		// to update
-		newCtx, err := m.contextProvider.GetLatestContext()
+		newCtx, err := m.blockchain.GetLatestContext()
 		if err != nil {
 			return fmt.Errorf("fetching latest context since rechecker has none: %w", err)
 		}
 
-		m.rechecker.Update(newCtx, m.contextProvider.CurrentBlock())
+		m.rechecker.Update(newCtx, m.blockchain.CurrentBlock())
 		ctx, write = m.rechecker.GetContext()
 	}
 
 	if _, err := m.rechecker.RecheckCosmos(ctx, tx); err != nil {
-		_ = m.reserver.Release(addrs...) // best effort cleanup
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
 
 	if err := m.ExtMempool.Insert(ctx, tx); err != nil {
-		_ = m.reserver.Release(addrs...) // best effort cleanup
 		return err
+	}
+
+	// since we have rechecked the tx via `rechecker.RecheckCosmos`, and this
+	// rechecks the tx on top of the state of all txs already rechecked in the
+	// mempool, this tx is valid and we can include it in the reaplist
+	if err := m.reapList.PushCosmosTx(tx); err != nil {
+		m.logger.Error("successfully inserted cosmos tx, but failed to insert into reap list", "err", err)
 	}
 
 	write()
 	m.markTxInserted(tx)
+
 	return nil
 }
 
-// Remove removes a transaction from the pool.
+// Remove is a noop for this pool. All removals are processed during the async
+// recheck loop.
 func (m *RecheckMempool) Remove(tx sdk.Tx) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.removeLocked(tx)
+	// NOTE: processing the removal here produces a subtle bug for cosmos txs
+	// with multiple signers. the underlying mempool here (priority nonce
+	// mempool) identifies txs by only the first signer of multi signer txs. so
+	// when we see a tx included in a block (currently the only spot where we
+	// care about remove being called for this mempool) with for example,
+	// signer A at nonce 0, and we have a different tx in the mempool with
+	// signer A at nonce 0 and signer B at nonce 0, removing the tx in the
+	// block with only signer A will remove the tx in the mempool with both
+	// signers A and B. the priority nonce mempool gives us no hook to see what
+	// tx was actually removed. to account for this, we must not remove during
+	// FinalizeBlock, and process the removal during recheck where the multi
+	// signer tx will be dropped due to a nonce too low error on signer A.
+	// during recheck we know exactly which tx we are removing and why, and can
+	// properly unreserve the signer A's and signer B's address reservations.
+	return nil
 }
 
-// RemoveWithReason removes a transaction from the pool. This must be
-// explicitly defined to prevent Go from promoting the embedded ExtMempool's
-// RemoveWithReason, which would bypass the reserver release logic.
+// RemoveWithReason is a noop for this pool. All removals are processed during
+// the async recheck loop. This must be explicitly defined to prevent Go from
+// promoting the embedded ExtMempool's RemoveWithReason.
 func (m *RecheckMempool) RemoveWithReason(_ context.Context, tx sdk.Tx, _ sdkmempool.RemoveReason) error {
 	return m.Remove(tx)
 }
 
-// removeLocked removes a tx from the underlying pool and releases the
-// reserver. Caller must hold m.mu.
-func (m *RecheckMempool) removeLocked(tx sdk.Tx) error {
-	if err := m.ExtMempool.Remove(tx); err != nil {
-		return err
+// reserveTx extracts the signers of tx and acquires their reserver
+// holds. Returns any addresses who are now reserved, and any errors that occurred.
+func (m *RecheckMempool) reserveTx(tx sdk.Tx) ([]common.Address, error) {
+	addrs, err := extractEVMAddresses(m.signerExtractor, tx)
+	if err != nil {
+		return nil, err
 	}
 
-	addrs, err := signerAddressesFromTx(tx)
-	if err != nil {
-		panic("failed to extract signer addresses from tx during Remove")
+	if err := m.reserver.Hold(addrs...); err != nil {
+		return nil, fmt.Errorf("reserving %d addresses for cosmos recheck pool: %w", len(addrs), err)
 	}
-	m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
+
+	return addrs, nil
+}
+
+// unreserveTx extracts the signers of tx and releases their
+// reserver holds. Returns an error only if signer extraction fails; any
+// error from the reserver itself is swallowed to preserve the prior
+// best-effort cleanup semantics.
+func (m *RecheckMempool) unreserveTx(tx sdk.Tx) error {
+	addrs, err := extractEVMAddresses(m.signerExtractor, tx)
+	if err != nil {
+		return fmt.Errorf("extractEVMAddresses: %w", err)
+	}
+
+	if err := m.reserver.Release(addrs...); err != nil {
+		m.logger.Error("Failed to release reservations (unreserveTx)", "err", err, "addrs", addrs)
+	}
 
 	return nil
 }
@@ -381,7 +432,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	m.recheckedTxs.StartNewHeight(newHead.Number)
 	defer m.recheckedTxs.EndCurrentHeight()
 
-	latestCtx, err := m.contextProvider.GetLatestContext()
+	latestCtx, err := m.blockchain.GetLatestContext()
 	if err != nil {
 		m.logger.Error("failed to get context for recheck", "err", err)
 		return
@@ -391,12 +442,9 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	failedAtSequence := make(map[string]uint64)
 	removeTxs := make([]sdk.Tx, 0)
 
-	// Branch from the rechecker for iteration context. Each successful tx's
-	// state changes are committed back to the Rechecker immediately via
-	// write()
-	ctx, write := m.rechecker.GetContext()
-
-	iter := m.ExtMempool.Select(ctx, nil)
+	// context.Background() safe to use here since ExtMempool is a
+	// PriorityNonceMempool and ctx is unused
+	iter := m.ExtMempool.Select(context.Background(), nil)
 	for iter != nil {
 		if isCancelled(cancelled) {
 			m.logger.Debug("recheck cancelled - new block arrived")
@@ -409,35 +457,59 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		txsChecked++
-		signerSeqs, err := extractSignerSequences(txn)
+		signers, err := m.signerExtractor.GetSigners(txn)
 		if err != nil {
-			m.logger.Error("failed to extract signer sequences", "err", err)
+			m.logger.Error("failed to extract signers", "err", err)
 			iter = iter.Next()
 			continue
 		}
 
 		invalidTx := false
-		for _, sig := range signerSeqs {
-			if failedSeq, ok := failedAtSequence[sig.account]; ok && failedSeq < sig.seq {
+		for _, s := range signers {
+			if failedSeq, ok := failedAtSequence[string(s.Signer)]; ok && failedSeq < s.Sequence {
 				invalidTx = true
 				break
 			}
 		}
 
+		keepFuturesOnError := false
 		if !invalidTx {
-			if _, err := m.rechecker.RecheckCosmos(ctx, txn); err == nil {
+			ctx, write := m.rechecker.GetContext()
+			_, err := m.rechecker.RecheckCosmos(ctx, txn)
+			if err == nil {
 				write()
 				m.markTxRechecked(txn)
 				iter = iter.Next()
-				ctx, write = m.rechecker.GetContext()
 				continue
+			}
+
+			// we do not want to drop future txs for a signer if it had a tx
+			// fail due sequence mismatch. a sequence mismatch here means the
+			// nonce of this tx became too low compared to the chain state. we
+			// rerun ante handlers on insert to this pool, so at insert time,
+			// we know the nonce of the tx was not too high. since nonces only
+			// increase, ErrWrongSequence seen here must mean that the tx's
+			// nonce became too low. we still remove this tx, but we do not
+			// want to cascade and evict the signer's tx at nonce+1 since
+			// that may still be valid at the correct nonce.
+			if errors.Is(err, sdkerrors.ErrWrongSequence) {
+				keepFuturesOnError = true
 			}
 		}
 
 		removeTxs = append(removeTxs, txn)
-		for _, sig := range signerSeqs {
-			if existing, ok := failedAtSequence[sig.account]; !ok || existing > sig.seq {
-				failedAtSequence[sig.account] = sig.seq
+
+		if keepFuturesOnError {
+			iter = iter.Next()
+			continue
+		}
+
+		// marks all future txs for this txs signers as invalid and we will
+		// drop them before they are even rechecked
+		for _, s := range signers {
+			key := string(s.Signer)
+			if existing, ok := failedAtSequence[key]; !ok || existing > s.Sequence {
+				failedAtSequence[key] = s.Sequence
 			}
 		}
 
@@ -454,12 +526,12 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			m.logger.Error("failed to remove tx during recheck", "err", err)
 			continue
 		}
-		addrs, err := signerAddressesFromTx(txn)
-		if err != nil {
-			m.logger.Error("failed to extract signer addresses for release", "err", err)
+		m.reapList.DropCosmosTx(txn)
+
+		if err := m.unreserveTx(txn); err != nil {
+			m.logger.Error("failed to release reservations", "err", err)
 			continue
 		}
-		m.reserver.Release(addrs...) //nolint:errcheck // best effort cleanup
 	}
 	txsRemoved = len(removeTxs)
 }
@@ -474,42 +546,13 @@ func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 // a higher nonce is dropped and rebuilt by the next recheck.
 func (m *RecheckMempool) markTxInserted(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) {
+		// If we invalidate any txs we can't execute this txn's antehandler sequence until the next rechecker.Update.
+		// This is because the invalidated txns have written their state to the Store's cache context already.
 		if store.InvalidateFrom(txn) > 0 {
 			return
 		}
 		store.AddTx(txn)
 	})
-}
-
-type signerSequence struct {
-	account string
-	seq     uint64
-}
-
-// extractSignerSequences extracts account addresses and sequences from a tx.
-func extractSignerSequences(txn sdk.Tx) ([]signerSequence, error) {
-	sigTx, ok := txn.(authsigning.SigVerifiableTx)
-	if !ok {
-		return nil, fmt.Errorf(
-			"tx does not implement %T",
-			(*authsigning.SigVerifiableTx)(nil),
-		)
-	}
-
-	sigs, err := sigTx.GetSignaturesV2()
-	if err != nil {
-		return nil, err
-	}
-
-	signerSeqs := make([]signerSequence, 0, len(sigs))
-	for _, sig := range sigs {
-		signerSeqs = append(signerSeqs, signerSequence{
-			account: sig.PubKey.Address().String(),
-			seq:     sig.Sequence,
-		})
-	}
-
-	return signerSeqs, nil
 }
 
 // isCancelled checks if the cancellation channel has been closed.
@@ -522,25 +565,92 @@ func isCancelled(ch <-chan struct{}) bool {
 	}
 }
 
-// signerAddressesFromTx extracts signer addresses from a transaction as EVM addresses.
-func signerAddressesFromTx(tx sdk.Tx) ([]common.Address, error) {
-	sigTx, ok := tx.(authsigning.SigVerifiableTx)
-	if !ok {
-		return nil, fmt.Errorf("tx does not implement GetSigners")
+func cosmosPoolConfig(
+	blockchain *Blockchain,
+	defaultConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int],
+	maxTxs int,
+	onReplace func(oldTx, newTx sdk.Tx),
+) sdkmempool.PriorityNonceMempoolConfig[math.Int] {
+	var config sdkmempool.PriorityNonceMempoolConfig[math.Int]
+
+	if defaultConfig != nil {
+		// prioritize the default configs TxPriority struct if defined
+		config.TxPriority = defaultConfig.TxPriority
+	} else {
+		config.TxPriority = sdkmempool.TxPriority[math.Int]{
+			GetTxPriority: func(_ context.Context, tx sdk.Tx) math.Int {
+				cosmosTxFee, ok := tx.(sdk.FeeTx)
+				if !ok {
+					return math.ZeroInt()
+				}
+				found, coin := cosmosTxFee.GetFee().Find(blockchain.GetCoinDenom())
+				if !found {
+					return math.ZeroInt()
+				}
+
+				gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
+
+				return gasPrice
+			},
+			Compare: func(a, b math.Int) int {
+				return a.BigInt().Cmp(b.BigInt())
+			},
+			MinValue: math.ZeroInt(),
+		}
 	}
 
-	signers, err := sigTx.GetSigners()
+	config.TxReplacement = func(oldPriority, newPriority math.Int, oldTx, newTx sdk.Tx) bool {
+		shouldReplace := true
+
+		if defaultConfig != nil && defaultConfig.TxReplacement != nil {
+			// if the default config has a custom TxReplacement function, call
+			// that to determine if we should replace oldTx for newTx
+			shouldReplace = defaultConfig.TxReplacement(oldPriority, newPriority, oldTx, newTx)
+		}
+
+		if shouldReplace {
+			onReplace(oldTx, newTx)
+		}
+
+		return shouldReplace
+	}
+
+	config.MaxTx = maxTxs
+	return config
+}
+
+func onTransactionReplace(
+	reapList *reaplist.ReapList,
+	signerExtractor sdkmempool.SignerExtractionAdapter,
+	reserver *reserver.ReservationHandle,
+	logger log.Logger,
+) func(oldTx, newTx sdk.Tx) {
+	return func(oldTx, _ sdk.Tx) {
+		// tx is being replaced, we need to drop the tx that is going to be removed
+		// from the reap list. we assume that the tx doing the replacing has
+		// already been inserted into the reaplist via the insert.
+		reapList.DropCosmosTx(oldTx)
+
+		addrs, err := extractEVMAddresses(signerExtractor, oldTx)
+		if err != nil {
+			return
+		}
+
+		if err := reserver.Release(addrs...); err != nil {
+			logger.Error("Failed to release reservations (onTransactionReplace)", "err", err, "addrs", addrs)
+		}
+	}
+}
+
+func extractEVMAddresses(extractor sdkmempool.SignerExtractionAdapter, tx sdk.Tx) ([]common.Address, error) {
+	signers, err := extractor.GetSigners(tx)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(signers) == 0 {
-		return nil, fmt.Errorf("tx contains no signers")
-	}
-
-	addrs := make([]common.Address, 0, len(signers))
-	for _, signer := range signers {
-		addrs = append(addrs, common.BytesToAddress(signer))
+	addrs := make([]common.Address, len(signers))
+	for i, s := range signers {
+		addrs[i] = common.BytesToAddress(s.Signer)
 	}
 
 	return addrs, nil

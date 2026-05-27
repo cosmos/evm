@@ -1,6 +1,8 @@
 package feemarket
 
 import (
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/x/feemarket/types"
 
@@ -49,4 +51,51 @@ func (s *KeeperTestSuite) TestUpdateParams() {
 			}
 		})
 	}
+}
+
+// TestUpdateParamsAuthority verifies that the feemarket keeper resolves the
+// authority through the consensus AuthorityParams when set, and otherwise
+// falls back to the keeper's authority.
+func (s *KeeperTestSuite) TestUpdateParamsAuthority() {
+	nw := network.NewUnitTestNetwork(s.create, s.options...)
+
+	keeperAuthority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
+	overrideAuthority := sdk.AccAddress("override_authority___").String()
+	s.Require().NotEqual(keeperAuthority, overrideAuthority)
+
+	s.Run("fallback to keeper authority when consensus authority is unset", func() {
+		ctx := nw.GetContext()
+
+		_, err := nw.App.GetFeeMarketKeeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: keeperAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().NoError(err)
+
+		_, err = nw.App.GetFeeMarketKeeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: overrideAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "invalid authority")
+	})
+
+	s.Run("consensus authority takes precedence over keeper authority", func() {
+		ctx := nw.GetContext().WithConsensusParams(cmtproto.ConsensusParams{
+			Authority: &cmtproto.AuthorityParams{Authority: overrideAuthority},
+		})
+
+		_, err := nw.App.GetFeeMarketKeeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: overrideAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().NoError(err)
+
+		_, err = nw.App.GetFeeMarketKeeper().UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: keeperAuthority,
+			Params:    types.DefaultParams(),
+		})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "invalid authority")
+	})
 }

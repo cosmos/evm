@@ -14,8 +14,8 @@ import (
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -440,7 +440,7 @@ func (suite *ICS20ERC20ConversionTestSuite) TestPrefixTrimming() {
 				// Demonstrate why the bug wasn't caught earlier:
 				// Both lookups work due to dual mapping in the keeper
 				// The keeper maps both "0x1234..." and "erc20:0x1234..." to the same pair
-				pairIDFromCorrect := evmAppA.Erc20Keeper.GetTokenPairID(ctx, correctTrimmed)   // "0x1234..."
+				pairIDFromCorrect := evmAppA.Erc20Keeper.GetTokenPairID(ctx, correctTrimmed)     // "0x1234..."
 				pairIDFromIncorrect := evmAppA.Erc20Keeper.GetTokenPairID(ctx, incorrectTrimmed) // "erc20:0x1234..."
 
 				suite.Require().NotEmpty(pairIDFromCorrect)

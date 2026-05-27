@@ -5,22 +5,20 @@ import (
 
 	"github.com/cosmos/evm/x/feemarket/types"
 
-	errorsmod "cosmossdk.io/errors"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 // UpdateParams implements the gRPC MsgServer interface. When an UpdateParams
 // proposal passes, it updates the module parameters. The update can only be
 // performed if the requested authority is the Cosmos SDK governance module
-// account.
+// account, unless an authority address is configured via the consensus
+// AuthorityParams, in which case that takes precedence.
 func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if k.authority.String() != req.Authority {
-		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", k.authority.String(), req.Authority)
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := sdk.ValidateAuthority(ctx, k.authority.String(), req.Authority); err != nil {
+		return nil, err
 	}
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
 	if err := k.SetParams(ctx, req.Params); err != nil {
 		return nil, err
 	}

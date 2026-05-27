@@ -304,17 +304,17 @@ func (_m *SubPool) Nonce(addr common.Address) uint64 {
 	return r0
 }
 
-// Pending provides a mock function with given fields: ctx, height, filter
-func (_m *SubPool) Pending(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	ret := _m.Called(ctx, height, filter)
+// Pending provides a mock function with given fields: ctx, filter
+func (_m *SubPool) Pending(ctx context.Context, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+	ret := _m.Called(ctx, filter)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Pending")
 	}
 
 	var r0 map[common.Address][]*txpool.LazyTransaction
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction); ok {
-		r0 = rf(ctx, height, filter)
+	if rf, ok := ret.Get(0).(func(context.Context, txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction); ok {
+		r0 = rf(ctx, filter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[common.Address][]*txpool.LazyTransaction)
@@ -345,6 +345,26 @@ func (_m *SubPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bool, r
 // Reset provides a mock function with given fields: oldHead, newHead
 func (_m *SubPool) Reset(oldHead *types.Header, newHead *types.Header) {
 	_m.Called(oldHead, newHead)
+}
+
+// Rechecked provides a mock function with given fields: ctx, height, filter
+func (_m *SubPool) Rechecked(ctx context.Context, height *big.Int, filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
+	ret := _m.Called(ctx, height, filter)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Rechecked")
+	}
+
+	var r0 map[common.Address][]*txpool.LazyTransaction
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction); ok {
+		r0 = rf(ctx, height, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[common.Address][]*txpool.LazyTransaction)
+		}
+	}
+
+	return r0
 }
 
 // SetGasTip provides a mock function with given fields: tip

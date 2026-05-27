@@ -1,6 +1,7 @@
 package txpool_test
 
 import (
+	"context"
 	"math"
 	"math/big"
 	"sync"
@@ -9,6 +10,8 @@ import (
 
 	"cosmossdk.io/log/v2"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/mempool/internal/reaplist"
+	"github.com/cosmos/evm/mempool/internal/txtracker"
 	"github.com/cosmos/evm/mempool/reserver"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
@@ -86,7 +89,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
 	recheckGuard := make(chan struct{})
-	legacyPool := legacypool.New(legacypool.DefaultConfig, log.NewNopLogger(), legacyChain, legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
+	legacyPool := legacypool.New(legacypool.DefaultConfig, log.NewNopLogger(), legacyChain, reaplist.New(stubTxEncoder{}), txtracker.New(), legacypool.WithRecheck(&BlockingRechecker{guard: recheckGuard}))
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
@@ -151,3 +154,119 @@ func (mr *BlockingRechecker) RecheckEVM(ctx sdk.Context, tx *types.Transaction) 
 }
 
 func (mr *BlockingRechecker) Update(ctx sdk.Context, header *types.Header) {}
+
+// newTxPool builds a TxPool with the given mock subpools, bypassing New() to
+// avoid needing a full BlockChain mock.
+func newTxPool(subpools ...txpool.SubPool) *txpool.TxPool {
+	return &txpool.TxPool{Subpools: subpools}
+}
+
+func TestTxPoolPending_MergesSubpools(t *testing.T) {
+	addr1 := common.HexToAddress("0x1")
+	addr2 := common.HexToAddress("0x2")
+	filter := txpool.PendingFilter{}
+	ctx := context.Background()
+
+	lazy1 := &txpool.LazyTransaction{}
+	lazy2 := &txpool.LazyTransaction{}
+
+	sub1 := mocks.NewSubPool(t)
+	sub1.On("Pending", ctx, filter).Return(map[common.Address][]*txpool.LazyTransaction{addr1: {lazy1}})
+
+	sub2 := mocks.NewSubPool(t)
+	sub2.On("Pending", ctx, filter).Return(map[common.Address][]*txpool.LazyTransaction{addr2: {lazy2}})
+
+	result := newTxPool(sub1, sub2).Pending(ctx, filter)
+
+	require.Len(t, result, 2)
+	require.Equal(t, []*txpool.LazyTransaction{lazy1}, result[addr1])
+	require.Equal(t, []*txpool.LazyTransaction{lazy2}, result[addr2])
+}
+
+func TestTxPoolPending_EmptySubpools(t *testing.T) {
+	filter := txpool.PendingFilter{}
+	ctx := context.Background()
+
+	sub := mocks.NewSubPool(t)
+	sub.On("Pending", ctx, filter).Return(map[common.Address][]*txpool.LazyTransaction{})
+
+	require.Empty(t, newTxPool(sub).Pending(ctx, filter))
+}
+
+func TestTxPoolRechecked_MergesSubpools(t *testing.T) {
+	addr1 := common.HexToAddress("0x1")
+	addr2 := common.HexToAddress("0x2")
+	height := big.NewInt(10)
+	filter := txpool.PendingFilter{}
+	ctx := context.Background()
+
+	lazy1 := &txpool.LazyTransaction{}
+	lazy2 := &txpool.LazyTransaction{}
+
+	sub1 := mocks.NewSubPool(t)
+	sub1.On("Rechecked", ctx, height, filter).Return(map[common.Address][]*txpool.LazyTransaction{addr1: {lazy1}})
+
+	sub2 := mocks.NewSubPool(t)
+	sub2.On("Rechecked", ctx, height, filter).Return(map[common.Address][]*txpool.LazyTransaction{addr2: {lazy2}})
+
+	result := newTxPool(sub1, sub2).Rechecked(ctx, height, filter)
+
+	require.Len(t, result, 2)
+	require.Equal(t, []*txpool.LazyTransaction{lazy1}, result[addr1])
+	require.Equal(t, []*txpool.LazyTransaction{lazy2}, result[addr2])
+}
+
+func TestTxPoolRechecked_EmptySubpools(t *testing.T) {
+	height := big.NewInt(10)
+	filter := txpool.PendingFilter{}
+	ctx := context.Background()
+
+	sub := mocks.NewSubPool(t)
+	sub.On("Rechecked", ctx, height, filter).Return(map[common.Address][]*txpool.LazyTransaction{})
+
+	require.Empty(t, newTxPool(sub).Rechecked(ctx, height, filter))
+}
+
+func TestTxPoolContent_MergesSubpools(t *testing.T) {
+	addr1 := common.HexToAddress("0x1")
+	addr2 := common.HexToAddress("0x2")
+
+	tx1 := types.NewTransaction(0, addr1, big.NewInt(0), 21000, big.NewInt(1), nil)
+	tx2 := types.NewTransaction(0, addr2, big.NewInt(0), 21000, big.NewInt(1), nil)
+
+	sub1 := mocks.NewSubPool(t)
+	sub1.On("Content").Return(
+		map[common.Address][]*types.Transaction{addr1: {tx1}},
+		map[common.Address][]*types.Transaction{},
+	)
+
+	sub2 := mocks.NewSubPool(t)
+	sub2.On("Content").Return(
+		map[common.Address][]*types.Transaction{},
+		map[common.Address][]*types.Transaction{addr2: {tx2}},
+	)
+
+	runnable, blocked := newTxPool(sub1, sub2).Content()
+
+	require.Len(t, runnable, 1)
+	require.Equal(t, []*types.Transaction{tx1}, runnable[addr1])
+	require.Len(t, blocked, 1)
+	require.Equal(t, []*types.Transaction{tx2}, blocked[addr2])
+}
+
+func TestTxPoolContent_EmptySubpools(t *testing.T) {
+	sub := mocks.NewSubPool(t)
+	sub.On("Content").Return(
+		map[common.Address][]*types.Transaction{},
+		map[common.Address][]*types.Transaction{},
+	)
+
+	runnable, blocked := newTxPool(sub).Content()
+	require.Empty(t, runnable)
+	require.Empty(t, blocked)
+}
+// minimal tx encoder to construct a testing reaplist
+type stubTxEncoder struct{}
+
+func (stubTxEncoder) EVMTx(tx *types.Transaction) ([]byte, error) { return tx.Hash().Bytes(), nil }
+func (stubTxEncoder) CosmosTx(sdk.Tx) ([]byte, error)             { return nil, nil }

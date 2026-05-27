@@ -5,7 +5,7 @@ import (
 
 	"github.com/cosmos/evm/x/vm/store/types"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 // Store manages a stack of nested cache store to

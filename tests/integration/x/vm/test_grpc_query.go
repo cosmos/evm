@@ -350,7 +350,7 @@ func (s *KeeperTestSuite) TestQueryCode() {
 
 				expCode = []byte("code")
 				stateDB := s.Network.GetStateDB()
-				stateDB.SetCode(addr, expCode)
+				stateDB.SetCode(addr, expCode, 0x0)
 				s.Require().NoError(stateDB.Commit())
 
 				req = &types.QueryCodeRequest{

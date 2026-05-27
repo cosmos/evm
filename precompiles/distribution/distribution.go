@@ -14,8 +14,8 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/core/address"
-	storetypes "cosmossdk.io/store/types"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
@@ -74,6 +74,10 @@ func NewPrecompile(
 		distributionQuerier:   distributionQuerier,
 		addrCdc:               addrCdc,
 	}
+}
+
+func (Precompile) Name() string {
+	return "distribution"
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.

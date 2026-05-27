@@ -68,7 +68,7 @@ func BenchmarkSetCode(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.SetCode(suite.Keyring.GetAddr(0), hash)
+		vmdb.SetCode(suite.Keyring.GetAddr(0), hash, 0x0)
 	}
 }
 
@@ -83,7 +83,7 @@ func BenchmarkSetState(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.SetCode(suite.Keyring.GetAddr(0), hash)
+		vmdb.SetCode(suite.Keyring.GetAddr(0), hash, 0x0)
 	}
 }
 

@@ -68,7 +68,7 @@ func (b *Backend) CometBlockResultByNumber(ctx context.Context, height *int64) (
 	}
 	res, err := b.RPCClient.BlockResults(ctx, height)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch block result from CometBFT %d: %w", *height, err)
+		return nil, fmt.Errorf("failed to fetch block result from CometBFT %d: %w", heightAttr, err)
 	}
 
 	return res, nil

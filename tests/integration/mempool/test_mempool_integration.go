@@ -38,6 +38,32 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			},
 		},
 		{
+			name: "failed cosmos insert does not propagate state",
+			setupTx: func() sdk.Tx {
+				// create a tx that will use the entire balance of the sender
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasPrice := new(big.Int).Quo(balance, new(big.Int).SetUint64(TxGas/2))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), gasPrice)
+			},
+			wantError: true, // want the above tx to fail to insert
+			verifyFunc: func() {
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				// spend half the balance, ensure that the above tx spending
+				// our entire balance does not persist that state across
+				// inserts
+				gasPrice := new(big.Int).Quo(balance, new(big.Int).SetUint64(TxGas*2))
+
+				mpool := s.network.App.GetMempool()
+
+				// try to insert a valid tx for the sender, ensure this succeeds
+				tx := s.createCosmosSendTx(s.keyring.GetKey(0), gasPrice)
+				s.Require().NoError(mpool.Insert(s.network.GetContext(), tx))
+
+				// ensure it made it into the pool
+				s.Require().Equal(1, mpool.CountTx())
+			},
+		},
+		{
 			name: "EVM transaction success",
 			setupTx: func() sdk.Tx {
 				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
@@ -169,18 +195,6 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 		verifyFunc    func()
 	}{
 		{
-			name: "remove cosmos transaction success",
-			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
-			},
-			insertFirst: true,
-			wantError:   false,
-			verifyFunc: func() {
-				mpool := s.network.App.GetMempool()
-				s.Require().Equal(0, mpool.CountTx())
-			},
-		},
-		{
 			name: "remove EVM transaction fail",
 			setupTx: func() sdk.Tx {
 				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
@@ -203,19 +217,6 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			wantError:     true,
 			errorContains: "transaction has no messages",
 			verifyFunc: func() {
-			},
-		},
-		{
-			name: "remove non-existent transaction",
-			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))
-			},
-			insertFirst:   false,
-			wantError:     true, // Remove should error for non-existent transactions
-			errorContains: "tx not found in mempool",
-			verifyFunc: func() {
-				mpool := s.network.App.GetMempool()
-				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 	}
@@ -325,7 +326,7 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -451,7 +452,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -858,7 +859,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			// where recheck happens after a new block notification).
 			mpool := s.network.App.GetMempool()
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -979,7 +980,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			// cosmos txs are available via SelectBy (mirrors production flow
 			// where recheck happens after a new block notification).
 			ctx := s.network.GetContext()
-			if kMp, ok := mpool.(*evmmempool.KrakatoaMempool); ok {
+			if kMp, ok := mpool.(*evmmempool.Mempool); ok {
 				head := kMp.GetBlockchain().CurrentBlock()
 				kMp.RecheckEVMTxs(head)
 				kMp.RecheckCosmosTxs(head)
@@ -1066,12 +1067,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			wantError: false,
 			verifyFunc: func() {
 				mpool := s.network.App.GetMempool()
-				if s.IsExclusiveMempool() {
-					// exclusive mempool should validate that the gas is too low and drop it
-					s.Require().Equal(0, mpool.CountTx())
-				} else {
-					s.Require().Equal(1, mpool.CountTx())
-				}
+				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 		{

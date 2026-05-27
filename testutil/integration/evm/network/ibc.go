@@ -3,7 +3,7 @@ package network
 import (
 	"testing"
 
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 )
 
 // GetIBCChain returns a TestChain instance for the given network.

@@ -96,7 +96,9 @@ func (s *TestSuite) SetupTest() {
 
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	s.backend = rpcbackend.NewBackend(ctx, clientCtx, idxer, nil, rpcbackend.WithLogger(ctx.Logger))
+	mempool := NewEvmMempoolMock(s.T())
+
+	s.backend = rpcbackend.NewBackend(ctx, clientCtx, idxer, mempool, rpcbackend.WithLogger(ctx.Logger))
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true
@@ -111,6 +113,10 @@ func (s *TestSuite) SetupTest() {
 // Ctx returns a context with height set for testing
 func (s *TestSuite) Ctx() context.Context {
 	return rpctypes.NewContextWithHeight(1)
+}
+
+func (s *TestSuite) Mempool() *mocks.Mempool {
+	return s.backend.Mempool.(*mocks.Mempool)
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction

@@ -7,32 +7,75 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 
 	"cosmossdk.io/log/v2"
 )
 
+var meter = otel.Meter("github.com/cosmos/evm/mempool/internal/heightsync")
+
 var (
 	// hsTimeout measures the number of times Get timed out before the value
 	// at a height was marked complete (partial or no results may be returned).
-	hsTimeout = metrics.NewRegisteredMeter("height_sync/timeout", nil)
+	hsTimeout metric.Int64Counter
 
 	// hsComplete measures the number of times Get returned after the value
 	// at a height was fully populated (EndCurrentHeight was called).
-	hsComplete = metrics.NewRegisteredMeter("height_sync/complete", nil)
+	hsComplete metric.Int64Counter
 
 	// hsHeightBehind measures the number of times Get was called for a height
 	// that the HeightSync had not yet reached.
-	hsHeightBehind = metrics.NewRegisteredMeter("height_sync/heightbehind", nil)
+	hsHeightBehind metric.Int64Counter
 
 	// hsDuration is the total time callers of Get spend from invocation to
 	// return.
-	hsDuration = metrics.NewRegisteredTimer("height_sync/duration", nil)
+	hsDuration metric.Float64Histogram
 
 	// hsHeights it the total number of heights progressed through on the
 	// height sync
-	hsHeights = metrics.NewRegisteredMeter("height_sync/heights", nil)
+	hsHeights metric.Int64Counter
 )
+
+func init() {
+	var err error
+	hsTimeout, err = meter.Int64Counter(
+		"height_sync.timeout",
+		metric.WithDescription("Number of times Get timed out before the value at a height was marked complete"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	hsComplete, err = meter.Int64Counter(
+		"height_sync.complete",
+		metric.WithDescription("Number of times Get returned after the value at a height was fully populated"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	hsHeightBehind, err = meter.Int64Counter(
+		"height_sync.height_behind",
+		metric.WithDescription("Number of times Get was called for a height that the HeightSync had not yet reached"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	hsDuration, err = meter.Float64Histogram(
+		"height_sync.duration",
+		metric.WithDescription("Total time callers of Get spend from invocation to return"),
+		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	hsHeights, err = meter.Int64Counter(
+		"height_sync.heights",
+		metric.WithDescription("Total number of heights progressed through on the HeightSync"),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // HeightSync synchronizes access to a per-height tx store for mempool
 // implementations.
@@ -126,7 +169,7 @@ func (hs *HeightSync[Store]) EndCurrentHeight() {
 	if hs.isHeightEnded() {
 		panic(fmt.Errorf("height %s already ended", hs.currentHeight.String()))
 	}
-	hsHeights.Mark(1)
+	hsHeights.Add(context.Background(), 1)
 	close(hs.done)
 }
 
@@ -153,7 +196,9 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 	genesis := big.NewInt(0)
 
 	start := time.Now()
-	defer func(t0 time.Time) { hsDuration.UpdateSince(t0) }(start)
+	defer func(t0 time.Time) {
+		hsDuration.Record(ctx, float64(time.Since(t0).Milliseconds()))
+	}(start)
 
 	for {
 		hs.mu.RLock()
@@ -184,9 +229,9 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 			// the value are complete, or for the context to expire
 			select {
 			case <-done:
-				hsComplete.Mark(1)
+				hsComplete.Add(ctx, 1)
 			case <-ctx.Done():
-				hsTimeout.Mark(1)
+				hsTimeout.Add(ctx, 1)
 			}
 			return value
 		}
@@ -197,7 +242,7 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 		heightChangedChan := hs.heightChanged
 		hs.mu.RUnlock()
 
-		hsHeightBehind.Mark(1)
+		hsHeightBehind.Add(ctx, 1)
 
 		// wait for height to advance or context to timeout
 		select {
@@ -207,7 +252,7 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 		case <-ctx.Done():
 			// caller is done waiting, but we still do not have a Store at the
 			// correct height to return, return nil instead
-			hsTimeout.Mark(1)
+			hsTimeout.Add(ctx, 1)
 			return nil
 		}
 	}

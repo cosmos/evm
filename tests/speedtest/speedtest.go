@@ -55,7 +55,7 @@ func NewSpeedTestCommand() *cobra.Command {
 			chainID := "9001"
 			baseAppOpts := make([]func(*baseapp.BaseApp), 0)
 			baseAppOpts = append(baseAppOpts, baseapp.SetChainID(chainID))
-			evmApp := evmd.NewExampleApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
+			evmApp := evmd.NewExampleApp(logger, db, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
 			gen := generator{
 				app:      evmApp,
 				accounts: make([]accountInfo, 0),

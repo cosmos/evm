@@ -18,6 +18,7 @@ package legacypool
 
 import (
 	"container/heap"
+	"context"
 	"math"
 	"math/big"
 	"slices"
@@ -150,7 +151,7 @@ func (m *SortedMap) reheap() {
 
 // filterSorted is the same as filter, but iteration over the transactions goes
 // from lowest to highest nonce.
-func (m *SortedMap) filterSorted(filter func(*types.Transaction) bool) types.Transactions {
+func (m *SortedMap) filterSorted(filter func(tx *types.Transaction) bool) types.Transactions {
 	var removed types.Transactions
 
 	// Flatten sorts txs by nonce in ascending order
@@ -413,7 +414,7 @@ func (l *list) CostFilter(costLimit *uint256.Int, gasLimit uint64) (removed type
 }
 
 // FilterSorted iterates over txs in ascending nonce order and filters them by
-// a filter function. If the filter rn returns false for a tx, it is removed.
+// a filter function. If the filter fn returns true for a tx, it is removed.
 func (l *list) FilterSorted(filterFn func(tx *types.Transaction) bool) (removed types.Transactions, invalids types.Transactions) {
 	removed = l.txs.filterSorted(filterFn)
 	if len(removed) == 0 {
@@ -433,8 +434,8 @@ func (l *list) FilterSorted(filterFn func(tx *types.Transaction) bool) (removed 
 	return removed, invalids
 }
 
-// Filter filters txs in the list by a filter function. If the filter rn
-// returns false for a tx, it is removed.
+// Filter filters txs in the list by a filter function. If the filter fn
+// returns true for a tx, it is removed.
 func (l *list) Filter(filterFn func(tx *types.Transaction) bool) (removed types.Transactions, invalids types.Transactions) {
 	removed = l.txs.Filter(filterFn)
 	if len(removed) == 0 {
@@ -547,7 +548,7 @@ func (l *list) subTotalCost(txs []*types.Transaction) {
 // then the heap is sorted based on the effective tip based on the given base fee.
 // If baseFee is nil then the sorting is based on gasFeeCap.
 type priceHeap struct {
-	baseFee *big.Int // heap should always be re-sorted after baseFee is changed
+	baseFee *uint256.Int // heap should always be re-sorted after baseFee is changed
 	list    []*types.Transaction
 }
 
@@ -743,12 +744,16 @@ func (l *pricedList) Reheap() {
 		l.floating.list[i] = heap.Pop(&l.urgent).(*types.Transaction)
 	}
 	heap.Init(&l.floating)
-	reheapTimer.Update(time.Since(start))
+	reheapTimer.Record(context.Background(), float64(time.Since(start).Milliseconds()))
 }
 
 // SetBaseFee updates the base fee and triggers a re-heap. Note that Removed is not
 // necessary to call right before SetBaseFee when processing a new block.
 func (l *pricedList) SetBaseFee(baseFee *big.Int) {
-	l.urgent.baseFee = baseFee
+	base := new(uint256.Int)
+	if baseFee != nil {
+		base.SetFromBig(baseFee)
+	}
+	l.urgent.baseFee = base
 	l.Reheap()
 }

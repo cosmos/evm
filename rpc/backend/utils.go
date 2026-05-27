@@ -355,3 +355,19 @@ func unwrapBlockNOrHash(blockNOrHash types.BlockNumberOrHash) string {
 	}
 	return ""
 }
+
+// FindEthTxIndexByHash is a fallback that locates an eth tx's index by
+// iterating every valid eth tx in the block. Used for legacy blocks whose
+// ethereum_tx events lack AttributeKeyTxIndex.
+func (b *Backend) FindEthTxIndexByHash(ctx context.Context, txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults) (int32, error) {
+	msgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
+	for i := range msgs {
+		if msgs[i].Hash() == txHash {
+			if i > math.MaxInt32 {
+				return -1, fmt.Errorf("tx index overflow")
+			}
+			return int32(i), nil //#nosec G115 -- checked for int overflow already
+		}
+	}
+	return -1, fmt.Errorf("can't find index of ethereum tx")
+}

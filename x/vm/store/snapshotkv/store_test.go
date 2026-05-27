@@ -9,9 +9,9 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/x/vm/store/snapshotkv"
 
-	"cosmossdk.io/store/cachekv"
-	"cosmossdk.io/store/dbadapter"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/store/v2/cachekv"
+	"github.com/cosmos/cosmos-sdk/store/v2/dbadapter"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 func newSnapshotKV() *snapshotkv.Store {

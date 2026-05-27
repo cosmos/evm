@@ -7,11 +7,11 @@ import (
 
 	"github.com/cosmos/evm/testutil/keyring"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
-	cbtypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	ibcerrors "github.com/cosmos/ibc-go/v10/modules/core/errors"
+	cbtypes "github.com/cosmos/ibc-go/v11/modules/apps/callbacks/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -27,37 +27,54 @@ func (s *KeeperTestSuite) TestOnRecvPacket() {
 	)
 	testCases := []struct {
 		name     string
-		malleate func()
+		malleate func() uint64
 		expErr   error
 	}{
 		{
+			"packet data is transfer with receiver account already existing",
+			func() uint64 {
+				receiverAcc, err := sdk.AccAddressFromBech32(receiver)
+				s.Require().NoError(err)
+
+				// Create and set the account
+				acc := s.network.App.GetAccountKeeper().NewAccountWithAddress(ctx, receiverAcc)
+				s.network.App.GetAccountKeeper().SetAccount(ctx, acc)
+				s.Require().True(s.network.App.GetAccountKeeper().HasAccount(ctx, receiverAcc))
+				return acc.GetAccountNumber()
+			},
+			types.ErrContractHasNoCode,
+		},
+		{
 			"contract code does not exist",
-			func() {},
+			func() uint64 { return 0 },
 			types.ErrContractHasNoCode,
 		},
 		{
 			"packet data is not transfer",
-			func() {
+			func() uint64 {
 				packet.Data = []byte("not a transfer packet")
+				return 0
 			},
-			ibcerrors.ErrInvalidType,
+			ibcerrors.ErrInvalidType, // This will be wrapped by the transfer module
 		},
 		{
 			"packet data is transfer but receiver is not isolated address",
-			func() {
+			func() uint64 {
 				receiver = senderKey.AccAddr.String() // not an isolated address
 				transferData.Receiver = receiver
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
+				return 0
 			},
 			types.ErrInvalidReceiverAddress,
 		},
 		{
 			"packet data is transfer but callback data is not valid",
-			func() {
+			func() uint64 {
 				transferData.Memo = fmt.Sprintf(`{"dest_callback": {"address": 10, "calldata": "%x"}}`, []byte("calldata"))
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
+				return 0
 			},
 			cbtypes.ErrInvalidCallbackData,
 		},
@@ -93,9 +110,13 @@ func (s *KeeperTestSuite) TestOnRecvPacket() {
 		)
 		ack := channeltypes.NewResultAcknowledgement([]byte{1})
 
-		tc.malleate()
-
+		originalAccNumber := tc.malleate()
 		err := s.network.App.GetCallbackKeeper().IBCReceivePacketCallback(ctx, packet, ack, contract.Hex(), transfertypes.V1)
+		if originalAccNumber != 0 {
+			acc := s.network.App.GetAccountKeeper().GetAccount(ctx, sdk.MustAccAddressFromBech32(receiver))
+			s.Require().NotNil(acc)
+			s.Require().Equal(originalAccNumber, acc.GetAccountNumber(), "account number should not be modified")
+		}
 		if tc.expErr != nil {
 			s.Require().Contains(err.Error(), tc.expErr.Error(), "expected error: %s, got: %s", tc.expErr.Error(), err.Error())
 		} else {

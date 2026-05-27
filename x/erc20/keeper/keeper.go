@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/cosmos/evm/x/erc20/types"
-	transferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
+	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/log/v2"
-	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
