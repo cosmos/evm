@@ -58,6 +58,11 @@ func (p *Precompile) TransferFrom(
 		return nil, err
 	}
 
+	// Validate that the sender is not the zero address.
+	if from == (common.Address{}) {
+		return nil, fmt.Errorf("%w: %s", erc20.ErrERC20, "transfer from zero address")
+	}
+
 	return p.transfer(ctx, contract, stateDB, method, from, to, amount)
 }
 

@@ -278,7 +278,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			"insufficient allowance",
+			"transfer from zero address",
 		},
 		{
 			"pass - spend on behalf of own account with allowance",
