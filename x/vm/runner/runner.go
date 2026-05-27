@@ -10,16 +10,27 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/baseapp/blockexec"
+	"github.com/cosmos/cosmos-sdk/server/config"
+	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// SetRunner installs inner as bApp's block tx runner, wrapped so
-// PatchTxResponses runs once per block. Works for sequential and BlockSTM
-// runners alike; the SDK's SetBlockSTMTxRunner name is the same setter for
-// both.
-func SetRunner(bApp *baseapp.BaseApp, inner sdk.TxRunner) {
-	bApp.SetBlockSTMTxRunner(Wrap(inner))
+// SetRunner installs the EVM block tx runner: Block-STM with pre-estimate,
+// wrapped so PatchTxResponses runs once per block.
+func SetRunner(
+	bApp *baseapp.BaseApp,
+	appOpts servertypes.AppOptions,
+	stores []storetypes.StoreKey,
+	txDecoder sdk.TxDecoder,
+	coinDenom func(storetypes.MultiStore) string,
+) {
+	blockexec.Apply(bApp, appOpts, stores, txDecoder, coinDenom,
+		blockexec.WithDefaultExecutor(config.BlockExecutorBlockSTM),
+		blockexec.WithDefaultPreEstimate(true),
+		blockexec.WithRunnerWrap(Wrap),
+	)
 }
 
 // Wrap returns a TxRunner that delegates to inner and then applies
