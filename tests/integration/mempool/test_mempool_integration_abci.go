@@ -8,6 +8,10 @@ import (
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/reserver"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/cosmos/evm/testutil/integration/evm/network"
+	"github.com/cosmos/evm/testutil/keyring"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
@@ -173,8 +177,8 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx or InsertTx for transactions
-			err := s.insertOrCheckTxs(txs)
+			// insert txs given by setup
+			err := s.insertTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
@@ -385,6 +389,79 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				s.Require().Equal(2, count, "After replacement, both transactions should be pending")
 			},
 		},
+		{
+			// NOTE: this test is implicitly relying on the fact that ante
+			// handlers will ensure balances before they check and increment
+			// nonces, if this ordering changes, this will need to be modified
+			name: "test queue txs do not propagate state changes after failed recheck",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+				var txs []sdk.Tx
+
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasPrice := new(big.Int).Quo(balance, new(big.Int).SetUint64(2*TxGas))
+
+				// nonce gapped tx that will spend over half of the sender
+				// balance
+				txs = append(txs, s.createEVMValueTransferTx(key, 1, gasPrice))
+
+				// nonce gapped tx that will spend over half of the sender
+				// balance
+				txs = append(txs, s.createEVMValueTransferTx(key, 2, gasPrice))
+
+				return txs, s.getTxHashes(nil)
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				evmMp := mpool.(*evmmempool.Mempool)
+				legacyPool := evmMp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no txs to be pending")
+
+				// ensure that we do evict either of the txs, they are both
+				// nonce gapped which means that they should simply sit in
+				// queued until the nonce gap is filled and they are ready to
+				// be validated. if we incorrectly propagate the ante writes from
+				// rechecking tx1 to tx2, then tx2 will fail recheck with a non
+				// tolerated error (using > signers balance) and it will be
+				// improperly evicted.
+				s.Require().Equal(2, queued, "expected both txs to be queued")
+			},
+		},
+		{
+			// NOTE: this test is implicitly relying on the fact that ante
+			// handlers will ensure balances before they check and increment
+			// nonces, if this ordering changes, this will need to be modified
+			name: "test queued rechecks happen on pending state",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+
+				var txs []sdk.Tx
+
+				// these txs will go to queued
+				txs = append(txs, s.createEVMValueTransferTx(key, 10, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(key, 11, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(key, 12, big.NewInt(1000000000)))
+
+				// this tx will use the senders entire balance
+				gasPrice := new(big.Int).Quo(balance, new(big.Int).SetUint64(TxGas))
+				txs = append(txs, s.createEVMValueTransferTxWithValue(key, 0, big.NewInt(0), gasPrice))
+
+				return txs, s.getTxHashes(txs[len(txs)-1:])
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				evmMp := mpool.(*evmmempool.Mempool)
+				legacyPool := evmMp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(1, pending, "expected 1 pending tx")
+
+				// not expecting any txs to be in queued since the queued txs
+				// are validated on top of pending state. if we take pending
+				// state into account, the sender should have no balance when
+				// it tries to validate the queued tx, thus it is evicted.
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -395,8 +472,8 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			txs, expTxHashes := tc.setupTxs()
 
-			// Call CheckTx or InsertTx for transactions
-			err := s.insertOrCheckTxs(txs)
+			// insert txs given by setup
+			err := s.insertTxs(txs)
 			s.Require().NoError(err)
 
 			// Refresh the cached latestCtx and trigger cosmos recheck so
@@ -437,6 +514,579 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			tc.verifyFunc(mpool)
 
 			// Check whether expected transactions are selected by PrepareProposal
+			txHashes := make([]string, 0)
+			for _, txBytes := range prepareProposalRes.Txs {
+				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
+				txHashes = append(txHashes, txHash)
+			}
+			s.Require().Equal(expTxHashes, txHashes)
+		})
+	}
+}
+
+func (s *IntegrationTestSuite) TestRechecking() {
+	testCases := []struct {
+		name       string
+		setupTxs   func() ([]sdk.Tx, []string)
+		networkTxs func() []sdk.Tx
+		verifyFunc func(mpool mempool.Mempool)
+	}{
+		{
+			name: "recheck drops evm tx after attempted spend is no longer valid",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+				var txs []sdk.Tx
+
+				// create two txs that will each spend half our balance
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasPrice := big.NewInt(1000000000)
+				gasCost := new(big.Int).Mul(big.NewInt(TxGas), gasPrice)
+				value := new(big.Int).Sub(new(big.Int).Quo(balance, big.NewInt(2)), gasCost)
+				txs = append(txs, s.createEVMValueTransferTxWithValue(key, 0, value, gasPrice))
+				txs = append(txs, s.createEVMValueTransferTxWithValue(key, 1, value, gasPrice))
+
+				return txs, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// create a new network tx spending just over half balance
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				value := new(big.Int).Quo(balance, big.NewInt(2))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(s.keyring.GetKey(0), 0, value, big.NewInt(1000000000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// expecting our tx to have been dropped
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "recheck drops cosmos tx after attempted spend is no longer valid",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+
+				// cosmos tx that spends ~half the balance; becomes invalid
+				// once the network tx below also spends half the balance.
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasPrice := big.NewInt(1000000000)
+				gasCost := new(big.Int).Mul(big.NewInt(TxGas), gasPrice)
+				value := new(big.Int).Sub(new(big.Int).Quo(balance, big.NewInt(2)), gasCost)
+
+				return []sdk.Tx{s.createCosmosSendTxWithAmount(key, value, gasPrice)}, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// create a new network tx spending just over half balance
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				value := new(big.Int).Quo(balance, big.NewInt(2))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(s.keyring.GetKey(0), 0, value, big.NewInt(1000000000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				s.Require().Equal(0, mp.CountTx(), "expected no txs in any pool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				_, queued := legacyPool.Stats()
+
+				// mp.CountTx does not include queued txs, so we explicitly
+				// ensure that no queued txs are present either
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "recheck demotes future evm txs to queued after predecessor failure",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+				var txs []sdk.Tx
+
+				gasPrice := big.NewInt(1000000000)
+				// this is a placeholder tx that will be removed and its
+				// changes not included in state since another tx0 will be
+				// included in state
+				txs = append(txs, s.createEVMValueTransferTx(key, 0, gasPrice))
+
+				// create a tx that will fail recheck due to balance spend when
+				// the network tx is included
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasCost := new(big.Int).Mul(big.NewInt(TxGas), gasPrice)
+				value := new(big.Int).Sub(new(big.Int).Quo(balance, big.NewInt(2)), gasCost)
+				txs = append(txs, s.createEVMValueTransferTxWithValue(key, 1, value, gasPrice))
+
+				// create a final tx that will spend a minimal amount. this is
+				// a valid tx even after the inclusion of the network tx.
+				txs = append(txs, s.createEVMValueTransferTx(key, 2, gasPrice))
+
+				return txs, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// create a new network tx spending just over half balance
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				value := new(big.Int).Quo(balance, big.NewInt(2))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(s.keyring.GetKey(0), 0, value, big.NewInt(1000000000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// expecting txs 0 and 1 to have been dropped (tx0 is too old,
+				// tx1 spends too much). However tx2 should be demoted to
+				// queued, since its parent tx was dropped from pending and its
+				// now nonce gapped.
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(1, queued, "expected pending tx to be demoted to queued")
+			},
+		},
+		{
+			name: "invalid queue tx stays queue while gapped and dropped once filled",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				key := s.keyring.GetKey(0)
+				var txs []sdk.Tx
+
+				gasPrice := big.NewInt(1000000000)
+
+				// queued tx that will be promoted once the nonce gap is filled
+				txs = append(txs, s.createEVMValueTransferTx(key, 1, gasPrice))
+
+				// queued tx that is invalid when taking into account the above
+				// tx, and will be dropped only once the above tx is promoted
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				gasCost := new(big.Int).Mul(big.NewInt(TxGas), gasPrice)
+				value := new(big.Int).Sub(new(big.Int).Quo(balance, big.NewInt(2)), gasCost)
+				txs = append(txs, s.createEVMValueTransferTxWithValue(key, 2, value, gasPrice))
+
+				// this tx is valid if we have removed the above tx, this
+				// should not be promoted (it will be gapped again once its
+				// parent is dropped), but it should stay in queued
+				txs = append(txs, s.createEVMValueTransferTx(key, 3, gasPrice))
+
+				return txs, s.getTxHashes([]sdk.Tx{txs[0]})
+			},
+			networkTxs: func() []sdk.Tx {
+				// create a new network tx spending just over half balance
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				value := new(big.Int).Quo(balance, big.NewInt(2))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(s.keyring.GetKey(0), 0, value, big.NewInt(1000000000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+
+				pending, queued := legacyPool.ContentFrom(s.keyring.GetKey(0).Addr)
+				s.Require().Len(pending, 1, "expected only 1 tx to have been promoted to pending")
+				s.Require().Len(queued, 1, "expected only 1 tx to have stayed in queued")
+
+				s.Require().Equal(uint64(0x1), pending[0].Nonce(), "expected nonce 1 tx to be in pending")
+				s.Require().Equal(uint64(0x3), queued[0].Nonce(), "expected nonce 3 tx to be in queued")
+			},
+		},
+		{
+			name: "cosmos recheck does not leak failed txs partial writes",
+			setupTxs: func() ([]sdk.Tx, []string) {
+				keyA := s.keyring.GetKey(2)
+				keyB := s.keyring.GetKey(3)
+
+				// create a tx for keyA nonce0. we will include a tx from the
+				// network that will also arrive with this nonce, causing this
+				// tx to fail recheck.
+				failingTxA := s.createCosmosSendTx(keyA, big.NewInt(2_000_000_000))
+
+				// create a tx from a new sender keyB nonce0. this will
+				// successfully pass recheck AFTER keyA since the gas price is
+				// less. this test is ensuring that having a successful recheck
+				// write state after a previous failure does not incorrectly
+				// persist the failure txs writes.
+				flushingTxB := s.createCosmosSendTx(keyB, big.NewInt(1_000_000_000))
+
+				return []sdk.Tx{failingTxA, flushingTxB}, s.getTxHashes([]sdk.Tx{flushingTxB})
+			},
+			networkTxs: func() []sdk.Tx {
+				keyA := s.keyring.GetKey(2)
+				balance := network.PrefundedAccountInitialBalance.BigInt()
+				// drain keyA's balance with a tx not in our mempool (but not
+				// enough to make failingTxA fail due to out of balance, it
+				// must write its balance change into its context to exercise
+				// this). NOTE: we are relying on the fact that nonce checks
+				// happen after balance checks in the ante handler sequence.
+				drainValue := new(big.Int).Sub(balance, big.NewInt(400_000_000_000_000))
+				return []sdk.Tx{
+					s.createEVMValueTransferTxWithValue(keyA, 0, drainValue, big.NewInt(1_000_000_000)),
+				}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				keyA := s.keyring.GetKey(2)
+
+				// try and insert a new tx. if failingTxA's balance writes were
+				// improperly persisted to the rechecker's context, then
+				// inserting this will fail with out of balance. if we have
+				// correctly discarded its writes, the insert will succeed.
+				tx := s.createCosmosSendTx(keyA, big.NewInt(1_000_000_000))
+				err := mpool.Insert(s.network.GetContext(), tx)
+				s.Require().NoError(err, "tx should have been successfully inserted after recheck")
+			},
+		},
+	}
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// clean up previous test's resources before resetting
+			s.TearDownTest()
+			s.SetupTest()
+
+			txs, expTxHashes := tc.setupTxs()
+			s.T().Logf("inserting %d txs into local mempool", len(txs))
+
+			// insert txs given by setup
+			err := s.insertTxs(txs)
+			s.Require().NoError(err)
+
+			// commit a block with network txs
+			networkTxs := tc.networkTxs()
+			s.T().Logf("including %d txs from the network", len(networkTxs))
+
+			var toFinalize [][]byte
+			for _, tx := range networkTxs {
+				encoded, err := s.factory.EncodeTx(tx)
+				s.Require().NoError(err)
+				toFinalize = append(toFinalize, encoded)
+			}
+			res, err := s.network.NextBlockWithTxs(toFinalize...)
+			s.Require().NoError(err)
+			for _, result := range res.GetTxResults() {
+				s.Require().Equal(uint32(0x0), result.GetCode())
+			}
+
+			// call PrepareProposal for the next block (H+1) after recheck at height H.
+			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
+				MaxTxBytes: 1_000_000,
+				Height:     s.network.GetContext().BlockHeight() + 1,
+			})
+			s.Require().NoError(err)
+
+			// run custom verify func
+			tc.verifyFunc(s.network.App.GetMempool())
+
+			// check whether expected transactions are selected by PrepareProposal
+			txHashes := make([]string, 0)
+			for _, txBytes := range prepareProposalRes.Txs {
+				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
+				txHashes = append(txHashes, txHash)
+			}
+			s.Require().Equal(expTxHashes, txHashes)
+		})
+	}
+}
+
+func (s *IntegrationTestSuite) TestMultiPoolInteractions() {
+	type insertWithResults struct {
+		tx  sdk.Tx
+		err error
+	}
+	testCases := []struct {
+		name       string
+		setupTxs   func() ([]insertWithResults, []string)
+		networkTxs func() []sdk.Tx
+		verifyFunc func(mpool mempool.Mempool)
+	}{
+		{
+			name: "same signer rejected from multi pool insert",
+			setupTxs: func() ([]insertWithResults, []string) {
+				key := s.keyring.GetKey(0)
+				var results []insertWithResults
+
+				// cosmos tx automatically created with nonce 0
+				results = append(results, insertWithResults{s.createCosmosSendTx(key, big.NewInt(5000000000)), nil})
+
+				// create two evm txs from the same key, both not allowed to be
+				// inserted according to reserver rules
+
+				// evm tx from same key at nonce 0, this is invalid if we take
+				// into account cosmos pending state, but valid if not
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(key, 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+
+				// evm tx from same key at nonce 1, this is valid if we take
+				// into account cosmos pending state, but invalid if not
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+
+				return results, s.getTxHashes([]sdk.Tx{results[0].tx})
+			},
+			networkTxs: func() []sdk.Tx { return nil },
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				s.Require().Equal(1, mp.CountTx(), "expected only a single tx in the mempool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// no evm txs should be allowed since they were all from the
+				// same sender that has a cosmos tx in the pool already
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "multi signer cosmos tx reserves all signers",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				// create multi signer cosmos tx to reserve keys 0,1,2 for the
+				// cosmos pool
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				// all should fail since each signer is being held by the
+				// cosmos pool
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)), reserver.ErrAlreadyReserved})
+
+				return results, s.getTxHashes([]sdk.Tx{results[0].tx})
+			},
+			networkTxs: func() []sdk.Tx { return nil },
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				s.Require().Equal(1, mp.CountTx(), "expected only a single tx in the mempool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// no evm txs should be allowed since they were all from a
+				// sender that already a cosmos tx in the pool already
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "multi signer cosmos tx atomically fails reservations",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				// insert evm tx with key 0
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)), nil})
+
+				// create multi signer cosmos tx to reserve keys 0,1,2 for the
+				// cosmos pool
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), reserver.ErrAlreadyReserved})
+
+				// expecting the above tx to fail insert, make sure that after
+				// the failure it does not create any new reservations
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(0), 1, big.NewInt(1000000000)), nil})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)), nil})
+				results = append(results, insertWithResults{s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)), nil})
+
+				return results, s.getTxHashes([]sdk.Tx{results[0].tx, results[2].tx, results[3].tx, results[4].tx})
+			},
+			networkTxs: func() []sdk.Tx { return nil },
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+				s.Require().Equal(4, mp.CountTx(), "expected 4 txs in the mempool")
+
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+
+				// all txs should be in the evm tx pending pool
+				s.Require().Equal(4, pending, "expected 4 pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "same network tx properly releases reservations",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				return results, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// same tx that is in our cosmos pool is included in a block
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				tx := s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...)
+				return []sdk.Tx{tx}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				// expect a completely empty mempool
+				s.Require().Equal(0, mp.CountTx(), "expected no txs in the mempool")
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+
+				// ensure that we can insert txs for the signers that were
+				// evicted from the cosmos pool into the evm pool
+				var txs []sdk.Tx
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)))
+				s.Require().NoError(s.insertTxs(txs))
+
+				s.Require().Equal(3, mp.CountTx(), "expected 3 txs in the mempool")
+				pending, queued = legacyPool.Stats()
+				s.Require().Equal(3, pending, "expected 3 pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "cosmos multi signer recheck failure properly releases all reservations",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				return results, s.getTxHashes(nil)
+			},
+			networkTxs: func() []sdk.Tx {
+				// include a tx from the network that will cause the tx in our
+				// cosmos pool to fail recheck (bumping key 0's nonce)
+
+				// NOTE: we are also testing an interesting property of how
+				// removals work for cosmos txs. the cosmos pool is built on
+				// top of the priority nonce mempool and that only looks at the
+				// first signer of mutli signer txs. so the tx below and the
+				// one already in the mempool look identical to it. so when
+				// including this tx from the network, it will remove the one
+				// in the mempool if we process the removal during finalize
+				// block. however, this gives us no way to determine that our
+				// original tx had multiple signers and we need to release all
+				// of those address reservations. so, we must not remove during
+				// finalize block, and process the removal during recheck where
+				// the tx will be dropped due to a nonce too low error on
+				// signer 0. during recheck we know exactly which tx we are
+				// removing and why, and can properly unreserve the signers
+				// reservations.
+				tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))
+				return []sdk.Tx{tx}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				// expect a completely empty mempool
+				s.Require().Equal(0, mp.CountTx(), "expected no txs in the mempool")
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+
+				// ensure that we can insert txs for the signers that were
+				// evicted from the cosmos pool into the evm pool
+				var txs []sdk.Tx
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)))
+				s.Require().NoError(s.insertTxs(txs))
+
+				s.Require().Equal(3, mp.CountTx(), "expected 3 txs in the mempool")
+				pending, queued = legacyPool.Stats()
+				s.Require().Equal(3, pending, "expected 3 pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+			},
+		},
+		{
+			name: "cosmos signer reserved twice is not unreserved on first removal",
+			setupTxs: func() ([]insertWithResults, []string) {
+				var results []insertWithResults
+
+				// create a multi signer tx that will be dropped
+				signers := []keyring.Key{s.keyring.GetKey(0), s.keyring.GetKey(1), s.keyring.GetKey(2)}
+				results = append(results, insertWithResults{s.createMultiSignerCosmosSendTx(big.NewInt(5000000000), signers...), nil})
+
+				// reserve signer 0 a second time with a new tx at its next
+				// nonce (given the above tx)
+				var nextNonce uint64 = 1
+				var gasLimit uint64 = 100000000
+				results = append(results, insertWithResults{
+					s.createCosmosSendTxWithNonceAndGas(s.keyring.GetKey(0), nextNonce, big.NewInt(1000), gasLimit, big.NewInt(5000000000)),
+					nil,
+				})
+
+				return results, s.getTxHashes([]sdk.Tx{results[1].tx})
+			},
+			networkTxs: func() []sdk.Tx {
+				// bump signer 0's nonce on chain so that the multi signer tx
+				// will be dropped, the single signer tx at nonce 1 will remain
+				tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))
+				return []sdk.Tx{tx}
+			},
+			verifyFunc: func(mpool mempool.Mempool) {
+				mp := mpool.(*evmmempool.Mempool)
+
+				// expect a single tx in the mempool
+				s.Require().Equal(1, mp.CountTx(), "expected a single tx in the mempool")
+				legacyPool := mp.GetTxPool().Subpools[0].(*legacypool.LegacyPool)
+				pending, queued := legacyPool.Stats()
+				s.Require().Equal(0, pending, "expected no pending txs")
+				s.Require().Equal(0, queued, "expected no queued txs")
+
+				// ensure signers 1 and 2 were unreserved
+				var txs []sdk.Tx
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(1000000000)))
+				txs = append(txs, s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(1000000000)))
+				s.Require().NoError(s.insertTxs(txs))
+
+				// ensure signer 0 remains reserved since it has another cosmos
+				// tx still in the pool
+				err := s.insertTx(s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)))
+				s.Require().ErrorIs(err, reserver.ErrAlreadyReserved)
+			},
+		},
+	}
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// clean up previous test's resources before resetting
+			s.TearDownTest()
+			s.SetupTest()
+
+			insertResults, expTxHashes := tc.setupTxs()
+			s.T().Logf("inserting %d txs into local mempool", len(insertResults))
+
+			// insert txs given by setup
+			for _, result := range insertResults {
+				err := s.insertTx(result.tx)
+				s.Require().ErrorIs(err, result.err)
+			}
+
+			// commit a block with network txs
+			networkTxs := tc.networkTxs()
+			s.T().Logf("including %d txs from the network", len(networkTxs))
+
+			var toFinalize [][]byte
+			for _, tx := range networkTxs {
+				encoded, err := s.factory.EncodeTx(tx)
+				s.Require().NoError(err)
+				toFinalize = append(toFinalize, encoded)
+			}
+			res, err := s.network.NextBlockWithTxs(toFinalize...)
+			s.Require().NoError(err)
+			for _, result := range res.GetTxResults() {
+				s.Require().Equal(uint32(0x0), result.GetCode())
+			}
+
+			// call PrepareProposal for the next block (H+1) after recheck at height H.
+			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
+				MaxTxBytes: 1_000_000,
+				Height:     s.network.GetContext().BlockHeight() + 1,
+			})
+			s.Require().NoError(err)
+
+			// run custom verify func
+			tc.verifyFunc(s.network.App.GetMempool())
+
+			// check whether expected transactions are selected by PrepareProposal
 			txHashes := make([]string, 0)
 			for _, txBytes := range prepareProposalRes.Txs {
 				txHash := hex.EncodeToString(tmhash.Sum(txBytes))

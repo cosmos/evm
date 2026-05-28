@@ -22,6 +22,9 @@ import (
 type BaseTxFactory interface {
 	// BuildCosmosTx builds a Cosmos tx with the provided private key and txArgs
 	BuildCosmosTx(privKey cryptotypes.PrivKey, txArgs CosmosTxArgs) (authsigning.Tx, error)
+	// BuildMultiSignerCosmosTx builds a Cosmos tx signed by multiple private
+	// keys. The first key is used as the fee payer.
+	BuildMultiSignerCosmosTx(txArgs CosmosTxArgs, privKeys ...cryptotypes.PrivKey) (authsigning.Tx, error)
 	// SignCosmosTx signs a Cosmos transaction with the provided
 	// private key and tx builder
 	SignCosmosTx(privKey cryptotypes.PrivKey, txBuilder client.TxBuilder) error
@@ -59,6 +62,21 @@ func (tf *baseTxFactory) BuildCosmosTx(privKey cryptotypes.PrivKey, txArgs Cosmo
 	txBuilder, err := tf.buildTx(privKey, txArgs)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to build tx")
+	}
+	return txBuilder.GetTx(), nil
+}
+
+// BuildMultiSignerCosmosTx builds and signs a Cosmos tx with multiple signers.
+// The first private key is the fee payer. Each signer signs independently over
+// its own SignerData; the resulting tx carries one SignatureV2 per signer so
+// the default SDK signer extractor returns one entry per key.
+func (tf *baseTxFactory) BuildMultiSignerCosmosTx(txArgs CosmosTxArgs, privKeys ...cryptotypes.PrivKey) (authsigning.Tx, error) {
+	if len(privKeys) == 0 {
+		return nil, fmt.Errorf("at least one private key is required")
+	}
+	txBuilder, err := tf.buildMultiSignerTx(txArgs, privKeys)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to build multi-signer tx")
 	}
 	return txBuilder.GetTx(), nil
 }
@@ -110,7 +128,7 @@ func (tf *baseTxFactory) SignCosmosTx(privKey cryptotypes.PrivKey, txBuilder cli
 	if err != nil {
 		return errorsmod.Wrap(err, "invalid sign mode")
 	}
-	signerData, err := tf.setSignatures(privKey, txBuilder, signMode)
+	signerData, err := tf.setSignatures(privKey, nil, txBuilder, signMode)
 	if err != nil {
 		return errorsmod.Wrap(err, "failed to set tx signatures")
 	}

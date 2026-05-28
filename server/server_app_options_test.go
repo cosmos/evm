@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cmtcfg "github.com/cometbft/cometbft/config"
+
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
 
@@ -329,4 +331,90 @@ func createInvalidGenesis(t *testing.T) string {
 	require.NoError(t, os.WriteFile(genesisPath, []byte(invalidJSON), 0o600))
 
 	return tempDir
+}
+
+func TestValidateReapBounds(t *testing.T) {
+	t.Parallel()
+
+	cometDefaultMaxTxBytes := uint64(cmtcfg.DefaultMempoolConfig().MaxTxBytes) // #nosec G115 -- comet default is positive (1 MiB)
+
+	tests := []struct {
+		name           string
+		omitMaxTxBytes bool
+		maxTxBytes     uint64
+		reapMaxBytes   uint64
+		reapMaxGas     uint64
+		blockGasLimit  uint64
+		nilOpts        bool
+		wantErr        string
+	}{
+		{
+			name:    "nil app options is a no-op",
+			nilOpts: true,
+		},
+		{
+			name:          "default reap caps (zero) accept any admission caps",
+			maxTxBytes:    1 << 20,
+			blockGasLimit: 100_000_000,
+		},
+		{
+			name:          "max_tx_bytes equal to reap_max_bytes is allowed",
+			maxTxBytes:    500_000,
+			reapMaxBytes:  500_000,
+			blockGasLimit: 100_000,
+			reapMaxGas:    100_000,
+		},
+		{
+			name:         "max_tx_bytes above reap_max_bytes is rejected",
+			maxTxBytes:   1 << 20,
+			reapMaxBytes: 500_000,
+			wantErr:      "mempool.max_tx_bytes (1048576) must be <= mempool.reap_max_bytes (500000)",
+		},
+		{
+			name:          "block_gas_limit above reap_max_gas is rejected",
+			blockGasLimit: 100_000_000,
+			reapMaxGas:    50_000_000,
+			wantErr:       "genesis consensus block.max_gas (100000000) must be <= mempool.reap_max_gas (50000000)",
+		},
+		{
+			name:          "bytes-axis fires before gas-axis when both are misconfigured",
+			maxTxBytes:    1 << 20,
+			reapMaxBytes:  500_000,
+			blockGasLimit: 100_000_000,
+			reapMaxGas:    50_000_000,
+			wantErr:       "mempool.max_tx_bytes",
+		},
+		{
+			// Greptile P1: viper read returning 0 must not silently bypass the check.
+			name:           "missing max_tx_bytes falls back to comet default and is rejected against a smaller reap cap",
+			omitMaxTxBytes: true,
+			reapMaxBytes:   cometDefaultMaxTxBytes - 1,
+			wantErr:        fmt.Sprintf("mempool.max_tx_bytes (%d) must be", cometDefaultMaxTxBytes),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var opts servertypes.AppOptions
+			if !tc.nilOpts {
+				m := newMockAppOptions()
+				if !tc.omitMaxTxBytes {
+					m.Set(cmtMempoolMaxTxBytesKey, tc.maxTxBytes)
+				}
+				m.Set(cmtMempoolReapMaxBytesKey, tc.reapMaxBytes)
+				m.Set(cmtMempoolReapMaxGasKey, tc.reapMaxGas)
+				opts = m
+			}
+
+			err := ValidateReapBounds(opts, tc.blockGasLimit)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
 }

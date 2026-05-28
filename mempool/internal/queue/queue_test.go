@@ -50,7 +50,7 @@ func (m *mockPool) setInsertFn(fn func([]*ethtypes.Transaction) []error) {
 
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockPool()
-	iq := New[ethtypes.Transaction](pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
 	defer iq.Close()
 
 	// Create a test transaction
@@ -72,7 +72,7 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	pool := newMockPool()
-	iq := New[ethtypes.Transaction](pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -100,7 +100,7 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockPool()
-	iq := New[ethtypes.Transaction](pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
 	defer iq.Close()
 
 	// Push nil transaction
@@ -123,7 +123,7 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 		return make([]error, len(txs))
 	})
 
-	iq := New[ethtypes.Transaction](pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
 	defer iq.Close()
 
 	// Push first transaction to start processing
@@ -156,7 +156,7 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 		select {} // block forever
 	})
 
-	iq := New[ethtypes.Transaction](pool.insert, 5)
+	iq := New[ethtypes.Transaction]("test", pool.insert, 5)
 	defer iq.Close()
 
 	// This first tx will be immediately popped and start processing (where it

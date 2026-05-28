@@ -36,7 +36,6 @@ func (tf *baseTxFactory) buildTx(privKey cryptotypes.PrivKey, txArgs CosmosTxArg
 	}
 
 	senderAddress := sdktypes.AccAddress(privKey.PubKey().Address().Bytes())
-
 	if txArgs.FeeGranter != nil {
 		txBuilder.SetFeeGranter(txArgs.FeeGranter)
 	}
@@ -48,7 +47,7 @@ func (tf *baseTxFactory) buildTx(privKey cryptotypes.PrivKey, txArgs CosmosTxArg
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "invalid sign mode")
 	}
-	signerData, err := tf.setSignatures(privKey, txBuilder, signMode)
+	signerData, err := tf.setSignatures(privKey, txArgs.Nonce, txBuilder, signMode)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to set tx signatures")
 	}
@@ -69,6 +68,60 @@ func (tf *baseTxFactory) buildTx(privKey cryptotypes.PrivKey, txArgs CosmosTxArg
 	txBuilder.SetFeeAmount(fees)
 
 	if err := tf.signWithPrivKey(privKey, txBuilder, signerData, signMode); err != nil {
+		return nil, errorsmod.Wrap(err, "failed to sign Cosmos Tx")
+	}
+
+	return txBuilder, nil
+}
+
+// buildMultiSignerTx builds a tx signed by multiple private keys. The first
+// key in privKeys is set as the fee payer.
+func (tf *baseTxFactory) buildMultiSignerTx(txArgs CosmosTxArgs, privKeys []cryptotypes.PrivKey) (client.TxBuilder, error) {
+	txConfig := tf.ec.TxConfig
+	txBuilder := txConfig.NewTxBuilder()
+
+	if err := txBuilder.SetMsgs(txArgs.Msgs...); err != nil {
+		return nil, errorsmod.Wrap(err, "failed to set tx msgs")
+	}
+
+	if txArgs.FeeGranter != nil {
+		txBuilder.SetFeeGranter(txArgs.FeeGranter)
+	}
+
+	feePayer := sdktypes.AccAddress(privKeys[0].PubKey().Address().Bytes())
+	txBuilder.SetFeePayer(feePayer)
+
+	signMode, err := authsigning.APISignModeToInternal(txConfig.SignModeHandler().DefaultMode())
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "invalid sign mode")
+	}
+
+	signerDatas, err := tf.setMultiSignerSignatures(privKeys, txBuilder, signMode)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to set tx signatures")
+	}
+
+	var gasLimit uint64
+	if txArgs.Gas == nil {
+		gasLimit, err = tf.estimateGas(txArgs, txBuilder)
+		if err != nil {
+			return nil, errorsmod.Wrap(err, "failed to estimate gas")
+		}
+	} else {
+		gasLimit = *txArgs.Gas
+	}
+	txBuilder.SetGasLimit(gasLimit)
+
+	fees := txArgs.Fees
+	if fees.IsZero() {
+		fees, err = tf.calculateFees(txArgs.GasPrice, gasLimit)
+		if err != nil {
+			return nil, errorsmod.Wrap(err, "failed to calculate fees")
+		}
+	}
+	txBuilder.SetFeeAmount(fees)
+
+	if err := tf.signMultiSignerWithPrivKeys(privKeys, txBuilder, signerDatas, signMode); err != nil {
 		return nil, errorsmod.Wrap(err, "failed to sign Cosmos Tx")
 	}
 
