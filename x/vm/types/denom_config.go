@@ -78,7 +78,11 @@ func validateCoinInfo(info *EvmCoinInfo) error {
 		return fmt.Errorf("invalid EVM decimals: %w", err)
 	}
 
-	if Decimals(info.Decimals) == EighteenDecimals && info.Denom != info.ExtendedDenom {
+	if Decimals(info.Decimals) != EighteenDecimals {
+		return fmt.Errorf("unsupported EVM decimals: %d (only 18 is supported)", info.Decimals)
+	}
+
+	if info.Denom != info.ExtendedDenom {
 		return fmt.Errorf("EVM denom and extended denom must be the same for 18 decimals")
 	}
 

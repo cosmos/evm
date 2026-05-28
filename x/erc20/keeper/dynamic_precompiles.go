@@ -45,21 +45,14 @@ func (k Keeper) RegisterERC20CodeHash(ctx sdk.Context, erc20Addr common.Address)
 		k.evmKeeper.SetCode(ctx, codeHash, bytecode)
 	}
 
-	var (
-		nonce   uint64
-		balance = common.U2560
-	)
-	// keep balance and nonce if account exists
-	if acc := k.evmKeeper.GetAccount(ctx, erc20Addr); acc != nil {
-		nonce = acc.Nonce
-		balance = acc.Balance
+	// reuse account with modified code hash if it already exists
+	acc := k.evmKeeper.GetAccount(ctx, erc20Addr)
+	if acc == nil {
+		acc = statedb.NewEmptyAccount()
 	}
+	acc.CodeHash = codeHash
 
-	return k.evmKeeper.SetAccount(ctx, erc20Addr, statedb.Account{
-		CodeHash: codeHash,
-		Nonce:    nonce,
-		Balance:  balance,
-	})
+	return k.evmKeeper.SetAccount(ctx, erc20Addr, *acc)
 }
 
 // UnRegisterERC20CodeHash sets the codehash for the account to an empty one
