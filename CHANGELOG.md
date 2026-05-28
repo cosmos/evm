@@ -34,6 +34,7 @@
 
 ### BUG FIXES
 
+- [\#1193](https://github.com/cosmos/evm/pull/1193) Remove the nonexistent vesting static precompile from defaults and migrate existing EVM params to strip its legacy address.
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
