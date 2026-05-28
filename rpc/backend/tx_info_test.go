@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	protov2 "google.golang.org/protobuf/proto"
@@ -427,6 +428,46 @@ func buildMsgEthereumTxWithNonce(t *testing.T, nonce uint64) *evmtypes.MsgEthere
 	return msgEthereumTx
 }
 
+type receiptRPCMsg struct {
+	*evmtypes.MsgEthereumTx
+}
+
+func receiptsFromRPCMsg(t *testing.T, msg evmtypes.RPCMsgEthereumTxI) ([]*ethtypes.Receipt, error) {
+	t.Helper()
+	const height = int64(100)
+
+	backend := setupMockBackend(t)
+	anyData := codectypes.UnsafePackAny(&evmtypes.MsgEthereumTxResponse{Hash: msg.AsTransaction().Hash().Hex()})
+	txMsgData := &sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyData}}
+	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
+	encodedData, err := encodingConfig.Codec.Marshal(txMsgData)
+	require.NoError(t, err)
+
+	backend.Indexer = &MockIndexer{
+		txResults: map[common.Hash]*servertypes.TxResult{
+			msg.AsTransaction().Hash(): {
+				Height:     height,
+				TxIndex:    0,
+				EthTxIndex: 0,
+				MsgIndex:   0,
+			},
+		},
+	}
+
+	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
+
+	return backend.ReceiptsFromCometBlock(
+		rpctypes.NewContextWithHeight(1),
+		&tmrpctypes.ResultBlock{Block: &tmtypes.Block{Header: tmtypes.Header{Height: height}}},
+		&tmrpctypes.ResultBlockResults{
+			Height:     height,
+			TxsResults: []*abcitypes.ExecTxResult{{Data: encodedData}},
+		},
+		[]evmtypes.RPCMsgEthereumTxI{msg},
+	)
+}
+
 type mockDecodedTx struct {
 	msgs []sdk.Msg
 }
@@ -524,6 +565,60 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
 		})
 	}
+}
+
+func TestReceiptsFromCometBlockContractCreation(t *testing.T) {
+	const nonce = uint64(7)
+	chainID := new(big.Int).SetUint64(constants.ExampleChainID.EVMChainID)
+
+	tcs := []struct {
+		name   string
+		signer ethtypes.Signer
+	}{
+		{"protected transaction", ethtypes.LatestSignerForChainID(chainID)},
+		{"unprotected transaction", ethtypes.FrontierSigner{}},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			key, err := crypto.GenerateKey()
+			require.NoError(t, err)
+			sender := crypto.PubkeyToAddress(key.PublicKey)
+
+			tx := ethtypes.MustSignNewTx(key, tc.signer, &ethtypes.LegacyTx{
+				Nonce:    nonce,
+				Gas:      100_000,
+				GasPrice: big.NewInt(1),
+				Value:    big.NewInt(0),
+			})
+
+			msg := &receiptRPCMsg{MsgEthereumTx: &evmtypes.MsgEthereumTx{}}
+			msg.FromEthereumTx(tx)
+			require.Empty(t, msg.From, "test must exercise legacy sender recovery")
+
+			receipts, err := receiptsFromRPCMsg(t, msg)
+
+			require.NoError(t, err)
+			require.Len(t, receipts, 1)
+			require.Equal(t, crypto.CreateAddress(sender, nonce), receipts[0].ContractAddress)
+		})
+	}
+}
+
+func TestReceiptsFromCometBlockSenderError(t *testing.T) {
+	msg := &receiptRPCMsg{MsgEthereumTx: &evmtypes.MsgEthereumTx{}}
+	msg.FromEthereumTx(ethtypes.NewTx(&ethtypes.LegacyTx{
+		Nonce:    1,
+		Gas:      100_000,
+		GasPrice: big.NewInt(1),
+		Value:    big.NewInt(0),
+	}))
+
+	receipts, err := receiptsFromRPCMsg(t, msg)
+
+	require.Nil(t, receipts)
+	require.ErrorIs(t, err, ethtypes.ErrInvalidSig)
+	require.ErrorContains(t, err, "failed to get sender")
 }
 
 // TestReceiptsLogIndexBlockGlobal asserts that after PatchTxResponses runs

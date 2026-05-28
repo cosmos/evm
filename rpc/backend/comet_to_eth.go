@@ -300,7 +300,17 @@ func (b *Backend) ReceiptsFromCometBlock(
 
 		contractAddress := common.Address{}
 		if tx.To() == nil {
-			contractAddress = crypto.CreateAddress(common.BytesToAddress(ethMsg.GetFrom().Bytes()), tx.Nonce())
+			var signer ethtypes.Signer
+			if tx.Protected() {
+				signer = ethtypes.LatestSignerForChainID(tx.ChainId())
+			} else {
+				signer = ethtypes.FrontierSigner{}
+			}
+			sender, err := ethMsg.GetSenderLegacy(signer)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get sender: %w", err)
+			}
+			contractAddress = crypto.CreateAddress(sender, tx.Nonce())
 		}
 
 		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
@@ -316,7 +326,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		if txResult.EthTxIndex == -1 {
 			var err error
 			// Fallback to find tx index by iterating all valid eth transactions
-			txResult.EthTxIndex, err = b.FindEthTxIndexByHash(ctx, ethMsg.AsTransaction().Hash(), resBlock, blockRes)
+			txResult.EthTxIndex, err = b.FindEthTxIndexByHash(ctx, tx.Hash(), resBlock, blockRes)
 			if err != nil {
 				return nil, err
 			}
