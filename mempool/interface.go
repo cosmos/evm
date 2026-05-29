@@ -16,6 +16,7 @@ import (
 type VMKeeperI interface {
 	GetBaseFee(ctx sdk.Context) *big.Int
 	GetParams(ctx sdk.Context) (params vmtypes.Params)
+	GetEvmCoinInfo(ctx sdk.Context) (coinInfo vmtypes.EvmCoinInfo)
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCode(ctx sdk.Context, codeHash common.Hash) []byte

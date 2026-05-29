@@ -162,8 +162,7 @@ func migrateParams(store storetypes.KVStore) error {
 	newParams := types.DefaultParams()
 	newParams.EvmDenom = old.evmDenom
 	newParams.ExtraEIPs = old.extraEIPs
-	newParams.AllowUnprotectedTxs = old.allowUnprotectedTxs
-	newParams.EVMChannels = old.evmChannels
+newParams.EVMChannels = old.evmChannels
 	newParams.AccessControl = ac
 	newParams.ActiveStaticPrecompiles = old.activeStaticPrecompiles
 

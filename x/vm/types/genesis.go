@@ -3,12 +3,12 @@ package types
 import (
 	"fmt"
 
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 )
 
 // Validate performs a basic validation of a GenesisAccount fields.
 func (ga GenesisAccount) Validate() error {
-	if err := types.ValidateAddress(ga.Address); err != nil {
+	if err := utils.ValidateAddress(ga.Address); err != nil {
 		return err
 	}
 	return ga.Storage.Validate()

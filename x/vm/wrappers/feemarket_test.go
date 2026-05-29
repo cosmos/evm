@@ -100,7 +100,7 @@ func TestGetBaseFee(t *testing.T) {
 			tc.mockSetup(mockFeeMarketKeeper)
 
 			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
-			result := feeMarketWrapper.GetBaseFee(sdk.Context{})
+			result := feeMarketWrapper.GetBaseFee(sdk.Context{}, evmtypes.Decimals(tc.coinInfo.Decimals))
 
 			require.Equal(t, tc.expResult, result)
 		})

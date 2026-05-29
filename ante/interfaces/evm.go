@@ -1,8 +1,6 @@
 package interfaces
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -12,8 +10,6 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -30,20 +26,12 @@ type EVMKeeper interface {
 	ResetTransientGasUsed(ctx sdk.Context)
 	GetTxIndexTransient(ctx sdk.Context) uint64
 	GetParams(ctx sdk.Context) evmtypes.Params
-	// GetBaseFee returns the BaseFee param from the fee market module
-	// adapted according to the evm denom decimals
-	GetBaseFee(ctx sdk.Context) *big.Int
-	// GetMinGasPrice returns the MinGasPrice param from the fee market module
-	// adapted according to the evm denom decimals
-	GetMinGasPrice(ctx sdk.Context) math.LegacyDec
 }
 
 // FeeMarketKeeper exposes the required feemarket keeper interface required for ante handlers
 type FeeMarketKeeper interface {
 	GetParams(ctx sdk.Context) (params feemarkettypes.Params)
 	AddTransientGasWanted(ctx sdk.Context, gasWanted uint64) (uint64, error)
-	GetBaseFeeEnabled(ctx sdk.Context) bool
-	GetBaseFee(ctx sdk.Context) math.LegacyDec
 }
 
 type ProtoTxProvider interface {

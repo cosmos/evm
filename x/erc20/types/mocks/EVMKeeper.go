@@ -266,6 +266,24 @@ func (_m *EVMKeeper) IsAvailableStaticPrecompile(params *vmtypes.Params, address
 	return r0
 }
 
+// IsContract provides a mock function with given fields: ctx, address
+func (_m *EVMKeeper) IsContract(ctx types.Context, address common.Address) bool {
+	ret := _m.Called(ctx, address)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsContract")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address) bool); ok {
+		r0 = rf(ctx, address)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // SetAccount provides a mock function with given fields: ctx, address, account
 func (_m *EVMKeeper) SetAccount(ctx types.Context, address common.Address, account statedb.Account) error {
 	ret := _m.Called(ctx, address, account)

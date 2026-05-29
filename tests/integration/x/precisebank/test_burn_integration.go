@@ -16,7 +16,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func (s *KeeperIntegrationTestSuite) TestBurnCoinsMatchingErrors() {
@@ -177,6 +176,9 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoins() {
 			err := s.network.App.GetPreciseBankKeeper().MintCoins(s.network.GetContext(), moduleName, tt.startBalance)
 			s.Require().NoError(err)
 
+			// Get fractional balance before burn
+			fracBalBefore := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipientAddr)
+
 			// Burn
 			err = s.network.App.GetPreciseBankKeeper().BurnCoins(s.network.GetContext(), moduleName, tt.burnCoins)
 			if tt.wantErr != "" {
@@ -186,6 +188,9 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoins() {
 			}
 
 			s.Require().NoError(err)
+
+			// Get fractional balance after burn
+			fracBalAfter := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipientAddr)
 
 			// -------------------------------------------------------------
 			// Check FULL balances
@@ -199,28 +204,11 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoins() {
 				"unexpected balance after minting %s to %s",
 			)
 
-			intCoinAmt := tt.burnCoins.AmountOf(types.IntegerCoinDenom()).
-				Mul(types.ConversionFactor())
-
-			fraCoinAmt := tt.burnCoins.AmountOf(types.ExtendedCoinDenom())
-
-			totalExtCoinAmt := intCoinAmt.Add(fraCoinAmt)
-			spentCoins := sdk.NewCoins(sdk.NewCoin(
-				types.ExtendedCoinDenom(),
-				totalExtCoinAmt,
-			))
-
-			events := s.network.GetContext().EventManager().Events()
-
-			expBurnEvent := banktypes.NewCoinBurnEvent(recipientAddr, spentCoins)
-			expSpendEvent := banktypes.NewCoinSpentEvent(recipientAddr, spentCoins)
-
-			if totalExtCoinAmt.IsZero() {
-				s.Require().NotContains(events, expBurnEvent)
-				s.Require().NotContains(events, expSpendEvent)
-			} else {
-				s.Require().Contains(events, expBurnEvent)
-				s.Require().Contains(events, expSpendEvent)
+			// Check fractinoal balance change event
+			if !fracBalAfter.Sub(fracBalBefore).Equal(sdkmath.ZeroInt()) {
+				expEvent := types.NewEventFractionalBalanceChange(recipientAddr, fracBalBefore, fracBalAfter)
+				events := s.network.GetContext().EventManager().Events()
+				s.Require().Contains(events, expEvent)
 			}
 		})
 	}

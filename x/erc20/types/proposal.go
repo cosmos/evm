@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -53,7 +53,7 @@ func ValidateErc20Denom(denom string) error {
 		if len(trimmed) == 0 {
 			return fmt.Errorf("invalid denom (given: %s): missing address after prefix %s", denom, Erc20NativeCoinDenomPrefix)
 		}
-		return cosmosevmtypes.ValidateAddress(trimmed)
+		return utils.ValidateAddress(trimmed)
 	}
 
 	return fmt.Errorf("invalid denom (given: %s): denomination should be prefixed with %s", denom, Erc20NativeCoinDenomPrefix)
@@ -79,7 +79,7 @@ func (*RegisterERC20Proposal) ProposalType() string {
 // ValidateBasic performs a stateless check of the proposal fields
 func (rtbp *RegisterERC20Proposal) ValidateBasic() error {
 	for _, address := range rtbp.Erc20Addresses {
-		if err := cosmosevmtypes.ValidateAddress(address); err != nil {
+		if err := utils.ValidateAddress(address); err != nil {
 			return errorsmod.Wrap(err, "ERC20 address")
 		}
 	}
@@ -108,7 +108,7 @@ func (*ToggleTokenConversionProposal) ProposalType() string {
 func (ttcp *ToggleTokenConversionProposal) ValidateBasic() error {
 	// check if the token is a hex address, if not, check if it is a valid SDK
 	// denom
-	if err := cosmosevmtypes.ValidateAddress(ttcp.Token); err != nil {
+	if err := utils.ValidateAddress(ttcp.Token); err != nil {
 		if err := sdk.ValidateDenom(ttcp.Token); err != nil {
 			return err
 		}

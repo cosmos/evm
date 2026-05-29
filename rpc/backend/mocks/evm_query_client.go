@@ -454,6 +454,43 @@ func (_m *EVMQueryClient) TraceBlock(ctx context.Context, in *types.QueryTraceBl
 	return r0, r1
 }
 
+// TraceCall provides a mock function with given fields: ctx, in, opts
+func (_m *EVMQueryClient) TraceCall(ctx context.Context, in *types.QueryTraceCallRequest, opts ...grpc.CallOption) (*types.QueryTraceCallResponse, error) {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, in)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TraceCall")
+	}
+
+	var r0 *types.QueryTraceCallResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.QueryTraceCallRequest, ...grpc.CallOption) (*types.QueryTraceCallResponse, error)); ok {
+		return rf(ctx, in, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.QueryTraceCallRequest, ...grpc.CallOption) *types.QueryTraceCallResponse); ok {
+		r0 = rf(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.QueryTraceCallResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.QueryTraceCallRequest, ...grpc.CallOption) error); ok {
+		r1 = rf(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // TraceTx provides a mock function with given fields: ctx, in, opts
 func (_m *EVMQueryClient) TraceTx(ctx context.Context, in *types.QueryTraceTxRequest, opts ...grpc.CallOption) (*types.QueryTraceTxResponse, error) {
 	_va := make([]interface{}, len(opts))

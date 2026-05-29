@@ -7,7 +7,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 )
 
 const (
@@ -52,9 +51,7 @@ func (p Precompile) ValidatorDistributionInfo(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorDistributionInfo(ctx, req)
+	res, err := p.distributionQuerier.ValidatorDistributionInfo(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +73,7 @@ func (p Precompile) ValidatorOutstandingRewards(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorOutstandingRewards(ctx, req)
+	res, err := p.distributionQuerier.ValidatorOutstandingRewards(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +93,7 @@ func (p Precompile) ValidatorCommission(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorCommission(ctx, req)
+	res, err := p.distributionQuerier.ValidatorCommission(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -120,9 +113,7 @@ func (p Precompile) ValidatorSlashes(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorSlashes(ctx, req)
+	res, err := p.distributionQuerier.ValidatorSlashes(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +135,7 @@ func (p Precompile) DelegationRewards(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-	res, err := querier.DelegationRewards(ctx, req)
+	res, err := p.distributionQuerier.DelegationRewards(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -165,9 +155,7 @@ func (p Precompile) DelegationTotalRewards(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.DelegationTotalRewards(ctx, req)
+	res, err := p.distributionQuerier.DelegationTotalRewards(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -189,9 +177,7 @@ func (p Precompile) DelegatorValidators(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.DelegatorValidators(ctx, req)
+	res, err := p.distributionQuerier.DelegatorValidators(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -211,9 +197,7 @@ func (p Precompile) DelegatorWithdrawAddress(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.DelegatorWithdrawAddress(ctx, req)
+	res, err := p.distributionQuerier.DelegatorWithdrawAddress(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -233,9 +217,7 @@ func (p Precompile) CommunityPool(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.CommunityPool(ctx, req)
+	res, err := p.distributionQuerier.CommunityPool(ctx, req)
 	if err != nil {
 		return nil, err
 	}

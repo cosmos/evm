@@ -1458,7 +1458,7 @@ type GenesisState struct {
 
 	// params are the erc20 module parameters at genesis
 	Params *Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	// token_pairs is a slice of the registered token pairs at genesis
+	// token_pairs is a slice of the registered token pairs (mappings) at genesis
 	TokenPairs []*TokenPair `protobuf:"bytes,2,rep,name=token_pairs,json=tokenPairs,proto3" json:"token_pairs,omitempty"`
 	// allowances is a slice of the registered allowances at genesis
 	Allowances []*Allowance `protobuf:"bytes,3,rep,name=allowances,proto3" json:"allowances,omitempty"`

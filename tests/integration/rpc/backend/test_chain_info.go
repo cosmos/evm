@@ -406,8 +406,7 @@ func (s *TestSuite) TestFeeHistory() {
 				var header metadata.MD
 				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(queryClient, &header, 1)
-				_, err := RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
-				s.Require().NoError(err)
+				RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
 				RegisterBlockResultsError(client, 1)
 			},
 			1,
@@ -425,10 +424,8 @@ func (s *TestSuite) TestFeeHistory() {
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2
 				var header metadata.MD
 				RegisterParams(queryClient, &header, 1)
-				_, err := RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFeeError(queryClient)
 				RegisterValidatorAccount(queryClient, validator)
 				RegisterConsensusParams(client, 1)
@@ -438,10 +435,12 @@ func (s *TestSuite) TestFeeHistory() {
 			1,
 			1,
 			&rpc.FeeHistoryResult{
-				OldestBlock:  (*hexutil.Big)(big.NewInt(1)),
-				BaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))},
-				GasUsedRatio: []float64{0},
-				Reward:       [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				OldestBlock:      (*hexutil.Big)(big.NewInt(1)),
+				BaseFee:          []*hexutil.Big{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))},
+				GasUsedRatio:     []float64{0},
+				Reward:           [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				BlobBaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(1)), (*hexutil.Big)(big.NewInt(1))},
+				BlobGasUsedRatio: []float64{0},
 			},
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			true,
@@ -455,10 +454,8 @@ func (s *TestSuite) TestFeeHistory() {
 				fQueryClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2
-				_, err := RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(queryClient, baseFee)
 				RegisterValidatorAccount(queryClient, validator)
 				RegisterConsensusParams(client, 1)
@@ -468,10 +465,12 @@ func (s *TestSuite) TestFeeHistory() {
 			1,
 			1,
 			&rpc.FeeHistoryResult{
-				OldestBlock:  (*hexutil.Big)(big.NewInt(1)),
-				BaseFee:      []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
-				GasUsedRatio: []float64{0},
-				Reward:       [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				OldestBlock:      (*hexutil.Big)(big.NewInt(1)),
+				BaseFee:          []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
+				GasUsedRatio:     []float64{0},
+				Reward:           [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				BlobBaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(1)), (*hexutil.Big)(big.NewInt(1))},
+				BlobGasUsedRatio: []float64{0},
 			},
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			true,
@@ -485,10 +484,8 @@ func (s *TestSuite) TestFeeHistory() {
 				fQueryClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2
-				_, err := RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(queryClient, baseFee)
 				RegisterValidatorAccount(queryClient, validator)
 				RegisterConsensusParams(client, 1)
@@ -498,10 +495,12 @@ func (s *TestSuite) TestFeeHistory() {
 			1,
 			1,
 			&rpc.FeeHistoryResult{
-				OldestBlock:  (*hexutil.Big)(big.NewInt(1)),
-				BaseFee:      []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
-				GasUsedRatio: []float64{0},
-				Reward:       [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				OldestBlock:      (*hexutil.Big)(big.NewInt(1)),
+				BaseFee:          []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
+				GasUsedRatio:     []float64{0},
+				Reward:           [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				BlobBaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(1)), (*hexutil.Big)(big.NewInt(1))},
+				BlobGasUsedRatio: []float64{0},
 			},
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			true,
@@ -517,10 +516,8 @@ func (s *TestSuite) TestFeeHistory() {
 				fQueryClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2
-				_, err := RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(queryClient, baseFee)
 				RegisterValidatorAccount(queryClient, validator)
 				RegisterConsensusParams(client, 1)
@@ -530,10 +527,12 @@ func (s *TestSuite) TestFeeHistory() {
 			1,
 			0,
 			&rpc.FeeHistoryResult{
-				OldestBlock:  (*hexutil.Big)(big.NewInt(0)),
-				BaseFee:      []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
-				GasUsedRatio: []float64{0},
-				Reward:       [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				OldestBlock:      (*hexutil.Big)(big.NewInt(0)),
+				BaseFee:          []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
+				GasUsedRatio:     []float64{0},
+				Reward:           [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				BlobBaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(1)), (*hexutil.Big)(big.NewInt(1))},
+				BlobGasUsedRatio: []float64{0},
 			},
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			true,
@@ -547,10 +546,8 @@ func (s *TestSuite) TestFeeHistory() {
 				fQueryClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2
-				_, err := RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, ethrpc.BlockNumber(1).Int64(), nil)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(queryClient, baseFee)
 				RegisterValidatorAccount(queryClient, validator)
 				RegisterConsensusParams(client, 1)
@@ -560,10 +557,12 @@ func (s *TestSuite) TestFeeHistory() {
 			1,
 			ethrpc.EarliestBlockNumber,
 			&rpc.FeeHistoryResult{
-				OldestBlock:  (*hexutil.Big)(big.NewInt(0)),
-				BaseFee:      []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
-				GasUsedRatio: []float64{0},
-				Reward:       [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				OldestBlock:      (*hexutil.Big)(big.NewInt(0)),
+				BaseFee:          []*hexutil.Big{(*hexutil.Big)(baseFee.BigInt()), (*hexutil.Big)(big.NewInt(87_500_000_000))},
+				GasUsedRatio:     []float64{0},
+				Reward:           [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
+				BlobBaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(1)), (*hexutil.Big)(big.NewInt(1))},
+				BlobGasUsedRatio: []float64{0},
 			},
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			true,

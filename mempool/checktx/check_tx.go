@@ -20,7 +20,7 @@ func NewCheckTxHandler(m *mempool.ExperimentalEVMMempool) types.CheckTxHandler {
 		gInfo, result, anteEvents, err := runTx(request.Tx, nil)
 		if err != nil {
 			// detect if there is a nonce gap error (only returned for EVM transactions)
-			if errors.Is(err, mempool.ErrNonceGap) {
+			if errors.Is(err, mempool.ErrNonceGap) || errors.Is(err, mempool.ErrNonceLow) {
 				// send it to the mempool for further triage
 				err := m.InsertInvalidNonce(request.Tx)
 				if err != nil {

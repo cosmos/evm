@@ -14,8 +14,8 @@ import (
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
+	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -31,6 +31,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+const (
+	hex    = "0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E"
+	bech32 = "cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv"
 )
 
 func TestIsSupportedKeys(t *testing.T) {
@@ -86,6 +91,53 @@ func TestIsSupportedKeys(t *testing.T) {
 	}
 }
 
+func TestIsBech32Address(t *testing.T) {
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
+
+	testCases := []struct {
+		name    string
+		address string
+		expResp bool
+	}{
+		{
+			"blank bech32 address",
+			" ",
+			false,
+		},
+		{
+			"invalid bech32 address",
+			"evmos",
+			false,
+		},
+		{
+			"invalid address bytes",
+			"cosmos1123",
+			false,
+		},
+		{
+			"evmos address",
+			"evmos1ltzy54ms24v590zz37r2q9hrrdcc8eslndsqwv",
+			true,
+		},
+		{
+			"cosmos address",
+			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
+			true,
+		},
+		{
+			"osmosis address",
+			"osmo1qql8ag4cluz6r4dz28p3w00dnc9w8ueuhnecd2",
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		isValid := utils.IsBech32Address(tc.address)
+		require.Equal(t, tc.expResp, isValid, tc.name)
+	}
+}
+
 func TestGetAccAddressFromBech32(t *testing.T) {
 	config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
@@ -116,8 +168,8 @@ func TestGetAccAddressFromBech32(t *testing.T) {
 		},
 		{
 			"evmos address",
-			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
-			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
+			"evmos1ltzy54ms24v590zz37r2q9hrrdcc8eslndsqwv",
+			"cosmos1ltzy54ms24v590zz37r2q9hrrdcc8esl3vpw5y",
 			false,
 		},
 		{
@@ -254,9 +306,6 @@ func TestAddressConversion(t *testing.T) {
 	config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
 
-	hex := "0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E"
-	bech32 := "cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv"
-
 	require.Equal(t, bech32, utils.Bech32StringFromHexAddress(hex))
 	gotAddr, err := utils.HexAddressFromBech32String(bech32)
 	require.NoError(t, err)
@@ -384,7 +433,7 @@ func TestAccountEquivalence(t *testing.T) {
 
 	// account using ethsecp
 	// and coin type 60
-	evmKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, types.BIP44HDPath, algoEvm)
+	evmKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, hd.BIP44HDPath, algoEvm)
 	require.NoError(t, err)
 
 	// verify that none of these three keys are equal
@@ -721,7 +770,7 @@ func TestCalcBaseFee(t *testing.T) {
 
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
-					result, err := utils.CalcBaseFee(tc.config, tc.parent, tc.params)
+					result, err := types.CalcBaseFee(tc.config, tc.parent, tc.params)
 
 					if tc.expectedError != "" {
 						require.Error(t, err)

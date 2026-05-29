@@ -22,7 +22,7 @@ RUN addgroup -g 1025 nonroot
 RUN adduser -D nonroot -u 1025 -G nonroot
 
 # Set up the runtime environment
-EXPOSE 26656 26657 1317 9090
+EXPOSE 26656 26657 1317 9090 26660 8545 8100
 STOPSIGNAL SIGTERM
 VOLUME /evmd
 WORKDIR /evmd
@@ -39,4 +39,4 @@ RUN chown -R nonroot:nonroot /evmd
 USER nonroot
 
 ENTRYPOINT ["/usr/bin/wrapper.sh"]
-CMD ["start", "--log_format", "plain", "--minimum-gas-prices", "0.0001atest", "--json-rpc.api", "eth,txpool,personal,net,debug,web3", "--chain-id", "local-4221"]
+CMD ["start", "--log_format", "plain", "--minimum-gas-prices", "0.0001atest", "--json-rpc.enable", "true", "--json-rpc.api", "eth,txpool,personal,net,debug,web3", "--chain-id", "local-4221"]

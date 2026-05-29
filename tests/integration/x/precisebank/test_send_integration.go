@@ -401,6 +401,9 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 			senderBalBefore := s.GetAllBalances(sender)
 			recipientBalBefore := s.GetAllBalances(recipient)
 
+			senderFracBalBefore := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), sender)
+			recipientFracBalBefore := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipient)
+
 			err := s.network.App.GetPreciseBankKeeper().SendCoins(s.network.GetContext(), sender, recipient, tt.giveAmt)
 			if tt.wantErr != "" {
 				s.Require().Error(err)
@@ -413,6 +416,9 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 			// Check balances
 			senderBalAfter := s.GetAllBalances(sender)
 			recipientBalAfter := s.GetAllBalances(recipient)
+
+			senderFracBalAfter := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), sender)
+			recipientFracBalAfter := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipient)
 
 			// Convert send amount coins to extended coins. i.e. if send coins
 			// includes uatom, convert it so that its the equivalent aatom
@@ -440,41 +446,27 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 			)
 
 			// Check events
-
-			// FULL aatom equivalent, including uatom only/mixed sends
-			sendExtendedAmount := sdk.NewCoin(
-				types.ExtendedCoinDenom(),
-				sendAmountFullExtended.AmountOf(types.ExtendedCoinDenom()),
-			)
-			extCoins := sdk.NewCoins(sendExtendedAmount)
-
-			// No extra events if not sending aatom
-			if sendExtendedAmount.IsZero() {
-				return
+			events := s.network.GetContext().EventManager().Events()
+			targetEvents := []sdk.Event{}
+			for _, event := range events {
+				if event.Type == types.EventTypeFractionalBalanceChange {
+					targetEvents = append(targetEvents, event)
+				}
 			}
 
-			extendedEvent := sdk.NewEvent(
-				banktypes.EventTypeTransfer,
-				sdk.NewAttribute(banktypes.AttributeKeyRecipient, recipient.String()),
-				sdk.NewAttribute(banktypes.AttributeKeySender, sender.String()),
-				sdk.NewAttribute(sdk.AttributeKeyAmount, sendExtendedAmount.String()),
-			)
+			if !senderFracBalAfter.Sub(senderFracBalBefore).Equal(sdkmath.ZeroInt()) {
+				expSenderFracBalChangeEvent := types.NewEventFractionalBalanceChange(
+					sender, senderFracBalBefore, senderFracBalAfter,
+				)
+				s.Require().Contains(targetEvents, expSenderFracBalChangeEvent)
+			}
 
-			expReceivedEvent := banktypes.NewCoinReceivedEvent(
-				recipient,
-				extCoins,
-			)
-
-			expSentEvent := banktypes.NewCoinSpentEvent(
-				sender,
-				extCoins,
-			)
-
-			events := s.network.GetContext().EventManager().Events()
-
-			s.Require().Contains(events, extendedEvent)
-			s.Require().Contains(events, expReceivedEvent)
-			s.Require().Contains(events, expSentEvent)
+			if !recipientFracBalAfter.Sub(recipientFracBalBefore).Equal(sdkmath.ZeroInt()) {
+				expRecipientFracBalChangeEvent := types.NewEventFractionalBalanceChange(
+					recipient, recipientFracBalBefore, recipientFracBalAfter,
+				)
+				s.Require().Contains(targetEvents, expRecipientFracBalChangeEvent)
+			}
 		})
 	}
 }

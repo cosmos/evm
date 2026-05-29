@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/config"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
-	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 

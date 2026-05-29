@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 const (
@@ -60,17 +60,22 @@ func (p Precompile) CreateValidator(
 	)
 
 	msgSender := contract.Caller()
-	// we won't allow calls from smart contracts
-	if hasCode := stateDB.GetCode(msgSender) != nil; hasCode {
+
+	// We won't allow calls from smart contracts
+	// unless they are EIP-7702 delegated accounts
+	code := stateDB.GetCode(msgSender)
+	_, delegated := ethtypes.ParseDelegation(code)
+	if len(code) > 0 && !delegated {
+		// call by contract method
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
+
 	if msgSender != validatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.CreateValidator(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.CreateValidator(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -107,17 +112,22 @@ func (p Precompile) EditValidator(
 	)
 
 	msgSender := contract.Caller()
-	// we won't allow calls from smart contracts
-	if hasCode := stateDB.GetCode(msgSender) != nil; hasCode {
+
+	// We won't allow calls from smart contracts
+	// unless they are EIP-7702 delegated accounts
+	code := stateDB.GetCode(msgSender)
+	_, delegated := ethtypes.ParseDelegation(code)
+	if len(code) > 0 && !delegated {
+		// call by contract method
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
+
 	if msgSender != validatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.EditValidator(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.EditValidator(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -163,8 +173,7 @@ func (p *Precompile) Delegate(
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.Delegate(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.Delegate(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -211,8 +220,7 @@ func (p Precompile) Undelegate(
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	res, err := msgSrv.Undelegate(ctx, msg)
+	res, err := p.stakingMsgServer.Undelegate(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -261,8 +269,7 @@ func (p Precompile) Redelegate(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	res, err := msgSrv.BeginRedelegate(ctx, msg)
+	res, err := p.stakingMsgServer.BeginRedelegate(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -310,8 +317,7 @@ func (p Precompile) CancelUnbondingDelegation(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.CancelUnbondingDelegation(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.CancelUnbondingDelegation(ctx, msg); err != nil {
 		return nil, err
 	}
 

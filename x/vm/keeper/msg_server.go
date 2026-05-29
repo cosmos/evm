@@ -3,7 +3,6 @@ package keeper
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -99,24 +98,11 @@ func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (*t
 		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyEthereumTxFailed, response.VmError))
 	}
 
-	txLogAttrs := make([]sdk.Attribute, len(response.Logs))
-	for i, log := range response.Logs {
-		value, err := json.Marshal(log)
-		if err != nil {
-			return nil, errorsmod.Wrap(err, "failed to encode log")
-		}
-		txLogAttrs[i] = sdk.NewAttribute(types.AttributeKeyTxLog, string(value))
-	}
-
 	// emit events
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
 			types.EventTypeEthereumTx,
 			attrs...,
-		),
-		sdk.NewEvent(
-			types.EventTypeTxLog,
-			txLogAttrs...,
 		),
 		sdk.NewEvent(
 			sdk.EventTypeMessage,

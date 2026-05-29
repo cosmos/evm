@@ -32,6 +32,12 @@ func ExtendedCoinDenom() string {
 	return evmtypes.GetEVMCoinExtendedDenom()
 }
 
+// IsExtendedDenomSameAsIntegerDenom returns true if the extended denom is the same as the integer denom
+// This happens in 18-decimal chains where both denoms are identical
+func IsExtendedDenomSameAsIntegerDenom() bool {
+	return IntegerCoinDenom() == ExtendedCoinDenom()
+}
+
 // FractionalBalance returns a new FractionalBalance with the given address and
 // amount.
 func NewFractionalBalance(address string, amount sdkmath.Int) FractionalBalance {

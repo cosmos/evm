@@ -55,10 +55,12 @@ func (k Keeper) OnRecvPacket(
 		WithKVGasConfig(storetypes.GasConfig{}).
 		WithTransientKVGasConfig(storetypes.GasConfig{})
 
-	sender, recipient, _, _, err := ibc.GetTransferSenderRecipient(data)
+	// recipient (local chain address): accept hex or local bech32
+	recipientBz, err := k.addrCodec.StringToBytes(data.Receiver)
 	if err != nil {
-		return channeltypes.NewErrorAcknowledgement(err)
+		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid recipient"))
 	}
+	recipient := sdk.AccAddress(recipientBz)
 
 	receiverAcc := k.accountKeeper.GetAccount(ctx, recipient)
 
@@ -120,7 +122,7 @@ func (k Keeper) OnRecvPacket(
 			return ack
 		}
 
-		pair, err := k.MintingEnabled(ctx, sender, recipient, coin.Denom)
+		pair, err := k.MintingEnabled(ctx, recipient, coin.Denom)
 		if err != nil {
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("erc20_callback_failure",
@@ -188,10 +190,12 @@ func (k Keeper) OnTimeoutPacket(ctx sdk.Context, _ channeltypes.Packet, data tra
 // ConvertCoinToERC20FromPacket converts the IBC coin to ERC20 after refunding the sender
 // This function is only executed when IBC timeout or an Error ACK happens.
 func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
-	sender, err := sdk.AccAddressFromBech32(data.Sender)
+	// Sender is local (source) chain address; accept local bech32 or 0x-hex
+	senderBz, err := k.addrCodec.StringToBytes(data.Sender)
 	if err != nil {
 		return err
 	}
+	sender := sdk.AccAddress(senderBz)
 
 	pairID := k.GetTokenPairID(ctx, data.Denom)
 	pair, found := k.GetTokenPair(ctx, pairID)

@@ -84,6 +84,25 @@ func RegisterTraceBlockError(queryClient *mocks.EVMQueryClient) {
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
+// TraceCall
+func RegisterTraceCall(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx) {
+	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x63, 0x61, 0x6c, 0x6c, 0x22, 0x7d} // {"test": "trace_call"}
+	queryClient.On("TraceCall", rpc.ContextWithHeight(1), mock.AnythingOfType("*types.QueryTraceCallRequest")).
+		Return(&evmtypes.QueryTraceCallResponse{Data: data}, nil)
+}
+
+func RegisterTraceCallWithTracer(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx, tracer string) {
+	data := []byte{0x7b, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x20, 0x22, 0x43, 0x41, 0x4c, 0x4c, 0x22, 0x7d} // {"type": "CALL"}
+	queryClient.On("TraceCall", rpc.ContextWithHeight(1), mock.MatchedBy(func(req *evmtypes.QueryTraceCallRequest) bool {
+		return req.TraceConfig != nil && req.TraceConfig.Tracer == tracer
+	})).Return(&evmtypes.QueryTraceCallResponse{Data: data}, nil)
+}
+
+func RegisterTraceCallError(queryClient *mocks.EVMQueryClient) {
+	queryClient.On("TraceCall", rpc.ContextWithHeight(1), mock.AnythingOfType("*types.QueryTraceCallRequest")).
+		Return(nil, errortypes.ErrInvalidRequest)
+}
+
 // Params
 func RegisterParams(queryClient *mocks.EVMQueryClient, header *metadata.MD, height int64) {
 	queryClient.On("Params", rpc.ContextWithHeight(height), &evmtypes.QueryParamsRequest{}, grpc.Header(header)).

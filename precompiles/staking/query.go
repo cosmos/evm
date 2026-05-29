@@ -11,7 +11,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 const (
@@ -47,9 +46,7 @@ func (p Precompile) Delegation(
 		return nil, err
 	}
 
-	queryServer := stakingkeeper.Querier{Keeper: &p.stakingKeeper}
-
-	res, err := queryServer.Delegation(ctx, req)
+	res, err := p.stakingQuerier.Delegation(ctx, req)
 	if err != nil {
 		// If there is no delegation found, return the response with zero values.
 		if strings.Contains(err.Error(), fmt.Sprintf(ErrNoDelegationFound, req.DelegatorAddr, req.ValidatorAddr)) {
@@ -81,9 +78,7 @@ func (p Precompile) UnbondingDelegation(
 		return nil, err
 	}
 
-	queryServer := stakingkeeper.Querier{Keeper: &p.stakingKeeper}
-
-	res, err := queryServer.UnbondingDelegation(ctx, req)
+	res, err := p.stakingQuerier.UnbondingDelegation(ctx, req)
 	if err != nil {
 		// return empty unbonding delegation output if the unbonding delegation is not found
 		expError := fmt.Sprintf("unbonding delegation with delegator %s not found for validator %s", req.DelegatorAddr, req.ValidatorAddr)
@@ -110,21 +105,19 @@ func (p Precompile) Validator(
 		return nil, err
 	}
 
-	queryServer := stakingkeeper.Querier{Keeper: &p.stakingKeeper}
-
-	res, err := queryServer.Validator(ctx, req)
+	res, err := p.stakingQuerier.Validator(ctx, req)
 	if err != nil {
 		// return empty validator info if the validator is not found
 		expError := fmt.Sprintf("validator %s not found", req.ValidatorAddr)
 		if strings.Contains(err.Error(), expError) {
-			return method.Outputs.Pack(DefaultValidatorOutput().Validator)
+			return method.Outputs.Pack(DefaultValidatorInfo())
 		}
 		return nil, err
 	}
 
-	out := new(ValidatorOutput).FromResponse(res)
+	validatorInfo := NewValidatorInfoFromResponse(res.Validator)
 
-	return method.Outputs.Pack(out.Validator)
+	return method.Outputs.Pack(validatorInfo)
 }
 
 // Validators returns the validators information with a provided status & pagination (optional).
@@ -139,9 +132,7 @@ func (p Precompile) Validators(
 		return nil, err
 	}
 
-	queryServer := stakingkeeper.Querier{Keeper: &p.stakingKeeper}
-
-	res, err := queryServer.Validators(ctx, req)
+	res, err := p.stakingQuerier.Validators(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -185,9 +176,7 @@ func (p Precompile) Redelegations(
 		return nil, err
 	}
 
-	queryServer := stakingkeeper.Querier{Keeper: &p.stakingKeeper}
-
-	res, err := queryServer.Redelegations(ctx, req)
+	res, err := p.stakingQuerier.Redelegations(ctx, req)
 	if err != nil {
 		return nil, err
 	}

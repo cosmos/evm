@@ -61,4 +61,4 @@ If you follow these guidelines when reporting an issue to us, we commit to:
   bug bounty program.
 
 [h1]: https://hackerone.com/cosmos
-[EXAMPLES.md]: https://github.com/interchainio/security/blob/main/resources/CLASSIFICATION_MATRIX.md#real-world-examples
+[EXAMPLES.md]: https://github.com/cosmos/security/blob/main/resources/CLASSIFICATION_MATRIX.md#real-world-examples

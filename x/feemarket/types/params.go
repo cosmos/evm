@@ -82,7 +82,7 @@ func (p Params) Validate() error {
 	return validateMinGasPrice(p.MinGasPrice)
 }
 
-func (p *Params) IsBaseFeeEnabled(height int64) bool {
+func (p Params) IsBaseFeeEnabled(height int64) bool {
 	return !p.NoBaseFee && height >= p.EnableHeight
 }
 

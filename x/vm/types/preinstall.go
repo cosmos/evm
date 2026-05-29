@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 var DefaultPreinstalls = []Preinstall{
@@ -29,6 +30,11 @@ var DefaultPreinstalls = []Preinstall{
 		Name:    "Safe singleton factory",
 		Address: "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
 		Code:    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
+	},
+	{
+		Name:    "EIP-2935 - Serve historical block hashes from state",
+		Address: params.HistoryStorageAddress.String(),
+		Code:    common.Bytes2Hex(params.HistoryStorageCode),
 	},
 }
 

@@ -33,7 +33,7 @@ func (k Keeper) ConvertERC20(
 	receiver := sdk.MustAccAddressFromBech32(msg.Receiver)
 	sender := common.HexToAddress(msg.Sender)
 
-	pair, err := k.MintingEnabled(ctx, sender.Bytes(), receiver, msg.ContractAddress)
+	pair, err := k.MintingEnabled(ctx, receiver, msg.ContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (k Keeper) ConvertERC20(
 	if pair.IsNativeERC20() {
 		// Remove token pair if contract is suicided
 		acc := k.evmKeeper.GetAccountWithoutBalance(ctx, pair.GetERC20Contract())
-		if acc == nil || !acc.IsContract() {
+		if acc == nil || !acc.HasCodeHash() {
 			k.DeleteTokenPair(ctx, pair)
 			k.Logger(ctx).Debug(
 				"deleting selfdestructed token pair from state",
@@ -199,7 +199,7 @@ func (k Keeper) ConvertCoin(
 	sender := sdk.MustAccAddressFromBech32(msg.Sender)
 	receiver := common.HexToAddress(msg.Receiver)
 
-	pair, err := k.MintingEnabled(ctx, sender, receiver.Bytes(), msg.Coin.Denom)
+	pair, err := k.MintingEnabled(ctx, receiver.Bytes(), msg.Coin.Denom)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (k Keeper) ConvertCoin(
 	case pair.IsNativeERC20():
 		// Remove token pair if contract is suicided
 		acc := k.evmKeeper.GetAccountWithoutBalance(ctx, pair.GetERC20Contract())
-		if acc == nil || !acc.IsContract() {
+		if acc == nil || !acc.HasCodeHash() {
 			k.DeleteTokenPair(ctx, pair)
 			k.Logger(ctx).Debug(
 				"deleting selfdestructed token pair from state",
@@ -395,7 +395,7 @@ func (k *Keeper) ToggleConversion(goCtx context.Context, req *types.MsgToggleCon
 // validateAuthority is a helper function to validate that the provided authority
 // is the keeper's authority address
 func (k *Keeper) validateAuthority(authority string) error {
-	if _, err := k.accountKeeper.AddressCodec().StringToBytes(authority); err != nil {
+	if _, err := k.addrCodec.StringToBytes(authority); err != nil {
 		return errortypes.ErrInvalidAddress.Wrapf("invalid authority address: %s", err)
 	}
 

@@ -14,7 +14,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -40,8 +40,9 @@ var (
 		cmttypes.EventTx,
 		sdk.EventTypeMessage,
 		sdk.AttributeKeyModule, evmtypes.ModuleName)).String()
-	blockEvents  = cmttypes.QueryForEvent(cmttypes.EventNewBlock).String()
-	evmTxHashKey = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
+	blockEvents          = cmttypes.QueryForEvent(cmttypes.EventNewBlock).String()
+	evmTxHashKey         = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
+	NewBlockHeaderEvents = cmtquery.MustCompile(fmt.Sprintf("%s='%s'", cmttypes.EventTypeKey, cmttypes.EventNewBlockHeader))
 )
 
 type RPCHeader struct {
@@ -161,9 +162,10 @@ func (s *RPCStream) start(
 			}
 
 			baseFee := types.BaseFeeFromEvents(data.ResultFinalizeBlock.Events)
-			// TODO: fetch bloom from events
+			// TODO: After indexer improvement, we should get eth header event from indexer
+			// Currently, many fields are missing or incorrect (e.g. bloom, receiptsRoot, ...)
 			header := types.EthHeaderFromComet(data.Block.Header, ethtypes.Bloom{}, baseFee)
-			s.headerStream.Add(RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.Block.Header.Hash())})
+			s.headerStream.Add(RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.BlockID.Hash)})
 
 		case ev, ok := <-chLogs:
 			if !ok {
@@ -182,11 +184,11 @@ func (s *RPCStream) start(
 				s.logger.Error("event data type mismatch", "type", fmt.Sprintf("%T", ev.Data))
 				continue
 			}
-			height, err := cosmosevmtypes.SafeUint64(dataTx.Height)
+			height, err := utils.SafeUint64(dataTx.Height)
 			if err != nil {
 				continue
 			}
-			txLogs, err := evmtypes.DecodeTxLogsFromEvents(dataTx.Result.Data, dataTx.Result.Events, height)
+			txLogs, err := evmtypes.DecodeTxLogs(dataTx.Result.Data, height)
 			if err != nil {
 				s.logger.Error("fail to decode evm tx response", "error", err.Error())
 				continue

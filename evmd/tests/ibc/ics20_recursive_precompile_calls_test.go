@@ -10,27 +10,30 @@ import (
 	"math/big"
 	"testing"
 
+	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/cosmos/evm/utils"
+
+	"github.com/cosmos/evm/contracts"
+	testutiltypes "github.com/cosmos/evm/testutil/types"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
-	evmibctesting "github.com/cosmos/evm/ibc/testing"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics20"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	"github.com/cosmos/evm/utils"
-	erc20types "github.com/cosmos/evm/x/erc20/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
+	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // Test constants
@@ -80,7 +83,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) prepareStakingRewards(ctx s
 
 		// allocate rewards to validator
 		allocatedRewards := sdk.NewDecCoins(sdk.NewDecCoin(bondDenom, r.RewardAmt))
-		if err := suite.chainA.App.(*evmd.EVMD).DistrKeeper.AllocateTokensToValidator(ctx, r.Validator, allocatedRewards); err != nil {
+		if err := suite.chainA.App.(*evmd.EVMD).GetDistrKeeper().AllocateTokensToValidator(ctx, r.Validator, allocatedRewards); err != nil {
 			return ctx, err
 		}
 	}
@@ -89,7 +92,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) prepareStakingRewards(ctx s
 
 func (suite *ICS20RecursivePrecompileCallsTestSuite) mintCoinsForDistrMod(ctx sdk.Context, amount sdk.Coins) error {
 	// Mint tokens for the distribution module to simulate fee accrued
-	if err := suite.chainA.App.(*evmd.EVMD).BankKeeper.MintCoins(
+	if err := suite.chainA.App.(*evmd.EVMD).GetBankKeeper().MintCoins(
 		ctx,
 		minttypes.ModuleName,
 		amount,
@@ -97,7 +100,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) mintCoinsForDistrMod(ctx sd
 		return err
 	}
 
-	return suite.chainA.App.(*evmd.EVMD).BankKeeper.SendCoinsFromModuleToModule(
+	return suite.chainA.App.(*evmd.EVMD).GetBankKeeper().SendCoinsFromModuleToModule(
 		ctx,
 		minttypes.ModuleName,
 		distrtypes.ModuleName,
@@ -150,12 +153,13 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	suite.Require().NoError(err, "sending native tokens to contract should succeed")
 
 	// Mint ERC20 tokens
-	_, err = evmAppA.EVMKeeper.CallEVM(
+	_, err = evmAppA.GetEVMKeeper().CallEVM(
 		suite.chainA.GetContext(),
 		contractData.ABI,
 		deployerAddr,
 		contractAddr,
 		true,
+		nil,
 		"mint",
 		senderEVMAddr,
 		big.NewInt(InitialTokenAmount),
@@ -167,12 +171,13 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	vals, err := evmAppA.StakingKeeper.GetAllValidators(suite.chainA.GetContext())
 	suite.Require().NoError(err)
 
-	_, err = evmAppA.EVMKeeper.CallEVM(
+	_, err = evmAppA.GetEVMKeeper().CallEVM(
 		ctxA,
 		contractData.ABI,
 		deployerAddr,
 		contractAddr,
 		true,
+		nil,
 		"delegate",
 		vals[0].OperatorAddress,
 		big.NewInt(DelegationAmount),
@@ -200,39 +205,37 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	suite.chainA.NextBlock()
 
 	// Verify minted balance
-	bal := evmAppA.Erc20Keeper.BalanceOf(ctxA, contractData.ABI, contractAddr, common.BytesToAddress(senderAddr))
+	bal := evmAppA.GetErc20Keeper().BalanceOf(ctxA, contractData.ABI, contractAddr, common.BytesToAddress(senderAddr))
 	suite.Require().Equal(big.NewInt(InitialTokenAmount), bal, "unexpected ERC20 balance")
 }
 
 func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0, integration.SetupEvmd)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
-	suite.chainAPrecompile, _ = ics20.NewPrecompile(
-		*evmAppA.StakingKeeper,
+	suite.chainAPrecompile = ics20.NewPrecompile(
 		evmAppA.BankKeeper,
+		*evmAppA.StakingKeeper,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
-		evmAppA.EVMKeeper,
 	)
 	bondDenom, err := evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
 	suite.Require().NoError(err)
 
 	evmAppA.Erc20Keeper.GetTokenPair(suite.chainA.GetContext(), evmAppA.Erc20Keeper.GetTokenPairID(suite.chainA.GetContext(), bondDenom))
-	// evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
+	//evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
 
 	avail := evmAppA.Erc20Keeper.IsNativePrecompileAvailable(suite.chainA.GetContext(), common.HexToAddress("0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"))
 	suite.Require().True(avail)
 
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
-	suite.chainBPrecompile, _ = ics20.NewPrecompile(
+	suite.chainBPrecompile = ics20.NewPrecompile(
+		evmAppB.BankKeeper,
 		*evmAppB.StakingKeeper,
-		evmAppA.BankKeeper,
 		evmAppB.TransferKeeper,
 		evmAppB.IBCKeeper.ChannelKeeper,
-		evmAppA.EVMKeeper,
 	)
 }
 
@@ -261,7 +264,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				contractData, err := contracts.LoadERC20RecursiveReverting()
 				suite.Require().NoError(err)
 
-				deploymentData := factory.ContractDeploymentData{
+				deploymentData := testutiltypes.ContractDeploymentData{
 					Contract:        contractData,
 					ConstructorArgs: []interface{}{"RecursiveRevertingToken", "RRCT", uint8(18)},
 				}
@@ -299,7 +302,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				})
 				suite.Require().NoError(err)
 				suite.Require().Equal(afterRewards.Rewards[0].Amount.String(), ExpectedRewards)
-				suite.Require().Equal(eventAmount, 21)
+				suite.Require().Equal(eventAmount, 20)
 			},
 		},
 		{
@@ -309,7 +312,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				contractData, err := contracts.LoadERC20RecursiveNonReverting()
 				suite.Require().NoError(err)
 
-				deploymentData := factory.ContractDeploymentData{
+				deploymentData := testutiltypes.ContractDeploymentData{
 					Contract:        contractData,
 					ConstructorArgs: []interface{}{"RecursiveNonRevertingToken", "RNRCT", uint8(18)},
 				}
@@ -349,7 +352,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				})
 				suite.Require().NoError(err)
 				suite.Require().Nil(afterRewards.Rewards)
-				suite.Require().Equal(eventAmount, 30) // 21 base events + (1 successful reward claim + 1 send + 1 receive + 1 message + 1 transfer) + 4 empty reward claims
+				suite.Require().Equal(eventAmount, 29) // 20 base events + (1 successful reward claim + 1 send + 1 receive + 1 message + 1 transfer) + 4 empty reward claims
 			},
 		},
 	}
@@ -420,7 +423,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			)
 			suite.Require().NoError(err)
 
-			res, err := suite.chainA.SendEvmTx(senderAccount.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
+			res, _, _, err := suite.chainA.SendEvmTx(senderAccount, SenderIndex, suite.chainAPrecompile.Address(), big.NewInt(0), data, 0)
 			suite.Require().NoError(err) // message committed
 			packet, err := evmibctesting.ParsePacketFromEvents(res.Events)
 			suite.Require().NoError(err)
@@ -449,11 +452,11 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			relayerBalance := GetBalance(relayerAddr)
 
 			// relay send
-			pathAToB.EndpointA.Chain.SenderAccount = evmAppA.AccountKeeper.GetAccount(suite.chainA.GetContext(), relayerAddr) // update account in the path as the sequence recorded in that object is out of date
+			pathAToB.EndpointA.Chain.SenderAccount = evmAppA.AccountKeeper.GetAccount(suite.chainA.GetContext(), relayerAddr) //update account in the path as the sequence recorded in that object is out of date
 			err = pathAToB.RelayPacket(packet)
 			suite.Require().NoError(err) // relay committed
 
-			feeAmt := FeeCoins().AmountOf(sourceDenomToTransfer)
+			feeAmt := evmibctesting.FeeCoins().AmountOf(sourceDenomToTransfer)
 
 			// One for UpdateClient() and one for AcknowledgePacket()
 			relayPacketFeeAmt := feeAmt.Mul(sdkmath.NewInt(2))

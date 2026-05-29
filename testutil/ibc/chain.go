@@ -2,6 +2,7 @@
 package ibctesting
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -44,6 +44,8 @@ import (
 )
 
 var MaxAccounts = 10
+
+type AppCreator func() (TestingApp, map[string]json.RawMessage)
 
 type SenderAccount struct {
 	SenderPrivKey cryptotypes.PrivKey
@@ -135,7 +137,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 			Address: acc.GetAddress().String(),
 			Coins: sdk.NewCoins(
 				sdk.NewCoin(sdk.DefaultBondDenom, amount),
-				sdk.NewCoin(config.ExampleChainDenom, amount),
+				sdk.NewCoin(types.DefaultEVMExtendedDenom, amount),
 			),
 		}
 
@@ -150,7 +152,29 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 		senderAccs = append(senderAccs, senderAcc)
 	}
 
-	app := ibctesting.SetupWithGenesisValSet(tb, valSet, genAccs, chainID, sdk.DefaultPowerReduction, genBals...)
+	metadata := []banktypes.Metadata{{
+		Description: "",
+		DenomUnits: []*banktypes.DenomUnit{
+			{
+				Denom:    types.DefaultEVMExtendedDenom,
+				Exponent: 0,
+				Aliases:  nil,
+			},
+			{
+				Denom:    types.DefaultEVMDisplayDenom,
+				Exponent: 6,
+				Aliases:  nil,
+			},
+		},
+		Base:    types.DefaultEVMExtendedDenom,
+		Display: types.DefaultEVMDisplayDenom,
+		Name:    types.DefaultEVMDenom,
+		Symbol:  types.DefaultEVMDenom,
+		URI:     types.DefaultEVMDenom,
+		URIHash: types.DefaultEVMDenom,
+	}}
+
+	app := SetupWithGenesisValSet(tb, valSet, genAccs, chainID, sdk.DefaultPowerReduction, metadata, genBals...)
 	// create current header and call begin block
 	header := cmtproto.Header{
 		ChainID: chainID,

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/testutil/constants"
 )
 

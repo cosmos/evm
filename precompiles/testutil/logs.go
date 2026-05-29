@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -86,8 +87,13 @@ type LogCheckArgs struct {
 }
 
 // WithABIEvents sets the ABIEvents field of LogCheckArgs.
-func (l LogCheckArgs) WithABIEvents(abiEvents map[string]abi.Event) LogCheckArgs {
-	l.ABIEvents = abiEvents
+func (l LogCheckArgs) WithABIEvents(abiEvents ...map[string]abi.Event) LogCheckArgs {
+	combinedABIEvents := make(map[string]abi.Event)
+	for _, evtMap := range abiEvents {
+		maps.Copy(combinedABIEvents, evtMap)
+	}
+
+	l.ABIEvents = combinedABIEvents
 	return l
 }
 

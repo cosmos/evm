@@ -67,7 +67,7 @@ func TestIterateContracts(t *testing.T, create network.CreateEvmApp, options ...
 		return false
 	})
 
-	require.Len(t, foundAddrs, 6, "expected 6 contracts to be found when iterating (4 preinstalled + 2 deployed)")
+	require.Len(t, foundAddrs, 7, "expected 7 contracts to be found when iterating (5 preinstalled + 2 deployed)")
 	require.Contains(t, foundAddrs, contractAddr, "expected contract 1 to be found when iterating")
 	require.Contains(t, foundAddrs, contractAddr2, "expected contract 2 to be found when iterating")
 

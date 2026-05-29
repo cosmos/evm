@@ -43,10 +43,11 @@ func (tf *IntegrationTxFactory) GenerateDefaultTxTypeArgs(sender common.Address,
 // EstimateGasLimit estimates the gas limit for a tx with the provided address and txArgs
 func (tf *IntegrationTxFactory) EstimateGasLimit(from *common.Address, txArgs *evmtypes.EvmTxArgs) (uint64, error) {
 	args, err := json.Marshal(evmtypes.TransactionArgs{
-		Data:       (*hexutil.Bytes)(&txArgs.Input),
-		From:       from,
-		To:         txArgs.To,
-		AccessList: txArgs.Accesses,
+		Data:              (*hexutil.Bytes)(&txArgs.Input),
+		From:              from,
+		To:                txArgs.To,
+		AccessList:        txArgs.Accesses,
+		AuthorizationList: txArgs.AuthorizationList,
 	})
 	if err != nil {
 		return 0, errorsmod.Wrap(err, "failed to marshal tx args")

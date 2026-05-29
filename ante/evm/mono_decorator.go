@@ -1,12 +1,15 @@
 package evm
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -18,6 +21,12 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
+const AcceptedTxType = 0 |
+	1<<ethtypes.LegacyTxType |
+	1<<ethtypes.AccessListTxType |
+	1<<ethtypes.DynamicFeeTxType |
+	1<<ethtypes.SetCodeTxType
+
 // MonoDecorator is a single decorator that handles all the prechecks for
 // ethereum transactions.
 type MonoDecorator struct {
@@ -25,6 +34,8 @@ type MonoDecorator struct {
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper
 	evmKeeper       anteinterfaces.EVMKeeper
 	maxGasWanted    uint64
+	evmParams       *evmtypes.Params
+	feemarketParams *feemarkettypes.Params
 }
 
 // NewEVMMonoDecorator creates the 'mono' decorator, that is used to run the ante handle logic
@@ -38,12 +49,16 @@ func NewEVMMonoDecorator(
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper,
 	evmKeeper anteinterfaces.EVMKeeper,
 	maxGasWanted uint64,
+	evmParams *evmtypes.Params,
+	feemarketParams *feemarkettypes.Params,
 ) MonoDecorator {
 	return MonoDecorator{
 		accountKeeper:   accountKeeper,
 		feeMarketKeeper: feeMarketKeeper,
 		evmKeeper:       evmKeeper,
 		maxGasWanted:    maxGasWanted,
+		evmParams:       evmParams,
+		feemarketParams: feemarketParams,
 	}
 }
 
@@ -70,7 +85,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 2. get utils
-	decUtils, err := NewMonoDecoratorUtils(ctx, md.evmKeeper)
+	decUtils, err := NewMonoDecoratorUtils(ctx, md.evmKeeper, md.evmParams, md.feemarketParams)
 	if err != nil {
 		return ctx, err
 	}
@@ -85,6 +100,26 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 
 	ethMsg, ethTx, err := evmtypes.UnpackEthMsg(msgs[msgIndex])
 	if err != nil {
+		return ctx, err
+	}
+
+	// call go-ethereum transaction validation
+	header := ethtypes.Header{
+		GasLimit:   ethTx.Gas(),
+		BaseFee:    decUtils.BaseFee,
+		Number:     big.NewInt(ctx.BlockHeight()),
+		Time:       uint64(ctx.BlockTime().Unix()), //nolint:gosec
+		Difficulty: big.NewInt(0),
+	}
+
+	chainConfig := evmtypes.GetEthChainConfig()
+
+	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
+		Config:  chainConfig,
+		Accept:  AcceptedTxType,
+		MaxSize: math.MaxUint64, // tx size is checked in cometbft
+		MinTip:  new(big.Int),
+	}); err != nil {
 		return ctx, err
 	}
 
@@ -130,8 +165,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// 5. signature verification
 	if err := SignatureVerification(
 		ethMsg,
+		ethTx,
 		decUtils.Signer,
-		decUtils.EvmParams.AllowUnprotectedTxs,
 	); err != nil {
 		return ctx, err
 	}
@@ -231,7 +266,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 10. gas wanted
-	if err := CheckGasWanted(ctx, md.feeMarketKeeper, tx, decUtils.Rules.IsLondon); err != nil {
+	if err := CheckGasWanted(ctx, md.feeMarketKeeper, tx, decUtils.Rules.IsLondon, md.feemarketParams); err != nil {
 		return ctx, err
 	}
 

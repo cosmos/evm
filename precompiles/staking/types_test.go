@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 )
 
 func TestNewMsgCreateValidator(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	validatorHexAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	description := Description{
@@ -140,7 +140,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 }
 
 func TestNewMsgDelegate(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	amount := big.NewInt(1000000000)
@@ -225,7 +225,7 @@ func TestNewMsgDelegate(t *testing.T) {
 }
 
 func TestNewMsgUndelegate(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	amount := big.NewInt(1000000000)
@@ -310,7 +310,7 @@ func TestNewMsgUndelegate(t *testing.T) {
 }
 
 func TestNewMsgRedelegate(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	validatorSrcAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
@@ -406,7 +406,7 @@ func TestNewMsgRedelegate(t *testing.T) {
 }
 
 func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	amount := big.NewInt(1000000000)
@@ -501,7 +501,7 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 }
 
 func TestNewDelegationRequest(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
@@ -574,7 +574,7 @@ func TestNewDelegationRequest(t *testing.T) {
 }
 
 func TestNewUnbondingDelegationRequest(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 

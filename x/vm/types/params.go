@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
@@ -18,13 +18,15 @@ import (
 
 var (
 	// DefaultEVMDenom is the default value for the evm denom
-	DefaultEVMDenom = "atest"
+	DefaultEVMDenom = "uatom"
+	// DefaultEVMExtendedDenom is the default value for the evm extended denom
+	DefaultEVMExtendedDenom = "aatom"
+	// DefaultEVMDisplayDenom is the default value for the display denom in the bank metadata
+	DefaultEVMDisplayDenom = "atom"
 	// DefaultEVMChainID is the default value for the evm chain ID
-	DefaultEVMChainID = "cosmos_262144-1"
+	DefaultEVMChainID uint64 = 262144
 	// DefaultEVMDecimals is the default value for the evm denom decimal precision
 	DefaultEVMDecimals uint64 = 18
-	// DefaultAllowUnprotectedTxs rejects all unprotected txs (i.e false)
-	DefaultAllowUnprotectedTxs = false
 	// DefaultStaticPrecompiles defines the default active precompiles.
 	DefaultStaticPrecompiles []string
 	// DefaultExtraEIPs defines the default extra EIPs to be included.
@@ -45,16 +47,16 @@ var (
 	}
 )
 
+const DefaultHistoryServeWindow = 8192 // same as EIP-2935
+
 // NewParams creates a new Params instance
 func NewParams(
-	allowUnprotectedTxs bool,
 	extraEIPs []int64,
 	activeStaticPrecompiles,
 	evmChannels []string,
 	accessControl AccessControl,
 ) Params {
 	return Params{
-		AllowUnprotectedTxs:     allowUnprotectedTxs,
 		ExtraEIPs:               extraEIPs,
 		ActiveStaticPrecompiles: activeStaticPrecompiles,
 		EVMChannels:             evmChannels,
@@ -65,12 +67,13 @@ func NewParams(
 // DefaultParams returns default evm parameters
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMDenom,
+		EvmDenom:                DefaultEVMExtendedDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
-		AllowUnprotectedTxs:     DefaultAllowUnprotectedTxs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
+		HistoryServeWindow:      DefaultHistoryServeWindow,
+		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: DefaultEVMExtendedDenom},
 	}
 }
 
@@ -95,10 +98,6 @@ func validateChannels(i interface{}) error {
 // Validate performs basic validation on evm parameters.
 func (p Params) Validate() error {
 	if err := validateEIPs(p.ExtraEIPs); err != nil {
-		return err
-	}
-
-	if err := validateBool(p.AllowUnprotectedTxs); err != nil {
 		return err
 	}
 
@@ -173,17 +172,9 @@ func validateAllowlistAddresses(i interface{}) error {
 	}
 
 	for _, address := range addresses {
-		if err := types.ValidateAddress(address); err != nil {
+		if err := utils.ValidateAddress(address); err != nil {
 			return fmt.Errorf("invalid whitelist address: %s", address)
 		}
-	}
-	return nil
-}
-
-func validateBool(i interface{}) error {
-	_, ok := i.(bool)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 	return nil
 }
@@ -224,7 +215,7 @@ func ValidatePrecompiles(i interface{}) error {
 			return fmt.Errorf("duplicate precompile %s", precompile)
 		}
 
-		if err := types.ValidateAddress(precompile); err != nil {
+		if err := utils.ValidateAddress(precompile); err != nil {
 			return fmt.Errorf("invalid precompile %s", precompile)
 		}
 

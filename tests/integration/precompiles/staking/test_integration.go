@@ -1440,7 +1440,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// check contract was correctly deployed
 			cAcc := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddr)
 			Expect(cAcc).ToNot(BeNil(), "contract account should exist")
-			Expect(cAcc.IsContract()).To(BeTrue(), "account should be a contract")
+			isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+			Expect(isContract).To(BeTrue(), "account should be a contract")
 
 			// populate default TxArgs
 			txArgs.To = &contractAddr
@@ -1565,6 +1566,36 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).NotTo(BeNil(), "expected validator NOT to be found")
 				Expect(err.Error()).To(ContainSubstring("not found"), "expected validator NOT to be found")
 			})
+
+			It("tx from validator operator with delegated code - should create a validator", func() {
+				s.delegateAccountToContract(valPriv, valHexAddr, contractTwoAddr)
+
+				callArgs = testutiltypes.CallArgs{
+					ContractABI: stakingCallerTwoContract.ABI,
+					MethodName:  "testCreateValidatorWithTransfer",
+					Args: []interface{}{
+						defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
+					},
+				}
+
+				txArgs = evmtypes.EvmTxArgs{
+					To:       &valHexAddr,
+					GasLimit: 500_000,
+					Amount:   new(big.Int).Set(defaultValue),
+				}
+
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					valPriv,
+					txArgs, callArgs,
+					passCheck.WithExpEvents(staking.EventTypeCreateValidator),
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				qc := s.network.GetStakingClient()
+				_, err := qc.Validator(s.network.GetContext(), &stakingtypes.QueryValidatorRequest{ValidatorAddr: sdk.ValAddress(valAddr).String()})
+				Expect(err).To(BeNil(), "expected validator NOT to be found")
+			})
 		})
 
 		Context("to edit a validator", func() {
@@ -1682,6 +1713,33 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				validator := qRes.Validator
 				Expect(validator.Description.Moniker).To(Equal("original moniker"), "expected validator moniker is updated")
 				Expect(validator.Commission.Rate.BigInt().String()).To(Equal("100000000000000000"), "expected validator commission rate remain unchanged")
+			})
+
+			It("with tx from validator operator using delegated code - should NOT edit a validator", func() {
+				s.delegateAccountToContract(valPriv, valHexAddr, contractAddr)
+				callArgs.Args = []interface{}{
+					defaultDescription, valHexAddr,
+					defaultCommissionRate, defaultMinSelfDelegation,
+				}
+
+				txArgs.To = &valHexAddr
+
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					valPriv,
+					txArgs,
+					callArgs,
+					execRevertedCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				qc := s.network.GetStakingClient()
+				qRes, err := qc.Validator(s.network.GetContext(), &stakingtypes.QueryValidatorRequest{ValidatorAddr: sdk.ValAddress(valAddr).String()})
+				Expect(err).To(BeNil())
+				Expect(qRes).NotTo(BeNil())
+
+				validator := qRes.Validator
+				Expect(validator.Description.Moniker).NotTo(Equal(defaultDescription.Moniker), "expected validator moniker NOT to be updated")
 			})
 		})
 
@@ -1895,6 +1953,58 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(err).To(BeNil())
 						txSenderFinalBal := balRes.Balance
 						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)), "expected tx sender balance to be deducted by fees")
+					})
+					It("should test nested precompile calls with revert", func() {
+						outerTimes := int64(3)
+						innerTimes := int64(2)
+						expectedDelegations := outerTimes + 2 // 1 before + outerTimes after catches + 1 after loop
+						expectedDelegationAmount := math.NewInt(10).MulRaw(expectedDelegations)
+
+						callArgs := testutiltypes.CallArgs{
+							ContractABI: stakingReverterContract.ABI,
+							MethodName:  "nestedTryCatchDelegations",
+							Args: []interface{}{
+								big.NewInt(outerTimes), big.NewInt(innerTimes), s.network.GetValidators()[0].OperatorAddress,
+							},
+						}
+
+						expEvents := make([]string, 0, expectedDelegations)
+						for range expectedDelegations {
+							expEvents = append(expEvents, staking.EventTypeDelegate)
+						}
+						delegateCheck := passCheck.WithExpEvents(expEvents...)
+
+						res, _, err := s.factory.CallContractAndCheckLogs(
+							s.keyring.GetPrivKey(0),
+							evmtypes.EvmTxArgs{
+								To:       &stkReverterAddr,
+								GasPrice: gasPrice.BigInt(),
+							},
+							callArgs,
+							delegateCheck,
+						)
+						Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+						Expect(s.network.NextBlock()).To(BeNil())
+
+						fees := gasPrice.MulRaw(res.GasUsed)
+
+						// delegation should have been created with expected shares
+						qRes, err := s.grpcHandler.GetDelegation(sdk.AccAddress(stkReverterAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
+						Expect(err).To(BeNil())
+						Expect(qRes.DelegationResponse.Delegation.GetDelegatorAddr()).To(Equal(sdk.AccAddress(stkReverterAddr.Bytes()).String()))
+						Expect(qRes.DelegationResponse.Delegation.GetShares().BigInt()).To(Equal(expectedDelegationAmount.BigInt()))
+
+						// contract balance should be deducted by total delegation amount
+						balRes, err := s.grpcHandler.GetBalanceFromBank(stkReverterAddr.Bytes(), s.bondDenom)
+						Expect(err).To(BeNil())
+						contractFinalBalance := balRes.Balance
+						Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount.Sub(expectedDelegationAmount)))
+
+						// fees deducted on tx sender only
+						balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+						Expect(err).To(BeNil())
+						txSenderFinalBal := balRes.Balance
+						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)))
 					})
 				})
 

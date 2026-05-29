@@ -52,23 +52,14 @@ jobs:
           make lint-go
 
   markdown-lint:
-    name: markdownlint (cli2, minimal, non-blocking)
+    name: markdownlint (cli2, minimal)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write   # allows auto-fix pushes on same-repo PRs; forks stay read-only
+      contents: read   # read-only permissions
     steps:
-      # Same-repo PRs: checkout the head branch so fixes can be pushed back
-      - name: Checkout PR head (same-repo)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      # Fork PRs, merge queue, and any other case: default checkout (safe merge ref)
-      - name: Checkout (default)
-        if: github.event_name == 'merge_group' || github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+      # Standard checkout for all cases
+      - name: Checkout
         uses: actions/checkout@v4
 
       # Only run if markdown or configs changed
@@ -85,32 +76,12 @@ jobs:
         with:
           node-version: "20"
 
-      # Lint (non-blocking): auto-fix on same-repo PRs, never fail the job
-      - name: markdownlint (check or fix)
+      # Lint: check only, fail on errors
+      - name: markdownlint (check only)
         id: md_lint
         if: env.GIT_DIFF
-        continue-on-error: true
         uses: DavidAnson/markdownlint-cli2-action@v16
         with:
           globs: "**/*.md"
           config: .markdownlint.yml
-          fix: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
-
-      # If fixes applied, commit & push (same-repo PRs only, not merge queue)
-      - name: Push auto-fixes (same-repo PRs only)
-        if: env.GIT_DIFF && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          if [[ -n $(git status -s) ]]; then
-            git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git config --local user.name "github-actions[bot]"
-            git add -A
-            git commit -m "Auto-fix markdown lint issues"
-            git push
-          fi
-
-      # Warn if any issues remain after auto-fix (or on forks)
-      - name: Report remaining markdown issues (non-blocking)
-        if: env.GIT_DIFF && steps.md_lint.outcome == 'failure'
-        run: |
-          echo "::warning::Markdown lint issues remain after the check/fix step. For local fixes, run:"
-          echo "  npx markdownlint-cli2 --config .markdownlint.yml --fix '**/*.md'"
+          fix: false

@@ -108,13 +108,15 @@ func (s *EvmUnitAnteTestSuite) TestCheckGasWanted() {
 			s.Require().NoError(err)
 
 			ctx := tc.getCtx()
-
+			feemarketkeeper := unitNetwork.App.GetFeeMarketKeeper()
+			feemarketParam := feemarketkeeper.GetParams(ctx)
 			// Function under test
 			err = evm.CheckGasWanted(
 				ctx,
-				unitNetwork.App.GetFeeMarketKeeper(),
+				feemarketkeeper,
 				tx,
 				tc.isLondon,
+				&feemarketParam,
 			)
 
 			if tc.expectedError != nil {
@@ -122,7 +124,7 @@ func (s *EvmUnitAnteTestSuite) TestCheckGasWanted() {
 				s.Contains(err.Error(), tc.expectedError.Error())
 			} else {
 				s.Require().NoError(err)
-				transientGasWanted := unitNetwork.App.GetFeeMarketKeeper().GetTransientGasWanted(
+				transientGasWanted := feemarketkeeper.GetTransientGasWanted(
 					unitNetwork.GetContext(),
 				)
 				s.Require().Equal(tc.expectedTransientGasWanted, transientGasWanted)

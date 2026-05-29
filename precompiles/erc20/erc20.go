@@ -5,12 +5,11 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -39,21 +38,40 @@ const (
 	GasAllowance    = 3_225
 )
 
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-//
-//go:embed abi.json
-var f embed.FS
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   embed.FS
+	ABI abi.ABI
+)
+
+func init() {
+	var err error
+	ABI, err = cmn.LoadABI(f, abiPath)
+	if err != nil {
+		panic(err)
+	}
+}
 
 var _ vm.PrecompiledContract = &Precompile{}
 
 // Precompile defines the precompiled contract for ERC-20.
 type Precompile struct {
 	cmn.Precompile
+
+	abi.ABI
 	tokenPair      erc20types.TokenPair
-	transferKeeper transferkeeper.Keeper
+	transferKeeper ibcutils.TransferKeeper
 	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
 	BankKeeper cmn.BankKeeper
+}
+
+// LoadABI loads the IERC20Metadata ABI from the embedded abi.json file
+// for the erc20 precompile.
+func LoadABI() (abi.ABI, error) {
+	return cmn.LoadABI(f, abiPath)
 }
 
 // NewPrecompile creates a new ERC-20 Precompile instance as a
@@ -62,27 +80,21 @@ func NewPrecompile(
 	tokenPair erc20types.TokenPair,
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
-	transferKeeper transferkeeper.Keeper,
-) (*Precompile, error) {
-	newABI, err := cmn.LoadABI(f, abiPath)
-	if err != nil {
-		return nil, err
-	}
-
-	p := &Precompile{
+	transferKeeper ibcutils.TransferKeeper,
+) *Precompile {
+	return &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  newABI,
-			KvGasConfig:          storetypes.GasConfig{},
-			TransientKVGasConfig: storetypes.GasConfig{},
+			KvGasConfig:           storetypes.GasConfig{},
+			TransientKVGasConfig:  storetypes.GasConfig{},
+			ContractAddress:       tokenPair.GetERC20Contract(),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
+		ABI:            ABI,
 		tokenPair:      tokenPair,
 		BankKeeper:     bankKeeper,
 		erc20Keeper:    erc20Keeper,
 		transferKeeper: transferKeeper,
 	}
-	// Address defines the address of the ERC-20 precompile contract.
-	p.SetAddress(p.tokenPair.GetERC20Contract())
-	return p, nil
 }
 
 // RequiredGas calculates the contract gas used for the
@@ -127,17 +139,13 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	}
 }
 
-// Run executes the precompiled contract ERC-20 methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	bz, err = p.run(evm, contract, readOnly)
-	if err != nil {
-		return cmn.ReturnRevertError(evm, err)
-	}
-
-	return bz, nil
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
+	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
+		return p.Execute(ctx, evm.StateDB, contract, readonly)
+	})
 }
 
-func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	// ERC20 precompiles cannot receive funds because they are not managed by an
 	// EOA and will not be possible to recover funds sent to an instance of
 	// them.This check is a safety measure because currently funds cannot be
@@ -146,27 +154,12 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, fmt.Errorf(ErrCannotReceiveFunds, contract.Value().String())
 	}
 
-	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
-	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
-
-	bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
-	if err != nil {
-		return nil, err
-	}
-
-	cost := ctx.GasMeter().GasConsumed() - initialGas
-
-	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-		return nil, vm.ErrOutOfGas
-	}
-
-	return bz, nil
+	return p.HandleMethod(ctx, contract, stateDB, method, args)
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

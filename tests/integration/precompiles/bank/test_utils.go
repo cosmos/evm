@@ -21,25 +21,19 @@ import (
 // setupBankPrecompile is a helper function to set up an instance of the Bank precompile for
 // a given token denomination.
 func (s *PrecompileTestSuite) setupBankPrecompile() *bank.Precompile {
-	precompile, err := bank.NewPrecompile(
+	return bank.NewPrecompile(
 		s.network.App.GetBankKeeper(),
 		*s.network.App.GetErc20Keeper(),
 	)
-
-	s.Require().NoError(err, "failed to create bank precompile")
-
-	return precompile
 }
 
 // setupBankPrecompile is a helper function to set up an instance of the Bank precompile for
 // a given token denomination.
 func (is *IntegrationTestSuite) setupBankPrecompile() *bank.Precompile {
-	precompile, err := bank.NewPrecompile(
+	return bank.NewPrecompile(
 		is.network.App.GetBankKeeper(),
 		*is.network.App.GetErc20Keeper(),
 	)
-	Expect(err).ToNot(HaveOccurred(), "failed to create bank precompile")
-	return precompile
 }
 
 // mintAndSendXMPLCoin is a helper function to mint and send a coin to a given address.

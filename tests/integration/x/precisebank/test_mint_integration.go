@@ -283,6 +283,9 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			recipientAddr := s.network.App.GetAccountKeeper().GetModuleAddress(tt.recipientModule)
 
 			for _, mt := range tt.mints {
+				// Get fractional balance before mint
+				fracBalBefore := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipientAddr)
+
 				err := s.network.App.GetPreciseBankKeeper().MintCoins(s.network.GetContext(), tt.recipientModule, mt.mintAmount)
 				s.Require().NoError(err)
 
@@ -291,6 +294,9 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 				// x/bank balances + x/precisebank balance
 				// Exclude "uatom" as x/precisebank balance will include it
 				bankCoins := s.network.App.GetBankKeeper().GetAllBalances(s.network.GetContext(), recipientAddr)
+
+				// Get fractional balance after mint
+				fracBalAfter := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipientAddr)
 
 				// Only use x/bank balances for non-uatom denoms
 				var denoms []string
@@ -321,34 +327,11 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 					"unexpected balance after minting %s to %s",
 				)
 
-				// Get event for minted coins
-				intCoinAmt := mt.mintAmount.AmountOf(types.IntegerCoinDenom()).
-					Mul(types.ConversionFactor())
-
-				fraCoinAmt := mt.mintAmount.AmountOf(types.ExtendedCoinDenom())
-
-				totalExtCoinAmt := intCoinAmt.Add(fraCoinAmt)
-				extCoins := sdk.NewCoins(sdk.NewCoin(types.ExtendedCoinDenom(), totalExtCoinAmt))
-
-				// Check for mint event
-				events := s.network.GetContext().EventManager().Events()
-
-				expMintEvent := banktypes.NewCoinMintEvent(
-					recipientAddr,
-					extCoins,
-				)
-
-				expReceivedEvent := banktypes.NewCoinReceivedEvent(
-					recipientAddr,
-					extCoins,
-				)
-
-				if totalExtCoinAmt.IsZero() {
-					s.Require().NotContains(events, expMintEvent)
-					s.Require().NotContains(events, expReceivedEvent)
-				} else {
-					s.Require().Contains(events, expMintEvent)
-					s.Require().Contains(events, expReceivedEvent)
+				// Check fractinoal balance change event
+				if !fracBalAfter.Sub(fracBalBefore).Equal(sdkmath.ZeroInt()) {
+					expEvent := types.NewEventFractionalBalanceChange(recipientAddr, fracBalBefore, fracBalAfter)
+					events := s.network.GetContext().EventManager().Events()
+					s.Require().Contains(events, expEvent)
 				}
 			}
 		})

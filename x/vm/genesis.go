@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,7 +20,9 @@ func InitGenesis(
 	ctx sdk.Context,
 	k *keeper.Keeper,
 	accountKeeper types.AccountKeeper,
+	bankKeeper types.BankKeeper,
 	data types.GenesisState,
+	initializer *sync.Once,
 ) []abci.ValidatorUpdate {
 	err := k.SetParams(ctx, data.Params)
 	if err != nil {
@@ -56,6 +59,15 @@ func InitGenesis(
 			k.SetState(ctx, address, common.HexToHash(storage.Key), common.HexToHash(storage.Value).Bytes())
 		}
 	}
+
+	if err := k.InitEvmCoinInfo(ctx); err != nil {
+		panic(fmt.Errorf("error initializing evm coin info: %s", err))
+	}
+
+	coinInfo := k.GetEvmCoinInfo(ctx)
+	initializer.Do(func() {
+		SetGlobalConfigVariables(coinInfo)
+	})
 
 	if err := k.AddPreinstalls(ctx, data.Preinstalls); err != nil {
 		panic(fmt.Errorf("error adding preinstalls: %s", err))

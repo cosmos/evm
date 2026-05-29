@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cast"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
@@ -23,9 +23,11 @@ import (
 type BlockNumber int64
 
 const (
-	EthPendingBlockNumber  = BlockNumber(-2)
-	EthLatestBlockNumber   = BlockNumber(-1)
-	EthEarliestBlockNumber = BlockNumber(0)
+	EthEarliestBlockNumber  = BlockNumber(-5)
+	EthSafeBlockNumber      = BlockNumber(-4)
+	EthFinalizedBlockNumber = BlockNumber(-3)
+	EthLatestBlockNumber    = BlockNumber(-2)
+	EthPendingBlockNumber   = BlockNumber(-1)
 )
 
 const (
@@ -182,7 +184,7 @@ func (bnh *BlockNumberOrHash) decodeFromString(input string) error {
 			return err
 		}
 
-		bnInt, err := types.SafeInt64(blockNumber)
+		bnInt, err := utils.SafeInt64(blockNumber)
 		if err != nil {
 			return err
 		}

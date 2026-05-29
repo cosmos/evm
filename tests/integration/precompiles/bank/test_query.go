@@ -110,7 +110,6 @@ func (s *PrecompileTestSuite) TestBalances() {
 
 			bz, err := s.precompile.Balances(
 				ctx,
-				nil,
 				&method,
 				tc.malleate(),
 			)
@@ -167,7 +166,6 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 			tc.malleate()
 			bz, err := s.precompile.TotalSupply(
 				ctx,
-				nil,
 				&method,
 				nil,
 			)
@@ -262,7 +260,6 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 
 			bz, err := s.precompile.SupplyOf(
 				ctx,
-				nil,
 				&method,
 				tc.malleate(),
 			)
