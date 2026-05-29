@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 // These directories are safe to delete and are regenerated on every build.
 const generatedDir = resolve(process.cwd(), ".generated");
 const precompilesDir = resolve(process.cwd(), "precompiles");
+const distDir = resolve(process.cwd(), "dist");
 
 // Safety guard: only allow deleting the intended directories.
 if (generatedDir !== resolve(process.cwd(), ".generated")) {
@@ -13,7 +14,10 @@ if (generatedDir !== resolve(process.cwd(), ".generated")) {
 if (precompilesDir !== resolve(process.cwd(), "precompiles")) {
   throw new Error(`Refusing to delete unexpected path: ${precompilesDir}`);
 }
+if (distDir !== resolve(process.cwd(), "dist")) {
+  throw new Error(`Refusing to delete unexpected path: ${distDir}`);
+}
 
 await rm(generatedDir, { recursive: true, force: true });
+await rm(distDir, { recursive: true, force: true });
 await rm(precompilesDir, { recursive: true, force: true });
-

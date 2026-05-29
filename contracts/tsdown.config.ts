@@ -1,9 +1,9 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["./.generated/abi/**/*.ts", "!./.generated/abi/**/*.d.ts"],
+  entry: ["./.generated/precompiles/**/*.ts", "!./.generated/precompiles/**/*.d.ts"],
   format: ["esm", "cjs"],
-  outDir: "dist/abi/precompiles",
+  outDir: "dist/precompiles",
   dts: true,
   unbundle: true,
   clean: true,

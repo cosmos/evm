@@ -42,7 +42,7 @@ const hardhatBase = {
 
 export default defineConfig(
   precompiles.map(({ module, contract }) => ({
-    out: join(".generated", "abi", "precompiles", module, `${contract}.ts`).replace(/\\/g, "/"),
+    out: join(".generated", "precompiles", module, `${contract}.ts`).replace(/\\/g, "/"),
     plugins: [
       hardhat({
         ...hardhatBase,
