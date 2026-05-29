@@ -17,8 +17,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// SetRunner installs the EVM block tx runner: Block-STM with pre-estimate,
-// wrapped so PatchTxResponses runs once per block.
+// SetRunner installs the EVM block tx runner, wrapped so PatchTxResponses runs
+// once per block. It defaults to Block-STM with pre-estimation enabled; the
+// WithDefault* values apply only when appOpts omits the setting (e.g. tests),
+// otherwise the flag and app.toml value win.
 func SetRunner(
 	bApp *baseapp.BaseApp,
 	appOpts servertypes.AppOptions,
@@ -55,3 +57,7 @@ func (r *patchingRunner) Run(
 	}
 	return evmtypes.PatchTxResponses(results)
 }
+
+// Unwrap exposes the underlying runner so BaseApp's parallel-execution guards
+// can see through the wrapper.
+func (r *patchingRunner) Unwrap() sdk.TxRunner { return r.inner }
