@@ -1,6 +1,6 @@
 const { expect } = require('chai')
 const hre = require('hardhat')
-const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
+const { findEvent, getRevertData, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 describe('ERC20 Precompile', function () {
     let erc20, owner, spender, recipient
@@ -105,5 +105,16 @@ describe('ERC20 Precompile', function () {
 
         // allowance should have decreased by `amount`
         expect(afterAllowance).to.equal(prevAllowance - amount)
+    })
+
+    it('decodes insufficient balance custom error data', async function () {
+        try {
+            await erc20.connect(recipient).transfer.estimateGas(owner.address, hre.ethers.MaxUint256)
+            expect.fail('transfer should have reverted')
+        } catch (error) {
+            const parsed = erc20.interface.parseError(getRevertData(error))
+            expect(parsed.name).to.equal('ERC20InsufficientBalance')
+            expect(parsed.args[0]).to.equal(recipient.address)
+        }
     })
 })
