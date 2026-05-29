@@ -3,6 +3,7 @@ const hre = require('hardhat');
 const {
     STAKING_PRECOMPILE_ADDRESS,
     LARGE_GAS_LIMIT,
+    getRevertData,
     waitWithTimeout, RETRY_DELAY_FUNC
 } = require('../common');
 
@@ -30,6 +31,21 @@ describe('Staking – edge case revert test', function () {
         
         console.log('StakingReverter deployed at:', await stakingReverter.getAddress());
         console.log('Using validator address:', validatorAddress);
+    });
+
+    it('decodes invalid validator custom error data', async function () {
+        const invalidValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pinvalid';
+
+        try {
+            await staking
+                .connect(signer)
+                .delegate.estimateGas(signer.address, invalidValidatorAddress, 1);
+            expect.fail('delegate should have reverted');
+        } catch (error) {
+            const parsed = staking.interface.parseError(getRevertData(error));
+            expect(parsed.name).to.equal('InvalidAddress');
+            expect(String(parsed.args[0])).to.include(invalidValidatorAddress);
+        }
     });
 
     describe('Edge case: callPrecompileBeforeAndAfterRevert with numTimes=1', function () {

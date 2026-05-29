@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
-const { WERC20_ADDRESS, DEFAULT_GAS_LIMIT, findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
+const { WERC20_ADDRESS, DEFAULT_GAS_LIMIT, findEvent, getRevertData, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
 
 describe('WERC20 – deposit and withdraw', function () {
     const GAS_LIMIT = DEFAULT_GAS_LIMIT;
@@ -221,6 +221,17 @@ describe('WERC20 – deposit and withdraw', function () {
             const gasFee = receipt.gasUsed * receipt.gasPrice;
             expect(contractBalanceAfter).to.equal(contractBalanceBefore);
             expect(signerBalanceAfter).to.equal(signerBalanceBefore - gasFee);
+        });
+
+        it('decodes insufficient native balance custom error data', async function () {
+            try {
+                await werc20.withdraw.estimateGas(hre.ethers.MaxUint256);
+                expect.fail('withdraw should have reverted');
+            } catch (error) {
+                const parsed = werc20.interface.parseError(getRevertData(error));
+                expect(parsed.name).to.equal('MsgServerFailed');
+                expect(parsed.args[0]).to.equal('withdraw');
+            }
         });
     });
 });
