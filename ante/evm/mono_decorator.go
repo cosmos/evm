@@ -232,7 +232,9 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	if md.maxGasWanted != 0 {
+	// max-tx-gas-wanted is a node-local knob, so cap only in CheckTx; capping
+	// in consensus paths would make block validity depend on a per-node flag.
+	if ctx.IsCheckTx() && md.maxGasWanted != 0 {
 		decUtils.GasWanted += min(gas, md.maxGasWanted)
 	} else {
 		decUtils.GasWanted += gas
