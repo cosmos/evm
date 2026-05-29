@@ -6,6 +6,7 @@
 
 ### API-BREAKING
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead. 
+- [\#1099](https://github.com/cosmos/evm/pull/1099) Precompile reverts now use Solidity custom errors instead of `Error(string)` revert data.
 
 ### IMPROVEMENTS
 
