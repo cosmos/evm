@@ -1697,12 +1697,18 @@ func (s *KeeperTestSuite) TestTraceCall() {
 	s.Require().NoError(err)
 	s.Require().NoError(s.Network.NextBlock())
 
+	balanceSlot := crypto.Keccak256Hash(
+		common.LeftPadBytes(senderKey.Addr.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(0).Bytes(), 32),
+	)
+
 	testCases := []struct {
-		msg             string
-		getCallArgs     func() []byte
-		traceCallConfig *rpctypes.TraceCallConfig
-		expPass         bool
-		traceResponse   string
+		msg               string
+		getCallArgs       func() []byte
+		traceCallConfig   *rpctypes.TraceCallConfig
+		expPass           bool
+		traceResponse     string
+		postTraceResponse string
 	}{
 		{
 			msg: "default trace with contract call",
@@ -1869,9 +1875,16 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			expPass: false,
 		},
 		{
-			msg: "trace call with state overrides",
+			msg: "trace call without state override",
 			getCallArgs: func() []byte {
-				return []byte{}
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
 			},
 			traceCallConfig: &rpctypes.TraceCallConfig{
 				TraceConfig: rpctypes.TraceConfig{
@@ -1879,10 +1892,38 @@ func (s *KeeperTestSuite) TestTraceCall() {
 						Tracer: "callTracer",
 					},
 				},
-				StateOverrides: []byte(fmt.Sprintf(`{"%s":{"code":"0x600160005260206000f3"}}`, contractAddr.Hex())),
 			},
 			expPass:       true,
-			traceResponse: `"output":"0x0000000000000000000000000000000000000000000000000000000000000001"`,
+			traceResponse: `"output":"0x00000000000000000000000000000000000000000000003635c9adc5dea00000"`,
+		},
+		{
+			msg: "trace call with balance override",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
+				StateOverrides: []byte(fmt.Sprintf(
+					`{"%s":{"stateDiff":{"%s":"%s"}}}`,
+					contractAddr.Hex(),
+					balanceSlot.Hex(),
+					common.BigToHash(big.NewInt(1)).Hex(),
+				)),
+			},
+			expPass:           true,
+			traceResponse:     `"output":"0x0000000000000000000000000000000000000000000000000000000000000001"`,
+			postTraceResponse: `"output":"0x00000000000000000000000000000000000000000000003635c9adc5dea00000"`,
 		},
 		{
 			msg: "invalid state overrides",
@@ -1969,6 +2010,13 @@ func (s *KeeperTestSuite) TestTraceCall() {
 				// Verify response contains expected trace data
 				if tc.traceResponse != "" {
 					s.Require().Contains(string(res.Data), tc.traceResponse)
+				}
+
+				if tc.postTraceResponse != "" {
+					traceReq.Overrides = nil
+					res, err = s.Network.GetEvmClient().TraceCall(s.Network.GetContext(), traceReq)
+					s.Require().NoError(err)
+					s.Require().Contains(string(res.Data), tc.postTraceResponse)
 				}
 
 				// For non-custom tracers, verify the result structure
