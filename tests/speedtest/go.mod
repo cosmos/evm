@@ -1,6 +1,6 @@
 module github.com/cosmos/evm/tests/speedtest
 
-go 1.26.3
+go 1.26.4
 
 replace (
 	github.com/cosmos/evm => ../../
@@ -13,7 +13,7 @@ replace (
 require (
 	cosmossdk.io/log/v2 v2.1.0
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.3
+	github.com/cosmos/cosmos-sdk v0.54.4-0.20260605153940-cc1e364cdb94
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/evm/evmd v0.0.0-20251112193856-d450ea1d6bd0
 	github.com/ethereum/go-ethereum v1.16.8
@@ -368,5 +368,3 @@ require (
 	pgregory.net/rapid v1.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20260529012030-18b9c88542cf

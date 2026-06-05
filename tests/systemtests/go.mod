@@ -1,11 +1,11 @@
 module github.com/cosmos/evm/tests/systemtests
 
-go 1.26.3
+go 1.26.4
 
 require (
 	cosmossdk.io/math v1.5.3
 	github.com/cometbft/cometbft v0.39.3
-	github.com/cosmos/cosmos-sdk v0.54.3
+	github.com/cosmos/cosmos-sdk v0.54.4-0.20260605153940-cc1e364cdb94
 	github.com/cosmos/cosmos-sdk/tools/systemtests v0.0.0-20260505173942-e77c24c3eda7
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/creachadair/tomledit v0.0.29
@@ -301,7 +301,6 @@ require (
 )
 
 replace (
-	github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20260529012030-18b9c88542cf
 	github.com/cosmos/evm => ../..
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.17.2-cosmos-0
 )
