@@ -337,16 +337,24 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 	return result
 }
 
-// lockedCoin loads account's locked balance of the gas token.
-func (k *Keeper) lockedCoin(ctx sdk.Context, addr common.Address) *big.Int {
-	ctx, span := ctx.StartSpan(tracer, "LockedCoin", trace.WithAttributes(attribute.String("address", addr.Hex())))
-	defer span.End()
+// spendableAndLockedCoin reads balance and locked coins once and derives both
+// spendable and locked from a single LockedCoins read, avoiding the duplicate
+// read that occurred when they were fetched independently. Denom == ExtendedDenom
+// is enforced for 18-decimal chains, so a single denom lookup is correct.
+func (k *Keeper) spendableAndLockedCoin(ctx sdk.Context, addr common.Address) (*uint256.Int, *big.Int) {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	denom := types.GetEVMCoinDenom()
 
-	lockedCoins := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
-	lockedGasCoin := lockedCoins.AmountOf(types.GetEVMCoinDenom())
+	balance := k.bankWrapper.GetBalance(ctx, cosmosAddr, denom)
+	locked := k.bankWrapper.LockedCoins(ctx, cosmosAddr)
+	lockedAmt := locked.AmountOf(denom)
 
-	return lockedGasCoin.BigInt()
+	spendableCoin := balance.SubAmount(lockedAmt)
+	spendable, err := utils.Uint256FromBigInt(spendableCoin.Amount.BigInt())
+	if err != nil {
+		return nil, lockedAmt.BigInt()
+	}
+	return spendable, lockedAmt.BigInt()
 }
 
 // GetBalance load account's balance of gas token.

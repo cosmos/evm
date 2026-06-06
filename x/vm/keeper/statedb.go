@@ -39,10 +39,11 @@ func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Accou
 		return nil
 	}
 
+	spendable, locked := k.spendableAndLockedCoin(ctx, addr)
 	return statedb.NewAccount(
 		acct.GetSequence(),
-		k.SpendableCoin(ctx, addr),
-		k.lockedCoin(ctx, addr),
+		spendable,
+		locked,
 		k.GetCodeHash(ctx, addr).Bytes(),
 	)
 }
