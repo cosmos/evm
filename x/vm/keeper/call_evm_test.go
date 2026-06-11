@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -335,5 +336,45 @@ func (suite *KeeperTestSuite) TestDerivedEVMCallCommitFlag() {
 				suite.Require().Equal(int64(0), got.Int64(), "commit=false: state must NOT be persisted")
 			}
 		})
+	}
+}
+
+// TestDerivedEVMCallAssignsUniqueTxIndex is a regression test for F-2026-17745:
+// each derived tx in a block must get a unique, monotonically increasing eth tx
+// index (not the legacy constant 9999 shared by all derived txs).
+func (suite *KeeperTestSuite) TestDerivedEVMCallAssignsUniqueTxIndex() {
+	suite.SetupTest()
+
+	owner := suite.keyring.GetAddr(0)
+	recipient := utiltx.GenerateAddress()
+
+	contractAddr := suite.DeployTestContract(suite.T(), suite.network.GetContext(), owner, big.NewInt(1_000_000))
+	ctx := suite.network.GetContext().WithEventManager(sdk.NewEventManager())
+
+	const n = 3
+	for i := 0; i < n; i++ {
+		suite.Require().NoError(suite.derivedTransfer(ctx, owner, contractAddr, recipient))
+	}
+
+	// Collect the txIndex attribute emitted on each ethereum_tx event.
+	var indices []uint64
+	for _, e := range ctx.EventManager().Events() {
+		if e.Type != evmtypes.EventTypeEthereumTx {
+			continue
+		}
+		for _, a := range e.Attributes {
+			if a.Key == evmtypes.AttributeKeyTxIndex {
+				v, err := strconv.ParseUint(a.Value, 10, 64)
+				suite.Require().NoError(err)
+				indices = append(indices, v)
+			}
+		}
+	}
+
+	suite.Require().Len(indices, n, "one txIndex per derived tx")
+	suite.Require().NotEqual(uint64(9999), indices[0], "must not use the legacy constant DerivedTxIndex")
+	for i := 1; i < len(indices); i++ {
+		suite.Require().Equal(indices[0]+uint64(i), indices[i],
+			"derived txs must get unique, monotonically increasing indices")
 	}
 }

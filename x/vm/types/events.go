@@ -30,6 +30,5 @@ const (
 )
 
 const (
-	DerivedTxIndex = 9999
-	DerivedTxType  = 99
+	DerivedTxType = 99
 )

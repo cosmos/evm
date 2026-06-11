@@ -260,8 +260,9 @@ func (k Keeper) DerivedEVMCallWithData(
 			sdk.NewAttribute(sdk.AttributeKeyAmount, value.String()),
 			// add event for ethereum transaction hash format;
 			sdk.NewAttribute(types.AttributeKeyEthereumTxHash, ethTxHash),
-			// add event for index of valid ethereum tx; NOTE: default txindex for derivedTx
-			sdk.NewAttribute(types.AttributeKeyTxIndex, strconv.FormatUint(types.DerivedTxIndex, 10)),
+			// unique, monotonic eth tx index for this derived tx — drawn from the same
+			// block-level counter as standard MsgEthereumTx (advanced below).
+			sdk.NewAttribute(types.AttributeKeyTxIndex, strconv.FormatUint(uint64(txConfig.TxIndex), 10)),
 			// add event for eth tx gas used, we can't get it from cosmos tx result when it contains multiple eth tx msgs.
 			sdk.NewAttribute(types.AttributeKeyTxGasUsed, strconv.FormatUint(gasUsed, 10)),
 		}...)
@@ -325,6 +326,10 @@ func (k Keeper) DerivedEVMCallWithData(
 				k.SetLogSizeTransient(ctx, (k.GetLogSizeTransient(ctx))+uint64(len(logs)))
 			}
 		}
+
+		// Advance the block-level eth tx index so the next eth tx (derived or a
+		// standard MsgEthereumTx) gets a fresh, unique index. Mirrors ApplyTransaction.
+		k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
 	}
 
 	if res.Failed() {
