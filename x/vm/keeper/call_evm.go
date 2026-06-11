@@ -239,13 +239,12 @@ func (k Keeper) DerivedEVMCallWithData(
 	// thus restricted to be used only inside `ApplyMessage`.
 	tmpCtx, commitState := ctx.CacheContext()
 
-	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, msg, nil, true, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, msg, nil, commit, cfg, txConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	if !res.Failed() {
+	if commit && !res.Failed() {
 		commitState()
 	}
 
