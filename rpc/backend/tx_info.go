@@ -239,11 +239,18 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, errors.New("failed to parse receipt")
 	}
 
-	// parse tx logs from events
-	msgIndex := int(res.MsgIndex) // #nosec G115 -- checked for int overflow already
-	logs, err := TxLogsFromEvents(blockRes.TxsResults[res.TxIndex].Events, msgIndex)
-	if err != nil {
-		b.logger.Debug("failed to parse logs", "hash", hexTx, "error", err.Error())
+	// Failed transactions yield no logs — consistent with GetTransactionLogs and with
+	// Ethereum receipt semantics (a reverted tx exposes an empty logs array). Gating
+	// here also makes the receipt independent of whatever (empty) tx_log event a failed
+	// derived tx emitted.
+	var logs []*ethtypes.Log
+	if !res.Failed {
+		msgIndex := int(res.MsgIndex) // #nosec G115 -- checked for int overflow already
+		var err error
+		logs, err = TxLogsFromEvents(blockRes.TxsResults[res.TxIndex].Events, msgIndex)
+		if err != nil {
+			b.logger.Debug("failed to parse logs", "hash", hexTx, "error", err.Error())
+		}
 	}
 
 	if res.EthTxIndex == -1 {

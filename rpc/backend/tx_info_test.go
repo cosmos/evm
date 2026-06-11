@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -671,4 +672,100 @@ func (suite *BackendTestSuite) TestGetGasUsed() {
 			suite.backend.cfg.JSONRPC.FixRevertGasRefundHeight = origin
 		})
 	}
+}
+
+// TestFailedTxLogsConsistency verifies that both GetTransactionLogs and
+// GetTransactionReceipt return empty logs for a failed EVM transaction, even
+// when ghost EventTypeTxLog events exist in the block results. This exercises
+// the fix where GetTransactionReceipt now gates TxLogsFromEvents on !res.Failed.
+func (suite *BackendTestSuite) TestFailedTxLogsConsistency() {
+	msgEthereumTx, _ := suite.buildEthereumTx()
+	// signAndEncodeEthTx signs msgEthereumTx in-place; compute the hash after signing
+	// so it matches what the KV indexer stores (the signed-tx hash).
+	txBz := suite.signAndEncodeEthTx(msgEthereumTx)
+	txHash := msgEthereumTx.AsTransaction().Hash()
+	block := types.MakeBlock(1, []types.Tx{txBz}, nil, nil)
+
+	// Code=0 (Cosmos tx succeeded) but EVM reverted — simulates the inbound-handler
+	// scenario where EVM errors are swallowed. AttributeKeyEthereumTxFailed marks
+	// the EVM execution as failed so the indexer stores Failed=true.
+	revertedBlockResult := []*abci.ExecTxResult{{
+		Code:    0,
+		GasUsed: 21000,
+		Events: []abci.Event{{
+			Type: evmtypes.EventTypeEthereumTx,
+			Attributes: []abci.EventAttribute{
+				{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+				{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+				{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+				{Key: evmtypes.AttributeKeyEthereumTxFailed, Value: "execution reverted"},
+			},
+		}},
+	}}
+
+	suite.Run("GetTransactionLogs returns nil for failed tx", func() {
+		suite.SetupTest()
+
+		db := dbm.NewMemDB()
+		suite.backend.indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), suite.backend.clientCtx)
+		err := suite.backend.indexer.IndexBlock(block, revertedBlockResult)
+		suite.Require().NoError(err)
+
+		logs, err := suite.backend.GetTransactionLogs(txHash)
+		suite.Require().NoError(err)
+		suite.Require().Nil(logs)
+	})
+
+	suite.Run("GetTransactionReceipt returns empty logs for failed tx despite ghost log events", func() {
+		suite.SetupTest()
+
+		var header metadata.MD
+		queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
+		client := suite.backend.clientCtx.Client.(*mocks.Client)
+		RegisterParams(queryClient, &header, 1)
+		_, err := RegisterBlock(client, 1, txBz)
+		suite.Require().NoError(err)
+		// Ghost EventTypeTxLog events in block results — must not appear in receipt
+		_, err = RegisterBlockResultsWithEventLog(client, 1)
+		suite.Require().NoError(err)
+
+		db := dbm.NewMemDB()
+		suite.backend.indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), suite.backend.clientCtx)
+		err = suite.backend.indexer.IndexBlock(block, revertedBlockResult)
+		suite.Require().NoError(err)
+
+		receipt, err := suite.backend.GetTransactionReceipt(txHash)
+		suite.Require().NoError(err)
+		suite.Require().NotNil(receipt)
+		suite.Require().Equal([][]*ethtypes.Log{}, receipt["logs"])
+	})
+
+	suite.Run("GetTransactionLogs and GetTransactionReceipt agree on empty logs for failed tx", func() {
+		suite.SetupTest()
+
+		var header metadata.MD
+		queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
+		client := suite.backend.clientCtx.Client.(*mocks.Client)
+		RegisterParams(queryClient, &header, 1)
+		_, err := RegisterBlock(client, 1, txBz)
+		suite.Require().NoError(err)
+		_, err = RegisterBlockResultsWithEventLog(client, 1)
+		suite.Require().NoError(err)
+
+		db := dbm.NewMemDB()
+		suite.backend.indexer = indexer.NewKVIndexer(db, log.NewNopLogger(), suite.backend.clientCtx)
+		err = suite.backend.indexer.IndexBlock(block, revertedBlockResult)
+		suite.Require().NoError(err)
+
+		// GetTransactionLogs returns nil for failed tx (early return on res.Failed)
+		txLogs, err := suite.backend.GetTransactionLogs(txHash)
+		suite.Require().NoError(err)
+		suite.Require().Nil(txLogs)
+
+		// GetTransactionReceipt must also produce empty logs — not the ghost events
+		receipt, err := suite.backend.GetTransactionReceipt(txHash)
+		suite.Require().NoError(err)
+		suite.Require().NotNil(receipt)
+		suite.Require().Equal([][]*ethtypes.Log{}, receipt["logs"])
+	})
 }
