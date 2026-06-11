@@ -274,6 +274,18 @@ func (k Keeper) DerivedEVMCallWithData(
 			attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyEthereumTxFailed, res.VmError))
 		}
 
+		// adding txData for more info in rpc methods in order to parse derived txs
+		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxData, hexutil.Encode(msg.Data())))
+		// adding nonce for more info in rpc methods in order to parse derived txs
+		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxNonce, strconv.FormatUint(nonce, 10)))
+		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxGasLimit, strconv.FormatUint(gasCap, 10)))
+		// Build the tx_log attributes. On a reverted execution res.Logs is empty,
+		// so txLogAttrs ends up empty — but the tx_log event is still emitted below.
+		// The JSON-RPC log builder (TxLogsFromEvents) matches logs to txs by
+		// position: the Nth tx_log event belongs to the Nth ethereum_tx. So every
+		// ethereum_tx must be paired with exactly one tx_log event — an empty one on
+		// failure — otherwise logs get misattributed across derived txs in the same
+		// block. The failed tx therefore shows a status-0 receipt with no logs.
 		txLogAttrs := make([]sdk.Attribute, len(res.Logs))
 		for i, log := range res.Logs {
 			log.TxHash = ethTxHash
@@ -284,11 +296,6 @@ func (k Keeper) DerivedEVMCallWithData(
 			txLogAttrs[i] = sdk.NewAttribute(types.AttributeKeyTxLog, string(value))
 		}
 
-		// adding txData for more info in rpc methods in order to parse derived txs
-		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxData, hexutil.Encode(msg.Data())))
-		// adding nonce for more info in rpc methods in order to parse derived txs
-		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxNonce, strconv.FormatUint(nonce, 10)))
-		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxGasLimit, strconv.FormatUint(gasCap, 10)))
 		ctx.EventManager().EmitEvents(sdk.Events{
 			sdk.NewEvent(
 				types.EventTypeEthereumTx,
@@ -306,14 +313,17 @@ func (k Keeper) DerivedEVMCallWithData(
 			),
 		})
 
-		logs := types.LogsToEthereum(res.Logs)
-		var bloomReceipt ethtypes.Bloom
-		if len(logs) > 0 {
-			bloom := k.GetBlockBloomTransient(ctx)
-			bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.LogsBloom(logs)))
-			bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
-			k.SetBlockBloomTransient(ctx, bloomReceipt.Big())
-			k.SetLogSizeTransient(ctx, (k.GetLogSizeTransient(ctx))+uint64(len(logs)))
+		// Only successful executions contribute to the block bloom / log size.
+		// res.Logs is empty on a revert, so a failed tx never touches the bloom.
+		if !res.Failed() {
+			logs := types.LogsToEthereum(res.Logs)
+			if len(logs) > 0 {
+				bloom := k.GetBlockBloomTransient(ctx)
+				bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.LogsBloom(logs)))
+				bloomReceipt := ethtypes.BytesToBloom(bloom.Bytes())
+				k.SetBlockBloomTransient(ctx, bloomReceipt.Big())
+				k.SetLogSizeTransient(ctx, (k.GetLogSizeTransient(ctx))+uint64(len(logs)))
+			}
 		}
 	}
 
