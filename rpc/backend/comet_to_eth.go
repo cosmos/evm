@@ -397,8 +397,8 @@ func (b *Backend) ReceiptsFromCometBlock(
 
 		var logs []*ethtypes.Log
 		if additional != nil {
-			// Derived tx: MsgIndex is math.MaxUint32 (sentinel). Parse logs from tx_log events
-			// by matching TxHash instead of using the protobuf-encoded Data field.
+			// Derived tx: no MsgEthereumTxResponse in the Cosmos tx Data field.
+			// Parse logs from tx_log ABCI events by matching TxHash instead.
 			logs, err = derivedTxLogsFromEvents(
 				blockRes.TxsResults[txResult.TxIndex].Events,
 				additional.Hash,

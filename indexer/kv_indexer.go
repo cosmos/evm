@@ -25,6 +25,10 @@ import (
 const (
 	KeyPrefixTxHash  = 1
 	KeyPrefixTxIndex = 2
+	// KeyPrefixTxDerived marks a tx hash as a derived EVM tx (event-only, no embedded
+	// MsgEthereumTx). Lets the RPC backend cheaply decide whether a KV-indexer hit needs
+	// its TxResultAdditionalFields rebuilt from events, without parsing every lookup.
+	KeyPrefixTxDerived = 3
 
 	// TxIndexKeyLength is the length of tx-index key
 	TxIndexKeyLength = 1 + 8 + 8
@@ -70,6 +74,15 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 		}
 
 		if !isEthTx(tx) {
+			// Derived txs (internal EVM executions emitted only as events, not as an
+			// embedded MsgEthereumTx) still occupy slots in the block's eth-tx index
+			// sequence. Index them by hash and by (height, ethTxIndex), advancing
+			// the shared ethTxIndex so it stays aligned with the emitted txIndex for any
+			// standard eth txs that follow in the same block.
+			ethTxIndex, err = kv.indexDerivedTxs(batch, height, uint32(txIndex), result, ethTxIndex) //#nosec G115
+			if err != nil {
+				kv.logger.Error("Fail to index derived txs", "err", err, "block", height, "txIndex", txIndex)
+			}
 			continue
 		}
 
@@ -161,9 +174,98 @@ func (kv *KVIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*serv
 	return kv.GetByTxHash(common.BytesToHash(bz))
 }
 
+// IsDerivedTx reports whether the hash was indexed as a derived EVM tx (event-only, no
+// embedded MsgEthereumTx). A cheap single key read used by the RPC backend to gate the
+// (more expensive) rebuild of TxResultAdditionalFields from block events.
+func (kv *KVIndexer) IsDerivedTx(hash common.Hash) (bool, error) {
+	bz, err := kv.db.Get(DerivedTxHashKey(hash))
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "IsDerivedTx %s", hash.Hex())
+	}
+	return len(bz) > 0, nil
+}
+
+// IsDerivedTxByBlockAndIndex reports whether the tx at (blockNumber, eth tx index) is a
+// derived EVM tx. It resolves the hash from the block-index entry and consults the derived
+// marker — two cheap key reads — so the RPC backend can gate derived-tx reconstruction on
+// the block-index path without reparsing block events for ordinary txs.
+func (kv *KVIndexer) IsDerivedTxByBlockAndIndex(blockNumber int64, txIndex int32) (bool, error) {
+	bz, err := kv.db.Get(TxIndexKey(blockNumber, txIndex))
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "IsDerivedTxByBlockAndIndex %d %d", blockNumber, txIndex)
+	}
+	if len(bz) == 0 {
+		return false, nil
+	}
+	return kv.IsDerivedTx(common.BytesToHash(bz))
+}
+
+// indexDerivedTxs indexes the derived EVM transactions carried as events inside a
+// non-eth Cosmos tx (e.g. a Universal Executor MsgExecutePayload). Each derived tx is
+// stored by hash and by (height, ethTxIndex) using the same schema as standard
+// MsgEthereumTx entries, so eth_getTransactionByHash / Receipt and block-and-index
+// lookups resolve it directly without depending on a CometBFT tx_search fallback.
+//
+// ethTxIndex is the shared, block-level eth tx counter; it is advanced once per derived
+// tx and returned so the caller's sequence stays aligned with the txIndex the keeper
+// emits for both derived and standard txs.
+func (kv *KVIndexer) indexDerivedTxs(
+	batch dbm.Batch,
+	height int64,
+	txIndex uint32,
+	result *abci.ExecTxResult,
+	ethTxIndex int32,
+) (int32, error) {
+	// nil tx: ParseTxResult only needs it for the failed-cosmos-tx gas fallback, which
+	// assumes embedded MsgEthereumTx messages and does not apply to derived txs.
+	txs, err := rpctypes.ParseTxResult(result, nil)
+	if err != nil {
+		return ethTxIndex, err
+	}
+
+	var cumulativeGasUsed uint64
+	for _, parsed := range txs.Txs {
+		if parsed.Type != evmtypes.DerivedTxType {
+			continue
+		}
+
+		if parsed.EthTxIndex >= 0 && parsed.EthTxIndex != ethTxIndex {
+			kv.logger.Error("derived eth tx index doesn't match", "expect", ethTxIndex, "found", parsed.EthTxIndex)
+		}
+
+		cumulativeGasUsed += parsed.GasUsed
+		txResult := servertypes.TxResult{
+			Height:            height,
+			TxIndex:           txIndex,
+			MsgIndex:          uint32(parsed.MsgIndex), //#nosec G115 -- int overflow is not a concern here
+			EthTxIndex:        ethTxIndex,
+			Failed:            parsed.Failed,
+			GasUsed:           parsed.GasUsed,
+			CumulativeGasUsed: cumulativeGasUsed,
+		}
+		ethTxIndex++
+
+		if err := saveTxResult(kv.clientCtx.Codec, batch, parsed.Hash, &txResult); err != nil {
+			return ethTxIndex, errorsmod.Wrapf(err, "indexDerivedTxs %d", height)
+		}
+		// Mark the hash as derived in the same batch, so it commits atomically with the
+		// tx-hash/tx-index entries: a derived tx is findable iff its marker exists.
+		if err := batch.Set(DerivedTxHashKey(parsed.Hash), []byte{1}); err != nil {
+			return ethTxIndex, errorsmod.Wrapf(err, "indexDerivedTxs %d set derived key", height)
+		}
+	}
+
+	return ethTxIndex, nil
+}
+
 // TxHashKey returns the key for db entry: `tx hash -> tx result struct`
 func TxHashKey(hash common.Hash) []byte {
 	return append([]byte{KeyPrefixTxHash}, hash.Bytes()...)
+}
+
+// DerivedTxHashKey returns the key for db entry: `tx hash -> derived marker`
+func DerivedTxHashKey(hash common.Hash) []byte {
+	return append([]byte{KeyPrefixTxDerived}, hash.Bytes()...)
 }
 
 // TxIndexKey returns the key for db entry: `(block number, tx index) -> tx hash`

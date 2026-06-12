@@ -446,6 +446,14 @@ func (m *MockIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*ser
 	return nil, nil
 }
 
+func (m *MockIndexer) IsDerivedTx(hash common.Hash) (bool, error) {
+	return false, nil
+}
+
+func (m *MockIndexer) IsDerivedTxByBlockAndIndex(blockNumber int64, txIndex int32) (bool, error) {
+	return false, nil
+}
+
 func TestReceiptsFromCometBlock(t *testing.T) {
 	backend := setupMockBackend(t)
 	height := int64(100)

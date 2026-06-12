@@ -267,8 +267,8 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 	}
 
 	if additional != nil {
-		// Derived tx: MsgIndex is math.MaxUint32 (sentinel). Parse logs from tx_log events
-		// by matching TxHash instead of using the protobuf-encoded Data field.
+		// Derived tx: no MsgEthereumTxResponse in the Cosmos tx Data field.
+		// Parse logs from tx_log ABCI events by matching TxHash instead.
 		return derivedTxLogsFromEvents(
 			resBlockResult.TxsResults[res.TxIndex].Events,
 			additional.Hash,
@@ -329,16 +329,77 @@ func (b *Backend) GetTransactionByBlockNumberAndIndex(blockNum rpctypes.BlockNum
 	return b.GetTransactionByBlockAndIndex(block, idx)
 }
 
+// derivedTxAdditionalFields rebuilds the TxResultAdditionalFields for a tx located via
+// the KV indexer when (and only when) that tx is a derived EVM tx — an internal execution
+// recorded only as events, with no embedded MsgEthereumTx to decode. The KV indexer stores
+// just the TxResult, so without this the serving paths (GetTransactionByHash / Receipt /
+// TraceTransaction) would treat a derived tx as standard and panic on the MsgEthereumTx
+// cast. Standard txs return (nil, nil); the IsDerivedTx marker gate keeps their lookups
+// cheap (one key read, no event reparse).
+func (b *Backend) derivedTxAdditionalFields(hash common.Hash, res *servertypes.TxResult) (*rpctypes.TxResultAdditionalFields, error) {
+	derived, err := b.Indexer.IsDerivedTx(hash)
+	if err != nil {
+		return nil, err
+	}
+	if !derived {
+		return nil, nil
+	}
+	return b.buildDerivedAdditional(res)
+}
+
+// buildDerivedAdditional re-parses the block events for res's Cosmos tx and rebuilds the
+// TxResultAdditionalFields for the derived EVM tx at res.MsgIndex. Callers must have
+// already confirmed the entry is derived via a marker (IsDerivedTx for the by-hash path,
+// IsDerivedTxByBlockAndIndex for the by-block-index path), so a missing or non-derived
+// parse result is treated as an error.
+func (b *Backend) buildDerivedAdditional(res *servertypes.TxResult) (*rpctypes.TxResultAdditionalFields, error) {
+	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &res.Height)
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "block results for derived tx at height %d", res.Height)
+	}
+	if int(res.TxIndex) >= len(blockRes.TxsResults) {
+		return nil, fmt.Errorf("derived tx index %d out of bounds at height %d", res.TxIndex, res.Height)
+	}
+
+	parsedTxs, err := rpctypes.ParseTxResult(blockRes.TxsResults[res.TxIndex], nil)
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "parse derived tx events at height %d", res.Height)
+	}
+	parsed := parsedTxs.GetTxByMsgIndex(int(res.MsgIndex))
+	if parsed == nil || parsed.Type != evmtypes.DerivedTxType {
+		return nil, fmt.Errorf("derived tx not found in events: height %d, txIndex %d, msgIndex %d",
+			res.Height, res.TxIndex, res.MsgIndex)
+	}
+
+	return &rpctypes.TxResultAdditionalFields{
+		Value:     parsed.Amount,
+		Hash:      parsed.Hash,
+		TxHash:    parsed.TxHash,
+		Type:      parsed.Type,
+		Recipient: parsed.Recipient,
+		Sender:    parsed.Sender,
+		GasUsed:   parsed.GasUsed,
+		Data:      parsed.Data,
+		Nonce:     parsed.Nonce,
+		GasLimit:  &parsed.GasLimit,
+	}, nil
+}
+
 // GetTxByEthHash uses `/tx_query` to find transaction by ethereum tx hash
 // TODO: Don't need to convert once hashing is fixed on CometBFT
 // https://github.com/cometbft/cometbft/issues/6539
 func (b *Backend) GetTxByEthHash(hash common.Hash) (*servertypes.TxResult, *rpctypes.TxResultAdditionalFields, error) {
 	if b.Indexer != nil {
 		txRes, err := b.Indexer.GetByTxHash(hash)
-		if err != nil {
-			return nil, nil, err
+		if err == nil {
+			// Indexer hit: rebuild additional fields when this is a derived tx.
+			additional, derr := b.derivedTxAdditionalFields(hash, txRes)
+			if derr != nil {
+				return nil, nil, derr
+			}
+			return txRes, additional, nil
 		}
-		return txRes, nil, nil
+		// Indexer miss — fall through to CometBFT tx_search for derived tx reconstruction.
 	}
 
 	// fallback to CometBFT tx indexer
@@ -355,10 +416,15 @@ func (b *Backend) GetTxByEthHash(hash common.Hash) (*servertypes.TxResult, *rpct
 func (b *Backend) GetTxByEthHashAndMsgIndex(hash common.Hash, index int) (*servertypes.TxResult, *rpctypes.TxResultAdditionalFields, error) {
 	if b.Indexer != nil {
 		txRes, err := b.Indexer.GetByTxHash(hash)
-		if err != nil {
-			return nil, nil, err
+		if err == nil {
+			// Indexer hit: rebuild additional fields when this is a derived tx.
+			additional, derr := b.derivedTxAdditionalFields(hash, txRes)
+			if derr != nil {
+				return nil, nil, derr
+			}
+			return txRes, additional, nil
 		}
-		return txRes, nil, nil
+		// Indexer miss — fall through to CometBFT tx_search for derived tx reconstruction.
 	}
 
 	// fallback to CometBFT tx indexer
@@ -378,6 +444,19 @@ func (b *Backend) GetTxByTxIndex(height int64, index uint) (*servertypes.TxResul
 	if b.Indexer != nil {
 		txRes, err := b.Indexer.GetByBlockAndIndex(height, int32Index)
 		if err == nil {
+			// Only derived block-index entries need their additional fields rebuilt (so
+			// trace predecessors reconstruct them instead of treating them as standard).
+			derived, derr := b.Indexer.IsDerivedTxByBlockAndIndex(height, int32Index)
+			if derr != nil {
+				return nil, nil, derr
+			}
+			if derived {
+				additional, aerr := b.buildDerivedAdditional(txRes)
+				if aerr != nil {
+					return nil, nil, aerr
+				}
+				return txRes, additional, nil
+			}
 			return txRes, nil, nil
 		}
 	}
