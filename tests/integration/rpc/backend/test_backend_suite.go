@@ -208,7 +208,7 @@ func (s *TestSuite) buildEthBlock(
 	}
 
 	// 5) Build receipts
-	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs, nil)
 	s.Require().NoError(err)
 
 	// 6) Gas used

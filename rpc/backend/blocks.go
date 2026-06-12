@@ -197,9 +197,9 @@ func (b *Backend) GetBlockReceipts(
 		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
 	}
 
-	msgs, _ := b.EthMsgsFromCometBlock(resBlock, blockRes)
+	msgs, txsAdditional := b.EthMsgsFromCometBlock(resBlock, blockRes)
 
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs, txsAdditional)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block: %w, ", err)
 

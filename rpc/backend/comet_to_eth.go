@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -256,7 +257,7 @@ func (b *Backend) EthBlockFromCometBlock(
 	}
 
 	// 7. receipts
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs, additionals)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block: %w", err)
 	}
@@ -310,10 +311,39 @@ func (b *Backend) MinerFromCometBlock(
 	return common.BytesToAddress(validatorAccAddr), nil
 }
 
+// derivedTxLogsFromEvents finds EVM logs for a derived tx by scanning tx_log events and
+// matching each log's TxHash to the given hash. Returns nil, nil when no matching logs are
+// found — valid for a successful derived tx that emits no EVM events.
+func derivedTxLogsFromEvents(events []abci.Event, txHash common.Hash, blockNumber uint64) ([]*ethtypes.Log, error) {
+	var result []*ethtypes.Log
+	for _, event := range events {
+		if event.Type != evmtypes.EventTypeTxLog {
+			continue
+		}
+		for _, attr := range event.Attributes {
+			if attr.Key != evmtypes.AttributeKeyTxLog {
+				continue
+			}
+			var log evmtypes.Log
+			if err := json.Unmarshal([]byte(attr.Value), &log); err != nil {
+				return nil, err
+			}
+			if common.HexToHash(log.TxHash) != txHash {
+				continue
+			}
+			l := log.ToEthereum()
+			l.BlockNumber = blockNumber
+			result = append(result, l)
+		}
+	}
+	return result, nil
+}
+
 func (b *Backend) ReceiptsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 	msgs []*evmtypes.MsgEthereumTx,
+	additionals []*rpctypes.TxResultAdditionalFields,
 ) ([]*ethtypes.Receipt, error) {
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
@@ -321,13 +351,27 @@ func (b *Backend) ReceiptsFromCometBlock(
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", resBlock.Block.Height, "error", err)
 	}
 
+	blockHeight := uint64(resBlock.Block.Height) // #nosec G115
 	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
 	for i, ethMsg := range msgs {
-		txResult, _, err := b.GetTxByEthHash(ethMsg.Hash())
+		var additional *rpctypes.TxResultAdditionalFields
+		if additionals != nil && i < len(additionals) {
+			additional = additionals[i]
+		}
+
+		// Derived txs must be looked up by the event hash (additional.Hash); native txs use ethMsg.Hash().
+		var lookupHash common.Hash
+		if additional != nil {
+			lookupHash = additional.Hash
+		} else {
+			lookupHash = ethMsg.Hash()
+		}
+
+		txResult, _, err := b.GetTxByEthHash(lookupHash)
 		if err != nil {
-			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
+			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", lookupHash, err.Error())
 		}
 
 		cumulatedGasUsed += txResult.GasUsed
@@ -351,17 +395,39 @@ func (b *Backend) ReceiptsFromCometBlock(
 			contractAddress = crypto.CreateAddress(ethMsg.GetSender(), ethMsg.Raw.Nonce())
 		}
 
-		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
-		logs, err := evmtypes.DecodeMsgLogs(
-			blockRes.TxsResults[txResult.TxIndex].Data,
-			msgIndex,
-			uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+		var logs []*ethtypes.Log
+		if additional != nil {
+			// Derived tx: MsgIndex is math.MaxUint32 (sentinel). Parse logs from tx_log events
+			// by matching TxHash instead of using the protobuf-encoded Data field.
+			logs, err = derivedTxLogsFromEvents(
+				blockRes.TxsResults[txResult.TxIndex].Events,
+				additional.Hash,
+				blockHeight,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse derived tx logs: %w", err)
+			}
+		} else {
+			msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
+			logs, err = evmtypes.DecodeMsgLogs(
+				blockRes.TxsResults[txResult.TxIndex].Data,
+				msgIndex,
+				blockHeight,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+			}
 		}
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
+
+		// Derived txs use the event hash as the canonical TxHash in the receipt.
+		var txHash common.Hash
+		if additional != nil {
+			txHash = additional.Hash
+		} else {
+			txHash = ethMsg.Hash()
+		}
 
 		receipt := &ethtypes.Receipt{
 			// Consensus fields: These fields are defined by the Yellow Paper
@@ -373,7 +439,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			Logs:              logs,
 
 			// Implementation fields: These fields are added by geth when processing a transaction.
-			TxHash:            ethMsg.Hash(),
+			TxHash:            txHash,
 			ContractAddress:   contractAddress,
 			GasUsed:           txResult.GasUsed,
 			EffectiveGasPrice: effectiveGasPrice,

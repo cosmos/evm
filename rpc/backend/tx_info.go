@@ -221,7 +221,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg}, []*rpctypes.TxResultAdditionalFields{additional})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
@@ -245,7 +245,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) {
 	hexTx := hash.Hex()
 
-	res, _, err := b.GetTxByEthHash(hash)
+	res, additional, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
 		return nil, nil
@@ -265,7 +265,17 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 	if err != nil {
 		return nil, err
 	}
-	// parse tx logs from events
+
+	if additional != nil {
+		// Derived tx: MsgIndex is math.MaxUint32 (sentinel). Parse logs from tx_log events
+		// by matching TxHash instead of using the protobuf-encoded Data field.
+		return derivedTxLogsFromEvents(
+			resBlockResult.TxsResults[res.TxIndex].Events,
+			additional.Hash,
+			height,
+		)
+	}
+
 	index := int(res.MsgIndex) // #nosec G701
 	logs, err := evmtypes.DecodeMsgLogs(
 		resBlockResult.TxsResults[res.TxIndex].Data,
