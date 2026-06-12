@@ -48,6 +48,7 @@ func MakeConfig(evmChainID uint64) Config {
 	codec := amino.NewProtoCodec(interfaceRegistry)
 	enccodec.RegisterLegacyAminoCodec(cdc)
 	enccodec.RegisterInterfaces(interfaceRegistry)
+	evmtypes.RegisterInterfaces(interfaceRegistry)
 	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
 
 	// This is needed for the EIP712 txs because currently is using

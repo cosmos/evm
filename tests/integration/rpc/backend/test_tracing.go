@@ -63,7 +63,11 @@ func (s *TestSuite) TestTraceTransaction() {
 	}{
 		{
 			"fail - tx not found",
-			func() {},
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, txHash.Hex())
+				RegisterTxSearchEmpty(client, query)
+			},
 			&types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{}}},
 			[]*abci.ExecTxResult{
 				{
@@ -118,7 +122,7 @@ func (s *TestSuite) TestTraceTransaction() {
 					height      int64 = 1
 				)
 				RegisterBlockMultipleTxs(client, height, []types.Tx{txBz, txBz2})
-				RegisterTraceTransactionWithPredecessors(QueryClient, msgEthereumTx, []*evmtypes.MsgEthereumTx{msgEthereumTx})
+				RegisterTraceTransaction(QueryClient, msgEthereumTx)
 				RegisterConsensusParams(client, height)
 			},
 			&types.Block{Header: types.Header{Height: 1, ChainID: ChainID.ChainID}, Data: types.Data{Txs: []types.Tx{txBz, txBz2}}},
