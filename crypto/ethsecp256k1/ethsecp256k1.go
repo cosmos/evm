@@ -8,8 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
-	tmcrypto "github.com/cometbft/cometbft/crypto"
-
 	"github.com/cosmos/evm/ethereum/eip712"
 
 	errorsmod "cosmossdk.io/errors"
@@ -147,13 +145,13 @@ var (
 
 // Address returns the address of the ECDSA public key.
 // The function will return an empty address if the public key is invalid.
-func (pubKey PubKey) Address() tmcrypto.Address {
+func (pubKey PubKey) Address() cryptotypes.Address {
 	pubk, err := crypto.DecompressPubkey(pubKey.Key)
 	if err != nil {
 		return nil
 	}
 
-	return tmcrypto.Address(crypto.PubkeyToAddress(*pubk).Bytes())
+	return cryptotypes.Address(crypto.PubkeyToAddress(*pubk).Bytes())
 }
 
 // Bytes returns the raw bytes of the ECDSA public key.

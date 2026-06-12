@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
@@ -22,12 +23,30 @@ type EvmTxArgs struct {
 	GasTipCap *big.Int
 	To        *common.Address
 	Accesses  *ethtypes.AccessList
+
+	// For SetCodeTxType
+	AuthorizationList []ethtypes.SetCodeAuthorization `json:"authorizationList"`
 }
 
 // ToTxData converts the EvmTxArgs to TxData
-func (args *EvmTxArgs) ToTxData() (TxData, error) {
-	ethTx := NewTx(args).AsTransaction()
-	return NewTxDataFromTx(ethTx)
+func (args *EvmTxArgs) ToTxData() *TransactionArgs {
+	return &TransactionArgs{
+		Nonce:                (*hexutil.Uint64)(&args.Nonce),
+		Gas:                  (*hexutil.Uint64)(&args.GasLimit),
+		Data:                 (*hexutil.Bytes)(&args.Input),
+		MaxFeePerGas:         (*hexutil.Big)(args.GasFeeCap),
+		GasPrice:             (*hexutil.Big)(args.GasPrice),
+		ChainID:              (*hexutil.Big)(args.ChainID),
+		MaxPriorityFeePerGas: (*hexutil.Big)(args.GasTipCap),
+		Value:                (*hexutil.Big)(args.Amount),
+		To:                   args.To,
+		AccessList:           args.Accesses,
+		AuthorizationList:    args.AuthorizationList,
+	}
+}
+
+func (args *EvmTxArgs) ToTx() *ethtypes.Transaction {
+	return args.ToTxData().ToTransaction(ethtypes.LegacyTxType)
 }
 
 // GetTxPriority returns the priority of a given Ethereum tx. It relies of the
@@ -35,14 +54,9 @@ func (args *EvmTxArgs) ToTxData() (TxData, error) {
 // tip price:
 //
 //	tx_priority = tip_price / priority_reduction
-func GetTxPriority(txData TxData, baseFee *big.Int) (priority int64) {
+func GetTxPriority(ethTx *ethtypes.Transaction, baseFee *big.Int) (priority int64) {
 	// calculate priority based on effective gas price
-	tipPrice := txData.EffectiveGasPrice(baseFee)
-	// if london hardfork is not enabled, tipPrice is the gasPrice
-	if baseFee != nil {
-		tipPrice = new(big.Int).Sub(tipPrice, baseFee)
-	}
-
+	tipPrice, _ := ethTx.EffectiveGasTip(baseFee)
 	priority = math.MaxInt64
 	priorityBig := new(big.Int).Quo(tipPrice, DefaultPriorityReduction.BigInt())
 

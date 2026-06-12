@@ -7,7 +7,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 )
 
 const (
@@ -35,6 +34,9 @@ const (
 	// DelegatorWithdrawAddressMethod defines the ABI method name for the
 	// DelegatorWithdrawAddress query.
 	DelegatorWithdrawAddressMethod = "delegatorWithdrawAddress"
+	// CommunityPoolMethod defines the ABI method name for the
+	// CommunityPool query.
+	CommunityPoolMethod = "communityPool"
 )
 
 // ValidatorDistributionInfo returns the distribution info for a validator.
@@ -49,9 +51,7 @@ func (p Precompile) ValidatorDistributionInfo(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorDistributionInfo(ctx, req)
+	res, err := p.distributionQuerier.ValidatorDistributionInfo(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +73,7 @@ func (p Precompile) ValidatorOutstandingRewards(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorOutstandingRewards(ctx, req)
+	res, err := p.distributionQuerier.ValidatorOutstandingRewards(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +93,7 @@ func (p Precompile) ValidatorCommission(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorCommission(ctx, req)
+	res, err := p.distributionQuerier.ValidatorCommission(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -117,9 +113,7 @@ func (p Precompile) ValidatorSlashes(
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.ValidatorSlashes(ctx, req)
+	res, err := p.distributionQuerier.ValidatorSlashes(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -136,13 +130,12 @@ func (p Precompile) DelegationRewards(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegationRewardsRequest(args)
+	req, err := NewDelegationRewardsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-	res, err := querier.DelegationRewards(ctx, req)
+	res, err := p.distributionQuerier.DelegationRewards(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -157,14 +150,12 @@ func (p Precompile) DelegationTotalRewards(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegationTotalRewardsRequest(args)
+	req, err := NewDelegationTotalRewardsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.DelegationTotalRewards(ctx, req)
+	res, err := p.distributionQuerier.DelegationTotalRewards(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -181,14 +172,12 @@ func (p Precompile) DelegatorValidators(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegatorValidatorsRequest(args)
+	req, err := NewDelegatorValidatorsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.DelegatorValidators(ctx, req)
+	res, err := p.distributionQuerier.DelegatorValidators(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -203,17 +192,37 @@ func (p Precompile) DelegatorWithdrawAddress(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegatorWithdrawAddressRequest(args)
+	req, err := NewDelegatorWithdrawAddressRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
-	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
-
-	res, err := querier.DelegatorWithdrawAddress(ctx, req)
+	res, err := p.distributionQuerier.DelegatorWithdrawAddress(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	return method.Outputs.Pack(res.WithdrawAddress)
+}
+
+// CommunityPool returns the community pool coins.
+func (p Precompile) CommunityPool(
+	ctx sdk.Context,
+	_ *vm.Contract,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	req, err := NewCommunityPoolRequest(args)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := p.distributionQuerier.CommunityPool(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(CommunityPoolOutput).FromResponse(res)
+
+	return out.Pack(method.Outputs)
 }

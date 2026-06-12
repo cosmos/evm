@@ -12,6 +12,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -75,13 +76,23 @@ type EventCancelUnbonding struct {
 	CreationHeight   *big.Int
 }
 
-// Description use golang type alias defines a validator description.
+// Description defines a validator description.
 type Description = struct {
-	Moniker         string "json:\"moniker\""
-	Identity        string "json:\"identity\""
-	Website         string "json:\"website\""
-	SecurityContact string "json:\"securityContact\""
-	Details         string "json:\"details\""
+	Moniker         string `json:"moniker"`
+	Identity        string `json:"identity"`
+	Website         string `json:"website"`
+	SecurityContact string `json:"securityContact"`
+	Details         string `json:"details"`
+}
+
+func NewDescriptionFromResponse(d stakingtypes.Description) Description {
+	return Description{
+		Moniker:         d.Moniker,
+		Identity:        d.Identity,
+		Website:         d.Website,
+		SecurityContact: d.SecurityContact,
+		Details:         d.Details,
+	}
 }
 
 // Commission use golang type alias defines a validator commission.
@@ -94,7 +105,7 @@ type Commission = struct {
 
 // NewMsgCreateValidator creates a new MsgCreateValidator instance and does sanity checks
 // on the given arguments before populating the message.
-func NewMsgCreateValidator(args []interface{}, denom string) (*stakingtypes.MsgCreateValidator, common.Address, error) {
+func NewMsgCreateValidator(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgCreateValidator, common.Address, error) {
 	if len(args) != 6 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 6, len(args))
 	}
@@ -119,7 +130,7 @@ func NewMsgCreateValidator(args []interface{}, denom string) (*stakingtypes.MsgC
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidValidator, args[3])
 	}
 
-	// use cli `evmd tendermint show-validator` get pubkey
+	// use cli `evmd comet show-validator` get pubkey
 	pubkeyBase64Str, ok := args[4].(string)
 	if !ok {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidType, "pubkey", "string", args[4])
@@ -145,6 +156,10 @@ func NewMsgCreateValidator(args []interface{}, denom string) (*stakingtypes.MsgC
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[5])
 	}
 
+	delegatorAddr, err := addrCdc.BytesToString(validatorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &stakingtypes.MsgCreateValidator{
 		Description: stakingtypes.Description{
 			Moniker:         description.Moniker,
@@ -155,11 +170,11 @@ func NewMsgCreateValidator(args []interface{}, denom string) (*stakingtypes.MsgC
 		},
 		Commission: stakingtypes.CommissionRates{
 			Rate:          math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
-			MaxRate:       math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
-			MaxChangeRate: math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
+			MaxRate:       math.LegacyNewDecFromBigIntWithPrec(commission.MaxRate, math.LegacyPrecision),
+			MaxChangeRate: math.LegacyNewDecFromBigIntWithPrec(commission.MaxChangeRate, math.LegacyPrecision),
 		},
 		MinSelfDelegation: math.NewIntFromBigInt(minSelfDelegation),
-		DelegatorAddress:  sdk.AccAddress(validatorAddress.Bytes()).String(),
+		DelegatorAddress:  delegatorAddr,
 		ValidatorAddress:  sdk.ValAddress(validatorAddress.Bytes()).String(),
 		Pubkey:            pubkey,
 		Value:             sdk.Coin{Denom: denom, Amount: math.NewIntFromBigInt(value)},
@@ -227,14 +242,18 @@ func NewMsgEditValidator(args []interface{}) (*stakingtypes.MsgEditValidator, co
 
 // NewMsgDelegate creates a new MsgDelegate instance and does sanity checks
 // on the given arguments before populating the message.
-func NewMsgDelegate(args []interface{}, denom string) (*stakingtypes.MsgDelegate, common.Address, error) {
+func NewMsgDelegate(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgDelegate, common.Address, error) {
 	delegatorAddr, validatorAddress, amount, err := checkDelegationUndelegationArgs(args)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 
+	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &stakingtypes.MsgDelegate{
-		DelegatorAddress: sdk.AccAddress(delegatorAddr.Bytes()).String(),
+		DelegatorAddress: delegatorAddrStr,
 		ValidatorAddress: validatorAddress,
 		Amount: sdk.Coin{
 			Denom:  denom,
@@ -247,14 +266,18 @@ func NewMsgDelegate(args []interface{}, denom string) (*stakingtypes.MsgDelegate
 
 // NewMsgUndelegate creates a new MsgUndelegate instance and does sanity checks
 // on the given arguments before populating the message.
-func NewMsgUndelegate(args []interface{}, denom string) (*stakingtypes.MsgUndelegate, common.Address, error) {
+func NewMsgUndelegate(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgUndelegate, common.Address, error) {
 	delegatorAddr, validatorAddress, amount, err := checkDelegationUndelegationArgs(args)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 
+	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &stakingtypes.MsgUndelegate{
-		DelegatorAddress: sdk.AccAddress(delegatorAddr.Bytes()).String(),
+		DelegatorAddress: delegatorAddrStr,
 		ValidatorAddress: validatorAddress,
 		Amount: sdk.Coin{
 			Denom:  denom,
@@ -267,7 +290,7 @@ func NewMsgUndelegate(args []interface{}, denom string) (*stakingtypes.MsgUndele
 
 // NewMsgRedelegate creates a new MsgRedelegate instance and does sanity checks
 // on the given arguments before populating the message.
-func NewMsgRedelegate(args []interface{}, denom string) (*stakingtypes.MsgBeginRedelegate, common.Address, error) {
+func NewMsgRedelegate(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgBeginRedelegate, common.Address, error) {
 	if len(args) != 4 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
 	}
@@ -292,8 +315,12 @@ func NewMsgRedelegate(args []interface{}, denom string) (*stakingtypes.MsgBeginR
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[3])
 	}
 
+	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &stakingtypes.MsgBeginRedelegate{
-		DelegatorAddress:    sdk.AccAddress(delegatorAddr.Bytes()).String(), // bech32 formatted
+		DelegatorAddress:    delegatorAddrStr,
 		ValidatorSrcAddress: validatorSrcAddress,
 		ValidatorDstAddress: validatorDstAddress,
 		Amount: sdk.Coin{
@@ -307,7 +334,7 @@ func NewMsgRedelegate(args []interface{}, denom string) (*stakingtypes.MsgBeginR
 
 // NewMsgCancelUnbondingDelegation creates a new MsgCancelUnbondingDelegation instance and does sanity checks
 // on the given arguments before populating the message.
-func NewMsgCancelUnbondingDelegation(args []interface{}, denom string) (*stakingtypes.MsgCancelUnbondingDelegation, common.Address, error) {
+func NewMsgCancelUnbondingDelegation(args []interface{}, denom string, addrCdc address.Codec) (*stakingtypes.MsgCancelUnbondingDelegation, common.Address, error) {
 	if len(args) != 4 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
 	}
@@ -332,8 +359,12 @@ func NewMsgCancelUnbondingDelegation(args []interface{}, denom string) (*staking
 		return nil, common.Address{}, fmt.Errorf("invalid creation height")
 	}
 
+	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &stakingtypes.MsgCancelUnbondingDelegation{
-		DelegatorAddress: sdk.AccAddress(delegatorAddr.Bytes()).String(), // bech32 formatted
+		DelegatorAddress: delegatorAddrStr,
 		ValidatorAddress: validatorAddress,
 		Amount: sdk.Coin{
 			Denom:  denom,
@@ -347,7 +378,7 @@ func NewMsgCancelUnbondingDelegation(args []interface{}, denom string) (*staking
 
 // NewDelegationRequest creates a new QueryDelegationRequest instance and does sanity checks
 // on the given arguments before populating the request.
-func NewDelegationRequest(args []interface{}) (*stakingtypes.QueryDelegationRequest, error) {
+func NewDelegationRequest(args []interface{}, addrCdc address.Codec) (*stakingtypes.QueryDelegationRequest, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -362,8 +393,12 @@ func NewDelegationRequest(args []interface{}) (*stakingtypes.QueryDelegationRequ
 		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
 	}
 
+	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &stakingtypes.QueryDelegationRequest{
-		DelegatorAddr: sdk.AccAddress(delegatorAddr.Bytes()).String(), // bech32 formatted
+		DelegatorAddr: delegatorAddrStr,
 		ValidatorAddr: validatorAddress,
 	}, nil
 }
@@ -448,7 +483,7 @@ func NewRedelegationRequest(args []interface{}) (*RedelegationRequest, error) {
 
 // NewRedelegationsRequest create a new QueryRedelegationsRequest instance and does sanity checks
 // on the given arguments before populating the request.
-func NewRedelegationsRequest(method *abi.Method, args []interface{}) (*stakingtypes.QueryRedelegationsRequest, error) {
+func NewRedelegationsRequest(method *abi.Method, args []interface{}, addrCdc address.Codec) (*stakingtypes.QueryRedelegationsRequest, error) {
 	if len(args) != 4 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
 	}
@@ -470,7 +505,11 @@ func NewRedelegationsRequest(method *abi.Method, args []interface{}) (*stakingty
 		emptyAddr = common.Address{}.Hex()
 	)
 	if input.DelegatorAddress.Hex() != emptyAddr {
-		delegatorAddr = sdk.AccAddress(input.DelegatorAddress.Bytes()).String() // bech32 formatted
+		var err error
+		delegatorAddr, err = addrCdc.BytesToString(input.DelegatorAddress.Bytes())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+		}
 	}
 
 	if delegatorAddr == "" && input.SrcValidatorAddress == "" && input.DstValidatorAddress == "" ||
@@ -564,65 +603,51 @@ func (do *DelegationOutput) Pack(args abi.Arguments) ([]byte, error) {
 // ValidatorInfo is a struct to represent the key information from
 // a validator response.
 type ValidatorInfo struct {
-	OperatorAddress   string   `abi:"operatorAddress"`
-	ConsensusPubkey   string   `abi:"consensusPubkey"`
-	Jailed            bool     `abi:"jailed"`
-	Status            uint8    `abi:"status"`
-	Tokens            *big.Int `abi:"tokens"`
-	DelegatorShares   *big.Int `abi:"delegatorShares"` // TODO: Decimal
-	Description       string   `abi:"description"`
-	UnbondingHeight   int64    `abi:"unbondingHeight"`
-	UnbondingTime     int64    `abi:"unbondingTime"`
-	Commission        *big.Int `abi:"commission"`
-	MinSelfDelegation *big.Int `abi:"minSelfDelegation"`
+	OperatorAddress   string      `abi:"operatorAddress"`
+	ConsensusPubkey   string      `abi:"consensusPubkey"`
+	Jailed            bool        `abi:"jailed"`
+	Status            uint8       `abi:"status"`
+	Tokens            *big.Int    `abi:"tokens"`
+	DelegatorShares   *big.Int    `abi:"delegatorShares"` // TODO: Decimal
+	Description       Description `abi:"description"`
+	UnbondingHeight   int64       `abi:"unbondingHeight"`
+	UnbondingTime     int64       `abi:"unbondingTime"`
+	Commission        *big.Int    `abi:"commission"`
+	MinSelfDelegation *big.Int    `abi:"minSelfDelegation"`
+}
+
+func DefaultValidatorInfo() ValidatorInfo {
+	return ValidatorInfo{
+		Tokens:            big.NewInt(0),
+		DelegatorShares:   big.NewInt(0),
+		Commission:        big.NewInt(0),
+		MinSelfDelegation: big.NewInt(0),
+	}
+}
+
+func NewValidatorInfoFromResponse(v stakingtypes.Validator) ValidatorInfo {
+	operatorAddress, err := sdk.ValAddressFromBech32(v.OperatorAddress)
+	if err != nil {
+		return DefaultValidatorInfo()
+	}
+
+	return ValidatorInfo{
+		OperatorAddress:   common.BytesToAddress(operatorAddress.Bytes()).String(),
+		ConsensusPubkey:   FormatConsensusPubkey(v.ConsensusPubkey),
+		Jailed:            v.Jailed,
+		Status:            uint8(stakingtypes.BondStatus_value[v.Status.String()]), //#nosec G115 // enum will always be convertible to uint8
+		Tokens:            v.Tokens.BigInt(),
+		DelegatorShares:   v.DelegatorShares.BigInt(), // TODO: Decimal
+		Description:       NewDescriptionFromResponse(v.Description),
+		UnbondingHeight:   v.UnbondingHeight,
+		UnbondingTime:     v.UnbondingTime.UTC().Unix(),
+		Commission:        v.Commission.Rate.BigInt(),
+		MinSelfDelegation: v.MinSelfDelegation.BigInt(),
+	}
 }
 
 type ValidatorOutput struct {
 	Validator ValidatorInfo
-}
-
-// DefaultValidatorOutput returns a ValidatorOutput with default values.
-func DefaultValidatorOutput() ValidatorOutput {
-	return ValidatorOutput{
-		ValidatorInfo{
-			OperatorAddress:   "",
-			ConsensusPubkey:   "",
-			Jailed:            false,
-			Status:            uint8(0),
-			Tokens:            big.NewInt(0),
-			DelegatorShares:   big.NewInt(0),
-			Description:       "",
-			UnbondingHeight:   int64(0),
-			UnbondingTime:     int64(0),
-			Commission:        big.NewInt(0),
-			MinSelfDelegation: big.NewInt(0),
-		},
-	}
-}
-
-// FromResponse populates the ValidatorOutput from a QueryValidatorResponse.
-func (vo *ValidatorOutput) FromResponse(res *stakingtypes.QueryValidatorResponse) ValidatorOutput {
-	operatorAddress, err := sdk.ValAddressFromBech32(res.Validator.OperatorAddress)
-	if err != nil {
-		return DefaultValidatorOutput()
-	}
-
-	return ValidatorOutput{
-		Validator: ValidatorInfo{
-			OperatorAddress: common.BytesToAddress(operatorAddress.Bytes()).String(),
-			ConsensusPubkey: FormatConsensusPubkey(res.Validator.ConsensusPubkey),
-			Jailed:          res.Validator.Jailed,
-			Status:          uint8(stakingtypes.BondStatus_value[res.Validator.Status.String()]), //#nosec G115 // enum will always be convertible to uint8
-			Tokens:          res.Validator.Tokens.BigInt(),
-			DelegatorShares: res.Validator.DelegatorShares.BigInt(), // TODO: Decimal
-			// TODO: create description type,
-			Description:       res.Validator.Description.Details,
-			UnbondingHeight:   res.Validator.UnbondingHeight,
-			UnbondingTime:     res.Validator.UnbondingTime.UTC().Unix(),
-			Commission:        res.Validator.Commission.CommissionRates.Rate.BigInt(),
-			MinSelfDelegation: res.Validator.MinSelfDelegation.BigInt(),
-		},
-	}
 }
 
 // ValidatorsInput is a struct to represent the input information for
@@ -643,24 +668,7 @@ type ValidatorsOutput struct {
 func (vo *ValidatorsOutput) FromResponse(res *stakingtypes.QueryValidatorsResponse) *ValidatorsOutput {
 	vo.Validators = make([]ValidatorInfo, len(res.Validators))
 	for i, v := range res.Validators {
-		operatorAddress, err := sdk.ValAddressFromBech32(v.OperatorAddress)
-		if err != nil {
-			vo.Validators[i] = DefaultValidatorOutput().Validator
-		} else {
-			vo.Validators[i] = ValidatorInfo{
-				OperatorAddress:   common.BytesToAddress(operatorAddress.Bytes()).String(),
-				ConsensusPubkey:   FormatConsensusPubkey(v.ConsensusPubkey),
-				Jailed:            v.Jailed,
-				Status:            uint8(stakingtypes.BondStatus_value[v.Status.String()]), //#nosec G115 // enum will always be convertible to uint8
-				Tokens:            v.Tokens.BigInt(),
-				DelegatorShares:   v.DelegatorShares.BigInt(),
-				Description:       v.Description.Details,
-				UnbondingHeight:   v.UnbondingHeight,
-				UnbondingTime:     v.UnbondingTime.UTC().Unix(),
-				Commission:        v.Commission.CommissionRates.Rate.BigInt(),
-				MinSelfDelegation: v.MinSelfDelegation.BigInt(),
-			}
-		}
+		vo.Validators[i] = NewValidatorInfoFromResponse(v)
 	}
 
 	if res.Pagination != nil {
@@ -813,7 +821,7 @@ func (ro *RedelegationsOutput) Pack(args abi.Arguments) ([]byte, error) {
 
 // NewUnbondingDelegationRequest creates a new QueryUnbondingDelegationRequest instance and does sanity checks
 // on the given arguments before populating the request.
-func NewUnbondingDelegationRequest(args []interface{}) (*stakingtypes.QueryUnbondingDelegationRequest, error) {
+func NewUnbondingDelegationRequest(args []interface{}, addrCdc address.Codec) (*stakingtypes.QueryUnbondingDelegationRequest, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -828,8 +836,12 @@ func NewUnbondingDelegationRequest(args []interface{}) (*stakingtypes.QueryUnbon
 		return nil, fmt.Errorf(cmn.ErrInvalidType, "validatorAddress", "string", args[1])
 	}
 
+	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &stakingtypes.QueryUnbondingDelegationRequest{
-		DelegatorAddr: sdk.AccAddress(delegatorAddr.Bytes()).String(), // bech32 formatted
+		DelegatorAddr: delegatorAddrStr,
 		ValidatorAddr: validatorAddress,
 	}, nil
 }

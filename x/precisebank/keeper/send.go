@@ -5,11 +5,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/go-metrics"
+
 	"github.com/cosmos/evm/x/precisebank/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -22,8 +26,27 @@ import (
 // part of authtypes.BankKeeper. x/evm uses auth methods that require this
 // interface.
 func (k Keeper) IsSendEnabledCoins(ctx context.Context, coins ...sdk.Coin) error {
-	// Simply pass through to x/bank
-	return k.bk.IsSendEnabledCoins(ctx, coins...)
+	if len(coins) == 0 {
+		return nil
+	}
+
+	for _, coin := range coins {
+		if !k.IsSendEnabledCoin(ctx, coin) {
+			return banktypes.ErrSendDisabled.Wrapf("%s transfers are currently disabled", coin.Denom)
+		}
+	}
+
+	return nil
+}
+
+// IsSendEnabledCoin checks whether the sent coin is the extended denom, in which case
+// it also checks for the SendEnabled status on the EVM denom. The rest pass through the
+// regular bank keeper implementation.
+func (k Keeper) IsSendEnabledCoin(ctx context.Context, coin sdk.Coin) bool {
+	if coin.Denom == evmtypes.GetEVMCoinExtendedDenom() {
+		return k.bk.IsSendEnabledCoin(ctx, sdk.NewCoin(evmtypes.GetEVMCoinDenom(), coin.Amount.Quo(types.ConversionFactor())))
+	}
+	return k.bk.IsSendEnabledCoin(ctx, coin)
 }
 
 // SendCoins transfers amt coins from a sending account to a receiving account.
@@ -67,29 +90,6 @@ func (k Keeper) SendCoins(
 		}
 	}
 
-	// Get a full extended coin amount (passthrough integer + fractional) ONLY
-	// for event attributes.
-	fullEmissionCoins := sdk.NewCoins(types.SumExtendedCoin(amt))
-
-	// If no passthrough integer nor fractional coins, then no event emission.
-	// We also want to emit the event with the whole equivalent extended coin
-	// if only integer coins are sent.
-	if fullEmissionCoins.IsZero() {
-		return nil
-	}
-
-	// Emit transfer event of extended denom for the FULL equivalent value.
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			banktypes.EventTypeTransfer,
-			sdk.NewAttribute(banktypes.AttributeKeyRecipient, to.String()),
-			sdk.NewAttribute(banktypes.AttributeKeySender, from.String()),
-			sdk.NewAttribute(sdk.AttributeKeyAmount, fullEmissionCoins.String()),
-		),
-		banktypes.NewCoinSpentEvent(from, fullEmissionCoins),
-		banktypes.NewCoinReceivedEvent(to, fullEmissionCoins),
-	})
-
 	return nil
 }
 
@@ -127,6 +127,21 @@ func (k Keeper) sendExtendedCoins(
 	from, to sdk.AccAddress,
 	amt sdkmath.Int,
 ) error {
+	// Don't create fractional balances for the precisebank module account
+	// The precisebank module account is the reserve and should not have fractional balances
+	moduleAddr := k.ak.GetModuleAddress(types.ModuleName)
+	if from.Equals(moduleAddr) || to.Equals(moduleAddr) {
+		// For transfers involving the precisebank module account, just do the integer transfer
+		integerAmt := amt.Quo(types.ConversionFactor())
+		if integerAmt.IsPositive() {
+			transferCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerAmt)
+			if err := k.bk.SendCoins(ctx, from, to, sdk.NewCoins(transferCoin)); err != nil {
+				return k.updateInsufficientFundsError(ctx, from, amt, err)
+			}
+		}
+		return nil
+	}
+
 	// If we do not return early here, the following issue occurs:
 	// - `senderNewFracBal` will be calculated by subtracting fractional `amt` from the sender's fractional balance.
 	// - `recipientNewFracBal` will be calculated by adding fractional `amt` to the recipient's fractional balance.
@@ -226,6 +241,10 @@ func (k Keeper) sendExtendedCoins(
 	// Persist new fractional balances to store.
 	k.SetFractionalBalance(ctx, from, senderNewFracBal)
 	k.SetFractionalBalance(ctx, to, recipientNewFracBal)
+
+	// Emit event for fractional balance change
+	types.EmitEventFractionalBalanceChange(ctx, from, senderFracBal, senderNewFracBal)
+	types.EmitEventFractionalBalanceChange(ctx, to, recipientFracBal, recipientNewFracBal)
 
 	return nil
 }
@@ -392,7 +411,7 @@ func (k Keeper) updateInsufficientFundsError(
 	}
 
 	// Check balance is sufficient
-	bal := k.GetBalance(ctx, addr, types.ExtendedCoinDenom())
+	bal := k.SpendableCoin(ctx, addr, types.ExtendedCoinDenom())
 	coin := sdk.NewCoin(types.ExtendedCoinDenom(), amt)
 
 	// TODO: This checks spendable coins and returns error with spendable
@@ -407,4 +426,73 @@ func (k Keeper) updateInsufficientFundsError(
 		"spendable balance %s is smaller than %s",
 		spendable, coin,
 	)
+}
+
+// Send is a forked Send from the Cosmos SDK x/bank MsgServer, minus the BaseKeeper type validation.
+// ref: https://github.com/cosmos/cosmos-sdk/blob/e265bb9b42308dc70743b6200a70db9aafb70527/x/bank/keeper/msg_server.go#L29
+func (k Keeper) Send(goCtx context.Context, msg *banktypes.MsgSend) (*banktypes.MsgSendResponse, error) {
+	var (
+		from, to []byte
+		err      error
+	)
+
+	from, err = k.ak.AddressCodec().StringToBytes(msg.FromAddress)
+	if err != nil {
+		return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid from address: %s", err)
+	}
+
+	to, err = k.ak.AddressCodec().StringToBytes(msg.ToAddress)
+	if err != nil {
+		return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid to address: %s", err)
+	}
+
+	if !msg.Amount.IsValid() {
+		return nil, errorsmod.Wrap(sdkerrors.ErrInvalidCoins, msg.Amount.String())
+	}
+
+	if !msg.Amount.IsAllPositive() {
+		return nil, errorsmod.Wrap(sdkerrors.ErrInvalidCoins, msg.Amount.String())
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := k.IsSendEnabledCoins(ctx, msg.Amount...); err != nil {
+		return nil, err
+	}
+
+	if k.BlockedAddr(to) {
+		return nil, errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", msg.ToAddress)
+	}
+
+	err = k.SendCoins(ctx, from, to, msg.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		for _, a := range msg.Amount {
+			if a.Amount.IsInt64() {
+				telemetry.SetGaugeWithLabels(
+					[]string{"tx", "msg", "send"},
+					float32(a.Amount.Int64()),
+					[]metrics.Label{telemetry.NewLabel("denom", a.Denom)},
+				)
+			}
+		}
+	}()
+
+	return &banktypes.MsgSendResponse{}, nil
+}
+
+// BANK KEEPER INTERFACE PASSTHROUGHS
+
+func (k Keeper) BlockedAddr(addr sdk.AccAddress) bool {
+	return k.bk.BlockedAddr(addr)
+}
+
+func (k Keeper) GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool) {
+	return k.bk.GetDenomMetaData(ctx, denom)
+}
+
+func (k Keeper) SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata) {
+	k.bk.SetDenomMetaData(ctx, denomMetaData)
 }

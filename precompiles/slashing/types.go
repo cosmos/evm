@@ -8,6 +8,9 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
+	"cosmossdk.io/core/address"
+	"cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
@@ -16,11 +19,11 @@ import (
 // SigningInfo represents the signing info for a validator
 type SigningInfo struct {
 	ValidatorAddress    common.Address `abi:"validatorAddress"`
-	StartHeight         uint64         `abi:"startHeight"`
-	IndexOffset         uint64         `abi:"indexOffset"`
-	JailedUntil         uint64         `abi:"jailedUntil"`
+	StartHeight         int64          `abi:"startHeight"`
+	IndexOffset         int64          `abi:"indexOffset"`
+	JailedUntil         int64          `abi:"jailedUntil"`
 	Tombstoned          bool           `abi:"tombstoned"`
-	MissedBlocksCounter uint64         `abi:"missedBlocksCounter"`
+	MissedBlocksCounter int64          `abi:"missedBlocksCounter"`
 }
 
 // SigningInfoOutput represents the output of the signing info query
@@ -40,7 +43,7 @@ type SigningInfosInput struct {
 }
 
 // ParseSigningInfoArgs parses the arguments for the signing info query
-func ParseSigningInfoArgs(args []interface{}) (*slashingtypes.QuerySigningInfoRequest, error) {
+func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashingtypes.QuerySigningInfoRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -50,8 +53,13 @@ func ParseSigningInfoArgs(args []interface{}) (*slashingtypes.QuerySigningInfoRe
 		return nil, fmt.Errorf("invalid consensus address")
 	}
 
+	consAddr, err := consCodec.BytesToString(hexAddr.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert consensus address: %w", err)
+	}
+
 	return &slashingtypes.QuerySigningInfoRequest{
-		ConsAddress: types.ConsAddress(hexAddr.Bytes()).String(),
+		ConsAddress: consAddr,
 	}, nil
 }
 
@@ -71,28 +79,37 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 	}, nil
 }
 
-func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) *SigningInfoOutput {
-	sio.SigningInfo = SigningInfo{
-		ValidatorAddress:    common.BytesToAddress([]byte(res.ValSigningInfo.Address)),
-		StartHeight:         uint64(res.ValSigningInfo.StartHeight),        //nolint:gosec // G115
-		IndexOffset:         uint64(res.ValSigningInfo.IndexOffset),        //nolint:gosec // G115
-		JailedUntil:         uint64(res.ValSigningInfo.JailedUntil.Unix()), //nolint:gosec // G115
-		Tombstoned:          res.ValSigningInfo.Tombstoned,
-		MissedBlocksCounter: uint64(res.ValSigningInfo.MissedBlocksCounter), //nolint:gosec // G115
+func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) (*SigningInfoOutput, error) {
+	consAddr, err := types.ConsAddressFromBech32(res.ValSigningInfo.Address)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing consensus address: %w", err)
 	}
-	return sio
+
+	sio.SigningInfo = SigningInfo{
+		ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),
+		StartHeight:         res.ValSigningInfo.StartHeight,
+		IndexOffset:         res.ValSigningInfo.IndexOffset,
+		JailedUntil:         res.ValSigningInfo.JailedUntil.Unix(),
+		Tombstoned:          res.ValSigningInfo.Tombstoned,
+		MissedBlocksCounter: res.ValSigningInfo.MissedBlocksCounter,
+	}
+	return sio, nil
 }
 
-func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfosResponse) *SigningInfosOutput {
+func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfosResponse) (*SigningInfosOutput, error) {
 	sio.SigningInfos = make([]SigningInfo, len(res.Info))
 	for i, info := range res.Info {
+		consAddr, err := types.ConsAddressFromBech32(info.Address)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing consensus address: %w", err)
+		}
 		sio.SigningInfos[i] = SigningInfo{
-			ValidatorAddress:    common.BytesToAddress([]byte(info.Address)),
-			StartHeight:         uint64(info.StartHeight),        //nolint:gosec // G115
-			IndexOffset:         uint64(info.IndexOffset),        //nolint:gosec // G115
-			JailedUntil:         uint64(info.JailedUntil.Unix()), //nolint:gosec // G115
+			ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),
+			StartHeight:         info.StartHeight,
+			IndexOffset:         info.IndexOffset,
+			JailedUntil:         info.JailedUntil.Unix(),
 			Tombstoned:          info.Tombstoned,
-			MissedBlocksCounter: uint64(info.MissedBlocksCounter), //nolint:gosec // G115
+			MissedBlocksCounter: info.MissedBlocksCounter,
 		}
 	}
 	if res.Pagination != nil {
@@ -101,7 +118,7 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 			Total:   res.Pagination.Total,
 		}
 	}
-	return sio
+	return sio, nil
 }
 
 // ValidatorUnjailed defines the data structure for the ValidatorUnjailed event.
@@ -111,11 +128,11 @@ type ValidatorUnjailed struct {
 
 // Params defines the parameters for the slashing module
 type Params struct {
-	SignedBlocksWindow      uint64 `abi:"signedBlocksWindow"`
-	MinSignedPerWindow      string `abi:"minSignedPerWindow"`
-	DowntimeJailDuration    uint64 `abi:"downtimeJailDuration"`
-	SlashFractionDoubleSign string `abi:"slashFractionDoubleSign"`
-	SlashFractionDowntime   string `abi:"slashFractionDowntime"`
+	SignedBlocksWindow      int64   `abi:"signedBlocksWindow"`
+	MinSignedPerWindow      cmn.Dec `abi:"minSignedPerWindow"`
+	DowntimeJailDuration    int64   `abi:"downtimeJailDuration"`
+	SlashFractionDoubleSign cmn.Dec `abi:"slashFractionDoubleSign"`
+	SlashFractionDowntime   cmn.Dec `abi:"slashFractionDowntime"`
 }
 
 // ParamsOutput represents the output of the params query
@@ -125,11 +142,20 @@ type ParamsOutput struct {
 
 func (po *ParamsOutput) FromResponse(res *slashingtypes.QueryParamsResponse) *ParamsOutput {
 	po.Params = Params{
-		SignedBlocksWindow:      uint64(res.Params.SignedBlocksWindow), //nolint:gosec // G115
-		MinSignedPerWindow:      res.Params.MinSignedPerWindow.String(),
-		DowntimeJailDuration:    uint64(res.Params.DowntimeJailDuration.Seconds()),
-		SlashFractionDoubleSign: res.Params.SlashFractionDoubleSign.String(),
-		SlashFractionDowntime:   res.Params.SlashFractionDowntime.String(),
+		SignedBlocksWindow: res.Params.SignedBlocksWindow,
+		MinSignedPerWindow: cmn.Dec{
+			Value:     res.Params.MinSignedPerWindow.BigInt(),
+			Precision: math.LegacyPrecision,
+		},
+		DowntimeJailDuration: int64(res.Params.DowntimeJailDuration.Seconds()),
+		SlashFractionDoubleSign: cmn.Dec{
+			Value:     res.Params.SlashFractionDoubleSign.BigInt(),
+			Precision: math.LegacyPrecision,
+		},
+		SlashFractionDowntime: cmn.Dec{
+			Value:     res.Params.SlashFractionDowntime.BigInt(),
+			Precision: math.LegacyPrecision,
+		},
 	}
 	return po
 }

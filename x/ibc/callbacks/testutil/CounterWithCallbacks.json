@@ -1,0 +1,289 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CounterWithCallbacks",
+  "sourceName": "solidity/x/ibc/callbacks/testutil/CounterWithCallbacks.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "int256",
+          "name": "newValue",
+          "type": "int256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "CounterIncremented",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "string",
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "indexed": true,
+          "internalType": "string",
+          "name": "portId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "sequence",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "acknowledgement",
+          "type": "bytes"
+        }
+      ],
+      "name": "PacketAcknowledged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "string",
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "indexed": true,
+          "internalType": "string",
+          "name": "portId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "sequence",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "PacketTimedOut",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newBalance",
+          "type": "uint256"
+        }
+      ],
+      "name": "TokensDeposited",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "add",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "counter",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCounter",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "getTokenBalance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "portId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint64",
+          "name": "sequence",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "acknowledgement",
+          "type": "bytes"
+        }
+      ],
+      "name": "onPacketAcknowledgement",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "portId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint64",
+          "name": "sequence",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "onPacketTimeout",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "resetCounter",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "userTokenBalances",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60808060405234610016576105dd908161001c8239f35b600080fdfe6040608081526004908136101561001557600080fd5b600090813560e01c80631f8ee6031461034f57806339b4073a1461024c57806345f2d105146101e857806361bc221a146102305780638ada066e14610230578063c489744b146101e8578063dbdf7fce146101ce5763f5d82b6b1461007957600080fd5b346101ca57806003193601126101ca576100916104e0565b6024359060018060a01b03169180516323b872dd60e01b81523386820152306024820152826044820152602090818160648189895af180156101c057610185575b506100dd855461050c565b855533855260018152818520848652815281852080549084820180921161017257907f9d572f819ae4f4b4839dda54bcb4cc8d7c2f0a67807db864716b20eafb51535993929155855482519081527fea6fcea9210b4226b3bb7e55ffa18bf072036d64073f5553336ee9bef303c2f0823392a2338652600181528186208587528152818620549082519485528401523392a380f35b634e487b7160e01b875260118852602487fd5b8181813d83116101b9575b61019a8183610435565b810103126101b55751801515036101b157386100d2565b8480fd5b8580fd5b503d610190565b83513d88823e3d90fd5b5080fd5b82346101e557806003193601126101e55780805580f35b80fd5b50346101ca57806003193601126101ca57806020926102056104e0565b61020d6104f6565b6001600160a01b0391821683526001865283832091168252845220549051908152f35b50346101ca57816003193601126101ca57602091549051908152f35b50823461034b5760a036600319011261034b5767ffffffffffffffff9080358281116101b15761027f903690830161046d565b916024358181116101b557610297903690840161046d565b926102a06104c9565b90606435838111610347576102b8903690860161046d565b95608435918483116103435761032461030a6103046102fe7f42611285d4634f96d3f741584f4f896003f59253c3c7a40472cbf0053e726b5f996103319736910161046d565b93610562565b98610562565b988351968796168652606060208701526060860190610582565b9184830390850152610582565b0390a361033e815461050c565b815580f35b8880fd5b8780fd5b8280fd5b5082903461034b57608036600319011261034b5767ffffffffffffffff82358181116101b157610382903690850161046d565b6024358281116101b557610399903690860161046d565b916103a26104c9565b606435828111610347577f1e0d6d3f26f1ac738b3c50c77ac3e7931853b73d3c754eba1ec9ea2dfb0442c8936103f06103ea6103e46104079436908c0161046d565b92610562565b96610562565b968051948594168452806020850152830190610582565b0390a381549060001982019182136001166104225750815580f35b634e487b7160e01b835260119052602482fd5b90601f8019910116810190811067ffffffffffffffff82111761045757604052565b634e487b7160e01b600052604160045260246000fd5b81601f820112156104c45780359067ffffffffffffffff821161045757604051926104a2601f8401601f191660200185610435565b828452602083830101116104c457816000926020809301838601378301015290565b600080fd5b6044359067ffffffffffffffff821682036104c457565b600435906001600160a01b03821682036104c457565b602435906001600160a01b03821682036104c457565b906001820191600060018412911290801582169115161761052957565b634e487b7160e01b600052601160045260246000fd5b60005b8381106105525750506000910152565b8181015183820152602001610542565b61057a9060206040519282848094519384920161053f565b810103902090565b9060209161059b8151809281855285808601910161053f565b601f01601f191601019056fea2646970667358221220dbedd47e18fee307035f3e535245d5c88f15f8b2c71471301779b5234b00d88d64736f6c63430008140033",
+  "deployedBytecode": "0x6040608081526004908136101561001557600080fd5b600090813560e01c80631f8ee6031461034f57806339b4073a1461024c57806345f2d105146101e857806361bc221a146102305780638ada066e14610230578063c489744b146101e8578063dbdf7fce146101ce5763f5d82b6b1461007957600080fd5b346101ca57806003193601126101ca576100916104e0565b6024359060018060a01b03169180516323b872dd60e01b81523386820152306024820152826044820152602090818160648189895af180156101c057610185575b506100dd855461050c565b855533855260018152818520848652815281852080549084820180921161017257907f9d572f819ae4f4b4839dda54bcb4cc8d7c2f0a67807db864716b20eafb51535993929155855482519081527fea6fcea9210b4226b3bb7e55ffa18bf072036d64073f5553336ee9bef303c2f0823392a2338652600181528186208587528152818620549082519485528401523392a380f35b634e487b7160e01b875260118852602487fd5b8181813d83116101b9575b61019a8183610435565b810103126101b55751801515036101b157386100d2565b8480fd5b8580fd5b503d610190565b83513d88823e3d90fd5b5080fd5b82346101e557806003193601126101e55780805580f35b80fd5b50346101ca57806003193601126101ca57806020926102056104e0565b61020d6104f6565b6001600160a01b0391821683526001865283832091168252845220549051908152f35b50346101ca57816003193601126101ca57602091549051908152f35b50823461034b5760a036600319011261034b5767ffffffffffffffff9080358281116101b15761027f903690830161046d565b916024358181116101b557610297903690840161046d565b926102a06104c9565b90606435838111610347576102b8903690860161046d565b95608435918483116103435761032461030a6103046102fe7f42611285d4634f96d3f741584f4f896003f59253c3c7a40472cbf0053e726b5f996103319736910161046d565b93610562565b98610562565b988351968796168652606060208701526060860190610582565b9184830390850152610582565b0390a361033e815461050c565b815580f35b8880fd5b8780fd5b8280fd5b5082903461034b57608036600319011261034b5767ffffffffffffffff82358181116101b157610382903690850161046d565b6024358281116101b557610399903690860161046d565b916103a26104c9565b606435828111610347577f1e0d6d3f26f1ac738b3c50c77ac3e7931853b73d3c754eba1ec9ea2dfb0442c8936103f06103ea6103e46104079436908c0161046d565b92610562565b96610562565b968051948594168452806020850152830190610582565b0390a381549060001982019182136001166104225750815580f35b634e487b7160e01b835260119052602482fd5b90601f8019910116810190811067ffffffffffffffff82111761045757604052565b634e487b7160e01b600052604160045260246000fd5b81601f820112156104c45780359067ffffffffffffffff821161045757604051926104a2601f8401601f191660200185610435565b828452602083830101116104c457816000926020809301838601378301015290565b600080fd5b6044359067ffffffffffffffff821682036104c457565b600435906001600160a01b03821682036104c457565b602435906001600160a01b03821682036104c457565b906001820191600060018412911290801582169115161761052957565b634e487b7160e01b600052601160045260246000fd5b60005b8381106105525750506000910152565b8181015183820152602001610542565b61057a9060206040519282848094519384920161053f565b810103902090565b9060209161059b8151809281855285808601910161053f565b601f01601f191601019056fea2646970667358221220dbedd47e18fee307035f3e535245d5c88f15f8b2c71471301779b5234b00d88d64736f6c63430008140033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

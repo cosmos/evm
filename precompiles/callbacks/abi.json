@@ -1,0 +1,72 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICallbacks",
+  "sourceName": "solidity/precompiles/callbacks/ICallbacks.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "portId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint64",
+          "name": "sequence",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "acknowledgement",
+          "type": "bytes"
+        }
+      ],
+      "name": "onPacketAcknowledgement",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "portId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint64",
+          "name": "sequence",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "onPacketTimeout",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

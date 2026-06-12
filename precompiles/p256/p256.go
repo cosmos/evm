@@ -77,7 +77,9 @@ func (p *Precompile) Run(_ *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, e
 	// Verify the secp256r1 signature
 	if secp256r1.Verify(hash, r, s, x, y) {
 		// Signature is valid
-		return common.LeftPadBytes(common.Big1.Bytes(), 32), nil
+		result := make([]byte, 32)
+		common.Big1.FillBytes(result)
+		return result, nil
 	}
 
 	// Signature is invalid

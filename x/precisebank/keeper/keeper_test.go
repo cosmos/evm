@@ -3,11 +3,14 @@ package keeper_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	evmencoding "github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/testutil/integration/os/network"
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/precisebank/types/mocks"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
@@ -22,8 +25,8 @@ type testData struct {
 	ctx      sdk.Context
 	keeper   keeper.Keeper
 	storeKey *storetypes.KVStoreKey
-	bk       *mocks.MockBankKeeper
-	ak       *mocks.MockAccountKeeper
+	bk       *mocks.BankKeeper
+	ak       *mocks.AccountKeeper
 }
 
 // newMockedTestData creates a new testData instance with mocked bank and
@@ -34,16 +37,20 @@ func newMockedTestData(t *testing.T) testData {
 	storeKey := storetypes.NewKVStoreKey(types.ModuleName)
 	// Not required by module, but needs to be non-nil for context
 	tKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, tKey)
+	ctx := testutil.DefaultContext(storeKey, tKey) //nolint: staticcheck // this variable is used
 
-	bk := mocks.NewMockBankKeeper(t)
-	ak := mocks.NewMockAccountKeeper(t)
+	bk := mocks.NewBankKeeper(t)
+	ak := mocks.NewAccountKeeper(t)
 
-	nw := network.NewUnitTestNetwork(
-		network.WithChainID(testconstants.SixDecimalsChainID),
-	)
-	cdc := nw.App.AppCodec()
-	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
+	chainID := testconstants.SixDecimalsChainID.EVMChainID
+	cfg := evmencoding.MakeConfig(chainID)
+	cdc := cfg.Codec
+	k := keeper.NewKeeper(cdc, storeKey, bk, ak) //nolint: staticcheck // this variable is used
+	evmConfigurator := vmtypes.NewEVMConfigurator().
+		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
+	evmConfigurator.ResetTestConfig()
+	err := evmConfigurator.Configure()
+	require.NoError(t, err)
 
 	return testData{
 		ctx:      ctx,

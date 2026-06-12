@@ -3,12 +3,10 @@ package evm
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/params"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -23,37 +21,29 @@ func CanTransfer(
 	evmKeeper anteinterfaces.EVMKeeper,
 	msg core.Message,
 	baseFee *big.Int,
-	ethCfg *params.ChainConfig,
 	params evmtypes.Params,
 	isLondon bool,
 ) error {
-	if isLondon && msg.GasFeeCap().Cmp(baseFee) < 0 {
+	if isLondon && msg.GasFeeCap.Cmp(baseFee) < 0 {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFee,
 			"max fee per gas less than block base fee (%s < %s)",
-			msg.GasFeeCap(), baseFee,
+			msg.GasFeeCap, baseFee,
 		)
 	}
 
-	// NOTE: pass in an empty coinbase address and nil tracer as we don't need them for the check below
-	cfg := &statedb.EVMConfig{
-		ChainConfig: ethCfg,
-		Params:      params,
-		CoinBase:    common.Address{},
-		BaseFee:     baseFee,
-	}
-
-	stateDB := statedb.New(ctx, evmKeeper, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
-	evm := evmKeeper.NewEVM(ctx, msg, cfg, evmtypes.NewNoOpTracer(), stateDB)
-
 	// check that caller has enough balance to cover asset transfer for **topmost** call
 	// NOTE: here the gas consumed is from the context with the infinite gas meter
-	if msg.Value().Sign() > 0 && !evm.Context.CanTransfer(stateDB, msg.From(), msg.Value()) {
+	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
+	if err != nil {
+		return err
+	}
+	if msg.Value.Sign() > 0 && evmKeeper.GetAccount(ctx, msg.From).Balance.Cmp(convertedValue) < 0 {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFunds,
 			"failed to transfer %s from address %s using the EVM block context transfer function",
-			msg.Value(),
-			msg.From(),
+			msg.Value,
+			msg.From,
 		)
 	}
 

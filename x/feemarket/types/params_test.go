@@ -39,6 +39,21 @@ func (suite *ParamsTestSuite) TestParamsValidate() {
 			true,
 		},
 		{
+			"invalid: elasticity multiplier is zero",
+			NewParams(true, 7, 0, math.LegacyNewDec(2000000000), int64(100), DefaultMinGasPrice, DefaultMinGasMultiplier),
+			true,
+		},
+		{
+			"invalid: enable height negative",
+			NewParams(true, 7, 3, math.LegacyNewDec(2000000000), int64(-10), DefaultMinGasPrice, DefaultMinGasMultiplier),
+			true,
+		},
+		{
+			"invalid: base fee negative",
+			NewParams(true, 7, 3, math.LegacyNewDec(-2000000000), int64(100), DefaultMinGasPrice, DefaultMinGasMultiplier),
+			true,
+		},
+		{
 			"invalid: min gas price negative",
 			NewParams(true, 7, 3, math.LegacyNewDec(2000000000), int64(544435345345435345), math.LegacyNewDecFromInt(math.NewInt(-1)), DefaultMinGasMultiplier),
 			true,
@@ -72,37 +87,19 @@ func (suite *ParamsTestSuite) TestParamsValidate() {
 }
 
 func (suite *ParamsTestSuite) TestParamsValidatePriv() {
-	suite.Require().Error(validateBool(2))
-	suite.Require().NoError(validateBool(true))
-	suite.Require().Error(validateBaseFeeChangeDenominator(0))
-	suite.Require().Error(validateBaseFeeChangeDenominator(uint32(0)))
-	suite.Require().NoError(validateBaseFeeChangeDenominator(uint32(7)))
-	suite.Require().Error(validateElasticityMultiplier(""))
-	suite.Require().NoError(validateElasticityMultiplier(uint32(2)))
-	suite.Require().Error(validateBaseFee(""))
-	suite.Require().Error(validateBaseFee(int64(2000000000)))
-	suite.Require().Error(validateBaseFee(math.NewInt(-2000000000)))
-	suite.Require().NoError(validateBaseFee(math.NewInt(2000000000)))
-	suite.Require().Error(validateEnableHeight(""))
-	suite.Require().Error(validateEnableHeight(int64(-544435345345435345)))
-	suite.Require().NoError(validateEnableHeight(int64(544435345345435345)))
 	suite.Require().Error(validateMinGasPrice(math.LegacyDec{}))
 	suite.Require().Error(validateMinGasMultiplier(math.LegacyNewDec(-5)))
 	suite.Require().Error(validateMinGasMultiplier(math.LegacyDec{}))
-	suite.Require().Error(validateMinGasMultiplier(""))
 }
 
 func (suite *ParamsTestSuite) TestParamsValidateMinGasPrice() {
 	testCases := []struct {
 		name     string
-		value    interface{}
+		value    math.LegacyDec
 		expError bool
 	}{
 		{"default", DefaultParams().MinGasPrice, false},
 		{"valid", math.LegacyNewDecFromInt(math.NewInt(1)), false},
-		{"valid", math.LegacyNewDecFromInt(math.NewInt(1)), false},
-		{"invalid - wrong type - bool", false, true},
-		{"invalid - is nil", nil, true},
 		{"invalid - is negative", math.LegacyNewDecFromInt(math.NewInt(-1)), true},
 	}
 

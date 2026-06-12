@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/store/prefix"
@@ -55,7 +55,7 @@ func (k Keeper) TokenPair(c context.Context, req *types.QueryTokenPairRequest) (
 
 	// check if the token is a hex address, if not, check if it is a valid SDK
 	// denom
-	if err := cosmosevmtypes.ValidateAddress(req.Token); err != nil {
+	if err := utils.ValidateAddress(req.Token); err != nil {
 		if err := sdk.ValidateDenom(req.Token); err != nil {
 			return nil, status.Errorf(
 				codes.InvalidArgument,

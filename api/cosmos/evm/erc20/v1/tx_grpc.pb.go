@@ -44,7 +44,7 @@ type MsgClient interface {
 	// for the specified erc20 contract. The authority is hard-coded to the Cosmos
 	// SDK x/gov module account
 	RegisterERC20(ctx context.Context, in *MsgRegisterERC20, opts ...grpc.CallOption) (*MsgRegisterERC20Response, error)
-	// ToggleConversion defines a governance operation for enabling/disablen a
+	// ToggleConversion defines a governance operation for enabling/disabling a
 	// token pair conversion. The authority is hard-coded to the Cosmos SDK x/gov
 	// module account
 	ToggleConversion(ctx context.Context, in *MsgToggleConversion, opts ...grpc.CallOption) (*MsgToggleConversionResponse, error)
@@ -121,7 +121,7 @@ type MsgServer interface {
 	// for the specified erc20 contract. The authority is hard-coded to the Cosmos
 	// SDK x/gov module account
 	RegisterERC20(context.Context, *MsgRegisterERC20) (*MsgRegisterERC20Response, error)
-	// ToggleConversion defines a governance operation for enabling/disablen a
+	// ToggleConversion defines a governance operation for enabling/disabling a
 	// token pair conversion. The authority is hard-coded to the Cosmos SDK x/gov
 	// module account
 	ToggleConversion(context.Context, *MsgToggleConversion) (*MsgToggleConversionResponse, error)

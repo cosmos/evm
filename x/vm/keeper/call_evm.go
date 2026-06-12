@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/server/config"
@@ -25,6 +26,7 @@ func (k Keeper) CallEVM(
 	abi abi.ABI,
 	from, contract common.Address,
 	commit bool,
+	gasCap *big.Int,
 	method string,
 	args ...interface{},
 ) (*types.MsgEthereumTxResponse, error) {
@@ -36,9 +38,9 @@ func (k Keeper) CallEVM(
 		)
 	}
 
-	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit)
+	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit, gasCap)
 	if err != nil {
-		return nil, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
+		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
 	return resp, nil
 }
@@ -50,55 +52,42 @@ func (k Keeper) CallEVMWithData(
 	contract *common.Address,
 	data []byte,
 	commit bool,
+	gasCap *big.Int,
 ) (*types.MsgEthereumTxResponse, error) {
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	gasCap := config.DefaultGasCap
-	if commit {
-		args, err := json.Marshal(types.TransactionArgs{
-			From: &from,
-			To:   contract,
-			Data: (*hexutil.Bytes)(&data),
-		})
-		if err != nil {
-			return nil, errorsmod.Wrapf(errortypes.ErrJSONMarshal, "failed to marshal tx args: %s", err.Error())
-		}
-
-		gasRes, err := k.EstimateGasInternal(ctx, &types.EthCallRequest{
-			Args:   args,
-			GasCap: config.DefaultGasCap,
-		}, types.Internal)
-		if err != nil {
-			return nil, err
-		}
-		gasCap = gasRes.Gas
+	msg := core.Message{
+		From:       from,
+		To:         contract,
+		Nonce:      nonce,
+		Value:      big.NewInt(0),
+		GasLimit:   config.DefaultGasCap,
+		GasPrice:   big.NewInt(0),
+		GasTipCap:  big.NewInt(0),
+		GasFeeCap:  big.NewInt(0),
+		Data:       data,
+		AccessList: ethtypes.AccessList{},
 	}
 
-	msg := ethtypes.NewMessage(
-		from,
-		contract,
-		nonce,
-		big.NewInt(0), // amount
-		gasCap,        // gasLimit
-		big.NewInt(0), // gasFeeCap
-		big.NewInt(0), // gasTipCap
-		big.NewInt(0), // gasPrice
-		data,
-		ethtypes.AccessList{}, // AccessList
-		!commit,               // isFake
-	)
-
-	res, err := k.ApplyMessage(ctx, msg, types.NewNoOpTracer(), commit)
+	// Use a cache context so that a reverting EVM call does not corrupt the
+	// parent gas meter. On success we commit the cache and charge the actual
+	// gas used; on revert we discard the cache and leave the parent meter
+	// untouched (matching DerivedEVMCallWithData semantics).
+	tmpCtx, commitState := ctx.CacheContext()
+	res, err := k.ApplyMessage(tmpCtx, msg, nil, commit, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if res.Failed() {
-		return nil, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
+		return res, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
 	}
+
+	commitState()
+	ctx.GasMeter().ConsumeGas(res.GasUsed, "apply evm message")
 
 	return res, nil
 }
@@ -205,27 +194,28 @@ func (k Keeper) DerivedEVMCallWithData(
 		gasCap = gasLimit.Uint64()
 	}
 
-	msg := ethtypes.NewMessage(
-		from,
-		contract,
-		nonce,
-		value,         // amount
-		gasCap,        // gasLimit
-		big.NewInt(0), // gasFeeCap
-		big.NewInt(0), // gasTipCap
-		big.NewInt(0), // gasPrice
-		data,
-		ethtypes.AccessList{}, // AccessList
-		!commit,               // isFake
-	)
+	msg := core.Message{
+		From:              from,
+		To:                contract,
+		Nonce:             nonce,
+		Value:             value,
+		GasLimit:          gasCap,
+		GasFeeCap:         big.NewInt(0),
+		GasTipCap:         big.NewInt(0),
+		GasPrice:          big.NewInt(0),
+		Data:              data,
+		AccessList:        ethtypes.AccessList{},
+		SkipNonceChecks:   !commit,
+		SkipFromEOACheck:  !commit,
+	}
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
-		Nonce:     msg.Nonce(),
-		GasFeeCap: msg.GasFeeCap(),
-		GasTipCap: msg.GasTipCap(),
-		Gas:       msg.Gas(),
-		To:        msg.To(),
-		Value:     msg.Value(),
-		Data:      msg.Data(),
+		Nonce:     msg.Nonce,
+		GasFeeCap: msg.GasFeeCap,
+		GasTipCap: msg.GasTipCap,
+		Gas:       msg.GasLimit,
+		To:        msg.To,
+		Value:     msg.Value,
+		Data:      msg.Data,
 	})
 
 	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress))
@@ -239,7 +229,7 @@ func (k Keeper) DerivedEVMCallWithData(
 	// thus restricted to be used only inside `ApplyMessage`.
 	tmpCtx, commitState := ctx.CacheContext()
 
-	res, err := k.ApplyMessageWithConfig(tmpCtx, msg, nil, commit, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, msg, nil, commit, cfg, txConfig, true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +266,7 @@ func (k Keeper) DerivedEVMCallWithData(
 		}
 
 		// adding txData for more info in rpc methods in order to parse derived txs
-		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxData, hexutil.Encode(msg.Data())))
+		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxData, hexutil.Encode(msg.Data)))
 		// adding nonce for more info in rpc methods in order to parse derived txs
 		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxNonce, strconv.FormatUint(nonce, 10)))
 		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxGasLimit, strconv.FormatUint(gasCap, 10)))
@@ -320,7 +310,7 @@ func (k Keeper) DerivedEVMCallWithData(
 			logs := types.LogsToEthereum(res.Logs)
 			if len(logs) > 0 {
 				bloom := k.GetBlockBloomTransient(ctx)
-				bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.LogsBloom(logs)))
+				bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs}).Bytes()))
 				bloomReceipt := ethtypes.BytesToBloom(bloom.Bytes())
 				k.SetBlockBloomTransient(ctx, bloomReceipt.Big())
 				k.SetLogSizeTransient(ctx, (k.GetLogSizeTransient(ctx))+uint64(len(logs)))
@@ -335,6 +325,8 @@ func (k Keeper) DerivedEVMCallWithData(
 	if res.Failed() {
 		return res, errorsmod.Wrapf(types.ErrVMExecution, "%s: ret 0x%x", res.VmError, res.Ret)
 	}
+
+	ctx.GasMeter().ConsumeGas(res.GasUsed, "apply evm message")
 
 	return res, nil
 }

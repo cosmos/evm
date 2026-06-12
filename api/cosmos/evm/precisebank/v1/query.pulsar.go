@@ -1739,7 +1739,8 @@ func (x *QueryRemainderResponse) GetRemainder() *v1beta1.Coin {
 	return nil
 }
 
-// QueryFractionalBalanceRequest defines the request type for Query/FractionalBalance method.
+// QueryFractionalBalanceRequest defines the request type for
+// Query/FractionalBalance method.
 type QueryFractionalBalanceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1776,7 +1777,8 @@ func (x *QueryFractionalBalanceRequest) GetAddress() string {
 	return ""
 }
 
-// QueryFractionalBalanceResponse defines the response type for Query/FractionalBalance method.
+// QueryFractionalBalanceResponse defines the response type for
+// Query/FractionalBalance method.
 type QueryFractionalBalanceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

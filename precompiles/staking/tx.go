@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 const (
@@ -37,7 +35,6 @@ const (
 // CreateValidator performs create validator.
 func (p Precompile) CreateValidator(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -47,7 +44,7 @@ func (p Precompile) CreateValidator(
 	if err != nil {
 		return nil, err
 	}
-	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom)
+	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +59,23 @@ func (p Precompile) CreateValidator(
 		"value", msg.Value.Amount.String(),
 	)
 
-	// we won't allow calls from smart contracts
-	if contract.CallerAddress != origin {
+	msgSender := contract.Caller()
+
+	// We won't allow calls from smart contracts
+	// unless they are EIP-7702 delegated accounts
+	code := stateDB.GetCode(msgSender)
+	_, delegated := ethtypes.ParseDelegation(code)
+	if len(code) > 0 && !delegated {
+		// call by contract method
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
 
-	// we only allow the tx signer "origin" to create their own validator.
-	if origin != validatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), validatorHexAddr.String())
+	if msgSender != validatorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.CreateValidator(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.CreateValidator(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +93,6 @@ func (p Precompile) CreateValidator(
 // EditValidator performs edit validator.
 func (p Precompile) EditValidator(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -111,19 +111,23 @@ func (p Precompile) EditValidator(
 		"min_self_delegation", msg.MinSelfDelegation,
 	)
 
-	// we won't allow calls from smart contracts
-	if contract.CallerAddress != origin {
+	msgSender := contract.Caller()
+
+	// We won't allow calls from smart contracts
+	// unless they are EIP-7702 delegated accounts
+	code := stateDB.GetCode(msgSender)
+	_, delegated := ethtypes.ParseDelegation(code)
+	if len(code) > 0 && !delegated {
+		// call by contract method
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
 
-	// we only allow the tx signer "origin" to edit their own validator.
-	if origin != validatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOriginFromValidator, origin.String(), validatorHexAddr.String())
+	if msgSender != validatorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.EditValidator(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.EditValidator(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -138,7 +142,6 @@ func (p Precompile) EditValidator(
 // Delegate performs a delegation of coins from a delegator to a validator.
 func (p *Precompile) Delegate(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -148,7 +151,7 @@ func (p *Precompile) Delegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -164,30 +167,19 @@ func (p *Precompile) Delegate(
 		),
 	)
 
-	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.CallerAddress.String(), delegatorHexAddr.String())
+	msgSender := contract.Caller()
+	if msgSender != delegatorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.Delegate(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.Delegate(ctx, msg); err != nil {
 		return nil, err
 	}
 
 	// Emit the event for the delegate transaction
 	if err = p.EmitDelegateEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {
 		return nil, err
-	}
-
-	if contract.CallerAddress != origin && msg.Amount.Denom == evmtypes.GetEVMCoinDenom() {
-		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
-		// when calling the precompile from a smart contract
-		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-
-		// Need to scale the amount to 18 decimals for the EVM balance change entry
-		scaledAmt := evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.Amount.BigInt())
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delegatorHexAddr, scaledAmt, cmn.Sub))
 	}
 
 	return method.Outputs.Pack(true)
@@ -197,7 +189,6 @@ func (p *Precompile) Delegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) Undelegate(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -207,7 +198,7 @@ func (p Precompile) Undelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -223,14 +214,13 @@ func (p Precompile) Undelegate(
 		),
 	)
 
-	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.CallerAddress.String(), delegatorHexAddr.String())
+	msgSender := contract.Caller()
+	if msgSender != delegatorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	res, err := msgSrv.Undelegate(ctx, msg)
+	res, err := p.stakingMsgServer.Undelegate(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +238,6 @@ func (p Precompile) Undelegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) Redelegate(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -258,7 +247,7 @@ func (p Precompile) Redelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -275,13 +264,12 @@ func (p Precompile) Redelegate(
 		),
 	)
 
-	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, origin.String(), delegatorHexAddr.String())
+	msgSender := contract.Caller()
+	if msgSender != delegatorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	res, err := msgSrv.BeginRedelegate(ctx, msg)
+	res, err := p.stakingMsgServer.BeginRedelegate(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +286,6 @@ func (p Precompile) Redelegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) CancelUnbondingDelegation(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -308,7 +295,7 @@ func (p Precompile) CancelUnbondingDelegation(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom)
+	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -325,13 +312,12 @@ func (p Precompile) CancelUnbondingDelegation(
 		),
 	)
 
-	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), delegatorHexAddr.String())
+	msgSender := contract.Caller()
+	if msgSender != delegatorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.CancelUnbondingDelegation(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.CancelUnbondingDelegation(ctx, msg); err != nil {
 		return nil, err
 	}
 

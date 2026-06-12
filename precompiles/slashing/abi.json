@@ -23,29 +23,65 @@
         {
           "components": [
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "signedBlocksWindow",
-              "type": "uint64"
+              "type": "int64"
             },
             {
-              "internalType": "string",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "precision",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Dec",
               "name": "minSignedPerWindow",
-              "type": "string"
+              "type": "tuple"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "downtimeJailDuration",
-              "type": "uint64"
+              "type": "int64"
             },
             {
-              "internalType": "string",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "precision",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Dec",
               "name": "slashFractionDoubleSign",
-              "type": "string"
+              "type": "tuple"
             },
             {
-              "internalType": "string",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "precision",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Dec",
               "name": "slashFractionDowntime",
-              "type": "string"
+              "type": "tuple"
             }
           ],
           "internalType": "struct Params",
@@ -74,19 +110,19 @@
               "type": "address"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "startHeight",
-              "type": "uint64"
+              "type": "int64"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "indexOffset",
-              "type": "uint64"
+              "type": "int64"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "jailedUntil",
-              "type": "uint64"
+              "type": "int64"
             },
             {
               "internalType": "bool",
@@ -94,9 +130,9 @@
               "type": "bool"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "missedBlocksCounter",
-              "type": "uint64"
+              "type": "int64"
             }
           ],
           "internalType": "struct SigningInfo",
@@ -152,19 +188,19 @@
               "type": "address"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "startHeight",
-              "type": "uint64"
+              "type": "int64"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "indexOffset",
-              "type": "uint64"
+              "type": "int64"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "jailedUntil",
-              "type": "uint64"
+              "type": "int64"
             },
             {
               "internalType": "bool",
@@ -172,9 +208,9 @@
               "type": "bool"
             },
             {
-              "internalType": "uint64",
+              "internalType": "int64",
               "name": "missedBlocksCounter",
-              "type": "uint64"
+              "type": "int64"
             }
           ],
           "internalType": "struct SigningInfo[]",

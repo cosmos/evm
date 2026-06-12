@@ -6,10 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	"github.com/cosmos/evm"
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/ethereum/eip712"
-	exampleapp "github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -23,6 +22,7 @@ import (
 
 type EIP712TxArgs struct {
 	CosmosTxArgs       CosmosTxArgs
+	EVMChainID         uint64
 	UseLegacyTypedData bool
 }
 
@@ -44,12 +44,12 @@ type signatureV2Args struct {
 // It returns the signed transaction and an error
 func CreateEIP712CosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args EIP712TxArgs,
 ) (sdk.Tx, error) {
 	builder, err := PrepareEIP712CosmosTx(
 		ctx,
-		exampleApp,
+		evmApp,
 		args,
 	)
 	return builder.GetTx(), err
@@ -60,21 +60,15 @@ func CreateEIP712CosmosTx(
 // It returns the tx builder with the signed transaction and an error
 func PrepareEIP712CosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args EIP712TxArgs,
 ) (client.TxBuilder, error) {
 	txArgs := args.CosmosTxArgs
 
-	pc, err := types.ParseChainID(txArgs.ChainID)
-	if err != nil {
-		return nil, err
-	}
-	chainIDNum := pc.Uint64()
-
 	from := sdk.AccAddress(txArgs.Priv.PubKey().Address().Bytes())
-	accNumber := exampleApp.AccountKeeper.GetAccount(ctx, from).GetAccountNumber()
+	accNumber := evmApp.GetAccountKeeper().GetAccount(ctx, from).GetAccountNumber()
 
-	nonce, err := exampleApp.AccountKeeper.GetSequence(ctx, from)
+	nonce, err := evmApp.GetAccountKeeper().GetSequence(ctx, from)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +80,7 @@ func PrepareEIP712CosmosTx(
 	data := legacytx.StdSignBytes(ctx.ChainID(), accNumber, nonce, 0, fee, msgs, "")
 
 	typedDataArgs := typedDataArgs{
-		chainID:        chainIDNum,
+		chainID:        args.EVMChainID,
 		data:           data,
 		legacyFeePayer: from,
 		legacyMsg:      msgs[0],
@@ -112,7 +106,7 @@ func PrepareEIP712CosmosTx(
 
 	return signCosmosEIP712Tx(
 		ctx,
-		exampleApp,
+		evmApp,
 		args,
 		builder,
 		typedData,
@@ -123,7 +117,7 @@ func PrepareEIP712CosmosTx(
 // the provided private key and the typed data
 func signCosmosEIP712Tx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args EIP712TxArgs,
 	builder authtx.ExtensionOptionsTxBuilder,
 	data apitypes.TypedData,
@@ -131,7 +125,7 @@ func signCosmosEIP712Tx(
 	priv := args.CosmosTxArgs.Priv
 
 	from := sdk.AccAddress(priv.PubKey().Address().Bytes())
-	nonce, err := exampleApp.AccountKeeper.GetSequence(ctx, from)
+	nonce, err := evmApp.GetAccountKeeper().GetSequence(ctx, from)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +163,7 @@ func signCosmosEIP712Tx(
 func createTypedData(args typedDataArgs, useLegacy bool) (apitypes.TypedData, error) {
 	if useLegacy {
 		registry := codectypes.NewInterfaceRegistry()
-		types.RegisterInterfaces(registry)
+		eip712.RegisterInterfaces(registry)
 		cryptocodec.RegisterInterfaces(registry)
 		evmCodec := codec.NewProtoCodec(registry)
 

@@ -1,14 +1,19 @@
 package keeper
 
 import (
+	"encoding/binary"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/params"
+	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
+	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
@@ -37,6 +42,9 @@ type Keeper struct {
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey
 
+	// KVStore Keys for modules wired to app
+	storeKeys map[string]*storetypes.KVStoreKey
+
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
 
@@ -51,8 +59,13 @@ type Keeper struct {
 	stakingKeeper types.StakingKeeper
 	// fetch EIP1559 base fee and parameters
 	feeMarketWrapper *wrappers.FeeMarketWrapper
-	// erc20Keeper interface needed to instantiate erc20 precompiles
+	// optional erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
+	// consensusKeeper is used to get consensus params during query contexts.
+	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
+	// grpc query router. This query router builds a context WITHOUT consensus params, so we manually supply the context
+	// with consensus params when not set in context.
+	consensusKeeper types.ConsensusParamsKeeper
 
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
@@ -64,18 +77,29 @@ type Keeper struct {
 	// Some of these precompiled contracts might not be active depending on the EVM
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
+
+	// evmMempool is the custom EVM appside mempool
+	// if it is nil, the default comet mempool will be used
+	evmMempool *evmmempool.ExperimentalEVMMempool
+
+	// defaultEvmCoinInfo is the default EVM coin info used when evmCoinInfo is not initialized in the state,
+	// mainly for historical queries.
+	defaultEvmCoinInfo types.EvmCoinInfo
 }
 
 // NewKeeper generates new evm module keeper
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey, transientKey storetypes.StoreKey,
+	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
 	sk types.StakingKeeper,
 	fmk types.FeeMarketKeeper,
+	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
+	evmChainID uint64,
 	tracer string,
 ) *Keeper {
 	// ensure evm module account is set
@@ -91,6 +115,12 @@ func NewKeeper(
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
+	// set global chain config
+	ethCfg := types.DefaultChainConfig(evmChainID)
+	if err := types.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
+
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
 		cdc:              cdc,
@@ -102,13 +132,22 @@ func NewKeeper(
 		storeKey:         storeKey,
 		transientKey:     transientKey,
 		tracer:           tracer,
+		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
+		storeKeys:        keys,
 	}
 }
 
 // Logger returns a module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", types.ModuleName)
+}
+
+// WithDefaultEvmCoinInfo set default EvmCoinInfo
+func (k *Keeper) WithDefaultEvmCoinInfo(coinInfo types.EvmCoinInfo) *Keeper {
+	k.defaultEvmCoinInfo = coinInfo
+	types.SetDefaultEvmCoinInfo(coinInfo)
+	return k
 }
 
 // ----------------------------------------------------------------------------
@@ -184,11 +223,21 @@ func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
 
 // PostTxProcessing delegates the call to the hooks.
 // If no hook has been registered, this function returns with a `nil` error
-func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (k *Keeper) PostTxProcessing(
+	ctx sdk.Context,
+	sender common.Address,
+	msg core.Message,
+	receipt *ethtypes.Receipt,
+) error {
 	if k.hooks == nil {
 		return nil
 	}
 	return k.hooks.PostTxProcessing(ctx, sender, msg, receipt)
+}
+
+// HasHooks returns true if hooks are set
+func (k *Keeper) HasHooks() bool {
+	return k.hooks != nil
 }
 
 // ----------------------------------------------------------------------------
@@ -229,8 +278,8 @@ func (k Keeper) GetAccountStorage(ctx sdk.Context, address common.Address) types
 // ----------------------------------------------------------------------------
 
 // Tracer return a default vm.Tracer based on current keeper state
-func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) vm.EVMLogger {
-	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight())
+func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *ethparams.ChainConfig) *tracing.Hooks {
+	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight(), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 }
 
 // GetAccountWithoutBalance load nonce and codehash without balance,
@@ -259,7 +308,7 @@ func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb
 
 	// empty account
 	return statedb.Account{
-		Balance:  new(big.Int),
+		Balance:  new(uint256.Int),
 		CodeHash: types.EmptyCodeHash,
 	}
 }
@@ -275,14 +324,34 @@ func (k *Keeper) GetNonce(ctx sdk.Context, addr common.Address) uint64 {
 	return acct.GetSequence()
 }
 
+// SpendableCoin load account's balance of gas token.
+func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
+}
+
 // GetBalance load account's balance of gas token.
-func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *big.Int {
+func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	return coin.Amount.BigInt()
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 // GetBaseFee returns current base fee, return values:
@@ -294,17 +363,13 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx)
+	coinInfo := k.GetEvmCoinInfo(ctx)
+	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)
 	}
 	return baseFee
-}
-
-// GetMinGasMultiplier returns the MinGasMultiplier param from the fee market module
-func (k Keeper) GetMinGasMultiplier(ctx sdk.Context) math.LegacyDec {
-	return k.feeMarketWrapper.GetParams(ctx).MinGasMultiplier
 }
 
 // GetMinGasPrice returns the MinGasPrice param from the fee market module
@@ -340,4 +405,51 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 	}
 	k.SetTransientGasUsed(ctx, result)
 	return result, nil
+}
+
+// KVStoreKeys returns KVStore keys injected to keeper
+func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
+	return k.storeKeys
+}
+
+// SetEvmMempool sets the evm mempool
+func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.ExperimentalEVMMempool) {
+	k.evmMempool = evmMempool
+}
+
+// GetEvmMempool returns the evm mempool
+func (k Keeper) GetEvmMempool() *evmmempool.ExperimentalEVMMempool {
+	return k.evmMempool
+}
+
+// SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.
+func (k Keeper) SetHeaderHash(ctx sdk.Context) {
+	window := uint64(types.DefaultHistoryServeWindow)
+	params := k.GetParams(ctx)
+	if params.HistoryServeWindow > 0 {
+		window = params.HistoryServeWindow
+	}
+
+	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
+	if acct != nil && k.IsContract(ctx, ethparams.HistoryStorageAddress) {
+		// set current block hash in the contract storage, compatible with EIP-2935
+		ringIndex := uint64(ctx.BlockHeight()) % window //nolint:gosec // G115 // won't exceed uint64
+		var key common.Hash
+		binary.BigEndian.PutUint64(key[24:], ringIndex)
+		k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
+	}
+}
+
+// GetHeaderHash sets block hash into EIP-2935 compatible storage contract.
+func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
+	window := uint64(types.DefaultHistoryServeWindow)
+	params := k.GetParams(ctx)
+	if params.HistoryServeWindow > 0 {
+		window = params.HistoryServeWindow
+	}
+
+	ringIndex := height % window
+	var key common.Hash
+	binary.BigEndian.PutUint64(key[24:], ringIndex)
+	return k.GetState(ctx, ethparams.HistoryStorageAddress, key)
 }

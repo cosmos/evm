@@ -4,7 +4,8 @@ import (
 	"math/big"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/ante/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -19,16 +20,19 @@ import (
 type GasWantedDecorator struct {
 	evmKeeper       anteinterfaces.EVMKeeper
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper
+	feemarketParams *feemarkettypes.Params
 }
 
 // NewGasWantedDecorator creates a new NewGasWantedDecorator
 func NewGasWantedDecorator(
 	evmKeeper anteinterfaces.EVMKeeper,
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper,
+	feemarketParams *feemarkettypes.Params,
 ) GasWantedDecorator {
 	return GasWantedDecorator{
 		evmKeeper,
 		feeMarketKeeper,
+		feemarketParams,
 	}
 }
 
@@ -38,14 +42,14 @@ func (gwd GasWantedDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 	blockHeight := big.NewInt(ctx.BlockHeight())
 	isLondon := ethCfg.IsLondon(blockHeight)
 
-	if err := CheckGasWanted(ctx, gwd.feeMarketKeeper, tx, isLondon); err != nil {
+	if err := CheckGasWanted(ctx, gwd.feeMarketKeeper, tx, isLondon, gwd.feemarketParams); err != nil {
 		return ctx, err
 	}
 
 	return next(ctx, tx, simulate)
 }
 
-func CheckGasWanted(ctx sdk.Context, feeMarketKeeper anteinterfaces.FeeMarketKeeper, tx sdk.Tx, isLondon bool) error {
+func CheckGasWanted(ctx sdk.Context, feeMarketKeeper anteinterfaces.FeeMarketKeeper, tx sdk.Tx, isLondon bool, feemarketParams *feemarkettypes.Params) error {
 	if !isLondon {
 		return nil
 	}
@@ -68,8 +72,7 @@ func CheckGasWanted(ctx sdk.Context, feeMarketKeeper anteinterfaces.FeeMarketKee
 		)
 	}
 
-	isBaseFeeEnabled := feeMarketKeeper.GetBaseFeeEnabled(ctx)
-	if !isBaseFeeEnabled {
+	if !feemarketParams.IsBaseFeeEnabled(ctx.BlockHeight()) {
 		return nil
 	}
 

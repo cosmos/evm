@@ -5,15 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
-	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/testutil/constants"
 )
 
 func TestRequireSameTestDenom(t *testing.T) {
 	require.Equal(t,
 		constants.ExampleAttoDenom,
-		evmd.ExampleChainDenom,
+		config.ExampleChainDenom,
 		"test denoms should be the same across the repo",
 	)
 }
@@ -21,7 +20,7 @@ func TestRequireSameTestDenom(t *testing.T) {
 func TestRequireSameTestBech32Prefix(t *testing.T) {
 	require.Equal(t,
 		constants.ExampleBech32Prefix,
-		chainconfig.Bech32Prefix,
+		config.Bech32Prefix,
 		"bech32 prefixes should be the same across the repo",
 	)
 }
@@ -29,7 +28,7 @@ func TestRequireSameTestBech32Prefix(t *testing.T) {
 func TestRequireSameWEVMOSMainnet(t *testing.T) {
 	require.Equal(t,
 		constants.WEVMOSContractMainnet,
-		evmd.WEVMOSContractMainnet,
+		config.WEVMOSContractMainnet,
 		"wevmos contract addresses should be the same across the repo",
 	)
 }

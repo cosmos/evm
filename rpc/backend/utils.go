@@ -1,15 +1,15 @@
 package backend
 
 import (
-	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,6 +19,8 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/utils"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -48,7 +50,7 @@ func (s sortGasAndReward) Less(i, j int) bool {
 // txs in order to compute and return the pending tx sequence.
 // Todo: include the ability to specify a blockNumber
 func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height int64, logger log.Logger) (uint64, error) {
-	queryClient := authtypes.NewQueryClient(b.clientCtx)
+	queryClient := authtypes.NewQueryClient(b.ClientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
 	ctx := types.ContextWithHeight(height)
 	res, err := queryClient.Account(ctx, &authtypes.QueryAccountRequest{Address: adr})
@@ -61,13 +63,19 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 		return 0, err
 	}
 	var acc sdk.AccountI
-	if err := b.clientCtx.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
+	if err := b.ClientCtx.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
 		return 0, err
 	}
 
 	nonce := acc.GetSequence()
 
 	if !pending {
+		return nonce, nil
+	}
+
+	// eip2681 - tx with nonce >= 2^64 is invalid; saturate at 2^64-1
+	// if already at max nonce, don't add to pending
+	if nonce == math.MaxUint64 {
 		return nonce, nil
 	}
 
@@ -89,12 +97,15 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 				break
 			}
 
-			sender, err := ethMsg.GetSender(b.chainID)
+			sender, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(b.EvmChainID))
 			if err != nil {
 				continue
 			}
 			if sender == accAddr {
-				nonce++
+				// saturate - never overflow beyond 2^64-1 when counting pending txs
+				if nonce < math.MaxUint64 {
+					nonce++
+				}
 			}
 		}
 	}
@@ -102,33 +113,37 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 	return nonce, nil
 }
 
-// output: targetOneFeeHistory
-func (b *Backend) processBlock(
-	tendermintBlock *cmtrpctypes.ResultBlock,
+// ProcessBlock processes a CometBFT block and calculates fee history data for eth_feeHistory RPC.
+// It extracts gas usage, base fees, and transaction reward percentiles from the block data.
+//
+// The function calculates:
+//   - Current block's base fee and next block's base fee (for EIP-1559)
+//   - Gas used ratio (gasUsed / gasLimit)
+//   - Transaction reward percentiles based on effective gas tip values
+//
+// Parameters:
+//   - cometBlock: The raw CometBFT block containing transaction data
+//   - ethBlock: Ethereum-formatted block with gas limit and usage information
+//   - rewardPercentiles: Percentile values (0-100) for reward calculation
+//   - cometBlockResult: Block execution results containing gas usage per transaction
+//   - targetOneFeeHistory: Output parameter to populate with calculated fee history data
+//
+// Returns an error if block processing fails due to invalid data types or calculation errors.
+func (b *Backend) ProcessBlock(
+	cometBlock *cmtrpctypes.ResultBlock,
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
-	tendermintBlockResult *cmtrpctypes.ResultBlockResults,
+	cometBlockResult *cmtrpctypes.ResultBlockResults,
 	targetOneFeeHistory *types.OneFeeHistory,
 ) error {
-	blockHeight := tendermintBlock.Block.Height
-	blockBaseFee, err := b.BaseFee(tendermintBlockResult)
-	if err != nil {
-		return err
-	}
-
-	// set basefee
-	targetOneFeeHistory.BaseFee = blockBaseFee
-	cfg := b.ChainConfig()
-	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		header, err := b.CurrentHeader()
-		if err != nil {
-			return err
-		}
-		targetOneFeeHistory.NextBaseFee = misc.CalcBaseFee(cfg, header)
+	blockHeight := cometBlock.Block.Height
+	blockBaseFee, err := b.BaseFee(cometBlockResult)
+	if err != nil || blockBaseFee == nil {
+		targetOneFeeHistory.BaseFee = big.NewInt(0)
 	} else {
-		targetOneFeeHistory.NextBaseFee = new(big.Int)
+		targetOneFeeHistory.BaseFee = blockBaseFee
 	}
-	// set gas used ratio
+	cfg := b.ChainConfig()
 	gasLimitUint64, ok := (*ethBlock)["gasLimit"].(hexutil.Uint64)
 	if !ok {
 		return fmt.Errorf("invalid gas limit type: %T", (*ethBlock)["gasLimit"])
@@ -138,16 +153,75 @@ func (b *Backend) processBlock(
 	if !ok {
 		return fmt.Errorf("invalid gas used type: %T", (*ethBlock)["gasUsed"])
 	}
+	gasUsedInt := gasUsedBig.ToInt()
 
-	gasusedfloat, _ := new(big.Float).SetInt(gasUsedBig.ToInt()).Float64()
+	timestampHex, ok := (*ethBlock)["timestamp"].(hexutil.Uint64)
+	if !ok {
+		return fmt.Errorf("invalid timestamp type: %T", (*ethBlock)["timestamp"])
+	}
 
+	header := ethtypes.Header{
+		Number:   new(big.Int).SetInt64(blockHeight),
+		GasLimit: uint64(gasLimitUint64),
+		GasUsed:  gasUsedInt.Uint64(),
+		Time:     uint64(timestampHex),
+	}
+	if baseFee, ok := (*ethBlock)["baseFeePerGas"].(*hexutil.Big); ok && baseFee != nil {
+		header.BaseFee = baseFee.ToInt()
+	} else {
+		header.BaseFee = big.NewInt(0)
+	}
+	targetOneFeeHistory.BlobBaseFee = big.NewInt(0)
+	targetOneFeeHistory.NextBlobBaseFee = big.NewInt(0)
+	targetOneFeeHistory.BlobGasUsedRatio = 0
+
+	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
+		ctx := types.ContextWithHeight(blockHeight)
+		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
+		if err != nil {
+			return err
+		}
+		nextBaseFee, err := types.CalcBaseFee(cfg, &header, params.Params)
+		if err != nil {
+			return err
+		}
+		targetOneFeeHistory.NextBaseFee = nextBaseFee
+	} else {
+		targetOneFeeHistory.NextBaseFee = new(big.Int)
+	}
+	if cfg.IsCancun(header.Number, header.Time) {
+		blobGasUsed := uint64(0)
+		if val, ok := (*ethBlock)["blobGasUsed"].(hexutil.Uint64); ok {
+			blobGasUsed = uint64(val)
+		}
+		excessBlobGas := uint64(0)
+		if val, ok := (*ethBlock)["excessBlobGas"].(hexutil.Uint64); ok {
+			excessBlobGas = uint64(val)
+		}
+		header.BlobGasUsed = new(uint64)
+		*header.BlobGasUsed = blobGasUsed
+		header.ExcessBlobGas = new(uint64)
+		*header.ExcessBlobGas = excessBlobGas
+
+		targetOneFeeHistory.BlobBaseFee = eip4844.CalcBlobFee(cfg, &header)
+		nextExcess := eip4844.CalcExcessBlobGas(cfg, &header, header.Time)
+		nextHeader := &ethtypes.Header{
+			Number:        header.Number,
+			Time:          header.Time,
+			ExcessBlobGas: &nextExcess,
+		}
+		targetOneFeeHistory.NextBlobBaseFee = eip4844.CalcBlobFee(cfg, nextHeader)
+
+		maxBlobGas := eip4844.MaxBlobGasPerBlock(cfg, header.Time)
+		targetOneFeeHistory.BlobGasUsedRatio = safeRatio(blobGasUsed, maxBlobGas)
+	}
 	if gasLimitUint64 <= 0 {
 		return fmt.Errorf("gasLimit of block height %d should be bigger than 0 , current gaslimit %d", blockHeight, gasLimitUint64)
 	}
 
-	gasUsedRatio := gasusedfloat / float64(gasLimitUint64)
-	blockGasUsed := gasusedfloat
-	targetOneFeeHistory.GasUsedRatio = gasUsedRatio
+	gasUsedUint64 := gasUsedInt.Uint64()
+	targetOneFeeHistory.GasUsedRatio = safeRatio(gasUsedUint64, uint64(gasLimitUint64))
+	blockGasUsed := float64(gasUsedUint64)
 
 	rewardCount := len(rewardPercentiles)
 	targetOneFeeHistory.Reward = make([]*big.Int, rewardCount)
@@ -155,31 +229,34 @@ func (b *Backend) processBlock(
 		targetOneFeeHistory.Reward[i] = big.NewInt(0)
 	}
 
-	// check tendermintTxs
-	tendermintTxs := tendermintBlock.Block.Txs
-	tendermintTxResults := tendermintBlockResult.TxsResults
-	tendermintTxCount := len(tendermintTxs)
+	// check cometTxs
+	cometTxs := cometBlock.Block.Txs
+	cometTxResults := cometBlockResult.TxsResults
+	CometTxCount := len(cometTxs)
 
 	var sorter sortGasAndReward
 
-	for i := 0; i < tendermintTxCount; i++ {
-		eachTendermintTx := tendermintTxs[i]
-		eachTendermintTxResult := tendermintTxResults[i]
+	for i := 0; i < CometTxCount; i++ {
+		cometTx := cometTxs[i]
+		cometTxResult := cometTxResults[i]
 
-		tx, err := b.clientCtx.TxConfig.TxDecoder()(eachTendermintTx)
+		tx, err := b.ClientCtx.TxConfig.TxDecoder()(cometTx)
 		if err != nil {
-			b.logger.Debug("failed to decode transaction in block", "height", blockHeight, "error", err.Error())
+			b.Logger.Debug("failed to decode transaction in block", "height", blockHeight, "error", err.Error())
 			continue
 		}
-		txGasUsed := uint64(eachTendermintTxResult.GasUsed) // #nosec G115
+		txGasUsed := uint64(cometTxResult.GasUsed) // #nosec G115
 		for _, msg := range tx.GetMsgs() {
 			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
 			if !ok {
 				continue
 			}
 			tx := ethMsg.AsTransaction()
-			reward := tx.EffectiveGasTipValue(blockBaseFee)
-			if reward == nil {
+			reward, err := tx.EffectiveGasTip(blockBaseFee)
+			if err != nil {
+				b.Logger.Error("failed to calculate effective gas tip", "height", blockHeight, "error", err.Error())
+			}
+			if reward == nil || reward.Sign() < 0 {
 				reward = big.NewInt(0)
 			}
 			sorter = append(sorter, txGasAndReward{gasUsed: txGasUsed, reward: reward})
@@ -198,7 +275,7 @@ func (b *Backend) processBlock(
 	sumGasUsed := sorter[0].gasUsed
 
 	for i, p := range rewardPercentiles {
-		thresholdGasUsed := uint64(blockGasUsed * p / 100) // #nosec G115
+		thresholdGasUsed := uint64(blockGasUsed * p / 100)
 		for sumGasUsed < thresholdGasUsed && txIndex < ethTxCount-1 {
 			txIndex++
 			sumGasUsed += sorter[txIndex].gasUsed
@@ -209,58 +286,16 @@ func (b *Backend) processBlock(
 	return nil
 }
 
-// AllTxLogsFromEvents parses all ethereum logs from cosmos events
-func AllTxLogsFromEvents(events []abci.Event) ([][]*ethtypes.Log, error) {
-	allLogs := make([][]*ethtypes.Log, 0, 4)
-	for _, event := range events {
-		if event.Type != evmtypes.EventTypeTxLog {
-			continue
-		}
-
-		logs, err := ParseTxLogsFromEvent(event)
-		if err != nil {
-			return nil, err
-		}
-
-		allLogs = append(allLogs, logs)
+func safeRatio(num, denom uint64) float64 {
+	if denom == 0 || num == 0 {
+		return 0
 	}
-	return allLogs, nil
-}
-
-// TxLogsFromEvents parses ethereum logs from cosmos events for specific msg index
-func TxLogsFromEvents(events []abci.Event, msgIndex int) ([]*ethtypes.Log, error) {
-	for _, event := range events {
-		if event.Type != evmtypes.EventTypeTxLog {
-			continue
-		}
-
-		if msgIndex > 0 {
-			// not the eth tx we want
-			msgIndex--
-			continue
-		}
-
-		return ParseTxLogsFromEvent(event)
-	}
-	return nil, fmt.Errorf("eth tx logs not found for message index %d", msgIndex)
-}
-
-// ParseTxLogsFromEvent parse tx logs from one event
-func ParseTxLogsFromEvent(event abci.Event) ([]*ethtypes.Log, error) {
-	logs := make([]*evmtypes.Log, 0, len(event.Attributes))
-	for _, attr := range event.Attributes {
-		if attr.Key != evmtypes.AttributeKeyTxLog {
-			continue
-		}
-
-		var txLog evmtypes.Log
-		if err := json.Unmarshal([]byte(attr.Value), &txLog); err != nil {
-			return nil, err
-		}
-
-		logs = append(logs, &txLog)
-	}
-	return evmtypes.LogsToEthereum(logs), nil
+	rat := new(big.Rat).SetFrac(
+		new(big.Int).SetUint64(num),
+		new(big.Int).SetUint64(denom),
+	)
+	value, _ := rat.Float64()
+	return value
 }
 
 // ShouldIgnoreGasUsed returns true if the gasUsed in result should be ignored
@@ -269,16 +304,19 @@ func ShouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
 	return res.GetCode() == 11 && strings.Contains(res.GetLog(), "no block gas left to run tx: out of gas")
 }
 
-// GetLogsFromBlockResults returns the list of event logs from the tendermint block result response
+// GetLogsFromBlockResults returns the list of event logs from the CometBFT block result response
 func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*ethtypes.Log, error) {
+	height, err := utils.SafeUint64(blockRes.Height)
+	if err != nil {
+		return nil, err
+	}
 	blockLogs := [][]*ethtypes.Log{}
 	for _, txResult := range blockRes.TxsResults {
-		logs, err := AllTxLogsFromEvents(txResult.Events)
+		logs, err := evmtypes.DecodeTxLogs(txResult.Data, height)
 		if err != nil {
 			return nil, err
 		}
-
-		blockLogs = append(blockLogs, logs...)
+		blockLogs = append(blockLogs, logs)
 	}
 	return blockLogs, nil
 }

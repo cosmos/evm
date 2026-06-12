@@ -57,8 +57,8 @@ func (Owner) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_1164958b5b106e92, []int{0}
 }
 
-// TokenPair defines an instance that records a pairing consisting of a native
-// Cosmos Coin and an ERC20 token address.
+// TokenPair defines an instance that records a pairing (mapping) consisting of a native
+// Cosmos Coin and an ERC20 token address. The "pair" does not imply an asset swap exchange.
 type TokenPair struct {
 	// erc20_address is the hex address of ERC20 contract token
 	Erc20Address string `protobuf:"bytes,1,opt,name=erc20_address,json=erc20Address,proto3" json:"erc20_address,omitempty"`

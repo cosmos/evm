@@ -2,6 +2,7 @@ package staking
 
 import (
 	"embed"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,54 +11,65 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
 
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-//
-//go:embed abi.json
-var f embed.FS
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   embed.FS
+	ABI abi.ABI
+)
+
+func init() {
+	var err error
+	ABI, err = cmn.LoadABI(f, "abi.json")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Precompile defines the precompiled contract for staking.
 type Precompile struct {
 	cmn.Precompile
-	stakingKeeper stakingkeeper.Keeper
-}
 
-// LoadABI loads the staking ABI from the embedded abi.json file
-// for the staking precompile.
-func LoadABI() (abi.ABI, error) {
-	return cmn.LoadABI(f, "abi.json")
+	abi.ABI
+	stakingKeeper    cmn.StakingKeeper
+	stakingMsgServer stakingtypes.MsgServer
+	stakingQuerier   stakingtypes.QueryServer
+	addrCdc          address.Codec
 }
 
 // NewPrecompile creates a new staking Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
-	stakingKeeper stakingkeeper.Keeper,
-) (*Precompile, error) {
-	abi, err := LoadABI()
-	if err != nil {
-		return nil, err
-	}
-
-	p := &Precompile{
+	stakingKeeper cmn.StakingKeeper,
+	stakingMsgServer stakingtypes.MsgServer,
+	stakingQuerier stakingtypes.QueryServer,
+	bankKeeper cmn.BankKeeper,
+	addrCdc address.Codec,
+) *Precompile {
+	return &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  abi,
-			KvGasConfig:          storetypes.KVGasConfig(),
-			TransientKVGasConfig: storetypes.TransientGasConfig(),
+			KvGasConfig:           storetypes.KVGasConfig(),
+			TransientKVGasConfig:  storetypes.TransientGasConfig(),
+			ContractAddress:       common.HexToAddress(evmtypes.StakingPrecompileAddress),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
-		stakingKeeper: stakingKeeper,
+		ABI:              ABI,
+		stakingKeeper:    stakingKeeper,
+		stakingMsgServer: stakingMsgServer,
+		stakingQuerier:   stakingQuerier,
+		addrCdc:          addrCdc,
 	}
-	// SetAddress defines the address of the staking precompiled contract.
-	p.SetAddress(common.HexToAddress(evmtypes.StakingPrecompileAddress))
-
-	return p, nil
 }
 
 // RequiredGas returns the required bare minimum gas to execute the precompile.
@@ -78,63 +90,52 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
 }
 
-// Run executes the precompiled contract staking methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
+	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
+		return p.Execute(ctx, evm.StateDB, contract, readonly)
+	})
+}
+
+func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
+	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
-	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	var bz []byte
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		switch method.Name {
-		// Staking transactions
-		case CreateValidatorMethod:
-			bz, err = p.CreateValidator(ctx, evm.Origin, contract, stateDB, method, args)
-		case EditValidatorMethod:
-			bz, err = p.EditValidator(ctx, evm.Origin, contract, stateDB, method, args)
-		case DelegateMethod:
-			bz, err = p.Delegate(ctx, evm.Origin, contract, stateDB, method, args)
-		case UndelegateMethod:
-			bz, err = p.Undelegate(ctx, evm.Origin, contract, stateDB, method, args)
-		case RedelegateMethod:
-			bz, err = p.Redelegate(ctx, evm.Origin, contract, stateDB, method, args)
-		case CancelUnbondingDelegationMethod:
-			bz, err = p.CancelUnbondingDelegation(ctx, evm.Origin, contract, stateDB, method, args)
-		// Staking queries
-		case DelegationMethod:
-			bz, err = p.Delegation(ctx, contract, method, args)
-		case UnbondingDelegationMethod:
-			bz, err = p.UnbondingDelegation(ctx, contract, method, args)
-		case ValidatorMethod:
-			bz, err = p.Validator(ctx, method, contract, args)
-		case ValidatorsMethod:
-			bz, err = p.Validators(ctx, method, contract, args)
-		case RedelegationMethod:
-			bz, err = p.Redelegation(ctx, method, contract, args)
-		case RedelegationsMethod:
-			bz, err = p.Redelegations(ctx, method, contract, args)
-		}
+	switch method.Name {
+	// Staking transactions
+	case CreateValidatorMethod:
+		bz, err = p.CreateValidator(ctx, contract, stateDB, method, args)
+	case EditValidatorMethod:
+		bz, err = p.EditValidator(ctx, contract, stateDB, method, args)
+	case DelegateMethod:
+		bz, err = p.Delegate(ctx, contract, stateDB, method, args)
+	case UndelegateMethod:
+		bz, err = p.Undelegate(ctx, contract, stateDB, method, args)
+	case RedelegateMethod:
+		bz, err = p.Redelegate(ctx, contract, stateDB, method, args)
+	case CancelUnbondingDelegationMethod:
+		bz, err = p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
+	// Staking queries
+	case DelegationMethod:
+		bz, err = p.Delegation(ctx, contract, method, args)
+	case UnbondingDelegationMethod:
+		bz, err = p.UnbondingDelegation(ctx, contract, method, args)
+	case ValidatorMethod:
+		bz, err = p.Validator(ctx, method, contract, args)
+	case ValidatorsMethod:
+		bz, err = p.Validators(ctx, method, contract, args)
+	case RedelegationMethod:
+		bz, err = p.Redelegation(ctx, method, contract, args)
+	case RedelegationsMethod:
+		bz, err = p.Redelegations(ctx, method, contract, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
 
-		if err != nil {
-			return nil, err
-		}
-
-		cost := ctx.GasMeter().GasConsumed() - initialGas
-
-		if !contract.UseGas(cost) {
-			return nil, vm.ErrOutOfGas
-		}
-
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
-
-		return bz, nil
-	})
+	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

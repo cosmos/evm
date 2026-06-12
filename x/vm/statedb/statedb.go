@@ -3,14 +3,23 @@ package statedb
 import (
 	"errors"
 	"fmt"
-	"math/big"
+	"slices"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/stateless"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/trie/utils"
+	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
+	vmstoretypes "github.com/cosmos/evm/x/vm/store/types"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -25,6 +34,7 @@ import (
 type revision struct {
 	id           int
 	journalIndex int
+	events       sdk.Events
 }
 
 var _ vm.StateDB = &StateDB{}
@@ -42,6 +52,12 @@ type StateDB struct {
 	cacheCtx sdk.Context
 	// writeCache function contains all the changes related to precompile calls.
 	writeCache func()
+	// snapshotter is used for snapshot creation and revert
+	// this snapshot is used for precompile call
+	snapshotter vmstoretypes.Snapshotter
+
+	// Transient storage
+	transientStorage transientStorage
 
 	// Journal of state modifications. This is the backbone of
 	// Snapshot and RevertToSnapshot.
@@ -66,16 +82,81 @@ type StateDB struct {
 	precompileCallsCounter uint8
 }
 
+func (s *StateDB) CreateContract(address common.Address) {
+	obj := s.getStateObject(address)
+	if !obj.newContract {
+		obj.newContract = true
+		s.journal.append(createContractChange{
+			&address,
+		})
+	}
+}
+
+// GetStorageRoot calculates the hash of the trie root by iterating through all storage objects for a given account
+func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
+	sr := trie.NewStackTrie(nil)
+	s.keeper.ForEachStorage(s.ctx, addr, func(key, value common.Hash) bool {
+		if err := sr.Update(key.Bytes(), value.Bytes()); err != nil {
+			s.ctx.Logger().Error("failed adding state during storage root hash", "err", err.Error())
+			return false
+		}
+		return true
+	})
+	return sr.Hash()
+}
+
+func (s *StateDB) IsStorageEmpty(addr common.Address) bool {
+	empty := true
+	s.keeper.ForEachStorage(s.ctx, addr, func(key, value common.Hash) bool {
+		empty = false
+		return false
+	})
+	return empty
+}
+
+/*
+	PointCache, Witness, and AccessEvents are all utilized for verkle trees.
+	For now, we just return nil and verkle trees are not supported.
+*/
+
+func (s *StateDB) PointCache() *utils.PointCache {
+	return nil
+}
+
+func (s *StateDB) Witness() *stateless.Witness {
+	// TODO support verkle tries?
+	return nil
+}
+
+func (s *StateDB) AccessEvents() *state.AccessEvents {
+	return nil
+}
+
+func (s *StateDB) Finalise(deleteEmptyObjects bool) {
+	for addr := range s.journal.dirties {
+		obj, exist := s.stateObjects[addr]
+		if !exist {
+			continue
+		}
+		if obj.selfDestructed || (deleteEmptyObjects && obj.empty()) {
+			delete(s.stateObjects, obj.address)
+		}
+	}
+}
+
 // New creates a new state from a given trie.
 func New(ctx sdk.Context, keeper Keeper, txConfig TxConfig) *StateDB {
+	if ctx.EventManager() == nil {
+		ctx = ctx.WithEventManager(sdk.NewEventManager())
+	}
 	return &StateDB{
-		keeper:       keeper,
-		ctx:          ctx,
-		stateObjects: make(map[common.Address]*stateObject),
-		journal:      newJournal(),
-		accessList:   newAccessList(),
-
-		txConfig: txConfig,
+		keeper:           keeper,
+		ctx:              ctx,
+		stateObjects:     make(map[common.Address]*stateObject),
+		journal:          newJournal(),
+		accessList:       newAccessList(),
+		transientStorage: newTransientStorage(),
+		txConfig:         txConfig,
 	}
 }
 
@@ -100,29 +181,17 @@ func (s *StateDB) GetCacheContext() (sdk.Context, error) {
 	return s.cacheCtx, nil
 }
 
-// MultiStoreSnapshot returns a copy of the stateDB CacheMultiStore.
-func (s *StateDB) MultiStoreSnapshot() storetypes.CacheMultiStore {
-	if s.writeCache == nil {
-		err := s.cache()
-		if err != nil {
-			return s.ctx.MultiStore().CacheMultiStore()
-		}
-	}
-	// the cacheCtx multi store is already a CacheMultiStore
-	// so we need to pass a copy of the current state of it
-	cms := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore)
-	snapshot := cms.CacheMultiStore()
-
-	return snapshot
+// MultiStoreSnapshot snapshots stateDB CacheMultiStore
+// and returns snapshot index
+func (s *StateDB) MultiStoreSnapshot() int {
+	return s.snapshotter.Snapshot()
 }
 
-func (s *StateDB) RevertMultiStore(cms storetypes.CacheMultiStore, events sdk.Events) {
-	s.cacheCtx = s.cacheCtx.WithMultiStore(cms)
+func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
+	s.snapshotter.RevertToSnapshot(snapshot)
 	s.writeCache = func() {
-		// rollback the events to the ones
-		// on the snapshot
 		s.ctx.EventManager().EmitEvents(events)
-		cms.Write()
+		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}
 }
 
@@ -131,7 +200,21 @@ func (s *StateDB) cache() error {
 	if s.ctx.MultiStore() == nil {
 		return errors.New("ctx has no multi store")
 	}
-	s.cacheCtx, s.writeCache = s.ctx.CacheContext()
+	s.cacheCtx, _ = s.ctx.CacheContext()
+
+	// Get KVStores for modules wired to app
+	cms := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore)
+	storeKeys := s.keeper.KVStoreKeys()
+
+	// Create and set snapshot store to stateDB
+	snapshotStore := snapshotmulti.NewStore(cms, storeKeys)
+	s.snapshotter = snapshotStore
+	s.cacheCtx = s.cacheCtx.WithMultiStore(snapshotStore)
+	s.writeCache = func() {
+		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
+		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
+	}
+
 	return nil
 }
 
@@ -139,8 +222,6 @@ func (s *StateDB) cache() error {
 func (s *StateDB) AddLog(log *ethtypes.Log) {
 	s.journal.append(addLogChange{})
 
-	log.TxHash = s.txConfig.TxHash
-	log.BlockHash = s.txConfig.BlockHash
 	log.TxIndex = s.txConfig.TxIndex
 	log.Index = s.txConfig.LogIndex + uint(len(s.logs))
 	s.logs = append(s.logs, log)
@@ -168,7 +249,7 @@ func (s *StateDB) SubRefund(gas uint64) {
 }
 
 // Exist reports whether the given account address exists in the state.
-// Notably this also returns true for suicided accounts.
+// Notably this also returns true for self-destructed accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
 	return s.getStateObject(addr) != nil
 }
@@ -181,12 +262,12 @@ func (s *StateDB) Empty(addr common.Address) bool {
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
-func (s *StateDB) GetBalance(addr common.Address) *big.Int {
+func (s *StateDB) GetBalance(addr common.Address) *uint256.Int {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Balance()
 	}
-	return common.Big0
+	return common.U2560
 }
 
 // GetNonce returns the nonce of account, 0 if not exists.
@@ -244,18 +325,18 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	return common.Hash{}
 }
 
+// GetStateAndCommittedState returns the current value and the original value.
+func (s *StateDB) GetStateAndCommittedState(addr common.Address, hash common.Hash) (common.Hash, common.Hash) {
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.GetState(hash), stateObject.GetCommittedState(hash)
+	}
+	return common.Hash{}, common.Hash{}
+}
+
 // GetRefund returns the current value of the refund counter.
 func (s *StateDB) GetRefund() uint64 {
 	return s.refund
-}
-
-// HasSuicided returns if the contract is suicided in current transaction.
-func (s *StateDB) HasSuicided(addr common.Address) bool {
-	stateObject := s.getStateObject(addr)
-	if stateObject != nil {
-		return stateObject.suicided
-	}
-	return false
 }
 
 // AddPreimage records a SHA3 preimage seen by the VM.
@@ -355,12 +436,11 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // AddPrecompileFn adds a precompileCall journal entry
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
-func (s *StateDB) AddPrecompileFn(addr common.Address, cms storetypes.CacheMultiStore, events sdk.Events) error {
-	stateObject := s.getOrNewStateObject(addr)
-	if stateObject == nil {
-		return fmt.Errorf("could not add precompile call to address %s. State object not found", addr)
-	}
-	stateObject.AddPrecompileFn(cms, events)
+func (s *StateDB) AddPrecompileFn(snapshot int, events sdk.Events) error {
+	s.journal.append(precompileCallChange{
+		snapshot: snapshot,
+		events:   events,
+	})
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
 		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
@@ -369,23 +449,28 @@ func (s *StateDB) AddPrecompileFn(addr common.Address, cms storetypes.CacheMulti
 }
 
 // AddBalance adds amount to the account associated with addr.
-func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
+func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	stateObject := s.getOrNewStateObject(addr)
-	if stateObject != nil {
-		stateObject.AddBalance(amount)
+	if stateObject == nil {
+		return uint256.Int{}
 	}
+	return stateObject.AddBalance(amount)
 }
 
 // SubBalance subtracts amount from the account associated with addr.
-func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
+func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	stateObject := s.getOrNewStateObject(addr)
-	if stateObject != nil {
-		stateObject.SubBalance(amount)
+	if stateObject == nil {
+		return uint256.Int{}
 	}
+	if amount.IsZero() {
+		return *(stateObject.Balance())
+	}
+	return stateObject.SubBalance(amount)
 }
 
 // SetNonce sets the nonce of account.
-func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
+func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.NonceChangeReason) {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
@@ -393,66 +478,154 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
 }
 
 // SetCode sets the code of account.
-func (s *StateDB) SetCode(addr common.Address, code []byte) {
+func (s *StateDB) SetCode(addr common.Address, code []byte) []byte {
 	stateObject := s.getOrNewStateObject(addr)
+	var prev []byte
 	if stateObject != nil {
+		prev = slices.Clone(stateObject.code)
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
 	}
+	return prev
 }
 
 // SetState sets the contract state.
-func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
+func (s *StateDB) SetState(addr common.Address, key, value common.Hash) common.Hash {
+	if stateObject := s.getOrNewStateObject(addr); stateObject != nil {
+		return stateObject.SetState(key, value)
+	}
+	return common.Hash{}
+}
+
+// SetBalance sets the balance of account associated with addr to amount.
+func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetState(key, value)
+		stateObject.SetBalance(amount)
 	}
 }
 
-// Suicide marks the given account as suicided.
+// SetStorage replaces the entire storage for the specified account with given
+// storage. This function should only be used for debugging and the mutations
+// must be discarded afterwards.
+func (s *StateDB) SetStorage(addr common.Address, storage Storage) {
+	stateObject := s.getOrNewStateObject(addr)
+	stateObject.SetStorage(storage)
+}
+
+// SelfDestruct marks the given account as self-destructed.
 // This clears the account balance.
 //
 // The account's state object is still available until the state is committed,
-// getStateObject will return a non-nil account after Suicide.
-func (s *StateDB) Suicide(addr common.Address) bool {
+// getStateObject will return a non-nil account after SelfDestruct.
+func (s *StateDB) SelfDestruct(addr common.Address) uint256.Int {
 	stateObject := s.getStateObject(addr)
+	var prevBalance uint256.Int
 	if stateObject == nil {
-		return false
+		return prevBalance
 	}
-	s.journal.append(suicideChange{
+	prevBalance = *(stateObject.Balance())
+	s.journal.append(selfDestructChange{
 		account:     &addr,
-		prev:        stateObject.suicided,
-		prevbalance: new(big.Int).Set(stateObject.Balance()),
+		prev:        stateObject.selfDestructed,
+		prevbalance: new(uint256.Int).Set(stateObject.Balance()),
 	})
-	stateObject.markSuicided()
-	stateObject.account.Balance = new(big.Int)
-
-	return true
+	stateObject.markSelfDestructed()
+	stateObject.account.Balance = new(uint256.Int)
+	return prevBalance
 }
 
-// PrepareAccessList handles the preparatory steps for executing a state transition with
-// regards to both EIP-2929 and EIP-2930:
+func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
+	stateObject := s.getStateObject(addr)
+	if stateObject == nil {
+		return uint256.Int{}, false
+	}
+
+	if stateObject.newContract {
+		return s.SelfDestruct(addr), true
+	}
+	return *(stateObject.Balance()), false
+}
+
+// HasSelfDestructed returns if the contract is self-destructed in current transaction.
+func (s *StateDB) HasSelfDestructed(addr common.Address) bool {
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.selfDestructed
+	}
+	return false
+}
+
+// SetTransientState sets transient storage for a given account. It
+// adds the change to the journal so that it can be rolled back
+// to its previous value if there is a revert.
+func (s *StateDB) SetTransientState(addr common.Address, key, value common.Hash) {
+	prev := s.GetTransientState(addr, key)
+	if prev == value {
+		return
+	}
+	s.journal.append(transientStorageChange{
+		account:  &addr,
+		key:      key,
+		prevalue: prev,
+	})
+	s.setTransientState(addr, key, value)
+}
+
+// setTransientState is a lower level setter for transient storage. It
+// is called during a revert to prevent modifications to the journal.
+func (s *StateDB) setTransientState(addr common.Address, key, value common.Hash) {
+	s.transientStorage.Set(addr, key, value)
+}
+
+// GetTransientState gets transient storage for a given account.
+func (s *StateDB) GetTransientState(addr common.Address, key common.Hash) common.Hash {
+	return s.transientStorage.Get(addr, key)
+}
+
+// Prepare handles the preparatory steps for executing a state transition with.
+// This method must be invoked before state transition.
 //
+// Berlin fork:
 // - Add sender to access list (2929)
 // - Add destination to access list (2929)
 // - Add precompiles to access list (2929)
 // - Add the contents of the optional tx access list (2930)
 //
-// This method should only be called if Yolov3/Berlin/2929+2930 is applicable at the current number.
-func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list ethtypes.AccessList) {
-	s.AddAddressToAccessList(sender)
-	if dst != nil {
-		s.AddAddressToAccessList(*dst)
-		// If it's a create-tx, the destination will be added inside evm.create
+// Potential EIPs:
+// - Reset access list (Berlin)
+// - Add coinbase to access list (EIP-3651)
+// - Reset transient storage (EIP-1153)
+func (s *StateDB) Prepare(rules params.Rules, sender, coinbase common.Address, dst *common.Address,
+	precompiles []common.Address, list ethtypes.AccessList,
+) {
+	if rules.IsEIP2929 && rules.IsEIP4762 {
+		panic("eip2929 and eip4762 are both activated")
 	}
-	for _, addr := range precompiles {
-		s.AddAddressToAccessList(addr)
-	}
-	for _, el := range list {
-		s.AddAddressToAccessList(el.Address)
-		for _, key := range el.StorageKeys {
-			s.AddSlotToAccessList(el.Address, key)
+	if rules.IsEIP2929 {
+		// Clear out any leftover from previous executions
+		al := newAccessList()
+		s.accessList = al
+
+		al.AddAddress(sender)
+		if dst != nil {
+			al.AddAddress(*dst)
+			// If it's a create-tx, the destination will be added inside evm.create
+		}
+		for _, addr := range precompiles {
+			al.AddAddress(addr)
+		}
+		for _, el := range list {
+			al.AddAddress(el.Address)
+			for _, key := range el.StorageKeys {
+				al.AddSlot(el.Address, key)
+			}
+		}
+		if rules.IsShanghai { // EIP-3651: warm coinbase
+			al.AddAddress(coinbase)
 		}
 	}
+	// Reset transient storage at the beginning of transaction execution
+	s.transientStorage = newTransientStorage()
 }
 
 // AddAddressToAccessList adds the given address to the access list
@@ -494,7 +667,7 @@ func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addre
 func (s *StateDB) Snapshot() int {
 	id := s.nextRevisionID
 	s.nextRevisionID++
-	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
+	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length(), s.ctx.EventManager().Events()})
 	return id
 }
 
@@ -508,6 +681,11 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
 	}
 	snapshot := s.validRevisions[idx].journalIndex
+
+	// revert back to snapshotted events
+	eventManager := sdk.NewEventManager()
+	eventManager.EmitEvents(s.validRevisions[idx].events)
+	s.ctx = s.ctx.WithEventManager(eventManager)
 
 	// Replay the journal to undo changes and remove invalidated snapshots
 	s.journal.Revert(s, snapshot)
@@ -537,7 +715,7 @@ func (s *StateDB) CommitWithCacheCtx() error {
 func (s *StateDB) commitWithCtx(ctx sdk.Context) error {
 	for _, addr := range s.journal.sortedDirties() {
 		obj := s.stateObjects[addr]
-		if obj.suicided {
+		if obj.selfDestructed {
 			if err := s.keeper.DeleteAccount(ctx, obj.Address()); err != nil {
 				return errorsmod.Wrapf(err, "failed to delete account %s", obj.Address())
 			}

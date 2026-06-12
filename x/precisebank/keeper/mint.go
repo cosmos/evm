@@ -12,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // MintCoins creates new coins from thin air and adds it to the module account.
@@ -67,16 +66,6 @@ func (k Keeper) MintCoins(goCtx context.Context, moduleName string, amt sdk.Coin
 		}
 	}
 
-	fullEmissionCoins := sdk.NewCoins(types.SumExtendedCoin(amt))
-	if fullEmissionCoins.IsZero() {
-		return nil
-	}
-
-	ctx.EventManager().EmitEvents(sdk.Events{
-		banktypes.NewCoinMintEvent(acc.GetAddress(), fullEmissionCoins),
-		banktypes.NewCoinReceivedEvent(acc.GetAddress(), fullEmissionCoins),
-	})
-
 	return nil
 }
 
@@ -102,6 +91,20 @@ func (k Keeper) mintExtendedCoin(
 	amt sdkmath.Int,
 ) error {
 	moduleAddr := k.ak.GetModuleAddress(recipientModuleName)
+
+	// Don't create fractional balances for the precisebank module account itself
+	// The precisebank module account is the reserve and should not have fractional balances
+	if recipientModuleName == types.ModuleName {
+		// For the precisebank module account, just mint the integer coins directly
+		integerMintAmount := amt.Quo(types.ConversionFactor())
+		if integerMintAmount.IsPositive() {
+			integerMintCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerMintAmount)
+			if err := k.bk.MintCoins(ctx, recipientModuleName, sdk.NewCoins(integerMintCoin)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	// Get current module account fractional balance - 0 if not found
 	fractionalAmount := k.GetFractionalBalance(ctx, moduleAddr)
@@ -211,6 +214,9 @@ func (k Keeper) mintExtendedCoin(
 	}
 
 	k.SetRemainderAmount(ctx, newRemainder)
+
+	// Emit event for fractional balance change
+	types.EmitEventFractionalBalanceChange(ctx, moduleAddr, fractionalAmount, newFractionalBalance)
 
 	return nil
 }

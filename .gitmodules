@@ -1,0 +1,36 @@
+[submodule "tests/systemtests/Counter/lib/forge-std"]
+	path = tests/systemtests/Counter/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/foundry/lib/forge-std"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/foundry/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/forge-std"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/lib/openzeppelin-contracts"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/lib/v3-core"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/lib/v3-core
+	url = https://github.com/Uniswap/v3-core
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/lib/forge-std"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/lib/v3-periphery"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/lib/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery
+[submodule "tests/evm-tools-compatibility/foundry-uniswap-v3/lib/solidity-lib"]
+	path = tests/evm-tools-compatibility/foundry-uniswap-v3/lib/solidity-lib
+	url = https://github.com/Uniswap/solidity-lib
+[submodule "tests/evm-tools-compatibility/foundry/forge-std"]
+	path = tests/evm-tools-compatibility/foundry/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "tests/evm-tools-compatibility/foundry/lib/openzeppelin-contracts"]
+	path = tests/evm-tools-compatibility/foundry/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "tests/evm-tools-compatibility/foundry/lib/ds-test"]
+	path = tests/evm-tools-compatibility/foundry/lib/ds-test
+	url = https://github.com/dapphub/ds-test
+[submodule "tests/evm-tools-compatibility/foundry/lib/forge-std"]
+	path = tests/evm-tools-compatibility/foundry/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std

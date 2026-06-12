@@ -18,6 +18,12 @@ import (
 // can only be set via `EVMConfigurator` before starting the app.
 var testingEvmCoinInfo *EvmCoinInfo
 
+// SetDefaultEvmCoinInfo sets the default EVM coin info to be used as fallback.
+// This should be called during keeper initialization.
+func SetDefaultEvmCoinInfo(coinInfo EvmCoinInfo) {
+	testingEvmCoinInfo = &coinInfo
+}
+
 // setEVMCoinDecimals allows to define the decimals used in the representation
 // of the EVM coin.
 func setEVMCoinDecimals(d Decimals) error {
@@ -25,7 +31,7 @@ func setEVMCoinDecimals(d Decimals) error {
 		return fmt.Errorf("setting EVM coin decimals: %w", err)
 	}
 
-	testingEvmCoinInfo.Decimals = d
+	testingEvmCoinInfo.Decimals = d.Uint32()
 	return nil
 }
 
@@ -47,10 +53,18 @@ func setEVMCoinExtendedDenom(extendedDenom string) error {
 	return nil
 }
 
+func setDisplayDenom(displayDenom string) error {
+	if err := sdk.ValidateDenom(displayDenom); err != nil {
+		return fmt.Errorf("setting EVM coin display denom: %w", err)
+	}
+	testingEvmCoinInfo.DisplayDenom = displayDenom
+	return nil
+}
+
 // GetEVMCoinDecimals returns the decimals used in the representation of the EVM
 // coin.
 func GetEVMCoinDecimals() Decimals {
-	return testingEvmCoinInfo.Decimals
+	return Decimals(testingEvmCoinInfo.Decimals)
 }
 
 // GetEVMCoinDenom returns the denom used for the EVM coin.
@@ -63,13 +77,18 @@ func GetEVMCoinExtendedDenom() string {
 	return testingEvmCoinInfo.ExtendedDenom
 }
 
+// GetEVMCoinDisplayDenom returns the display denom used for the EVM coin.
+func GetEVMCoinDisplayDenom() string {
+	return testingEvmCoinInfo.DisplayDenom
+}
+
 // setTestingEVMCoinInfo allows to define denom and decimals of the coin used in the EVM.
 func setTestingEVMCoinInfo(eci EvmCoinInfo) error {
 	if testingEvmCoinInfo != nil {
 		return errors.New("testing EVM coin info already set. Make sure you run the configurator's ResetTestConfig before trying to set a new evm coin info")
 	}
 
-	if eci.Decimals == EighteenDecimals {
+	if eci.Decimals == EighteenDecimals.Uint32() {
 		if eci.Denom != eci.ExtendedDenom {
 			return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
 		}
@@ -83,7 +102,10 @@ func setTestingEVMCoinInfo(eci EvmCoinInfo) error {
 	if err := setEVMCoinExtendedDenom(eci.ExtendedDenom); err != nil {
 		return err
 	}
-	return setEVMCoinDecimals(eci.Decimals)
+	if err := setDisplayDenom(eci.DisplayDenom); err != nil {
+		return err
+	}
+	return setEVMCoinDecimals(Decimals(eci.Decimals))
 }
 
 // resetEVMCoinInfo resets to nil the testingEVMCoinInfo

@@ -25,7 +25,8 @@ contract WATOM {
     function withdraw(uint256 amount) public {
         require(balanceOf[msg.sender] >= amount, "insufficient balance");
         balanceOf[msg.sender] -= amount;
-        payable(msg.sender).transfer(amount);
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "failed to withdraw to sender");
         emit Withdrawal(msg.sender, amount);
     }
 

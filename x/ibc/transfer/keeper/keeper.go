@@ -9,7 +9,6 @@ import (
 	corestore "cosmossdk.io/core/store"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 // Keeper defines the modified IBC transfer keeper that embeds the original one.
@@ -26,7 +25,6 @@ type Keeper struct {
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeService corestore.KVStoreService,
-	paramSpace paramtypes.Subspace,
 
 	ics4Wrapper porttypes.ICS4Wrapper,
 	channelKeeper transfertypes.ChannelKeeper,
@@ -38,7 +36,7 @@ func NewKeeper(
 ) Keeper {
 	// create the original IBC transfer keeper for embedding
 	transferKeeper := keeper.NewKeeper(
-		cdc, storeService, paramSpace,
+		cdc, storeService, nil,
 		ics4Wrapper, channelKeeper, msgRouter,
 		authKeeper, bankKeeper, authority,
 	)

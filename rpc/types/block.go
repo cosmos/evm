@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cast"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
@@ -23,9 +23,11 @@ import (
 type BlockNumber int64
 
 const (
-	EthPendingBlockNumber  = BlockNumber(-2)
-	EthLatestBlockNumber   = BlockNumber(-1)
-	EthEarliestBlockNumber = BlockNumber(0)
+	EthEarliestBlockNumber  = BlockNumber(-5)
+	EthSafeBlockNumber      = BlockNumber(-4)
+	EthFinalizedBlockNumber = BlockNumber(-3)
+	EthLatestBlockNumber    = BlockNumber(-2)
+	EthPendingBlockNumber   = BlockNumber(-1)
 )
 
 const (
@@ -107,10 +109,10 @@ func (bn BlockNumber) Int64() int64 {
 	return int64(bn)
 }
 
-// TmHeight is a util function used for the Tendermint RPC client. It returns
+// CmtHeight is a util function used for the CometBFT RPC client. It returns
 // nil if the block number is "latest". Otherwise, it returns the pointer of the
 // int64 value of the height.
-func (bn BlockNumber) TmHeight() *int64 {
+func (bn BlockNumber) CmtHeight() *int64 {
 	if bn < 0 {
 		return nil
 	}
@@ -182,7 +184,7 @@ func (bnh *BlockNumberOrHash) decodeFromString(input string) error {
 			return err
 		}
 
-		bnInt, err := types.SafeInt64(blockNumber)
+		bnInt, err := utils.SafeInt64(blockNumber)
 		if err != nil {
 			return err
 		}

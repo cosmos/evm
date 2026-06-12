@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -42,21 +42,14 @@ func (p Precompile) Deposit(
 		precompileAccAddr,
 		callerAccAddress,
 		sdk.NewCoins(sdk.Coin{
-			Denom:  evmtypes.GetEVMCoinDenom(),
-			Amount: math.NewIntFromBigInt(depositedAmount),
+			Denom:  evmtypes.GetEVMCoinExtendedDenom(),
+			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
 		return nil, err
 	}
 
-	// Add the entries to the statedb journal since the function signature of
-	// the associated Solidity interface payable.
-	p.SetBalanceChangeEntries(
-		cmn.NewBalanceChangeEntry(caller, depositedAmount, cmn.Add),
-		cmn.NewBalanceChangeEntry(p.Address(), depositedAmount, cmn.Sub),
-	)
-
-	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount); err != nil {
+	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
 		return nil, err
 	}
 
@@ -75,8 +68,8 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 
 	caller := contract.Caller()
 	callerAccAddress := sdk.AccAddress(caller.Bytes())
-	nativeBalance := p.BankKeeper.GetBalance(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
-	if nativeBalance.Amount.LT(amountInt) {
+	nativeBalance := p.BankKeeper.SpendableCoin(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
+	if nativeBalance.Amount.Mul(types.ConversionFactor()).LT(amountInt) {
 		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
 	}
 

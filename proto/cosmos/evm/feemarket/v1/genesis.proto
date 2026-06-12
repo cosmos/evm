@@ -3,8 +3,8 @@ syntax = "proto3";
 package cosmos.evm.feemarket.v1;
 
 import "amino/amino.proto";
-import "gogoproto/gogo.proto";
 import "cosmos/evm/feemarket/v1/feemarket.proto";
+import "gogoproto/gogo.proto";
 
 option go_package = "github.com/cosmos/evm/x/feemarket/types";
 

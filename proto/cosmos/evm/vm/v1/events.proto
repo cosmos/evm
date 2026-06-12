@@ -14,7 +14,7 @@ message EventEthereumTx {
   string index = 3;
   // gas_used is the amount of gas used by the transaction
   string gas_used = 4;
-  // hash is the Tendermint hash of the transaction
+  // hash is the CometBFT hash of the transaction
   string hash = 5;
   // recipient of the transaction
   string recipient = 6;

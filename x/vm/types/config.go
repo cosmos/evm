@@ -8,6 +8,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -20,10 +21,6 @@ func (ec *EVMConfigurator) Configure() error {
 	// an error to avoid overriding configuration.
 	if ec.sealed {
 		return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
-	}
-
-	if err := setChainConfig(ec.chainConfig); err != nil {
-		return err
 	}
 
 	if err := setEVMCoinInfo(ec.evmCoinInfo); err != nil {
@@ -57,4 +54,27 @@ func GetEthChainConfig() *geth.ChainConfig {
 // GetChainConfig returns the `chainConfig`.
 func GetChainConfig() *ChainConfig {
 	return chainConfig
+}
+
+// SetChainConfig allows to set the `chainConfig` variable modifying the
+// default values. The method is private because it should only be called once
+// in the EVMConfigurator.
+func SetChainConfig(cc *ChainConfig) error {
+	newConfig := DefaultChainConfig(0)
+	if cc != nil {
+		newConfig = cc
+	}
+	// Allow re-setting with the same chain ID (e.g. tempApp + real app in same process).
+	if chainConfig != nil && chainConfig.ChainId != DefaultEVMChainID {
+		if chainConfig.ChainId == newConfig.ChainId {
+			return nil
+		}
+		return errors.New("chainConfig already set. Cannot set again the chainConfig")
+	}
+	if err := newConfig.Validate(); err != nil {
+		return err
+	}
+	chainConfig = newConfig
+
+	return nil
 }

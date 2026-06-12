@@ -3,8 +3,6 @@ package eip712
 import (
 	"fmt"
 
-	"github.com/cosmos/evm/types"
-
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -16,7 +14,7 @@ import (
 
 // PreprocessLedgerTx reformats Ledger-signed Cosmos transactions to match the fork expected by Cosmos EVM
 // by including the signature in a Web3Tx extension and sending a blank signature in the body.
-func PreprocessLedgerTx(chainID string, keyType cosmoskr.KeyType, txBuilder client.TxBuilder) error {
+func PreprocessLedgerTx(evmChainID uint64, keyType cosmoskr.KeyType, txBuilder client.TxBuilder) error {
 	// Only process Ledger transactions
 	if keyType != cosmoskr.TypeLedger {
 		return nil
@@ -46,12 +44,6 @@ func PreprocessLedgerTx(chainID string, keyType cosmoskr.KeyType, txBuilder clie
 	}
 	sigBytes := sigData.Signature
 
-	// Parse Chain ID as big.Int
-	chainIDInt, err := types.ParseChainID(chainID)
-	if err != nil {
-		return fmt.Errorf("could not parse chain id: %w", err)
-	}
-
 	addrCodec := address.Bech32Codec{
 		Bech32Prefix: sdk.GetConfig().GetBech32AccountAddrPrefix(),
 	}
@@ -61,9 +53,9 @@ func PreprocessLedgerTx(chainID string, keyType cosmoskr.KeyType, txBuilder clie
 	}
 	// Add ExtensionOptionsWeb3Tx extension with signature
 	var option *codectypes.Any
-	option, err = codectypes.NewAnyWithValue(&types.ExtensionOptionsWeb3Tx{
+	option, err = codectypes.NewAnyWithValue(&ExtensionOptionsWeb3Tx{
 		FeePayer:         feePayerAddr,
-		TypedDataChainID: chainIDInt.Uint64(),
+		TypedDataChainID: evmChainID,
 		FeePayerSig:      sigBytes,
 	})
 	if err != nil {

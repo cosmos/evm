@@ -27,7 +27,7 @@ import (
 )
 
 // consensusVersion defines the current x/erc20 module consensus version.
-const consensusVersion = 4
+const consensusVersion = 1
 
 // type check to ensure the interface is properly implemented
 var (
@@ -117,8 +117,6 @@ func NewAppModule(
 func (AppModule) Name() string {
 	return types.ModuleName
 }
-
-func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), &am.keeper)

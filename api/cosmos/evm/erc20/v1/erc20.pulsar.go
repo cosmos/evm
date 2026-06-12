@@ -3550,8 +3550,8 @@ func (Owner) EnumDescriptor() ([]byte, []int) {
 	return file_cosmos_evm_erc20_v1_erc20_proto_rawDescGZIP(), []int{0}
 }
 
-// TokenPair defines an instance that records a pairing consisting of a native
-// Cosmos Coin and an ERC20 token address.
+// TokenPair defines an instance that records a pairing (mapping) consisting of a native
+// Cosmos Coin and an ERC20 token address. The "pair" does not imply an asset swap exchange.
 type TokenPair struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

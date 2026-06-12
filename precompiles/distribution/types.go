@@ -8,7 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -22,8 +24,8 @@ type EventSetWithdrawAddress struct {
 	WithdrawerAddress string
 }
 
-// EventWithdrawDelegatorRewards defines the event data for the WithdrawDelegatorRewards transaction.
-type EventWithdrawDelegatorRewards struct {
+// EventWithdrawDelegatorReward defines the event data for the WithdrawDelegatorReward transaction.
+type EventWithdrawDelegatorReward struct {
 	DelegatorAddress common.Address
 	ValidatorAddress common.Address
 	Amount           *big.Int
@@ -44,7 +46,16 @@ type EventClaimRewards struct {
 // EventFundCommunityPool defines the event data for the FundCommunityPool transaction.
 type EventFundCommunityPool struct {
 	Depositor common.Address
+	Denom     string
 	Amount    *big.Int
+}
+
+// EventDepositValidatorRewardsPool defines the event data for the DepositValidatorRewardsPool transaction.
+type EventDepositValidatorRewardsPool struct {
+	Depositor        common.Address
+	ValidatorAddress common.Address
+	Denom            string
+	Amount           *big.Int
 }
 
 // parseClaimRewardsArgs parses the arguments for the ClaimRewards method.
@@ -67,7 +78,7 @@ func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
 }
 
 // NewMsgSetWithdrawAddress creates a new MsgSetWithdrawAddress instance.
-func NewMsgSetWithdrawAddress(args []interface{}) (*distributiontypes.MsgSetWithdrawAddress, common.Address, error) {
+func NewMsgSetWithdrawAddress(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgSetWithdrawAddress, common.Address, error) {
 	if len(args) != 2 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -88,8 +99,12 @@ func NewMsgSetWithdrawAddress(args []interface{}) (*distributiontypes.MsgSetWith
 		}
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &distributiontypes.MsgSetWithdrawAddress{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 		WithdrawAddress:  withdrawerAddress,
 	}
 
@@ -97,7 +112,7 @@ func NewMsgSetWithdrawAddress(args []interface{}) (*distributiontypes.MsgSetWith
 }
 
 // NewMsgWithdrawDelegatorReward creates a new MsgWithdrawDelegatorReward instance.
-func NewMsgWithdrawDelegatorReward(args []interface{}) (*distributiontypes.MsgWithdrawDelegatorReward, common.Address, error) {
+func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgWithdrawDelegatorReward, common.Address, error) {
 	if len(args) != 2 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -109,8 +124,12 @@ func NewMsgWithdrawDelegatorReward(args []interface{}) (*distributiontypes.MsgWi
 
 	validatorAddress, _ := args[1].(string)
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	msg := &distributiontypes.MsgWithdrawDelegatorReward{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 		ValidatorAddress: validatorAddress,
 	}
 
@@ -129,7 +148,7 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 		ValidatorAddress: validatorAddress,
 	}
 
-	validatorHexAddr, err := cmn.HexAddressFromBech32String(msg.ValidatorAddress)
+	validatorHexAddr, err := utils.HexAddressFromBech32String(msg.ValidatorAddress)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
@@ -138,9 +157,43 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 }
 
 // NewMsgFundCommunityPool creates a new NewMsgFundCommunityPool message.
-func NewMsgFundCommunityPool(denom string, args []interface{}) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+func NewMsgFundCommunityPool(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+	emptyAddr := common.Address{}
 	if len(args) != 2 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+	}
+
+	depositorAddress, ok := args[0].(common.Address)
+	if !ok || depositorAddress == emptyAddr {
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
+	}
+
+	coins, err := cmn.ToCoins(args[1])
+	if err != nil {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+	}
+
+	amt, err := cmn.NewSdkCoinsFromCoins(coins)
+	if err != nil {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+	}
+
+	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
+	}
+	msg := &distributiontypes.MsgFundCommunityPool{
+		Depositor: depAddr,
+		Amount:    amt,
+	}
+
+	return msg, depositorAddress, nil
+}
+
+// NewMsgDepositValidatorRewardsPool creates a new MsgDepositValidatorRewardsPool message.
+func NewMsgDepositValidatorRewardsPool(args []interface{}, addrCdc address.Codec) (*distributiontypes.MsgDepositValidatorRewardsPool, common.Address, error) {
+	if len(args) != 3 {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
 	}
 
 	depositorAddress, ok := args[0].(common.Address)
@@ -148,14 +201,27 @@ func NewMsgFundCommunityPool(denom string, args []interface{}) (*distributiontyp
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
 	}
 
-	amount, ok := args[1].(*big.Int)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[1])
+	validatorAddress, _ := args[1].(string)
+
+	coins, err := cmn.ToCoins(args[2])
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
 	}
 
-	msg := &distributiontypes.MsgFundCommunityPool{
-		Depositor: sdk.AccAddress(depositorAddress.Bytes()).String(),
-		Amount:    sdk.Coins{sdk.Coin{Denom: denom, Amount: math.NewIntFromBigInt(amount)}},
+	amount, err := cmn.NewSdkCoinsFromCoins(coins)
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, err.Error())
+	}
+
+	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
+	}
+
+	msg := &distributiontypes.MsgDepositValidatorRewardsPool{
+		Depositor:        depAddr,
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
 	}
 
 	return msg, depositorAddress, nil
@@ -232,7 +298,7 @@ func NewValidatorSlashesRequest(method *abi.Method, args []interface{}) (*distri
 
 // NewDelegationRewardsRequest creates a new QueryDelegationRewardsRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegationRewardsRequest(args []interface{}) (*distributiontypes.QueryDelegationRewardsRequest, error) {
+func NewDelegationRewardsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegationRewardsRequest, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
@@ -244,15 +310,19 @@ func NewDelegationRewardsRequest(args []interface{}) (*distributiontypes.QueryDe
 
 	validatorAddress, _ := args[1].(string)
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegationRewardsRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 		ValidatorAddress: validatorAddress,
 	}, nil
 }
 
 // NewDelegationTotalRewardsRequest creates a new QueryDelegationTotalRewardsRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegationTotalRewardsRequest(args []interface{}) (*distributiontypes.QueryDelegationTotalRewardsRequest, error) {
+func NewDelegationTotalRewardsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegationTotalRewardsRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -262,14 +332,18 @@ func NewDelegationTotalRewardsRequest(args []interface{}) (*distributiontypes.Qu
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegationTotalRewardsRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 	}, nil
 }
 
 // NewDelegatorValidatorsRequest creates a new QueryDelegatorValidatorsRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegatorValidatorsRequest(args []interface{}) (*distributiontypes.QueryDelegatorValidatorsRequest, error) {
+func NewDelegatorValidatorsRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegatorValidatorsRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -279,14 +353,18 @@ func NewDelegatorValidatorsRequest(args []interface{}) (*distributiontypes.Query
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegatorValidatorsRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 	}, nil
 }
 
 // NewDelegatorWithdrawAddressRequest creates a new QueryDelegatorWithdrawAddressRequest  instance and does sanity
 // checks on the provided arguments.
-func NewDelegatorWithdrawAddressRequest(args []interface{}) (*distributiontypes.QueryDelegatorWithdrawAddressRequest, error) {
+func NewDelegatorWithdrawAddressRequest(args []interface{}, addrCdc address.Codec) (*distributiontypes.QueryDelegatorWithdrawAddressRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -296,9 +374,23 @@ func NewDelegatorWithdrawAddressRequest(args []interface{}) (*distributiontypes.
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
 	}
 
+	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode delegator address: %w", err)
+	}
 	return &distributiontypes.QueryDelegatorWithdrawAddressRequest{
-		DelegatorAddress: sdk.AccAddress(delegatorAddress.Bytes()).String(),
+		DelegatorAddress: delAddr,
 	}, nil
+}
+
+// NewCommunityPoolRequest creates a new QueryCommunityPoolRequest instance and does sanity
+// checks on the provided arguments.
+func NewCommunityPoolRequest(args []interface{}) (*distributiontypes.QueryCommunityPoolRequest, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	return &distributiontypes.QueryCommunityPoolRequest{}, nil
 }
 
 // ValidatorDistributionInfo is a struct to represent the key information from
@@ -404,4 +496,21 @@ func (dtr *DelegationTotalRewardsOutput) FromResponse(res *distributiontypes.Que
 // Pack packs a given slice of abi arguments into a byte array.
 func (dtr *DelegationTotalRewardsOutput) Pack(args abi.Arguments) ([]byte, error) {
 	return args.Pack(dtr.Rewards, dtr.Total)
+}
+
+// CommunityPoolOutput is a struct to represent the key information from
+// a CommunityPool response.
+type CommunityPoolOutput struct {
+	Pool []cmn.DecCoin
+}
+
+// FromResponse populates the CommunityPoolOutput from a QueryCommunityPoolResponse.
+func (cp *CommunityPoolOutput) FromResponse(res *distributiontypes.QueryCommunityPoolResponse) *CommunityPoolOutput {
+	cp.Pool = cmn.NewDecCoinsResponse(res.Pool)
+	return cp
+}
+
+// Pack packs a given slice of abi arguments into a byte array.
+func (cp *CommunityPoolOutput) Pack(args abi.Arguments) ([]byte, error) {
+	return args.Pack(cp.Pool)
 }

@@ -17,14 +17,17 @@ const (
 	GetParamsMethod = "getParams"
 )
 
-// GetSigningInfo implements the query to get a validator's signing info.
+// GetSigningInfo handles the `getSigningInfo` precompile call.
+// It expects a single argument: the validator’s consensus address in hex format.
+// That address comes from the validator’s CometBFT ed25519 public key,
+// typically found in `$HOME/.evmd/config/priv_validator_key.json`.
 func (p *Precompile) GetSigningInfo(
 	ctx sdk.Context,
 	method *abi.Method,
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := ParseSigningInfoArgs(args)
+	req, err := ParseSigningInfoArgs(args, p.consCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +37,10 @@ func (p *Precompile) GetSigningInfo(
 		return nil, err
 	}
 
-	out := new(SigningInfoOutput).FromResponse(res)
+	out, err := new(SigningInfoOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(out.SigningInfo)
 }
 
@@ -55,7 +61,10 @@ func (p *Precompile) GetSigningInfos(
 		return nil, err
 	}
 
-	out := new(SigningInfosOutput).FromResponse(res)
+	out, err := new(SigningInfosOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(out.SigningInfos, out.PageResponse)
 }
 

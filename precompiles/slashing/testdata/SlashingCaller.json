@@ -1,0 +1,49 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SlashingCaller",
+  "sourceName": "solidity/precompiles/slashing/testdata/SlashingCaller.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "success",
+          "type": "bool"
+        }
+      ],
+      "name": "TestResult",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "validatorAddr",
+          "type": "address"
+        }
+      ],
+      "name": "testUnjail",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "success",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080806040523461001657610129908161001c8239f35b600080fdfe6080806040526004361015601257600080fd5b600090813560e01c637327af9014602857600080fd5b3460c8576020918260031936011260c5576004356001600160a01b0381169081900360c85763224f67f360e11b835260048301528282602481846108065af191821560e6578192607f575b50506040519015158152f35b909150823d841160e0575b601f8101601f1916820167ffffffffffffffff81118382101760cc57849183916040528101031260c8575190811515820360c5575038806073565b80fd5b5080fd5b634e487b7160e01b84526041600452602484fd5b503d608a565b50604051903d90823e3d90fdfea264697066735822122030280e24435dd2b28402bc0a014d2529269028fe5e4568d417064696d65217b464736f6c63430008140033",
+  "deployedBytecode": "0x6080806040526004361015601257600080fd5b600090813560e01c637327af9014602857600080fd5b3460c8576020918260031936011260c5576004356001600160a01b0381169081900360c85763224f67f360e11b835260048301528282602481846108065af191821560e6578192607f575b50506040519015158152f35b909150823d841160e0575b601f8101601f1916820167ffffffffffffffff81118382101760cc57849183916040528101031260c8575190811515820360c5575038806073565b80fd5b5080fd5b634e487b7160e01b84526041600452602484fd5b503d608a565b50604051903d90823e3d90fdfea264697066735822122030280e24435dd2b28402bc0a014d2529269028fe5e4568d417064696d65217b464736f6c63430008140033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
