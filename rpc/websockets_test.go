@@ -1,16 +1,23 @@
 package rpc
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/rpc/stream"
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 
 	"cosmossdk.io/log/v2"
@@ -18,7 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 )
 
-func newTestWebsocketServer() *websocketsServer {
+func newTestWebsocketServer(rpcStream *stream.RPCStream) *websocketsServer {
 	// dummy values for testing
 	cfg := &config.Config{}
 	cfg.JSONRPC.Address = "localhost:9999"   // not used
@@ -31,14 +38,14 @@ func newTestWebsocketServer() *websocketsServer {
 		wsAddr:         cfg.JSONRPC.WsAddress,
 		certFile:       cfg.TLS.CertificatePath,
 		keyFile:        cfg.TLS.KeyPath,
-		api:            newPubSubAPI(client.Context{}, log.NewNopLogger(), &stream.RPCStream{}),
+		api:            newPubSubAPI(client.Context{}, log.NewNopLogger(), rpcStream),
 		logger:         log.NewNopLogger(),
 		allowedOrigins: []string{"*"},
 	}
 }
 
 func TestWebsocketPayloadLimit(t *testing.T) {
-	srv := newTestWebsocketServer()
+	srv := newTestWebsocketServer(&stream.RPCStream{})
 
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
@@ -60,6 +67,72 @@ func TestWebsocketPayloadLimit(t *testing.T) {
 	// The connection should close
 	_, _, readErr := conn.ReadMessage()
 	require.Error(t, readErr, "expected connection to close on oversized message")
+}
+
+// mockEventsClient is a minimal rpcclient.EventsClient that feeds the block
+// subscription with events pushed onto blocks; other subscriptions get an
+// unused channel.
+type mockEventsClient struct {
+	blocks chan coretypes.ResultEvent
+}
+
+func (m *mockEventsClient) Subscribe(_ context.Context, _, query string, _ ...int) (<-chan coretypes.ResultEvent, error) {
+	if query == cmttypes.QueryForEvent(cmttypes.EventNewBlock).String() {
+		return m.blocks, nil
+	}
+	return make(chan coretypes.ResultEvent), nil
+}
+
+func (m *mockEventsClient) Unsubscribe(context.Context, string, string) error { return nil }
+
+func (m *mockEventsClient) UnsubscribeAll(context.Context, string) error { return nil }
+
+// TestSubscribeNewHeadsReturnsCanonicalBlockHash asserts the newHeads
+// subscription reports the canonical CometBFT block hash (BlockID.Hash) and not
+// the eth-derived header hash, guarding the fix in subscribeNewHeads.
+func TestSubscribeNewHeadsReturnsCanonicalBlockHash(t *testing.T) {
+	blocks := make(chan coretypes.ResultEvent, 1)
+	rpcStream := stream.NewRPCStreams(&mockEventsClient{blocks: blocks}, log.NewNopLogger(), nil)
+
+	ts := httptest.NewServer(newTestWebsocketServer(rpcStream))
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL)
+	u.Scheme = "ws"
+	dialer := websocket.Dialer{}
+	conn, _, err := dialer.Dial(u.String(), nil)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	require.NoError(t, conn.WriteJSON(map[string]interface{}{
+		"jsonrpc": "2.0", "id": 1, "method": "eth_subscribe", "params": []interface{}{"newHeads"},
+	}))
+	// Reading the subscription ack also gives the subscriber goroutine time to
+	// reach its blocking read before we push the header event below.
+	var ack SubscriptionResponseJSON
+	require.NoError(t, conn.ReadJSON(&ack))
+	require.NotEmpty(t, ack.Result)
+
+	// A block whose canonical (CometBFT) hash differs from the eth-derived header hash.
+	cometHash := common.HexToHash("0x579917054e325746fda5c3ee431d73d26255bc4e10b51163862368629ae19739")
+	header := cmttypes.Header{Height: 7}
+	ethHash := rpctypes.EthHeaderFromComet(header, ethtypes.Bloom{}, nil).Hash()
+	require.NotEqual(t, cometHash, ethHash)
+
+	blocks <- coretypes.ResultEvent{Data: cmttypes.EventDataNewBlock{
+		Block:   &cmttypes.Block{Header: header},
+		BlockID: cmttypes.BlockID{Hash: cometHash.Bytes()},
+	}}
+
+	var note SubscriptionNotification
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.ReadJSON(&note))
+	require.NotNil(t, note.Params)
+	result, ok := note.Params.Result.(map[string]interface{})
+	require.True(t, ok)
+	gotHash := common.HexToHash(result["hash"].(string))
+	require.Equal(t, cometHash, gotHash, "newHeads must return the canonical CometBFT block hash")
+	require.NotEqual(t, ethHash, gotHash, "must not regress to the eth-derived header hash")
 }
 
 func TestCheckOrigin(t *testing.T) {
