@@ -176,7 +176,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			txArgs := evmtypes.EvmTxArgs{}
 			txArgs.GasTipCap = new(big.Int).SetInt64(0)
-			txArgs.GasLimit = 1_000_000_000_000
+			txArgs.GasLimit = 50_000_000
 			revertContractAddr, err = is.factory.DeployContract(
 				txSender.Priv,
 				txArgs,

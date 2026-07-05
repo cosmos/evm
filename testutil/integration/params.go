@@ -12,7 +12,7 @@ import (
 var DefaultConsensusParams = &tmproto.ConsensusParams{
 	Block: &tmproto.BlockParams{
 		MaxBytes: 200000,
-		MaxGas:   -1, // no limit
+		MaxGas:   80_000_000,
 	},
 	Evidence: &tmproto.EvidenceParams{
 		MaxAgeNumBlocks: 302400,

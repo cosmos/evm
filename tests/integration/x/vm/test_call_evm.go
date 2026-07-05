@@ -76,6 +76,7 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 	testCases := []struct {
 		name     string
 		from     common.Address
+		fromFn   func() common.Address
 		malleate func() []byte
 		deploy   bool
 		useNilDB bool
@@ -145,7 +146,9 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 		},
 		{
 			name: "deploy",
-			from: types.ModuleAddress,
+			fromFn: func() common.Address {
+				return s.Keyring.GetAddr(0)
+			},
 			malleate: func() []byte {
 				ctorArgs, _ := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack("", "test", "test", uint8(18))
 				data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
@@ -202,10 +205,15 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 				stateDB = statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 			}
 
+			from := tc.from
+			if tc.fromFn != nil {
+				from = tc.fromFn()
+			}
+
 			if tc.deploy {
-				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), stateDB, tc.from, nil, data, true, false, nil)
+				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), stateDB, from, nil, data, true, false, nil)
 			} else {
-				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), stateDB, tc.from, &wcosmosEVMContract, data, false, false, nil)
+				res, err = s.Network.App.GetEVMKeeper().CallEVMWithData(s.Network.GetContext(), stateDB, from, &wcosmosEVMContract, data, false, false, nil)
 			}
 
 			if tc.expPass {

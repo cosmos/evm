@@ -28,7 +28,7 @@ import (
 var EthDefaultConsensusParams = &cmtypes.ConsensusParams{
 	Block: cmtypes.BlockParams{
 		MaxBytes: 200000,
-		MaxGas:   -1, // no limit
+		MaxGas:   80_000_000,
 	},
 	Evidence: cmtypes.EvidenceParams{
 		MaxAgeNumBlocks: 302400,

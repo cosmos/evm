@@ -11,25 +11,50 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/mock"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttime "github.com/cometbft/cometbft/types/time"
+
+	"github.com/cosmos/evm/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
+	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/evm/x/vm/types/mocks"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"cosmossdk.io/math"
 	"cosmossdk.io/store/prefix"
+	storetypes "cosmossdk.io/store/types"
+	evidencetypes "cosmossdk.io/x/evidence/types"
+	"cosmossdk.io/x/feegrant"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
+	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -1307,8 +1332,32 @@ func (s *KeeperTestSuite) TestDeleteAccount() {
 
 func (s *KeeperTestSuite) TestSetBalanceRejectsModuleAccounts() {
 	type setup struct {
-		addr     common.Address
-		current  *uint256.Int
+		addr    common.Address
+		current *uint256.Int
+	}
+
+	mockModuleSetup := func(name string, initialBalance int64) func() setup {
+		return func() setup {
+			ctx := s.Network.GetContext()
+			ak := s.Network.App.GetAccountKeeper()
+			acc := authtypes.NewEmptyModuleAccount(name, authtypes.Minter)
+			ak.NewAccount(ctx, acc)
+			ak.SetAccount(ctx, acc)
+			if initialBalance > 0 {
+				err := s.Network.App.GetBankKeeper().SendCoins(
+					ctx,
+					s.Keyring.GetAccAddr(0),
+					acc.GetAddress(),
+					sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(initialBalance))),
+				)
+				s.Require().NoError(err)
+			}
+			modEth := common.BytesToAddress(acc.GetAddress().Bytes())
+			return setup{
+				addr:    modEth,
+				current: s.Network.App.GetEVMKeeper().GetBalance(ctx, modEth),
+			}
+		}
 	}
 
 	cases := []struct {
@@ -1333,14 +1382,13 @@ func (s *KeeperTestSuite) TestSetBalanceRejectsModuleAccounts() {
 			amountFn: func(_ *uint256.Int) *uint256.Int { return uint256.NewInt(12345) },
 		},
 		{
-			name: "bonded_tokens_pool, decrease",
-			prepare: func() setup {
-				modEth := common.BytesToAddress(authtypes.NewModuleAddress(stakingtypes.BondedPoolName).Bytes())
-				return setup{
-					addr:    modEth,
-					current: s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), modEth),
-				}
-			},
+			name:     "mock module account, zero balance, write nonzero",
+			prepare:  mockModuleSetup("test-mod-zero", 0),
+			amountFn: func(_ *uint256.Int) *uint256.Int { return uint256.NewInt(12345) },
+		},
+		{
+			name:    "mock module account, decrease",
+			prepare: mockModuleSetup("test-mod-decrease", 1000),
 			amountFn: func(cur *uint256.Int) *uint256.Int {
 				if cur.IsZero() {
 					return uint256.NewInt(0)
@@ -1349,14 +1397,8 @@ func (s *KeeperTestSuite) TestSetBalanceRejectsModuleAccounts() {
 			},
 		},
 		{
-			name: "bonded_tokens_pool, equal",
-			prepare: func() setup {
-				modEth := common.BytesToAddress(authtypes.NewModuleAddress(stakingtypes.BondedPoolName).Bytes())
-				return setup{
-					addr:    modEth,
-					current: s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), modEth),
-				}
-			},
+			name:     "mock module account, equal",
+			prepare:  mockModuleSetup("test-mod-equal", 1000),
 			amountFn: func(cur *uint256.Int) *uint256.Int { return new(uint256.Int).Set(cur) },
 		},
 	}
@@ -1387,4 +1429,90 @@ func (s *KeeperTestSuite) TestSetBalanceAllowsEOA() {
 
 	got := s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), addr)
 	s.Require().Equal(amount, got)
+}
+
+func (s *KeeperTestSuite) TestSetBalanceBlockedNonModuleArm() {
+	s.SetupTest()
+
+	configurator := types.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	s.Require().NoError(configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).Configure())
+
+	extDenom := types.GetEVMCoinExtendedDenom()
+	addr := common.HexToAddress("0x000000000000000000000000000000000000c0de")
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	cases := []struct {
+		name        string
+		current     math.Int
+		amount      *uint256.Int
+		bankSendErr error
+		expReject   bool
+	}{
+		{
+			name:        "blocked non-module, amount > current → bank SendCoinsFromModuleToAccount rejects",
+			current:     math.NewInt(100),
+			amount:      uint256.NewInt(200),
+			bankSendErr: fmt.Errorf("%s is not allowed to receive funds", cosmosAddr),
+			expReject:   true,
+		},
+		{
+			name:        "non-blocked non-module, amount > current → bank send succeeds",
+			current:     math.NewInt(100),
+			amount:      uint256.NewInt(200),
+			bankSendErr: nil,
+			expReject:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			keys := storetypes.NewKVStoreKeys(
+				authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
+				minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
+				govtypes.StoreKey, consensusparamtypes.StoreKey,
+				upgradetypes.StoreKey, feegrant.StoreKey, evidencetypes.StoreKey, authzkeeper.StoreKey,
+				ibcexported.StoreKey, ibctransfertypes.StoreKey,
+				types.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
+			)
+			key := storetypes.NewKVStoreKey(types.StoreKey)
+			transientKey := storetypes.NewTransientStoreKey(types.TransientKey)
+			testCtx := testutil.DefaultContextWithDB(s.T(), key, storetypes.NewTransientStoreKey("transient_test"))
+			ctx := testCtx.Ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
+			encCfg := moduletestutil.MakeTestEncodingConfig()
+
+			authority := sdk.AccAddress("foobar")
+			bankKeeper := mocks.NewBankKeeper(s.T())
+			accKeeper := mocks.NewAccountKeeper(s.T())
+			stakingKeeper := mocks.NewStakingKeeper(s.T())
+			fmKeeper := mocks.NewFeeMarketKeeper(s.T())
+			erc20Keeper := mocks.NewErc20Keeper(s.T())
+			consensusKeeper := mocks.NewConsensusParamsKeeper(s.T())
+
+			accKeeper.On("GetModuleAddress", types.ModuleName).Return(sdk.AccAddress("evm"))
+			vmKeeper := vmkeeper.NewKeeper(
+				encCfg.Codec, key, transientKey, keys, authority,
+				accKeeper, bankKeeper, stakingKeeper, fmKeeper,
+				consensusKeeper, erc20Keeper,
+				config.EighteenDecimalsChainID,
+				"",
+			)
+
+			baseAcc := authtypes.NewBaseAccountWithAddress(cosmosAddr)
+			accKeeper.On("GetAccount", mock.Anything, cosmosAddr).Return(baseAcc)
+			bankKeeper.On("LockedCoins", mock.Anything, cosmosAddr).Return(sdk.Coins{})
+			bankKeeper.On("GetBalance", mock.Anything, cosmosAddr, extDenom).
+				Return(sdk.Coin{Denom: extDenom, Amount: tc.current})
+			bankKeeper.On("MintCoins", mock.Anything, types.ModuleName, mock.Anything).Return(nil)
+			bankKeeper.On("SendCoinsFromModuleToAccount", mock.Anything, types.ModuleName, cosmosAddr, mock.Anything).Return(tc.bankSendErr)
+
+			err := vmKeeper.SetBalance(ctx, addr, tc.amount)
+			if tc.expReject {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), "is not allowed to receive funds")
+			} else {
+				s.Require().NoError(err)
+			}
+		})
+	}
 }

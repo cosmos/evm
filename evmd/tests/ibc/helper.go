@@ -54,7 +54,12 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	evmCtx := chain.GetContext()
 	evmApp := chain.App.(evm.EvmApp)
 
-	// Deploy new ERC20 contract with default metadata
+	ak := evmApp.GetAccountKeeper()
+	deployerAccAddr := sdk.AccAddress(erc20TestDeployer.Bytes())
+	if ak.GetAccount(evmCtx, deployerAccAddr) == nil {
+		ak.SetAccount(evmCtx, ak.NewAccountWithAddress(evmCtx, deployerAccAddr))
+	}
+
 	stateDB := statedb.New(chain.GetContext(), chain.App.(evm.EvmApp).GetEVMKeeper(), statedb.NewEmptyTxConfig())
 	contractAddr, err := DeployERC20Contract(evmCtx, stateDB, evmApp.GetAccountKeeper(), evmApp.GetEVMKeeper(), banktypes.Metadata{
 		DenomUnits: []*banktypes.DenomUnit{
@@ -88,7 +93,7 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 		evmCtx,
 		stateDB,
 		contractAbi,
-		erc20types.ModuleAddress,
+		erc20TestDeployer,
 		contractAddr,
 		true,
 		false,
@@ -145,8 +150,8 @@ func DeployContract(t *testing.T, chain *evmibctesting.TestChain, deploymentData
 	return crypto.CreateAddress(from, account.Nonce), nil
 }
 
-// DeployERC20Contract creates and deploys an ERC20 contract on the EVM with the
-// erc20 module account as owner.
+var erc20TestDeployer = common.HexToAddress("0x000000000000000000000000000000000000beef")
+
 func DeployERC20Contract(
 	ctx sdk.Context,
 	stateDB *statedb.StateDB,
@@ -173,13 +178,13 @@ func DeployERC20Contract(
 	copy(data[:len(contracts.ERC20MinterBurnerDecimalsContract.Bin)], contracts.ERC20MinterBurnerDecimalsContract.Bin)
 	copy(data[len(contracts.ERC20MinterBurnerDecimalsContract.Bin):], ctorArgs)
 
-	nonce, err := accountKeeper.GetSequence(ctx, erc20types.ModuleAddress.Bytes())
+	nonce, err := accountKeeper.GetSequence(ctx, erc20TestDeployer.Bytes())
 	if err != nil {
 		return common.Address{}, err
 	}
 
-	contractAddr := crypto.CreateAddress(erc20types.ModuleAddress, nonce)
-	_, err = evmKeeper.CallEVMWithData(ctx, stateDB, erc20types.ModuleAddress, nil, data, true, false, nil)
+	contractAddr := crypto.CreateAddress(erc20TestDeployer, nonce)
+	_, err = evmKeeper.CallEVMWithData(ctx, stateDB, erc20TestDeployer, nil, data, true, false, nil)
 	if err != nil {
 		return common.Address{}, errorsmod.Wrapf(err, "failed to deploy contract for %s", coinMetadata.Name)
 	}

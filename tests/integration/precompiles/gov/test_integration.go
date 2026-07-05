@@ -1344,7 +1344,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// 2. Deposit to gov prop from contract 2
 				txArgs.To = &contractAddrDupe
-				txArgs.GasLimit = 1_000_000_000
+				txArgs.GasLimit = 50_000_000
 				callArgs.MethodName = testDepositFromContract
 				callArgs.Args = []interface{}{
 					contractProposalID,
@@ -1367,7 +1367,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should cancel proposal and fund to communityPool", func() {
 					baseDenom := s.network.GetBaseDenom()
 					txArgs.To = &contractAddr
-					txArgs.GasLimit = 1_000_000_000
+					txArgs.GasLimit = 50_000_000
 					callArgs.MethodName = "testTransferCancelFund"
 					callArgs.Args = []interface{}{
 						contractAddrDupe,

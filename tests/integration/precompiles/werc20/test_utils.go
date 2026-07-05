@@ -70,7 +70,7 @@ func (cd CallsData) getTxAndCallArgs(
 	txArgs.GasTipCap = new(big.Int).SetInt64(0)
 	// Gas limit is added only to skip the estimate gas call
 	// that makes debugging more complex.
-	txArgs.GasLimit = 1_000_000_000_000
+	txArgs.GasLimit = 50_000_000
 
 	return txArgs, callArgs
 }
