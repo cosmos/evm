@@ -279,9 +279,8 @@ func (b *Backend) SetTxDefaults(ctx context.Context, args evmtypes.TransactionAr
 			Nonce:                args.Nonce,
 		}
 
-		blockNr := rpctypes.NewBlockNumber(big.NewInt(0))
-		blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNr}
-		estimated, err := b.EstimateGas(ctx, callArgs, &blockNrOrHash, nil)
+		// Estimate against the "pending", or latest, block
+		estimated, err := b.EstimateGas(ctx, callArgs, nil, nil)
 		if err != nil {
 			return args, err
 		}
