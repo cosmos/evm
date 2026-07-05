@@ -127,7 +127,8 @@ type Mempool struct {
 	blockGasLimit uint64 // Block gas limit from consensus parameters
 	minTip        *uint256.Int
 
-	eventBus *cmttypes.EventBus
+	eventBus   *cmttypes.EventBus
+	eventBusWG sync.WaitGroup // tracks the SetEventBus listener goroutine
 
 	/** Transaction Reaping **/
 	reapList *reaplist.ReapList
@@ -522,11 +523,18 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		for range sub.Out() {
-			m.NotifyNewBlock()
+	m.eventBusWG.Go(func() {
+		for {
+			select {
+			case <-sub.Out():
+				m.NotifyNewBlock()
+			case <-sub.Canceled():
+				// Unsubscribe/Close cancels the subscription; Out() is never
+				// closed by CometBFT, so exit on cancellation to avoid leaking.
+				return
+			}
 		}
-	}()
+	})
 }
 
 // NotifyNewBlock manually notifies that there has been a new block produced
@@ -547,6 +555,7 @@ func (m *Mempool) Close() error {
 		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
 			errs = append(errs, fmt.Errorf("failed to unsubscribe from event bus: %w", err))
 		}
+		m.eventBusWG.Wait()
 	}
 
 	if err := m.recheckCosmosPool.Close(); err != nil {
