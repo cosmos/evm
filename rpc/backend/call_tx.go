@@ -279,7 +279,7 @@ func (b *Backend) SetTxDefaults(ctx context.Context, args evmtypes.TransactionAr
 			Nonce:                args.Nonce,
 		}
 
-		// Estimate against the "pending", or latest, block
+		// Estimate against the "pending", or latest, block by passing nil.
 		estimated, err := b.EstimateGas(ctx, callArgs, nil, nil)
 		if err != nil {
 			return args, err
