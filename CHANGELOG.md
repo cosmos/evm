@@ -24,6 +24,7 @@
 - [\#1008](https://github.com/cosmos/evm/pull/1008) Stop enforcing JSON-RPC global filter cap and allow reclaim filters via configurable idle timeout.
 - [\#1130](https://github.com/cosmos/evm/pull/1130) Use `sdk.ValidateAuthority` in `x/vm`, `x/erc20`, and `x/feemarket` `MsgServer` handlers so authority can optionally be centralized via the consensus `AuthorityParams` introduced in cosmos-sdk v0.54.
 - [\#1164](https://github.com/cosmos/evm/pull/1164) Remove zero gas config from `ics20.transferWithStateDB` so inner KV ops in ICS20 transfer execution are metered, mirroring [\#1103](https://github.com/cosmos/evm/pull/1103).
+- [\#1220](https://github.com/cosmos/evm/pull/1220) Use latest block for setting txn defaults in rpc call.
 
 ### FEATURES
 
