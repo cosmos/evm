@@ -726,6 +726,67 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 	}
 }
 
+// TestRecheckMempool_CarryForwardSurvivesCancellation verifies the fix for the
+// cosmos-pool proposal starvation: a recheck pass carries the previous height's
+// validated set forward, so a pass that is cancelled (or merely still running)
+// before it validates anything does not present an empty snapshot to proposals.
+// Before the fix, StartNewHeight reset the store to empty each height, so a
+// pass that had not yet re-added txs exposed a zero-length snapshot.
+func TestRecheckMempool_CarryForwardSurvivesCancellation(t *testing.T) {
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+
+	const numTxs = 5
+
+	var blockPass atomic.Bool
+	ready := make(chan struct{})
+	gate := make(chan struct{})
+	anteHandler := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
+		if blockPass.Load() {
+			ready <- struct{}{}
+			<-gate
+		}
+		return ctx, nil
+	}
+
+	rc := newMockRechecker(ctx, anteHandler)
+	mp := mempool.NewRecheckMempool(
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
+	)
+	mp.Start(testHeader(0))
+	defer mp.Close()
+
+	// Insert and validate a set of txs at height 1.
+	for range numTxs {
+		key, _ := crypto.GenerateKey()
+		require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, key)))
+	}
+	mp.TriggerRecheckSync(testHeader(1))
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(1))), numTxs)
+
+	// Start a height-2 pass that blocks on the very first ante call, before it
+	// has re-added any tx to the height-2 snapshot.
+	blockPass.Store(true)
+	mp.TriggerRecheck(testHeader(2))
+	<-ready // the pass is now stalled having added nothing itself
+
+	// The height-2 snapshot must already expose the carried-forward set. Use a
+	// short timeout since the (stalled) pass will not call EndCurrentHeight.
+	getCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	carried := collectIteratorTxs(mp.RecheckedTxs(getCtx, big.NewInt(2)))
+	require.Len(t, carried, numTxs, "carried-forward snapshot must not be empty mid-pass")
+
+	// Let the stalled pass finish. blockPass is cleared before releasing the
+	// gate, so only the already-stalled ante was waiting: the remaining txs
+	// pass through without signalling ready again.
+	blockPass.Store(false)
+	close(gate)
+}
+
 func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 	acc := newRecheckTestAccount(t)
 	tracker := reserver.NewReservationTracker()

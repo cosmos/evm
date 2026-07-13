@@ -429,7 +429,13 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.recheckedTxs.StartNewHeight(newHead.Number)
+	// Carry the validated set forward instead of resetting to an empty store,
+	// a pass cancelled by next block does not discard all progress and starve proposals.
+	// The pass prunes whatever became invalid, committed txs are kept out by
+	// the store's watermark (see CosmosTxStore.PruneCommitted).
+	m.recheckedTxs.StartNewHeightFrom(newHead.Number, func(prev *CosmosTxStore) *CosmosTxStore {
+		return prev.Clone()
+	})
 	defer m.recheckedTxs.EndCurrentHeight()
 
 	latestCtx, err := m.blockchain.GetLatestContext()
@@ -527,6 +533,9 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			continue
 		}
 		m.reapList.DropCosmosTx(txn)
+		// Drop from the carried-forward snapshot too; otherwise a tx that just
+		// failed recheck would linger in the store from the previous height.
+		m.markTxRemoved(txn)
 
 		if err := m.unreserveTx(txn); err != nil {
 			m.logger.Error("failed to release reservations", "err", err)
@@ -539,6 +548,20 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 // markTxRechecked adds a tx into the height synced cosmos tx store.
 func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AddTx(txn) })
+}
+
+// markTxRemoved drops a tx from the height synced cosmos tx store.
+func (m *RecheckMempool) markTxRemoved(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.RemoveTx(txn) })
+}
+
+// PruneCommitted records that a block being finalized consumed tx's
+// signer/nonces and drops tx (and any lower-nonced sibling) from current snapshot.
+// It runs synchronously during FinalizeBlock so carried-forward store
+// can never feed an already-committed tx into a later proposal,
+// even before next recheck pass runs.
+func (m *RecheckMempool) PruneCommitted(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.PruneCommitted(txn) })
 }
 
 // markTxInserted conservatively updates the current height snapshot for live inserts.

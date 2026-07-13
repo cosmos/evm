@@ -16,8 +16,17 @@ import (
 // CosmosTxStore is a set of cosmos transactions that can be added to or
 // removed from.
 type CosmosTxStore struct {
-	txs             map[string]cosmosTxBucket
-	nextUnkeyed     uint64
+	txs         map[string]cosmosTxBucket
+	nextUnkeyed uint64
+
+	// consumed is a per-signer high-water mark of nonces consumed by committed
+	// blocks: AddTx rejects and PruneCommitted drops txs at or below it. It
+	// exists because the store is carried across heights (see Clone) — without
+	// it, a recheck pass or an Insert racing FinalizeBlock could re-add a
+	// just-committed tx and feed it back into a proposal. Holds one entry per
+	// signer that has ever committed (grows with active accounts, not traffic).
+	consumed map[string]uint64
+
 	logger          log.Logger
 	signerExtractor sdkmempool.SignerExtractionAdapter
 	mu              sync.RWMutex
@@ -40,9 +49,39 @@ type cosmosTxWithMetadata struct {
 func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
 		txs:             make(map[string]cosmosTxBucket),
+		consumed:        make(map[string]uint64),
 		logger:          l,
 		signerExtractor: sdkmempool.NewDefaultSignerExtractionAdapter(),
 	}
+}
+
+// Clone returns a deep-enough copy of store for carrying the validated set forward
+// into next height. The tx values are shared (immutable), but the
+// bucket/index/consumed maps are copied so mutations on clone do not affect source.
+func (s *CosmosTxStore) Clone() *CosmosTxStore {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	clone := &CosmosTxStore{
+		txs:             make(map[string]cosmosTxBucket, len(s.txs)),
+		consumed:        make(map[string]uint64, len(s.consumed)),
+		nextUnkeyed:     s.nextUnkeyed,
+		logger:          s.logger,
+		signerExtractor: s.signerExtractor,
+	}
+	for signerKey, bucket := range s.txs {
+		txs := make([]cosmosTxWithMetadata, len(bucket.txs))
+		copy(txs, bucket.txs)
+		signers := make(map[string]struct{}, len(bucket.signers))
+		for signer := range bucket.signers {
+			signers[signer] = struct{}{}
+		}
+		clone.txs[signerKey] = cosmosTxBucket{txs: txs, signers: signers}
+	}
+	for signer, nonce := range s.consumed {
+		clone.consumed[signer] = nonce
+	}
+	return clone
 }
 
 // AddTx adds a single tx to the store while constructing a validated snapshot.
@@ -51,6 +90,14 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	defer s.mu.Unlock()
 
 	storedTx := s.newCosmosTxWithMetadata(tx)
+
+	// Reject txs whose nonce a committed block already consumed. This guards the
+	// carried-forward store from re-admitting an already-committed tx via a
+	// recheck pass or an Insert that races FinalizeBlock.
+	if s.isConsumedLocked(storedTx.nonceMap) {
+		return
+	}
+
 	if storedTx.signerKey == "" {
 		storedTx.signerKey = unkeyedSignerKey
 	}
@@ -59,10 +106,13 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	}
 
 	bucket := s.txs[storedTx.signerKey]
-	for _, existing := range bucket.txs {
+	for i, existing := range bucket.txs {
 		if existing.txKey == storedTx.txKey {
-			// this should never happen. panicking for safety
-			s.logger.Warn("attempted to add duplicate tx to CosmosTxStore", "key", storedTx.txKey)
+			// The slot is already occupied — expected with a carried-forward
+			// store, where each recheck pass re-adds still-valid txs. Overwrite:
+			// the pool admits one tx per signer/nonce, so the newest wins.
+			bucket.txs[i] = storedTx
+			s.txs[storedTx.signerKey] = bucket
 			return
 		}
 	}
@@ -104,25 +154,105 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 		if !bucketContainsAnySigner(existingBucket, storedTx.nonceMap) {
 			continue
 		}
-
-		next := existingBucket.txs[:0]
-		for _, existing := range existingBucket.txs {
-			if invalidatesCosmosTx(existing, storedTx.nonceMap) {
-				removed++
-				continue
-			}
-			next = append(next, existing)
-		}
-
-		clear(existingBucket.txs[len(next):])
-		if len(next) == 0 {
-			delete(s.txs, signerKey)
-			continue
-		}
-		existingBucket.txs = next
-		s.txs[signerKey] = existingBucket
+		removed += s.filterBucketLocked(signerKey, existingBucket, func(t cosmosTxWithMetadata) bool {
+			return invalidatesCosmosTx(t, storedTx.nonceMap)
+		})
 	}
 
+	return removed
+}
+
+// RemoveTx removes a single tx from the store if present. It is the counterpart
+// to AddTx used when a recheck pass drops a tx that became invalid: with a
+// carried-forward store the tx would otherwise linger from the previous height.
+// Returns true if a tx was removed.
+func (s *CosmosTxStore) RemoveTx(tx sdk.Tx) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	storedTx := s.newCosmosTxWithMetadata(tx)
+	if storedTx.signerKey == "" || storedTx.txKey == "" {
+		// unkeyed txs are not addressable for targeted removal
+		return false
+	}
+
+	bucket, ok := s.txs[storedTx.signerKey]
+	if !ok {
+		return false
+	}
+	return s.filterBucketLocked(storedTx.signerKey, bucket, func(t cosmosTxWithMetadata) bool {
+		return t.txKey == storedTx.txKey
+	}) > 0
+}
+
+// PruneCommitted records that a committed block consumed the given tx's
+// signer/nonces and drops any stored tx at or below a consumed nonce. It is
+// called synchronously as a block is finalized so the carried-forward store can
+// never feed an already-committed tx into a later proposal, even before the
+// next recheck pass runs. Returns the number of stored txs pruned.
+func (s *CosmosTxStore) PruneCommitted(tx sdk.Tx) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	nonceMap, ok := s.cosmosTxNonceMap(tx)
+	if !ok {
+		return 0
+	}
+
+	// bump the per-signer high-water mark
+	for signer, nonce := range nonceMap {
+		if cur, exists := s.consumed[signer]; !exists || nonce > cur {
+			s.consumed[signer] = nonce
+		}
+	}
+
+	// drop any stored tx now under a watermark: a tx is invalid if ANY of its
+	// signers has a consumed nonce, since every signer must be executable
+	removed := 0
+	for signerKey, bucket := range s.txs {
+		removed += s.filterBucketLocked(signerKey, bucket, func(t cosmosTxWithMetadata) bool {
+			return s.isConsumedLocked(t.nonceMap)
+		})
+	}
+
+	return removed
+}
+
+// isConsumedLocked reports whether any signer of the given nonceMap sits at or
+// below the committed high-water mark. Callers must hold s.mu.
+func (s *CosmosTxStore) isConsumedLocked(nonceMap map[string]uint64) bool {
+	for signer, nonce := range nonceMap {
+		if mark, ok := s.consumed[signer]; ok && nonce <= mark {
+			return true
+		}
+	}
+	return false
+}
+
+// filterBucketLocked removes every tx in the bucket at signerKey for which
+// match returns true, deleting the bucket if it empties. Callers must hold
+// s.mu. Returns the number of txs removed.
+func (s *CosmosTxStore) filterBucketLocked(signerKey string, bucket cosmosTxBucket, match func(cosmosTxWithMetadata) bool) int {
+	next := bucket.txs[:0]
+	removed := 0
+	for _, existing := range bucket.txs {
+		if match(existing) {
+			removed++
+			continue
+		}
+		next = append(next, existing)
+	}
+	if removed == 0 {
+		return 0
+	}
+
+	clear(bucket.txs[len(next):])
+	if len(next) == 0 {
+		delete(s.txs, signerKey)
+		return removed
+	}
+	bucket.txs = next
+	s.txs[signerKey] = bucket
 	return removed
 }
 

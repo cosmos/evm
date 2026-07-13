@@ -190,6 +190,60 @@ func TestStartNewHeightResetsValue(t *testing.T) {
 	require.Empty(t, result.get())
 }
 
+func TestStartNewHeightFromCarriesStore(t *testing.T) {
+	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
+
+	hv.StartNewHeight(big.NewInt(1))
+	hv.Do(func(s *testStore) { s.add("carried") })
+	hv.EndCurrentHeight()
+
+	// advance to height 2 carrying the previous store forward
+	hv.StartNewHeightFrom(big.NewInt(2), func(prev *testStore) *testStore {
+		return &testStore{items: prev.get()}
+	})
+	hv.Do(func(s *testStore) { s.add("fresh") })
+	hv.EndCurrentHeight()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	result := hv.GetStore(ctx, big.NewInt(2))
+	require.NotNil(t, result)
+	require.Equal(t, []string{"carried", "fresh"}, result.get())
+}
+
+// With the stale-fallback option, GetStore returns the most recent completed
+// store instead of nil when it times out behind the target height.
+func TestStaleFallbackReturnsLastStore(t *testing.T) {
+	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger()).WithStaleFallback()
+
+	hv.StartNewHeight(big.NewInt(1))
+	hv.Do(func(s *testStore) { s.add("h1") })
+	hv.EndCurrentHeight()
+
+	// request height 2 but never advance to it: times out on the height-behind path
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	value := hv.GetStore(ctx, big.NewInt(2))
+	require.NotNil(t, value)
+	require.Equal(t, []string{"h1"}, value.get())
+}
+
+// Without the option, the same height-behind timeout returns nil (the default).
+func TestNoStaleFallbackReturnsNil(t *testing.T) {
+	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
+
+	hv.StartNewHeight(big.NewInt(1))
+	hv.Do(func(s *testStore) { s.add("h1") })
+	hv.EndCurrentHeight()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	require.Nil(t, hv.GetStore(ctx, big.NewInt(2)))
+}
+
 func TestConcurrentDo(t *testing.T) {
 	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
 
