@@ -5,8 +5,9 @@
 ### DEPENDENCIES
 
 ### API-BREAKING
+
 - [\#854](https://github.com/cosmos/evm/pull/854) Remove the backwards-compatible `MsgEthereumTx.Hash()` helper; callers should use `MsgEthereumTx.AsTransaction().Hash()` instead.
-- [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead. 
+- [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
 
 ### IMPROVEMENTS
 
@@ -24,6 +25,7 @@
 - [\#1008](https://github.com/cosmos/evm/pull/1008) Stop enforcing JSON-RPC global filter cap and allow reclaim filters via configurable idle timeout.
 - [\#1130](https://github.com/cosmos/evm/pull/1130) Use `sdk.ValidateAuthority` in `x/vm`, `x/erc20`, and `x/feemarket` `MsgServer` handlers so authority can optionally be centralized via the consensus `AuthorityParams` introduced in cosmos-sdk v0.54.
 - [\#1164](https://github.com/cosmos/evm/pull/1164) Remove zero gas config from `ics20.transferWithStateDB` so inner KV ops in ICS20 transfer execution are metered, mirroring [\#1103](https://github.com/cosmos/evm/pull/1103).
+- [\#1220](https://github.com/cosmos/evm/pull/1220) Use latest block for setting txn defaults in rpc call.
 
 ### FEATURES
 
@@ -62,13 +64,14 @@
 - [\#1061](https://github.com/cosmos/evm/pull/1061) Block nested ICS20 forwarding in source callbacks.
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
-
+- [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 
 ## v0.6.0
 
 Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade instructions.
 
 ### BREAKING CHANGES
+
 - Removed IBC Transfer wrapper. Users are now required to use the precompile to transfer ERC20 tokens.
 - Added StateDB as a parameter to internal EVM calls.
 
