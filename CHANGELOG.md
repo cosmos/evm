@@ -33,6 +33,7 @@
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
 - [\#1082](https://github.com/cosmos/evm/pull/1082) Enable incarnation cache for verify result.
 - [\#1096](https://github.com/cosmos/evm/pull/1096) Allow eth_call overrides work with static precompiles.
+- [\#1226](https://github.com/cosmos/evm/issues/1226) Respect `ctx.IsSigverifyTx()` in EVM signature verification, mirroring x/auth to allow applications skip redundant ecrecover for txs the node already verified.
 
 ### BUG FIXES
 
