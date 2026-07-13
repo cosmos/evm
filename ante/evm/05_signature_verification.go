@@ -64,7 +64,8 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 }
 
 // verifyEthSigCached runs verify memoized in the incarnation cache, skipping it
-// when the app already verified the tx via ctx.IsSigverifyTx() (mirrors x/auth).
+// when ctx.IsSigverifyTx() is false (meaning the app signalled sig verification
+// is not required for this tx, mirroring x/auth).
 func verifyEthSigCached(ctx sdk.Context, verify func() error) error {
 	if !ctx.IsSigverifyTx() {
 		// skip ecrecover — already verified these tx bytes
