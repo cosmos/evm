@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	errorsmod "cosmossdk.io/errors"
-
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
@@ -15,6 +13,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v11/modules/core/04-channel/v2/types"
 	ibcapi "github.com/cosmos/ibc-go/v11/modules/core/api"
 	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
+
+	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
