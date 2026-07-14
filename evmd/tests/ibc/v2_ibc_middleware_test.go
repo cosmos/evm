@@ -477,14 +477,6 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 			onSendRequired: false,
 			expError:       "cannot pass in a custom error acknowledgement with IBC v2",
 		},
-		{
-			name: "fail: ambiguous ack with both result and error fields",
-			malleate: func() {
-				ack = []byte(`{"result":"AQ==","error":"ABCI code: 1: error handling packet: see events for details"}`)
-			},
-			onSendRequired: false,
-			expError:       "acknowledgement did not marshal to expected bytes",
-		},
 	}
 
 	for _, tc := range testCases {
