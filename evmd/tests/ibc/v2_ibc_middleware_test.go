@@ -562,24 +562,6 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 	}
 }
 
-// TestOnAcknowledgementPacketAmbiguousAck is a regression test for FOU-539.
-//
-// A malicious or buggy IBC v2 counterparty can commit an ICS-20 acknowledgement
-// that sets both oneof fields, e.g.
-//
-//	{"result":"AQ==","error":"ABCI code: 1: error handling packet: see events for details"}
-//
-// gogoproto's JSON decoder can pick either the "result" or the "error" branch
-// depending on internal map iteration order. Without the canonical round-trip
-// guard, the same proofed acknowledgement could therefore be processed as
-// success on some validators (deleting the packet commitment) and as failure on
-// others (leaving it), splitting consensus.
-//
-// The guard re-marshals the decoded acknowledgement and requires byte-for-byte
-// equality with the input. Since a protobuf oneof only ever marshals a single
-// branch, the two-field JSON never round-trips, so the middleware rejects it
-// with the same error on every decode. The loop below exercises many decode
-// attempts to demonstrate the outcome no longer depends on decode order.
 func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketAmbiguousAck() {
 	suite.SetupTest()
 
