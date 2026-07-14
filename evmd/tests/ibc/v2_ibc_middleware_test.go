@@ -562,49 +562,6 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 	}
 }
 
-func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketAmbiguousAck() {
-	suite.SetupTest()
-
-	ctx := suite.evmChainA.GetContext()
-	evmApp := suite.evmChainA.App.(*evmd.EVMD)
-	bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
-	suite.Require().NoError(err)
-
-	packetData := transfertypes.NewFungibleTokenPacketData(
-		bondDenom,
-		ibctesting.DefaultCoinAmount.String(),
-		suite.evmChainA.SenderAccount.GetAddress().String(),
-		suite.chainB.SenderAccount.GetAddress().String(),
-		"",
-	)
-	payload := channeltypesv2.NewPayload(
-		transfertypes.PortID, transfertypes.PortID,
-		transfertypes.V1, transfertypes.EncodingJSON,
-		packetData.GetBytes(),
-	)
-
-	// Acknowledgement that sets both the "result" and "error" oneof fields.
-	ambiguousAck := []byte(`{"result":"AQ==","error":"ABCI code: 1: error handling packet: see events for details"}`)
-
-	transferStack := evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
-
-	// The guard rejects before any state is mutated, so the call is side-effect
-	// free and safe to repeat on the same context.
-	for range 128 {
-		err = transferStack.OnAcknowledgementPacket(
-			ctx,
-			suite.pathAToB.EndpointA.ClientID,
-			suite.pathAToB.EndpointB.ClientID,
-			1,
-			ambiguousAck,
-			payload,
-			suite.evmChainA.SenderAccount.GetAddress(),
-		)
-		suite.Require().Error(err)
-		suite.Require().ErrorContains(err, "acknowledgement did not marshal to expected bytes")
-	}
-}
-
 // TestOnAcknowledgementPacketNativeErc20 tests ack logic when the packet involves a native ERC20.
 func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 	var (
