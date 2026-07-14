@@ -4,6 +4,8 @@
 
 ### DEPENDENCIES
 
+- [\#1232](https://github.com/cosmos/evm/pull/1232) Bump `ibc-go` to `v11.1.0`.
+
 ### API-BREAKING
 
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
