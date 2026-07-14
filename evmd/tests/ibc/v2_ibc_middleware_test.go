@@ -477,6 +477,14 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 			onSendRequired: false,
 			expError:       "cannot pass in a custom error acknowledgement with IBC v2",
 		},
+		{
+			name: "fail: ambiguous ack with both result and error fields",
+			malleate: func() {
+				ack = []byte(`{"result":"AQ==","error":"ABCI code: 1: error handling packet: see events for details"}`)
+			},
+			onSendRequired: false,
+			expError:       "acknowledgement did not marshal to expected bytes",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -551,6 +559,67 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 				suite.Require().Equal(0, len(escrowedCoins))
 			}
 		})
+	}
+}
+
+// TestOnAcknowledgementPacketAmbiguousAck is a regression test for FOU-539.
+//
+// A malicious or buggy IBC v2 counterparty can commit an ICS-20 acknowledgement
+// that sets both oneof fields, e.g.
+//
+//	{"result":"AQ==","error":"ABCI code: 1: error handling packet: see events for details"}
+//
+// gogoproto's JSON decoder can pick either the "result" or the "error" branch
+// depending on internal map iteration order. Without the canonical round-trip
+// guard, the same proofed acknowledgement could therefore be processed as
+// success on some validators (deleting the packet commitment) and as failure on
+// others (leaving it), splitting consensus.
+//
+// The guard re-marshals the decoded acknowledgement and requires byte-for-byte
+// equality with the input. Since a protobuf oneof only ever marshals a single
+// branch, the two-field JSON never round-trips, so the middleware rejects it
+// with the same error on every decode. The loop below exercises many decode
+// attempts to demonstrate the outcome no longer depends on decode order.
+func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketAmbiguousAck() {
+	suite.SetupTest()
+
+	ctx := suite.evmChainA.GetContext()
+	evmApp := suite.evmChainA.App.(*evmd.EVMD)
+	bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
+	suite.Require().NoError(err)
+
+	packetData := transfertypes.NewFungibleTokenPacketData(
+		bondDenom,
+		ibctesting.DefaultCoinAmount.String(),
+		suite.evmChainA.SenderAccount.GetAddress().String(),
+		suite.chainB.SenderAccount.GetAddress().String(),
+		"",
+	)
+	payload := channeltypesv2.NewPayload(
+		transfertypes.PortID, transfertypes.PortID,
+		transfertypes.V1, transfertypes.EncodingJSON,
+		packetData.GetBytes(),
+	)
+
+	// Acknowledgement that sets both the "result" and "error" oneof fields.
+	ambiguousAck := []byte(`{"result":"AQ==","error":"ABCI code: 1: error handling packet: see events for details"}`)
+
+	transferStack := evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+
+	// The guard rejects before any state is mutated, so the call is side-effect
+	// free and safe to repeat on the same context.
+	for range 128 {
+		err = transferStack.OnAcknowledgementPacket(
+			ctx,
+			suite.pathAToB.EndpointA.ClientID,
+			suite.pathAToB.EndpointB.ClientID,
+			1,
+			ambiguousAck,
+			payload,
+			suite.evmChainA.SenderAccount.GetAddress(),
+		)
+		suite.Require().Error(err)
+		suite.Require().ErrorContains(err, "acknowledgement did not marshal to expected bytes")
 	}
 }
 
