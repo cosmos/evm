@@ -819,6 +819,12 @@ func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Memp
 	require.NoError(t, eventBus.Start())
 	mp.SetEventBus(eventBus)
 
+	// Close the mempool
+	t.Cleanup(func() {
+		require.NoError(t, mp.Close())
+		require.NoError(t, eventBus.Stop())
+	})
+
 	return mp, testMempoolDependencies{
 		vmKeeper:        mockVMKeeper,
 		txConfig:        txConfig,
