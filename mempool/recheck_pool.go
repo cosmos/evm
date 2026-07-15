@@ -433,9 +433,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	// a pass cancelled by next block does not discard all progress and starve proposals.
 	// The pass prunes whatever became invalid, committed txs are kept out by
 	// the store's watermark (see CosmosTxStore.PruneCommitted).
-	m.recheckedTxs.StartNewHeightFrom(newHead.Number, func(prev *CosmosTxStore) *CosmosTxStore {
-		return prev.Clone()
-	})
+	m.recheckedTxs.StartNewHeightFrom(newHead.Number, (*CosmosTxStore).Clone)
 	defer m.recheckedTxs.EndCurrentHeight()
 
 	latestCtx, err := m.blockchain.GetLatestContext()

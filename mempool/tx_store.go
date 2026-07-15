@@ -1,17 +1,37 @@
 package mempool
 
 import (
+	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+
+	"go.opentelemetry.io/otel/metric"
 
 	"cosmossdk.io/log/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
+
+// consumedWatermarkSize reports how many per-signer committed-nonce watermarks
+// the carried-forward store retains. The consumed map is never evicted, so this
+// gauge surfaces unexpected growth.
+var consumedWatermarkSize metric.Int64Gauge
+
+func init() {
+	var err error
+	consumedWatermarkSize, err = meter.Int64Gauge(
+		"cosmos_tx_store.consumed_watermark_size",
+		metric.WithDescription("Number of per-signer committed-nonce watermarks retained by the carried-forward store"),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // CosmosTxStore is a set of cosmos transactions that can be added to or
 // removed from.
@@ -24,7 +44,9 @@ type CosmosTxStore struct {
 	// exists because the store is carried across heights (see Clone) — without
 	// it, a recheck pass or an Insert racing FinalizeBlock could re-add a
 	// just-committed tx and feed it back into a proposal. Holds one entry per
-	// signer that has ever committed (grows with active accounts, not traffic).
+	// signer that has ever committed (grows with active accounts, not traffic);
+	// never evicted, so PruneCommitted reports its size via the
+	// cosmos_tx_store.consumed_watermark_size gauge.
 	consumed map[string]uint64
 
 	logger          log.Logger
@@ -64,22 +86,16 @@ func (s *CosmosTxStore) Clone() *CosmosTxStore {
 
 	clone := &CosmosTxStore{
 		txs:             make(map[string]cosmosTxBucket, len(s.txs)),
-		consumed:        make(map[string]uint64, len(s.consumed)),
+		consumed:        maps.Clone(s.consumed),
 		nextUnkeyed:     s.nextUnkeyed,
 		logger:          s.logger,
 		signerExtractor: s.signerExtractor,
 	}
 	for signerKey, bucket := range s.txs {
-		txs := make([]cosmosTxWithMetadata, len(bucket.txs))
-		copy(txs, bucket.txs)
-		signers := make(map[string]struct{}, len(bucket.signers))
-		for signer := range bucket.signers {
-			signers[signer] = struct{}{}
+		clone.txs[signerKey] = cosmosTxBucket{
+			txs:     slices.Clone(bucket.txs),
+			signers: maps.Clone(bucket.signers),
 		}
-		clone.txs[signerKey] = cosmosTxBucket{txs: txs, signers: signers}
-	}
-	for signer, nonce := range s.consumed {
-		clone.consumed[signer] = nonce
 	}
 	return clone
 }
@@ -149,17 +165,9 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 		return 0
 	}
 
-	removed := 0
-	for signerKey, existingBucket := range s.txs {
-		if !bucketContainsAnySigner(existingBucket, storedTx.nonceMap) {
-			continue
-		}
-		removed += s.filterBucketLocked(signerKey, existingBucket, func(t cosmosTxWithMetadata) bool {
-			return invalidatesCosmosTx(t, storedTx.nonceMap)
-		})
-	}
-
-	return removed
+	return s.filterSignerBucketsLocked(storedTx.nonceMap, func(t cosmosTxWithMetadata) bool {
+		return invalidatesCosmosTx(t, storedTx.nonceMap)
+	})
 }
 
 // RemoveTx removes a single tx from the store if present. It is the counterpart
@@ -176,11 +184,7 @@ func (s *CosmosTxStore) RemoveTx(tx sdk.Tx) bool {
 		return false
 	}
 
-	bucket, ok := s.txs[storedTx.signerKey]
-	if !ok {
-		return false
-	}
-	return s.filterBucketLocked(storedTx.signerKey, bucket, func(t cosmosTxWithMetadata) bool {
+	return s.filterBucketLocked(storedTx.signerKey, s.txs[storedTx.signerKey], func(t cosmosTxWithMetadata) bool {
 		return t.txKey == storedTx.txKey
 	}) > 0
 }
@@ -207,13 +211,15 @@ func (s *CosmosTxStore) PruneCommitted(tx sdk.Tx) int {
 	}
 
 	// drop any stored tx now under a watermark: a tx is invalid if ANY of its
-	// signers has a consumed nonce, since every signer must be executable
-	removed := 0
-	for signerKey, bucket := range s.txs {
-		removed += s.filterBucketLocked(signerKey, bucket, func(t cosmosTxWithMetadata) bool {
-			return s.isConsumedLocked(t.nonceMap)
-		})
-	}
+	// signers has a consumed nonce. Only buckets sharing a signer with the
+	// just-committed tx can hold a newly consumed tx (a prior commit already
+	// pruned the rest and AddTx rejects re-adds).
+	removed := s.filterSignerBucketsLocked(nonceMap, func(t cosmosTxWithMetadata) bool {
+		return s.isConsumedLocked(t.nonceMap)
+	})
+
+	// report the unbounded watermark map's size for monitoring
+	consumedWatermarkSize.Record(context.Background(), int64(len(s.consumed)))
 
 	return removed
 }
@@ -253,6 +259,21 @@ func (s *CosmosTxStore) filterBucketLocked(signerKey string, bucket cosmosTxBuck
 	}
 	bucket.txs = next
 	s.txs[signerKey] = bucket
+	return removed
+}
+
+// filterSignerBucketsLocked removes every tx matching match from the buckets
+// sharing at least one signer with nonceMap, skipping unrelated buckets so the
+// scan stays proportional to the supplied tx rather than the whole pool.
+// Callers must hold s.mu. Returns the number of txs removed.
+func (s *CosmosTxStore) filterSignerBucketsLocked(nonceMap map[string]uint64, match func(cosmosTxWithMetadata) bool) int {
+	removed := 0
+	for signerKey, bucket := range s.txs {
+		if !bucketContainsAnySigner(bucket, nonceMap) {
+			continue
+		}
+		removed += s.filterBucketLocked(signerKey, bucket, match)
+	}
 	return removed
 }
 

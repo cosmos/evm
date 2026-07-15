@@ -116,11 +116,13 @@ type HeightSync[Store any] struct {
 	// fields of the Store itself
 	mu sync.RWMutex
 
-	// staleFallback makes GetStore return the most recent completed Store
+	// staleFallback makes GetStore return the current carried-forward Store
 	// (instead of nil) when it times out while still behind the target height.
-	// Only enable it for stores that stay free of state a committed block
-	// invalidated (see the cosmos pool's committed-nonce watermark), otherwise
-	// a stale Store could serve already-committed txs.
+	// That Store is at a height <= target and, even mid-recheck, carry-forward
+	// keeps it a valid subset of validated txs. Only enable it for stores that
+	// stay free of state a committed block invalidated (see the cosmos pool's
+	// committed-nonce watermark), otherwise a stale Store could serve
+	// already-committed txs.
 	staleFallback bool
 
 	logger log.Logger
@@ -285,10 +287,11 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 				return nil
 			}
 			// Rather than starve the caller (e.g. an empty block proposal),
-			// fall back to the most recent completed Store. It is at a height
-			// <= target, so it is safe to serve as long as producers keep it
-			// free of state that a since-committed block invalidated (the
-			// cosmos pool does this via its committed-nonce watermark).
+			// fall back to the current carried-forward Store: it is at a
+			// height <= target and, even mid-recheck, holds a valid subset of
+			// validated txs. Safe to serve as long as producers keep it free
+			// of state a since-committed block invalidated (the cosmos pool
+			// does this via its committed-nonce watermark).
 			hs.mu.RLock()
 			value := hs.store
 			hs.mu.RUnlock()

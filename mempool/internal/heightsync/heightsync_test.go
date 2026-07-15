@@ -212,8 +212,8 @@ func TestStartNewHeightFromCarriesStore(t *testing.T) {
 	require.Equal(t, []string{"carried", "fresh"}, result.get())
 }
 
-// With the stale-fallback option, GetStore returns the most recent completed
-// store instead of nil when it times out behind the target height.
+// With the stale-fallback option, GetStore returns the current store (at a
+// height <= target) instead of nil when it times out behind the target height.
 func TestStaleFallbackReturnsLastStore(t *testing.T) {
 	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger()).WithStaleFallback()
 
