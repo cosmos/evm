@@ -3,10 +3,15 @@
 ## UNRELEASED
 
 ### DEPENDENCIES
+
 ### API-BREAKING
+
 ### IMPROVEMENTS
+
 ### FEATURES
+
 ### BUG FIXES
+- [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 
 ## v0.7.0
 
@@ -43,7 +48,6 @@ Follow the [migration document](docs/migrations/v0.6.x_to_v0.7.0.md) for upgrade
 
 ### BUG FIXES
 
-- [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
