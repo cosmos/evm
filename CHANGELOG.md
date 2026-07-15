@@ -33,9 +33,11 @@
 - [\#815](https://github.com/cosmos/evm/pull/815) Support for multi gRPC query clients serve with old binary.
 - [\#1082](https://github.com/cosmos/evm/pull/1082) Enable incarnation cache for verify result.
 - [\#1096](https://github.com/cosmos/evm/pull/1096) Allow eth_call overrides work with static precompiles.
+- [\#1228](https://github.com/cosmos/evm/pull/1228) Respect `ctx.IsSigverifyTx()` in EVM signature verification, mirroring x/auth to allow applications skip redundant ecrecover for txs the node already verified.
 
 ### BUG FIXES
 
+- [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
