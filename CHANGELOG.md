@@ -4,6 +4,8 @@
 
 ### DEPENDENCIES
 
+- [\#1232](https://github.com/cosmos/evm/pull/1232) Bump `ibc-go` to `v11.1.0`.
+
 ### API-BREAKING
 
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
@@ -25,6 +27,7 @@
 - [\#1130](https://github.com/cosmos/evm/pull/1130) Use `sdk.ValidateAuthority` in `x/vm`, `x/erc20`, and `x/feemarket` `MsgServer` handlers so authority can optionally be centralized via the consensus `AuthorityParams` introduced in cosmos-sdk v0.54.
 - [\#1164](https://github.com/cosmos/evm/pull/1164) Remove zero gas config from `ics20.transferWithStateDB` so inner KV ops in ICS20 transfer execution are metered, mirroring [\#1103](https://github.com/cosmos/evm/pull/1103).
 - [\#1220](https://github.com/cosmos/evm/pull/1220) Use latest block for setting txn defaults in rpc call.
+- [\#1232](https://github.com/cosmos/evm/pull/1232) Validate ICS-20 acknowledgement encoding in the erc20 IBC v2 middleware.
 
 ### FEATURES
 
