@@ -726,6 +726,65 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 	}
 }
 
+// A tx that fails recheck must leave the snapshot at detection time — the
+// end-of-pass removal loop is skipped on cancellation.
+func TestRecheckMempool_FailedTxDroppedBeforeRemovalLoop(t *testing.T) {
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+
+	const numTxs = 3
+
+	var failPass atomic.Bool
+	var calls atomic.Int32
+	ready := make(chan struct{})
+	gate := make(chan struct{})
+	anteHandler := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
+		if !failPass.Load() {
+			return ctx, nil
+		}
+		switch calls.Add(1) {
+		case 1:
+			// first rechecked tx fails
+			return ctx, errors.New("recheck failure")
+		case 2:
+			// second stalls the pass before its removal loop can run
+			ready <- struct{}{}
+			<-gate
+		}
+		return ctx, nil
+	}
+
+	rc := newMockRechecker(ctx, anteHandler)
+	mp := mempool.NewRecheckMempool(
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
+	)
+	mp.Start(testHeader(0))
+	defer mp.Close()
+
+	for range numTxs {
+		key, _ := crypto.GenerateKey()
+		require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, key)))
+	}
+	mp.TriggerRecheckSync(testHeader(1))
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(1))), numTxs)
+
+	failPass.Store(true)
+	mp.TriggerRecheck(testHeader(2))
+	<-ready // one tx has failed and the pass is stalled mid-iteration
+
+	getCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(getCtx, big.NewInt(2))), numTxs-1,
+		"failed tx must leave the snapshot before the removal loop runs")
+
+	// let the stalled pass finish; remaining txs pass without signalling again
+	failPass.Store(false)
+	close(gate)
+}
+
 // TestRecheckMempool_CarryForwardSurvivesCancellation verifies the fix for the
 // cosmos-pool proposal starvation: a recheck pass carries the previous height's
 // validated set forward, so a pass that is cancelled (or merely still running)

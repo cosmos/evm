@@ -90,6 +90,11 @@ func (s *CosmosTxStore) Clone() *CosmosTxStore {
 		signerExtractor: s.signerExtractor,
 	}
 	for signerKey, bucket := range s.txs {
+		// Unkeyed txs are unremovable and get a fresh key on every AddTx, so a
+		// carried copy would duplicate once per pass; let each pass re-add them.
+		if signerKey == unkeyedSignerKey {
+			continue
+		}
 		clone.txs[signerKey] = cosmosTxBucket{
 			txs:     slices.Clone(bucket.txs),
 			signers: maps.Clone(bucket.signers),
@@ -165,6 +170,25 @@ func (s *CosmosTxStore) InvalidateFrom(tx sdk.Tx) int {
 
 	return s.filterSignerBucketsLocked(storedTx.nonceMap, func(t cosmosTxWithMetadata) bool {
 		return invalidatesCosmosTx(t, storedTx.nonceMap)
+	})
+}
+
+// InvalidateReplaced removes a replaced tx (and txs validated on top of its
+// nonces) when its signer set differs from the replacement's, which
+// InvalidateFrom(newTx) cannot see in newTx's own bucket. Same-set
+// replacements stay with InvalidateFrom. Returns the number of txs removed.
+func (s *CosmosTxStore) InvalidateReplaced(oldTx, newTx sdk.Tx) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	oldStored := s.newCosmosTxWithMetadata(oldTx)
+	newStored := s.newCosmosTxWithMetadata(newTx)
+	if oldStored.signerKey == "" || oldStored.txKey == "" || oldStored.signerKey == newStored.signerKey {
+		return 0
+	}
+
+	return s.filterSignerBucketsLocked(oldStored.nonceMap, func(t cosmosTxWithMetadata) bool {
+		return invalidatesCosmosTx(t, oldStored.nonceMap)
 	})
 }
 

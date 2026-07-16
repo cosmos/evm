@@ -130,7 +130,7 @@ func NewRecheckMempool(
 		blockchain,
 		defaultCosmosPoolConfig,
 		maxTxs,
-		onTransactionReplace(reapList, signerExtractor, reserver, logger),
+		onTransactionReplace(reapList, recheckedTxs, signerExtractor, reserver, logger),
 	)
 
 	return &RecheckMempool{
@@ -502,6 +502,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		removeTxs = append(removeTxs, txn)
+		// Drop from the snapshot at detection: the removal loop below is
+		// skipped on cancellation. ExtMempool removal still waits for the
+		// loop (reservations, multi-signer identification).
+		m.markTxRemoved(txn)
 
 		if keepFuturesOnError {
 			iter = iter.Next()
@@ -531,9 +535,6 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			continue
 		}
 		m.reapList.DropCosmosTx(txn)
-		// Drop from the carried-forward snapshot too; otherwise a tx that just
-		// failed recheck would linger in the store from the previous height.
-		m.markTxRemoved(txn)
 
 		if err := m.unreserveTx(txn); err != nil {
 			m.logger.Error("failed to release reservations", "err", err)
@@ -645,15 +646,20 @@ func cosmosPoolConfig(
 
 func onTransactionReplace(
 	reapList *reaplist.ReapList,
+	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
 	signerExtractor sdkmempool.SignerExtractionAdapter,
 	reserver *reserver.ReservationHandle,
 	logger log.Logger,
 ) func(oldTx, newTx sdk.Tx) {
-	return func(oldTx, _ sdk.Tx) {
+	return func(oldTx, newTx sdk.Tx) {
 		// tx is being replaced, we need to drop the tx that is going to be removed
 		// from the reap list. we assume that the tx doing the replacing has
 		// already been inserted into the reaplist via the insert.
 		reapList.DropCosmosTx(oldTx)
+
+		// drop the replaced tx from the snapshot when its signer set differs
+		// from the replacement's (see CosmosTxStore.InvalidateReplaced)
+		recheckedTxs.Do(func(store *CosmosTxStore) { store.InvalidateReplaced(oldTx, newTx) })
 
 		addrs, err := extractEVMAddresses(signerExtractor, oldTx)
 		if err != nil {

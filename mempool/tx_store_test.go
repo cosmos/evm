@@ -378,6 +378,47 @@ func TestCosmosTxStorePruneCommitted(t *testing.T) {
 	require.Equal(t, 1, store.Len())
 }
 
+// Unkeyed txs must not be carried across heights: they get a fresh key on
+// every AddTx and cannot be removed, so a carried copy duplicates every pass.
+func TestCosmosTxStoreCloneDropsUnkeyed(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	store.AddTx(newMockTx(1)) // no signers: stored under the unkeyed bucket
+	store.AddTx(newKeyedMockTxWithPubKey(newPubKeyBytes(t), 0))
+	require.Equal(t, 2, store.Len())
+
+	clone := store.Clone()
+	require.Equal(t, 1, clone.Len(), "clone must not carry the unkeyed bucket")
+
+	// the re-add a recheck pass would perform yields exactly one copy again
+	clone.AddTx(newMockTx(1))
+	require.Equal(t, 2, clone.Len())
+}
+
+// A replaced multi-signer tx lives in a bucket InvalidateFrom(newTx) cannot
+// see; InvalidateReplaced drops it (and its dependents) by its own identity.
+func TestCosmosTxStoreInvalidateReplaced(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signerA := newPubKeyBytes(t)
+	signerB := newPubKeyBytes(t)
+	oldTx := newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{5, 0})
+	dependent := newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{6, 1})
+	newTx := newKeyedMockTxWithPubKey(signerA, 5)
+
+	store.AddTx(oldTx)
+	store.AddTx(dependent)
+	require.Equal(t, 2, store.Len())
+
+	// same signer set is a no-op: InvalidateFrom owns that case
+	require.Equal(t, 0, store.InvalidateReplaced(oldTx, oldTx))
+	require.Equal(t, 2, store.Len())
+
+	// different signer set drops the old tx and anything atop its nonces
+	require.Equal(t, 2, store.InvalidateReplaced(oldTx, newTx))
+	require.Equal(t, 0, store.Len())
+}
+
 // Committing an unordered tx must not watermark the signer — that would
 // blacklist their ordered txs. Only the exact tx is dropped.
 func TestCosmosTxStorePruneCommittedUnordered(t *testing.T) {
