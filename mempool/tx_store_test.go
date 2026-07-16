@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -279,6 +280,30 @@ func newPubKeyBytes(t *testing.T) []byte {
 	return crypto.CompressPubkey(&key.PublicKey)
 }
 
+// signerKeyOf returns the key the store indexes a signer under: its account
+// address, not the pubkey bytes the mocks are constructed from.
+func signerKeyOf(pubKeyBytes []byte) string {
+	return string((&ethsecp256k1.PubKey{Key: pubKeyBytes}).Address().Bytes())
+}
+
+// requireSignerIndexConsistent rebuilds the signer index from the buckets and
+// compares: a missing entry hides a bucket from shared-signer scans, a stale
+// one leaks.
+func requireSignerIndexConsistent(t *testing.T, store *CosmosTxStore) {
+	t.Helper()
+
+	want := make(map[string]map[string]struct{})
+	for signerKey, bucket := range store.txs {
+		for signer := range bucket.signers {
+			if want[signer] == nil {
+				want[signer] = make(map[string]struct{})
+			}
+			want[signer][signerKey] = struct{}{}
+		}
+	}
+	require.Equal(t, want, store.signerBuckets)
+}
+
 func TestCosmosTxStoreRemoveTx(t *testing.T) {
 	store := NewCosmosTxStore(log.NewNopLogger())
 
@@ -406,6 +431,100 @@ func TestCosmosTxStoreCloneDropsUnkeyed(t *testing.T) {
 	// the re-add a recheck pass would perform yields exactly one copy again
 	clone.AddTx(newMockTx(1))
 	require.Equal(t, 2, clone.Len())
+}
+
+// The signer index must name every bucket a signer sits in and nothing more:
+// it decides which buckets a shared-signer scan visits.
+func TestCosmosTxStoreSignerIndexTracksBuckets(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	pubA, pubB := newPubKeyBytes(t), newPubKeyBytes(t)
+	keyA, keyB := signerKeyOf(pubA), signerKeyOf(pubB)
+
+	store.AddTx(newKeyedMockTxWithPubKey(pubA, 0))
+	store.AddTx(newKeyedMockTxWithPubKey(pubA, 1))
+	store.AddTx(newKeyedMockTxWithPubKey(pubB, 0))
+	store.AddTx(newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{9, 9}))
+	store.AddTx(newMockTx(1)) // unkeyed: no signers, so it earns no index entry
+	require.Equal(t, 5, store.Len())
+	requireSignerIndexConsistent(t, store)
+
+	// each signer sits in its own bucket and in the one they share
+	require.Len(t, store.signerBuckets[keyA], 2)
+	require.Len(t, store.signerBuckets[keyB], 2)
+
+	// Committing A's nonce 9 empties both of A's buckets: its own (nonces 0 and
+	// 1 fall under the watermark) and the shared one. B's own bucket is a
+	// different signer set and survives untouched.
+	require.Equal(t, 3, store.PruneCommitted(newKeyedMockTxWithPubKey(pubA, 9)))
+	requireSignerIndexConsistent(t, store)
+	require.NotContains(t, store.signerBuckets, keyA, "A has no bucket left to scan")
+	require.Len(t, store.signerBuckets[keyB], 1)
+
+	// the index must not outlive the last keyed tx
+	require.True(t, store.RemoveTx(newKeyedMockTxWithPubKey(pubB, 0)))
+	requireSignerIndexConsistent(t, store)
+	require.Empty(t, store.signerBuckets)
+	require.Equal(t, 1, store.Len(), "the unkeyed tx is untouched by signer scans")
+}
+
+// A clone's per-signer bucket sets must be copies: sharing them would let a
+// prune on one height's store reach back into the previous height's.
+func TestCosmosTxStoreCloneSignerIndexIsIndependent(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	pubA, pubB := newPubKeyBytes(t), newPubKeyBytes(t)
+	store.AddTx(newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{0, 0}))
+	store.AddTx(newKeyedMockTxWithPubKey(pubA, 3))
+	store.AddTx(newMockTx(1)) // unkeyed: dropped by Clone, and indexed by neither
+
+	clone := store.Clone()
+	requireSignerIndexConsistent(t, clone)
+
+	// emptying every bucket the clone has must leave the source's index whole
+	require.Equal(t, 2, clone.PruneCommitted(newKeyedMockTxWithPubKey(pubA, 3)))
+	require.Equal(t, 0, clone.Len())
+	require.Empty(t, clone.signerBuckets)
+	requireSignerIndexConsistent(t, store)
+	require.Len(t, store.signerBuckets[signerKeyOf(pubA)], 2)
+	require.Len(t, store.signerBuckets[signerKeyOf(pubB)], 1)
+}
+
+// Two txs of one signer set can share a nonce sum; only AddTx's txKey
+// tie-break keeps the second from overwriting the first.
+func TestCosmosTxStoreAddTxDistinguishesEqualNonceSums(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	pubA, pubB := newPubKeyBytes(t), newPubKeyBytes(t)
+	first := newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{5, 0})
+	second := newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{0, 5})
+
+	store.AddTx(first)
+	store.AddTx(second)
+	require.Equal(t, 2, store.Len(), "equal nonce sums must not collapse into one slot")
+	require.ElementsMatch(t, []sdk.Tx{first, second}, store.Txs())
+	requireSignerIndexConsistent(t, store)
+
+	// a recheck pass re-adds both: each overwrites its own slot, no duplicates
+	store.AddTx(first)
+	store.AddTx(second)
+	require.Equal(t, 2, store.Len())
+	require.ElementsMatch(t, []sdk.Tx{first, second}, store.Txs())
+}
+
+// Unkeyed store keys compare as strings ("unkeyed/10" < "unkeyed/9"), and
+// AddTx's binary search relies on inserts landing in that same order.
+func TestCosmosTxStoreUnkeyedInsertsStaySortedPastTen(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	const count = 12
+	for i := range count {
+		store.AddTx(newMockTx(i))
+	}
+
+	require.Equal(t, count, store.Len(), "every unkeyed tx gets its own slot")
+	require.True(t, slices.IsSortedFunc(store.txs[unkeyedSignerKey].txs, compareCosmosTxWithMetadata))
+	requireSignerIndexConsistent(t, store)
 }
 
 // A replaced multi-signer tx lives in a bucket InvalidateFrom(newTx) cannot
