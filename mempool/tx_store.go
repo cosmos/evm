@@ -17,9 +17,8 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// consumedWatermarkSize reports how many per-signer committed-nonce watermarks
-// the carried-forward store retains. The consumed map is never evicted, so this
-// gauge surfaces unexpected growth.
+// consumedWatermarkSize reports how many per-signer committed-nonce
+// watermarks survived the latest aging (see AgeWatermarks).
 var consumedWatermarkSize metric.Int64Gauge
 
 func init() {
@@ -39,15 +38,12 @@ type CosmosTxStore struct {
 	txs         map[string]cosmosTxBucket
 	nextUnkeyed uint64
 
-	// consumed is a per-signer high-water mark of nonces consumed by committed
-	// blocks: AddTx rejects and PruneCommitted drops txs at or below it. It
-	// exists because the store is carried across heights (see Clone) — without
-	// it, a recheck pass or an Insert racing FinalizeBlock could re-add a
-	// just-committed tx and feed it back into a proposal. Holds one entry per
-	// signer that has ever committed (grows with active accounts, not traffic);
-	// never evicted, so PruneCommitted reports its size via the
-	// cosmos_tx_store.consumed_watermark_size gauge.
-	consumed map[string]uint64
+	// consumed and prevConsumed hold two generations of per-signer high-water
+	// marks of committed nonces, so the carried-forward store cannot re-admit
+	// a just-committed tx: AddTx rejects and PruneCommitted drops txs at or
+	// below a mark; AgeWatermarks retires the older generation.
+	consumed     map[string]uint64
+	prevConsumed map[string]uint64
 
 	logger          log.Logger
 	signerExtractor sdkmempool.SignerExtractionAdapter
@@ -72,6 +68,7 @@ func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 	return &CosmosTxStore{
 		txs:             make(map[string]cosmosTxBucket),
 		consumed:        make(map[string]uint64),
+		prevConsumed:    make(map[string]uint64),
 		logger:          l,
 		signerExtractor: sdkmempool.NewDefaultSignerExtractionAdapter(),
 	}
@@ -87,6 +84,7 @@ func (s *CosmosTxStore) Clone() *CosmosTxStore {
 	clone := &CosmosTxStore{
 		txs:             make(map[string]cosmosTxBucket, len(s.txs)),
 		consumed:        maps.Clone(s.consumed),
+		prevConsumed:    maps.Clone(s.prevConsumed),
 		nextUnkeyed:     s.nextUnkeyed,
 		logger:          s.logger,
 		signerExtractor: s.signerExtractor,
@@ -184,9 +182,15 @@ func (s *CosmosTxStore) RemoveTx(tx sdk.Tx) bool {
 		return false
 	}
 
-	return s.filterBucketLocked(storedTx.signerKey, s.txs[storedTx.signerKey], func(t cosmosTxWithMetadata) bool {
-		return t.txKey == storedTx.txKey
-	}) > 0
+	return s.removeTxKeyLocked(storedTx.signerKey, storedTx.txKey) > 0
+}
+
+// removeTxKeyLocked removes the tx with the exact txKey from its signer-set
+// bucket. Callers must hold s.mu. Returns the number of txs removed (0 or 1).
+func (s *CosmosTxStore) removeTxKeyLocked(signerKey, txKey string) int {
+	return s.filterBucketLocked(signerKey, s.txs[signerKey], func(t cosmosTxWithMetadata) bool {
+		return t.txKey == txKey
+	})
 }
 
 // PruneCommitted records that a committed block consumed the given tx's
@@ -203,6 +207,13 @@ func (s *CosmosTxStore) PruneCommitted(tx sdk.Tx) int {
 		return 0
 	}
 
+	// An unordered tx consumes no sequence — its nonce is a timeout timestamp
+	// that would blacklist the signer if watermarked. Drop exactly this tx;
+	// on-chain unordered-nonce tracking prevents re-execution.
+	if unordered, ok := tx.(sdk.TxWithUnordered); ok && unordered.GetUnordered() {
+		return s.removeTxKeyLocked(cosmosTxSignerSetKey(nonceMap), cosmosTxKey(nonceMap))
+	}
+
 	// bump the per-signer high-water mark
 	for signer, nonce := range nonceMap {
 		if cur, exists := s.consumed[signer]; !exists || nonce > cur {
@@ -214,14 +225,24 @@ func (s *CosmosTxStore) PruneCommitted(tx sdk.Tx) int {
 	// signers has a consumed nonce. Only buckets sharing a signer with the
 	// just-committed tx can hold a newly consumed tx (a prior commit already
 	// pruned the rest and AddTx rejects re-adds).
-	removed := s.filterSignerBucketsLocked(nonceMap, func(t cosmosTxWithMetadata) bool {
+	return s.filterSignerBucketsLocked(nonceMap, func(t cosmosTxWithMetadata) bool {
 		return s.isConsumedLocked(t.nonceMap)
 	})
+}
 
-	// report the unbounded watermark map's size for monitoring
-	consumedWatermarkSize.Record(context.Background(), int64(len(s.consumed)))
+// AgeWatermarks retires the older watermark generation. Call it only after
+// an uncancelled recheck pass: the pool was revalidated against state at
+// least as new as those marks' commits, so ante now rejects the re-adds they
+// guarded against; marks written mid-pass survive one more generation. This
+// also heals marks from optimistically-executed blocks that never committed.
+func (s *CosmosTxStore) AgeWatermarks() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	return removed
+	s.prevConsumed = s.consumed
+	s.consumed = make(map[string]uint64)
+
+	consumedWatermarkSize.Record(context.Background(), int64(len(s.prevConsumed)))
 }
 
 // isConsumedLocked reports whether any signer of the given nonceMap sits at or
@@ -229,6 +250,9 @@ func (s *CosmosTxStore) PruneCommitted(tx sdk.Tx) int {
 func (s *CosmosTxStore) isConsumedLocked(nonceMap map[string]uint64) bool {
 	for signer, nonce := range nonceMap {
 		if mark, ok := s.consumed[signer]; ok && nonce <= mark {
+			return true
+		}
+		if mark, ok := s.prevConsumed[signer]; ok && nonce <= mark {
 			return true
 		}
 	}

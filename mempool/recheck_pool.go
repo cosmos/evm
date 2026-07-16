@@ -541,6 +541,9 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 	}
 	txsRemoved = len(removeTxs)
+
+	// a completed pass makes watermarks recorded before it redundant
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AgeWatermarks() })
 }
 
 // markTxRechecked adds a tx into the height synced cosmos tx store.

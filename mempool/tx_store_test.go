@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -92,6 +93,25 @@ func (m *keyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
 		Sequence: m.sequence,
 	}}, nil
 }
+
+// unorderedMockTx is a keyedMockTx flagged unordered: its ChooseNonce value is
+// the timeout timestamp, not the (zero) sequence.
+type unorderedMockTx struct {
+	keyedMockTx
+	timeout time.Time
+}
+
+var _ sdk.TxWithUnordered = (*unorderedMockTx)(nil)
+
+func newUnorderedMockTxWithPubKey(pubKeyBytes []byte, timeout time.Time) sdk.Tx {
+	return &unorderedMockTx{
+		keyedMockTx: keyedMockTx{pubKey: &ethsecp256k1.PubKey{Key: pubKeyBytes}},
+		timeout:     timeout,
+	}
+}
+
+func (m *unorderedMockTx) GetUnordered() bool             { return true }
+func (m *unorderedMockTx) GetTimeoutTimeStamp() time.Time { return m.timeout }
 
 func newMultiKeyedMockTx(pubKeyBytes [][]byte, sequences []uint64) sdk.Tx {
 	pubKeys := make([]cryptotypes.PubKey, 0, len(pubKeyBytes))
@@ -311,6 +331,29 @@ func TestCosmosTxStoreCloneIsIndependent(t *testing.T) {
 	require.Equal(t, 3, clone.Len())
 }
 
+// A watermark blocks re-adds for its own generation plus one aging, then is
+// retired: two completed recheck passes have covered the commit by then.
+func TestCosmosTxStoreAgeWatermarks(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 1, store.PruneCommitted(newKeyedMockTxWithPubKey(signer, 0)))
+
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 0, store.Len())
+
+	// first aging keeps the mark one more generation
+	store.AgeWatermarks()
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 0, store.Len())
+
+	// second aging retires it; a stale (e.g. never-committed) mark heals here
+	store.AgeWatermarks()
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 1, store.Len())
+}
+
 func TestCosmosTxStorePruneCommitted(t *testing.T) {
 	store := NewCosmosTxStore(log.NewNopLogger())
 
@@ -333,6 +376,31 @@ func TestCosmosTxStorePruneCommitted(t *testing.T) {
 	require.Equal(t, 1, store.Len())
 	store.AddTx(newKeyedMockTxWithPubKey(signer, 1))
 	require.Equal(t, 1, store.Len())
+}
+
+// Committing an unordered tx must not watermark the signer — that would
+// blacklist their ordered txs. Only the exact tx is dropped.
+func TestCosmosTxStorePruneCommittedUnordered(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	timeout := time.Unix(1_700_000_000, 0)
+	unordered := newUnorderedMockTxWithPubKey(signer, timeout)
+	earlier := newUnorderedMockTxWithPubKey(signer, timeout.Add(-time.Second))
+	ordered := newKeyedMockTxWithPubKey(signer, 5)
+
+	store.AddTx(unordered)
+	store.AddTx(earlier)
+	store.AddTx(ordered)
+	require.Equal(t, 3, store.Len())
+
+	// only the committed unordered tx is dropped, not the signer's other txs
+	require.Equal(t, 1, store.PruneCommitted(unordered))
+	require.Equal(t, 2, store.Len())
+
+	// no watermark was recorded: the signer's ordered txs stay addable
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 6))
+	require.Equal(t, 3, store.Len())
 }
 
 // A committed single-signer tx must evict a pooled multi-signer tx that shares

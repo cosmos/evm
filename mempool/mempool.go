@@ -481,6 +481,9 @@ func (m *Mempool) removeEVMTx(tx sdk.Tx, msgEthereumTx *evmtypes.MsgEthereumTx, 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		_ = m.txTracker.IncludedInBlock(hash)
 		m.recordNonceAdvances(tx)
+		// an EVM tx consumes the same account sequence, so drop stale
+		// same-account cosmos txs from the snapshot too
+		m.recheckCosmosPool.PruneCommitted(tx)
 	}
 
 	if m.shouldRemoveFromEVMPool(hash, reason) {
