@@ -294,6 +294,10 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 			// does this via its committed-nonce watermark).
 			hs.mu.RLock()
 			value := hs.store
+			// heights can skip past target while we waited, never serve future state
+			if hs.currentHeight.Cmp(height) > 0 {
+				value = nil
+			}
 			hs.mu.RUnlock()
 			return value
 		}
