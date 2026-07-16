@@ -76,7 +76,7 @@ func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 		consumed:        make(map[string]uint64),
 		prevConsumed:    make(map[string]uint64),
 		logger:          l,
-		signerExtractor: sdkmempool.NewDefaultSignerExtractionAdapter(),
+		signerExtractor: NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()),
 	}
 }
 
