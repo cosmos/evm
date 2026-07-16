@@ -12,6 +12,9 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcapi "github.com/cosmos/ibc-go/v10/modules/core/api"
+	ibcerrors "github.com/cosmos/ibc-go/v10/modules/core/errors"
+
+	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -102,6 +105,26 @@ func (im IBCMiddleware) OnAcknowledgementPacket(
 	payload channeltypesv2.Payload,
 	relayer sdk.AccAddress,
 ) error {
+	var ack channeltypes.Acknowledgement
+	if bytes.Equal(acknowledgement, channeltypesv2.ErrorAcknowledgement[:]) {
+		// construct an error acknowledgement from the sentinel so we can reuse the shared transfer logic
+		ack = channeltypes.NewErrorAcknowledgement(transfertypes.ErrReceiveFailed)
+	} else {
+		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
+			im.keeper.Logger(ctx).Error(fmt.Sprintf("erc20 middleware OnAckPacket failed to unmarshal acknowledgement: %s", err.Error()))
+			return errorsmod.Wrapf(ibcerrors.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet acknowledgement: %v", err)
+		}
+
+		bz := transfertypes.ModuleCdc.MustMarshalJSON(&ack)
+		if !bytes.Equal(bz, acknowledgement) {
+			return errorsmod.Wrapf(ibcerrors.ErrInvalidType, "acknowledgement did not marshal to expected bytes: %X ≠ %X", bz, acknowledgement)
+		}
+
+		if !ack.Success() {
+			return errorsmod.Wrapf(ibcerrors.ErrInvalidRequest, "cannot pass in a custom error acknowledgement with IBC v2")
+		}
+	}
+
 	if err := im.app.OnAcknowledgementPacket(ctx, sourceClient, destinationClient, sequence, acknowledgement, payload, relayer); err != nil {
 		im.keeper.Logger(ctx).Error(fmt.Sprintf("erc20 middleware OnAckPacket failed to call underlying app: %s", err.Error()))
 		return err
@@ -112,20 +135,13 @@ func (im IBCMiddleware) OnAcknowledgementPacket(
 		im.keeper.Logger(ctx).Error(fmt.Sprintf("erc20 middleware OnAckPacketfailed failed to convert v2 packet to v1 packet: %s", err.Error()))
 		return err
 	}
+
 	var data transfertypes.FungibleTokenPacketData
-	if err = transfertypes.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
+	if err := transfertypes.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
 		im.keeper.Logger(ctx).Error(fmt.Sprintf("erc20 middleware OnAckPacket failed to unmarshal packet data: %s", err.Error()))
 		return err
 	}
-	var ack channeltypes.Acknowledgement
-	if bytes.Equal(acknowledgement, channeltypesv2.ErrorAcknowledgement[:]) {
-		ack = channeltypes.NewErrorAcknowledgement(transfertypes.ErrReceiveFailed)
-	} else {
-		if err = transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
-			im.keeper.Logger(ctx).Error(fmt.Sprintf("erc20 middleware OnAckPacket failed to unmarshal acknowledgement: %s", err.Error()))
-			return err
-		}
-	}
+
 	return im.keeper.OnAcknowledgementPacket(ctx, packet, data, ack)
 }
 
