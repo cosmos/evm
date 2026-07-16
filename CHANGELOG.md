@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## UNRELEASED
+
+### DEPENDENCIES
+
+### API-BREAKING
+
+### IMPROVEMENTS
+
+### FEATURES
+
+### BUG FIXES
+- [\#1222](https://github.com/cosmos/evm/pull/1222) Propagate ERC20 conversion ack in IBC v2 `OnRecvPacket`.
+
 ## v0.6.0
 
 Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade instructions.
