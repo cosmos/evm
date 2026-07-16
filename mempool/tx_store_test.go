@@ -378,6 +378,19 @@ func TestCosmosTxStorePruneCommitted(t *testing.T) {
 	require.Equal(t, 1, store.Len())
 }
 
+func TestCosmosTxStorePruneCommittedMultiSignerOnClone(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signerA := newPubKeyBytes(t)
+	signerB := newPubKeyBytes(t)
+	store.AddTx(newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{0, 0}))
+
+	clone := store.Clone()
+	require.Equal(t, 1, clone.PruneCommitted(newKeyedMockTxWithPubKey(signerA, 0)))
+	require.Equal(t, 0, clone.Len())
+	require.Equal(t, 1, store.Len(), "pruning the clone must not touch the source")
+}
+
 // Unkeyed txs must not be carried across heights: they get a fresh key on
 // every AddTx and cannot be removed, so a carried copy duplicates every pass.
 func TestCosmosTxStoreCloneDropsUnkeyed(t *testing.T) {
