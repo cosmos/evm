@@ -438,7 +438,7 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // to the precompile call.
 func (s *StateDB) AddPrecompileFn(snapshot int) error {
 	// Capture events before the precompile call
-	var prevEvents sdk.Events = s.cacheCtx.EventManager().Events()
+	prevEvents := s.cacheCtx.EventManager().Events()
 
 	s.journal.append(precompileCallChange{
 		snapshot:                snapshot,

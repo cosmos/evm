@@ -195,7 +195,8 @@ contract ContractCreationTester {
         uint256 successCreationValue
     ) external payable {
         // 1. Try to create contract (will revert after creation, catch it)
-        try this.createAndRevert{value: revertCreationValue}(revertCreationValue) returns (SimpleReceiver newContract1) {
+        try this.createAndRevert{value: revertCreationValue}
+        (revertCreationValue) returns (SimpleReceiver newContract1) {
             // This won't execute because createAndRevert reverts
             createdContracts.push(address(newContract1));
             emit ContractCreated(address(newContract1), revertCreationValue);

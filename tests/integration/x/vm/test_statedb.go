@@ -923,6 +923,68 @@ func (s *KeeperTestSuite) TestAddSlotToAccessList() {
 // 	}
 // }
 
+// TestGetAccountLocked verifies Keeper.GetAccount snapshots LockedCoins for
+// the EVM denom into the Account at load time. The snapshot powers the commit
+// path's bank-balance reconstruction without re-reading LockedCoins after a
+// precompile may have mutated DelegatedVesting on a vesting account.
+func (s *KeeperTestSuite) TestGetAccountLocked() {
+	addr := utiltx.GenerateAddress()
+	bondDenom := s.Network.GetBaseDenom()
+
+	testCases := []struct {
+		name      string
+		malleate  func()
+		expLocked *big.Int
+	}{
+		{
+			"non-existent account returns nil",
+			func() {},
+			nil, // GetAccount returns nil entirely; checked separately
+		},
+		{
+			"base account has zero Locked snapshot",
+			func() {
+				ctx := s.Network.GetContext()
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), addr.Bytes(), sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(100))))
+				s.Require().NoError(err)
+			},
+			big.NewInt(0),
+		},
+		{
+			"vesting account snapshots OriginalVesting at start time",
+			func() {
+				ctx := s.Network.GetContext()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(100))))
+				s.Require().NoError(err)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				currTime := ctx.BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(100))), currTime, currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+			},
+			big.NewInt(100),
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			tc.malleate()
+			acc := s.Network.App.GetEVMKeeper().GetAccount(s.Network.GetContext(), addr)
+			if tc.expLocked == nil {
+				s.Require().Nil(acc, "expected nil account")
+				return
+			}
+			s.Require().NotNil(acc, "expected non-nil account")
+			locked := acc.LockedBalanceSnapshot()
+			s.Require().NotNil(locked, "expected Locked snapshot to be populated")
+			s.Require().Zero(tc.expLocked.Cmp(locked), "Locked snapshot mismatch: want %s got %s", tc.expLocked, locked)
+		})
+	}
+}
+
 func (s *KeeperTestSuite) TestSetBalance() {
 	amount := common.U2560
 	totalBalance := common.U2560
@@ -1056,6 +1118,96 @@ func (s *KeeperTestSuite) TestSetBalance() {
 				spendable := s.Network.App.GetEVMKeeper().SpendableCoin(s.Network.GetContext(), tc.addr)
 				s.Require().Equal(amount, spendable)
 			}
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestSetBalanceWithLocked() {
+	amount := common.U2560
+	var locked *big.Int
+	addr := utiltx.GenerateAddress()
+
+	testCases := []struct {
+		name           string
+		addr           common.Address
+		malleate       func()
+		expErr         bool
+		expTotalAmount func() *uint256.Int
+		expSpendable   func() *uint256.Int
+	}{
+		{
+			"non vesting account: locked overrides reread",
+			addr,
+			func() {
+				amount = uint256.NewInt(100)
+				locked = big.NewInt(50)
+			},
+			false,
+			func() *uint256.Int {
+				return uint256.NewInt(150)
+			},
+			func() *uint256.Int {
+				// All funds are spendable on a non base account, the snapshot
+				// only inflates the bank balance reconstruction.
+				return uint256.NewInt(150)
+			},
+		},
+		{
+			"vesting account: locked snapshot beats current LockedCoins re-read",
+			addr,
+			func() {
+				ctx := s.Network.GetContext()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))))
+				s.Require().NoError(err)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+
+				// setup vesting account with 40 locked to simulate a spend
+				acc, err := vestingtypes.NewContinuousVestingAccount(
+					baseAccount,
+					sdk.NewCoins(sdk.NewCoin(baseDenom, math.NewInt(40))),
+					currTime, currTime+100,
+				)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				amount = uint256.NewInt(100)
+
+				// override locked to 100
+				locked = big.NewInt(100)
+			},
+			false,
+			func() *uint256.Int {
+				// ensure we used the override of 100
+				return uint256.NewInt(200)
+			},
+			func() *uint256.Int {
+				// spendable = bank balance − current LockedCoins = 200 − 40 = 160.
+				return uint256.NewInt(160)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			tc.malleate()
+			err := s.Network.App.GetEVMKeeper().SetBalanceWithLocked(s.Network.GetContext(), tc.addr, amount, locked)
+			if tc.expErr {
+				s.Require().Error(err)
+				return
+			}
+
+			balance := s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), tc.addr)
+			s.Require().NoError(err)
+			s.Require().Equal(tc.expTotalAmount(), balance)
+
+			spendable := s.Network.App.GetEVMKeeper().SpendableCoin(s.Network.GetContext(), tc.addr)
+			s.Require().Equal(tc.expSpendable(), spendable)
 		})
 	}
 }

@@ -48,6 +48,9 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 func (p Precompile) RunNativeAction(evm *vm.EVM, contract *vm.Contract, action NativeAction) ([]byte, error) {
 	bz, err := p.runNativeAction(evm, contract, action)
 	if err != nil {
+		if errors.Is(err, vm.ErrOutOfGas) {
+			return nil, vm.ErrOutOfGas
+		}
 		return ReturnRevertError(evm, err)
 	}
 
@@ -84,13 +87,13 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 
 	initialGas := ctx.GasMeter().GasConsumed()
 
-	defer HandleGasError(ctx, contract, initialGas, &err)()
-
 	// set the default SDK gas configuration to track gas usage
 	// we are changing the gas meter type, so it panics gracefully when out of gas
 	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(contract.Gas)).
 		WithKVGasConfig(p.KvGasConfig).
 		WithTransientKVGasConfig(p.TransientKVGasConfig)
+
+	defer HandleGasError(ctx, contract, initialGas, &err)()
 
 	// we need to consume the gas that was already used by the EVM
 	ctx.GasMeter().ConsumeGas(initialGas, "creating a new gas meter")
