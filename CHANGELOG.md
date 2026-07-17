@@ -3,10 +3,15 @@
 ## UNRELEASED
 
 ### DEPENDENCIES
+
 ### API-BREAKING
+
 ### IMPROVEMENTS
+
 ### FEATURES
+
 ### BUG FIXES
+- [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 
 ## v0.7.0
 
