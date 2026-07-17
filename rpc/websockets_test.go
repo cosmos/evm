@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/rpc/stream"
 	rpctypes "github.com/cosmos/evm/rpc/types"
