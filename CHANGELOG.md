@@ -2,7 +2,7 @@
 
 ## UNRELEASED
 
-- [\#1232](https://github.com/cosmos/evm/pull/1232) Validate ICS-20 acknowledgement encoding in the erc20 IBC v2 middleware.
+- [\#1238](https://github.com/cosmos/evm/pull/1238) Validate ICS-20 acknowledgement encoding in the erc20 IBC v2 middleware.
 
 ## v0.6.0
 
