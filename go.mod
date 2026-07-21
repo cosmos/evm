@@ -18,7 +18,7 @@ require (
 	github.com/cosmos/cosmos-sdk/store/v2 v2.0.0
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.2
-	github.com/cosmos/ibc-go/v11 v11.0.0
+	github.com/cosmos/ibc-go/v11 v11.1.0
 	github.com/cosmos/ledger-cosmos-go v1.0.0
 	github.com/creachadair/tomledit v0.0.29
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
