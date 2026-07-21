@@ -18,7 +18,7 @@ require (
 	github.com/cosmos/cosmos-sdk/store/v2 v2.0.0
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.2
-	github.com/cosmos/ibc-go/v11 v11.0.0
+	github.com/cosmos/ibc-go/v11 v11.1.0
 	github.com/cosmos/ledger-cosmos-go v1.0.0
 	github.com/creachadair/tomledit v0.0.29
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -52,7 +52,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
 	go.opentelemetry.io/otel/trace v1.43.0
 	go.uber.org/mock v0.6.0
-	golang.org/x/crypto v0.51.0
+	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/text v0.37.0

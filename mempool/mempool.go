@@ -335,6 +335,14 @@ func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 
+		// Reject txs below base fee up-front, which can never be included.
+		if baseFee := m.blockchain.CurrentBlock().BaseFee; baseFee != nil && ethTx.GasFeeCapIntCmp(baseFee) < 0 {
+			return nil, sdkerrors.ErrInsufficientFee.Wrapf(
+				"max fee per gas (%s) is lower than the base fee (%s)",
+				ethTx.GasFeeCap(), baseFee,
+			)
+		}
+
 		// we push the tx onto the evm insert queue so the tx will be inserted
 		// at a later point. We get back a subscription that the insert queue
 		// will use to notify the caller of any errors that occurred when
