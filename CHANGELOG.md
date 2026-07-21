@@ -1,7 +1,7 @@
 # CHANGELOG
 
 ## UNRELEASED
-
+### IMPROVEMENTS
 - [\#1239](https://github.com/cosmos/evm/pull/1239) Validate ICS-20 acknowledgement encoding in the erc20 IBC v2 middleware.
 
 ### DEPENDENCIES
