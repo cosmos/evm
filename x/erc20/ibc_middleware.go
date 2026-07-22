@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"bytes"
 	"errors"
 
 	"github.com/cosmos/evm/ibc"
@@ -79,6 +80,11 @@ func (im IBCMiddleware) OnAcknowledgementPacket(
 	var ack channeltypes.Acknowledgement
 	if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
 		return errorsmod.Wrapf(errortypes.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet acknowledgement: %v", err)
+	}
+
+	bz := transfertypes.ModuleCdc.MustMarshalJSON(&ack)
+	if !bytes.Equal(bz, acknowledgement) {
+		return errorsmod.Wrapf(errortypes.ErrInvalidType, "acknowledgement did not marshal to expected bytes: %X ≠ %X", bz, acknowledgement)
 	}
 
 	var data transfertypes.FungibleTokenPacketData
