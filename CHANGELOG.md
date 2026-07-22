@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## UNRELEASED
+### IMPROVEMENTS
+- [\#1238](https://github.com/cosmos/evm/pull/1238) Validate ICS-20 acknowledgement encoding in the erc20 IBC v2 middleware.
+
 ## v0.6.0
 
 Follow the [migration document](docs/migrations/v0.5.x_to_v0.6.0.md) for upgrade instructions.
