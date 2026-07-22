@@ -200,11 +200,14 @@ func NewMempool(
 		panic("tx pool should contain only legacypool")
 	}
 
+	// Stale fallback: when recheck loop falls behind consensus, serve last completed
+	// snapshot rather than an empty proposal — since store's committed-nonce
+	// watermark keeps already-committed txs out.
 	heightSync := heightsync.New(
 		blockchain.CurrentBlock().Number,
 		NewCosmosTxStore,
 		logger.With("pool", "cosmos_recheck_mempool"),
-	)
+	).WithStaleFallback()
 
 	reservationHandle := reservationTracker.NewHandle(cosmosReserverHandlerID, reserver.WithRefCounter())
 
@@ -455,6 +458,10 @@ func (m *Mempool) removeCosmosTx(tx sdk.Tx, reason sdkmempool.RemoveReason) erro
 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		m.recordNonceAdvances(tx)
+		// Prune committed tx from recheck snapshot synchronously. Snapshot is carried
+		// across heights, so without this a just-committed tx could be served
+		// into next proposal before async recheck pass drops it.
+		m.recheckCosmosPool.PruneCommitted(tx)
 	}
 
 	if err := m.recheckCosmosPool.Remove(tx); err != nil {
@@ -474,6 +481,9 @@ func (m *Mempool) removeEVMTx(tx sdk.Tx, msgEthereumTx *evmtypes.MsgEthereumTx, 
 	if reason.Caller == sdkmempool.CallerRunTxFinalize {
 		_ = m.txTracker.IncludedInBlock(hash)
 		m.recordNonceAdvances(tx)
+		// an EVM tx consumes the same account sequence, so drop stale
+		// same-account cosmos txs from the snapshot too
+		m.recheckCosmosPool.PruneCommitted(tx)
 	}
 
 	if m.shouldRemoveFromEVMPool(hash, reason) {

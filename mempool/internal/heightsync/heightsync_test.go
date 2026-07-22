@@ -190,6 +190,87 @@ func TestStartNewHeightResetsValue(t *testing.T) {
 	require.Empty(t, result.get())
 }
 
+func TestStartNewHeightFromCarriesStore(t *testing.T) {
+	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
+
+	hv.StartNewHeight(big.NewInt(1))
+	hv.Do(func(s *testStore) { s.add("carried") })
+	hv.EndCurrentHeight()
+
+	// advance to height 2 carrying the previous store forward
+	hv.StartNewHeightFrom(big.NewInt(2), func(prev *testStore) *testStore {
+		return &testStore{items: prev.get()}
+	})
+	hv.Do(func(s *testStore) { s.add("fresh") })
+	hv.EndCurrentHeight()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	result := hv.GetStore(ctx, big.NewInt(2))
+	require.NotNil(t, result)
+	require.Equal(t, []string{"carried", "fresh"}, result.get())
+}
+
+// With the stale-fallback option, GetStore returns the current store (at a
+// height <= target) instead of nil when it times out behind the target height.
+func TestStaleFallbackReturnsLastStore(t *testing.T) {
+	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger()).WithStaleFallback()
+
+	hv.StartNewHeight(big.NewInt(1))
+	hv.Do(func(s *testStore) { s.add("h1") })
+	hv.EndCurrentHeight()
+
+	// request height 2 but never advance to it: times out on the height-behind path
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	value := hv.GetStore(ctx, big.NewInt(2))
+	require.NotNil(t, value)
+	require.Equal(t, []string{"h1"}, value.get())
+}
+
+// Without the option, the same height-behind timeout returns nil (the default).
+func TestNoStaleFallbackReturnsNil(t *testing.T) {
+	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
+
+	hv.StartNewHeight(big.NewInt(1))
+	hv.Do(func(s *testStore) { s.add("h1") })
+	hv.EndCurrentHeight()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	require.Nil(t, hv.GetStore(ctx, big.NewInt(2)))
+}
+
+// The stale fallback must never serve a store from a height past the target:
+// that is future state the target's proposal must not see, so GetStore
+// returns nil instead.
+func TestStaleFallbackDoesNotServePastTarget(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger()).WithStaleFallback()
+
+		// park a getter for height 2 on the height-behind wait
+		getCtx, cancelGet := context.WithCancel(context.Background())
+		defer cancelGet()
+		valueChan := make(chan *testStore)
+		go func() {
+			valueChan <- hv.GetStore(getCtx, big.NewInt(2))
+		}()
+		time.Sleep(1 * time.Second)
+
+		// Skip to height 3, cancelling the getter while carry holds the write
+		// lock: it wakes on the fallback path with the height past its target.
+		hv.StartNewHeightFrom(big.NewInt(3), func(prev *testStore) *testStore {
+			cancelGet()
+			return prev
+		})
+
+		require.Nil(t, <-valueChan, "fallback served a store from a height past the target")
+	})
+}
+
 func TestConcurrentDo(t *testing.T) {
 	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
 

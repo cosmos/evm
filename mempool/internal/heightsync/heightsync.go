@@ -116,6 +116,15 @@ type HeightSync[Store any] struct {
 	// fields of the Store itself
 	mu sync.RWMutex
 
+	// staleFallback makes GetStore return the current carried-forward Store
+	// (instead of nil) when it times out while still behind the target height.
+	// That Store is at a height <= target and, even mid-recheck, carry-forward
+	// keeps it a valid subset of validated txs. Only enable it for stores that
+	// stay free of state a committed block invalidated (see the cosmos pool's
+	// committed-nonce watermark), otherwise a stale Store could serve
+	// already-committed txs.
+	staleFallback bool
+
 	logger log.Logger
 }
 
@@ -134,9 +143,26 @@ func New[Store any](startHeight *big.Int, reset func(logger log.Logger) *Store, 
 	return hs
 }
 
+// WithStaleFallback enables the stale fallback (see the staleFallback field)
+// and returns hs for chaining at construction.
+func (hs *HeightSync[Store]) WithStaleFallback() *HeightSync[Store] {
+	hs.staleFallback = true
+	return hs
+}
+
 // StartNewHeight resets the HeightSync for a new height, overwriting the
 // previous Store with a fresh Store via the reset fn.
 func (hs *HeightSync[Store]) StartNewHeight(height *big.Int) {
+	hs.StartNewHeightFrom(height, nil)
+}
+
+// StartNewHeightFrom starts a new height whose Store is derived from the
+// previous height's Store via carry (nil carry means a fresh Store, as in
+// StartNewHeight). Carrying lets a producer keep validated state across
+// heights, so a pass cancelled before completion does not discard everything
+// the previous height validated. carry runs while the HeightSync write lock is
+// held and must not call back into the HeightSync.
+func (hs *HeightSync[Store]) StartNewHeightFrom(height *big.Int, carry func(prev *Store) *Store) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
@@ -146,9 +172,13 @@ func (hs *HeightSync[Store]) StartNewHeight(height *big.Int) {
 		panic(fmt.Errorf("height %s not ended before starting new height %s", hs.currentHeight.String(), height.String()))
 	}
 
-	// create new Store for this height
+	// create the Store for this height, either fresh or carried forward
 	hs.currentHeight = new(big.Int).Set(height)
-	hs.store = hs.reset(hs.logger)
+	if carry != nil {
+		hs.store = carry(hs.store)
+	} else {
+		hs.store = hs.reset(hs.logger)
+	}
 
 	// close old channel and create new one to wake up consumers
 	oldChan := hs.heightChanged
@@ -237,8 +267,7 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 		}
 
 		// current height is behind target, we cannot return the Store at the
-		// current height, so we must wait for the height to advance to the
-		// callers target height
+		// target height yet, so we wait for the height to advance.
 		heightChangedChan := hs.heightChanged
 		hs.mu.RUnlock()
 
@@ -250,10 +279,27 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 			// height changed, loop back to check if we've reached target
 			continue
 		case <-ctx.Done():
-			// caller is done waiting, but we still do not have a Store at the
-			// correct height to return, return nil instead
+			// The caller is done waiting and the height sync never reached the
+			// target height.
 			hsTimeout.Add(ctx, 1)
-			return nil
+			if !hs.staleFallback {
+				// caller opted out of stale results, return nil
+				return nil
+			}
+			// Rather than starve the caller (e.g. an empty block proposal),
+			// fall back to the current carried-forward Store: it is at a
+			// height <= target and, even mid-recheck, holds a valid subset of
+			// validated txs. Safe to serve as long as producers keep it free
+			// of state a since-committed block invalidated (the cosmos pool
+			// does this via its committed-nonce watermark).
+			hs.mu.RLock()
+			value := hs.store
+			// heights can skip past target while we waited, never serve future state
+			if hs.currentHeight.Cmp(height) > 0 {
+				value = nil
+			}
+			hs.mu.RUnlock()
+			return value
 		}
 	}
 }

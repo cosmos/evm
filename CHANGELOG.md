@@ -70,6 +70,7 @@
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
+- [\#1227](https://github.com/cosmos/evm/issues/1227) Fix cosmos-pool proposal starvation under large backlogs: carry rechecked snapshot across heights, prune committed txs via a per-signer nonce watermark, and serve last completed snapshot when recheck loop falls behind a proposal.
 
 ## v0.6.0
 

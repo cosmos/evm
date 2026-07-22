@@ -130,7 +130,7 @@ func NewRecheckMempool(
 		blockchain,
 		defaultCosmosPoolConfig,
 		maxTxs,
-		onTransactionReplace(reapList, signerExtractor, reserver, logger),
+		onTransactionReplace(reapList, recheckedTxs, signerExtractor, reserver, logger),
 	)
 
 	return &RecheckMempool{
@@ -429,7 +429,11 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.recheckedTxs.StartNewHeight(newHead.Number)
+	// Carry the validated set forward instead of resetting to an empty store,
+	// a pass cancelled by next block does not discard all progress and starve proposals.
+	// The pass prunes whatever became invalid, committed txs are kept out by
+	// the store's watermark (see CosmosTxStore.PruneCommitted).
+	m.recheckedTxs.StartNewHeightFrom(newHead.Number, (*CosmosTxStore).Clone)
 	defer m.recheckedTxs.EndCurrentHeight()
 
 	latestCtx, err := m.blockchain.GetLatestContext()
@@ -498,6 +502,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		removeTxs = append(removeTxs, txn)
+		// Drop from the snapshot at detection: the removal loop below is
+		// skipped on cancellation. ExtMempool removal still waits for the
+		// loop (reservations, multi-signer identification).
+		m.markTxRemoved(txn)
 
 		if keepFuturesOnError {
 			iter = iter.Next()
@@ -534,11 +542,28 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 	}
 	txsRemoved = len(removeTxs)
+
+	// a completed pass makes watermarks recorded before it redundant
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AgeWatermarks() })
 }
 
 // markTxRechecked adds a tx into the height synced cosmos tx store.
 func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AddTx(txn) })
+}
+
+// markTxRemoved drops a tx from the height synced cosmos tx store.
+func (m *RecheckMempool) markTxRemoved(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.RemoveTx(txn) })
+}
+
+// PruneCommitted records that a block being finalized consumed tx's
+// signer/nonces and drops tx (and any lower-nonced sibling) from current snapshot.
+// It runs synchronously during FinalizeBlock so carried-forward store
+// can never feed an already-committed tx into a later proposal,
+// even before next recheck pass runs.
+func (m *RecheckMempool) PruneCommitted(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.PruneCommitted(txn) })
 }
 
 // markTxInserted conservatively updates the current height snapshot for live inserts.
@@ -621,15 +646,20 @@ func cosmosPoolConfig(
 
 func onTransactionReplace(
 	reapList *reaplist.ReapList,
+	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
 	signerExtractor sdkmempool.SignerExtractionAdapter,
 	reserver *reserver.ReservationHandle,
 	logger log.Logger,
 ) func(oldTx, newTx sdk.Tx) {
-	return func(oldTx, _ sdk.Tx) {
+	return func(oldTx, newTx sdk.Tx) {
 		// tx is being replaced, we need to drop the tx that is going to be removed
 		// from the reap list. we assume that the tx doing the replacing has
 		// already been inserted into the reaplist via the insert.
 		reapList.DropCosmosTx(oldTx)
+
+		// drop the replaced tx from the snapshot when its signer set differs
+		// from the replacement's (see CosmosTxStore.InvalidateReplaced)
+		recheckedTxs.Do(func(store *CosmosTxStore) { store.InvalidateReplaced(oldTx, newTx) })
 
 		addrs, err := extractEVMAddresses(signerExtractor, oldTx)
 		if err != nil {

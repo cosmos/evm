@@ -1,7 +1,9 @@
 package mempool
 
 import (
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -92,6 +94,25 @@ func (m *keyedMockTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
 		Sequence: m.sequence,
 	}}, nil
 }
+
+// unorderedMockTx is a keyedMockTx flagged unordered: its ChooseNonce value is
+// the timeout timestamp, not the (zero) sequence.
+type unorderedMockTx struct {
+	keyedMockTx
+	timeout time.Time
+}
+
+var _ sdk.TxWithUnordered = (*unorderedMockTx)(nil)
+
+func newUnorderedMockTxWithPubKey(pubKeyBytes []byte, timeout time.Time) sdk.Tx {
+	return &unorderedMockTx{
+		keyedMockTx: keyedMockTx{pubKey: &ethsecp256k1.PubKey{Key: pubKeyBytes}},
+		timeout:     timeout,
+	}
+}
+
+func (m *unorderedMockTx) GetUnordered() bool             { return true }
+func (m *unorderedMockTx) GetTimeoutTimeStamp() time.Time { return m.timeout }
 
 func newMultiKeyedMockTx(pubKeyBytes [][]byte, sequences []uint64) sdk.Tx {
 	pubKeys := make([]cryptotypes.PubKey, 0, len(pubKeyBytes))
@@ -250,6 +271,348 @@ func TestCosmosTxStoreIteratorSnapshotIsolation(t *testing.T) {
 		count++
 	}
 	require.Equal(t, 2, count)
+}
+
+func newPubKeyBytes(t *testing.T) []byte {
+	t.Helper()
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	return crypto.CompressPubkey(&key.PublicKey)
+}
+
+// signerKeyOf returns the key the store indexes a signer under: its account
+// address, not the pubkey bytes the mocks are constructed from.
+func signerKeyOf(pubKeyBytes []byte) string {
+	return string((&ethsecp256k1.PubKey{Key: pubKeyBytes}).Address().Bytes())
+}
+
+// requireSignerIndexConsistent rebuilds the signer index from the buckets and
+// compares: a missing entry hides a bucket from shared-signer scans, a stale
+// one leaks.
+func requireSignerIndexConsistent(t *testing.T, store *CosmosTxStore) {
+	t.Helper()
+
+	want := make(map[string]map[string]struct{})
+	for signerKey, bucket := range store.txs {
+		for signer := range bucket.signers {
+			if want[signer] == nil {
+				want[signer] = make(map[string]struct{})
+			}
+			want[signer][signerKey] = struct{}{}
+		}
+	}
+	require.Equal(t, want, store.signerBuckets)
+}
+
+func TestCosmosTxStoreRemoveTx(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	tx0 := newKeyedMockTxWithPubKey(signer, 0)
+	tx1 := newKeyedMockTxWithPubKey(signer, 1)
+
+	store.AddTx(tx0)
+	store.AddTx(tx1)
+	require.Equal(t, 2, store.Len())
+
+	require.True(t, store.RemoveTx(tx0))
+	require.Equal(t, 1, store.Len())
+
+	// removing again is a no-op
+	require.False(t, store.RemoveTx(tx0))
+	require.Equal(t, 1, store.Len())
+
+	// the remaining tx is the one we did not remove
+	require.True(t, store.RemoveTx(tx1))
+	require.Equal(t, 0, store.Len())
+}
+
+func TestCosmosTxStoreCloneIsIndependent(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 1))
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 2))
+	// carry a committed watermark forward too: drops nonce 0, leaving 1 and 2
+	store.PruneCommitted(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 2, store.Len())
+
+	clone := store.Clone()
+	require.Equal(t, store.Len(), clone.Len())
+
+	// mutating the clone must not affect the source
+	clone.AddTx(newKeyedMockTxWithPubKey(signer, 3))
+	require.Equal(t, 2, store.Len())
+	require.Equal(t, 3, clone.Len())
+
+	// mutating the source must not affect the clone
+	require.True(t, store.RemoveTx(newKeyedMockTxWithPubKey(signer, 1)))
+	require.Equal(t, 1, store.Len())
+	require.Equal(t, 3, clone.Len())
+
+	// the committed watermark is carried: the clone still rejects the consumed nonce
+	clone.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 3, clone.Len())
+}
+
+// A watermark blocks re-adds for its own generation plus one aging, then is
+// retired: two completed recheck passes have covered the commit by then.
+func TestCosmosTxStoreAgeWatermarks(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 1, store.PruneCommitted(newKeyedMockTxWithPubKey(signer, 0)))
+
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 0, store.Len())
+
+	// first aging keeps the mark one more generation
+	store.AgeWatermarks()
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 0, store.Len())
+
+	// second aging retires it; a stale (e.g. never-committed) mark heals here
+	store.AgeWatermarks()
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 1, store.Len())
+}
+
+func TestCosmosTxStorePruneCommitted(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 1))
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 2))
+	require.Equal(t, 3, store.Len())
+
+	// committing nonce 0 drops nonce 0, keeps 1 and 2
+	require.Equal(t, 1, store.PruneCommitted(newKeyedMockTxWithPubKey(signer, 0)))
+	require.Equal(t, 2, store.Len())
+
+	// a re-add of the committed nonce is rejected by the watermark
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 0))
+	require.Equal(t, 2, store.Len())
+
+	// committing nonce 1 drops nonce 1, keeps 2
+	require.Equal(t, 1, store.PruneCommitted(newKeyedMockTxWithPubKey(signer, 1)))
+	require.Equal(t, 1, store.Len())
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 1))
+	require.Equal(t, 1, store.Len())
+}
+
+func TestCosmosTxStorePruneCommittedMultiSignerOnClone(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signerA := newPubKeyBytes(t)
+	signerB := newPubKeyBytes(t)
+	store.AddTx(newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{0, 0}))
+
+	clone := store.Clone()
+	require.Equal(t, 1, clone.PruneCommitted(newKeyedMockTxWithPubKey(signerA, 0)))
+	require.Equal(t, 0, clone.Len())
+	require.Equal(t, 1, store.Len(), "pruning the clone must not touch the source")
+}
+
+// Unkeyed txs must not be carried across heights: they get a fresh key on
+// every AddTx and cannot be removed, so a carried copy duplicates every pass.
+func TestCosmosTxStoreCloneDropsUnkeyed(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	store.AddTx(newMockTx(1)) // no signers: stored under the unkeyed bucket
+	store.AddTx(newKeyedMockTxWithPubKey(newPubKeyBytes(t), 0))
+	require.Equal(t, 2, store.Len())
+
+	clone := store.Clone()
+	require.Equal(t, 1, clone.Len(), "clone must not carry the unkeyed bucket")
+
+	// the re-add a recheck pass would perform yields exactly one copy again
+	clone.AddTx(newMockTx(1))
+	require.Equal(t, 2, clone.Len())
+}
+
+// The signer index must name every bucket a signer sits in and nothing more:
+// it decides which buckets a shared-signer scan visits.
+func TestCosmosTxStoreSignerIndexTracksBuckets(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	pubA, pubB := newPubKeyBytes(t), newPubKeyBytes(t)
+	keyA, keyB := signerKeyOf(pubA), signerKeyOf(pubB)
+
+	store.AddTx(newKeyedMockTxWithPubKey(pubA, 0))
+	store.AddTx(newKeyedMockTxWithPubKey(pubA, 1))
+	store.AddTx(newKeyedMockTxWithPubKey(pubB, 0))
+	store.AddTx(newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{9, 9}))
+	store.AddTx(newMockTx(1)) // unkeyed: no signers, so it earns no index entry
+	require.Equal(t, 5, store.Len())
+	requireSignerIndexConsistent(t, store)
+
+	// each signer sits in its own bucket and in the one they share
+	require.Len(t, store.signerBuckets[keyA], 2)
+	require.Len(t, store.signerBuckets[keyB], 2)
+
+	// Committing A's nonce 9 empties both of A's buckets: its own (nonces 0 and
+	// 1 fall under the watermark) and the shared one. B's own bucket is a
+	// different signer set and survives untouched.
+	require.Equal(t, 3, store.PruneCommitted(newKeyedMockTxWithPubKey(pubA, 9)))
+	requireSignerIndexConsistent(t, store)
+	require.NotContains(t, store.signerBuckets, keyA, "A has no bucket left to scan")
+	require.Len(t, store.signerBuckets[keyB], 1)
+
+	// the index must not outlive the last keyed tx
+	require.True(t, store.RemoveTx(newKeyedMockTxWithPubKey(pubB, 0)))
+	requireSignerIndexConsistent(t, store)
+	require.Empty(t, store.signerBuckets)
+	require.Equal(t, 1, store.Len(), "the unkeyed tx is untouched by signer scans")
+}
+
+// A clone's per-signer bucket sets must be copies: sharing them would let a
+// prune on one height's store reach back into the previous height's.
+func TestCosmosTxStoreCloneSignerIndexIsIndependent(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	pubA, pubB := newPubKeyBytes(t), newPubKeyBytes(t)
+	store.AddTx(newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{0, 0}))
+	store.AddTx(newKeyedMockTxWithPubKey(pubA, 3))
+	store.AddTx(newMockTx(1)) // unkeyed: dropped by Clone, and indexed by neither
+
+	clone := store.Clone()
+	requireSignerIndexConsistent(t, clone)
+
+	// emptying every bucket the clone has must leave the source's index whole
+	require.Equal(t, 2, clone.PruneCommitted(newKeyedMockTxWithPubKey(pubA, 3)))
+	require.Equal(t, 0, clone.Len())
+	require.Empty(t, clone.signerBuckets)
+	requireSignerIndexConsistent(t, store)
+	require.Len(t, store.signerBuckets[signerKeyOf(pubA)], 2)
+	require.Len(t, store.signerBuckets[signerKeyOf(pubB)], 1)
+}
+
+// Two txs of one signer set can share a nonce sum; only AddTx's txKey
+// tie-break keeps the second from overwriting the first.
+func TestCosmosTxStoreAddTxDistinguishesEqualNonceSums(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	pubA, pubB := newPubKeyBytes(t), newPubKeyBytes(t)
+	first := newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{5, 0})
+	second := newMultiKeyedMockTx([][]byte{pubA, pubB}, []uint64{0, 5})
+
+	store.AddTx(first)
+	store.AddTx(second)
+	require.Equal(t, 2, store.Len(), "equal nonce sums must not collapse into one slot")
+	require.ElementsMatch(t, []sdk.Tx{first, second}, store.Txs())
+	requireSignerIndexConsistent(t, store)
+
+	// a recheck pass re-adds both: each overwrites its own slot, no duplicates
+	store.AddTx(first)
+	store.AddTx(second)
+	require.Equal(t, 2, store.Len())
+	require.ElementsMatch(t, []sdk.Tx{first, second}, store.Txs())
+}
+
+// Unkeyed store keys compare as strings ("unkeyed/10" < "unkeyed/9"), and
+// AddTx's binary search relies on inserts landing in that same order.
+func TestCosmosTxStoreUnkeyedInsertsStaySortedPastTen(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	const count = 12
+	for i := range count {
+		store.AddTx(newMockTx(i))
+	}
+
+	require.Equal(t, count, store.Len(), "every unkeyed tx gets its own slot")
+	require.True(t, slices.IsSortedFunc(store.txs[unkeyedSignerKey].txs, compareCosmosTxWithMetadata))
+	requireSignerIndexConsistent(t, store)
+}
+
+// A replaced multi-signer tx lives in a bucket InvalidateFrom(newTx) cannot
+// see; InvalidateReplaced drops it (and its dependents) by its own identity.
+func TestCosmosTxStoreInvalidateReplaced(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signerA := newPubKeyBytes(t)
+	signerB := newPubKeyBytes(t)
+	oldTx := newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{5, 0})
+	dependent := newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{6, 1})
+	newTx := newKeyedMockTxWithPubKey(signerA, 5)
+
+	store.AddTx(oldTx)
+	store.AddTx(dependent)
+	require.Equal(t, 2, store.Len())
+
+	// same signer set is a no-op: InvalidateFrom owns that case
+	require.Equal(t, 0, store.InvalidateReplaced(oldTx, oldTx))
+	require.Equal(t, 2, store.Len())
+
+	// different signer set drops the old tx and anything atop its nonces
+	require.Equal(t, 2, store.InvalidateReplaced(oldTx, newTx))
+	require.Equal(t, 0, store.Len())
+}
+
+// Committing an unordered tx must not watermark the signer — that would
+// blacklist their ordered txs. Only the exact tx is dropped.
+func TestCosmosTxStorePruneCommittedUnordered(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	timeout := time.Unix(1_700_000_000, 0)
+	unordered := newUnorderedMockTxWithPubKey(signer, timeout)
+	earlier := newUnorderedMockTxWithPubKey(signer, timeout.Add(-time.Second))
+	ordered := newKeyedMockTxWithPubKey(signer, 5)
+
+	store.AddTx(unordered)
+	store.AddTx(earlier)
+	store.AddTx(ordered)
+	require.Equal(t, 3, store.Len())
+
+	// only the committed unordered tx is dropped, not the signer's other txs
+	require.Equal(t, 1, store.PruneCommitted(unordered))
+	require.Equal(t, 2, store.Len())
+
+	// no watermark was recorded: the signer's ordered txs stay addable
+	store.AddTx(newKeyedMockTxWithPubKey(signer, 6))
+	require.Equal(t, 3, store.Len())
+}
+
+// A committed single-signer tx must evict a pooled multi-signer tx that shares
+// that signer/nonce — the exact case the deferred-removal comment warns about.
+func TestCosmosTxStorePruneCommittedMultiSigner(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signerA := newPubKeyBytes(t)
+	signerB := newPubKeyBytes(t)
+
+	// a tx signed by both A@0 and B@0
+	multi := newMultiKeyedMockTx([][]byte{signerA, signerB}, []uint64{0, 0})
+	store.AddTx(multi)
+	require.Equal(t, 1, store.Len())
+
+	// committing A@0 (single signer) must drop the multi-signer tx
+	require.Equal(t, 1, store.PruneCommitted(newKeyedMockTxWithPubKey(signerA, 0)))
+	require.Equal(t, 0, store.Len())
+
+	// and it stays out even if a recheck tries to re-add it
+	store.AddTx(multi)
+	require.Equal(t, 0, store.Len())
+}
+
+// AddTx overwrites the tx occupying a signer/nonce slot rather than dropping the
+// update, so a carried-forward store reflects the latest tx for that slot.
+func TestCosmosTxStoreAddOverwritesSlot(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	signer := newPubKeyBytes(t)
+	store.AddTx(newFeeKeyedMockTxWithPubKey(signer, 0, 1))
+	store.AddTx(newFeeKeyedMockTxWithPubKey(signer, 0, 5)) // same slot, higher fee
+
+	require.Equal(t, 1, store.Len())
+	txs := store.Txs()
+	require.Len(t, txs, 1)
+	feeTx, ok := txs[0].(sdk.FeeTx)
+	require.True(t, ok)
+	require.Equal(t, sdk.NewInt64Coin(feeKeyedMockTxDenom, 5*100_000), feeTx.GetFee()[0])
 }
 
 func TestCosmosTxStoreOrdersBucketByNonceSum(t *testing.T) {
