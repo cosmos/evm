@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from shutil import copytree
+from shutil import copytree, ignore_patterns
 
 import pytest
 from compile_smart_contracts import (
@@ -158,7 +158,12 @@ def setup_contracts_directory(tmp_path):
     """
 
     testdata_dir = Path(__file__).parent / "testdata"
-    copytree(testdata_dir, tmp_path, dirs_exist_ok=True)
+    copytree(
+        testdata_dir,
+        tmp_path,
+        dirs_exist_ok=True,
+        ignore=ignore_patterns("node_modules", "artifacts", "cache"),
+    )
 
     return tmp_path
 

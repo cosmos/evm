@@ -5,11 +5,11 @@ This project demonstrate viem sdk usage test
 ## Setup
 
 ```shell
-npm install
+pnpm install
 ```
 
 ## viem unit test
 
 ```shell
-npx mocha test
+pnpm test
 ```

@@ -227,14 +227,14 @@ def compile_contracts_in_dir(target_dir: Path):
 
     # Change to the root directory of the hardhat setup to compile.
     os.chdir(target_dir.parent)
-    if not os.path.exists("hardhat.config.js"):
+    if not os.path.exists("hardhat.config.cjs"):
         raise ValueError("compilation can only work in a HardHat setup")
 
-    install_failed = os.system("npm install")
+    install_failed = os.system("pnpm install")
     if install_failed:
-        raise ValueError("Failed to install npm packages.")
+        raise ValueError("Failed to install pnpm packages.")
 
-    compilation_failed = os.system("npx hardhat compile")
+    compilation_failed = os.system("pnpm exec hardhat compile")
     if compilation_failed:
         raise ValueError("Failed to compile Solidity contracts.")
 
