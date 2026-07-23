@@ -25,6 +25,7 @@ import (
 
 	rpcfilters "github.com/cosmos/evm/rpc/namespaces/ethereum/eth/filters"
 	"github.com/cosmos/evm/rpc/stream"
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 
 	"cosmossdk.io/log/v2"
@@ -463,7 +464,7 @@ func (api *pubSubAPI) subscribeNewHeads(wsConn *wsConn, subID rpc.ID) (context.C
 				Method:  "eth_subscription",
 				Params: &SubscriptionResult{
 					Subscription: subID,
-					Result:       header.EthHeader,
+					Result:       rpctypes.RPCMarshalHeader(header.EthHeader, header.Hash.Bytes()),
 				},
 			}
 
