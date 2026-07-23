@@ -2,6 +2,7 @@
 pragma solidity >=0.8.18;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 
 /// @dev The ICS20I contract's address.
 address constant ICS20_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000802;
@@ -44,6 +45,47 @@ interface ICS20I is IPrecompile {
     error InvalidHash(string callMethod, string reason);
     /// @notice Invalid denom trace argument.
     error InvalidTrace(string callMethod, string reason);
+
+    /// @notice The IBC client is not active.
+    error IBCClientNotActive();
+    /// @notice The IBC channel does not exist.
+    error IBCChannelNotFound();
+    /// @notice The IBC channel is not in the required state.
+    error IBCChannelInvalidState();
+    /// @notice The IBC connection does not exist.
+    error IBCConnectionNotFound();
+    /// @notice The IBC connection is not in the required state.
+    error IBCConnectionInvalidState();
+    /// @notice The denomination is invalid for an IBC transfer.
+    error IBCTransferInvalidDenom();
+    /// @notice The IBC transfer amount is invalid.
+    error IBCTransferInvalidAmount();
+    /// @notice The IBC transfer denomination was not found.
+    error IBCTransferDenomNotFound();
+    /// @notice IBC transfers from this chain are disabled.
+    error IBCTransferSendDisabled();
+    /// @notice The IBC transfer memo is invalid.
+    error IBCTransferInvalidMemo();
+    /// @notice The next v1 channel send sequence was not found.
+    error IBCChannelSequenceSendNotFound();
+    /// @notice The IBC client height is invalid.
+    error IBCClientInvalidHeight();
+    /// @notice The v1 channel packet timeout has elapsed.
+    error IBCChannelTimeoutElapsed();
+    /// @notice The v2 client counterparty was not found.
+    error IBCClientV2CounterpartyNotFound();
+    /// @notice The v2 channel packet is invalid.
+    error IBCChannelV2InvalidPacket();
+    /// @notice The next v2 channel send sequence was not found.
+    error IBCChannelV2SequenceSendNotFound();
+    /// @notice The v2 channel packet timeout is invalid.
+    error IBCChannelV2InvalidTimeout();
+    /// @notice The v2 channel packet timeout has elapsed.
+    error IBCChannelV2TimeoutElapsed();
+    /// @notice The IBC operation is unauthorized.
+    error IBCUnauthorized();
+    /// @notice A nested ICS20 transfer was attempted during a source callback.
+    error IBCCallbacksNestedSourceTransfer();
 
     /// @dev Emitted when an ICS-20 transfer is executed.
     /// @param sender The address of the sender.

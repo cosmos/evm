@@ -547,7 +547,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			func([]byte) {},
 			true,
 			func(common.Address, []interface{}, *statedb.StateDB) error {
-				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.EditValidatorMethod, "commission cannot be changed more than max change rate")
+				return cmn.NewRevertWithSolidityError(staking.ABI, staking.SolidityErrStakingCommissionGTMaxChangeRate)
 			},
 		},
 		{
@@ -565,7 +565,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			func([]byte) {},
 			true,
 			func(common.Address, []interface{}, *statedb.StateDB) error {
-				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.EditValidatorMethod, "commission rate must be between 0 and 1 (inclusive): invalid request")
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrSDKInvalidRequest)
 			},
 		},
 		{
@@ -583,7 +583,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			func([]byte) {},
 			true,
 			func(common.Address, []interface{}, *statedb.StateDB) error {
-				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.EditValidatorMethod, "minimum self delegation must be a positive integer: invalid request")
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrSDKInvalidRequest)
 			},
 		},
 		{
@@ -894,14 +894,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			func([]byte) {},
 			true,
 			func(common.Address, []interface{}) error {
-				ctx := s.network.GetContext()
-				delegator := s.keyring.GetKey(0)
-				bal := s.network.App.GetBankKeeper().GetBalance(ctx, delegator.AccAddr, s.bondDenom)
-				amt, ok := math.NewIntFromString("1000000000000000000000000000")
-				s.Require().True(ok)
-				wantCoin := sdk.NewCoin(s.bondDenom, amt)
-				return cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrMsgServerFailed, staking.DelegateMethod,
-					fmt.Sprintf("failed to delegate; %s is smaller than %s: insufficient funds", bal, wantCoin))
+				return cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrSDKInsufficientFunds)
 			},
 		},
 		{
@@ -1209,7 +1202,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			big.NewInt(1),
 			true,
 			func(common.Address, []interface{}) error {
-				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.RedelegateMethod, "invalid shares amount: invalid request")
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrSDKInvalidRequest)
 			},
 		},
 		{
@@ -1372,7 +1365,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			big.NewInt(1),
 			true,
 			func(common.Address, []interface{}) error {
-				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrMsgServerFailed, staking.CancelUnbondingDelegationMethod, "invalid amount: invalid request")
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrSDKInvalidRequest)
 			},
 		},
 		{

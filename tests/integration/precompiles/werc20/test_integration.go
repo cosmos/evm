@@ -313,8 +313,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						txArgs, callArgs := callsData.getTxAndCallArgs(directCall, werc20.WithdrawMethod, withdrawAmount)
 
-						_, _, err = is.factory.CallContractAndCheckLogs(newUserPriv, txArgs, callArgs, withdrawCheck)
-						Expect(err).To(HaveOccurred(), "expected an error because not enough funds")
+						insufficientBalanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+							is.precompile.ABI,
+							erc20.SolidityErrERC20InsufficientBalance,
+							common.BytesToAddress(newUserAcc.Bytes()),
+							// Withdraw packs the live spendable balance after EVM transaction setup.
+							big.NewInt(0),
+							withdrawAmount,
+						))
+						_, _, err = is.factory.CallContractAndCheckLogs(newUserPriv, txArgs, callArgs, insufficientBalanceCheck)
+						Expect(err).ToNot(HaveOccurred(), "expected exact ERC-6093 insufficient balance revert")
 						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
 					})
 					It("it should be a no-op and emit the event", func() {

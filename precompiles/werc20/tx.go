@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	erc20 "github.com/cosmos/evm/precompiles/erc20"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -46,7 +47,7 @@ func (p Precompile) Deposit(
 			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, DepositMethod, err.Error())
+		return nil, p.werc20MsgError(ctx, DepositMethod, err)
 	}
 
 	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
@@ -74,7 +75,13 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 	callerAccAddress := sdk.AccAddress(caller.Bytes())
 	nativeBalance := p.BankKeeper.SpendableCoin(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
 	if nativeBalance.Amount.LT(amountInt) {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, WithdrawMethod, fmt.Sprintf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt))
+		return nil, cmn.NewRevertWithSolidityError(
+			p.ABI,
+			erc20.SolidityErrERC20InsufficientBalance,
+			caller,
+			nativeBalance.Amount.BigInt(),
+			amount,
+		)
 	}
 
 	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, amount); err != nil {

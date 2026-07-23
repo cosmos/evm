@@ -27,6 +27,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "DistributionEmptyDelegationDistributionInfo",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -40,6 +45,31 @@
       }
     ],
     "name": "DistributionInputInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DistributionNoDelegationExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DistributionNoValidatorCommission",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DistributionNoValidatorDistributionInfo",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DistributionNoValidatorExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DistributionSetWithdrawAddressDisabled",
     "type": "error"
   },
   {
@@ -194,6 +224,41 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "SDKInsufficientFunds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKUnauthorized",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -202,6 +267,22 @@
       }
     ],
     "name": "UnknownMethod",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "codespace",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "code",
+        "type": "uint32"
+      }
+    ],
+    "name": "UnmappedCosmosError",
     "type": "error"
   },
   {

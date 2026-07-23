@@ -27,8 +27,9 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
@@ -37,6 +38,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, ErrorMappings(), cmn.SharedSDKErrorMappings(), nil)
 }
 
 // Precompile defines the precompiled contract for slashing.

@@ -705,8 +705,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					[]cmn.Coin{{Denom: s.bondDenom, Amount: excessAmount.BigInt()}},
 				}
 
-				// Revert reason is ABI-encoded MsgServerFailed; err chain may be estimate-gas or broadcast path.
-				failureCheck := defaultLogCheck.WithErrContains("execution reverted")
+				failureCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrSDKInsufficientFunds,
+					))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -837,8 +840,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					},
 				}
 
-				// Gas estimation or execution may surface only "execution reverted" plus hex-encoded MsgServerFailed.
-				insufficientFundsCheck := defaultLogCheck.WithErrContains("execution reverted")
+				insufficientFundsCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
+					WithErrExact(cmn.NewRevertWithSolidityError(
+						s.precompile.ABI,
+						cmn.SolidityErrSDKInsufficientFunds,
+					))
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),

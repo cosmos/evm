@@ -2,6 +2,7 @@
 pragma solidity >=0.8.17;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 
 /// @dev The Bech32I contract's address.
 address constant Bech32_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000400;

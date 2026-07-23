@@ -2,6 +2,7 @@
 pragma solidity >=0.8.18;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 
 /// @dev The IBank contract's address.
 address constant IBANK_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000804;

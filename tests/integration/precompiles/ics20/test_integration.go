@@ -194,9 +194,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			Expect(err).NotTo(BeNil(), "Failed to testTransfer: %s", err.Error())
 			precompiletestutil.RequireExactError(t, err, cmn.NewRevertWithSolidityError(
 				ics20.ABI,
-				cmn.SolidityErrMsgServerFailed,
-				ics20.TransferMethod,
-				"port ID (transfer) channel ID (channel-100): channel not found",
+				ics20.SolidityErrIBCChannelNotFound,
 			))
 		})
 
@@ -237,9 +235,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			Expect(host.ClientIdentifierValidator(invalidV2ClientID)).NotTo(BeNil())
 			precompiletestutil.RequireExactError(t, err, cmn.NewRevertWithSolidityError(
 				ics20.ABI,
-				cmn.SolidityErrMsgServerFailed,
+				ics20.SolidityErrInvalidSourceChannel,
 				ics20.TransferMethod,
-				"invalid source channel ID v2: identifier v2 has invalid length: 2, must be between 8-64 characters: invalid identifier",
+				ics20.ErrInvalidSourceChannel,
 			))
 		})
 

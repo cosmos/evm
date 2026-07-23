@@ -227,6 +227,171 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "SDKInsufficientFunds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKUnauthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingBadRedelegationDst",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingBadRedelegationSrc",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionChangeRateGTMaxRate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionChangeRateNegative",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionGTMaxChangeRate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionGTMaxRate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionHuge",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionLTMinRate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionNegative",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingCommissionUpdateTime",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingDelegatorShareExRateInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingInsufficientShares",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingMaxRedelegationEntries",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingMaxUnbondingDelegationEntries",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingMinSelfDelegationDecreased",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingNoDelegation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingSelfDelegationBelowMinimum",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingSelfRedelegation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingTinyRedelegationAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingTransitiveRedelegation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingUnbondingDelegationNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingValidatorJailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingValidatorNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingValidatorOwnerExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingValidatorPubKeyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingValidatorPubKeyTypeNotSupported",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -235,6 +400,22 @@
       }
     ],
     "name": "UnknownMethod",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "codespace",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "code",
+        "type": "uint32"
+      }
+    ],
+    "name": "UnmappedCosmosError",
     "type": "error"
   },
   {

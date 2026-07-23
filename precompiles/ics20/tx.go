@@ -176,10 +176,10 @@ func (p *Precompile) Transfer(
 ) ([]byte, error) {
 	// Marker is set in the callbacks keeper and propagates here via cacheCtx.
 	if callbackstypes.IsSourceCallbackExecution(ctx) {
-		return nil, callbackstypes.ErrNestedSourceCallbackTransfer
+		return nil, p.ics20MsgError(ctx, callbackstypes.ErrNestedSourceCallbackTransfer)
 	}
 
-	msg, sender, err := NewMsgTransfer(method, args)
+	msg, sender, err := p.newMsgTransfer(ctx, method, args)
 	if err != nil {
 		return nil, err
 	}
@@ -187,11 +187,11 @@ func (p *Precompile) Transfer(
 	// If the channel is in v1 format, check if channel exists and is open
 	if channeltypes.IsChannelIDFormat(msg.SourceChannel) {
 		if err := p.validateV1TransferChannel(ctx, msg); err != nil {
-			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, TransferMethod, err.Error())
+			return nil, p.ics20MsgError(ctx, err)
 		}
 		// otherwise, it’s a v2 packet, so perform client ID validation
 	} else if v2ClientIDErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIDErr != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, TransferMethod, v2ClientIDErr.Error())
+		return nil, invalidSourceChannelError()
 	}
 
 	msgSender := contract.Caller()
@@ -202,7 +202,7 @@ func (p *Precompile) Transfer(
 	stateDBExp := stateDB.(*statedb.StateDB)
 	res, err := p.transferWithStateDB(ctx, stateDBExp, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, TransferMethod, err.Error())
+		return nil, p.ics20MsgError(ctx, err)
 	}
 
 	if err = EmitIBCTransferEvent(

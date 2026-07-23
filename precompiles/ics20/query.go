@@ -1,12 +1,9 @@
 package ics20
 
 import (
-	"strings"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -38,11 +35,10 @@ func (p Precompile) Denom(
 
 	res, err := p.transferKeeper.Denom(ctx, req)
 	if err != nil {
-		// if the trace does not exist, return empty array
-		if strings.Contains(err.Error(), ErrDenomNotFound) {
+		if ics20QueryPreservesSuccess(DenomMethod, err) {
 			return method.Outputs.Pack(transfertypes.Denom{})
 		}
-		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, DenomMethod, err.Error())
+		return nil, p.ics20QueryError(ctx, DenomMethod, err)
 	}
 
 	return method.Outputs.Pack(*res.Denom)
@@ -62,7 +58,7 @@ func (p Precompile) Denoms(
 
 	res, err := p.transferKeeper.Denoms(ctx, req)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, DenomsMethod, err.Error())
+		return nil, p.ics20QueryError(ctx, DenomsMethod, err)
 	}
 
 	return method.Outputs.Pack(res.Denoms, res.Pagination)
@@ -82,11 +78,10 @@ func (p Precompile) DenomHash(
 
 	res, err := p.transferKeeper.DenomHash(ctx, req)
 	if err != nil {
-		// if the denom hash does not exist, return empty string
-		if strings.Contains(err.Error(), ErrDenomNotFound) {
+		if ics20QueryPreservesSuccess(DenomHashMethod, err) {
 			return method.Outputs.Pack("")
 		}
-		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, DenomHashMethod, err.Error())
+		return nil, p.ics20QueryError(ctx, DenomHashMethod, err)
 	}
 
 	return method.Outputs.Pack(res.Hash)

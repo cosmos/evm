@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	sdkmath "cosmossdk.io/math"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
+
+	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -38,11 +38,24 @@ func (p Precompile) Approve(
 	}
 
 	owner := contract.Caller()
+	if owner == (common.Address{}) {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InvalidApprover, owner)
+	}
+	if spender == (common.Address{}) {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InvalidSpender, spender)
+	}
 
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ApproveMethod,
-			fmt.Sprintf("%s: %v", fmt.Sprintf(ErrNoAllowanceForToken, p.tokenPair.Denom), err))
+		if _, registered := cmn.ExtractCosmosErrorKey(err); registered {
+			return nil, p.translateERC20Error(ctx, ApproveMethod, err)
+		}
+		return nil, cmn.NewRevertWithSolidityError(
+			p.ABI,
+			cmn.SolidityErrQueryFailed,
+			ApproveMethod,
+			fmt.Sprintf("%s: %v", fmt.Sprintf(ErrNoAllowanceForToken, p.tokenPair.Denom), err),
+		)
 	}
 
 	switch {
@@ -52,7 +65,7 @@ func (p Precompile) Approve(
 		err = p.setAllowance(ctx, owner, spender, amount)
 	case allowance.Sign() > 0 && amount != nil && amount.Sign() <= 0:
 		if derr := p.erc20Keeper.DeleteAllowance(ctx, p.Address(), owner, spender); derr != nil {
-			err = cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ApproveMethod, derr.Error())
+			err = p.erc20QueryError(ctx, ApproveMethod, derr)
 		}
 	case allowance.Sign() > 0 && amount != nil && amount.Sign() > 0:
 		err = p.setAllowance(ctx, owner, spender, amount)
@@ -79,7 +92,7 @@ func (p *Precompile) setAllowance(
 	}
 
 	if err := p.erc20Keeper.SetAllowance(ctx, p.Address(), owner, spender, allowance); err != nil {
-		return cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ApproveMethod, err.Error())
+		return p.erc20QueryError(ctx, ApproveMethod, err)
 	}
 	return nil
 }

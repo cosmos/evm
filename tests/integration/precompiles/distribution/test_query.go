@@ -31,7 +31,7 @@ type distrTestCases struct {
 	wantErrFn func(*PrecompileTestSuite, []interface{}) error
 }
 
-func baseQueryTestCases(methodName string, expInputs int) []distrTestCases {
+func baseQueryTestCases(expInputs int) []distrTestCases {
 	return []distrTestCases{
 		{
 			"fail - empty input args",
@@ -80,7 +80,7 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			100000,
 			true,
 			func(_ *PrecompileTestSuite, _ []interface{}) error {
-				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrDistributionNoValidatorExists)
 			},
 		},
 		{
@@ -94,7 +94,7 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			100000,
 			true,
 			func(_ *PrecompileTestSuite, _ []interface{}) error {
-				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "no delegation for (address, validator) tuple")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrDistributionNoDelegationExists)
 			},
 		},
 		{
@@ -133,7 +133,7 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 			nil,
 		},
 	}
-	testCases = append(baseQueryTestCases(method.Name, len(method.Inputs)), testCases...)
+	testCases = append(baseQueryTestCases(len(method.Inputs)), testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -181,7 +181,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			100000,
 			true,
 			func(_ *PrecompileTestSuite, _ []interface{}) error {
-				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrDistributionNoValidatorExists)
 			},
 		},
 		{
@@ -230,7 +230,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 			nil,
 		},
 	}
-	testCases = append(baseQueryTestCases(method.Name, len(method.Inputs)), testCases...)
+	testCases = append(baseQueryTestCases(len(method.Inputs)), testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -278,7 +278,7 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			100000,
 			true,
 			func(_ *PrecompileTestSuite, _ []interface{}) error {
-				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrDistributionNoValidatorExists)
 			},
 		},
 		{
@@ -332,7 +332,7 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 			nil,
 		},
 	}
-	testCases = append(baseQueryTestCases(method.Name, len(method.Inputs)), testCases...)
+	testCases = append(baseQueryTestCases(len(method.Inputs)), testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -509,7 +509,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 			nil,
 		},
 	}
-	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
+	testCases = append([]distrTestCases{baseQueryTestCases(len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -571,7 +571,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			100000,
 			true,
 			func(_ *PrecompileTestSuite, _ []interface{}) error {
-				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "validator does not exist")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrDistributionNoValidatorExists)
 			},
 		},
 		{
@@ -587,7 +587,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			100000,
 			true,
 			func(_ *PrecompileTestSuite, _ []interface{}) error {
-				return cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrQueryFailed, method.Name, "no delegation for (address, validator) tuple")
+				return cmn.NewRevertWithSolidityError(distribution.ABI, distribution.SolidityErrDistributionNoDelegationExists)
 			},
 		},
 		{
@@ -632,7 +632,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			nil,
 		},
 	}
-	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
+	testCases = append([]distrTestCases{baseQueryTestCases(len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -768,7 +768,7 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			nil,
 		},
 	}
-	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
+	testCases = append([]distrTestCases{baseQueryTestCases(len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -856,7 +856,7 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 			nil,
 		},
 	}
-	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
+	testCases = append([]distrTestCases{baseQueryTestCases(len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -917,7 +917,7 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 			nil,
 		},
 	}
-	testCases = append([]distrTestCases{baseQueryTestCases(method.Name, len(method.Inputs))[0]}, testCases...)
+	testCases = append([]distrTestCases{baseQueryTestCases(len(method.Inputs))[0]}, testCases...)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {

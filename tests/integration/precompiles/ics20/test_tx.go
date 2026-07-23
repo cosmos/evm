@@ -45,15 +45,27 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 
 	tests := []testCase{
 		{
+			name:      "invalid source port",
+			port:      "invalid/port",
+			channelID: "channel-0",
+			receiver:  defaultReceiver,
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				ics20.SolidityErrInvalidSourcePort,
+				ics20.TransferMethod,
+				ics20.ErrInvalidSourcePort,
+			),
+		},
+		{
 			name:      "invalid source channel",
 			port:      transfertypes.PortID,
 			channelID: "invalid/channel",
 			receiver:  defaultReceiver,
 			wantErr: cmn.NewRevertWithSolidityError(
 				ics20.ABI,
-				cmn.SolidityErrMsgServerFailed,
+				ics20.SolidityErrInvalidSourceChannel,
 				ics20.TransferMethod,
-				"invalid source channel ID invalid/channel: identifier invalid/channel cannot contain separator '/': invalid identifier",
+				ics20.ErrInvalidSourceChannel,
 			),
 		},
 		{
@@ -62,12 +74,7 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 			channelID: "channel-9",
 			receiver:  defaultReceiver,
 			// Err comes from validateV1TransferChannel -> Wrapf(ErrChannelNotFound, "port ID (...) channel ID (...)")
-			wantErr: cmn.NewRevertWithSolidityError(
-				ics20.ABI,
-				cmn.SolidityErrMsgServerFailed,
-				ics20.TransferMethod,
-				"port ID (transfer) channel ID (channel-9): channel not found",
-			),
+			wantErr: cmn.NewRevertWithSolidityError(ics20.ABI, ics20.SolidityErrIBCChannelNotFound),
 		},
 		{
 			name:              "invalid receiver",
@@ -77,9 +84,9 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 			// CreateAndValidateMsgTransfer -> MsgTransfer.ValidateBasic error
 			wantErr: cmn.NewRevertWithSolidityError(
 				ics20.ABI,
-				cmn.SolidityErrMsgServerFailed,
+				ics20.SolidityErrInvalidReceiver,
 				ics20.TransferMethod,
-				"missing recipient address: invalid address",
+				"invalid receiver: ",
 			),
 		},
 		{
