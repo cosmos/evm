@@ -40,6 +40,7 @@
 
 ### BUG FIXES
 
+- [\#1193](https://github.com/cosmos/evm/pull/1193) Remove the nonexistent vesting static precompile from defaults and migrate existing EVM params to strip its legacy address.
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 - [\#1214](https://github.com/cosmos/evm/pull/1214) Emit the canonical CometBFT block hash in the `newHeads` subscription so it matches `eth_getBlockByNumber` (completes [\#725](https://github.com/cosmos/evm/pull/725)).
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
