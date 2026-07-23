@@ -8,6 +8,7 @@
 
 ### API-BREAKING
 
+- [\#854](https://github.com/cosmos/evm/pull/854) Remove the backwards-compatible `MsgEthereumTx.Hash()` helper; callers should use `MsgEthereumTx.AsTransaction().Hash()` instead.
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
 
 ### IMPROVEMENTS

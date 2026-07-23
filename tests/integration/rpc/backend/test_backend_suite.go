@@ -181,9 +181,9 @@ func (s *TestSuite) buildFormattedBlock(
 	validator sdk.AccAddress,
 	baseFee *big.Int,
 ) map[string]interface{} {
-	var msgs []*evmtypes.MsgEthereumTx
+	var msgs []evmtypes.RPCMsgEthereumTxI
 	if tx != nil {
-		msgs = []*evmtypes.MsgEthereumTx{tx}
+		msgs = []evmtypes.RPCMsgEthereumTxI{tx}
 	}
 	ethBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee)
 	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, s.backend.ChainConfig())
@@ -195,7 +195,7 @@ func (s *TestSuite) buildFormattedBlock(
 func (s *TestSuite) buildEthBlock(
 	blockRes *cmtrpctypes.ResultBlockResults,
 	resBlock *cmtrpctypes.ResultBlock,
-	msgs []*evmtypes.MsgEthereumTx,
+	msgs []evmtypes.RPCMsgEthereumTxI,
 	validator sdk.AccAddress,
 	baseFee *big.Int,
 ) *ethtypes.Block {
