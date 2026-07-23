@@ -8,8 +8,9 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	cmn "github.com/cosmos/evm/precompiles/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -75,7 +76,7 @@ func (p Precompile) CreateValidator(
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.CreateValidator(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, CreateValidatorMethod, err.Error())
+		return nil, p.stakingMsgError(ctx, CreateValidatorMethod, err)
 	}
 
 	// Here we don't add journal entries here because calls from
@@ -127,7 +128,7 @@ func (p Precompile) EditValidator(
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.EditValidator(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, EditValidatorMethod, err.Error())
+		return nil, p.stakingMsgError(ctx, EditValidatorMethod, err)
 	}
 
 	// Emit the event for the edit validator transaction
@@ -173,7 +174,7 @@ func (p *Precompile) Delegate(
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.Delegate(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, DelegateMethod, err.Error())
+		return nil, p.stakingMsgError(ctx, DelegateMethod, err)
 	}
 
 	// Emit the event for the delegate transaction
@@ -221,7 +222,7 @@ func (p Precompile) Undelegate(
 	// Execute the transaction using the message server
 	res, err := p.stakingMsgServer.Undelegate(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UndelegateMethod, err.Error())
+		return nil, p.stakingMsgError(ctx, UndelegateMethod, err)
 	}
 
 	// Emit the event for the undelegate transaction
@@ -270,7 +271,7 @@ func (p Precompile) Redelegate(
 
 	res, err := p.stakingMsgServer.BeginRedelegate(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, RedelegateMethod, err.Error())
+		return nil, p.stakingMsgError(ctx, RedelegateMethod, err)
 	}
 
 	if err = p.EmitRedelegateEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
@@ -317,7 +318,7 @@ func (p Precompile) CancelUnbondingDelegation(
 	}
 
 	if _, err = p.stakingMsgServer.CancelUnbondingDelegation(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, CancelUnbondingDelegationMethod, err.Error())
+		return nil, p.stakingMsgError(ctx, CancelUnbondingDelegationMethod, err)
 	}
 
 	if err = p.EmitCancelUnbondingDelegationEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {

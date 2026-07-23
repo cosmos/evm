@@ -36,7 +36,7 @@ func (p *Precompile) GetSigningInfo(
 
 	res, err := p.slashingKeeper.SigningInfo(ctx, req)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetSigningInfoMethod, err.Error())
+		return nil, p.slashingQueryError(ctx, GetSigningInfoMethod, err)
 	}
 
 	out, err := new(SigningInfoOutput).FromResponse(res)
@@ -60,7 +60,7 @@ func (p *Precompile) GetSigningInfos(
 
 	res, err := p.slashingKeeper.SigningInfos(ctx, req)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetSigningInfosMethod, err.Error())
+		return nil, p.slashingQueryError(ctx, GetSigningInfosMethod, err)
 	}
 
 	out, err := new(SigningInfosOutput).FromResponse(res)
@@ -79,7 +79,7 @@ func (p *Precompile) GetParams(
 ) ([]byte, error) {
 	res, err := p.slashingKeeper.Params(ctx, &types.QueryParamsRequest{})
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetParamsMethod, err.Error())
+		return nil, p.slashingQueryError(ctx, GetParamsMethod, err)
 	}
 
 	out := new(ParamsOutput).FromResponse(res)

@@ -7,10 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
-
-	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -43,6 +43,12 @@ func (p *Precompile) Transfer(
 	if err != nil {
 		return nil, err
 	}
+	if from == (common.Address{}) {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InvalidSender, from)
+	}
+	if to == (common.Address{}) {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InvalidReceiver, to)
+	}
 
 	return p.transfer(ctx, contract, stateDB, method, from, to, amount)
 }
@@ -59,6 +65,12 @@ func (p *Precompile) TransferFrom(
 	from, to, amount, err := ParseTransferFromArgs(args)
 	if err != nil {
 		return nil, err
+	}
+	if from == (common.Address{}) {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InvalidSender, from)
+	}
+	if to == (common.Address{}) {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InvalidReceiver, to)
 	}
 
 	return p.transfer(ctx, contract, stateDB, method, from, to, amount)
@@ -90,7 +102,7 @@ func (p *Precompile) transfer(
 	if isTransferFrom {
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
-			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, TransferFromMethod, err.Error())
+			return nil, p.erc20QueryError(ctx, TransferFromMethod, err)
 		}
 
 		newAllowance = new(big.Int).Sub(prevAllowance, amount)
@@ -104,7 +116,7 @@ func (p *Precompile) transfer(
 			err = p.erc20Keeper.SetAllowance(ctx, p.Address(), from, spenderAddr, newAllowance)
 		}
 		if err != nil {
-			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, TransferFromMethod, err.Error())
+			return nil, p.erc20QueryError(ctx, TransferFromMethod, err)
 		}
 	}
 
@@ -115,7 +127,7 @@ func (p *Precompile) transfer(
 			bal := spendable.Amount.BigInt()
 			return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InsufficientBalance, from, bal, amount)
 		}
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, method.Name, err.Error())
+		return nil, p.erc20MsgError(ctx, method.Name, err)
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {

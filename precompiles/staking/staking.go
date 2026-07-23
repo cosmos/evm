@@ -26,14 +26,19 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
 	var err error
 	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
+		panic(err)
+	}
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, ErrorMappings(), cmn.SharedSDKErrorMappings(), nil)
+	if err := cmn.ReviewedGRPCErrorRegistry().ValidateABI(ABI, "StakingI"); err != nil {
 		panic(err)
 	}
 }
