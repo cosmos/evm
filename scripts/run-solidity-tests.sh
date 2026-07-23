@@ -14,13 +14,10 @@ make install
 
 cd tests/solidity || exit
 
-if command -v yarn &>/dev/null; then
-	yarn install
-else
-	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-	echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-	sudo apt update && sudo apt install yarn
-	yarn install
+PNPM_MAJOR_VERSION="11"
+if ! command -v pnpm &>/dev/null || [ "$(pnpm --version | cut -d. -f1)" != "$PNPM_MAJOR_VERSION" ]; then
+	corepack enable && corepack prepare pnpm@11 --activate
 fi
 
-yarn test --network cosmos "$@"
+pnpm install
+pnpm test --network cosmos "$@"

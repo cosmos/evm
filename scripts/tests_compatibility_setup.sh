@@ -20,10 +20,18 @@ if ! command -v forge >/dev/null 2>&1; then
 	foundryup
 fi
 
-# Install Node.js and npm if missing
-if ! command -v npm >/dev/null 2>&1; then
-	curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+# Install Node.js 22 and pnpm 11 if missing or on a different version
+REQUIRED_NODE_MAJOR="22"
+CURRENT_NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+if [ "$CURRENT_NODE_MAJOR" != "$REQUIRED_NODE_MAJOR" ]; then
+	curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 	sudo apt-get install -y nodejs
+fi
+PNPM_MAJOR_VERSION="11"
+if ! command -v pnpm >/dev/null 2>&1 || [ "$(pnpm --version | cut -d. -f1)" != "$PNPM_MAJOR_VERSION" ]; then
+	corepack enable 2>/dev/null || true
+	npm install -g corepack 2>/dev/null || true
+	corepack enable && corepack prepare pnpm@11 --activate
 fi
 
 # -----------------------------------------------------------------------------
@@ -63,18 +71,14 @@ if [ -d "$COMPAT_DIR/hardhat" ]; then
 				git submodule update
 			fi
 
-			# Only install npm dependencies if node_modules doesn't exist
-			if [ ! -d "node_modules" ]; then
-				echo "Installing npm dependencies for hardhat/$subproject..."
-				npm install
-			else
-				echo "npm dependencies already installed for hardhat/$subproject, skipping..."
-			fi
+			# Install dependencies (ensures pnpm layout for pnpm exec)
+			echo "Installing dependencies for hardhat/$subproject..."
+			pnpm install
 
 			# Only compile if build artifacts don't exist
 			if [ ! -d "artifacts" ] && [ ! -d "cache" ]; then
 				echo "Compiling hardhat contracts for $subproject..."
-				npx hardhat compile
+				pnpm exec hardhat compile
 			else
 				echo "Hardhat contracts already compiled for $subproject, skipping..."
 			fi
@@ -85,17 +89,13 @@ if [ -d "$COMPAT_DIR/hardhat" ]; then
 fi
 
 # Node based projects (viem, web3.js, sdk examples)
-for dir in "$COMPAT_DIR"/sdk/* "$COMPAT_DIR"/viem "$COMPAT_DIR"/web3js; do
+for dir in "$COMPAT_DIR"/sdk/* "$COMPAT_DIR"/viem "$COMPAT_DIR"/web3.js; do
 	if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
 		pushd "$dir" >/dev/null
 
-		# Only install npm dependencies if node_modules doesn't exist
-		if [ ! -d "node_modules" ]; then
-			echo "Installing npm dependencies for $(basename "$dir")..."
-			npm install
-		else
-			echo "npm dependencies already installed for $(basename "$dir"), skipping..."
-		fi
+		# Install dependencies (ensures pnpm layout for pnpm exec)
+		echo "Installing dependencies for $(basename "$dir")..."
+		pnpm install
 
 		popd >/dev/null
 	fi

@@ -17,6 +17,12 @@ jobs:
           go-version: '1.25'
           check-latest: true
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
