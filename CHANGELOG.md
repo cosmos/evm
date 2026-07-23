@@ -37,6 +37,7 @@
 - [\#1082](https://github.com/cosmos/evm/pull/1082) Enable incarnation cache for verify result.
 - [\#1096](https://github.com/cosmos/evm/pull/1096) Allow eth_call overrides work with static precompiles.
 - [\#1228](https://github.com/cosmos/evm/pull/1228) Respect `ctx.IsSigverifyTx()` in EVM signature verification, mirroring x/auth to allow applications skip redundant ecrecover for txs the node already verified.
+- [\#1240](https://github.com/cosmos/evm/pull/1240) Add a publishable `cosmos-evm-contracts` package with precompile Solidity interfaces and typed ESM/CJS ABI modules, and migrate Solidity tooling to pnpm.
 
 ### BUG FIXES
 

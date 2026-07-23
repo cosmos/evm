@@ -1,5 +1,5 @@
 /** @type import('hardhat/config').HardhatUserConfig */
-export default {
+module.exports = {
   solidity: {
     compilers: [
       {

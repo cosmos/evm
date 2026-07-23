@@ -74,7 +74,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.GIT_DIFF
         with:
-          node-version: "20"
+          node-version: "22"
 
       # Lint: check only, fail on errors
       - name: markdownlint (check only)

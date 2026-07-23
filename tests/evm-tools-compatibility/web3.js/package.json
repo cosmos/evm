@@ -1,6 +1,7 @@
 {
   "name": "web3",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.15.1",
   "main": "index.js",
   "scripts": {
     "test": "mocha test/web3js_compatibility.test.js --timeout 60000"
