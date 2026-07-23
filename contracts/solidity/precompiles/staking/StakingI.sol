@@ -2,6 +2,7 @@
 pragma solidity >=0.8.17;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 /// @dev The StakingI contract's address.
 address constant STAKING_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000800;
 
@@ -129,6 +130,34 @@ enum BondStatus {
 /// wraps the pallet.
 /// @custom:address 0x0000000000000000000000000000000000000800
 interface StakingI is IPrecompile {
+    /// @notice Registered Cosmos SDK staking errors reachable from this precompile.
+    error StakingValidatorNotFound();
+    error StakingValidatorOwnerExists();
+    error StakingValidatorPubKeyExists();
+    error StakingValidatorPubKeyTypeNotSupported();
+    error StakingValidatorJailed();
+    error StakingCommissionNegative();
+    error StakingCommissionHuge();
+    error StakingCommissionGTMaxRate();
+    error StakingCommissionUpdateTime();
+    error StakingCommissionChangeRateNegative();
+    error StakingCommissionChangeRateGTMaxRate();
+    error StakingCommissionGTMaxChangeRate();
+    error StakingSelfDelegationBelowMinimum();
+    error StakingMinSelfDelegationDecreased();
+    error StakingNoDelegation();
+    error StakingInsufficientShares();
+    error StakingUnbondingDelegationNotFound();
+    error StakingMaxUnbondingDelegationEntries();
+    error StakingSelfRedelegation();
+    error StakingTinyRedelegationAmount();
+    error StakingBadRedelegationDst();
+    error StakingTransitiveRedelegation();
+    error StakingMaxRedelegationEntries();
+    error StakingDelegatorShareExRateInvalid();
+    error StakingCommissionLTMinRate();
+    error StakingBadRedelegationSrc();
+
     /// @notice Precompile-defined errors (ABI-encoded revert data for clients).
     error BondDenomQueryFailed(string reason);
     error CannotCallFromContract(address msgSender, uint256 codeLength, bool delegated);

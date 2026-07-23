@@ -42,7 +42,7 @@ func (p *Precompile) SubmitProposal(
 
 	res, err := p.govMsgServer.SubmitProposal(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, SubmitProposalMethod, err.Error())
+		return nil, p.govMsgError(ctx, SubmitProposalMethod, err)
 	}
 
 	if err = p.EmitSubmitProposalEvent(ctx, stateDB, proposerHexAddr, res.ProposalId); err != nil {
@@ -71,7 +71,7 @@ func (p *Precompile) Deposit(
 	}
 
 	if _, err = p.govMsgServer.Deposit(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, DepositMethod, err.Error())
+		return nil, p.govMsgError(ctx, DepositMethod, err)
 	}
 
 	if err = p.EmitDepositEvent(ctx, stateDB, depositorHexAddr, msg.ProposalId, msg.Amount); err != nil {
@@ -100,7 +100,7 @@ func (p *Precompile) CancelProposal(
 	}
 
 	if _, err = p.govMsgServer.CancelProposal(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, CancelProposalMethod, err.Error())
+		return nil, p.govMsgError(ctx, CancelProposalMethod, err)
 	}
 
 	if err = p.EmitCancelProposalEvent(ctx, stateDB, proposerHexAddr, msg.ProposalId); err != nil {
@@ -129,7 +129,7 @@ func (p Precompile) Vote(
 	}
 
 	if _, err = p.govMsgServer.Vote(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VoteMethod, err.Error())
+		return nil, p.govMsgError(ctx, VoteMethod, err)
 	}
 
 	if err = p.EmitVoteEvent(ctx, stateDB, voterHexAddr, msg.ProposalId, int32(msg.Option)); err != nil {
@@ -158,7 +158,7 @@ func (p *Precompile) VoteWeighted(
 	}
 
 	if _, err = p.govMsgServer.VoteWeighted(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, VoteWeightedMethod, err.Error())
+		return nil, p.govMsgError(ctx, VoteWeightedMethod, err)
 	}
 
 	if err = p.EmitVoteWeightedEvent(ctx, stateDB, voterHexAddr, msg.ProposalId, options); err != nil {

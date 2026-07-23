@@ -13,6 +13,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/core/address"
+	"cosmossdk.io/log/v2"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,8 +26,9 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
@@ -35,6 +37,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, ErrorMappings(), cmn.SharedSDKErrorMappings(), nil)
 }
 
 // Precompile defines the precompiled contract for distribution.
@@ -77,6 +80,11 @@ func NewPrecompile(
 
 func (Precompile) Name() string {
 	return "distribution"
+}
+
+// Logger returns a precompile-specific logger.
+func (p Precompile) Logger(ctx sdk.Context) log.Logger {
+	return ctx.Logger().With("evm extension", p.Name())
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.

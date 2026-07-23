@@ -3,6 +3,7 @@ package ics20
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,7 +12,9 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -74,6 +77,12 @@ type height struct {
 
 // NewMsgTransfer returns a new transfer message from the given arguments.
 func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
+	p := Precompile{ABI: ABI}
+	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
+	return p.newMsgTransfer(ctx, method, args)
+}
+
+func (p Precompile) newMsgTransfer(ctx sdk.Context, method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
 	if len(args) != 9 {
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(9), big.NewInt(int64(len(args))))
 	}
@@ -82,10 +91,16 @@ func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgT
 	if !ok {
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourcePort, TransferMethod, ErrInvalidSourcePort)
 	}
+	if err := host.PortIdentifierValidator(sourcePort); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourcePort, TransferMethod, ErrInvalidSourcePort)
+	}
 
 	sourceChannel, ok := args[1].(string)
 	if !ok {
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
+	}
+	if err := host.ChannelIdentifierValidator(sourceChannel); err != nil {
+		return nil, common.Address{}, invalidSourceChannelError()
 	}
 
 	denom, ok := args[2].(string)
@@ -106,6 +121,9 @@ func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgT
 	receiver, ok := args[5].(string)
 	if !ok {
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidReceiver, TransferMethod, fmt.Sprintf(ErrInvalidReceiver, args[5]))
+	}
+	if strings.TrimSpace(receiver) == "" || len(receiver) > transfertypes.MaximumReceiverLength {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidReceiver, TransferMethod, fmt.Sprintf(ErrInvalidReceiver, receiver))
 	}
 
 	var input height
@@ -132,7 +150,10 @@ func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgT
 
 	msg, err := CreateAndValidateMsgTransfer(sourcePort, sourceChannel, token, sdk.AccAddress(sender.Bytes()).String(), receiver, input.TimeoutHeight, timeoutTimestamp, memo)
 	if err != nil {
-		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrMsgServerFailed, TransferMethod, err.Error())
+		if isHostInvalidID(err) {
+			return nil, common.Address{}, invalidSourceChannelError()
+		}
+		return nil, common.Address{}, p.ics20ValidatedInputError(ctx, err)
 	}
 
 	return msg, sender, nil

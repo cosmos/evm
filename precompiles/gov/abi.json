@@ -38,6 +38,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "GovInactiveProposal",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -51,6 +56,76 @@
       }
     ],
     "name": "GovInputInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidDepositDenom",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidProposal",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidProposalContent",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidProposalMessage",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidProposer",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidSigner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovInvalidVote",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovMetadataTooLong",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovMinimumDepositTooSmall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovNoProposalHandlerExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovNoProposalMessages",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovSummaryTooLong",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovUnroutableProposalMessage",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GovVotingPeriodEnded",
     "type": "error"
   },
   {
@@ -248,6 +323,41 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "SDKInsufficientFunds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKUnauthorized",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -256,6 +366,22 @@
       }
     ],
     "name": "UnknownMethod",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "codespace",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "code",
+        "type": "uint32"
+      }
+    ],
+    "name": "UnmappedCosmosError",
     "type": "error"
   },
   {

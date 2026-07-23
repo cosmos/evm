@@ -224,13 +224,26 @@ describe('WERC20 – deposit and withdraw', function () {
         });
 
         it('decodes insufficient native balance custom error data', async function () {
+            const sender = signer.address;
+            const balance = await hre.ethers.provider.getBalance(sender);
+            const needed = hre.ethers.MaxUint256;
+
             try {
-                await werc20.withdraw.estimateGas(hre.ethers.MaxUint256);
+                await werc20.withdraw.estimateGas(needed);
                 expect.fail('withdraw should have reverted');
             } catch (error) {
-                const parsed = werc20.interface.parseError(getRevertData(error));
-                expect(parsed.name).to.equal('MsgServerFailed');
-                expect(parsed.args[0]).to.equal('withdraw');
+                const revertData = getRevertData(error);
+                expect(revertData.slice(0, 10)).to.equal('0xe450d38c');
+
+                const parsed = werc20.interface.parseError(revertData);
+                expect(parsed.name).to.equal('ERC20InsufficientBalance');
+                expect(parsed.signature).to.equal('ERC20InsufficientBalance(address,uint256,uint256)');
+                expect(parsed.args[0]).to.equal(sender);
+                expect(parsed.args[1]).to.equal(balance);
+                expect(parsed.args[2]).to.equal(needed);
+                expect(parsed.name).not.to.equal('MsgServerFailed');
+                expect(parsed.name).not.to.equal('QueryFailed');
+                expect(parsed.name).not.to.equal('UnmappedCosmosError');
             }
         });
     });

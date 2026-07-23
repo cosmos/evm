@@ -11,6 +11,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "BankSendDisabled",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -105,6 +110,16 @@
       }
     ],
     "name": "ERC20InvalidSpender",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ERC20TokenPairDisabled",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ERC20TokenPairNotFound",
     "type": "error"
   },
   {
@@ -248,6 +263,41 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "SDKInsufficientFunds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKUnauthorized",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -256,6 +306,22 @@
       }
     ],
     "name": "UnknownMethod",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "codespace",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "code",
+        "type": "uint32"
+      }
+    ],
+    "name": "UnmappedCosmosError",
     "type": "error"
   },
   {

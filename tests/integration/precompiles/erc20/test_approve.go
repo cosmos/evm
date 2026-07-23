@@ -59,6 +59,13 @@ func (s *PrecompileTestSuite) TestApprove() {
 			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, "invalid amount"),
 		},
 		{
+			name: "fail - zero spender uses ERC-6093",
+			malleate: func() []interface{} {
+				return []interface{}{common.Address{}, big.NewInt(1)}
+			},
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidSpender, common.Address{}),
+		},
+		{
 			name: "fail - negative amount",
 			malleate: func() []interface{} {
 				return []interface{}{
@@ -127,6 +134,31 @@ func (s *PrecompileTestSuite) TestApprove() {
 					s.keyring.GetAddr(1),
 					big.NewInt(amount),
 				)
+			},
+		},
+		{
+			name: "fail - token pair not found uses module selector",
+			malleate: func() []interface{} {
+				tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), s.tokenDenom)
+				tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
+				s.Require().True(found)
+				s.network.App.GetErc20Keeper().DeleteTokenPair(s.network.GetContext(), tokenPair)
+				return []interface{}{s.keyring.GetAddr(1), big.NewInt(amount)}
+			},
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20TokenPairNotFound),
+		},
+		{
+			name: "pass - zero approval remains a no-op when token pair is absent",
+			malleate: func() []interface{} {
+				tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), s.tokenDenom)
+				tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
+				s.Require().True(found)
+				s.network.App.GetErc20Keeper().DeleteTokenPair(s.network.GetContext(), tokenPair)
+				return []interface{}{s.keyring.GetAddr(1), common.Big0}
+			},
+			expPass: true,
+			postCheck: func() {
+				s.requireAllowance(s.precompile.Address(), s.keyring.GetAddr(0), s.keyring.GetAddr(1), common.Big0)
 			},
 		},
 		{
@@ -258,4 +290,30 @@ func (s *PrecompileTestSuite) TestApprove() {
 			}
 		})
 	}
+}
+
+func (s *PrecompileTestSuite) TestApproveInvalidApproverUsesERC6093() {
+	s.SetupTest()
+	method := s.precompile.Methods[erc20.ApproveMethod]
+	contract, ctx := testutil.NewPrecompileContract(
+		s.T(),
+		s.network.GetContext(),
+		common.Address{},
+		s.precompile.Address(),
+		200_000,
+	)
+
+	_, err := s.precompile.Approve(
+		ctx,
+		contract,
+		s.network.GetStateDB(),
+		&method,
+		[]interface{}{s.keyring.GetAddr(1), big.NewInt(1)},
+	)
+	s.Require().Error(err)
+	testutil.RequireExactError(
+		s.T(),
+		err,
+		cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidApprover, common.Address{}),
+	)
 }

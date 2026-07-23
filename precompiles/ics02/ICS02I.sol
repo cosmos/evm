@@ -2,6 +2,7 @@
 pragma solidity >=0.8.18;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 
 /// @dev The ICS02I contract's address.
 address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000807;
@@ -22,6 +23,13 @@ interface ICS02I is IPrecompile {
     error InvalidPath(bytes[] path);
     /// @notice Invalid value bytes argument.
     error InvalidValue(bytes value);
+
+    /// @notice The IBC client type is invalid.
+    error IBCClientInvalidClientType();
+    /// @notice No light-client module route exists for the client.
+    error IBCClientRouteNotFound();
+    /// @notice The IBC client is not active.
+    error IBCClientNotActive();
 
     /// @notice The result of an update operation
     enum UpdateResult {

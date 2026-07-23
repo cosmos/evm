@@ -2,6 +2,7 @@
 pragma solidity >=0.8.17;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 
 /// @dev The ISlashing contract's address.
 address constant SLASHING_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
@@ -47,6 +48,13 @@ struct Params {
 /// wraps the pallet.
 /// @custom:address 0x0000000000000000000000000000000000000806
 interface ISlashing is IPrecompile {
+    error SlashingInputInvalid(string field, string value);
+    error SlashingNoValidatorForAddress();
+    error SlashingMissingSelfDelegation();
+    error SlashingSelfDelegationTooLowToUnjail();
+    error SlashingValidatorNotJailed();
+    error SlashingValidatorJailed();
+
     /// @dev Emitted when a validator is unjailed
     /// @param validator The address of the validator
     event ValidatorUnjailed(address indexed validator);

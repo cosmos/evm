@@ -48,6 +48,41 @@ describe('Staking – edge case revert test', function () {
         }
     });
 
+    it('parses and branches on staking cancel-unbonding NotFound selector', async function () {
+        try {
+            await staking
+                .connect(signer)
+                .cancelUnbondingDelegation.estimateGas(signer.address, validatorAddress, 1, 1);
+            expect.fail('cancelUnbondingDelegation should have reverted');
+        } catch (error) {
+            const data = getRevertData(error);
+            expect(data.slice(0, 10)).to.equal('0x4641db46');
+            expect(staking.interface.parseError(data).name)
+                .to.equal('StakingUnbondingDelegationNotFound');
+        }
+
+        expect(await stakingReverter.branchesOnCancelUnbondingNotFound.staticCall(validatorAddress))
+            .to.equal(true);
+    });
+
+    it('parses and branches on a shared SDK selector without classifying unknown data', async function () {
+        const balance = await hre.ethers.provider.getBalance(signer.address);
+        try {
+            await staking
+                .connect(signer)
+                .delegate.estimateGas(signer.address, validatorAddress, balance + 1n);
+            expect.fail('delegate should have reverted');
+        } catch (error) {
+            const data = getRevertData(error);
+            expect(data.slice(0, 10)).to.equal('0xa5303a58');
+            expect(staking.interface.parseError(data).name).to.equal('SDKInsufficientFunds');
+        }
+
+        expect(await stakingReverter.branchesOnSharedInsufficientFunds.staticCall(validatorAddress))
+            .to.equal(true);
+        expect(await stakingReverter.classifyKnownError('0xdeadbeef')).to.equal(0n);
+    });
+
     describe('Edge case: callPrecompileBeforeAndAfterRevert with numTimes=1', function () {
         it('should execute exactly two delegate operations', async function () {
             const contractAddress = await stakingReverter.getAddress();

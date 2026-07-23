@@ -49,7 +49,7 @@ func (p *Precompile) ClaimRewards(
 
 	maxVals, err := p.stakingKeeper.MaxValidators(ctx)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ClaimRewardsMaxValidatorsQueryMethod, err.Error())
+		return nil, p.distributionQueryError(ctx, ClaimRewardsMaxValidatorsQueryMethod, err)
 	}
 	if maxRetrieve > maxVals {
 		return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrClaimRewardsMaxRetrieveExceeded, maxRetrieve, maxVals)
@@ -62,7 +62,7 @@ func (p *Precompile) ClaimRewards(
 
 	res, err := p.stakingKeeper.GetDelegatorValidators(ctx, delegatorAddr.Bytes(), maxRetrieve)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, ClaimRewardsGetDelegatorValidatorsQueryMethod, err.Error())
+		return nil, p.distributionQueryError(ctx, ClaimRewardsGetDelegatorValidatorsQueryMethod, err)
 	}
 	totalCoins := sdk.Coins{}
 	for _, validator := range res.Validators {
@@ -75,7 +75,7 @@ func (p *Precompile) ClaimRewards(
 		// Withdraw the rewards for each validator address
 		coins, err := p.distributionKeeper.WithdrawDelegationRewards(ctx, delegatorAddr.Bytes(), valAddr)
 		if err != nil {
-			return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, ClaimRewardsWithdrawDelegationRewardsMsgMethod, err.Error())
+			return nil, p.distributionMsgError(ctx, ClaimRewardsWithdrawDelegationRewardsMsgMethod, err)
 		}
 
 		totalCoins = totalCoins.Add(coins...)
@@ -107,7 +107,7 @@ func (p Precompile) SetWithdrawAddress(
 	}
 
 	if _, err = p.distributionMsgServer.SetWithdrawAddress(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, SetWithdrawAddressMethod, err.Error())
+		return nil, p.distributionMsgError(ctx, SetWithdrawAddressMethod, err)
 	}
 
 	if err = p.EmitSetWithdrawAddressEvent(ctx, stateDB, delegatorHexAddr, msg.WithdrawAddress); err != nil {
@@ -137,7 +137,7 @@ func (p *Precompile) WithdrawDelegatorReward(
 
 	res, err := p.distributionMsgServer.WithdrawDelegatorReward(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, WithdrawDelegatorRewardMethod, err.Error())
+		return nil, p.distributionMsgError(ctx, WithdrawDelegatorRewardMethod, err)
 	}
 
 	if err = p.EmitWithdrawDelegatorRewardEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
@@ -167,7 +167,7 @@ func (p *Precompile) WithdrawValidatorCommission(
 
 	res, err := p.distributionMsgServer.WithdrawValidatorCommission(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, WithdrawValidatorCommissionMethod, err.Error())
+		return nil, p.distributionMsgError(ctx, WithdrawValidatorCommissionMethod, err)
 	}
 
 	if err = p.EmitWithdrawValidatorCommissionEvent(ctx, stateDB, msg.ValidatorAddress, res.Amount); err != nil {
@@ -197,7 +197,7 @@ func (p *Precompile) FundCommunityPool(
 
 	_, err = p.distributionMsgServer.FundCommunityPool(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, FundCommunityPoolMethod, err.Error())
+		return nil, p.distributionMsgError(ctx, FundCommunityPoolMethod, err)
 	}
 
 	if err = p.EmitFundCommunityPoolEvent(ctx, stateDB, depositorHexAddr, msg.Amount); err != nil {
@@ -228,7 +228,7 @@ func (p *Precompile) DepositValidatorRewardsPool(
 
 	_, err = p.distributionMsgServer.DepositValidatorRewardsPool(ctx, msg)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, DepositValidatorRewardsPoolMethod, err.Error())
+		return nil, p.distributionMsgError(ctx, DepositValidatorRewardsPoolMethod, err)
 	}
 
 	if err = p.EmitDepositValidatorRewardsPoolEvent(ctx, stateDB, depositorHexAddr, msg.ValidatorAddress, msg.Amount); err != nil {

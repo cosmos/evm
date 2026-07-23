@@ -160,9 +160,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				errCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error()).
 					WithErrExact(cmn.NewRevertWithSolidityError(
 						s.precompile.ABI,
-						cmn.SolidityErrMsgServerFailed,
-						gov.SubmitProposalMethod,
-						"deposited 1bad, but gov accepts only the following denom(s): [aatom]: invalid deposit denom",
+						gov.SolidityErrGovInvalidDepositDenom,
 					))
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					proposerKey, txArgs, callArgs, errCheck)

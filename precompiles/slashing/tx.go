@@ -53,7 +53,7 @@ func (p Precompile) Unjail(
 	}
 
 	if _, err := p.slashingMsgServer.Unjail(ctx, msg); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrMsgServerFailed, UnjailMethod, err.Error())
+		return nil, p.slashingMsgError(ctx, err)
 	}
 
 	if err := p.EmitValidatorUnjailedEvent(ctx, stateDB, validatorAddress); err != nil {

@@ -30,6 +30,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	_ = cmn.MustNewCosmosErrorRegistry(ABI, nil, cmn.SharedSDKErrorMappings(), nil)
 }
 
 // Precompile defines the precompiled contract for Bech32 encoding.
