@@ -1,11 +1,11 @@
 package ics20
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	callbackstypes "github.com/cosmos/evm/x/ibc/callbacks/types"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
@@ -17,8 +17,9 @@ func TestTransfer_BlockedDuringSourceCallbackExecution(t *testing.T) {
 	tKey := storetypes.NewTransientStoreKey("test_t")
 	ctx := sdktestutil.DefaultContext(storeKey, tKey)
 	ctx = callbackstypes.WithSourceCallbackExecution(ctx)
-	p := &Precompile{}
+	p := &Precompile{ABI: ABI}
 	_, err := p.Transfer(ctx, nil, nil, nil, nil)
 	require.Error(t, err)
-	require.True(t, errors.Is(err, callbackstypes.ErrNestedSourceCallbackTransfer))
+	require.Equal(t, ics20ErrorSelector(SolidityErrIBCCallbacksNestedSourceTransfer), err.(cmn.RevertDataCarrier).RevertData())
+	assertICS20NotFallback(t, err)
 }

@@ -109,7 +109,7 @@ func (s *PrecompileTestSuite) TestVote() {
 			200000,
 			true,
 			func(*PrecompileTestSuite, []interface{}) error {
-				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrMsgServerFailed, gov.VoteMethod, "11: invalid vote option")
+				return cmn.NewRevertWithSolidityError(gov.ABI, gov.SolidityErrGovInvalidVote)
 			},
 		},
 		{
@@ -230,7 +230,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			200000,
 			true,
 			func(*PrecompileTestSuite, []interface{}) error {
-				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrMsgServerFailed, gov.VoteWeightedMethod, `option:10 weight:"1.0" : invalid vote option`)
+				return cmn.NewRevertWithSolidityError(gov.ABI, gov.SolidityErrGovInvalidVote)
 			},
 		},
 		{
@@ -250,7 +250,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			200000,
 			true,
 			func(*PrecompileTestSuite, []interface{}) error {
-				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrMsgServerFailed, gov.VoteWeightedMethod, "total weight overflow 1.00: invalid vote option")
+				return cmn.NewRevertWithSolidityError(gov.ABI, gov.SolidityErrGovInvalidVote)
 			},
 		},
 		{

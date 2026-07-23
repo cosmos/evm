@@ -69,7 +69,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			func() {},
 			200000,
 			true,
-			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrMsgServerFailed, distribution.SetWithdrawAddressMethod, "invalid withdraw address: empty address string is not allowed: invalid address: invalid address"),
+			cmn.NewRevertWithSolidityError(distribution.ABI, cmn.SolidityErrSDKInvalidAddress),
 		},
 		{
 			"success - using the same address withdrawer address",

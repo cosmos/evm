@@ -65,6 +65,16 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
+			"fail - zero receiver uses ERC-6093",
+			func() []interface{} {
+				return []interface{}{common.Address{}, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidReceiver, common.Address{}),
+		},
+		{
 			"fail - invalid amount",
 			func() []interface{} {
 				return []interface{}{toAddr, ""}
@@ -83,6 +93,17 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			true,
 			"",
 			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, fromAddr, big.NewInt(1e18), big.NewInt(2e18)),
+		},
+		{
+			"fail - bank send disabled uses module selector",
+			func() []interface{} {
+				s.network.App.GetBankKeeper().SetSendEnabled(s.network.GetContext(), tokenDenom, false)
+				return []interface{}{toAddr, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrBankSendDisabled),
 		},
 		{
 			"fail - not enough balance, sent amount is being vested",
@@ -168,6 +189,32 @@ func (s *PrecompileTestSuite) TestTransfer() {
 	}
 }
 
+func (s *PrecompileTestSuite) TestTransferInvalidSenderUsesERC6093() {
+	s.SetupTest()
+	method := s.precompile.Methods[erc20.TransferMethod]
+	contract, ctx := testutil.NewPrecompileContract(
+		s.T(),
+		s.network.GetContext(),
+		common.Address{},
+		s.precompile.Address(),
+		200_000,
+	)
+
+	_, err := s.precompile.Transfer(
+		ctx,
+		contract,
+		s.network.GetStateDB(),
+		&method,
+		[]interface{}{toAddr, big.NewInt(1)},
+	)
+	s.Require().Error(err)
+	testutil.RequireExactError(
+		s.T(),
+		err,
+		cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidSender, common.Address{}),
+	)
+}
+
 func (s *PrecompileTestSuite) TestTransferFrom() {
 	var (
 		ctx  sdk.Context
@@ -228,6 +275,26 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, ""),
 		},
 		{
+			"fail - zero sender uses ERC-6093",
+			func() []interface{} {
+				return []interface{}{common.Address{}, toAddr, common.Big0}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidSender, common.Address{}),
+		},
+		{
+			"fail - zero receiver uses ERC-6093",
+			func() []interface{} {
+				return []interface{}{owner.Addr, common.Address{}, common.Big0}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidReceiver, common.Address{}),
+		},
+		{
 			"fail - not enough allowance",
 			func() []interface{} {
 				return []interface{}{owner.Addr, toAddr, big.NewInt(100)}
@@ -249,6 +316,25 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			true,
 			"",
 			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, owner.Addr, big.NewInt(1e18), big.NewInt(2e18)),
+		},
+		{
+			"fail - disabled token pair uses module selector",
+			func() []interface{} {
+				err := s.network.App.GetErc20Keeper().SetAllowance(
+					s.network.GetContext(), s.precompile.Address(), owner.Addr, spender.Addr, big.NewInt(100),
+				)
+				s.Require().NoError(err)
+				tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), tokenDenom)
+				tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
+				s.Require().True(found)
+				tokenPair.Enabled = false
+				s.network.App.GetErc20Keeper().SetTokenPair(s.network.GetContext(), tokenPair)
+				return []interface{}{owner.Addr, toAddr, big.NewInt(1)}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20TokenPairDisabled),
 		},
 		{
 			"fail - spend on behalf of own account without allowance",

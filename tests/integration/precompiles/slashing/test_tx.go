@@ -100,9 +100,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() error {
 				return cmn.NewRevertWithSolidityError(
 					slashing.ABI,
-					cmn.SolidityErrMsgServerFailed,
-					slashing.UnjailMethod,
-					"validator not jailed; cannot be unjailed",
+					slashing.SolidityErrSlashingValidatorNotJailed,
 				)
 			},
 		},
