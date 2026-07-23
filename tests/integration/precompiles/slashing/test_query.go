@@ -1,7 +1,7 @@
 package slashing
 
 import (
-	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -22,12 +22,12 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 
 	consAddr := types.ConsAddress(val0ConsAddr)
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(signingInfo *slashing.SigningInfo)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(signingInfo *slashing.SigningInfo)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -37,7 +37,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 			func(_ *slashing.SigningInfo) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			cmn.NewRevertWithSolidityError(slashing.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
 			"fail - invalid consensus address",
@@ -49,7 +49,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 			func(_ *slashing.SigningInfo) {},
 			200000,
 			true,
-			"invalid consensus address",
+			cmn.NewRevertWithSolidityError(slashing.ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
 			"success - get signing info for validator",
@@ -79,7 +79,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -93,7 +93,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out slashing.SigningInfoOutput
@@ -109,12 +109,12 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 	method := s.precompile.Methods[slashing.GetSigningInfosMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(signingInfos []slashing.SigningInfo, pageResponse *query.PageResponse)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(signingInfos []slashing.SigningInfo, pageResponse *query.PageResponse)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -124,7 +124,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 			func(_ []slashing.SigningInfo, _ *query.PageResponse) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			cmn.NewRevertWithSolidityError(slashing.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
 			"success - get all signing infos",
@@ -167,7 +167,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - get signing infos with pagination",
@@ -195,7 +195,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -209,7 +209,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out slashing.SigningInfosOutput
@@ -225,12 +225,12 @@ func (s *PrecompileTestSuite) TestGetParams() {
 	method := s.precompile.Methods[slashing.GetParamsMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(params *slashing.Params)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(params *slashing.Params)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - get params",
@@ -249,7 +249,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -263,7 +263,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out slashing.ParamsOutput

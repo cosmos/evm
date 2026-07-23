@@ -1,13 +1,20 @@
 package bech32
 
 import (
+	"errors"
+	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/precompiles/bech32"
+	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	statedbmocks "github.com/cosmos/evm/x/vm/statedb/mocks"
 )
 
 func (s *PrecompileTestSuite) TestNewPrecompile() {
@@ -59,11 +66,11 @@ func (s *PrecompileTestSuite) TestRun() {
 	)
 
 	testCases := []struct {
-		name        string
-		malleate    func() *vm.Contract
-		postCheck   func(data []byte)
-		expPass     bool
-		errContains string
+		name      string
+		malleate  func() *vm.Contract
+		postCheck func(data []byte)
+		expPass   bool
+		wantErr   error
 	}{
 		{
 			"fail - invalid method",
@@ -73,7 +80,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			},
 			func([]byte) {},
 			false,
-			"no method with id",
+			cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrUnknownMethod, "0x696e7661"),
 		},
 		{
 			"fail - error during unpack",
@@ -84,7 +91,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			},
 			func([]byte) {},
 			false,
-			"abi: attempting to unmarshal an empty string while arguments are expected",
+			cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrABISetupFailed, "abi: attempting to unmarshal an empty string while arguments are expected"),
 		},
 		{
 			"fail - HexToBech32 method error",
@@ -102,7 +109,16 @@ func (s *PrecompileTestSuite) TestRun() {
 			},
 			func([]byte) {},
 			false,
-			"invalid bech32 human readable prefix (HRP)",
+			cmn.NewRevertWithSolidityError(
+				bech32.ABI,
+				cmn.SolidityErrInvalidAddress,
+				fmt.Sprintf(
+					"invalid HRP: empty; expected account (%s), validator (%s), or consensus (%s) style prefix",
+					sdk.GetConfig().GetBech32AccountAddrPrefix(),
+					sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
+					sdk.GetConfig().GetBech32ConsensusAddrPrefix(),
+				),
+			),
 		},
 		{
 			"pass - hex to bech32 account (cosmos)",
@@ -125,7 +141,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().Equal(s.keyring.GetAccAddr(0).String(), addr)
 			},
 			true,
-			"",
+			nil,
 		},
 		{
 			"pass - hex to bech32 validator operator (cosmosvaloper)",
@@ -151,7 +167,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().Equal(s.network.GetValidators()[0].OperatorAddress, addr)
 			},
 			true,
-			"",
+			nil,
 		},
 		{
 			"pass - hex to bech32 consensus address (cosmosvalcons)",
@@ -174,7 +190,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().Equal(sdk.ConsAddress(s.keyring.GetAddr(0).Bytes()).String(), addr)
 			},
 			true,
-			"",
+			nil,
 		},
 		{
 			"pass - bech32 to hex account address",
@@ -196,7 +212,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().Equal(s.keyring.GetAddr(0), addr)
 			},
 			true,
-			"",
+			nil,
 		},
 		{
 			"pass - bech32 to hex validator address",
@@ -222,7 +238,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().Equal(common.BytesToAddress(valAddrBz), addr)
 			},
 			true,
-			"",
+			nil,
 		},
 		{
 			"pass - bech32 to hex consensus address",
@@ -244,7 +260,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().Equal(s.keyring.GetAddr(0), addr)
 			},
 			true,
-			"",
+			nil,
 		},
 	}
 
@@ -257,10 +273,9 @@ func (s *PrecompileTestSuite) TestRun() {
 			contract := tc.malleate()
 
 			// Run precompiled contract
-
-			// NOTE: we can ignore the EVM and readonly args since it's a stateless
-			// precompiled contract
-			bz, err := s.precompile.Run(nil, contract, true)
+			stateDB := statedbmocks.NewStateDB(s.T())
+			evm := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1), Time: 1}, stateDB, params.TestChainConfig, vm.Config{})
+			bz, err := s.precompile.Run(evm, contract, true)
 
 			// Check results
 			if tc.expPass {
@@ -269,8 +284,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				tc.postCheck(bz)
 			} else {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
-				s.Require().Nil(bz, "expected returned bytes to be nil")
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				s.Require().ErrorIs(err, vm.ErrExecutionReverted)
+				s.Require().NotNil(bz, "expected revert payload bytes")
+				var wantCarrier cmn.RevertDataCarrier
+				s.Require().True(errors.As(tc.wantErr, &wantCarrier))
+				s.Require().Equal(wantCarrier.RevertData(), bz)
 			}
 		})
 	}

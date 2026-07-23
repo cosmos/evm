@@ -6,12 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/suite"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics02"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/gogoproto/proto"
@@ -369,6 +371,85 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			s.Require().Equal(expResult, res)
 		})
 	}
+}
+
+func (s *ICS02ClientTestSuite) TestUpdateFrozenClientReturnsConcreteErrorAndRollsBack() {
+	clientID := ibctesting.FirstClientID
+	evmAppA := s.chainA.App.(*evmd.EVMD)
+	clientKeeper := evmAppA.IBCKeeper.ClientKeeper
+	ctx := s.chainA.GetContext()
+
+	clientState, found := clientKeeper.GetClientState(ctx, clientID)
+	s.Require().True(found)
+	tendermintClientState, ok := clientState.(*ibctm.ClientState)
+	s.Require().True(ok)
+	tendermintClientState.FrozenHeight = clienttypes.NewHeight(0, 1)
+	clientKeeper.SetClientState(ctx, clientID, tendermintClientState)
+
+	beforeClientState, found := clientKeeper.GetClientState(ctx, clientID)
+	s.Require().True(found)
+	beforeClientStateBz, err := proto.Marshal(beforeClientState)
+	s.Require().NoError(err)
+	beforeLatestHeight := clientKeeper.GetClientLatestHeight(ctx, clientID)
+	s.Require().Equal(ibcexported.Frozen, clientKeeper.GetClientStatus(ctx, clientID))
+
+	s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
+	header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(
+		s.pathBToA.EndpointA.Chain.LatestCommittedHeader,
+		beforeLatestHeight,
+	)
+	s.Require().NoError(err)
+	anyHeader, err := clienttypes.PackClientMessage(header)
+	s.Require().NoError(err)
+	updateBz, err := anyHeader.Marshal()
+	s.Require().NoError(err)
+	calldata, err := s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+	s.Require().NoError(err)
+
+	senderIdx := 1
+	senderAccount := s.chainA.SenderAccounts[senderIdx]
+	_, _, resp, err := s.chainA.SendEvmTx(
+		senderAccount,
+		senderIdx,
+		s.chainAPrecompile.Address(),
+		big.NewInt(0),
+		calldata,
+		500_000,
+	)
+	s.Require().Error(err)
+	s.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
+	s.Require().NotNil(resp)
+	s.Require().Equal(vm.ErrExecutionReverted.Error(), resp.VmError)
+	s.Require().GreaterOrEqual(len(resp.Ret), 4)
+
+	expectedDefinition := ics02.ABI.Errors[ics02.SolidityErrIBCClientNotActive]
+	s.Require().Equal(expectedDefinition.ID[:4], resp.Ret[:4])
+	var selector [4]byte
+	copy(selector[:], resp.Ret[:4])
+	parsedDefinition, err := ics02.ABI.ErrorByID(selector)
+	s.Require().NoError(err)
+	s.Require().Equal(ics02.SolidityErrIBCClientNotActive, parsedDefinition.Name)
+	parsedArgs, err := parsedDefinition.Unpack(resp.Ret)
+	s.Require().NoError(err)
+	s.Require().Empty(parsedArgs)
+
+	for _, fallback := range []string{
+		cmn.SolidityErrMsgServerFailed,
+		cmn.SolidityErrQueryFailed,
+		cmn.SolidityErrUnmappedCosmosError,
+	} {
+		fallbackDefinition := ics02.ABI.Errors[fallback]
+		s.Require().NotEqual(fallbackDefinition.ID[:4], resp.Ret[:4])
+	}
+
+	afterCtx := s.chainA.GetContext()
+	afterClientState, found := clientKeeper.GetClientState(afterCtx, clientID)
+	s.Require().True(found)
+	afterClientStateBz, err := proto.Marshal(afterClientState)
+	s.Require().NoError(err)
+	s.Require().Equal(beforeClientStateBz, afterClientStateBz)
+	s.Require().Equal(beforeLatestHeight, clientKeeper.GetClientLatestHeight(afterCtx, clientID))
+	s.Require().Equal(ibcexported.Frozen, clientKeeper.GetClientStatus(afterCtx, clientID))
 }
 
 func (s *ICS02ClientTestSuite) TestVerifyMembership() {

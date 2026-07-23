@@ -93,7 +93,16 @@ func (tf *IntegrationTxFactory) CallContractAndCheckLogs(
 	if err != nil {
 		// NOTE: here we are still passing the response to the log check function,
 		// because we want to check the logs and expected error in case of a VM error.
-		return res, nil, CheckError(err, logCheckArgs)
+		checkErr := CheckError(err, logCheckArgs)
+		if checkErr != nil {
+			return res, nil, checkErr
+		}
+		// Expected VM error matched; still decode MsgEthereumTxResponse so callers can inspect Ret (revert bytes).
+		ethRes, decErr := evmtypes.DecodeTxResponse(res.Data)
+		if decErr != nil {
+			return res, nil, decErr
+		}
+		return res, ethRes, nil
 	}
 
 	ethRes, err := evmtypes.DecodeTxResponse(res.Data)

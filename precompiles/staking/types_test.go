@@ -1,22 +1,21 @@
 package staking
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/precompiles/testutil"
 )
 
 const (
 	denom         = "stake"
-	validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
+	validatorAddr = "cosmosvaloper1qqqqhe5pnaq5qq39wqkn957aydnrm45s2xz032"
 )
 
 func TestNewMsgCreateValidator(t *testing.T) {
@@ -46,7 +45,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 		name              string
 		args              []interface{}
 		wantErr           bool
-		errMsg            string
+		wantErrObj        error
 		wantDelegatorAddr string
 		wantValidatorAddr string
 		wantMinSelfDel    *big.Int
@@ -62,58 +61,58 @@ func TestNewMsgCreateValidator(t *testing.T) {
 			wantValue:         value,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 6, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(6), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, value, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 6, 7),
+			name:       "too many arguments",
+			args:       []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, value, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(6), big.NewInt(7)),
 		},
 		{
-			name:    "invalid description type",
-			args:    []interface{}{"not-a-description", commission, minSelfDelegation, validatorHexAddr, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDescription, "not-a-description"),
+			name:       "invalid description type",
+			args:       []interface{}{"not-a-description", commission, minSelfDelegation, validatorHexAddr, pubkey, value},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidDescription, "not-a-description"),
 		},
 		{
-			name:    "invalid commission type",
-			args:    []interface{}{description, "not-a-commission", minSelfDelegation, validatorHexAddr, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidCommission, "not-a-commission"),
+			name:       "invalid commission type",
+			args:       []interface{}{description, "not-a-commission", minSelfDelegation, validatorHexAddr, pubkey, value},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidCommission, "not-a-commission"),
 		},
 		{
-			name:    "invalid min self delegation type",
-			args:    []interface{}{description, commission, "not-a-big-int", validatorHexAddr, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
+			name:       "invalid min self delegation type",
+			args:       []interface{}{description, commission, "not-a-big-int", validatorHexAddr, pubkey, value},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "not-a-big-int"),
 		},
 		{
-			name:    "invalid validator address type",
-			args:    []interface{}{description, commission, minSelfDelegation, "not-an-address", pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
+			name:       "invalid validator address type",
+			args:       []interface{}{description, commission, minSelfDelegation, "not-an-address", pubkey, value},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty validator address",
-			args:    []interface{}{description, commission, minSelfDelegation, common.Address{}, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, common.Address{}),
+			name:       "empty validator address",
+			args:       []interface{}{description, commission, minSelfDelegation, common.Address{}, pubkey, value},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid pubkey type",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, 123, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "pubkey", "string", 123),
+			name:       "invalid pubkey type",
+			args:       []interface{}{description, commission, minSelfDelegation, validatorHexAddr, 123, value},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 		{
-			name:    "invalid value type",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
+			name:       "invalid value type",
+			args:       []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, "not-a-big-int"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -122,8 +121,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 			msg, returnAddr, err := NewMsgCreateValidator(tt.args, denom, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -152,7 +150,7 @@ func TestNewMsgDelegate(t *testing.T) {
 		name              string
 		args              []interface{}
 		wantErr           bool
-		errMsg            string
+		wantErrObj        error
 		wantDelegatorAddr string
 		wantValidatorAddr string
 		wantAmount        *big.Int
@@ -166,40 +164,40 @@ func TestNewMsgDelegate(t *testing.T) {
 			wantAmount:        amount,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 4),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, validatorAddr, amount, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(4)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			name:       "invalid validator address type",
+			args:       []interface{}{delegatorAddr, 123, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorAddr, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
+			name:       "invalid amount type",
+			args:       []interface{}{delegatorAddr, validatorAddr, "not-a-big-int"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -208,8 +206,7 @@ func TestNewMsgDelegate(t *testing.T) {
 			msg, returnAddr, err := NewMsgDelegate(tt.args, denom, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -237,7 +234,7 @@ func TestNewMsgUndelegate(t *testing.T) {
 		name              string
 		args              []interface{}
 		wantErr           bool
-		errMsg            string
+		wantErrObj        error
 		wantDelegatorAddr string
 		wantValidatorAddr string
 		wantAmount        *big.Int
@@ -251,40 +248,40 @@ func TestNewMsgUndelegate(t *testing.T) {
 			wantAmount:        amount,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 4),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, validatorAddr, amount, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(4)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			name:       "invalid validator address type",
+			args:       []interface{}{delegatorAddr, 123, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorAddr, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
+			name:       "invalid amount type",
+			args:       []interface{}{delegatorAddr, validatorAddr, "not-a-big-int"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -293,8 +290,7 @@ func TestNewMsgUndelegate(t *testing.T) {
 			msg, returnAddr, err := NewMsgUndelegate(tt.args, denom, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -313,8 +309,8 @@ func TestNewMsgRedelegate(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorSrcAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
-	validatorDstAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaay"
+	validatorSrcAddr := "cosmosvaloper1qqqqhe5pnaq5qq39wqkn957aydnrm45s2xz032"
+	validatorDstAddr := "cosmosvaloper1qqqqhe5pnaq5qq39wqkn957aydnrm453hsk6vc"
 	amount := big.NewInt(1000000000)
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
@@ -324,7 +320,7 @@ func TestNewMsgRedelegate(t *testing.T) {
 		name                 string
 		args                 []interface{}
 		wantErr              bool
-		errMsg               string
+		wantErrObj           error
 		wantDelegatorAddr    string
 		wantValidatorSrcAddr string
 		wantValidatorDstAddr string
@@ -340,46 +336,46 @@ func TestNewMsgRedelegate(t *testing.T) {
 			wantAmount:           amount,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, amount, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 5),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, amount, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(5)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorSrcAddr, validatorDstAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorSrcAddr, validatorDstAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorSrcAddr, validatorDstAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorSrcAddr, validatorDstAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid validator src address type",
-			args:    []interface{}{delegatorAddr, 123, validatorDstAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorSrcAddress", "string", 123),
+			name:       "invalid validator src address type",
+			args:       []interface{}{delegatorAddr, 123, validatorDstAddr, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 		{
-			name:    "invalid validator dst address type",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, 123, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorDstAddress", "string", 123),
+			name:       "invalid validator dst address type",
+			args:       []interface{}{delegatorAddr, validatorSrcAddr, 123, amount},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
+			name:       "invalid amount type",
+			args:       []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, "not-a-big-int"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -388,8 +384,7 @@ func TestNewMsgRedelegate(t *testing.T) {
 			msg, returnAddr, err := NewMsgRedelegate(tt.args, denom, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -419,7 +414,7 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 		name               string
 		args               []interface{}
 		wantErr            bool
-		errMsg             string
+		wantErrObj         error
 		wantDelegatorAddr  string
 		wantValidatorAddr  string
 		wantAmount         *big.Int
@@ -435,46 +430,46 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 			wantCreationHeight: creationHeight.Int64(),
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, creationHeight, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 5),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, validatorAddr, amount, creationHeight, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(5)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr, amount, creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr, amount, creationHeight},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr, amount, creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr, amount, creationHeight},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount, creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			name:       "invalid validator address type",
+			args:       []interface{}{delegatorAddr, 123, amount, creationHeight},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorAddr, "not-a-big-int", creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
+			name:       "invalid amount type",
+			args:       []interface{}{delegatorAddr, validatorAddr, "not-a-big-int", creationHeight},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "not-a-big-int"),
 		},
 		{
-			name:    "invalid creation height type",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  "invalid creation height",
+			name:       "invalid creation height type",
+			args:       []interface{}{delegatorAddr, validatorAddr, amount, "not-a-big-int"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, "not-a-big-int"),
 		},
 	}
 
@@ -483,8 +478,7 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 			msg, returnAddr, err := NewMsgCancelUnbondingDelegation(tt.args, denom, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -512,7 +506,7 @@ func TestNewDelegationRequest(t *testing.T) {
 		name              string
 		args              []interface{}
 		wantErr           bool
-		errMsg            string
+		wantErrObj        error
 		wantDelegatorAddr string
 		wantValidatorAddr string
 	}{
@@ -524,34 +518,34 @@ func TestNewDelegationRequest(t *testing.T) {
 			wantValidatorAddr: validatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, validatorAddr, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			name:       "invalid validator address type",
+			args:       []interface{}{delegatorAddr, 123},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 	}
 
@@ -560,8 +554,7 @@ func TestNewDelegationRequest(t *testing.T) {
 			req, err := NewDelegationRequest(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -585,7 +578,7 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 		name              string
 		args              []interface{}
 		wantErr           bool
-		errMsg            string
+		wantErrObj        error
 		wantDelegatorAddr string
 		wantValidatorAddr string
 	}{
@@ -597,34 +590,34 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 			wantValidatorAddr: validatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, validatorAddr, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
+			name:       "invalid validator address type",
+			args:       []interface{}{delegatorAddr, 123},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "123"),
 		},
 	}
 
@@ -633,8 +626,7 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 			req, err := NewUnbondingDelegationRequest(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)

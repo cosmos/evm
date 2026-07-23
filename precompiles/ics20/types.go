@@ -1,9 +1,9 @@
 package ics20
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,8 +12,9 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 
-	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -76,54 +77,69 @@ type height struct {
 
 // NewMsgTransfer returns a new transfer message from the given arguments.
 func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
+	p := Precompile{ABI: ABI}
+	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
+	return p.newMsgTransfer(ctx, method, args)
+}
+
+func (p Precompile) newMsgTransfer(ctx sdk.Context, method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
 	if len(args) != 9 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 9, len(args))
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(9), big.NewInt(int64(len(args))))
 	}
 
 	sourcePort, ok := args[0].(string)
 	if !ok {
-		return nil, common.Address{}, errors.New(ErrInvalidSourcePort)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourcePort, TransferMethod, ErrInvalidSourcePort)
+	}
+	if err := host.PortIdentifierValidator(sourcePort); err != nil {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourcePort, TransferMethod, ErrInvalidSourcePort)
 	}
 
 	sourceChannel, ok := args[1].(string)
 	if !ok {
-		return nil, common.Address{}, errors.New(ErrInvalidSourceChannel)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
+	}
+	if err := host.ChannelIdentifierValidator(sourceChannel); err != nil {
+		return nil, common.Address{}, invalidSourceChannelError()
 	}
 
 	denom, ok := args[2].(string)
 	if !ok {
-		return nil, common.Address{}, errorsmod.Wrapf(transfertypes.ErrInvalidDenomForTransfer, cmn.ErrInvalidDenom, args[2])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	amount, ok := args[3].(*big.Int)
 	if !ok || amount == nil {
-		return nil, common.Address{}, errorsmod.Wrapf(transfertypes.ErrInvalidAmount, cmn.ErrInvalidAmount, args[3])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[3]))
 	}
 
 	sender, ok := args[4].(common.Address)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidSender, args[4])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[4]))
 	}
 
 	receiver, ok := args[5].(string)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidReceiver, args[5])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidReceiver, TransferMethod, fmt.Sprintf(ErrInvalidReceiver, args[5]))
+	}
+	if strings.TrimSpace(receiver) == "" || len(receiver) > transfertypes.MaximumReceiverLength {
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidReceiver, TransferMethod, fmt.Sprintf(ErrInvalidReceiver, receiver))
 	}
 
 	var input height
 	heightArg := abi.Arguments{method.Inputs[6]}
 	if err := heightArg.Copy(&input, []interface{}{args[6]}); err != nil {
-		return nil, common.Address{}, fmt.Errorf("error while unpacking args to TransferInput struct: %s", err)
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, err.Error())
 	}
 
 	timeoutTimestamp, ok := args[7].(uint64)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidTimeoutTimestamp, args[7])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidTimeoutTimestamp, TransferMethod, fmt.Sprintf(ErrInvalidTimeoutTimestamp, args[7]))
 	}
 
 	memo, ok := args[8].(string)
 	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidMemo, args[8])
+		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidMemo, TransferMethod, fmt.Sprintf(ErrInvalidMemo, args[8]))
 	}
 
 	// Use instance to prevent errors on denom or amount
@@ -134,7 +150,10 @@ func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgT
 
 	msg, err := CreateAndValidateMsgTransfer(sourcePort, sourceChannel, token, sdk.AccAddress(sender.Bytes()).String(), receiver, input.TimeoutHeight, timeoutTimestamp, memo)
 	if err != nil {
-		return nil, common.Address{}, err
+		if isHostInvalidID(err) {
+			return nil, common.Address{}, invalidSourceChannelError()
+		}
+		return nil, common.Address{}, p.ics20ValidatedInputError(ctx, err)
 	}
 
 	return msg, sender, nil
@@ -169,12 +188,12 @@ func CreateAndValidateMsgTransfer(
 // NewDenomRequest returns a new denom request from the given arguments.
 func NewDenomRequest(args []interface{}) (*transfertypes.QueryDenomRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("invalid input arguments. Expected 1, got %d", len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	hash, ok := args[0].(string)
 	if !ok {
-		return nil, fmt.Errorf(ErrInvalidHash, args[0])
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidHash, DenomMethod, fmt.Sprintf(ErrInvalidHash, args[0]))
 	}
 
 	req := &transfertypes.QueryDenomRequest{
@@ -187,12 +206,12 @@ func NewDenomRequest(args []interface{}) (*transfertypes.QueryDenomRequest, erro
 // NewDenomsRequest returns a new denoms request from the given arguments.
 func NewDenomsRequest(method *abi.Method, args []interface{}) (*transfertypes.QueryDenomsRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	var pageRequest PageRequest
 	if err := safeCopyInputs(method, args, &pageRequest); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to PageRequest: %w", err)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, err.Error())
 	}
 
 	req := &transfertypes.QueryDenomsRequest{
@@ -205,12 +224,12 @@ func NewDenomsRequest(method *abi.Method, args []interface{}) (*transfertypes.Qu
 // NewDenomHashRequest returns a new denom hash request from the given arguments.
 func NewDenomHashRequest(args []interface{}) (*transfertypes.QueryDenomHashRequest, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("invalid input arguments. Expected 1, got %d", len(args))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	trace, ok := args[0].(string)
 	if !ok {
-		return nil, fmt.Errorf("invalid trace")
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidTrace, DenomHashMethod, "invalid trace")
 	}
 
 	req := &transfertypes.QueryDenomHashRequest{
@@ -225,7 +244,7 @@ func CheckOriginAndSender(contract *vm.Contract, origin common.Address, sender c
 	if contract.Caller() == sender {
 		return sender, nil
 	} else if origin != sender {
-		return common.Address{}, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
+		return common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf(ErrDifferentOriginFromSender, origin.String(), sender.String()))
 	}
 	return sender, nil
 }
