@@ -2240,6 +2240,58 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						bondedTokensPoolFinalBalance := balRes.Balance
 						Expect(bondedTokensPoolFinalBalance.Amount).To(Equal(bondedTokensPoolInitialBalance.Amount))
 					})
+
+					DescribeTable("should not delegate and update balances accordingly across orderings - internal transfer to tokens pool",
+						func(tc struct {
+							before  bool
+							after   bool
+							msgAmt  *big.Int
+						}) {
+							args.MethodName = "testDelegateWithTransfer"
+							args.Args = []interface{}{
+								common.BytesToAddress(bondedTokensPoolAccAddr),
+								s.keyring.GetAddr(0), valAddr.String(), tc.before, tc.after,
+							}
+
+							txArgs.To = &contractTwoAddr
+							if tc.msgAmt != nil {
+								txArgs.Amount = tc.msgAmt
+							}
+
+							reverReasonCheck := execRevertedCheck.WithErrContains(
+								errorsmod.Wrapf(
+									sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", bondedTokensPoolAccAddr.String(),
+								).Error(),
+							)
+
+							_, _, err := s.factory.CallContractAndCheckLogs(
+								s.keyring.GetPrivKey(0),
+								txArgs,
+								args,
+								reverReasonCheck,
+							)
+							Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+							Expect(s.network.NextBlock()).To(BeNil())
+
+							balRes, err := s.grpcHandler.GetBalanceFromBank(contractTwoAddr.Bytes(), s.bondDenom)
+							Expect(err).To(BeNil())
+							Expect(balRes.Balance.Amount).To(Equal(contractInitialBalance.Amount))
+
+							balRes, err = s.grpcHandler.GetBalanceFromBank(bondedTokensPoolAccAddr, s.bondDenom)
+							Expect(err).To(BeNil())
+							Expect(balRes.Balance.Amount).To(Equal(bondedTokensPoolInitialBalance.Amount))
+						},
+						Entry("internal transfer after precompile call", struct {
+							before bool
+							after  bool
+							msgAmt *big.Int
+						}{before: false, after: true, msgAmt: nil}),
+						Entry("internal transfer after precompile call with matching amounts", struct {
+							before bool
+							after  bool
+							msgAmt *big.Int
+						}{before: false, after: true, msgAmt: big.NewInt(15)}),
+					)
 				})
 
 				It("should not delegate when validator does not exist", func() {
