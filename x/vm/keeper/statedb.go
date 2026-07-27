@@ -10,10 +10,12 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
+	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -147,6 +149,12 @@ func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amou
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	if acct := k.accountKeeper.GetAccount(ctx, cosmosAddr); acct != nil {
+		if _, isModule := acct.(sdk.ModuleAccountI); isModule {
+			return errorsmod.Wrapf(errortypes.ErrUnauthorized, "%s is not allowed to receive funds", cosmosAddr)
+		}
+	}
 
 	// Reconstruct the target bank balance as spendable + locked snapshot,
 	// then mint or burn the delta against the current bank balance.
