@@ -28,6 +28,7 @@
 - [\#1164](https://github.com/cosmos/evm/pull/1164) Remove zero gas config from `ics20.transferWithStateDB` so inner KV ops in ICS20 transfer execution are metered, mirroring [\#1103](https://github.com/cosmos/evm/pull/1103).
 - [\#1220](https://github.com/cosmos/evm/pull/1220) Use latest block for setting txn defaults in rpc call.
 - [\#1232](https://github.com/cosmos/evm/pull/1232) Validate ICS-20 acknowledgement encoding in the erc20 IBC v2 middleware.
+- [\#1243](https://github.com/cosmos/evm/pull/1243) Deploy contracts from an EOA rather than a module account in the test helpers. It is also now required: contract creation bumps the sender's nonce, `SetAccount` persists nonce and balance together, and the EVM commit path may not write a module account's balance.
 
 ### FEATURES
 
@@ -41,6 +42,7 @@
 ### BUG FIXES
 
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
+- [\#1214](https://github.com/cosmos/evm/pull/1214) Emit the canonical CometBFT block hash in the `newHeads` subscription so it matches `eth_getBlockByNumber` (completes [\#725](https://github.com/cosmos/evm/pull/725)).
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
