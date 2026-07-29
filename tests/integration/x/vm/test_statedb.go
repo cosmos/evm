@@ -1113,8 +1113,8 @@ func (s *KeeperTestSuite) TestSetBalance() {
 
 func (s *KeeperTestSuite) TestSetBalanceRejectsModuleAccounts() {
 	type setup struct {
-		addr     common.Address
-		current  *uint256.Int
+		addr    common.Address
+		current *uint256.Int
 	}
 
 	cases := []struct {
