@@ -532,6 +532,12 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		panic(err)
 	}
 	m.eventBusWG.Go(func() {
+		// Nothing re-subscribes once this returns, but PrepareCheckState also
+		// drives NotifyNewBlock every block, so the caches keep advancing.
+		// Info level: this also fires on a clean Close or re-subscribe.
+		defer func() {
+			m.logger.Info("block header subscription ended", "reason", sub.Err())
+		}()
 		for {
 			select {
 			case <-sub.Out():
@@ -548,8 +554,12 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 // NotifyNewBlock manually notifies that there has been a new block produced
 // and it should update its internal data structures.
 func (m *Mempool) NotifyNewBlock() {
-	m.blockchain.NotifyNewBlock()
-	m.recheckCosmosPool.TriggerRecheck(m.blockchain.CurrentBlock())
+	// Only recheck when the height actually advanced: with two drivers a
+	// second trigger at the same head would cancel the in-flight pass and
+	// restart it from scratch, once per block.
+	if m.blockchain.NotifyNewBlock() {
+		m.recheckCosmosPool.TriggerRecheck(m.blockchain.CurrentBlock())
+	}
 }
 
 // HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.

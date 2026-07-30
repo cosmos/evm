@@ -1,12 +1,15 @@
 package mempool_test
 
 import (
+	"errors"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -129,4 +132,109 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	stateDB, err := blockchain.StateAt(hash)
 	require.NoError(t, err)
 	require.NotNil(t, stateDB)
+}
+
+func TestNotifyNewBlockRefreshesContextEveryCall(t *testing.T) {
+	// ignore "already set": another test in the package may have configured it
+	_ = vmtypes.SetChainConfig(vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID))
+
+	var (
+		mu     sync.Mutex
+		height = int64(1)
+		mark   = "first"
+	)
+	set := func(h int64, m string) {
+		mu.Lock()
+		defer mu.Unlock()
+		height, mark = h, m
+	}
+	blockchain := newTestBlockchainWithGetter(t, func(int64, bool) (sdk.Context, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		// BlockHeight() reads header.Height, so the height goes in the header.
+		return createMockContext().
+			WithBlockHeader(cmtproto.Header{Height: height, AppHash: []byte(mark)}), nil
+	})
+	events := make(chan core.ChainHeadEvent, 8)
+	sub := blockchain.SubscribeChainHeadEvent(events)
+	defer sub.Unsubscribe()
+
+	appHash := func() string {
+		ctx, err := blockchain.GetLatestContext()
+		require.NoError(t, err)
+		return string(ctx.BlockHeader().AppHash)
+	}
+
+	require.True(t, blockchain.NotifyNewBlock(), "a new height should notify")
+	require.Len(t, events, 1)
+	require.Equal(t, "first", appHash())
+
+	// Same height, different context: no second event, but the pin still has
+	// to move -- this is the property the fix turns on.
+	set(1, "second")
+	require.False(t, blockchain.NotifyNewBlock(), "a repeated height must not notify")
+	require.Len(t, events, 1)
+	require.Equal(t, "second", appHash(), "the pin must refresh even when the event is skipped")
+
+	set(2, "third")
+	require.True(t, blockchain.NotifyNewBlock(), "a later height should notify again")
+	require.Len(t, events, 2)
+	require.Equal(t, "third", appHash())
+}
+
+func TestNotifyNewBlockDedupsConcurrentDrivers(t *testing.T) {
+	// ignore "already set": another test in the package may have configured it
+	_ = vmtypes.SetChainConfig(vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID))
+
+	blockchain := newTestBlockchainWithGetter(t, func(int64, bool) (sdk.Context, error) {
+		return createMockContext().
+			WithBlockHeader(cmtproto.Header{Height: 1, AppHash: []byte("head")}), nil
+	})
+	events := make(chan core.ChainHeadEvent, 16)
+	sub := blockchain.SubscribeChainHeadEvent(events)
+	defer sub.Unsubscribe()
+
+	var (
+		wg       sync.WaitGroup
+		notified atomic.Int64
+	)
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if blockchain.NotifyNewBlock() {
+				notified.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+
+	require.Equal(t, int64(1), notified.Load(), "exactly one driver should notify a height")
+	require.Len(t, events, 1)
+}
+
+func TestNotifyNewBlockRecoversFromContextError(t *testing.T) {
+	var (
+		mu      sync.Mutex
+		failing = true
+	)
+	blockchain := newTestBlockchainWithGetter(t, func(int64, bool) (sdk.Context, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if failing {
+			return sdk.Context{}, errors.New("no context")
+		}
+		return createMockContext().
+			WithBlockHeader(cmtproto.Header{Height: 1, AppHash: []byte("healed")}), nil
+	})
+
+	require.False(t, blockchain.NotifyNewBlock(), "a failed refresh should not announce a head")
+
+	mu.Lock()
+	failing = false
+	mu.Unlock()
+
+	ctx, err := blockchain.GetLatestContext()
+	require.NoError(t, err)
+	require.Equal(t, "healed", string(ctx.BlockHeader().AppHash))
 }

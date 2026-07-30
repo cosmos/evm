@@ -48,6 +48,12 @@ type Blockchain struct {
 	coinInfo           atomic.Pointer[evmtypes.EvmCoinInfo]
 
 	testingCommitMu sync.RWMutex
+
+	// notifyMu serializes NotifyNewBlock across its drivers (PrepareCheckState
+	// and the event bus goroutine); lastNotifiedHeight dedups per committed
+	// height. It must not guard state read by CurrentBlock, which runs under mu.
+	notifyMu           sync.Mutex
+	lastNotifiedHeight int64
 }
 
 // NewBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
@@ -173,14 +179,29 @@ func (b *Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) even
 	return b.chainHeadFeed.Subscribe(ch)
 }
 
-// NotifyNewBlock sends a chain head event when a new block is finalized
-func (b *Blockchain) NotifyNewBlock() {
+// NotifyNewBlock sends a chain head event when a new block is finalized,
+// reporting whether it did. It always refreshes the latest context, but emits
+// at most one chain head event per committed height, so it is safe to drive
+// from both PrepareCheckState and the event bus goroutine -- callers use the
+// return to gate their own per-block work the same way.
+func (b *Blockchain) NotifyNewBlock() bool {
+	b.notifyMu.Lock()
+	defer b.notifyMu.Unlock()
+
 	latestCtx, err := b.newLatestContext()
 	if err != nil {
+		// Logged at error: a persistent failure here stops latestCtx advancing.
+		b.logger.Error("failed to refresh latest context", "error", err)
 		b.setLatestContext(sdk.Context{})
-		b.logger.Debug("failed to get latest context, notifying chain head", "error", err)
+		return false
 	}
 	b.setLatestContext(latestCtx)
+
+	height := latestCtx.BlockHeight()
+	if height <= b.lastNotifiedHeight {
+		return false // already notified for this height
+	}
+
 	header := b.CurrentBlock()
 	headerHash := header.Hash()
 
@@ -189,10 +210,12 @@ func (b *Blockchain) NotifyNewBlock() {
 		"block_hash", headerHash.Hex(),
 		"previous_hash", b.getPreviousHeaderHash().Hex())
 
+	b.lastNotifiedHeight = height
 	b.setPreviousHeaderHash(headerHash)
 	b.chainHeadFeed.Send(core.ChainHeadEvent{Header: header})
 
 	b.logger.Debug("chain head event sent to feed")
+	return true
 }
 
 // StateAt returns the StateDB object for a given block hash.
