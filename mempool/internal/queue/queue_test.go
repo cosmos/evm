@@ -207,7 +207,7 @@ func TestInsertQueue_ContainsPanicFromInsert(t *testing.T) {
 	sub := iq.Push(ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil))
 	select {
 	case err := <-sub:
-		require.ErrorContains(t, err, "recovered inserting 1 txs")
+		require.ErrorContains(t, err, "panic in insertTxs")
 		require.ErrorContains(t, err, "Value missing for key")
 	case <-time.After(time.Second):
 		t.Fatal("panic left the subscription unanswered")
@@ -233,10 +233,10 @@ func TestInsertQueue_PanicErrorsWholeBatch(t *testing.T) {
 	errs := iq.insertTxs(make([]*ethtypes.Transaction, 3))
 	require.Len(t, errs, 3, "every tx in the batch must get an error")
 	for _, err := range errs {
-		require.ErrorContains(t, err, "recovered inserting 3 txs")
+		require.ErrorContains(t, err, "panic in insertTxs")
 		require.ErrorContains(t, err, "boom")
 	}
 
-	require.Contains(t, logged.String(), "recovered inserting txs")
+	require.Contains(t, logged.String(), "panic in insertTxs")
 	require.Contains(t, logged.String(), "boom")
 }

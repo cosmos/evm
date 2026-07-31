@@ -199,28 +199,26 @@ func (iq *Queue[Tx]) waitForNewTxs() bool {
 	}
 }
 
-// insertTxs inserts Tx's, returning any errors that have occurred.
-func (iq *Queue[Tx]) insertTxs(txs []*Tx) []error {
+// insertTxs inserts Tx's, returning any errors that have occurred. A panic in
+// the underlying mempool is recovered and reported as an error for every tx in
+// the batch, so it cannot take down the node.
+func (iq *Queue[Tx]) insertTxs(txs []*Tx) (errs []error) {
 	defer func(t0 time.Time) {
 		insertDuration.Record(context.Background(), float64(time.Since(t0).Milliseconds()), iq.metricAttrs)
 	}(time.Now())
 
-	errs := iq.safeInsert(txs)
+	defer func() {
+		if r := recover(); r != nil {
+			iq.logger.Error("panic in insertTxs", "count", len(txs), "err", r, "stack", string(debug.Stack()))
+			errs = slices.Repeat([]error{fmt.Errorf("panic in insertTxs: %+v", r)}, len(txs))
+		}
+	}()
+
+	errs = iq.insert(txs)
 	if len(errs) != len(txs) {
 		panic(fmt.Errorf("expected a %d errors from insert but instead got %d", len(txs), len(errs)))
 	}
 	return errs
-}
-
-// safeInsert calls insert, turning a panic into an error for every tx in the batch
-func (iq *Queue[Tx]) safeInsert(txs []*Tx) (errs []error) {
-	defer func() {
-		if r := recover(); r != nil {
-			iq.logger.Error("recovered inserting txs", "count", len(txs), "err", r, "stack", string(debug.Stack()))
-			errs = slices.Repeat([]error{fmt.Errorf("recovered inserting %d txs: %v", len(txs), r)}, len(txs))
-		}
-	}()
-	return iq.insert(txs)
 }
 
 // Close stops the main loop of the queue.
