@@ -191,3 +191,45 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 		t.Fatal("did not receive error from full queue")
 	}
 }
+
+func TestInsertQueue_ContainsPanicFromInsert(t *testing.T) {
+	pool := newMockPool()
+	pool.setInsertFn(func([]*ethtypes.Transaction) []error {
+		panic("Value missing for key")
+	})
+
+	iq := New("test", pool.insert, 1000)
+	defer iq.Close()
+
+	sub := iq.Push(ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil))
+	select {
+	case err := <-sub:
+		require.ErrorContains(t, err, "recovered inserting 1 txs")
+		require.ErrorContains(t, err, "Value missing for key")
+	case <-time.After(time.Second):
+		t.Fatal("panic left the subscription unanswered")
+	}
+
+	// The loop survives, so later txs are still inserted.
+	pool.setInsertFn(nil)
+	_ = iq.Push(ethtypes.NewTransaction(2, [20]byte{0x02}, nil, 21000, nil, nil))
+	require.Eventually(t, func() bool {
+		return len(pool.getTxs()) == 1
+	}, time.Second, 10*time.Millisecond, "queue should keep working after a panic")
+}
+
+func TestInsertQueue_PanicErrorsWholeBatch(t *testing.T) {
+	iq := New("test", func([]*ethtypes.Transaction) []error {
+		panic("boom")
+	}, 1000)
+	defer iq.Close()
+
+	// Called directly: a deterministic multi-tx batch cannot be staged through
+	// Push, which races the loop draining the queue.
+	errs := iq.insertTxs(make([]*ethtypes.Transaction, 3))
+	require.Len(t, errs, 3, "every tx in the batch must get an error")
+	for _, err := range errs {
+		require.ErrorContains(t, err, "recovered inserting 3 txs")
+		require.ErrorContains(t, err, "boom")
+	}
+}

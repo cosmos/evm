@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 
@@ -198,11 +200,22 @@ func (iq *Queue[Tx]) insertTxs(txs []*Tx) []error {
 		insertDuration.Record(context.Background(), float64(time.Since(t0).Milliseconds()), iq.metricAttrs)
 	}(time.Now())
 
-	errs := iq.insert(txs)
+	errs := iq.safeInsert(txs)
 	if len(errs) != len(txs) {
 		panic(fmt.Errorf("expected a %d errors from insert but instead got %d", len(txs), len(errs)))
 	}
 	return errs
+}
+
+// safeInsert calls insert, turning a panic into an error for every tx in the batch
+func (iq *Queue[Tx]) safeInsert(txs []*Tx) (errs []error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("recovered inserting %d txs: %v\n%s", len(txs), r, debug.Stack())
+			errs = slices.Repeat([]error{err}, len(txs))
+		}
+	}()
+	return iq.insert(txs)
 }
 
 // Close stops the main loop of the queue.
