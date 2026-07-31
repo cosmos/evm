@@ -30,6 +30,7 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 func (s *KeeperTestSuite) TestCreateAccount() {
@@ -1108,6 +1109,90 @@ func (s *KeeperTestSuite) TestSetBalance() {
 			}
 		})
 	}
+}
+
+func (s *KeeperTestSuite) TestSetBalanceRejectsModuleAccounts() {
+	type setup struct {
+		addr    common.Address
+		current *uint256.Int
+	}
+
+	cases := []struct {
+		name     string
+		prepare  func() setup
+		amountFn func(current *uint256.Int) *uint256.Int
+	}{
+		{
+			name: "mocked module account (isModule arm)",
+			prepare: func() setup {
+				ctx := s.Network.GetContext()
+				ak := s.Network.App.GetAccountKeeper()
+				acc := authtypes.NewEmptyModuleAccount("test-blocked-stale-overwrite", authtypes.Minter)
+				ak.NewAccount(ctx, acc)
+				ak.SetAccount(ctx, acc)
+				modEth := common.BytesToAddress(acc.GetAddress().Bytes())
+				return setup{
+					addr:    modEth,
+					current: s.Network.App.GetEVMKeeper().GetBalance(ctx, modEth),
+				}
+			},
+			amountFn: func(_ *uint256.Int) *uint256.Int { return uint256.NewInt(12345) },
+		},
+		{
+			name: "bonded_tokens_pool, decrease (isBlockedChange arm)",
+			prepare: func() setup {
+				modEth := common.BytesToAddress(authtypes.NewModuleAddress(stakingtypes.BondedPoolName).Bytes())
+				return setup{
+					addr:    modEth,
+					current: s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), modEth),
+				}
+			},
+			amountFn: func(cur *uint256.Int) *uint256.Int {
+				if cur.IsZero() {
+					return uint256.NewInt(0)
+				}
+				return new(uint256.Int).Sub(cur, uint256.NewInt(1))
+			},
+		},
+		{
+			name: "bonded_tokens_pool, equal (isModule arm, isBlockedChange skipped)",
+			prepare: func() setup {
+				modEth := common.BytesToAddress(authtypes.NewModuleAddress(stakingtypes.BondedPoolName).Bytes())
+				return setup{
+					addr:    modEth,
+					current: s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), modEth),
+				}
+			},
+			amountFn: func(cur *uint256.Int) *uint256.Int { return new(uint256.Int).Set(cur) },
+		},
+	}
+
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			st := tc.prepare()
+			amount := tc.amountFn(st.current)
+
+			err := s.Network.App.GetEVMKeeper().SetBalance(s.Network.GetContext(), st.addr, amount)
+			s.Require().Error(err)
+			s.Require().Contains(err.Error(), "is not allowed to receive funds")
+
+			after := s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), st.addr)
+			s.Require().Equal(st.current, after)
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestSetBalanceAllowsEOA() {
+	s.SetupTest()
+	addr := utiltx.GenerateAddress()
+	amount := uint256.NewInt(12345)
+
+	err := s.Network.App.GetEVMKeeper().SetBalance(s.Network.GetContext(), addr, amount)
+	s.Require().NoError(err)
+
+	got := s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), addr)
+	s.Require().Equal(amount, got)
 }
 
 func (s *KeeperTestSuite) TestSetBalanceWithLocked() {
