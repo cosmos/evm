@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"cosmossdk.io/log/v2"
 )
 
 var meter = otel.Meter("github.com/cosmos/evm/mempool/internal/queue")
@@ -70,6 +72,8 @@ type Queue[Tx any] struct {
 	// insert inserts a batch of Tx's into the underlying mempool
 	insert func(txs []*Tx) []error
 
+	logger log.Logger
+
 	// maxSize is the max amount of Tx's that can be in the queue before
 	// rejecting new additions
 	maxSize int
@@ -84,9 +88,10 @@ var ErrQueueFull = errors.New("queue full")
 
 // New creates a new queue. name distinguishes this queue's metrics from other
 // queue instances (e.g. "evm" vs "cosmos").
-func New[Tx any](name string, insert func(txs []*Tx) []error, maxSize int) *Queue[Tx] {
+func New[Tx any](name string, logger log.Logger, insert func(txs []*Tx) []error, maxSize int) *Queue[Tx] {
 	iq := &Queue[Tx]{
 		insert:      insert,
+		logger:      logger.With("queue", name),
 		maxSize:     maxSize,
 		signal:      make(chan struct{}, 1),
 		done:        make(chan struct{}),
@@ -211,8 +216,8 @@ func (iq *Queue[Tx]) insertTxs(txs []*Tx) []error {
 func (iq *Queue[Tx]) safeInsert(txs []*Tx) (errs []error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err := fmt.Errorf("recovered inserting %d txs: %v\n%s", len(txs), r, debug.Stack())
-			errs = slices.Repeat([]error{err}, len(txs))
+			iq.logger.Error("recovered inserting txs", "count", len(txs), "err", r, "stack", string(debug.Stack()))
+			errs = slices.Repeat([]error{fmt.Errorf("recovered inserting %d txs: %v", len(txs), r)}, len(txs))
 		}
 	}()
 	return iq.insert(txs)
