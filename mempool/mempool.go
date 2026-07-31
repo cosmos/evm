@@ -127,7 +127,8 @@ type Mempool struct {
 	blockGasLimit uint64 // Block gas limit from consensus parameters
 	minTip        *uint256.Int
 
-	eventBus *cmttypes.EventBus
+	eventBus   *cmttypes.EventBus
+	eventBusWG sync.WaitGroup // tracks the SetEventBus listener goroutine
 
 	/** Transaction Reaping **/
 	reapList *reaplist.ReapList
@@ -334,6 +335,14 @@ func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 	case err == nil:
 		ethTx := ethMsg.AsTransaction()
 
+		// Reject txs below base fee up-front, which can never be included.
+		if baseFee := m.blockchain.CurrentBlock().BaseFee; baseFee != nil && ethTx.GasFeeCapIntCmp(baseFee) < 0 {
+			return nil, sdkerrors.ErrInsufficientFee.Wrapf(
+				"max fee per gas (%s) is lower than the base fee (%s)",
+				ethTx.GasFeeCap(), baseFee,
+			)
+		}
+
 		// we push the tx onto the evm insert queue so the tx will be inserted
 		// at a later point. We get back a subscription that the insert queue
 		// will use to notify the caller of any errors that occurred when
@@ -522,11 +531,18 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		for range sub.Out() {
-			m.NotifyNewBlock()
+	m.eventBusWG.Go(func() {
+		for {
+			select {
+			case <-sub.Out():
+				m.NotifyNewBlock()
+			case <-sub.Canceled():
+				// Unsubscribe/Close cancels the subscription; Out() is never
+				// closed by CometBFT, so exit on cancellation to avoid leaking.
+				return
+			}
 		}
-	}()
+	})
 }
 
 // NotifyNewBlock manually notifies that there has been a new block produced
@@ -547,6 +563,7 @@ func (m *Mempool) Close() error {
 		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
 			errs = append(errs, fmt.Errorf("failed to unsubscribe from event bus: %w", err))
 		}
+		m.eventBusWG.Wait()
 	}
 
 	if err := m.recheckCosmosPool.Close(); err != nil {

@@ -178,9 +178,13 @@ func (k *Keeper) SetBalanceWithLocked(ctx sdk.Context, addr common.Address, amou
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
-	// Only check blocked addresses when balance is increasing (receiving funds).
+	isModule := false
+	if acct := k.accountKeeper.GetAccount(ctx, cosmosAddr); acct != nil {
+		_, isModule = acct.(sdk.ModuleAccountI)
+	}
 	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
-	if amount.ToBig().Cmp(coin.Amount.BigInt()) > 0 && k.bankWrapper.BlockedAddr(cosmosAddr) {
+	isBlockedChange := k.bankWrapper.BlockedAddr(cosmosAddr) && amount.ToBig().Cmp(coin.Amount.BigInt()) != 0
+	if isModule || isBlockedChange {
 		return errorsmod.Wrapf(errortypes.ErrUnauthorized, "%s is not allowed to receive funds", cosmosAddr)
 	}
 
