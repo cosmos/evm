@@ -179,14 +179,26 @@ func (b *Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) even
 	return b.chainHeadFeed.Subscribe(ch)
 }
 
-// NotifyNewBlock sends a chain head event when a new block is finalized,
-// reporting whether it did. It always refreshes the latest context, but emits
-// at most one chain head event per committed height, so it is safe to drive
-// from both PrepareCheckState and the event bus goroutine -- callers use the
-// return to gate their own per-block work the same way.
+// NotifyNewBlock refreshes the latest context and sends a chain head event,
+// reporting whether it sent one. It emits at most one event per committed
+// height, so both PrepareCheckState and the event bus goroutine can drive it;
+// callers use the return to gate their own per-block work.
 func (b *Blockchain) NotifyNewBlock() bool {
+	return b.NotifyNewBlockAt(0)
+}
+
+// NotifyNewBlockAt is NotifyNewBlock for drivers that know which height just
+// committed, so an already notified height returns before the refresh. The skip
+// is safe because both drivers name the same committed height -- PrepareCheckState
+// of block N runs after N commits and passes N, the height the event bus
+// goroutine's header event also carries. Height 0 means unknown.
+func (b *Blockchain) NotifyNewBlockAt(committedHeight int64) bool {
 	b.notifyMu.Lock()
 	defer b.notifyMu.Unlock()
+
+	if committedHeight > 0 && committedHeight <= b.lastNotifiedHeight {
+		return false
+	}
 
 	latestCtx, err := b.newLatestContext()
 	if err != nil {

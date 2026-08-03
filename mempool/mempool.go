@@ -540,8 +540,11 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		}()
 		for {
 			select {
-			case <-sub.Out():
-				m.NotifyNewBlock()
+			case msg := <-sub.Out():
+				// The event names the block that just committed, a failed
+				// assertion leaves the zero height, which never skips.
+				ev, _ := msg.Data().(cmttypes.EventDataNewBlockHeader)
+				m.NotifyNewBlockAt(ev.Header.Height)
 			case <-sub.Canceled():
 				// Unsubscribe/Close cancels the subscription; Out() is never
 				// closed by CometBFT, so exit on cancellation to avoid leaking.
@@ -554,10 +557,16 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 // NotifyNewBlock manually notifies that there has been a new block produced
 // and it should update its internal data structures.
 func (m *Mempool) NotifyNewBlock() {
+	m.NotifyNewBlockAt(0)
+}
+
+// NotifyNewBlockAt is NotifyNewBlock for drivers that know which height just
+// committed, see Blockchain.NotifyNewBlockAt.
+func (m *Mempool) NotifyNewBlockAt(committedHeight int64) {
 	// Only recheck when the height actually advanced: with two drivers a
 	// second trigger at the same head would cancel the in-flight pass and
 	// restart it from scratch, once per block.
-	if m.blockchain.NotifyNewBlock() {
+	if m.blockchain.NotifyNewBlockAt(committedHeight) {
 		m.recheckCosmosPool.TriggerRecheck(m.blockchain.CurrentBlock())
 	}
 }

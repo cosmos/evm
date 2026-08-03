@@ -238,3 +238,30 @@ func TestNotifyNewBlockRecoversFromContextError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "healed", string(ctx.BlockHeader().AppHash))
 }
+
+func TestNotifyNewBlockSkipsOnHeightHint(t *testing.T) {
+	var built, height atomic.Int64
+	height.Store(1)
+	blockchain := newTestBlockchainWithGetter(t, func(int64, bool) (sdk.Context, error) {
+		built.Add(1)
+		return createMockContext().
+			WithBlockHeader(cmtproto.Header{Height: height.Load(), AppHash: []byte("head")}), nil
+	})
+
+	require.True(t, blockchain.NotifyNewBlockAt(1))
+	afterFirst := built.Load()
+
+	// A driver naming a height already notified must not build a context.
+	require.False(t, blockchain.NotifyNewBlockAt(1))
+	require.Equal(t, afterFirst, built.Load(), "the hint should short-circuit before newLatestContext")
+
+	// The backstop still works when the other driver has stopped: an unnotified
+	// height falls through and refreshes.
+	height.Store(2)
+	require.True(t, blockchain.NotifyNewBlockAt(2))
+	require.Greater(t, built.Load(), afterFirst)
+
+	// A caller that cannot name its height is never skipped early.
+	height.Store(3)
+	require.True(t, blockchain.NotifyNewBlock())
+}
