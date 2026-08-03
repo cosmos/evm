@@ -156,7 +156,7 @@ func TestGetBehindByTwoHeights(t *testing.T) {
 	})
 }
 
-func TestPanicOnOldHeight(t *testing.T) {
+func TestNilOnOldHeight(t *testing.T) {
 	hv := heightsync.New(big.NewInt(1), newTestValue, log.NewNopLogger())
 
 	hv.StartNewHeight(big.NewInt(1))
@@ -166,9 +166,7 @@ func TestPanicOnOldHeight(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	require.Panics(t, func() {
-		hv.GetStore(ctx, big.NewInt(1))
-	})
+	require.Nil(t, hv.GetStore(ctx, big.NewInt(1)))
 }
 
 func TestStartNewHeightResetsValue(t *testing.T) {

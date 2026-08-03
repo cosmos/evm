@@ -234,6 +234,10 @@ func (s *CosmosTxStore) removeTxKeyLocked(signerKey, txKey string) int {
 // called synchronously as a block is finalized so the carried-forward store can
 // never feed an already-committed tx into a later proposal, even before the
 // next recheck pass runs. Returns the number of stored txs pruned.
+//
+// baseapp removes a block tx with CallerRunTxFinalize only after ante
+// succeeds, which consumes the signers' sequences even if message execution
+// later fails — so every tx reaching here is safe to watermark.
 func (s *CosmosTxStore) PruneCommitted(tx sdk.Tx) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()

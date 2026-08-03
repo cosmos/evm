@@ -222,6 +222,7 @@ func (hs *HeightSync[Store]) isHeightEnded() bool {
 // reached the target height, GetStore blocks until the height is reached or the
 // context expires. If the height is reached, GetStore waits for EndCurrentHeight
 // to be called (or for the context to expire) before returning.
+// If HeightSync has already moved past the target height, GetStore returns nil.
 func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Store {
 	genesis := big.NewInt(0)
 
@@ -235,11 +236,18 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 
 		cmp := hs.currentHeight.Cmp(height)
 
-		// should never see a situation where the HeightSync is ahead of
-		// the caller
+		// Heights can skip past the target when producer triggers coalesce
+		// under backlog. Target's Store is gone and future state must not be
+		// served, so return nil.
 		if cmp > 0 {
-			defer hs.mu.RUnlock() // defer unlock since the panic will read
-			panic(fmt.Errorf("HeightSync.Get called for height %d, but current height is %d; cannot serve requests in the past", height, hs.currentHeight))
+			current := hs.currentHeight.String()
+			hs.mu.RUnlock()
+			hs.logger.Warn(
+				"height sync moved past requested height, no store to serve",
+				"requested_height", height.String(),
+				"current_height", current,
+			)
+			return nil
 		}
 
 		// if we're at the target height, wait for completion or timeout

@@ -329,7 +329,7 @@ func (m *RecheckMempool) TriggerRecheckSync(newHead *ethtypes.Header) {
 // RecheckedTxs returns the txs that have been rechecked for a height. The
 // RecheckMempool must be currently operating on this height (i.e. recheck has
 // been triggered on this height via TriggerRecheck). If height is in the past
-// (TriggerRecheck has been called on height + 1), this will panic. If height
+// (TriggerRecheck has been called on a later height), this returns nil. If height
 // is in the future, this will block until TriggerReset is called for height,
 // or the context times out.
 func (m *RecheckMempool) RecheckedTxs(ctx context.Context, height *big.Int) sdkmempool.Iterator {
