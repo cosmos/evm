@@ -2,6 +2,8 @@ package eip712
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -29,6 +31,11 @@ func createEIP712MessagePayload(data []byte) (eip712MessagePayload, error) {
 		return eip712MessagePayload{}, err
 	}
 
+	basicPayload, err = stringifyJSONMsgFields(basicPayload)
+	if err != nil {
+		return eip712MessagePayload{}, errorsmod.Wrap(err, "failed to stringify JSON message fields")
+	}
+
 	payload, numPayloadMsgs, err := FlattenPayloadMessages(basicPayload)
 	if err != nil {
 		return eip712MessagePayload{}, errorsmod.Wrap(err, "failed to flatten payload JSON messages")
@@ -46,6 +53,62 @@ func createEIP712MessagePayload(data []byte) (eip712MessagePayload, error) {
 	}
 
 	return messagePayload, nil
+}
+
+// stringifyJSONMsgFields converts object- and array-valued "msg" fields to
+// strings. Message fields conventionally contain opaque JSON (for example,
+// CosmWasm contract messages), whose runtime shape cannot be represented by a
+// stable EIP-712 type. Existing string values are left alone so ordinary
+// string fields and already-stringified JSON are not changed.
+//
+// The conversion only affects the derived EIP-712 payload. The protobuf
+// transaction still contains the original value used during execution.
+func stringifyJSONMsgFields(value gjson.Result) (gjson.Result, error) {
+	if !value.IsObject() && !value.IsArray() {
+		return value, nil
+	}
+
+	updated := value.Raw
+	var iterationErr error
+	value.ForEach(func(key, child gjson.Result) bool {
+		path := key.Str
+		if value.IsArray() {
+			path = strconv.FormatInt(key.Int(), 10)
+		} else {
+			path = escapeSJSONPath(path)
+		}
+
+		if !value.IsArray() && key.Str == "msg" && (child.IsObject() || child.IsArray()) {
+			updated, iterationErr = sjson.Set(updated, path, child.Raw)
+			return iterationErr == nil
+		}
+
+		if !child.IsObject() && !child.IsArray() {
+			return true
+		}
+
+		var transformed gjson.Result
+		transformed, iterationErr = stringifyJSONMsgFields(child)
+		if iterationErr != nil {
+			return false
+		}
+
+		updated, iterationErr = sjson.SetRaw(updated, path, transformed.Raw)
+		return iterationErr == nil
+	})
+	if iterationErr != nil {
+		return gjson.Result{}, iterationErr
+	}
+
+	return gjson.Parse(updated), nil
+}
+
+// escapeSJSONPath escapes object keys so they are treated as literal field
+// names rather than SJSON path syntax.
+func escapeSJSONPath(path string) string {
+	path = strings.ReplaceAll(path, `\`, `\\`)
+	path = strings.ReplaceAll(path, `.`, `\.`)
+	return strings.ReplaceAll(path, `:`, `\:`)
 }
 
 // unmarshalBytesToJSONObject converts a bytestream into
