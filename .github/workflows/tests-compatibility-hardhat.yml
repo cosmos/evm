@@ -5,18 +5,20 @@ on:
     branches: [main, develop]
     paths:
       - 'tests/evm-tools-compatibility/hardhat/**'
-      - '../../scripts/tests_compatibility_setup.sh'
-      - '../../scripts/tests_compatibility_hardhat.sh'
+      - 'scripts/tests_compatibility_setup.sh'
+      - 'scripts/tests_compatibility_hardhat.sh'
+      - 'scripts/tests_compatibility_common.sh'
       - 'local_node.sh'
-      - 'tests-compatibility-hardhat.yml'
+      - '.github/workflows/tests-compatibility-hardhat.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'tests/evm-tools-compatibility/hardhat/**'
-      - '../../scripts/tests_compatibility_setup.sh'
-      - '../../scripts/tests_compatibility_hardhat.sh'
+      - 'scripts/tests_compatibility_setup.sh'
+      - 'scripts/tests_compatibility_hardhat.sh'
+      - 'scripts/tests_compatibility_common.sh'
       - 'local_node.sh'
-      - 'tests-compatibility-hardhat.yml'
+      - '.github/workflows/tests-compatibility-hardhat.yml'
 
 permissions:
   contents: read
@@ -64,9 +66,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tests/evm-tools-compatibility/hardhat/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('tests/evm-tools-compatibility/hardhat/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          # no restore-keys: a stale fallback tree makes the setup script skip npm install
+          key: ${{ runner.os }}-node-${{ hashFiles('tests/evm-tools-compatibility/hardhat/package-lock.json', 'tests/evm-tools-compatibility/hardhat/package.json') }}
       
       - name: Build and install evmd
         run: |
