@@ -663,26 +663,17 @@ func (m *Mempool) cosmosIterator(
 	return m.recheckCosmosPool.OrderedRecheckedTxs(ctx, height, bondDenom, baseFee)
 }
 
-// ProposalTxValidatedAtHead reports whether the mempool's snapshot copy of tx
-// was ante-validated at the head height, i.e. re-running ante for a proposal
-// could not learn anything new. EVM txs always qualify (their snapshot has no
-// stale fallback); a cosmos tx qualifies only when its stamp matches the head,
-// so carried or unknown txs report false and must be re-verified.
-//
-// Head mirrors the pinned context's height. If the notify path dies the pin
-// and the stamps freeze together; committed txs are still excluded by the
-// watermark, which is fed by FinalizeBlock removals.
-func (m *Mempool) ProposalTxValidatedAtHead(tx sdk.Tx) bool {
+// ProposalTxValidatedAt reports whether the mempool's snapshot copy of tx was
+// ante-validated at exactly base, the last committed height the proposal
+// builds on. EVM txs always qualify (their snapshot has no stale fallback);
+// carried or unknown cosmos txs report false and must be re-verified. Base is
+// caller-supplied, so a lagging or dead notify path fails closed.
+func (m *Mempool) ProposalTxValidatedAt(tx sdk.Tx, base uint64) bool {
 	if _, err := evmTxFromCosmosTx(tx); err == nil {
 		return true
 	}
-	head := m.blockchain.LatestHeight()
-	if head <= 0 {
-		// no pinned context yet, nothing can prove validation at head
-		return false
-	}
 	height, ok := m.recheckCosmosPool.SnapshotValidatedAt(tx)
-	return ok && height == uint64(head)
+	return ok && height == base
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.

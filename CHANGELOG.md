@@ -71,7 +71,7 @@
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
-- [\#1227](https://github.com/cosmos/evm/issues/1227) Fix cosmos-pool proposal starvation under large backlogs: carry rechecked snapshot across heights, prune committed txs via a per-signer nonce watermark, and serve the carried-forward snapshot when the recheck loop falls behind a proposal. `evmd` now re-verifies proposal txs whose snapshot entry was validated at an earlier height (a carried-forward snapshot no longer guarantees validity at the proposed height); entries validated at the head skip re-verification, keeping steady-state proposal cost unchanged. Recheck passes now run in recheck mode, so sigverify skips the crypto already done at insert (~1.5x faster passes).
+- [\#1227](https://github.com/cosmos/evm/issues/1227) Fix cosmos-pool proposal starvation under backlogs: carry the rechecked snapshot across heights, watermark committed nonces, serve the carried snapshot when recheck lags, re-verify proposal txs not validated at the proposal base, and skip redundant sigverify on recheck.
 
 ## v0.6.0
 
