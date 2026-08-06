@@ -118,11 +118,10 @@ type HeightSync[Store any] struct {
 
 	// staleFallback makes GetStore return the current carried-forward Store
 	// (instead of nil) when it times out while still behind the target height.
-	// Entries in it were validated at a height <= target, so enabling it needs
-	// both: producers keep already-committed entries out (the cosmos pool's
-	// committed-nonce watermark), and consumers re-verify anything that must
-	// hold against latest state, since a later block can have invalidated an
-	// entry for some other reason (evmd's PrepareProposal runs ante).
+	// Entries in it were validated at a height <= target — possibly including
+	// txs a later block committed or invalidated — so consumers MUST re-verify
+	// anything that has to hold against latest state (evmd's PrepareProposal
+	// re-runs ante for entries not validated at the proposal base).
 	staleFallback bool
 
 	logger log.Logger
