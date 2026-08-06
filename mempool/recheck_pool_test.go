@@ -1592,3 +1592,52 @@ func collectIteratorTxs(iter sdkmempool.Iterator) []sdk.Tx {
 	}
 	return txs
 }
+
+// A stale watermark must not gap the snapshot: the pass skips consumed tx and
+// its dependents without evicting them, and both return once the mark ages out.
+func TestRecheckMempool_StaleWatermarkSkipsDependentsWithoutGap(t *testing.T) {
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+
+	// ante always succeeds: the chain never committed the watermarked nonce
+	rc := newMockRechecker(ctx, func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
+		return ctx, nil
+	})
+	mp := mempool.NewRecheckMempool(
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
+	)
+	mp.Start(testHeader(0))
+	defer mp.Close()
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	tx0 := newRecheckTestTxWithNonce(t, key, 0)
+	tx1 := newRecheckTestTxWithNonce(t, key, 1)
+	require.NoError(t, mp.Insert(context.Background(), tx0))
+	require.NoError(t, mp.Insert(context.Background(), tx1))
+
+	mp.TriggerRecheckSync(testHeader(1))
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(1))), 2)
+
+	// watermark nonce 0 as if a block consumed it, without advancing state
+	mp.PruneCommitted(tx0)
+
+	// the pass must not produce a gapped snapshot (tx1 without tx0)...
+	mp.TriggerRecheckSync(testHeader(2))
+	require.Empty(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(2))),
+		"neither the consumed tx nor its dependent may be in the snapshot")
+	// ...and must not evict either tx from the pool
+	require.Equal(t, 2, mp.CountTx())
+
+	// mark moves to the older generation: still enforced
+	mp.TriggerRecheckSync(testHeader(3))
+	require.Empty(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(3))))
+
+	// mark aged out: both txs return, no gap at any point
+	mp.TriggerRecheckSync(testHeader(4))
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(4))), 2)
+	require.Equal(t, 2, mp.CountTx())
+}

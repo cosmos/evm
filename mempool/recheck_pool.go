@@ -448,6 +448,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.SetHeight(newHead.Number.Uint64()) })
 
 	failedAtSequence := make(map[string]uint64)
+	consumedAtSequence := make(map[string]uint64)
 	removeTxs := make([]sdk.Tx, 0)
 
 	// context.Background() safe to use here since ExtMempool is a
@@ -480,6 +481,22 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			}
 		}
 
+		// skip (without evicting) dependents of a stale watermark detected
+		// below — without the ancestor's write() their ante would wrongly
+		// evict still-valid txs
+		staleConsumed := false
+		for _, s := range signers {
+			if seq, ok := consumedAtSequence[string(s.Signer)]; ok && seq <= s.Sequence {
+				staleConsumed = true
+				break
+			}
+		}
+		if staleConsumed && !invalidTx {
+			m.markTxRemoved(txn) // keep it out of the snapshot for this pass
+			iter = iter.Next()
+			continue
+		}
+
 		keepFuturesOnError := false
 		if !invalidTx {
 			ctx, write := m.rechecker.GetContext()
@@ -488,6 +505,23 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			// checks (sequence, fees, balances) still run.
 			_, err := m.rechecker.RecheckCosmos(ctx.WithIsReCheckTx(true), txn)
 			if err == nil {
+				// Ante succeeding under a watermark means the mark is stale (an
+				// optimistically executed block that never committed) — a real
+				// mark fails ErrWrongSequence and evicts below. Writing the
+				// cache and letting AddTx silently reject would gap the
+				// snapshot, so skip the tx and its dependents this pass without
+				// evicting; they return once the mark ages out.
+				if m.snapshotConsumedBy(txn, signers) {
+					m.markTxRemoved(txn)
+					for _, s := range signers {
+						key := string(s.Signer)
+						if existing, ok := consumedAtSequence[key]; !ok || existing > s.Sequence {
+							consumedAtSequence[key] = s.Sequence
+						}
+					}
+					iter = iter.Next()
+					continue
+				}
 				write()
 				m.markTxRechecked(txn)
 				iter = iter.Next()
@@ -569,6 +603,12 @@ func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 // markTxRemoved drops a tx from the height synced cosmos tx store.
 func (m *RecheckMempool) markTxRemoved(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.RemoveTx(txn) })
+}
+
+// snapshotConsumedBy reports whether a committed-nonce watermark covers txn.
+func (m *RecheckMempool) snapshotConsumedBy(txn sdk.Tx, signers []sdkmempool.SignerData) (consumed bool) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { consumed = store.IsConsumedBy(txn, signers) })
+	return consumed
 }
 
 // PruneCommitted records that a block being finalized consumed tx's

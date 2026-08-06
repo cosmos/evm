@@ -355,6 +355,24 @@ func (s *CosmosTxStore) AgeWatermarks() {
 	consumedWatermarkSize.Record(context.Background(), int64(len(s.prevConsumed)))
 }
 
+// IsConsumedBy reports whether any of tx's (signer, nonce) pairs sits at or
+// below a committed-nonce watermark (see PruneCommitted). The caller supplies
+// already-extracted signers so the check does not re-pay signer extraction.
+func (s *CosmosTxStore) IsConsumedBy(tx sdk.Tx, signers []sdkmempool.SignerData) bool {
+	nonceMap := make(map[string]uint64, len(signers))
+	for _, sig := range signers {
+		nonce, err := sdkmempool.ChooseNonce(sig.Sequence, tx)
+		if err != nil {
+			return false
+		}
+		nonceMap[string(sig.Signer)] = nonce
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.isConsumedLocked(nonceMap)
+}
+
 // isConsumedLocked reports whether any signer of the given nonceMap sits at or
 // below the committed high-water mark. Callers must hold s.mu.
 func (s *CosmosTxStore) isConsumedLocked(nonceMap map[string]uint64) bool {
