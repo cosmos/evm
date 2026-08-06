@@ -339,7 +339,7 @@ func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 		ethTx := ethMsg.AsTransaction()
 
 		// Reject txs below base fee up-front, which can never be included.
-		if baseFee := m.blockchain.CurrentBlock().BaseFee; baseFee != nil && ethTx.GasFeeCapIntCmp(baseFee) < 0 {
+		if baseFee := m.blockchain.PinnedHeader().BaseFee; baseFee != nil && ethTx.GasFeeCapIntCmp(baseFee) < 0 {
 			return nil, sdkerrors.ErrInsufficientFee.Wrapf(
 				"max fee per gas (%s) is lower than the base fee (%s)",
 				ethTx.GasFeeCap(), baseFee,

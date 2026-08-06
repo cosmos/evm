@@ -51,6 +51,9 @@ type Blockchain struct {
 	// paths can read the pinned height without copying a full sdk.Context.
 	latestHeight atomic.Int64
 
+	// pinnedHeader caches the header for the current pin generation, setLatestContext invalidates it
+	pinnedHeader atomic.Pointer[types.Header]
+
 	testingCommitMu sync.RWMutex
 }
 
@@ -268,6 +271,22 @@ func (b *Blockchain) setLatestContext(ctx sdk.Context) {
 	} else {
 		b.latestHeight.Store(ctx.BlockHeight())
 	}
+	b.pinnedHeader.Store(nil)
+}
+
+// PinnedHeader returns the current block header, cached per pin generation
+// (headers only change at commit, and the pin refreshes right after). Use it
+// on hot paths that tolerate pin-refresh granularity, CurrentBlock always
+// rebuilds fresh.
+func (b *Blockchain) PinnedHeader() *types.Header {
+	if h := b.pinnedHeader.Load(); h != nil {
+		return h
+	}
+	h := b.CurrentBlock()
+	if h != b.zeroHeader {
+		b.pinnedHeader.Store(h)
+	}
+	return h
 }
 
 // LatestHeight returns the pinned context's block height, or 0 when no
