@@ -443,6 +443,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	}
 	m.rechecker.Update(latestCtx, newHead)
 
+	// stamp the snapshot only once validation actually runs against this
+	// height's state (see CosmosTxStore.SetHeight)
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.SetHeight(newHead.Number.Uint64()) })
+
 	failedAtSequence := make(map[string]uint64)
 	removeTxs := make([]sdk.Tx, 0)
 
@@ -545,6 +549,13 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 
 	// a completed pass makes watermarks recorded before it redundant
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AgeWatermarks() })
+}
+
+// SnapshotValidatedAt reports the height the current snapshot's copy of txn
+// was validated at, and false if the snapshot does not hold that exact tx.
+func (m *RecheckMempool) SnapshotValidatedAt(txn sdk.Tx) (height uint64, ok bool) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { height, ok = store.ValidatedAt(txn) })
+	return height, ok
 }
 
 // markTxRechecked adds a tx into the height synced cosmos tx store.

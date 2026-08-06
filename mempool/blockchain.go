@@ -47,6 +47,10 @@ type Blockchain struct {
 	mu                 sync.RWMutex
 	coinInfo           atomic.Pointer[evmtypes.EvmCoinInfo]
 
+	// latestHeight mirrors latestCtx's block height (0 when unset), so hot
+	// paths can read the pinned height without copying a full sdk.Context.
+	latestHeight atomic.Int64
+
 	testingCommitMu sync.RWMutex
 }
 
@@ -259,6 +263,17 @@ func (b *Blockchain) setLatestContext(ctx sdk.Context) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.latestCtx = ctx
+	if ctx.Context() == nil {
+		b.latestHeight.Store(0)
+	} else {
+		b.latestHeight.Store(ctx.BlockHeight())
+	}
+}
+
+// LatestHeight returns the pinned context's block height, or 0 when no
+// context is pinned yet.
+func (b *Blockchain) LatestHeight() int64 {
+	return b.latestHeight.Load()
 }
 
 // GetLatestContext returns the latest context as updated by the block,

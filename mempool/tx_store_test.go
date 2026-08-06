@@ -763,3 +763,109 @@ func TestCosmosTxStoreInvalidateFromMultiSignerEvictsSingleSigner(t *testing.T) 
 
 	require.ElementsMatch(t, []sdk.Tx{bobTx3, eveTx9}, store.Txs())
 }
+
+func TestCosmosTxStoreValidatedAtTracksHeights(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	tx := newKeyedMockTx(t, 5)
+	store.SetHeight(7)
+	store.AddTx(tx)
+
+	// stamped with the height the pass validated it at
+	height, ok := store.ValidatedAt(tx)
+	require.True(t, ok)
+	require.Equal(t, uint64(7), height)
+
+	// a carried clone keeps the stamp of the pass that validated the entry...
+	clone := store.Clone()
+	clone.SetHeight(8)
+	height, ok = clone.ValidatedAt(tx)
+	require.True(t, ok)
+	require.Equal(t, uint64(7), height)
+
+	// ...until its pass re-adds the tx, which re-stamps it
+	clone.AddTx(tx)
+	height, ok = clone.ValidatedAt(tx)
+	require.True(t, ok)
+	require.Equal(t, uint64(8), height)
+
+	// the source store is unaffected by the clone's re-stamp
+	height, ok = store.ValidatedAt(tx)
+	require.True(t, ok)
+	require.Equal(t, uint64(7), height)
+
+	// an absent tx does not resolve
+	_, ok = clone.ValidatedAt(newKeyedMockTx(t, 6))
+	require.False(t, ok)
+}
+
+// A same-signer same-nonce replacement occupies the replaced tx's slot; its
+// stamp must not vouch for the tx it replaced.
+func TestCosmosTxStoreValidatedAtRejectsReplacement(t *testing.T) {
+	store := NewCosmosTxStore(log.NewNopLogger())
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	signer := crypto.CompressPubkey(&key.PublicKey)
+
+	replaced := newKeyedMockTxWithPubKey(signer, 3)
+	replacement := newKeyedMockTxWithPubKey(signer, 3)
+
+	store.SetHeight(7)
+	store.AddTx(replaced)
+	store.SetHeight(8)
+	store.AddTx(replacement) // same (signer, nonce): overwrites the slot
+
+	height, ok := store.ValidatedAt(replacement)
+	require.True(t, ok)
+	require.Equal(t, uint64(8), height)
+
+	_, ok = store.ValidatedAt(replaced)
+	require.False(t, ok, "a replacement's stamp must not vouch for the replaced tx")
+}
+
+// Every removal path must drop a tx from the identity index, or a dead entry
+// would keep vouching for it.
+func TestCosmosTxStoreValidatedAtDroppedOnRemoval(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	signer := crypto.CompressPubkey(&key.PublicKey)
+
+	newStore := func(txs ...sdk.Tx) *CosmosTxStore {
+		store := NewCosmosTxStore(log.NewNopLogger())
+		store.SetHeight(7)
+		for _, tx := range txs {
+			store.AddTx(tx)
+		}
+		return store
+	}
+	assertDropped := func(store *CosmosTxStore, txs ...sdk.Tx) {
+		t.Helper()
+		for _, tx := range txs {
+			_, ok := store.ValidatedAt(tx)
+			require.False(t, ok)
+		}
+	}
+
+	tx3 := newKeyedMockTxWithPubKey(signer, 3)
+	tx4 := newKeyedMockTxWithPubKey(signer, 4)
+
+	// RemoveTx
+	store := newStore(tx3)
+	require.True(t, store.RemoveTx(tx3))
+	assertDropped(store, tx3)
+
+	// InvalidateFrom removes the tx and its dependents
+	store = newStore(tx3, tx4)
+	require.Equal(t, 2, store.InvalidateFrom(tx3))
+	assertDropped(store, tx3, tx4)
+
+	// PruneCommitted watermarks and drops at-or-below entries
+	store = newStore(tx3, tx4)
+	require.Equal(t, 1, store.PruneCommitted(tx3))
+	assertDropped(store, tx3)
+
+	// a consumed tx must not re-enter via the fast path either
+	store.AddTx(tx3)
+	assertDropped(store, tx3)
+}

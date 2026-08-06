@@ -53,12 +53,12 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	app.EVMMempool = mempool
 
-	// Verify every selected tx with BaseApp's default verifier rather than
-	// trusting the mempool: under backlog the cosmos pool serves a snapshot
-	// validated at an earlier height, so a tx in it may since have become
-	// invalid. Cost is bounded by the proposal's gas budget, not the pool size.
+	// Under backlog the cosmos pool serves a snapshot validated at an earlier
+	// height, so a selected tx may since have become invalid; the verifier
+	// re-runs ante for exactly those txs and skips it for entries the mempool
+	// proves were validated at the head (see SnapshotVerifiedTxVerifier).
 	prepareProposalHandler := baseapp.
-		NewDefaultProposalHandler(mempool, app.BaseApp).
+		NewDefaultProposalHandler(mempool, NewSnapshotVerifiedTxVerifier(app.BaseApp, mempool)).
 		PrepareProposalHandler()
 
 	insertTxHandler := mempool.NewInsertTxHandler(app.TxDecode)

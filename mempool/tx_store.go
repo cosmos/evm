@@ -2,8 +2,8 @@ package mempool
 
 import (
 	"context"
-	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -50,6 +50,18 @@ type CosmosTxStore struct {
 	consumed     map[string]uint64
 	prevConsumed map[string]uint64
 
+	// height is the chain height the snapshot is being (re)built for (see
+	// SetHeight). AddTx stamps entries with it; carried entries keep the stamp
+	// of the pass that validated them (see ValidatedAt).
+	height uint64
+
+	// byTx indexes stored pointer-typed txs to their validatedAt stamp, so
+	// ValidatedAt and AddTx re-adds skip signer extraction and key building.
+	// A same-nonce replacement is a different object, so it never vouches for
+	// the tx it replaced. Non-pointer txs are not indexed (interface map keys
+	// must be comparable) and take the slow paths.
+	byTx map[sdk.Tx]uint64
+
 	logger          log.Logger
 	signerExtractor sdkmempool.SignerExtractionAdapter
 	mu              sync.RWMutex
@@ -75,6 +87,7 @@ func NewCosmosTxStore(l log.Logger) *CosmosTxStore {
 		signerBuckets:   make(map[string]map[string]struct{}),
 		consumed:        make(map[string]uint64),
 		prevConsumed:    make(map[string]uint64),
+		byTx:            make(map[sdk.Tx]uint64),
 		logger:          l,
 		signerExtractor: NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()),
 	}
@@ -92,7 +105,9 @@ func (s *CosmosTxStore) Clone() *CosmosTxStore {
 		signerBuckets:   make(map[string]map[string]struct{}, len(s.signerBuckets)),
 		consumed:        maps.Clone(s.consumed),
 		prevConsumed:    maps.Clone(s.prevConsumed),
+		byTx:            maps.Clone(s.byTx),
 		nextUnkeyed:     s.nextUnkeyed,
+		height:          s.height,
 		logger:          s.logger,
 		signerExtractor: s.signerExtractor,
 	}
@@ -113,10 +128,51 @@ func (s *CosmosTxStore) Clone() *CosmosTxStore {
 	return clone
 }
 
+// SetHeight records the chain height the snapshot is being (re)built for.
+// Each pass calls it once, after the rechecker context moves to that height's
+// state, so AddTx stamps entries with the height their validation ran against.
+func (s *CosmosTxStore) SetHeight(height uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.height = height
+}
+
+// ValidatedAt returns the height the stored copy of tx was last validated at.
+// The entry must be the same tx object — a same-nonce replacement does not
+// vouch for the tx it replaced — so replaced or absent txs report false.
+func (s *CosmosTxStore) ValidatedAt(tx sdk.Tx) (uint64, bool) {
+	if !isPointerTx(tx) {
+		return 0, false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	height, ok := s.byTx[tx]
+	return height, ok
+}
+
+// isPointerTx reports whether tx's dynamic type is a pointer. Only pointer
+// txs enter byTx (the mempool pipeline shares one decoded object per tx, and
+// interface map keys must be comparable); anything else takes the slow paths.
+func isPointerTx(tx sdk.Tx) bool {
+	return reflect.ValueOf(tx).Kind() == reflect.Pointer
+}
+
 // AddTx adds a single tx to the store while constructing a validated snapshot.
 func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	indexable := isPointerTx(tx)
+
+	// Fast path: re-adding a known tx only refreshes its stamp — its bucket
+	// entry is already correct, and its presence proves it survived every
+	// watermark prune.
+	if indexable {
+		if _, ok := s.byTx[tx]; ok {
+			s.byTx[tx] = s.height
+			return
+		}
+	}
 
 	storedTx := s.newCosmosTxWithMetadata(tx)
 
@@ -134,12 +190,25 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 		storedTx.txKey = s.newUnkeyedStoreKey()
 	}
 
+	// unkeyed txs are unremovable, so they are never indexed
+	if storedTx.signerKey == unkeyedSignerKey {
+		indexable = false
+	}
+
 	// bucket.txs is sorted by (nonceSum, txKey): overwrite an occupied slot —
 	// each recheck pass re-adds still-valid txs and the newest wins.
 	bucket := s.txs[storedTx.signerKey]
 	i, found := slices.BinarySearchFunc(bucket.txs, storedTx, compareCosmosTxWithMetadata)
 	if found {
+		// a replacement occupies the replaced tx's slot; its stamp must not
+		// vouch for the tx it replaced
+		if old := bucket.txs[i].tx; isPointerTx(old) {
+			delete(s.byTx, old)
+		}
 		bucket.txs[i] = storedTx
+		if indexable {
+			s.byTx[tx] = s.height
+		}
 		return
 	}
 
@@ -154,6 +223,9 @@ func (s *CosmosTxStore) AddTx(tx sdk.Tx) {
 	}
 	bucket.txs = slices.Insert(bucket.txs, i, storedTx)
 	s.txs[storedTx.signerKey] = bucket
+	if indexable {
+		s.byTx[tx] = s.height
+	}
 }
 
 // InvalidateFrom removes any stored tx that depends on the supplied tx's signer/nonces.
@@ -298,10 +370,19 @@ func (s *CosmosTxStore) isConsumedLocked(nonceMap map[string]uint64) bool {
 }
 
 // filterBucketLocked removes every tx in the bucket at signerKey for which
-// match returns true, deleting the bucket if it empties. Callers must hold
-// s.mu. Returns the number of txs removed.
+// match returns true (dropping it from the byTx index too), deleting the
+// bucket if it empties. Callers must hold s.mu. Returns the number of txs
+// removed.
 func (s *CosmosTxStore) filterBucketLocked(signerKey string, bucket cosmosTxBucket, match func(cosmosTxWithMetadata) bool) int {
-	next := slices.DeleteFunc(bucket.txs, match)
+	next := slices.DeleteFunc(bucket.txs, func(t cosmosTxWithMetadata) bool {
+		if !match(t) {
+			return false
+		}
+		if isPointerTx(t.tx) {
+			delete(s.byTx, t.tx)
+		}
+		return true
+	})
 	removed := len(bucket.txs) - len(next)
 	if removed == 0 {
 		return 0
@@ -364,13 +445,23 @@ func cosmosTxSignerSetKey(nonceMap map[string]uint64) string {
 	return b.String()
 }
 
+// txKeyZeroPad left-pads nonces to the width of MaxUint64 so the string
+// ordering of keys matches numeric nonce ordering.
+const txKeyZeroPad = "00000000000000000000"
+
 func cosmosTxKey(nonceMap map[string]uint64) string {
 	var b strings.Builder
 	for i, k := range sortedSignerKeys(nonceMap) {
 		if i > 0 {
 			b.WriteByte('|')
 		}
-		fmt.Fprintf(&b, "%s/%020d", k, nonceMap[k])
+		// equivalent to fmt.Fprintf(&b, "%s/%020d", ...) without fmt's
+		// reflection; this runs for every tx added on every recheck pass
+		nonce := strconv.FormatUint(nonceMap[k], 10)
+		b.WriteString(k)
+		b.WriteByte('/')
+		b.WriteString(txKeyZeroPad[:len(txKeyZeroPad)-len(nonce)])
+		b.WriteString(nonce)
 	}
 
 	return b.String()
