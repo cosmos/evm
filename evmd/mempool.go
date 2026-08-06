@@ -53,9 +53,12 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	app.EVMMempool = mempool
 
-	// create ABCI handlers
+	// Verify every selected tx with BaseApp's default verifier rather than
+	// trusting the mempool: under backlog the cosmos pool serves a snapshot
+	// validated at an earlier height, so a tx in it may since have become
+	// invalid. Cost is bounded by the proposal's gas budget, not the pool size.
 	prepareProposalHandler := baseapp.
-		NewDefaultProposalHandler(mempool, NewNoCheckProposalTxVerifier(app.BaseApp)).
+		NewDefaultProposalHandler(mempool, app.BaseApp).
 		PrepareProposalHandler()
 
 	insertTxHandler := mempool.NewInsertTxHandler(app.TxDecode)

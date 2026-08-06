@@ -118,11 +118,11 @@ type HeightSync[Store any] struct {
 
 	// staleFallback makes GetStore return the current carried-forward Store
 	// (instead of nil) when it times out while still behind the target height.
-	// That Store is at a height <= target and, even mid-recheck, carry-forward
-	// keeps it a valid subset of validated txs. Only enable it for stores that
-	// stay free of state a committed block invalidated (see the cosmos pool's
-	// committed-nonce watermark), otherwise a stale Store could serve
-	// already-committed txs.
+	// Entries in it were validated at a height <= target, so enabling it needs
+	// both: producers keep already-committed entries out (the cosmos pool's
+	// committed-nonce watermark), and consumers re-verify anything that must
+	// hold against latest state, since a later block can have invalidated an
+	// entry for some other reason (evmd's PrepareProposal runs ante).
 	staleFallback bool
 
 	logger log.Logger
@@ -295,11 +295,8 @@ func (hs *HeightSync[Store]) GetStore(ctx context.Context, height *big.Int) *Sto
 				return nil
 			}
 			// Rather than starve the caller (e.g. an empty block proposal),
-			// fall back to the current carried-forward Store: it is at a
-			// height <= target and, even mid-recheck, holds a valid subset of
-			// validated txs. Safe to serve as long as producers keep it free
-			// of state a since-committed block invalidated (the cosmos pool
-			// does this via its committed-nonce watermark).
+			// fall back to the carried-forward Store, under the staleFallback
+			// contract above.
 			hs.mu.RLock()
 			value := hs.store
 			// heights can skip past target while we waited, never serve future state
