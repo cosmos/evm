@@ -483,7 +483,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		keepFuturesOnError := false
 		if !invalidTx {
 			ctx, write := m.rechecker.GetContext()
-			_, err := m.rechecker.RecheckCosmos(ctx, txn)
+			// Signatures were verified on insert and the bytes have not changed,
+			// so recheck mode lets sigverify skip the crypto, state-dependent
+			// checks (sequence, fees, balances) still run.
+			_, err := m.rechecker.RecheckCosmos(ctx.WithIsReCheckTx(true), txn)
 			if err == nil {
 				write()
 				m.markTxRechecked(txn)
