@@ -49,11 +49,11 @@ type Blockchain struct {
 
 	testingCommitMu sync.RWMutex
 
-	// notifyMu serializes NotifyNewBlock across its drivers (PrepareCheckState
-	// and the event bus goroutine); lastNotifiedHeight dedups per committed
-	// height. It must not guard state read by CurrentBlock, which runs under mu.
+	// notifyMu serializes NotifyNewBlock's drivers (PrepareCheckState and the
+	// event bus goroutine); atomic lastNotifiedHeight lets a duplicate height
+	// skip without the lock. It must not guard state read by CurrentBlock.
 	notifyMu           sync.Mutex
-	lastNotifiedHeight int64
+	lastNotifiedHeight atomic.Int64
 }
 
 // NewBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
@@ -180,10 +180,9 @@ func (b *Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) even
 }
 
 // NotifyNewBlock refreshes the latest context and sends a chain head event,
-// reporting whether it sent one. It emits at most one event per committed
-// height, so both PrepareCheckState and the event bus goroutine can drive it;
-// callers use the return to gate their own per-block work.
-func (b *Blockchain) NotifyNewBlock() bool {
+// returning the announced header (nil when nothing was sent). At most one
+// event fires per committed height, so multiple drivers are safe.
+func (b *Blockchain) NotifyNewBlock() *types.Header {
 	return b.NotifyNewBlockAt(0)
 }
 
@@ -192,12 +191,21 @@ func (b *Blockchain) NotifyNewBlock() bool {
 // is safe because both drivers name the same committed height -- PrepareCheckState
 // of block N runs after N commits and passes N, the height the event bus
 // goroutine's header event also carries. Height 0 means unknown.
-func (b *Blockchain) NotifyNewBlockAt(committedHeight int64) bool {
+func (b *Blockchain) NotifyNewBlockAt(committedHeight int64) *types.Header {
+	// checked before the lock too — a loser must not wait out the winner's
+	// feed delivery just to skip; heights only grow, so a stale read can miss
+	// the skip but never take it wrongly
+	notified := func() bool {
+		return committedHeight > 0 && committedHeight <= b.lastNotifiedHeight.Load()
+	}
+	if notified() {
+		return nil
+	}
+
 	b.notifyMu.Lock()
 	defer b.notifyMu.Unlock()
-
-	if committedHeight > 0 && committedHeight <= b.lastNotifiedHeight {
-		return false
+	if notified() {
+		return nil
 	}
 
 	latestCtx, err := b.newLatestContext()
@@ -205,13 +213,13 @@ func (b *Blockchain) NotifyNewBlockAt(committedHeight int64) bool {
 		// Logged at error: a persistent failure here stops latestCtx advancing.
 		b.logger.Error("failed to refresh latest context", "error", err)
 		b.setLatestContext(sdk.Context{})
-		return false
+		return nil
 	}
 	b.setLatestContext(latestCtx)
 
 	height := latestCtx.BlockHeight()
-	if height <= b.lastNotifiedHeight {
-		return false // already notified for this height
+	if height <= b.lastNotifiedHeight.Load() {
+		return nil // already notified for this height
 	}
 
 	header := b.CurrentBlock()
@@ -222,12 +230,12 @@ func (b *Blockchain) NotifyNewBlockAt(committedHeight int64) bool {
 		"block_hash", headerHash.Hex(),
 		"previous_hash", b.getPreviousHeaderHash().Hex())
 
-	b.lastNotifiedHeight = height
+	b.lastNotifiedHeight.Store(height)
 	b.setPreviousHeaderHash(headerHash)
 	b.chainHeadFeed.Send(core.ChainHeadEvent{Header: header})
 
 	b.logger.Debug("chain head event sent to feed")
-	return true
+	return header
 }
 
 // StateAt returns the StateDB object for a given block hash.

@@ -563,11 +563,10 @@ func (m *Mempool) NotifyNewBlock() {
 // NotifyNewBlockAt is NotifyNewBlock for drivers that know which height just
 // committed, see Blockchain.NotifyNewBlockAt.
 func (m *Mempool) NotifyNewBlockAt(committedHeight int64) {
-	// Only recheck when the height actually advanced: with two drivers a
-	// second trigger at the same head would cancel the in-flight pass and
-	// restart it from scratch, once per block.
-	if m.blockchain.NotifyNewBlockAt(committedHeight) {
-		m.recheckCosmosPool.TriggerRecheck(m.blockchain.CurrentBlock())
+	// only recheck when the height advanced — a same-head trigger would cancel
+	// and restart the in-flight pass — and reuse the header it built
+	if header := m.blockchain.NotifyNewBlockAt(committedHeight); header != nil {
+		m.recheckCosmosPool.TriggerRecheck(header)
 	}
 }
 
