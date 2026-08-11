@@ -52,7 +52,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: tests/evm-tools-compatibility/hardhat/.nvmrc
+          node-version-file: tests/evm-tools-compatibility/hardhat/package.json
       
       - name: Cache Go modules
         uses: actions/cache@v4

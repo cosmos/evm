@@ -50,7 +50,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: tests/evm-tools-compatibility/viem/.nvmrc
+          node-version-file: tests/evm-tools-compatibility/viem/package.json
       
       - name: Cache Go modules
         uses: actions/cache@v4
