@@ -7,6 +7,6 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
-    echo "Node and Yarn are ready for Solidity tests."
+    echo "Node and Yarn are ready for Solidity tests (Node >=22 required)."
   '';
 }
