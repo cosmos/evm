@@ -50,7 +50,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version-file: tests/evm-tools-compatibility/web3.js/.nvmrc
       
       - name: Cache Go modules
         uses: actions/cache@v4
