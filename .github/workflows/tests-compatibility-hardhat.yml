@@ -50,6 +50,7 @@ jobs:
           version: nightly
       
       - name: Install Node.js
+        id: node
         uses: actions/setup-node@v4
         with:
           node-version-file: tests/evm-tools-compatibility/hardhat/package.json
@@ -70,7 +71,9 @@ jobs:
         with:
           path: tests/evm-tools-compatibility/hardhat/node_modules
           # no restore-keys: a stale fallback tree makes the setup script skip npm install
-          key: ${{ runner.os }}-node-${{ hashFiles('tests/evm-tools-compatibility/hardhat/package-lock.json', 'tests/evm-tools-compatibility/hardhat/package.json') }}
+          # node version in the key: engines.node is a floating floor, and a tree
+          # built for one major can't be reused across an ABI change
+          key: ${{ runner.os }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('tests/evm-tools-compatibility/hardhat/package-lock.json', 'tests/evm-tools-compatibility/hardhat/package.json') }}
       
       - name: Build and install evmd
         run: |
