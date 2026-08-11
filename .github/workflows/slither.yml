@@ -19,6 +19,11 @@ jobs:
         with:
           PATTERNS: |
             **/*.sol
+      # contracts/ requires Node >=22 (hardhat 3.12 -> @nomicfoundation/edr 0.15)
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: contracts/package.json
       - name: Node dependencies Install
         run: |
           cd contracts && npm i

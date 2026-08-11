@@ -18,6 +18,8 @@ jobs:
             **/**.sol
       - uses: actions/setup-node@v4
         if: env.GIT_DIFF
+        with:
+          node-version-file: contracts/package.json
       - run: npm install -g solhint@v5.0.5
         if: env.GIT_DIFF
       - run: solhint --version

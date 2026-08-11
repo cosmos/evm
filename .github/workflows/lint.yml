@@ -70,11 +70,10 @@ jobs:
             .markdownlint.yml
             .markdownlintignore
 
-      # Stable Node
       - uses: actions/setup-node@v4
         if: env.GIT_DIFF
         with:
-          node-version: "20"
+          node-version-file: contracts/package.json
 
       # Lint: check only, fail on errors
       - name: markdownlint (check only)
