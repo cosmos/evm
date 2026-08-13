@@ -2243,10 +2243,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					DescribeTable("should not delegate and update balances accordingly across orderings - internal transfer to tokens pool",
 						func(tc struct {
-							before  bool
-							after   bool
-							msgAmt  *big.Int
-						}) {
+							before bool
+							after  bool
+							msgAmt *big.Int
+						},
+						) {
 							args.MethodName = "testDelegateWithTransfer"
 							args.Args = []interface{}{
 								common.BytesToAddress(bondedTokensPoolAccAddr),
