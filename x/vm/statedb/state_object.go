@@ -2,11 +2,8 @@ package statedb
 
 import (
 	"bytes"
-<<<<<<< HEAD
-	"math/big"
-=======
 	"fmt"
->>>>>>> 264aa70 (fix: harden statedb balance and event amount handling (#1176))
+	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
