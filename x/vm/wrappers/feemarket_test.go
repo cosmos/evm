@@ -47,13 +47,8 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - nil base fee",
-<<<<<<< HEAD
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-			expResult: nil,
-=======
 			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 			expResult: big.NewInt(0),
->>>>>>> 264aa70 (fix: harden statedb balance and event amount handling (#1176))
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
 					GetBaseFee(gomock.Any()).

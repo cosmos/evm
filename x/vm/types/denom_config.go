@@ -101,10 +101,12 @@ func setEVMCoinInfo(eci EvmCoinInfo) error {
 		return errors.New("EVM coin info already set")
 	}
 
-	if Decimals(eci.Decimals) == EighteenDecimals {
-		if eci.Denom != eci.ExtendedDenom {
-			return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
-		}
+	if Decimals(eci.Decimals) != EighteenDecimals {
+		return fmt.Errorf("unsupported EVM decimals: %d (only 18 is supported)", eci.Decimals)
+	}
+
+	if eci.Denom != eci.ExtendedDenom {
+		return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
 	}
 
 	evmCoinInfo = new(EvmCoinInfo)
@@ -112,7 +114,6 @@ func setEVMCoinInfo(eci EvmCoinInfo) error {
 	if err := setEVMCoinDenom(eci.Denom); err != nil {
 		return err
 	}
-<<<<<<< HEAD
 	if err := setEVMCoinExtendedDenom(eci.ExtendedDenom); err != nil {
 		return err
 	}
@@ -120,38 +121,4 @@ func setEVMCoinInfo(eci EvmCoinInfo) error {
 		return err
 	}
 	return setEVMCoinDecimals(Decimals(eci.Decimals))
-=======
-
-	evmCoinInfo.Store(&info)
-
-	return nil
-}
-
-func validateCoinInfo(info *EvmCoinInfo) error {
-	if err := sdk.ValidateDenom(info.Denom); err != nil {
-		return fmt.Errorf("invalid EVM denom: %w", err)
-	}
-
-	if err := sdk.ValidateDenom(info.ExtendedDenom); err != nil {
-		return fmt.Errorf("invalid EVM extended denom: %w", err)
-	}
-
-	if err := sdk.ValidateDenom(info.DisplayDenom); err != nil {
-		return fmt.Errorf("invalid EVM display denom: %w", err)
-	}
-
-	if err := Decimals(info.Decimals).Validate(); err != nil {
-		return fmt.Errorf("invalid EVM decimals: %w", err)
-	}
-
-	if Decimals(info.Decimals) != EighteenDecimals {
-		return fmt.Errorf("unsupported EVM decimals: %d (only 18 is supported)", info.Decimals)
-	}
-
-	if info.Denom != info.ExtendedDenom {
-		return fmt.Errorf("EVM denom and extended denom must be the same for 18 decimals")
-	}
-
-	return nil
->>>>>>> 264aa70 (fix: harden statedb balance and event amount handling (#1176))
 }
