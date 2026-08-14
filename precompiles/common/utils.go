@@ -43,14 +43,10 @@ func ParseAmount(event sdk.Event) (*uint256.Int, error) {
 	}
 
 	baseAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()
-	extendedAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinExtendedDenom()).BigInt()
-
-	var amountBigInt *big.Int
-	if baseAmount.Sign() > 0 {
-		amountBigInt = evmtypes.ConvertAmountTo18DecimalsBigInt(baseAmount)
-	} else {
-		// The extended denom is already represented in 18 decimals.
-		amountBigInt = extendedAmount
+	amountBigInt := evmtypes.ConvertAmountTo18DecimalsBigInt(baseAmount)
+	if evmtypes.GetEVMCoinExtendedDenom() != evmtypes.GetEVMCoinDenom() {
+		extendedAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinExtendedDenom()).BigInt()
+		amountBigInt = new(big.Int).Add(amountBigInt, extendedAmount)
 	}
 
 	amount, err := utils.Uint256FromBigInt(amountBigInt)
