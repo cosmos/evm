@@ -101,12 +101,10 @@ func setEVMCoinInfo(eci EvmCoinInfo) error {
 		return errors.New("EVM coin info already set")
 	}
 
-	if Decimals(eci.Decimals) != EighteenDecimals {
-		return fmt.Errorf("unsupported EVM decimals: %d (only 18 is supported)", eci.Decimals)
-	}
-
-	if eci.Denom != eci.ExtendedDenom {
-		return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
+	if Decimals(eci.Decimals) == EighteenDecimals {
+		if eci.Denom != eci.ExtendedDenom {
+			return errors.New("EVM coin denom and extended denom must be the same for 18 decimals")
+		}
 	}
 
 	evmCoinInfo = new(EvmCoinInfo)
