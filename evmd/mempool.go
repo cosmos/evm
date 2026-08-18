@@ -45,6 +45,13 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	app.EVMMempool = evmMempool
 	app.SetMempool(evmMempool)
 	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
+
+	// create ABCI handlers
+	proposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app.BaseApp)
+
+	// set handlers and the mempool
+	app.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
+	app.SetProcessProposal(proposalHandler.ProcessProposalHandler())
 	app.SetCheckTxHandler(checkTxHandler)
 
 	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
