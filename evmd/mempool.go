@@ -42,27 +42,9 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		mempoolConfig,
 		cosmosPoolMaxTx,
 	)
-<<<<<<< HEAD
 	app.EVMMempool = evmMempool
 	app.SetMempool(evmMempool)
 	checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
-=======
-
-	app.EVMMempool = mempool
-
-	// create ABCI handlers
-	proposalHandler := baseapp.NewDefaultProposalHandler(mempool, NewNoCheckProposalTxVerifier(app.BaseApp))
-
-	insertTxHandler := mempool.NewInsertTxHandler(app.TxDecode)
-	reapTxsHandler := mempool.NewReapTxsHandler()
-	checkTxHandler := mempool.NewCheckTxHandler(app.TxDecode, checkTxTimeout)
-
-	// set handlers and the mempool
-	app.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
-	app.SetProcessProposal(proposalHandler.ProcessProposalHandler())
-	app.SetInsertTxHandler(insertTxHandler)
-	app.SetReapTxsHandler(reapTxsHandler)
->>>>>>> 430eaed (Merge of changes (#1259))
 	app.SetCheckTxHandler(checkTxHandler)
 
 	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
