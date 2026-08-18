@@ -20,6 +20,9 @@
   },
   "homepage": "https://github.com/cosmos/evm#readme",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@account-abstraction/contracts": "^0.6.0"
   }

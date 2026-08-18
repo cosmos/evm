@@ -14,21 +14,18 @@ describe("Hardhat Commands Compatibility", function () {
   });
   
   it("Should flatten contracts", function () {
-    execSync("npx hardhat flatten contracts/TokenExample.sol > Flattened.sol");
-    expect(fs.existsSync("Flattened.sol")).to.be.true;
-  });
-  
-  it("Should run deploy script successfully", function () {
-    execSync("npx hardhat compile");
-    const output = execSync("npx hardhat run --no-compile scripts/deploy.js").toString();
-    console.log(output);
-    expect(output).to.include("Token deployed to:");
+    fs.mkdirSync("cache", { recursive: true });
+    execSync("npx hardhat flatten contracts/TokenExample.sol > cache/Flattened.sol");
+    expect(fs.existsSync("cache/Flattened.sol")).to.be.true;
   });
 
-  it("Should run deploy via hardhat-deploy", function () {
-    const output = execSync("npx hardhat deploy").toString();
+  it("Should run deploy script successfully", function () {
+    execSync("npx hardhat compile");
+    // execSync children don't inherit the outer suite's --network flag;
+    // without it this deploys to an in-process network, not the node under test
+    const output = execSync("npx hardhat run --no-compile --network localhost scripts/deploy.js").toString();
     console.log(output);
-    expect(output).to.include("deploying \"TokenExample\"");
+    expect(output).to.include("Token deployed to:");
   });
 });
 

@@ -59,15 +59,13 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	gasUsed := ctx.BlockGasUsed()
 
 	if gasWanted > gomath.MaxInt64 {
-		err := fmt.Errorf("integer overflow by integer type conversion. Gas wanted > MaxInt64. Gas wanted: %d", gasWanted)
-		k.Logger(ctx).Error(err.Error())
-		return err
+		k.Logger(ctx).Error("gas wanted exceeds MaxInt64, clamping", "gas_wanted", gasWanted)
+		gasWanted = gomath.MaxInt64
 	}
 
 	if gasUsed > gomath.MaxInt64 {
-		err := fmt.Errorf("integer overflow by integer type conversion. Gas used > MaxInt64. Gas used: %d", gasUsed)
-		k.Logger(ctx).Error(err.Error())
-		return err
+		k.Logger(ctx).Error("gas used exceeds MaxInt64, clamping", "gas_used", gasUsed)
+		gasUsed = gomath.MaxInt64
 	}
 
 	// to prevent BaseFee manipulation we limit the gasWanted so that
