@@ -12,7 +12,7 @@
 
 ### BUG FIXES
 
-## v0.7.2
+## v0.6.2
 
 ### IMPROVEMENTS
 - [\#1243](https://github.com/cosmos/evm/pull/1243) Deploy contracts from an EOA rather than a module account in the test helpers. It is also now required: contract creation bumps the sender's nonce, `SetAccount` persists nonce and balance together, and the EVM commit path may not write a module account's balance.
