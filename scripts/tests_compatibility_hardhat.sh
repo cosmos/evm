@@ -54,7 +54,7 @@ cd "$TEST_DIR"
 # Install npm dependencies if not already installed
 if [ ! -d "node_modules" ]; then
 	echo "Installing npm dependencies..."
-	npm install
+	npm ci
 else
 	echo "npm dependencies already installed, skipping..."
 fi

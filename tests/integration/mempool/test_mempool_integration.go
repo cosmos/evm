@@ -1064,7 +1064,8 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			setupTx: func() sdk.Tx {
 				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(100000000)) // 0.1 gaatom
 			},
-			wantError: false,
+			wantError:     true,
+			errorContains: "insufficient fee",
 			verifyFunc: func() {
 				mpool := s.network.App.GetMempool()
 				s.Require().Equal(0, mpool.CountTx())

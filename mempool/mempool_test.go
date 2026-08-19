@@ -455,6 +455,21 @@ func TestMempool_CosmosNonceAdvanceDropsStaleEVM(t *testing.T) {
 	}, time.Second, 10*time.Millisecond, "expected pending and queued pools to drain after stale txs dropped")
 }
 
+func TestMempool_InsertRejectsUnderpricedEVMTx(t *testing.T) {
+	mp, s := setupMempoolWithAccounts(t, 1)
+	txConfig, accounts := s.txConfig, s.accounts
+
+	// Base fee is mocked at 1e8 (see setupMempool). 1e7 is below it.
+	underpriced := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e7))
+	err := mp.Insert(context.Background(), underpriced)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "insufficient fee")
+
+	// A tx priced at the base fee is accepted.
+	priced := createMsgEthereumTx(t, txConfig, accounts[0].key, 0, big.NewInt(1e8))
+	require.NoError(t, mp.Insert(context.Background(), priced))
+}
+
 func TestMempool_InsertMultiMsgCosmosTx(t *testing.T) {
 	mp, s := setupMempoolWithAccounts(t, 3)
 	txConfig, bus := s.txConfig, s.eventBus
@@ -728,7 +743,8 @@ func setupMempool(t *testing.T, numAccounts, insertQueueSize int) (*mempool.Memp
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
 
 	// Setup mock expectations
-	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e9)).Maybe()
+	// Base fee is set to 1e8 so the 1e8-priced txs used throughout these tests clear the insert-time fee gate.
+	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1e8)).Maybe()
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
 	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10000000)).Maybe()
 	mockVMKeeper.On("GetEvmCoinInfo", mock.Anything).Return(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Maybe()
