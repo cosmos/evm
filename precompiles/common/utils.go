@@ -42,8 +42,14 @@ func ParseAmount(event sdk.Event) (*uint256.Int, error) {
 		return nil, fmt.Errorf("failed to parse coins from %q: %w", amountAttr.Value, err)
 	}
 
-	amountBigInt := amountCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()
-	amount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amountBigInt))
+	baseAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()
+	amountBigInt := evmtypes.ConvertAmountTo18DecimalsBigInt(baseAmount)
+	if evmtypes.GetEVMCoinExtendedDenom() != evmtypes.GetEVMCoinDenom() {
+		extendedAmount := amountCoins.AmountOf(evmtypes.GetEVMCoinExtendedDenom()).BigInt()
+		amountBigInt = new(big.Int).Add(amountBigInt, extendedAmount)
+	}
+
+	amount, err := utils.Uint256FromBigInt(amountBigInt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert coin amount to Uint256: %w", err)
 	}
