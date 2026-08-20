@@ -1,6 +1,9 @@
 {
   "name": "hardhat-project",
   "//": "Hardhat 2 fixture: do not bump hardhat-toolbox (>=7), hardhat-ignition-* (>=1), or hardhat-deploy (>=2) — those majors require Hardhat 3 and cannot resolve against hardhat ^2.x. Hardhat 3 migration is tracked separately.",
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.0.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
