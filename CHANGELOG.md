@@ -5,6 +5,7 @@
 ### DEPENDENCIES
 
 - [\#1232](https://github.com/cosmos/evm/pull/1232) Bump `ibc-go` to `v11.1.0`.
+- [\#1250](https://github.com/cosmos/evm/pull/1250) Require Node.js `>=22` to compile the Solidity contracts and run the JavaScript test suites (`contracts/`, `tests/contracts/`, `tests/evm-tools-compatibility/*`).
 
 ### API-BREAKING
 
@@ -72,6 +73,7 @@
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
+- [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 
 ## v0.6.0
 
