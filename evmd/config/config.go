@@ -34,6 +34,11 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	// In this example application, we set the min gas prices to 0.
 	srvCfg.MinGasPrices = "0" + denom
 
+	// Default to Block-STM with pre-estimation, matching historical EVM
+	// behavior. Operators can override these in app.toml.
+	srvCfg.BlockExecutor = serverconfig.BlockExecutorBlockSTM
+	srvCfg.BlockSTMPreEstimate = true
+
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = evmChainID
 
