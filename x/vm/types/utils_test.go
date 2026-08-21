@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"testing"
 
@@ -377,6 +378,51 @@ func TestBinSearch(t *testing.T) {
 	gas, err = evmtypes.BinSearch(20000, 21001, failedExecutable)
 	require.Error(t, err)
 	require.Equal(t, gas, uint64(0))
+
+	// EstimateGas starts lo at TxGas-1; a huge RPC/tx gas cap can set hi to MaxUint64.
+	// Old (hi+lo)/2 wraps on the first step and lo jumps downward.
+	t.Run("small lo and uint64 max hi does not wrap first midpoint", func(t *testing.T) {
+		const (
+			lo     = uint64(21000 - 1)
+			hi     = math.MaxUint64
+			target = uint64(21000)
+		)
+		calls := 0
+		executable := func(gas uint64) (bool, *evmtypes.MsgEthereumTxResponse, error) {
+			calls++
+			if calls > 128 {
+				return false, nil, errors.New("BinSearch did not converge")
+			}
+			require.Greater(t, gas, lo, "mid must not wrap below the original lo")
+			return gas < target, nil, nil
+		}
+
+		gas, err := evmtypes.BinSearch(lo, hi, executable)
+		require.NoError(t, err)
+		require.Equal(t, target, gas)
+		require.LessOrEqual(t, calls, 70)
+	})
+
+	t.Run("uint64 upper range converges without overflow", func(t *testing.T) {
+		const (
+			lo     = math.MaxUint64 - 100
+			hi     = math.MaxUint64
+			target = math.MaxUint64 - 10
+		)
+		calls := 0
+		executable := func(gas uint64) (bool, *evmtypes.MsgEthereumTxResponse, error) {
+			calls++
+			if calls > 128 {
+				return false, nil, errors.New("BinSearch did not converge")
+			}
+			return gas < target, nil, nil
+		}
+
+		gas, err := evmtypes.BinSearch(lo, hi, executable)
+		require.NoError(t, err)
+		require.Equal(t, uint64(target), gas)
+		require.LessOrEqual(t, calls, 64)
+	})
 }
 
 func TestTransactionLogsEncodeDecode(t *testing.T) {
