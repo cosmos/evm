@@ -11,6 +11,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/werc20"
@@ -312,8 +313,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						txArgs, callArgs := callsData.getTxAndCallArgs(directCall, werc20.WithdrawMethod, withdrawAmount)
 
-						_, _, err = is.factory.CallContractAndCheckLogs(newUserPriv, txArgs, callArgs, withdrawCheck)
-						Expect(err).To(HaveOccurred(), "expected an error because not enough funds")
+						insufficientBalanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+							is.precompile.ABI,
+							erc20.SolidityErrERC20InsufficientBalance,
+							common.BytesToAddress(newUserAcc.Bytes()),
+							// Withdraw packs the live spendable balance after EVM transaction setup.
+							big.NewInt(0),
+							withdrawAmount,
+						))
+						_, _, err = is.factory.CallContractAndCheckLogs(newUserPriv, txArgs, callArgs, insufficientBalanceCheck)
+						Expect(err).ToNot(HaveOccurred(), "expected exact ERC-6093 insufficient balance revert")
 						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
 					})
 					It("it should be a no-op and emit the event", func() {
@@ -455,7 +464,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("it should fail to transfer tokens to a receiver using `transferFrom`", func() {
 					txArgs, transferArgs := callsData.getTxAndCallArgs(directCall, erc20.TransferFromMethod, txSender.Addr, user.Addr, transferAmount)
 
-					insufficientAllowanceCheck := failCheck.WithErrContains(erc20.ErrInsufficientAllowance.Error())
+					insufficientAllowanceCheck := failCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+						is.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance,
+						txSender.Addr, common.Big0, transferAmount,
+					))
 					_, _, err := is.factory.CallContractAndCheckLogs(txSender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 					Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock after transfer")

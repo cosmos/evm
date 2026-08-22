@@ -2,7 +2,6 @@ package erc20
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -40,8 +39,9 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
@@ -50,6 +50,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(
+		ABI,
+		ErrorMappings(),
+		cmn.SharedSDKErrorMappings(),
+		cmn.ApprovedOverrideDeclarations().ForABI("ERC20I"),
+	)
 }
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -147,7 +153,7 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	// them.This check is a safety measure because currently funds cannot be
 	// received due to the lack of a fallback handler.
 	if value := contract.Value(); value.Sign() == 1 {
-		return nil, fmt.Errorf(ErrCannotReceiveFunds, contract.Value().String())
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrERC20CannotReceiveFunds, value)
 	}
 
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
@@ -200,7 +206,7 @@ func (p *Precompile) HandleMethod(
 	case AllowanceMethod:
 		bz, err = p.Allowance(ctx, contract, stateDB, method, args)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, method.Name)
 	}
 
 	return bz, err

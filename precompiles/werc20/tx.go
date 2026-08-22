@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+	erc20 "github.com/cosmos/evm/precompiles/erc20"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -45,11 +47,11 @@ func (p Precompile) Deposit(
 			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
-		return nil, err
+		return nil, p.werc20MsgError(ctx, DepositMethod, err)
 	}
 
 	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, DepositMethod, err.Error())
 	}
 
 	return nil, nil
@@ -59,9 +61,13 @@ func (p Precompile) Deposit(
 // WETH contract to support equality between the native coin and its wrapped
 // ERC-20 (e.g. ATOM and WEVMOS).
 func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.StateDB, args []interface{}) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
+	}
+
 	amount, ok := args[0].(*big.Int)
 	if !ok {
-		return nil, fmt.Errorf("invalid argument type: %T", args[0])
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[0]))
 	}
 	amountInt := math.NewIntFromBigInt(amount)
 
@@ -69,11 +75,17 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 	callerAccAddress := sdk.AccAddress(caller.Bytes())
 	nativeBalance := p.BankKeeper.SpendableCoin(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
 	if nativeBalance.Amount.LT(amountInt) {
-		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
+		return nil, cmn.NewRevertWithSolidityError(
+			p.ABI,
+			erc20.SolidityErrERC20InsufficientBalance,
+			caller,
+			nativeBalance.Amount.BigInt(),
+			amount,
+		)
 	}
 
 	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, amount); err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrEventEmitFailed, WithdrawMethod, err.Error())
 	}
 	return nil, nil
 }

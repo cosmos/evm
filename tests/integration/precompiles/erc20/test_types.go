@@ -3,7 +3,9 @@ package erc20
 import (
 	"math/big"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
+	"github.com/cosmos/evm/precompiles/testutil"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 )
 
@@ -13,10 +15,10 @@ func (s *PrecompileTestSuite) TestParseTransferArgs() {
 	amount := big.NewInt(100)
 
 	testcases := []struct {
-		name        string
-		args        []interface{}
-		expPass     bool
-		errContains string
+		name    string
+		args    []interface{}
+		expPass bool
+		wantErr error
 	}{
 		{
 			name: "pass - correct arguments",
@@ -32,7 +34,7 @@ func (s *PrecompileTestSuite) TestParseTransferArgs() {
 				"invalid address",
 				amount,
 			},
-			errContains: "invalid to address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid amount",
@@ -40,14 +42,14 @@ func (s *PrecompileTestSuite) TestParseTransferArgs() {
 				to,
 				"invalid amount",
 			},
-			errContains: "invalid amount",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAmount, "invalid amount"),
 		},
 		{
 			name: "fail - invalid number of arguments",
 			args: []interface{}{
 				1, 2, 3,
 			},
-			errContains: "invalid number of arguments",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 	}
 
@@ -59,8 +61,7 @@ func (s *PrecompileTestSuite) TestParseTransferArgs() {
 				s.Require().Equal(to, tc.args[0], "expected different to address")
 				s.Require().Equal(amount, tc.args[1], "expected different amount")
 			} else {
-				s.Require().Error(err, "expected an error parsing the transfer arguments")
-				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -72,10 +73,10 @@ func (s *PrecompileTestSuite) TestParseTransferFromArgs() {
 	amount := big.NewInt(100)
 
 	testcases := []struct {
-		name        string
-		args        []interface{}
-		expPass     bool
-		errContains string
+		name    string
+		args    []interface{}
+		expPass bool
+		wantErr error
 	}{
 		{
 			name: "pass - correct arguments",
@@ -93,7 +94,7 @@ func (s *PrecompileTestSuite) TestParseTransferFromArgs() {
 				to,
 				amount,
 			},
-			errContains: "invalid from address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid to address",
@@ -102,7 +103,7 @@ func (s *PrecompileTestSuite) TestParseTransferFromArgs() {
 				"invalid address",
 				amount,
 			},
-			errContains: "invalid to address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid amount",
@@ -111,14 +112,14 @@ func (s *PrecompileTestSuite) TestParseTransferFromArgs() {
 				to,
 				"invalid amount",
 			},
-			errContains: "invalid amount",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAmount, "invalid amount"),
 		},
 		{
 			name: "fail - invalid number of arguments",
 			args: []interface{}{
 				1, 2, 3, 4,
 			},
-			errContains: "invalid number of arguments",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(4)),
 		},
 	}
 
@@ -131,8 +132,7 @@ func (s *PrecompileTestSuite) TestParseTransferFromArgs() {
 				s.Require().Equal(to, tc.args[1], "expected different to address")
 				s.Require().Equal(amount, tc.args[2], "expected different amount")
 			} else {
-				s.Require().Error(err, "expected an error parsing the transferFrom arguments")
-				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -144,10 +144,10 @@ func (s *PrecompileTestSuite) TestParseApproveArgs() {
 	amount := big.NewInt(100)
 
 	testcases := []struct {
-		name        string
-		args        []interface{}
-		expPass     bool
-		errContains string
+		name    string
+		args    []interface{}
+		expPass bool
+		wantErr error
 	}{
 		{
 			name: "pass - correct arguments",
@@ -163,7 +163,7 @@ func (s *PrecompileTestSuite) TestParseApproveArgs() {
 				"invalid address",
 				amount,
 			},
-			errContains: "invalid spender address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid amount",
@@ -171,14 +171,14 @@ func (s *PrecompileTestSuite) TestParseApproveArgs() {
 				spender,
 				"invalid amount",
 			},
-			errContains: "invalid amount",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAmount, "invalid amount"),
 		},
 		{
 			name: "fail - invalid number of arguments",
 			args: []interface{}{
 				1, 2, 3,
 			},
-			errContains: "invalid number of arguments",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 	}
 
@@ -190,8 +190,7 @@ func (s *PrecompileTestSuite) TestParseApproveArgs() {
 				s.Require().Equal(spender, tc.args[0], "expected different spender address")
 				s.Require().Equal(amount, tc.args[1], "expected different amount")
 			} else {
-				s.Require().Error(err, "expected an error parsing the approve arguments")
-				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -202,10 +201,10 @@ func (s *PrecompileTestSuite) TestParseAllowanceArgs() {
 	spender := utiltx.GenerateAddress()
 
 	testcases := []struct {
-		name        string
-		args        []interface{}
-		expPass     bool
-		errContains string
+		name    string
+		args    []interface{}
+		expPass bool
+		wantErr error
 	}{
 		{
 			name: "pass - correct arguments",
@@ -221,7 +220,7 @@ func (s *PrecompileTestSuite) TestParseAllowanceArgs() {
 				"invalid address",
 				spender,
 			},
-			errContains: "invalid owner address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid spender address",
@@ -229,14 +228,14 @@ func (s *PrecompileTestSuite) TestParseAllowanceArgs() {
 				owner,
 				"invalid address",
 			},
-			errContains: "invalid spender address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid number of arguments",
 			args: []interface{}{
 				1, 2, 3,
 			},
-			errContains: "invalid number of arguments",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 	}
 
@@ -248,8 +247,7 @@ func (s *PrecompileTestSuite) TestParseAllowanceArgs() {
 				s.Require().Equal(owner, tc.args[0], "expected different owner address")
 				s.Require().Equal(spender, tc.args[1], "expected different spender address")
 			} else {
-				s.Require().Error(err, "expected an error parsing the allowance arguments")
-				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -259,10 +257,10 @@ func (s *PrecompileTestSuite) TestParseBalanceOfArgs() {
 	account := utiltx.GenerateAddress()
 
 	testcases := []struct {
-		name        string
-		args        []interface{}
-		expPass     bool
-		errContains string
+		name    string
+		args    []interface{}
+		expPass bool
+		wantErr error
 	}{
 		{
 			name: "pass - correct arguments",
@@ -276,14 +274,14 @@ func (s *PrecompileTestSuite) TestParseBalanceOfArgs() {
 			args: []interface{}{
 				"invalid address",
 			},
-			errContains: "invalid account address",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid number of arguments",
 			args: []interface{}{
 				1, 2, 3,
 			},
-			errContains: "invalid number of arguments",
+			wantErr: cmn.NewRevertWithSolidityError(erc20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(3)),
 		},
 	}
 
@@ -294,8 +292,7 @@ func (s *PrecompileTestSuite) TestParseBalanceOfArgs() {
 				s.Require().NoError(err, "unexpected error parsing the balanceOf arguments")
 				s.Require().Equal(account, tc.args[0], "expected different account address")
 			} else {
-				s.Require().Error(err, "expected an error parsing the balanceOf arguments")
-				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}

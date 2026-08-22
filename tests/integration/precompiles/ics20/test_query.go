@@ -1,7 +1,7 @@
 package ics20
 
 import (
-	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -21,26 +21,30 @@ func (s *PrecompileTestSuite) TestDenoms() {
 	denom := precompiletestutil.UosmoDenom
 
 	for _, tc := range []struct {
-		name        string
-		args        []interface{}
-		malleate    func(ctx sdk.Context)
-		expErr      bool
-		errContains string
-		expDenom    transfertypes.Denom
+		name     string
+		args     []interface{}
+		malleate func(ctx sdk.Context)
+		expErr   bool
+		wantErr  error
+		expDenom transfertypes.Denom
 	}{
 		{
-			name:        "fail - invalid number of arguments",
-			args:        []interface{}{},
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			name:     "fail - invalid number of arguments",
+			args:     []interface{}{},
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr:  cmn.NewRevertWithSolidityError(ics20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:        "fail - invalid arg type",
-			args:        []interface{}{true},
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "NumField on bool Value",
+			name:     "fail - invalid arg type",
+			args:     []interface{}{true},
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				cmn.SolidityErrInvalidAddress,
+				"panic during method.Inputs.Copy: reflect: call of reflect.Value.NumField on bool Value",
+			),
 		},
 		{
 			name: "success",
@@ -63,7 +67,8 @@ func (s *PrecompileTestSuite) TestDenoms() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out ics20.DenomsResponse
@@ -83,26 +88,26 @@ func (s *PrecompileTestSuite) TestDenom() {
 	denom := precompiletestutil.UosmoDenom
 
 	for _, tc := range []struct {
-		name        string
-		arg         interface{}
-		malleate    func(ctx sdk.Context)
-		expErr      bool
-		errContains string
-		expDenom    transfertypes.Denom
+		name     string
+		arg      interface{}
+		malleate func(ctx sdk.Context)
+		expErr   bool
+		wantErr  error
+		expDenom transfertypes.Denom
 	}{
 		{
-			name:        "fail - invalid number of arguments",
-			arg:         nil,
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "invalid input arguments",
+			name:     "fail - invalid number of arguments",
+			arg:      nil,
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr:  cmn.NewRevertWithSolidityError(ics20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:        "fail - invalid type",
-			arg:         1,
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "invalid hash",
+			name:     "fail - invalid type",
+			arg:      1,
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr:  cmn.NewRevertWithSolidityError(ics20.ABI, ics20.SolidityErrInvalidHash, ics20.DenomMethod, "invalid hash: %!s(int=1)"),
 		},
 		{
 			name: "success - denom found",
@@ -121,11 +126,17 @@ func (s *PrecompileTestSuite) TestDenom() {
 			expDenom: transfertypes.Denom{Base: "", Trace: []transfertypes.Hop{}},
 		},
 		{
-			name:        "fail - invalid hash",
-			arg:         "INVALID-DENOM-HASH",
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "invalid denom trace hash",
+			name:     "fail - invalid hash",
+			arg:      "INVALID-DENOM-HASH",
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			// SDK error is stable enough for exact assertion.
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				cmn.SolidityErrQueryFailed,
+				ics20.DenomMethod,
+				"rpc error: code = InvalidArgument desc = invalid denom trace hash: , error: encoding/hex: invalid byte: U+0049 'I'",
+			),
 		},
 	} {
 		s.Run(tc.name, func() {
@@ -146,7 +157,8 @@ func (s *PrecompileTestSuite) TestDenom() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out ics20.DenomResponse
@@ -165,26 +177,26 @@ func (s *PrecompileTestSuite) TestDenomHash() {
 	denom := precompiletestutil.UosmoDenom
 
 	for _, tc := range []struct {
-		name        string
-		arg         interface{}
-		malleate    func(ctx sdk.Context)
-		expErr      bool
-		errContains string
-		expHash     string
+		name     string
+		arg      interface{}
+		malleate func(ctx sdk.Context)
+		expErr   bool
+		wantErr  error
+		expHash  string
 	}{
 		{
-			name:        "fail - invalid number of arguments",
-			arg:         nil,
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "invalid input arguments",
+			name:     "fail - invalid number of arguments",
+			arg:      nil,
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr:  cmn.NewRevertWithSolidityError(ics20.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:        "fail - invalid type",
-			arg:         1,
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "invalid trace",
+			name:     "fail - invalid type",
+			arg:      1,
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr:  cmn.NewRevertWithSolidityError(ics20.ABI, ics20.SolidityErrInvalidTrace, ics20.DenomHashMethod, "invalid trace"),
 		},
 		{
 			name: "success",
@@ -203,11 +215,16 @@ func (s *PrecompileTestSuite) TestDenomHash() {
 			expHash:  "",
 		},
 		{
-			name:        "fail - invalid denom",
-			arg:         "",
-			malleate:    func(ctx sdk.Context) {},
-			expErr:      true,
-			errContains: "invalid denomination for cross-chain transfer",
+			name:     "fail - invalid denom",
+			arg:      "",
+			malleate: func(ctx sdk.Context) {},
+			expErr:   true,
+			wantErr: cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				cmn.SolidityErrQueryFailed,
+				ics20.DenomHashMethod,
+				"rpc error: code = InvalidArgument desc = base denomination cannot be blank: invalid denomination for cross-chain transfer",
+			),
 		},
 	} {
 		s.Run(tc.name, func() {
@@ -228,7 +245,8 @@ func (s *PrecompileTestSuite) TestDenomHash() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out transfertypes.QueryDenomHashResponse

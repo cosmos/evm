@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./precompiles/ics20/ICS20I.sol";
-import "./precompiles/erc20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./precompiles/staking/StakingI.sol";
 import "./precompiles/common/Types.sol";
 

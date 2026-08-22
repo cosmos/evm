@@ -1,12 +1,15 @@
+import hashlib
+import json
 import os
 from pathlib import Path
-from shutil import copytree
+from shutil import copy2, copytree
 
 import pytest
 from compile_smart_contracts import (
     HARDHAT_PROJECT_DIR,
     SOLIDITY_SOURCE,
     compile_contracts_in_dir,
+    copy_compiled_contracts_back_to_source,
     copy_to_contracts_directory,
     find_solidity_contracts,
     is_ignored_folder,
@@ -83,6 +86,106 @@ def test_find_solidity_files(setup_example_contracts_files):
     )
 
 
+def test_common_shared_abi_has_single_owner(tmp_path):
+    common = tmp_path / "precompiles" / "common"
+    interfaces = common / "interfaces"
+    interfaces.mkdir(parents=True)
+    (common / "Types.sol").touch()
+    (interfaces / "IPrecompile.sol").touch()
+    (interfaces / "abi.json").write_text("[]\n", encoding="utf-8")
+
+    contracts = find_solidity_contracts(tmp_path)
+    owners = [
+        contract.filename
+        for contract in contracts
+        if contract.compiled_json_path == interfaces / "abi.json"
+    ]
+    assert owners == ["IPrecompile"]
+    types = next(contract for contract in contracts if contract.filename == "Types")
+    assert types.compiled_json_path is None
+
+
+def test_common_shared_abi_compile_twice_is_deterministic(setup_contracts_directory):
+    hardhat_dir = setup_contracts_directory
+    target_dir = hardhat_dir / SOLIDITY_SOURCE
+    common = target_dir / "precompiles" / "common"
+    interfaces = common / "interfaces"
+    staking = target_dir / "precompiles" / "staking"
+    bank = target_dir / "precompiles" / "bank"
+    interfaces.mkdir(parents=True)
+    staking.mkdir(parents=True)
+    bank.mkdir(parents=True)
+
+    (common / "Types.sol").write_text(
+        "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n"
+        "library Types { struct Coin { uint256 amount; } }\n",
+        encoding="utf-8",
+    )
+    (interfaces / "IPrecompile.sol").write_text(
+        "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n"
+        "interface IPrecompile { error SDKNotFound(); }\n",
+        encoding="utf-8",
+    )
+    (staking / "StakingI.sol").write_text(
+        "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n"
+        'import "../common/interfaces/IPrecompile.sol";\n'
+        "interface StakingI is IPrecompile { error StakingFailure(); }\n",
+        encoding="utf-8",
+    )
+    (bank / "IBank.sol").write_text(
+        "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n"
+        'import "../common/interfaces/IPrecompile.sol";\n'
+        "interface IBank is IPrecompile { error BankFailure(); }\n",
+        encoding="utf-8",
+    )
+    for abi_path in (
+        interfaces / "abi.json",
+        staking / "abi.json",
+        bank / "abi.json",
+    ):
+        abi_path.write_text("[]\n", encoding="utf-8")
+
+    contracts = find_solidity_contracts(target_dir)
+    owners = [
+        contract.filename
+        for contract in contracts
+        if contract.compiled_json_path == interfaces / "abi.json"
+    ]
+    assert owners == ["IPrecompile"]
+    assert next(
+        contract for contract in contracts if contract.filename == "Types"
+    ).compiled_json_path is None
+
+    compiled_dir = hardhat_dir / "artifacts" / SOLIDITY_SOURCE
+
+    def compile_and_hash_outputs():
+        compile_contracts_in_dir(target_dir)
+        copy_compiled_contracts_back_to_source(contracts, compiled_dir)
+        emitted = [
+            interfaces / "abi.json",
+            staking / "abi.json",
+            bank / "abi.json",
+            compiled_dir / "precompiles/common/interfaces/IPrecompile.sol/IPrecompile.json",
+            compiled_dir / "precompiles/staking/StakingI.sol/StakingI.json",
+            compiled_dir / "precompiles/bank/IBank.sol/IBank.json",
+        ]
+        for path in emitted:
+            assert path.exists(), path
+        return {
+            str(path.relative_to(hardhat_dir)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in emitted
+        }
+
+    first = compile_and_hash_outputs()
+    second = compile_and_hash_outputs()
+    assert second == first
+
+    shared_abi = json.loads((interfaces / "abi.json").read_text(encoding="utf-8"))
+    assert [entry["name"] for entry in shared_abi if entry["type"] == "error"] == [
+        "SDKNotFound"
+    ]
+
+
 def test_copy_to_contracts_directory(
     tmp_path,
 ):
@@ -113,6 +216,10 @@ def setup_contracts_directory(tmp_path):
 
     testdata_dir = Path(__file__).parent / "testdata"
     copytree(testdata_dir, tmp_path, dirs_exist_ok=True)
+
+    repository_contracts = Path(__file__).resolve().parents[2] / "contracts"
+    for filename in ("hardhat.config.js", "package.json", "package-lock.json"):
+        copy2(repository_contracts / filename, tmp_path / filename)
 
     return tmp_path
 

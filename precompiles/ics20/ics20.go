@@ -2,7 +2,6 @@ package ics20
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +11,8 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/log/v2"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -23,14 +24,19 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
 	var err error
 	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
+		panic(err)
+	}
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, ErrorMappings(), cmn.SharedSDKErrorMappings(), nil)
+	if err := cmn.ReviewedGRPCErrorRegistry().ValidateABI(ABI, "ICS20I"); err != nil {
 		panic(err)
 	}
 }
@@ -75,6 +81,11 @@ func (Precompile) Name() string {
 	return "ics20"
 }
 
+// Logger returns a precompile-specific logger.
+func (p Precompile) Logger(ctx sdk.Context) log.Logger {
+	return ctx.Logger().With("evm extension", p.Name())
+}
+
 // RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	// NOTE: This check avoid panicking when trying to decode the method ID
@@ -102,7 +113,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrABISetupFailed, err.Error())
 	}
 
 	var bz []byte
@@ -119,7 +130,7 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	case DenomHashMethod:
 		bz, err = p.DenomHash(ctx, contract, method, args)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, method.Name)
 	}
 
 	return bz, err

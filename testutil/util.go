@@ -1,12 +1,10 @@
 package testutil
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
@@ -122,10 +120,9 @@ func CreateTx(ctx context.Context, txCfg client.TxConfig, priv cryptotypes.PrivK
 // any ABI-encoded revert messages into readable error strings.
 //
 // Returns:
-//   - error: A formatted error containing either:
-//   - "tx failed with VmError: <vmError>: <decoded_reason>" for successfully decoded reverts
-//   - "tx failed with VmError: <vmError>: <hex_data>" for non-decodable data
-//   - "failed to decode revert data: <decode_error>" if decoding fails
+//   - error: Wraps evmtypes.NewExecErrorWithReason so standard Error(string) reverts surface
+//     in err.Error() (e.g. "execution reverted: insufficient allowance"), prefixed with VmError context.
+//   - "failed to decode revert data: <decode_error>" if hex validation fails
 //
 // Example usage:
 //
@@ -137,18 +134,15 @@ func CreateTx(ctx context.Context, txCfg client.TxConfig, priv cryptotypes.PrivK
 func DecodeRevertReason(evmRes evmtypes.MsgEthereumTxResponse) error {
 	revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
 	hexData, ok := revertErr.ErrorData().(string)
-	if ok {
-		decodedBytes, err := hexutil.Decode(hexData)
-		if err == nil {
-			if len(decodedBytes) >= 4 && bytes.Equal(decodedBytes[:4], evmtypes.RevertSelector) {
-				var reason string
-				reason, err = abi.UnpackRevert(decodedBytes)
-				if err == nil {
-					return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, reason)
-				}
-			}
-		}
+	if !ok {
+		return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, revertErr.ErrorData())
+	}
+
+	if _, err := hexutil.Decode(hexData); err != nil {
 		return errorsmod.Wrap(err, "failed to decode revert data")
 	}
+
+	// Wrap revertErr so Error(string) decodes (e.g. "out of gas", "insufficient funds") appear in
+	// err.Error() for integration test substring checks; hex remains on RevertError.ErrorData().
 	return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, revertErr.ErrorData())
 }

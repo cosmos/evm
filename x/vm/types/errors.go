@@ -126,8 +126,8 @@ func NewExecErrorWithReason(revertReason []byte) *RevertError {
 		err = fmt.Errorf("execution reverted: %v", reason)
 	}
 	return &RevertError{
-		error:  err,
-		reason: hexutil.Encode(result),
+		error:       err,
+		revertBytes: result,
 	}
 }
 
@@ -135,7 +135,7 @@ func NewExecErrorWithReason(revertReason []byte) *RevertError {
 // code and a binary data blob.
 type RevertError struct {
 	error
-	reason string // revert reason hex encoded
+	revertBytes []byte
 }
 
 // ErrorCode returns the JSON error code for a revert.
@@ -146,5 +146,16 @@ func (e *RevertError) ErrorCode() int {
 
 // ErrorData returns the hex encoded revert reason.
 func (e *RevertError) ErrorData() any {
-	return e.reason
+	if len(e.revertBytes) == 0 {
+		return "0x"
+	}
+	return hexutil.Encode(e.revertBytes)
+}
+
+// RevertData returns the raw ABI revert payload (selector + calldata tail).
+func (e *RevertError) RevertData() []byte {
+	if len(e.revertBytes) == 0 {
+		return nil
+	}
+	return common.CopyBytes(e.revertBytes)
 }

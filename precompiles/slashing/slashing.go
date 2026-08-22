@@ -2,7 +2,6 @@ package slashing
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,8 +27,9 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
@@ -38,6 +38,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, ErrorMappings(), cmn.SharedSDKErrorMappings(), nil)
 }
 
 // Precompile defines the precompiled contract for slashing.
@@ -104,7 +105,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
-		return nil, err
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrABISetupFailed, err.Error())
 	}
 
 	var bz []byte
@@ -121,7 +122,7 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	case GetParamsMethod:
 		bz, err = p.GetParams(ctx, method, contract, args)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, method.Name)
 	}
 
 	return bz, err

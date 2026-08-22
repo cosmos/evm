@@ -1,12 +1,14 @@
 package erc20
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 )
@@ -21,12 +23,13 @@ func (s *PrecompileTestSuite) TestApprove() {
 		malleate    func() []interface{}
 		postCheck   func()
 		expPass     bool
+		wantErr     error
 		errContains string
 	}{
 		{
-			name:        "fail - empty args",
-			malleate:    func() []interface{} { return nil },
-			errContains: "invalid number of arguments",
+			name:     "fail - empty args",
+			malleate: func() []interface{} { return nil },
+			wantErr:  cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			name: "fail - invalid number of arguments",
@@ -35,7 +38,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 					1, 2, 3,
 				}
 			},
-			errContains: "invalid number of arguments",
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
 			name: "fail - invalid address",
@@ -44,7 +47,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 					"invalid address", big.NewInt(2),
 				}
 			},
-			errContains: "invalid address",
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAddress, "invalid address"),
 		},
 		{
 			name: "fail - invalid amount",
@@ -53,7 +56,14 @@ func (s *PrecompileTestSuite) TestApprove() {
 					s.keyring.GetAddr(1), "invalid amount",
 				}
 			},
-			errContains: "invalid amount",
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, "invalid amount"),
+		},
+		{
+			name: "fail - zero spender uses ERC-6093",
+			malleate: func() []interface{} {
+				return []interface{}{common.Address{}, big.NewInt(1)}
+			},
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidSpender, common.Address{}),
 		},
 		{
 			name: "fail - negative amount",
@@ -62,7 +72,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 					s.keyring.GetAddr(1), big.NewInt(-1),
 				}
 			},
-			errContains: erc20.ErrNegativeAmount.Error(),
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, "cannot approve negative values"),
 		},
 		{
 			name: "fail - approve uint256 overflow",
@@ -71,7 +81,8 @@ func (s *PrecompileTestSuite) TestApprove() {
 					s.keyring.GetAddr(1), new(big.Int).Add(abi.MaxUint256, common.Big1),
 				}
 			},
-			errContains: "causes integer overflow",
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount,
+				fmt.Sprintf(erc20.ErrIntegerOverflow, new(big.Int).Add(abi.MaxUint256, common.Big1))),
 		},
 		{
 			name: "pass - approve to zero with existing allowance only for other denominations",
@@ -123,6 +134,31 @@ func (s *PrecompileTestSuite) TestApprove() {
 					s.keyring.GetAddr(1),
 					big.NewInt(amount),
 				)
+			},
+		},
+		{
+			name: "fail - token pair not found uses module selector",
+			malleate: func() []interface{} {
+				tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), s.tokenDenom)
+				tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
+				s.Require().True(found)
+				s.network.App.GetErc20Keeper().DeleteTokenPair(s.network.GetContext(), tokenPair)
+				return []interface{}{s.keyring.GetAddr(1), big.NewInt(amount)}
+			},
+			wantErr: cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20TokenPairNotFound),
+		},
+		{
+			name: "pass - zero approval remains a no-op when token pair is absent",
+			malleate: func() []interface{} {
+				tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), s.tokenDenom)
+				tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
+				s.Require().True(found)
+				s.network.App.GetErc20Keeper().DeleteTokenPair(s.network.GetContext(), tokenPair)
+				return []interface{}{s.keyring.GetAddr(1), common.Big0}
+			},
+			expPass: true,
+			postCheck: func() {
+				s.requireAllowance(s.precompile.Address(), s.keyring.GetAddr(0), s.keyring.GetAddr(1), common.Big0)
 			},
 		},
 		{
@@ -241,7 +277,11 @@ func (s *PrecompileTestSuite) TestApprove() {
 				s.Require().NotNil(bz, "expected non-nil bytes")
 			} else {
 				s.Require().Error(err, "expected error")
-				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				if tc.wantErr != nil {
+					testutil.RequireExactError(s.T(), err, tc.wantErr)
+				} else {
+					s.Require().ErrorContains(err, tc.errContains, "expected different error message")
+				}
 				s.Require().Empty(bz, "expected empty bytes")
 			}
 
@@ -250,4 +290,30 @@ func (s *PrecompileTestSuite) TestApprove() {
 			}
 		})
 	}
+}
+
+func (s *PrecompileTestSuite) TestApproveInvalidApproverUsesERC6093() {
+	s.SetupTest()
+	method := s.precompile.Methods[erc20.ApproveMethod]
+	contract, ctx := testutil.NewPrecompileContract(
+		s.T(),
+		s.network.GetContext(),
+		common.Address{},
+		s.precompile.Address(),
+		200_000,
+	)
+
+	_, err := s.precompile.Approve(
+		ctx,
+		contract,
+		s.network.GetStateDB(),
+		&method,
+		[]interface{}{s.keyring.GetAddr(1), big.NewInt(1)},
+	)
+	s.Require().Error(err)
+	testutil.RequireExactError(
+		s.T(),
+		err,
+		cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidApprover, common.Address{}),
+	)
 }
