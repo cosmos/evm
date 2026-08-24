@@ -70,9 +70,12 @@ type Params struct {
 	AccessControl AccessControl `protobuf:"bytes,8,opt,name=access_control,json=accessControl,proto3" json:"access_control"`
 	// active_static_precompiles defines the slice of hex addresses of the
 	// precompiled contracts that are active
-	ActiveStaticPrecompiles []string              `protobuf:"bytes,9,rep,name=active_static_precompiles,json=activeStaticPrecompiles,proto3" json:"active_static_precompiles,omitempty"`
-	HistoryServeWindow      uint64                `protobuf:"varint,10,opt,name=history_serve_window,json=historyServeWindow,proto3" json:"history_serve_window,omitempty"`
-	ExtendedDenomOptions    *ExtendedDenomOptions `protobuf:"bytes,11,opt,name=extended_denom_options,json=extendedDenomOptions,proto3" json:"extended_denom_options,omitempty"`
+	ActiveStaticPrecompiles []string `protobuf:"bytes,9,rep,name=active_static_precompiles,json=activeStaticPrecompiles,proto3" json:"active_static_precompiles,omitempty"`
+	// history_serve_window defines the block range for serving historical EVM
+	// state
+	HistoryServeWindow uint64 `protobuf:"varint,10,opt,name=history_serve_window,json=historyServeWindow,proto3" json:"history_serve_window,omitempty"`
+	// extended_denom_options defines the extended denom options for the EVM
+	ExtendedDenomOptions *ExtendedDenomOptions `protobuf:"bytes,11,opt,name=extended_denom_options,json=extendedDenomOptions,proto3" json:"extended_denom_options,omitempty"`
 }
 
 func (m *Params) Reset()         { *m = Params{} }
@@ -157,7 +160,9 @@ func (m *Params) GetExtendedDenomOptions() *ExtendedDenomOptions {
 	return nil
 }
 
+// ExtendedDenomOptions defines the extended denom options for the EVM
 type ExtendedDenomOptions struct {
+	// extended_denom defines the extended denom used by the EVM
 	ExtendedDenom string `protobuf:"bytes,1,opt,name=extended_denom,json=extendedDenom,proto3" json:"extended_denom,omitempty"`
 }
 
@@ -983,12 +988,16 @@ func (m *Preinstall) GetCode() string {
 	return ""
 }
 
+// EvmCoinInfo defines the EVM coin denomination metadata
 type EvmCoinInfo struct {
-	Denom         string `protobuf:"bytes,1,opt,name=denom,proto3" json:"denom,omitempty"`
+	// denom defines the base coin denomination
+	Denom string `protobuf:"bytes,1,opt,name=denom,proto3" json:"denom,omitempty"`
+	// extended_denom defines the extended EVM coin denomination
 	ExtendedDenom string `protobuf:"bytes,2,opt,name=extended_denom,json=extendedDenom,proto3" json:"extended_denom,omitempty"`
-	DisplayDenom  string `protobuf:"bytes,3,opt,name=display_denom,json=displayDenom,proto3" json:"display_denom,omitempty"`
-	// decimals is now deprecated and will be removed in a future release. When it is removed we will assume
-	// the evm token denom is 18 decimal precision.
+	// display_denom defines the display denomination
+	DisplayDenom string `protobuf:"bytes,3,opt,name=display_denom,json=displayDenom,proto3" json:"display_denom,omitempty"`
+	// decimals is now deprecated and will be removed in a future release. When it
+	// is removed we will assume the evm token denom is 18 decimal precision.
 	Decimals uint32 `protobuf:"varint,4,opt,name=decimals,proto3" json:"decimals,omitempty"` // Deprecated: Do not use.
 }
 
