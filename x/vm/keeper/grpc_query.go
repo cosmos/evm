@@ -268,6 +268,12 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 		}
 	}
 
+	// Align eth_call's KV gas accounting with deliverTx: clear KV/transient gas
+	// configs so EVM-internal cosmos-sdk store ops (e.g. precompile.FlushToCacheCtx)
+	// don't charge gas. Otherwise eth_call would report a stricter floor than
+	// real broadcast for txs reaching native precompiles.
+	ctx = evmante.BuildEvmExecutionCtx(ctx)
+
 	var args types.TransactionArgs
 	err = json.Unmarshal(req.Args, &args)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -2209,6 +2210,40 @@ func (s *KeeperTestSuite) TestEthCall() {
 			s.Require().NoError(err)
 		})
 	}
+}
+
+// TestEthCallGasMatchesDeliverTxForNativePrecompile asserts that EthCall and
+// a broadcasted tx report the same GasUsed when targeting a native precompile,
+// covering the BuildEvmExecutionCtx call added to EthCall.
+func (s *KeeperTestSuite) TestEthCallGasMatchesDeliverTxForNativePrecompile() {
+	s.SetupTest()
+
+	sender := s.Keyring.GetKey(0)
+	to := common.HexToAddress(types.BankPrecompileAddress)
+	data, err := bankprecompile.ABI.Pack(bankprecompile.BalancesMethod, sender.Addr)
+	s.Require().NoError(err)
+
+	gas := hexutil.Uint64(500_000)
+	args, err := json.Marshal(&types.TransactionArgs{
+		From: &sender.Addr, To: &to, Data: (*hexutil.Bytes)(&data), Gas: &gas,
+	})
+	s.Require().NoError(err)
+
+	callRes, err := s.Network.GetEvmClient().EthCall(s.Network.GetContext(), &types.EthCallRequest{
+		Args: args, GasCap: config.DefaultGasCap,
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(callRes.VmError)
+
+	txRes, err := s.Factory.ExecuteEthTx(sender.Priv, types.EvmTxArgs{
+		To: &to, GasLimit: uint64(gas), Input: data,
+	})
+	s.Require().NoError(err)
+	deliverRes, err := types.DecodeTxResponse(txRes.Data)
+	s.Require().NoError(err)
+	s.Require().Empty(deliverRes.VmError)
+
+	s.Require().Equal(deliverRes.GasUsed, callRes.GasUsed)
 }
 
 func (s *KeeperTestSuite) TestBalance() {
