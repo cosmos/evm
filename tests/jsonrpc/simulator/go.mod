@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/ethereum/go-ethereum v1.17.0
 	github.com/fatih/color v1.16.0
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.3
 	github.com/status-im/keycard-go v0.2.0
 	github.com/xuri/excelize/v2 v2.11.0
 )
