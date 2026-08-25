@@ -9,6 +9,7 @@
 
 ### API-BREAKING
 
+- [\#1270](https://github.com/cosmos/evm/pull/1270) Add `DeleteNewContractAccount` to `statedb.Keeper` and the expected EVM keeper interfaces; downstream implementations must provide the new method.
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
 
 ### IMPROVEMENTS
@@ -42,6 +43,7 @@
 
 ### BUG FIXES
 
+- [\#1270](https://github.com/cosmos/evm/pull/1270) Fix EIP-6780 `SELFDESTRUCT` for contract creation at pre-funded addresses when init code produces no runtime code.
 - [\#1265](https://github.com/cosmos/evm/pull/1265) Apply `json-rpc.evm-timeout` to `eth_estimateGas`, matching `eth_call`.
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 - [\#1214](https://github.com/cosmos/evm/pull/1214) Emit the canonical CometBFT block hash in the `newHeads` subscription so it matches `eth_getBlockByNumber` (completes [\#725](https://github.com/cosmos/evm/pull/725)).
