@@ -327,14 +327,29 @@ func (k *Keeper) DeleteCode(ctx sdk.Context, codeHash []byte) {
 	)
 }
 
-// DeleteAccount handles contract's suicide call:
-// - clear balance
-// - remove code
-// - remove states
-// - remove the code hash
-// - remove auth account
+// DeleteAccount removes a persisted contract after SELFDESTRUCT:
+// - clear its balance
+// - remove its storage
+// - remove its address-to-code-hash mapping
+// - remove its auth account
+//
+// Contract bytecode is content-addressed and may be shared, so it is not
+// removed from the code store here.
 func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address) error {
-	ctx, span := ctx.StartSpan(tracer, "DeleteAccount", trace.WithAttributes(attribute.String("address", addr.Hex())))
+	return k.deleteAccount(ctx, addr, false)
+}
+
+// DeleteNewContractAccount deletes a contract that the caller verified was
+// created in the current EVM transaction.
+func (k *Keeper) DeleteNewContractAccount(ctx sdk.Context, addr common.Address) error {
+	return k.deleteAccount(ctx, addr, true)
+}
+
+func (k *Keeper) deleteAccount(ctx sdk.Context, addr common.Address, isNewContract bool) error {
+	ctx, span := ctx.StartSpan(tracer, "DeleteAccount", trace.WithAttributes(
+		attribute.String("address", addr.Hex()),
+		attribute.Bool("new_contract", isNewContract),
+	))
 	defer span.End()
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
@@ -343,7 +358,7 @@ func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address) error {
 	}
 
 	// NOTE: only Ethereum contracts can be self-destructed
-	if !k.IsContract(ctx, addr) {
+	if !isNewContract && !k.IsContract(ctx, addr) {
 		return errors.New("only smart contracts can be self-destructed")
 	}
 
