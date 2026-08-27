@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,6 +23,15 @@ type loopingError struct{}
 
 func (loopingError) Error() string   { return "loop" }
 func (e loopingError) Unwrap() error { return e }
+
+type testRevertDataCarrier struct {
+	data []byte
+	err  error
+}
+
+func (e *testRevertDataCarrier) Error() string      { return e.err.Error() }
+func (e *testRevertDataCarrier) RevertData() []byte { return e.data }
+func (e *testRevertDataCarrier) Unwrap() error      { return e.err }
 
 func TestExtractCosmosErrorKey(t *testing.T) {
 	tests := []struct {
@@ -177,6 +187,79 @@ func TestTranslateCosmosError(t *testing.T) {
 	translation = TranslateCosmosError(moduleABI, registry, plain)
 	require.Equal(t, MappingKindInternal, translation.Kind)
 	require.ErrorIs(t, translation.Revert, plain)
+}
+
+func TestQueryError(t *testing.T) {
+	moduleABI := mustTestABI(t, `[
+		{"type":"error","name":"ModuleFailure","inputs":[]},
+		{"type":"error","name":"QueryFailed","inputs":[{"name":"queryMethod","type":"string"},{"name":"reason","type":"string"}]},
+		{"type":"error","name":"SDKUnauthorized","inputs":[]},
+		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
+	]`)
+	registry, err := NewCosmosErrorRegistry(
+		moduleABI,
+		CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "ModuleFailure")},
+		CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, SolidityErrSDKUnauthorized)},
+		nil,
+	)
+	require.NoError(t, err)
+
+	t.Run("nil", func(t *testing.T) {
+		require.NoError(t, QueryError(moduleABI, registry, "query", nil))
+	})
+
+	t.Run("out of gas", func(t *testing.T) {
+		require.Same(t, vm.ErrOutOfGas, QueryError(moduleABI, registry, "query", vm.ErrOutOfGas))
+	})
+
+	t.Run("wrapped revert data carrier", func(t *testing.T) {
+		revertData := []byte{0xde, 0xad, 0xbe, 0xef, 0x01, 0x02}
+		wrapped := fmt.Errorf("outer: %w", &testRevertDataCarrier{data: revertData, err: sdkerrors.ErrUnauthorized})
+		got := QueryError(moduleABI, registry, "query", wrapped)
+		require.Same(t, wrapped, got)
+		var carrier RevertDataCarrier
+		require.ErrorAs(t, got, &carrier)
+		require.Equal(t, revertData, carrier.RevertData())
+	})
+
+	t.Run("module mapping", func(t *testing.T) {
+		got := QueryError(moduleABI, registry, "query", errorsmod.Wrap(errPhaseOneSynthetic, "diagnostic"))
+		require.Equal(t, errorSelector(moduleABI, "ModuleFailure"), got.(RevertDataCarrier).RevertData())
+	})
+
+	t.Run("shared SDK mapping", func(t *testing.T) {
+		got := QueryError(moduleABI, registry, "query", errorsmod.Wrap(sdkerrors.ErrUnauthorized, "diagnostic"))
+		require.Equal(t, errorSelector(moduleABI, SolidityErrSDKUnauthorized), got.(RevertDataCarrier).RevertData())
+	})
+
+	t.Run("unmapped registered Cosmos error", func(t *testing.T) {
+		unmapped := errorsmod.Register("query-unmapped", 9, "unstable reason")
+		got := QueryError(moduleABI, registry, "query", unmapped)
+		data := got.(RevertDataCarrier).RevertData()
+		require.Equal(t, errorSelector(moduleABI, SolidityErrUnmappedCosmosError), data[:4])
+		decoded, unpackErr := moduleABI.Errors[SolidityErrUnmappedCosmosError].Inputs.Unpack(data[4:])
+		require.NoError(t, unpackErr)
+		require.Equal(t, []interface{}{"query-unmapped", uint32(9)}, decoded)
+	})
+
+	for _, tc := range []struct {
+		name   string
+		err    error
+		reason string
+	}{
+		{name: "plain Go error", err: errors.New("backend unavailable"), reason: "backend unavailable"},
+		{name: "matching SDK error text is not registered identity", err: errors.New(sdkerrors.ErrUnauthorized.Error()), reason: sdkerrors.ErrUnauthorized.Error()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := QueryError(moduleABI, registry, "query", tc.err)
+			data := got.(RevertDataCarrier).RevertData()
+			require.Equal(t, []byte{0xeb, 0x02, 0x19, 0x65}, data[:4], "QueryFailed(string,string) selector must remain stable")
+			require.Equal(t, errorSelector(moduleABI, SolidityErrQueryFailed), data[:4])
+			decoded, unpackErr := moduleABI.Errors[SolidityErrQueryFailed].Inputs.Unpack(data[4:])
+			require.NoError(t, unpackErr)
+			require.Equal(t, []interface{}{"query", tc.reason}, decoded)
+		})
+	}
 }
 
 func TestCosmosErrorRegistryFreezesDeclarationInputs(t *testing.T) {
