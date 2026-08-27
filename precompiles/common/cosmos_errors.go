@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -356,6 +357,23 @@ func TranslateCosmosError(moduleABI abi.ABI, registry *CosmosErrorRegistry, err 
 		Revert: NewRevertWithSolidityError(moduleABI, SolidityErrUnmappedCosmosError, key.Codespace, key.Code),
 		Kind:   MappingKindUnmapped, Key: key, IsUnmapped: true,
 	}
+}
+
+// QueryError preserves terminal EVM errors and existing Solidity revert data,
+// translates registered Cosmos errors, and wraps only internal errors as QueryFailed.
+func QueryError(moduleABI abi.ABI, registry *CosmosErrorRegistry, method string, err error) error {
+	if err == nil || errors.Is(err, vm.ErrOutOfGas) {
+		return err
+	}
+	var carrier RevertDataCarrier
+	if errors.As(err, &carrier) {
+		return err
+	}
+	translation := TranslateCosmosError(moduleABI, registry, err)
+	if translation.Kind != MappingKindInternal {
+		return translation.Revert
+	}
+	return NewRevertWithSolidityError(moduleABI, SolidityErrQueryFailed, method, err.Error())
 }
 
 type ErrorBoundary uint8
