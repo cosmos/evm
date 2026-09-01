@@ -58,11 +58,6 @@ type DenomResponse struct {
 	Denom transfertypes.Denom
 }
 
-// PageRequest defines the data for the page request.
-type PageRequest struct {
-	PageRequest query.PageRequest
-}
-
 // DenomsResponse defines the data for the denoms response.
 type DenomsResponse struct {
 	Denoms       []transfertypes.Denom
@@ -209,13 +204,13 @@ func NewDenomsRequest(method *abi.Method, args []interface{}) (*transfertypes.Qu
 		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
-	var pageRequest PageRequest
-	if err := safeCopyInputs(method, args, &pageRequest); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, err.Error())
+	pageRequest, err := cmn.PageRequestFromArg(ABI, method.Name, 0, args[0])
+	if err != nil {
+		return nil, err
 	}
 
 	req := &transfertypes.QueryDenomsRequest{
-		Pagination: &pageRequest.PageRequest,
+		Pagination: &pageRequest,
 	}
 
 	return req, nil
@@ -247,16 +242,4 @@ func CheckOriginAndSender(contract *vm.Contract, origin common.Address, sender c
 		return common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf(ErrDifferentOriginFromSender, origin.String(), sender.String()))
 	}
 	return sender, nil
-}
-
-// safeCopyInputs is a helper function to safely copy inputs from the method to the args.
-// It recovers from any panic that might occur during the copy operation and returns an error instead.
-func safeCopyInputs(method *abi.Method, args []interface{}, pageRequest *PageRequest) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic during method.Inputs.Copy: %v", r)
-		}
-	}()
-	err = method.Inputs.Copy(pageRequest, args)
-	return err
 }

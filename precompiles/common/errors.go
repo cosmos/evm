@@ -40,6 +40,8 @@ const (
 
 	// SolidityErrInvalidNumberOfArgs is invalid number of arguments
 	SolidityErrInvalidNumberOfArgs = "InvalidNumberOfArgs"
+	// SolidityErrInvalidPageRequest is invalid Cosmos pagination input
+	SolidityErrInvalidPageRequest = "InvalidPageRequest"
 	// SolidityErrInvalidAddress is invalid address
 	SolidityErrInvalidAddress = "InvalidAddress"
 	// SolidityErrInvalidAmount is invalid amount

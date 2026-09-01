@@ -11,6 +11,7 @@ interface IPrecompile {
     error InvalidPubkeySize(uint256 got, uint256 expected);
     error ABISetupFailed(string reason);
     error InvalidNumberOfArgs(uint256 expected, uint256 got);
+    error InvalidPageRequest(string method, uint256 index, string value);
     error UnknownMethod(string methodName);
     error QueryFailed(string queryMethod, string reason);
     error MsgServerFailed(string msgMethod, string reason);

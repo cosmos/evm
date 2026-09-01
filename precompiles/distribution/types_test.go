@@ -12,9 +12,62 @@ import (
 	"github.com/cosmos/evm/precompiles/testutil"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
 const validatorAddr = "cosmosvaloper1qqqqhe5pnaq5qq39wqkn957aydnrm45s2xz032"
+
+func TestNewValidatorSlashesRequestPagination(t *testing.T) {
+	method := ABI.Methods[ValidatorSlashesMethod]
+	pageRequest := query.PageRequest{
+		Key:        []byte("next"),
+		Offset:     2,
+		Limit:      25,
+		CountTotal: true,
+		Reverse:    true,
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		req, err := NewValidatorSlashesRequest(&method, []interface{}{validatorAddr, uint64(10), uint64(20), pageRequest})
+		require.NoError(t, err)
+		require.Equal(t, &pageRequest, req.Pagination)
+	})
+
+	t.Run("invalid pagination", func(t *testing.T) {
+		const invalidPagination = "invalid-pagination"
+		wantErr := cmn.NewRevertWithSolidityError(
+			ABI,
+			cmn.SolidityErrInvalidPageRequest,
+			ValidatorSlashesMethod,
+			big.NewInt(3),
+			invalidPagination,
+		)
+
+		req, err := NewValidatorSlashesRequest(&method, []interface{}{validatorAddr, uint64(10), uint64(20), invalidPagination})
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
+
+	t.Run("invalid height keeps precedence", func(t *testing.T) {
+		wantErr := cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, "invalid-height")
+
+		req, err := NewValidatorSlashesRequest(&method, []interface{}{validatorAddr, "invalid-height", uint64(20), "invalid-pagination"})
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
+
+	t.Run("non-pagination copy error keeps precedence", func(t *testing.T) {
+		args := []interface{}{uint64(1), uint64(10), uint64(20), "invalid-pagination"}
+		var input ValidatorSlashesInput
+		copyErr := method.Inputs.Copy(&input, args)
+		require.Error(t, copyErr)
+		wantErr := cmn.NewRevertWithSolidityError(ABI, SolidityErrDistributionValidatorSlashesUnpackFailed, copyErr.Error())
+
+		req, err := NewValidatorSlashesRequest(&method, args)
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
+}
 
 func TestNewMsgSetWithdrawAddress(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())

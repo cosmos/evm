@@ -692,5 +692,5 @@
   "deployedLinkReferences": {},
   "immutableReferences": {},
   "inputSourceName": "project/solidity/x/erc20/keeper/testdata/ERC20MaliciousDelayed.sol",
-  "buildInfoId": "solc-0_8_26-a1967f2a9b51b5d07c81bb121d63b0a10051d2d1"
+  "buildInfoId": "solc-0_8_26-e6e1f2543c7935876479bdf15633501728e9acbe"
 }

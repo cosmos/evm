@@ -299,9 +299,16 @@ func NewValidatorSlashesRequest(method *abi.Method, args []interface{}) (*distri
 	}
 
 	var input ValidatorSlashesInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
+	copyArgs := append([]interface{}(nil), args...)
+	copyArgs[3] = query.PageRequest{}
+	if err := method.Inputs.Copy(&input, copyArgs); err != nil {
 		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrDistributionValidatorSlashesUnpackFailed, err.Error())
 	}
+	pagination, err := cmn.PageRequestFromArg(ABI, ValidatorSlashesMethod, 3, args[3])
+	if err != nil {
+		return nil, err
+	}
+	input.PageRequest = pagination
 
 	return &distributiontypes.QueryValidatorSlashesRequest{
 		ValidatorAddress: input.ValidatorAddress,

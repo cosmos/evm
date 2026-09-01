@@ -38,11 +38,6 @@ type SigningInfosOutput struct {
 	PageResponse query.PageResponse `abi:"pageResponse"`
 }
 
-// SigningInfosInput represents the input for the signing infos query
-type SigningInfosInput struct {
-	Pagination query.PageRequest `abi:"pagination"`
-}
-
 // ParseSigningInfoArgs parses the arguments for the signing info query
 func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashingtypes.QuerySigningInfoRequest, error) {
 	if len(args) != 1 {
@@ -70,13 +65,13 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
-	var input SigningInfosInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrSlashingInputInvalid, GetSigningInfosMethod, err.Error())
+	pageRequest, err := cmn.PageRequestFromArg(ABI, method.Name, 0, args[0])
+	if err != nil {
+		return nil, err
 	}
 
 	return &slashingtypes.QuerySigningInfosRequest{
-		Pagination: &input.Pagination,
+		Pagination: &pageRequest,
 	}, nil
 }
 
