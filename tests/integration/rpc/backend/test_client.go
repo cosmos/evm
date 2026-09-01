@@ -66,6 +66,23 @@ func RegisterBroadcastTxError(client *mocks.Client, tx types.Tx) {
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
+// encodeTx returns the bytes the backend broadcasts for tx without an EVM mempool.
+func (s *TestSuite) encodeTx(tx sdk.Tx) []byte {
+	bz, err := s.backend.ClientCtx.TxConfig.TxEncoder()(tx)
+	s.Require().NoError(err)
+	return bz
+}
+
+// RegisterBroadcastTxCheckTxError mocks a tx rejected by CheckTx (non-zero result code).
+func RegisterBroadcastTxCheckTxError(client *mocks.Client, tx types.Tx) {
+	client.EXPECT().BroadcastTxSync(mock.Anything, tx).
+		Return(&cmtrpctypes.ResultBroadcastTx{
+			Code:      errortypes.ErrInsufficientFunds.ABCICode(),
+			Codespace: errortypes.ErrInsufficientFunds.Codespace(),
+			Log:       "insufficient funds",
+		}, nil)
+}
+
 // Unconfirmed Transactions
 
 func RegisterUnconfirmedTxs(client *mocks.Client, limit *int, txs []types.Tx) {
