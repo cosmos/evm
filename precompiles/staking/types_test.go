@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -637,4 +638,76 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStakingPaginationConversionFailuresUseSharedError(t *testing.T) {
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	tests := []struct {
+		name       string
+		methodName string
+		index      int64
+		call       func(*abi.Method) error
+	}{
+		{
+			name:       "validators",
+			methodName: ValidatorsMethod,
+			index:      1,
+			call: func(method *abi.Method) error {
+				_, err := NewValidatorsRequest(method, []interface{}{"", "bad-page"})
+				return err
+			},
+		},
+		{
+			name:       "redelegations",
+			methodName: RedelegationsMethod,
+			index:      3,
+			call: func(method *abi.Method) error {
+				_, err := NewRedelegationsRequest(method, []interface{}{common.Address{}, "", "", "bad-page"}, addrCodec)
+				return err
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			method := ABI.Methods[tc.methodName]
+			err := tc.call(&method)
+			expected := cmn.NewRevertWithSolidityError(
+				ABI,
+				cmn.SolidityErrInvalidPageRequest,
+				tc.methodName,
+				big.NewInt(tc.index),
+				"bad-page",
+			)
+			testutil.RequireExactError(t, err, expected)
+		})
+	}
+}
+
+func TestStakingPaginationPreservesEarlierCopyErrors(t *testing.T) {
+	t.Run("validators", func(t *testing.T) {
+		method := ABI.Methods[ValidatorsMethod]
+		args := []interface{}{uint64(1), "bad-page"}
+		var input ValidatorsInput
+		copyErr := method.Inputs.Copy(&input, args)
+		require.Error(t, copyErr)
+
+		req, err := NewValidatorsRequest(&method, args)
+		require.EqualError(t, err, "error while unpacking args to ValidatorsInput struct: "+copyErr.Error())
+		require.Nil(t, req)
+	})
+
+	t.Run("redelegations", func(t *testing.T) {
+		method := ABI.Methods[RedelegationsMethod]
+		args := []interface{}{common.Address{}, uint64(1), "", "bad-page"}
+		var input RedelegationsInput
+		copyErr := method.Inputs.Copy(&input, args)
+		require.Error(t, copyErr)
+		wantErr := cmn.NewRevertWithSolidityError(ABI, SolidityErrRedelegationsInputUnpackFailed, copyErr.Error())
+		addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+
+		req, err := NewRedelegationsRequest(&method, args, addrCodec)
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
 }

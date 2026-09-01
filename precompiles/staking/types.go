@@ -425,11 +425,17 @@ func NewValidatorsRequest(method *abi.Method, args []interface{}) (*stakingtypes
 	if len(args) != 2 {
 		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
-
 	var input ValidatorsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
+	copyArgs := append([]interface{}(nil), args...)
+	copyArgs[1] = query.PageRequest{}
+	if err := method.Inputs.Copy(&input, copyArgs); err != nil {
 		return nil, fmt.Errorf("error while unpacking args to ValidatorsInput struct: %s", err)
 	}
+	pageRequest, err := cmn.PageRequestFromArg(ABI, method.Name, 1, args[1])
+	if err != nil {
+		return nil, err
+	}
+	input.PageRequest = pageRequest
 
 	if bytes.Equal(input.PageRequest.Key, []byte{0}) {
 		input.PageRequest.Key = nil
@@ -480,16 +486,22 @@ func NewRedelegationsRequest(method *abi.Method, args []interface{}, addrCdc add
 	if len(args) != 4 {
 		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(int64(len(args))))
 	}
-
 	// delAddr, srcValAddr & dstValAddr
 	// can be empty strings. The query will return the
 	// corresponding redelegations according to the addresses specified
 	// however, cannot pass all as empty strings, need to provide at least
 	// the delegator address or the source validator address
 	var input RedelegationsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
+	copyArgs := append([]interface{}(nil), args...)
+	copyArgs[3] = query.PageRequest{}
+	if err := method.Inputs.Copy(&input, copyArgs); err != nil {
 		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrRedelegationsInputUnpackFailed, err.Error())
 	}
+	pageRequest, err := cmn.PageRequestFromArg(ABI, method.Name, 3, args[3])
+	if err != nil {
+		return nil, err
+	}
+	input.PageRequest = pageRequest
 
 	var (
 		// delegatorAddr is the string representation of the delegator address

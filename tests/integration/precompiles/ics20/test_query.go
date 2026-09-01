@@ -42,8 +42,10 @@ func (s *PrecompileTestSuite) TestDenoms() {
 			expErr:   true,
 			wantErr: cmn.NewRevertWithSolidityError(
 				ics20.ABI,
-				cmn.SolidityErrInvalidAddress,
-				"panic during method.Inputs.Copy: reflect: call of reflect.Value.NumField on bool Value",
+				cmn.SolidityErrInvalidPageRequest,
+				ics20.DenomsMethod,
+				big.NewInt(0),
+				"true",
 			),
 		},
 		{

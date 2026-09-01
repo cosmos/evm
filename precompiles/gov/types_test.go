@@ -13,7 +13,120 @@ import (
 	"github.com/cosmos/evm/precompiles/testutil"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
+
+func TestParsePaginationArgs(t *testing.T) {
+	pageRequest := query.PageRequest{
+		Key:        []byte("next"),
+		Offset:     2,
+		Limit:      25,
+		CountTotal: true,
+		Reverse:    true,
+	}
+	invalidPagination := "invalid-pagination"
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+
+	tests := []struct {
+		name       string
+		methodName string
+		index      int64
+		parse      func(*testing.T, *query.PageRequest, error)
+	}{
+		{
+			name:       "getVotes",
+			methodName: GetVotesMethod,
+			index:      1,
+			parse: func(t *testing.T, want *query.PageRequest, wantErr error) {
+				t.Helper()
+				method := ABI.Methods[GetVotesMethod]
+				req, err := ParseVotesArgs(&method, []interface{}{uint64(7), paginationArg(want, invalidPagination)})
+				if wantErr != nil {
+					testutil.RequireExactError(t, err, wantErr)
+					require.Nil(t, req)
+					return
+				}
+				assertPaginationRequest(t, req.GetPagination(), err, want)
+			},
+		},
+		{
+			name:       "getDeposits",
+			methodName: GetDepositsMethod,
+			index:      1,
+			parse: func(t *testing.T, want *query.PageRequest, wantErr error) {
+				t.Helper()
+				method := ABI.Methods[GetDepositsMethod]
+				req, err := ParseDepositsArgs(&method, []interface{}{uint64(7), paginationArg(want, invalidPagination)})
+				if wantErr != nil {
+					testutil.RequireExactError(t, err, wantErr)
+					require.Nil(t, req)
+					return
+				}
+				assertPaginationRequest(t, req.GetPagination(), err, want)
+			},
+		},
+		{
+			name:       "getProposals",
+			methodName: GetProposalsMethod,
+			index:      3,
+			parse: func(t *testing.T, want *query.PageRequest, wantErr error) {
+				t.Helper()
+				method := ABI.Methods[GetProposalsMethod]
+				req, err := ParseProposalsArgs(&method, []interface{}{uint32(1), common.Address{}, common.Address{}, paginationArg(want, invalidPagination)}, addrCodec)
+				if wantErr != nil {
+					testutil.RequireExactError(t, err, wantErr)
+					require.Nil(t, req)
+					return
+				}
+				assertPaginationRequest(t, req.GetPagination(), err, want)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" valid", func(t *testing.T) {
+			tt.parse(t, &pageRequest, nil)
+		})
+
+		t.Run(tt.name+" invalid pagination", func(t *testing.T) {
+			wantErr := cmn.NewRevertWithSolidityError(
+				ABI,
+				cmn.SolidityErrInvalidPageRequest,
+				tt.methodName,
+				big.NewInt(tt.index),
+				invalidPagination,
+			)
+			tt.parse(t, nil, wantErr)
+		})
+	}
+}
+
+func TestParseVotesArgsPreservesNonPaginationCopyError(t *testing.T) {
+	method := ABI.Methods[GetVotesMethod]
+	args := []interface{}{"invalid-proposal-id", "invalid-pagination"}
+
+	var input VotesInput
+	copyErr := method.Inputs.Copy(&input, args)
+	require.Error(t, copyErr)
+	wantErr := cmn.NewRevertWithSolidityError(ABI, SolidityErrVotesInputUnpackFailed, copyErr.Error())
+
+	req, err := ParseVotesArgs(&method, args)
+	testutil.RequireExactError(t, err, wantErr)
+	require.Nil(t, req)
+}
+
+func paginationArg(pageRequest *query.PageRequest, invalid interface{}) interface{} {
+	if pageRequest == nil {
+		return invalid
+	}
+	return *pageRequest
+}
+
+func assertPaginationRequest(t *testing.T, got *query.PageRequest, err error, want *query.PageRequest) {
+	t.Helper()
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
 
 func TestNewMsgDeposit(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())

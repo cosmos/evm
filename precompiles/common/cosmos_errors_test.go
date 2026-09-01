@@ -476,6 +476,7 @@ func TestEffectiveABIValidationRejectsSignatureAndSelectorCollisions(t *testing.
 
 func TestSharedABIContainsApprovedErrors(t *testing.T) {
 	for _, name := range []string{
+		SolidityErrInvalidPageRequest,
 		"SDKUnauthorized", "SDKInsufficientFunds", "SDKInvalidAddress", "SDKInvalidCoins",
 		"SDKInvalidRequest", "SDKInvalidType", "SDKNotFound", "UnmappedCosmosError",
 	} {

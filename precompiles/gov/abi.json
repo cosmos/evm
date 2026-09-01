@@ -213,6 +213,27 @@
     "inputs": [
       {
         "internalType": "string",
+        "name": "method",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "value",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidPageRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
         "name": "reason",
         "type": "string"
       }

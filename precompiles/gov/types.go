@@ -363,9 +363,16 @@ func ParseVotesArgs(method *abi.Method, args []interface{}) (*govv1.QueryVotesRe
 	}
 
 	var input VotesInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
+	copyArgs := append([]interface{}(nil), args...)
+	copyArgs[1] = query.PageRequest{}
+	if err := method.Inputs.Copy(&input, copyArgs); err != nil {
 		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrVotesInputUnpackFailed, err.Error())
 	}
+	pagination, err := cmn.PageRequestFromArg(ABI, GetVotesMethod, 1, args[1])
+	if err != nil {
+		return nil, err
+	}
+	input.Pagination = pagination
 
 	return &govv1.QueryVotesRequest{
 		ProposalId: input.ProposalId,
@@ -482,9 +489,16 @@ func ParseDepositsArgs(method *abi.Method, args []interface{}) (*govv1.QueryDepo
 	}
 
 	var input DepositsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
+	copyArgs := append([]interface{}(nil), args...)
+	copyArgs[1] = query.PageRequest{}
+	if err := method.Inputs.Copy(&input, copyArgs); err != nil {
 		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrDepositsInputUnpackFailed, err.Error())
 	}
+	pagination, err := cmn.PageRequestFromArg(ABI, GetDepositsMethod, 1, args[1])
+	if err != nil {
+		return nil, err
+	}
+	input.Pagination = pagination
 
 	return &govv1.QueryDepositsRequest{
 		ProposalId: input.ProposalId,
@@ -626,9 +640,16 @@ func ParseProposalsArgs(method *abi.Method, args []interface{}, addrCdc address.
 	}
 
 	var input ProposalsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
+	copyArgs := append([]interface{}(nil), args...)
+	copyArgs[3] = query.PageRequest{}
+	if err := method.Inputs.Copy(&input, copyArgs); err != nil {
 		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrProposalsInputUnpackFailed, err.Error())
 	}
+	pagination, err := cmn.PageRequestFromArg(ABI, GetProposalsMethod, 3, args[3])
+	if err != nil {
+		return nil, err
+	}
+	input.Pagination = pagination
 
 	voter := ""
 	if input.Voter != (common.Address{}) {
