@@ -9,6 +9,9 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "chai": "^4.5.0",
     "mocha": "^11.1.0"

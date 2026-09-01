@@ -238,6 +238,7 @@ func NewMempool(
 	// Setup queues
 	mempool.evmInsertQueue = queue.New(
 		"evm",
+		logger,
 		func(txs []*ethtypes.Transaction) []error {
 			return txPool.Add(txs, AllowUnsafeSyncInsert)
 		},
@@ -246,6 +247,7 @@ func NewMempool(
 
 	mempool.cosmosInsertQueue = queue.New(
 		"cosmos",
+		logger,
 		func(txs []*sdk.Tx) []error {
 			errs := make([]error, len(txs))
 			for i, tx := range txs {

@@ -5,6 +5,7 @@
 ### DEPENDENCIES
 
 - [\#1232](https://github.com/cosmos/evm/pull/1232) Bump `ibc-go` to `v11.1.0`.
+- [\#1250](https://github.com/cosmos/evm/pull/1250) Require Node.js `>=22` to compile the Solidity contracts and run the JavaScript test suites (`contracts/`, `tests/contracts/`, `tests/evm-tools-compatibility/*`).
 
 ### API-BREAKING
 
@@ -41,6 +42,7 @@
 
 ### BUG FIXES
 
+- [\#1265](https://github.com/cosmos/evm/pull/1265) Apply `json-rpc.evm-timeout` to `eth_estimateGas`, matching `eth_call`.
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 - [\#1214](https://github.com/cosmos/evm/pull/1214) Emit the canonical CometBFT block hash in the `newHeads` subscription so it matches `eth_getBlockByNumber` (completes [\#725](https://github.com/cosmos/evm/pull/725)).
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
@@ -71,6 +73,7 @@
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
+- [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 
 ## v0.6.0
 
