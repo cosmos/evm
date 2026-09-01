@@ -230,8 +230,8 @@ github.com/cosmos/cosmos-sdk/tools/systemtests v0.0.0-20260505173942-e77c24c3eda
 github.com/cosmos/cosmos-sdk/tools/systemtests v0.0.0-20260505173942-e77c24c3eda7/go.mod h1:KODZKT+GdXHy/pZZ3u0OgQAykofeFRhL0F0Ks5fOqxE=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
-github.com/cosmos/go-ethereum v1.17.2-cosmos-0 h1:V1vadF7/miUwwbNh3iiqNM51aHAG/5mzRCeIdcdostw=
-github.com/cosmos/go-ethereum v1.17.2-cosmos-0/go.mod h1:KHcRXfGOUfUmKg51IhQ0IowiqZ6PqZf08CMtk0g5K1o=
+github.com/cosmos/go-ethereum v1.17.2-cosmos-1 h1:X1Ln0NzGajUJ7Cuvgoj6i/604RqPww2A9BX0ozSJrj8=
+github.com/cosmos/go-ethereum v1.17.2-cosmos-1/go.mod h1:KHcRXfGOUfUmKg51IhQ0IowiqZ6PqZf08CMtk0g5K1o=
 github.com/cosmos/gogogateway v1.2.0 h1:Ae/OivNhp8DqBi/sh2A8a1D0y638GpL3tkmLQAiKxTE=
 github.com/cosmos/gogogateway v1.2.0/go.mod h1:iQpLkGWxYcnCdz5iAdLcRBSw3h7NXeOkZ4GUkT+tbFI=
 github.com/cosmos/gogoproto v1.4.2/go.mod h1:cLxOsn1ljAHSV527CHOtaIP91kK6cCrZETRBrkzItWU=
