@@ -143,29 +143,29 @@ func ApprovedOverrideDeclarations() OverrideDeclarations {
 }
 
 // CosmosErrorRegistry is the immutable runtime lookup built from validated
-// module and shared declaration tiers.
+// precompile and shared SDK declaration tiers.
 type CosmosErrorRegistry struct {
-	module map[CosmosErrorKey]CosmosErrorMapping
-	shared map[CosmosErrorKey]CosmosErrorMapping
+	precompile map[CosmosErrorKey]CosmosErrorMapping
+	sharedSDK  map[CosmosErrorKey]CosmosErrorMapping
 }
 
 func NewCosmosErrorRegistry(
 	effectiveABI abi.ABI,
-	moduleMappings CosmosErrorMappings,
-	sharedMappings CosmosErrorMappings,
+	precompileMappings CosmosErrorMappings,
+	sharedSDKMappings CosmosErrorMappings,
 	overrides OverrideDeclarations,
 ) (*CosmosErrorRegistry, error) {
-	module, err := validateMappingTier("module", effectiveABI, moduleMappings)
+	precompile, err := validateMappingTier("precompile", effectiveABI, precompileMappings)
 	if err != nil {
 		return nil, err
 	}
-	shared, err := validateMappingTier("shared", effectiveABI, sharedMappings)
+	sharedSDK, err := validateMappingTier("shared SDK", effectiveABI, sharedSDKMappings)
 	if err != nil {
 		return nil, err
 	}
-	for key := range module {
-		if _, ok := shared[key]; ok {
-			return nil, fmt.Errorf("module/shared ownership overlap for %s:%d", key.Codespace, key.Code)
+	for key := range precompile {
+		if _, ok := sharedSDK[key]; ok {
+			return nil, fmt.Errorf("precompile/shared SDK ownership overlap for %s:%d", key.Codespace, key.Code)
 		}
 	}
 	if err := validateEffectiveABI(effectiveABI); err != nil {
@@ -209,10 +209,10 @@ func NewCosmosErrorRegistry(
 		}
 		seenShadows[shadowIdentity] = struct{}{}
 		lowerTierOwners := 0
-		if _, exists := module[override.ShadowedKey]; exists {
+		if _, exists := precompile[override.ShadowedKey]; exists {
 			lowerTierOwners++
 		}
-		if _, exists := shared[override.ShadowedKey]; exists {
+		if _, exists := sharedSDK[override.ShadowedKey]; exists {
 			lowerTierOwners++
 		}
 		if lowerTierOwners != 1 {
@@ -224,16 +224,16 @@ func NewCosmosErrorRegistry(
 			)
 		}
 	}
-	return &CosmosErrorRegistry{module: module, shared: shared}, nil
+	return &CosmosErrorRegistry{precompile: precompile, sharedSDK: sharedSDK}, nil
 }
 
 func ValidateCosmosErrorRegistry(
 	effectiveABI abi.ABI,
-	moduleMappings CosmosErrorMappings,
-	sharedMappings CosmosErrorMappings,
+	precompileMappings CosmosErrorMappings,
+	sharedSDKMappings CosmosErrorMappings,
 	overrides OverrideDeclarations,
 ) error {
-	_, err := NewCosmosErrorRegistry(effectiveABI, moduleMappings, sharedMappings, overrides)
+	_, err := NewCosmosErrorRegistry(effectiveABI, precompileMappings, sharedSDKMappings, overrides)
 	return err
 }
 
@@ -312,14 +312,14 @@ func ValidateSharedErrorABI(effectiveABI abi.ABI) error {
 
 func MustNewCosmosErrorRegistry(
 	effectiveABI abi.ABI,
-	moduleMappings CosmosErrorMappings,
-	sharedMappings CosmosErrorMappings,
+	precompileMappings CosmosErrorMappings,
+	sharedSDKMappings CosmosErrorMappings,
 	overrides OverrideDeclarations,
 ) *CosmosErrorRegistry {
 	if err := ValidateSharedErrorABI(effectiveABI); err != nil {
 		panic(err)
 	}
-	registry, err := NewCosmosErrorRegistry(effectiveABI, moduleMappings, sharedMappings, overrides)
+	registry, err := NewCosmosErrorRegistry(effectiveABI, precompileMappings, sharedSDKMappings, overrides)
 	if err != nil {
 		panic(err)
 	}
@@ -330,7 +330,7 @@ type MappingKind uint8
 
 const (
 	MappingKindInternal MappingKind = iota
-	MappingKindModule
+	MappingKindPrecompile
 	MappingKindSharedSDK
 	MappingKindUnmapped
 )
@@ -347,10 +347,10 @@ func TranslateCosmosError(moduleABI abi.ABI, registry *CosmosErrorRegistry, err 
 	if !ok {
 		return ErrorTranslation{Revert: err, Kind: MappingKindInternal}
 	}
-	if mapping, found := registry.module[key]; found {
-		return ErrorTranslation{Revert: NewRevertWithSolidityError(moduleABI, mapping.SolidityError), Kind: MappingKindModule, Key: key}
+	if mapping, found := registry.precompile[key]; found {
+		return ErrorTranslation{Revert: NewRevertWithSolidityError(moduleABI, mapping.SolidityError), Kind: MappingKindPrecompile, Key: key}
 	}
-	if mapping, found := registry.shared[key]; found {
+	if mapping, found := registry.sharedSDK[key]; found {
 		return ErrorTranslation{Revert: NewRevertWithSolidityError(moduleABI, mapping.SolidityError), Kind: MappingKindSharedSDK, Key: key}
 	}
 	return ErrorTranslation{

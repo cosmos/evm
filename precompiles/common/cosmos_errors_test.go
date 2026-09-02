@@ -60,14 +60,14 @@ func TestExtractCosmosErrorKey(t *testing.T) {
 
 func TestCosmosErrorRegistryValidation(t *testing.T) {
 	moduleABI := mustTestABI(t, `[
-		{"type":"error","name":"ModuleFailure","inputs":[]},
+		{"type":"error","name":"PrecompileFailure","inputs":[]},
 		{"type":"error","name":"SDKUnauthorized","inputs":[]},
 		{"type":"error","name":"TypedOverride","inputs":[{"name":"value","type":"uint256"}]},
 		{"type":"error","name":"AlternateOverride","inputs":[{"name":"value","type":"uint256"}]},
 		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
 	]`)
-	module := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "ModuleFailure")}
-	shared := CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, "SDKUnauthorized")}
+	precompile := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")}
+	sharedSDK := CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, "SDKUnauthorized")}
 	overrides := OverrideDeclarations{{
 		ShadowedKey:       NewCosmosErrorKey(sdkerrors.ErrUnauthorized),
 		SoliditySignature: "TypedOverride(uint256)",
@@ -76,39 +76,39 @@ func TestCosmosErrorRegistryValidation(t *testing.T) {
 		Rationale:         "trusted call context",
 	}}
 
-	require.NoError(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, overrides))
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, append(module, module[0]), shared, overrides), "duplicate module mapping")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, append(shared, shared[0]), overrides), "duplicate shared mapping")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, shared, shared, overrides), "module/shared ownership overlap")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, CosmosErrorMappings{{Key: module[0].Key, SolidityError: "Missing"}}, shared, overrides), "missing ABI error")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, OverrideDeclarations{{
+	require.NoError(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, overrides))
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, append(precompile, precompile[0]), sharedSDK, overrides), "duplicate precompile mapping")
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, append(sharedSDK, sharedSDK[0]), overrides), "duplicate shared SDK mapping")
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, sharedSDK, sharedSDK, overrides), "precompile/shared SDK ownership overlap")
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, CosmosErrorMappings{{Key: precompile[0].Key, SolidityError: "Missing"}}, sharedSDK, overrides), "missing ABI error")
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, OverrideDeclarations{{
 		ShadowedKey:       overrides[0].ShadowedKey,
 		SoliditySignature: "TypedOverride(uint256)",
 		OwningABI:         "TestI",
 		Rationale:         "trusted call context",
 	}}), "stable source anchor")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, OverrideDeclarations{{
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, OverrideDeclarations{{
 		ShadowedKey:       overrides[0].ShadowedKey,
 		SoliditySignature: "TypedOverride(uint256)",
 		CallSiteAnchor:    "precompiles/common/cosmos_errors.go#OverrideDeclarations.ForABI",
 		Rationale:         "trusted call context",
 	}}), "exactly one owning ABI")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, OverrideDeclarations{{
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, OverrideDeclarations{{
 		ShadowedKey:       overrides[0].ShadowedKey,
 		SoliditySignature: "TypedOverride(uint256)",
 		OwningABI:         "TestI",
 		CallSiteAnchor:    "precompiles/common/cosmos_errors_test.go:54-80",
 		Rationale:         "trusted call context",
 	}}), "stable source anchor")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, OverrideDeclarations{{
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, OverrideDeclarations{{
 		ShadowedKey:       NewCosmosErrorKey(sdkerrors.ErrInsufficientFunds),
 		SoliditySignature: "TypedOverride(uint256)",
 		OwningABI:         "TestI",
 		CallSiteAnchor:    "precompiles/common/cosmos_errors.go#OverrideDeclarations.ForABI",
 		Rationale:         "trusted call context",
 	}}), "does not shadow exactly one lower-tier mapping")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, append(overrides, overrides[0])), "duplicate override ownership/signature")
-	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, module, shared, append(overrides, OverrideDeclaration{
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, append(overrides, overrides[0])), "duplicate override ownership/signature")
+	require.ErrorContains(t, ValidateCosmosErrorRegistry(moduleABI, precompile, sharedSDK, append(overrides, OverrideDeclaration{
 		ShadowedKey:       overrides[0].ShadowedKey,
 		SoliditySignature: "AlternateOverride(uint256)",
 		OwningABI:         "TestI",
@@ -149,14 +149,14 @@ func TestCosmosErrorRegistryValidationRejectsOverrideSignatureMissingFromEffecti
 
 func TestTranslateCosmosError(t *testing.T) {
 	moduleABI := mustTestABI(t, `[
-		{"type":"error","name":"ModuleFailure","inputs":[]},
+		{"type":"error","name":"PrecompileFailure","inputs":[]},
 		{"type":"error","name":"SDKUnauthorized","inputs":[]},
 		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
 	]`)
-	module := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "ModuleFailure")}
+	precompile := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")}
 	registry, err := NewCosmosErrorRegistry(
 		moduleABI,
-		module,
+		precompile,
 		CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, SolidityErrSDKUnauthorized)},
 		nil,
 	)
@@ -168,8 +168,8 @@ func TestTranslateCosmosError(t *testing.T) {
 	require.Equal(t, errorSelector(moduleABI, "SDKUnauthorized"), translation.Revert.(RevertDataCarrier).RevertData()[:4])
 
 	translation = TranslateCosmosError(moduleABI, registry, errPhaseOneSynthetic)
-	require.Equal(t, MappingKindModule, translation.Kind)
-	require.Equal(t, errorSelector(moduleABI, "ModuleFailure"), translation.Revert.(RevertDataCarrier).RevertData()[:4])
+	require.Equal(t, MappingKindPrecompile, translation.Kind)
+	require.Equal(t, errorSelector(moduleABI, "PrecompileFailure"), translation.Revert.(RevertDataCarrier).RevertData()[:4])
 
 	unmapped := errorsmod.Register("phase-one-unmapped", 8, "unmapped")
 	translation = TranslateCosmosError(moduleABI, registry, unmapped)
@@ -191,14 +191,14 @@ func TestTranslateCosmosError(t *testing.T) {
 
 func TestQueryError(t *testing.T) {
 	moduleABI := mustTestABI(t, `[
-		{"type":"error","name":"ModuleFailure","inputs":[]},
+		{"type":"error","name":"PrecompileFailure","inputs":[]},
 		{"type":"error","name":"QueryFailed","inputs":[{"name":"queryMethod","type":"string"},{"name":"reason","type":"string"}]},
 		{"type":"error","name":"SDKUnauthorized","inputs":[]},
 		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
 	]`)
 	registry, err := NewCosmosErrorRegistry(
 		moduleABI,
-		CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "ModuleFailure")},
+		CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")},
 		CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, SolidityErrSDKUnauthorized)},
 		nil,
 	)
@@ -222,9 +222,9 @@ func TestQueryError(t *testing.T) {
 		require.Equal(t, revertData, carrier.RevertData())
 	})
 
-	t.Run("module mapping", func(t *testing.T) {
+	t.Run("precompile mapping", func(t *testing.T) {
 		got := QueryError(moduleABI, registry, "query", errorsmod.Wrap(errPhaseOneSynthetic, "diagnostic"))
-		require.Equal(t, errorSelector(moduleABI, "ModuleFailure"), got.(RevertDataCarrier).RevertData())
+		require.Equal(t, errorSelector(moduleABI, "PrecompileFailure"), got.(RevertDataCarrier).RevertData())
 	})
 
 	t.Run("shared SDK mapping", func(t *testing.T) {
@@ -264,25 +264,25 @@ func TestQueryError(t *testing.T) {
 
 func TestCosmosErrorRegistryFreezesDeclarationInputs(t *testing.T) {
 	moduleABI := mustTestABI(t, `[
-		{"type":"error","name":"ModuleFailure","inputs":[]},
+		{"type":"error","name":"PrecompileFailure","inputs":[]},
 		{"type":"error","name":"SDKUnauthorized","inputs":[]},
 		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
 	]`)
-	moduleDeclarations := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "ModuleFailure")}
-	sharedDeclarations := CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, "SDKUnauthorized")}
-	registry, err := NewCosmosErrorRegistry(moduleABI, moduleDeclarations, sharedDeclarations, nil)
+	precompileDeclarations := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")}
+	sharedSDKDeclarations := CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, "SDKUnauthorized")}
+	registry, err := NewCosmosErrorRegistry(moduleABI, precompileDeclarations, sharedSDKDeclarations, nil)
 	require.NoError(t, err)
 
-	moduleDeclarations[0].SolidityError = "SDKUnauthorized"
-	sharedDeclarations[0].Key = NewCosmosErrorKey(sdkerrors.ErrInvalidRequest)
+	precompileDeclarations[0].SolidityError = "SDKUnauthorized"
+	sharedSDKDeclarations[0].Key = NewCosmosErrorKey(sdkerrors.ErrInvalidRequest)
 
-	moduleTranslation := TranslateCosmosError(moduleABI, registry, errPhaseOneSynthetic)
-	require.Equal(t, MappingKindModule, moduleTranslation.Kind)
-	require.Equal(t, errorSelector(moduleABI, "ModuleFailure"), moduleTranslation.Revert.(RevertDataCarrier).RevertData()[:4])
+	precompileTranslation := TranslateCosmosError(moduleABI, registry, errPhaseOneSynthetic)
+	require.Equal(t, MappingKindPrecompile, precompileTranslation.Kind)
+	require.Equal(t, errorSelector(moduleABI, "PrecompileFailure"), precompileTranslation.Revert.(RevertDataCarrier).RevertData()[:4])
 
-	sharedTranslation := TranslateCosmosError(moduleABI, registry, sdkerrors.ErrUnauthorized)
-	require.Equal(t, MappingKindSharedSDK, sharedTranslation.Kind)
-	require.Equal(t, errorSelector(moduleABI, "SDKUnauthorized"), sharedTranslation.Revert.(RevertDataCarrier).RevertData()[:4])
+	sharedSDKTranslation := TranslateCosmosError(moduleABI, registry, sdkerrors.ErrUnauthorized)
+	require.Equal(t, MappingKindSharedSDK, sharedSDKTranslation.Kind)
+	require.Equal(t, errorSelector(moduleABI, "SDKUnauthorized"), sharedSDKTranslation.Revert.(RevertDataCarrier).RevertData()[:4])
 }
 
 func TestSharedSDKErrorMappingsReturnsCopy(t *testing.T) {
@@ -414,9 +414,9 @@ func TestGRPCErrorDispositionABIValidation(t *testing.T) {
 }
 
 func TestStaticRegistryValidatorPanics(t *testing.T) {
-	shared := SharedSDKErrorMappings()
+	sharedSDK := SharedSDKErrorMappings()
 	require.Panics(t, func() {
-		MustNewCosmosErrorRegistry(SharedErrorABI, nil, append(shared, shared[0]), nil)
+		MustNewCosmosErrorRegistry(SharedErrorABI, nil, append(sharedSDK, sharedSDK[0]), nil)
 	})
 }
 
