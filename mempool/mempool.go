@@ -534,10 +534,19 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 		panic(err)
 	}
 	m.eventBusWG.Go(func() {
+		// Nothing re-subscribes once this returns, but PrepareCheckState also
+		// drives NotifyNewBlock every block, so the caches keep advancing.
+		// Info level: this also fires on a clean Close or re-subscribe.
+		defer func() {
+			m.logger.Info("block header subscription ended", "reason", sub.Err())
+		}()
 		for {
 			select {
-			case <-sub.Out():
-				m.NotifyNewBlock()
+			case msg := <-sub.Out():
+				// The event names the block that just committed, a failed
+				// assertion leaves the zero height, which never skips.
+				ev, _ := msg.Data().(cmttypes.EventDataNewBlockHeader)
+				m.NotifyNewBlockAt(ev.Header.Height)
 			case <-sub.Canceled():
 				// Unsubscribe/Close cancels the subscription; Out() is never
 				// closed by CometBFT, so exit on cancellation to avoid leaking.
@@ -550,8 +559,17 @@ func (m *Mempool) SetEventBus(eventBus *cmttypes.EventBus) {
 // NotifyNewBlock manually notifies that there has been a new block produced
 // and it should update its internal data structures.
 func (m *Mempool) NotifyNewBlock() {
-	m.blockchain.NotifyNewBlock()
-	m.recheckCosmosPool.TriggerRecheck(m.blockchain.CurrentBlock())
+	m.NotifyNewBlockAt(0)
+}
+
+// NotifyNewBlockAt is NotifyNewBlock for drivers that know which height just
+// committed, see Blockchain.NotifyNewBlockAt.
+func (m *Mempool) NotifyNewBlockAt(committedHeight int64) {
+	// only recheck when the height advanced — a same-head trigger would cancel
+	// and restart the in-flight pass — and reuse the header it built
+	if header := m.blockchain.NotifyNewBlockAt(committedHeight); header != nil {
+		m.recheckCosmosPool.TriggerRecheck(header)
+	}
 }
 
 // HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.

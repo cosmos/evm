@@ -69,10 +69,14 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	app.SetMempool(mempool)
 
-	app.SetPrepareCheckStater(func(_ sdk.Context) {
-		if !mempool.HasEventBus() {
-			mempool.NotifyNewBlock()
-		}
+	app.SetPrepareCheckStater(func(ctx sdk.Context) {
+		// Notify every block, even with an event bus: its goroutine exits
+		// silently if CometBFT cancels the subscription, and both the pinned
+		// query context and the tx pool's statedb then outlive their IAVL
+		// version once pruning passes it. NotifyNewBlock emits at most one
+		// chain head event per height, so on a healthy node this call only
+		// refreshes the latest context.
+		mempool.NotifyNewBlockAt(ctx.BlockHeight())
 	})
 
 	return nil
