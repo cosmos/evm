@@ -1,54 +1,42 @@
 package werc20
 
 import (
-	"bytes"
-	"strings"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20 "github.com/cosmos/evm/precompiles/erc20"
+	precompiletest "github.com/cosmos/evm/precompiles/testutil"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 var errSyntheticWERC20Drift = errorsmod.Register("werc20-phase-four-drift", 77, "unstable reason")
 
-func TestWERC20UnmappedLogsExactlyOnceWithoutReason(t *testing.T) {
-	var output bytes.Buffer
-	ctx := sdk.Context{}.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
+func TestWERC20UnmappedReturnsUnmappedRevert(t *testing.T) {
 	p := Precompile{Precompile: &erc20.Precompile{ABI: ABI}}
 
-	err := p.werc20MsgError(ctx, WithdrawMethod, errSyntheticWERC20Drift)
+	err := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, WithdrawMethod, errSyntheticWERC20Drift, nil).Err
 	carrier := err.(cmn.RevertDataCarrier)
 	unmappedDefinition := ABI.Errors[cmn.SolidityErrUnmappedCosmosError]
 	require.Equal(t, unmappedDefinition.ID[:4], carrier.RevertData()[:4])
 
-	logs := output.String()
-	require.Equal(t, 1, strings.Count(logs, "unmapped registered Cosmos error"))
-	require.Contains(t, logs, `"precompile":"werc20"`)
-	require.Contains(t, logs, `"method":"withdraw"`)
-	require.Contains(t, logs, `"codespace":"werc20-phase-four-drift"`)
-	require.Contains(t, logs, `"code":77`)
-	require.NotContains(t, logs, "unstable reason")
-
-	known := p.werc20MsgError(ctx, WithdrawMethod, banktypes.ErrSendDisabled)
+	known := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, WithdrawMethod, banktypes.ErrSendDisabled, nil).Err
 	knownDefinition := ABI.Errors[erc20.SolidityErrBankSendDisabled]
 	require.Equal(t, knownDefinition.ID[:4], known.(cmn.RevertDataCarrier).RevertData()[:4])
-	require.Equal(t, 1, strings.Count(output.String(), "unmapped registered Cosmos error"), "known mappings must not emit the unmapped signal")
 }
 
 func TestWERC20WrappedBankSentinelReturnsConcreteParsedError(t *testing.T) {
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 	p := Precompile{Precompile: &erc20.Precompile{ABI: ABI}}
 	wrapped := errorsmod.Wrap(banktypes.ErrSendDisabled, "changed bank wrapper text")
 
-	err := p.werc20MsgError(ctx, DepositMethod, wrapped)
+	err := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, DepositMethod, wrapped, nil).Err
 	data := err.(cmn.RevertDataCarrier).RevertData()
 	expected := cmn.NewRevertWithSolidityError(ABI, erc20.SolidityErrBankSendDisabled).(cmn.RevertDataCarrier).RevertData()
 	require.Equal(t, expected, data)
@@ -69,4 +57,15 @@ func TestWERC20WrappedBankSentinelReturnsConcreteParsedError(t *testing.T) {
 		fallbackDefinition := ABI.Errors[fallback]
 		require.NotEqual(t, fallbackDefinition.ID[:4], data[:4])
 	}
+}
+
+func TestWERC20BoundaryPreservationAndEquivalence(t *testing.T) {
+	p := Precompile{Precompile: &erc20.Precompile{ABI: ABI}}
+	t.Run("msg", func(t *testing.T) {
+		adapter := func(ctx sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, "method", err, nil).Err
+		}
+		precompiletest.TestBoundaryAdapter(t, adapter)
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, "method", true, adapter, errSyntheticWERC20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	})
 }

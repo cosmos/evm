@@ -1,21 +1,20 @@
 package erc20
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	precompiletest "github.com/cosmos/evm/precompiles/testutil"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -23,7 +22,6 @@ var errSyntheticERC20Drift = errorsmod.Register("erc20-phase-three-drift", 77, "
 
 func TestTranslateERC20RegisteredErrorsDirectAndWrapped(t *testing.T) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 	tests := []struct {
 		name          string
 		sentinel      error
@@ -32,15 +30,21 @@ func TestTranslateERC20RegisteredErrorsDirectAndWrapped(t *testing.T) {
 	}{
 		{
 			name: "bank send disabled", sentinel: banktypes.ErrSendDisabled, solidityError: SolidityErrBankSendDisabled,
-			translate: func(err error) error { return p.erc20MsgError(ctx, TransferMethod, err) },
+			translate: func(err error) error {
+				return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, nil).Err
+			},
 		},
 		{
 			name: "token pair not found", sentinel: erc20types.ErrTokenPairNotFound, solidityError: SolidityErrERC20TokenPairNotFound,
-			translate: func(err error) error { return p.erc20QueryError(ctx, ApproveMethod, err) },
+			translate: func(err error) error {
+				return cosmosErrorRegistry.ResolveQueryError(p.ABI, ApproveMethod, err, nil).Err
+			},
 		},
 		{
 			name: "token pair disabled", sentinel: erc20types.ErrERC20TokenPairDisabled, solidityError: SolidityErrERC20TokenPairDisabled,
-			translate: func(err error) error { return p.erc20QueryError(ctx, TransferFromMethod, err) },
+			translate: func(err error) error {
+				return cosmosErrorRegistry.ResolveQueryError(p.ABI, TransferFromMethod, err, nil).Err
+			},
 		},
 	}
 
@@ -63,30 +67,37 @@ func TestTranslateERC20RegisteredErrorsDirectAndWrapped(t *testing.T) {
 }
 
 func TestERC20UnmappedAndUnregisteredPathsRemainExplicit(t *testing.T) {
-	var output bytes.Buffer
-	ctx := sdk.Context{}.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
 	p := Precompile{ABI: ABI}
 
-	unmapped := p.erc20MsgError(ctx, TransferMethod, errSyntheticERC20Drift)
+	unmapped := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, errSyntheticERC20Drift, nil).Err
 	require.Equal(t, erc20ErrorSelector(cmn.SolidityErrUnmappedCosmosError), unmapped.(cmn.RevertDataCarrier).RevertData()[:4])
-	logs := output.String()
-	require.Equal(t, 1, strings.Count(logs, "unmapped registered Cosmos error"))
-	require.Contains(t, logs, `"precompile":"erc20"`)
-	require.Contains(t, logs, `"method":"transfer"`)
-	require.Contains(t, logs, `"codespace":"erc20-phase-three-drift"`)
-	require.Contains(t, logs, `"code":77`)
-	require.NotContains(t, logs, "unstable reason")
-	_ = p.erc20MsgError(ctx, TransferMethod, banktypes.ErrSendDisabled)
-	require.Equal(t, 1, strings.Count(output.String(), "unmapped registered Cosmos error"), "known mappings must not emit the unmapped signal")
 
 	internal := errors.New("infrastructure failure")
-	msgErr := p.erc20MsgError(ctx, TransferMethod, internal)
+	msgErr := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, internal, nil).Err
 	require.Equal(t, erc20ErrorSelector(cmn.SolidityErrMsgServerFailed), msgErr.(cmn.RevertDataCarrier).RevertData()[:4])
-	queryErr := p.erc20QueryError(ctx, ApproveMethod, internal)
+	queryErr := cosmosErrorRegistry.ResolveQueryError(p.ABI, ApproveMethod, internal, nil).Err
 	require.Equal(t, erc20ErrorSelector(cmn.SolidityErrQueryFailed), queryErr.(cmn.RevertDataCarrier).RevertData()[:4])
 }
 
 func erc20ErrorSelector(name string) []byte {
 	definition := ABI.Errors[name]
 	return definition.ID[:4]
+}
+
+func TestERC20BoundaryPreservationAndEquivalence(t *testing.T) {
+	p := Precompile{ABI: ABI}
+	t.Run("query", func(t *testing.T) {
+		adapter := func(ctx sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveQueryError(p.ABI, "method", err, nil).Err
+		}
+		precompiletest.TestBoundaryAdapter(t, adapter)
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, "method", false, adapter, errSyntheticERC20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	})
+	t.Run("msg", func(t *testing.T) {
+		adapter := func(ctx sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, "method", err, nil).Err
+		}
+		precompiletest.TestBoundaryAdapter(t, adapter)
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, "method", true, adapter, errSyntheticERC20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	})
 }

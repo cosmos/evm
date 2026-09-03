@@ -37,7 +37,7 @@ func (p *Precompile) GetClientState(
 
 	clientStateAny, err := codectypes.NewAnyWithValue(clientState)
 	if err != nil {
-		return nil, p.ics02QueryError(ctx, GetClientStateMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetClientStateMethod, err, nil).Err
 	}
 	if len(clientStateAny.Value) == 0 {
 		return nil, cmn.NewRevertWithSolidityError(p.ABI, cmn.SolidityErrQueryFailed, GetClientStateMethod, fmt.Sprintf("client state not found for client ID %s", clientID))

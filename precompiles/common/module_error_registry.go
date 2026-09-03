@@ -157,21 +157,19 @@ func MustNewModuleErrorRegistry(effectiveABI abi.ABI, mappings ...ModuleErrorMap
 	return registry
 }
 
-// Translate maps the first matching declaration to a Solidity revert.
-//
-//nolint:revive // The public API intentionally returns the revert before its match flag.
-func (registry *ModuleErrorRegistry) Translate(err error) (revert error, matched bool) {
+// Translate returns whether a declaration matched and its Solidity revert.
+func (registry *ModuleErrorRegistry) Translate(err error) (matched bool, revert error) {
 	if err == nil {
-		return nil, false
+		return false, nil
 	}
 	for _, mapping := range registry.mappings {
 		args, ok := mapping.match(err)
 		if !ok {
 			continue
 		}
-		return NewRevertWithSolidityError(registry.effectiveABI, mapping.info.SolidityError, args...), true
+		return true, NewRevertWithSolidityError(registry.effectiveABI, mapping.info.SolidityError, args...)
 	}
-	return nil, false
+	return false, nil
 }
 
 // Mappings returns an ordered copy of the registry metadata.

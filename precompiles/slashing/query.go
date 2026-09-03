@@ -36,7 +36,7 @@ func (p *Precompile) GetSigningInfo(
 
 	res, err := p.slashingKeeper.SigningInfo(ctx, req)
 	if err != nil {
-		return nil, p.slashingQueryError(ctx, GetSigningInfoMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetSigningInfoMethod, err, nil).Err
 	}
 
 	out, err := new(SigningInfoOutput).FromResponse(res)
@@ -60,7 +60,7 @@ func (p *Precompile) GetSigningInfos(
 
 	res, err := p.slashingKeeper.SigningInfos(ctx, req)
 	if err != nil {
-		return nil, p.slashingQueryError(ctx, GetSigningInfosMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetSigningInfosMethod, err, nil).Err
 	}
 
 	out, err := new(SigningInfosOutput).FromResponse(res)
@@ -79,7 +79,7 @@ func (p *Precompile) GetParams(
 ) ([]byte, error) {
 	res, err := p.slashingKeeper.Params(ctx, &types.QueryParamsRequest{})
 	if err != nil {
-		return nil, p.slashingQueryError(ctx, GetParamsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetParamsMethod, err, nil).Err
 	}
 
 	out := new(ParamsOutput).FromResponse(res)

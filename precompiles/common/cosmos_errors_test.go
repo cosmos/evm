@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"testing"
 
@@ -154,13 +155,13 @@ func TestTranslateCosmosError(t *testing.T) {
 		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
 	]`)
 	precompile := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")}
-	registry, err := NewCosmosErrorRegistry(
+	maps.Copy(moduleABI.Errors, mustTestABI(t, sharedErrorABIJSON).Errors)
+	registry := MustNewCosmosErrorRegistry(
 		moduleABI,
 		precompile,
 		CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, SolidityErrSDKUnauthorized)},
 		nil,
 	)
-	require.NoError(t, err)
 
 	translation := TranslateCosmosError(moduleABI, registry, errorsmod.Wrap(sdkerrors.ErrUnauthorized, "unstable text"))
 	require.Equal(t, MappingKindSharedSDK, translation.Kind)
@@ -196,13 +197,13 @@ func TestQueryError(t *testing.T) {
 		{"type":"error","name":"SDKUnauthorized","inputs":[]},
 		{"type":"error","name":"UnmappedCosmosError","inputs":[{"name":"codespace","type":"string"},{"name":"code","type":"uint32"}]}
 	]`)
-	registry, err := NewCosmosErrorRegistry(
+	maps.Copy(moduleABI.Errors, mustTestABI(t, sharedErrorABIJSON).Errors)
+	registry := MustNewCosmosErrorRegistry(
 		moduleABI,
 		CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")},
 		CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, SolidityErrSDKUnauthorized)},
 		nil,
 	)
-	require.NoError(t, err)
 
 	t.Run("nil", func(t *testing.T) {
 		require.NoError(t, QueryError(moduleABI, registry, "query", nil))
@@ -262,6 +263,18 @@ func TestQueryError(t *testing.T) {
 	}
 }
 
+func TestQueryErrorWithoutRegistry(t *testing.T) {
+	query := QueryError
+	api := mustTestABI(t, sharedErrorABIJSON)
+	carrier := &testRevertDataCarrier{data: []byte{0xde, 0xad}, err: sdkerrors.ErrUnauthorized}
+	for _, input := range []error{nil, vm.ErrOutOfGas, fmt.Errorf("wrapped: %w", vm.ErrOutOfGas), errors.Join(errors.New("outer"), carrier)} {
+		require.Equal(t, input, query(abi.ABI{}, nil, "query", input))
+	}
+	input := errors.New("internal")
+	require.Equal(t, NewRevertWithSolidityError(api, SolidityErrQueryFailed, "query", input.Error()), query(api, nil, "query", input))
+	require.Equal(t, NewRevertWithSolidityError(abi.ABI{}, SolidityErrQueryFailed, "query", input.Error()), query(abi.ABI{}, nil, "query", input))
+}
+
 func TestCosmosErrorRegistryFreezesDeclarationInputs(t *testing.T) {
 	moduleABI := mustTestABI(t, `[
 		{"type":"error","name":"PrecompileFailure","inputs":[]},
@@ -270,8 +283,8 @@ func TestCosmosErrorRegistryFreezesDeclarationInputs(t *testing.T) {
 	]`)
 	precompileDeclarations := CosmosErrorMappings{NewCosmosErrorMapping(errPhaseOneSynthetic, "PrecompileFailure")}
 	sharedSDKDeclarations := CosmosErrorMappings{NewCosmosErrorMapping(sdkerrors.ErrUnauthorized, "SDKUnauthorized")}
-	registry, err := NewCosmosErrorRegistry(moduleABI, precompileDeclarations, sharedSDKDeclarations, nil)
-	require.NoError(t, err)
+	maps.Copy(moduleABI.Errors, mustTestABI(t, sharedErrorABIJSON).Errors)
+	registry := MustNewCosmosErrorRegistry(moduleABI, precompileDeclarations, sharedSDKDeclarations, nil)
 
 	precompileDeclarations[0].SolidityError = "SDKUnauthorized"
 	sharedSDKDeclarations[0].Key = NewCosmosErrorKey(sdkerrors.ErrInvalidRequest)
@@ -460,6 +473,44 @@ func TestStaticRegistryValidatorRejectsSharedABIDrift(t *testing.T) {
 	}
 }
 
+func TestStaticRegistryValidatorRequiresBoundaryErrors(t *testing.T) {
+	for _, missing := range []string{SolidityErrQueryFailed, SolidityErrMsgServerFailed, SolidityErrEventEmitFailed, SolidityErrUnmappedCosmosError} {
+		t.Run(missing, func(t *testing.T) {
+			contractABI := mustTestABI(t, sharedErrorABIJSON)
+			delete(contractABI.Errors, missing)
+			require.PanicsWithError(t, "missing inherited shared ABI error "+missing, func() {
+				MustNewCosmosErrorRegistry(contractABI, nil, nil, nil)
+			})
+		})
+	}
+}
+
+func TestStaticRegistryValidatorRejectsBoundaryPackingDrift(t *testing.T) {
+	for _, name := range []string{SolidityErrQueryFailed, SolidityErrMsgServerFailed, SolidityErrEventEmitFailed, SolidityErrUnmappedCosmosError} {
+		for _, mutation := range []string{"name", "inputs", "selector"} {
+			t.Run(name+"/"+mutation, func(t *testing.T) {
+				contractABI := mustTestABI(t, sharedErrorABIJSON)
+				definition := contractABI.Errors[name]
+				signature := definition.Sig
+				panicText := "boundary resolution requires canonical ABI error " + signature
+				switch mutation {
+				case "name":
+					definition.Name = "OtherFailure"
+				case "inputs":
+					definition.Inputs[0].Type, _ = abi.NewType("uint32", "", nil)
+				case "selector":
+					definition.ID[0] ^= 0xff
+					panicText = "inherited shared ABI error mismatch for " + name
+				}
+				contractABI.Errors[name] = definition
+				require.PanicsWithError(t, panicText, func() {
+					MustNewCosmosErrorRegistry(contractABI, nil, nil, nil)
+				})
+			})
+		}
+	}
+}
+
 func TestEffectiveABIValidationRejectsSignatureAndSelectorCollisions(t *testing.T) {
 	contractABI := mustTestABI(t, `[{"type":"error","name":"First","inputs":[]},{"type":"error","name":"Second","inputs":[]}]`)
 	first := contractABI.Errors["First"]
@@ -495,4 +546,20 @@ func mustTestABI(t *testing.T, raw string) abi.ABI {
 func errorSelector(contractABI abi.ABI, name string) []byte {
 	definition := contractABI.Errors[name]
 	return definition.ID[:4]
+}
+
+func TestGRPCRegistriesHaveIndependentNamespaces(t *testing.T) {
+	policy := GRPCErrorDisposition{Boundary: ErrorBoundaryQueryServer, Method: "same", Code: codes.NotFound, Kind: GRPCDispositionPreserveSuccess, SuccessOutput: "module one"}
+	first := MustNewGRPCErrorRegistry(GRPCErrorDispositions{policy})
+	policy.Kind = GRPCDispositionInternal
+	second := MustNewGRPCErrorRegistry(GRPCErrorDispositions{policy})
+	input := status.Error(codes.NotFound, "same input")
+	a, ok := first.Resolve(policy.Boundary, policy.Method, input)
+	require.True(t, ok)
+	b, ok := second.Resolve(policy.Boundary, policy.Method, input)
+	require.True(t, ok)
+	require.Equal(t, GRPCDispositionPreserveSuccess, a.Kind)
+	require.Equal(t, GRPCDispositionInternal, b.Kind)
+	_, err := NewGRPCErrorRegistry(GRPCErrorDispositions{policy, policy})
+	require.Error(t, err)
 }

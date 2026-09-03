@@ -48,7 +48,7 @@ func (p Precompile) Approve(
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
 	if err != nil {
 		if _, registered := cmn.ExtractCosmosErrorKey(err); registered {
-			return nil, p.translateERC20Error(ctx, ApproveMethod, err)
+			return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ApproveMethod, err, nil).Err
 		}
 		return nil, cmn.NewRevertWithSolidityError(
 			p.ABI,
@@ -65,7 +65,7 @@ func (p Precompile) Approve(
 		err = p.setAllowance(ctx, owner, spender, amount)
 	case allowance.Sign() > 0 && amount != nil && amount.Sign() <= 0:
 		if derr := p.erc20Keeper.DeleteAllowance(ctx, p.Address(), owner, spender); derr != nil {
-			err = p.erc20QueryError(ctx, ApproveMethod, derr)
+			err = cosmosErrorRegistry.ResolveQueryError(p.ABI, ApproveMethod, derr, nil).Err
 		}
 	case allowance.Sign() > 0 && amount != nil && amount.Sign() > 0:
 		err = p.setAllowance(ctx, owner, spender, amount)
@@ -92,7 +92,7 @@ func (p *Precompile) setAllowance(
 	}
 
 	if err := p.erc20Keeper.SetAllowance(ctx, p.Address(), owner, spender, allowance); err != nil {
-		return p.erc20QueryError(ctx, ApproveMethod, err)
+		return cosmosErrorRegistry.ResolveQueryError(p.ABI, ApproveMethod, err, nil).Err
 	}
 	return nil
 }

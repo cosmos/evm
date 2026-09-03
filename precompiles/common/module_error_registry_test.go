@@ -108,7 +108,7 @@ func TestModuleErrorRegistryTranslatesValueAndPointerForms(t *testing.T) {
 	}
 	for name, input := range tests {
 		t.Run(name, func(t *testing.T) {
-			revert, matched := registry.Translate(input)
+			matched, revert := registry.Translate(input)
 			require.True(t, matched)
 			requireModuleRevert(t, contractABI, revert, "ModuleFailure", want.Label, want.Amount)
 		})
@@ -133,7 +133,7 @@ func TestModuleErrorRegistryTranslatesPointerReceiverOnlyError(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			revert, matched := registry.Translate(tc.input)
+			matched, revert := registry.Translate(tc.input)
 			require.True(t, matched)
 			requireModuleRevert(t, contractABI, revert, "PointerFailure", tc.label)
 		})
@@ -151,7 +151,7 @@ func TestModuleErrorRegistryPreservesCustomAs(t *testing.T) {
 		)
 		input := registryCustomValueAsError{Value: registryValueError{Label: "custom-value", Amount: big.NewInt(9)}}
 
-		revert, matched := registry.Translate(input)
+		matched, revert := registry.Translate(input)
 		require.True(t, matched)
 		requireModuleRevert(t, contractABI, revert, "ModuleFailure", input.Value.Label, input.Value.Amount)
 	})
@@ -164,7 +164,7 @@ func TestModuleErrorRegistryPreservesCustomAs(t *testing.T) {
 		)
 		input := registryCustomPointerAsError{Value: registryPointerError{Label: "custom-pointer"}}
 
-		revert, matched := registry.Translate(input)
+		matched, revert := registry.Translate(input)
 		require.True(t, matched)
 		requireModuleRevert(t, contractABI, revert, "PointerFailure", input.Value.Label)
 	})
@@ -177,7 +177,7 @@ func TestModuleErrorRegistryUsesDeclarationOrder(t *testing.T) {
 		NewNoArgsModuleErrorMapping[registryErrorB]("BFailure"),
 	)
 
-	revert, matched := registry.Translate(errors.Join(registryErrorB{}, registryErrorA{}))
+	matched, revert := registry.Translate(errors.Join(registryErrorB{}, registryErrorA{}))
 	require.True(t, matched)
 	requireModuleRevert(t, contractABI, revert, "AFailure")
 }
@@ -190,7 +190,7 @@ func TestModuleErrorRegistryMatchesValueBeforePointerForSameBaseType(t *testing.
 		}),
 	)
 
-	revert, matched := registry.Translate(errors.Join(
+	matched, revert := registry.Translate(errors.Join(
 		&registryValueError{Label: registryPointerLabel},
 		registryValueError{Label: registryValueLabel},
 	))
@@ -208,7 +208,7 @@ func TestModuleErrorRegistryTypedNilPointerReceiverErrorIsUnmatched(t *testing.T
 	var typedNil *registryPointerError
 	var input error = typedNil
 
-	revert, matched := registry.Translate(input)
+	matched, revert := registry.Translate(input)
 	require.False(t, matched)
 	require.Nil(t, revert)
 }
@@ -234,7 +234,7 @@ func TestModuleErrorRegistryReturnsUnknownAndNilAsUnmatched(t *testing.T) {
 
 	for name, input := range map[string]error{"nil": nil, "unknown": errors.New("unknown")} {
 		t.Run(name, func(t *testing.T) {
-			revert, matched := registry.Translate(input)
+			matched, revert := registry.Translate(input)
 			require.False(t, matched)
 			require.Nil(t, revert)
 		})
@@ -250,7 +250,7 @@ func TestModuleErrorRegistryPacksArguments(t *testing.T) {
 	)
 	input := registryValueError{Label: "packed", Amount: big.NewInt(42)}
 
-	revert, matched := registry.Translate(input)
+	matched, revert := registry.Translate(input)
 	require.True(t, matched)
 	requireModuleRevert(t, contractABI, revert, "ModuleFailure", input.Label, input.Amount)
 }
@@ -267,7 +267,7 @@ func TestModuleErrorRegistryUsesErrorStringFallbackForInvalidArguments(t *testin
 				NewModuleErrorMapping[registryValueError]("ModuleFailure", argsFunc),
 			)
 
-			revert, matched := registry.Translate(registryValueError{Label: "invalid", Amount: big.NewInt(1)})
+			matched, revert := registry.Translate(registryValueError{Label: "invalid", Amount: big.NewInt(1)})
 			require.True(t, matched)
 			var carrier RevertDataCarrier
 			require.ErrorAs(t, revert, &carrier)
@@ -297,7 +297,7 @@ func TestNewNoArgsModuleErrorMapping(t *testing.T) {
 		NewNoArgsModuleErrorMapping[registryErrorA]("AFailure"),
 	)
 
-	revert, matched := registry.Translate(registryErrorA{})
+	matched, revert := registry.Translate(registryErrorA{})
 	require.True(t, matched)
 	var carrier RevertDataCarrier
 	require.ErrorAs(t, revert, &carrier)
@@ -374,7 +374,7 @@ func TestModuleErrorRegistryAllowsDifferentTypesToShareSolidityError(t *testing.
 	require.NoError(t, err)
 
 	for _, input := range []error{registrySameTargetA{}, registrySameTargetB{}} {
-		revert, matched := registry.Translate(input)
+		matched, revert := registry.Translate(input)
 		require.True(t, matched)
 		requireModuleRevert(t, contractABI, revert, "SharedFailure")
 	}
@@ -386,7 +386,7 @@ func TestModuleErrorRegistrySnapshotsInputMappings(t *testing.T) {
 	registry := MustNewModuleErrorRegistry(contractABI, mappings...)
 	mappings[0] = NewNoArgsModuleErrorMapping[registryErrorB]("BFailure")
 
-	revert, matched := registry.Translate(registryErrorA{})
+	matched, revert := registry.Translate(registryErrorA{})
 	require.True(t, matched)
 	requireModuleRevert(t, contractABI, revert, "AFailure")
 	require.Equal(t, []ModuleErrorMappingInfo{{GoType: reflect.TypeFor[registryErrorA](), SolidityError: "AFailure"}}, registry.Mappings())
@@ -409,7 +409,7 @@ func TestModuleErrorRegistryMappingsReturnsCopy(t *testing.T) {
 	require.Len(t, infos, 3)
 
 	require.Equal(t, want, registry.Mappings())
-	revert, matched := registry.Translate(registryErrorA{})
+	matched, revert := registry.Translate(registryErrorA{})
 	require.True(t, matched)
 	requireModuleRevert(t, contractABI, revert, "AFailure")
 }
@@ -425,7 +425,7 @@ func TestModuleErrorRegistrySnapshotsABIErrorEntry(t *testing.T) {
 	contractABI.Errors["ModuleFailure"] = contractABI.Errors["AFailure"]
 
 	input := registryValueError{Label: "snapshot", Amount: big.NewInt(11)}
-	revert, matched := registry.Translate(input)
+	matched, revert := registry.Translate(input)
 	require.True(t, matched)
 	requireModuleRevertDefinition(t, original, revert, input.Label, input.Amount)
 }
@@ -444,7 +444,7 @@ func TestModuleErrorRegistrySnapshotsABIInputsSlice(t *testing.T) {
 	require.NotEqual(t, original.Inputs[0].Type.String(), contractABI.Errors["ModuleFailure"].Inputs[0].Type.String())
 
 	input := registryValueError{Label: "snapshot", Amount: big.NewInt(12)}
-	revert, matched := registry.Translate(input)
+	matched, revert := registry.Translate(input)
 	require.True(t, matched)
 	requireModuleRevertDefinition(t, original, revert, input.Label, input.Amount)
 }

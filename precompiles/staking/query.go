@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -55,7 +57,7 @@ func (p Precompile) Delegation(
 			return method.Outputs.Pack(big.NewInt(0), cmn.Coin{Denom: bondDenom, Amount: big.NewInt(0)})
 		}
 
-		return nil, p.stakingQueryError(ctx, DelegationMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DelegationMethod, err, nil).Err
 	}
 
 	out := new(DelegationOutput).FromResponse(res)
@@ -82,7 +84,7 @@ func (p Precompile) UnbondingDelegation(
 		if stakingQueryPreservesSuccess(UnbondingDelegationMethod, err) {
 			return method.Outputs.Pack(UnbondingDelegationResponse{})
 		}
-		return nil, p.stakingQueryError(ctx, UnbondingDelegationMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, UnbondingDelegationMethod, err, nil).Err
 	}
 
 	out := new(UnbondingDelegationOutput).FromResponse(res)
@@ -108,7 +110,7 @@ func (p Precompile) Validator(
 		if stakingQueryPreservesSuccess(ValidatorMethod, err) {
 			return method.Outputs.Pack(DefaultValidatorInfo())
 		}
-		return nil, p.stakingQueryError(ctx, ValidatorMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorMethod, err, nil).Err
 	}
 
 	validatorInfo := NewValidatorInfoFromResponse(res.Validator)
@@ -130,7 +132,7 @@ func (p Precompile) Validators(
 
 	res, err := p.stakingQuerier.Validators(ctx, req)
 	if err != nil {
-		return nil, p.stakingQueryError(ctx, ValidatorsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorsMethod, err, nil).Err
 	}
 
 	out := new(ValidatorsOutput).FromResponse(res)
@@ -174,10 +176,22 @@ func (p Precompile) Redelegations(
 
 	res, err := p.stakingQuerier.Redelegations(ctx, req)
 	if err != nil {
-		return nil, p.stakingQueryError(ctx, RedelegationsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, RedelegationsMethod, err, nil).Err
 	}
 
 	out := new(RedelegationsOutput).FromResponse(res)
 
 	return out.Pack(method.Outputs)
+}
+
+func stakingQueryPreservesSuccess(method string, err error) bool {
+	if !cmn.NeedsErrorTranslation(err) {
+		return false
+	}
+	switch method {
+	case DelegationMethod, UnbondingDelegationMethod, ValidatorMethod:
+		return status.Code(err) == codes.NotFound
+	default:
+		return false
+	}
 }

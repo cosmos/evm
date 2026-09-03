@@ -1,7 +1,6 @@
 package ics20
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	precompiletest "github.com/cosmos/evm/precompiles/testutil"
 	callbackstypes "github.com/cosmos/evm/x/ibc/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
@@ -19,19 +19,19 @@ import (
 	connectiontypes "github.com/cosmos/ibc-go/v11/modules/core/03-connection/types"
 	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v11/modules/core/04-channel/v2/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var errSyntheticICS20Drift = errorsmod.Register("ics20-phase-three-drift", 77, "unstable reason")
 
 func TestTranslateICS20RegisteredErrorsDirectAndWrapped(t *testing.T) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 	tests := []struct {
 		err  error
 		name string
@@ -65,7 +65,7 @@ func TestTranslateICS20RegisteredErrorsDirectAndWrapped(t *testing.T) {
 				errorsmod.Wrap(tc.err, "message changed"),
 				fmt.Errorf("standard wrapper: %w", tc.err),
 			} {
-				got := p.ics20MsgError(ctx, returned)
+				got := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, returned, nil).Err
 				require.Equal(t, ics20ErrorSelector(tc.name), got.(cmn.RevertDataCarrier).RevertData())
 				assertICS20NotFallback(t, got)
 			}
@@ -75,28 +75,24 @@ func TestTranslateICS20RegisteredErrorsDirectAndWrapped(t *testing.T) {
 
 func TestICS20UnregisteredMsgAndQueryFailuresKeepLegacyFallbacks(t *testing.T) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 	plain := errors.New("infrastructure")
 
-	msgErr := p.ics20MsgError(ctx, plain)
+	msgErr := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, plain, nil).Err
 	require.Equal(t, ics20ErrorSelector(cmn.SolidityErrMsgServerFailed), msgErr.(cmn.RevertDataCarrier).RevertData()[:4])
 
-	queryErr := p.ics20QueryError(ctx, DenomsMethod, plain)
+	queryErr := cosmosErrorRegistry.ResolveQueryError(p.ABI, DenomsMethod, plain, nil).Err
 	require.Equal(t, ics20ErrorSelector(cmn.SolidityErrQueryFailed), queryErr.(cmn.RevertDataCarrier).RevertData()[:4])
 }
 
 func TestICS20ValidatedInputMapsPublishedError(t *testing.T) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 
-	mapped := p.ics20ValidatedInputError(ctx, transfertypes.ErrInvalidMemo)
+	mapped := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, transfertypes.ErrInvalidMemo, nil).Err
 	require.Equal(t, ics20ErrorSelector(SolidityErrIBCTransferInvalidMemo), mapped.(cmn.RevertDataCarrier).RevertData())
 	assertICS20NotFallback(t, mapped)
 }
 
-func TestICS20ValidatedInputUnmappedProtocolErrorLogsOnceAndReturnsUnmappedRevert(t *testing.T) {
-	var output bytes.Buffer
-	ctx := sdk.Context{}.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
+func TestICS20ValidatedInputUnmappedProtocolErrorReturnsUnmappedRevert(t *testing.T) {
 	p := Precompile{ABI: ABI}
 	returned := fmt.Errorf("validation wrapper with changed message: %w", errSyntheticICS20Drift)
 	classification := cmn.TranslateCosmosError(ABI, cosmosErrorRegistry, returned)
@@ -104,21 +100,12 @@ func TestICS20ValidatedInputUnmappedProtocolErrorLogsOnceAndReturnsUnmappedRever
 	key, ok := cmn.ExtractCosmosErrorKey(returned)
 	require.True(t, ok)
 
-	err := p.ics20ValidatedInputError(ctx, returned)
+	err := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, returned, nil).Err
 	expected := classification.Revert
 	require.Equal(t, expected.(cmn.RevertDataCarrier).RevertData(), err.(cmn.RevertDataCarrier).RevertData())
-
-	logs := output.String()
-	require.Equal(t, 1, strings.Count(logs, "unmapped registered Cosmos error"))
-	require.Contains(t, logs, `"precompile":"ics20"`)
-	require.Contains(t, logs, `"method":"transfer"`)
-	require.Contains(t, logs, fmt.Sprintf(`"codespace":"%s"`, key.Codespace))
-	require.Contains(t, logs, fmt.Sprintf(`"code":%d`, key.Code))
-	require.NotContains(t, logs, "unstable reason")
-	require.NotContains(t, logs, "validation wrapper with changed message")
-
-	_ = p.ics20ValidatedInputError(ctx, transfertypes.ErrInvalidMemo)
-	require.Equal(t, 1, strings.Count(output.String(), "unmapped registered Cosmos error"), "known mappings must not emit the unmapped signal")
+	decoded, unpackErr := ABI.Errors[cmn.SolidityErrUnmappedCosmosError].Inputs.Unpack(err.(cmn.RevertDataCarrier).RevertData()[4:])
+	require.NoError(t, unpackErr)
+	require.Equal(t, []any{key.Codespace, key.Code}, decoded)
 }
 
 func TestNewMsgTransferInvalidSourcePortUsesPrecompileNativeError(t *testing.T) {
@@ -196,24 +183,11 @@ func TestNewMsgTransferMapsPublishedValidationError(t *testing.T) {
 	assertICS20NotFallback(t, err)
 }
 
-func TestICS20UnmappedRegisteredErrorLogsOnceWithoutReason(t *testing.T) {
-	var output bytes.Buffer
-	ctx := sdk.Context{}.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
+func TestICS20UnmappedRegisteredErrorReturnsUnmappedRevert(t *testing.T) {
 	p := Precompile{ABI: ABI}
 
-	err := p.ics20MsgError(ctx, errSyntheticICS20Drift)
+	err := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, errSyntheticICS20Drift, nil).Err
 	require.Equal(t, ics20ErrorSelector(cmn.SolidityErrUnmappedCosmosError), err.(cmn.RevertDataCarrier).RevertData()[:4])
-
-	logs := output.String()
-	require.Equal(t, 1, strings.Count(logs, "unmapped registered Cosmos error"))
-	require.Contains(t, logs, `"precompile":"ics20"`)
-	require.Contains(t, logs, `"method":"transfer"`)
-	require.Contains(t, logs, `"codespace":"ics20-phase-three-drift"`)
-	require.Contains(t, logs, `"code":77`)
-	require.NotContains(t, logs, "unstable reason")
-
-	_ = p.ics20MsgError(ctx, transfertypes.ErrInvalidMemo)
-	require.Equal(t, 1, strings.Count(output.String(), "unmapped registered Cosmos error"), "known mappings must not emit the unmapped signal")
 }
 
 func assertICS20NotFallback(t *testing.T, err error) {
@@ -227,4 +201,59 @@ func assertICS20NotFallback(t *testing.T, err error) {
 func ics20ErrorSelector(name string) []byte {
 	definition := ABI.Errors[name]
 	return definition.ID[:4]
+}
+
+func TestICS20BoundaryPreservationAndEquivalence(t *testing.T) {
+	p := Precompile{ABI: ABI}
+	t.Run("query", func(t *testing.T) {
+		adapter := func(ctx sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveQueryError(p.ABI, "method", err, nil).Err
+		}
+		precompiletest.TestBoundaryAdapter(t, adapter)
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, "method", false, adapter, errSyntheticICS20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	})
+	t.Run("msg", func(t *testing.T) {
+		adapter := func(_ sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, nil).Err
+		}
+		precompiletest.TestBoundaryAdapter(t, adapter)
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, TransferMethod, true, adapter, errSyntheticICS20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	})
+	t.Run("validated", func(t *testing.T) {
+		adapter := func(_ sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateTransferValidationError).Err
+		}
+		precompiletest.TestBoundaryAdapter(t, adapter)
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, TransferMethod, true, adapter, errSyntheticICS20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	})
+}
+
+func TestTransferValidationTranslator(t *testing.T) {
+	expected := cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
+	for _, input := range []error{host.ErrInvalidID, fmt.Errorf("wrapped: %w", host.ErrInvalidID)} {
+		matched, translated := translateTransferValidationError(input)
+		require.True(t, matched)
+		require.Equal(t, expected.(cmn.RevertDataCarrier).RevertData(), translated.(cmn.RevertDataCarrier).RevertData())
+		resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateTransferValidationError)
+		require.Equal(t, expected.(cmn.RevertDataCarrier).RevertData(), resolved.Err.(cmn.RevertDataCarrier).RevertData())
+		require.Equal(t, cmn.ErrorTranslation{}, resolved.Translation)
+	}
+	for _, input := range []error{nil, errors.New("invalid identifier"), sdkerrors.ErrUnauthorized, errSyntheticICS20Drift} {
+		matched, translated := translateTransferValidationError(input)
+		require.False(t, matched)
+		require.Nil(t, translated)
+	}
+	for _, input := range []error{
+		nil,
+		precompiletest.StatusRevert{},
+		precompiletest.StatusOutOfGas{},
+		fmt.Errorf("wrapped: %w", precompiletest.StatusRevert{}),
+		fmt.Errorf("wrapped: %w", precompiletest.StatusOutOfGas{}),
+		errors.Join(host.ErrInvalidID, precompiletest.StatusRevert{}),
+		errors.Join(host.ErrInvalidID, precompiletest.StatusOutOfGas{}),
+	} {
+		resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateTransferValidationError)
+		require.Equal(t, input, resolved.Err)
+		require.Equal(t, cmn.ErrorTranslation{}, resolved.Translation)
+	}
 }

@@ -2,6 +2,7 @@ package ics20
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	precompiletest "github.com/cosmos/evm/precompiles/testutil"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	"cosmossdk.io/log/v2"
@@ -85,4 +87,17 @@ func TestICS20DirectRegisteredQueryErrorDoesNotUseQueryFallback(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, ics20ErrorSelector(SolidityErrIBCTransferDenomNotFound), err.(cmn.RevertDataCarrier).RevertData())
 	assertICS20NotFallback(t, err)
+}
+
+func TestICS20CustomQueryServerPreservesTerminalBeforeNotFound(t *testing.T) {
+	for _, terminal := range []error{precompiletest.StatusRevert{}, precompiletest.StatusOutOfGas{}} {
+		input := fmt.Errorf("%s: %w", ErrDenomNotFound, terminal)
+		p := Precompile{ABI: ABI, transferKeeper: ics20QueryKeeperStub{denomErr: input, denomHashErr: input}}
+		method := ABI.Methods[DenomMethod]
+		_, err := p.Denom(sdk.Context{}, nil, &method, []interface{}{"00"})
+		require.Equal(t, input, err)
+		method = ABI.Methods[DenomHashMethod]
+		_, err = p.DenomHash(sdk.Context{}, nil, &method, []interface{}{"transfer/channel-0/uatom"})
+		require.Equal(t, input, err)
+	}
 }

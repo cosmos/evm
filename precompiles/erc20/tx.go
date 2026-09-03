@@ -102,7 +102,7 @@ func (p *Precompile) transfer(
 	if isTransferFrom {
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
-			return nil, p.erc20QueryError(ctx, TransferFromMethod, err)
+			return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, TransferFromMethod, err, nil).Err
 		}
 
 		newAllowance = new(big.Int).Sub(prevAllowance, amount)
@@ -116,7 +116,7 @@ func (p *Precompile) transfer(
 			err = p.erc20Keeper.SetAllowance(ctx, p.Address(), from, spenderAddr, newAllowance)
 		}
 		if err != nil {
-			return nil, p.erc20QueryError(ctx, TransferFromMethod, err)
+			return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, TransferFromMethod, err, nil).Err
 		}
 	}
 
@@ -127,7 +127,7 @@ func (p *Precompile) transfer(
 			bal := spendable.Amount.BigInt()
 			return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrERC20InsufficientBalance, from, bal, amount)
 		}
-		return nil, p.erc20MsgError(ctx, method.Name, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, method.Name, err, nil).Err
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
