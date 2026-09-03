@@ -14,7 +14,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 
-	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -73,11 +72,10 @@ type height struct {
 // NewMsgTransfer returns a new transfer message from the given arguments.
 func NewMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
-	return p.newMsgTransfer(ctx, method, args)
+	return p.newMsgTransfer(method, args)
 }
 
-func (p Precompile) newMsgTransfer(ctx sdk.Context, method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
+func (p Precompile) newMsgTransfer(method *abi.Method, args []interface{}) (*transfertypes.MsgTransfer, common.Address, error) {
 	if len(args) != 9 {
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(9), big.NewInt(int64(len(args))))
 	}
@@ -95,7 +93,7 @@ func (p Precompile) newMsgTransfer(ctx sdk.Context, method *abi.Method, args []i
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
 	}
 	if err := host.ChannelIdentifierValidator(sourceChannel); err != nil {
-		return nil, common.Address{}, invalidSourceChannelError()
+		return nil, common.Address{}, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateTransferValidationError).Err
 	}
 
 	denom, ok := args[2].(string)
@@ -145,10 +143,7 @@ func (p Precompile) newMsgTransfer(ctx sdk.Context, method *abi.Method, args []i
 
 	msg, err := CreateAndValidateMsgTransfer(sourcePort, sourceChannel, token, sdk.AccAddress(sender.Bytes()).String(), receiver, input.TimeoutHeight, timeoutTimestamp, memo)
 	if err != nil {
-		if isHostInvalidID(err) {
-			return nil, common.Address{}, invalidSourceChannelError()
-		}
-		return nil, common.Address{}, p.ics20ValidatedInputError(ctx, err)
+		return nil, common.Address{}, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateTransferValidationError).Err
 	}
 
 	return msg, sender, nil

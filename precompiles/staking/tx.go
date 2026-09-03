@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -76,7 +78,7 @@ func (p Precompile) CreateValidator(
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.CreateValidator(ctx, msg); err != nil {
-		return nil, p.stakingMsgError(ctx, CreateValidatorMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, CreateValidatorMethod, err, nil).Err
 	}
 
 	// Here we don't add journal entries here because calls from
@@ -128,7 +130,7 @@ func (p Precompile) EditValidator(
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.EditValidator(ctx, msg); err != nil {
-		return nil, p.stakingMsgError(ctx, EditValidatorMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, EditValidatorMethod, err, nil).Err
 	}
 
 	// Emit the event for the edit validator transaction
@@ -174,7 +176,7 @@ func (p *Precompile) Delegate(
 
 	// Execute the transaction using the message server
 	if _, err = p.stakingMsgServer.Delegate(ctx, msg); err != nil {
-		return nil, p.stakingMsgError(ctx, DelegateMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, DelegateMethod, err, nil).Err
 	}
 
 	// Emit the event for the delegate transaction
@@ -222,7 +224,7 @@ func (p Precompile) Undelegate(
 	// Execute the transaction using the message server
 	res, err := p.stakingMsgServer.Undelegate(ctx, msg)
 	if err != nil {
-		return nil, p.stakingMsgError(ctx, UndelegateMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, UndelegateMethod, err, nil).Err
 	}
 
 	// Emit the event for the undelegate transaction
@@ -271,7 +273,7 @@ func (p Precompile) Redelegate(
 
 	res, err := p.stakingMsgServer.BeginRedelegate(ctx, msg)
 	if err != nil {
-		return nil, p.stakingMsgError(ctx, RedelegateMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, RedelegateMethod, err, nil).Err
 	}
 
 	if err = p.EmitRedelegateEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
@@ -318,7 +320,10 @@ func (p Precompile) CancelUnbondingDelegation(
 	}
 
 	if _, err = p.stakingMsgServer.CancelUnbondingDelegation(ctx, msg); err != nil {
-		return nil, p.stakingMsgError(ctx, CancelUnbondingDelegationMethod, err)
+		if cmn.NeedsErrorTranslation(err) && status.Code(err) == codes.NotFound {
+			return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrStakingUnbondingDelegationNotFound)
+		}
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, CancelUnbondingDelegationMethod, err, nil).Err
 	}
 
 	if err = p.EmitCancelUnbondingDelegationEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {

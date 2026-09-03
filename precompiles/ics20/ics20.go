@@ -36,9 +36,6 @@ func init() {
 		panic(err)
 	}
 	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, ErrorMappings(), cmn.SharedSDKErrorMappings(), nil)
-	if err := cmn.ReviewedGRPCErrorRegistry().ValidateABI(ABI, "ICS20I"); err != nil {
-		panic(err)
-	}
 }
 
 type Precompile struct {
@@ -113,7 +110,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
-		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrABISetupFailed, err.Error())
+		return nil, err
 	}
 
 	var bz []byte

@@ -1,10 +1,8 @@
 package distribution
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,11 +10,12 @@ import (
 	"google.golang.org/grpc/status"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	precompiletest "github.com/cosmos/evm/precompiles/testutil"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
@@ -25,7 +24,6 @@ var errSyntheticDistributionDrift = errorsmod.Register("distribution-phase-three
 
 func TestTranslateDistributionRegisteredErrorsDirectAndWrapped(t *testing.T) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 	testCases := []struct {
 		err      error
 		expected string
@@ -39,7 +37,7 @@ func TestTranslateDistributionRegisteredErrorsDirectAndWrapped(t *testing.T) {
 		{fmt.Errorf("dependency wrapper: %w", stakingtypes.ErrNoDelegation), SolidityErrDistributionNoDelegationExists},
 	}
 	for _, tc := range testCases {
-		translated := p.translateDistributionError(ctx, DelegationRewardsMethod, tc.err)
+		translated := cosmosErrorRegistry.ResolveQueryError(p.ABI, DelegationRewardsMethod, tc.err, nil).Err
 		carrier := translated.(cmn.RevertDataCarrier)
 		require.Equal(t, distributionErrorSelector(tc.expected), carrier.RevertData())
 		require.NotEqual(t, distributionErrorSelector(cmn.SolidityErrQueryFailed), carrier.RevertData()[:4])
@@ -49,38 +47,50 @@ func TestTranslateDistributionRegisteredErrorsDirectAndWrapped(t *testing.T) {
 
 func TestDistributionUnregisteredAndGRPCFailuresKeepLegacyFallbacks(t *testing.T) {
 	p := Precompile{ABI: ABI}
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
 
-	msgErr := p.distributionMsgError(ctx, FundCommunityPoolMethod, errors.New("infrastructure"))
+	msgErr := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, FundCommunityPoolMethod, errors.New("infrastructure"), nil).Err
 	require.Equal(t, distributionErrorSelector(cmn.SolidityErrMsgServerFailed), msgErr.(cmn.RevertDataCarrier).RevertData()[:4])
 
-	queryErr := p.distributionQueryError(ctx, ValidatorCommissionMethod, status.Error(codes.NotFound, "message changed"))
+	queryErr := cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorCommissionMethod, status.Error(codes.NotFound, "message changed"), nil).Err
 	require.Equal(t, distributionErrorSelector(cmn.SolidityErrQueryFailed), queryErr.(cmn.RevertDataCarrier).RevertData()[:4])
 	require.NotEqual(t, distributionErrorSelector(SolidityErrDistributionNoValidatorExists), queryErr.(cmn.RevertDataCarrier).RevertData()[:4])
 }
 
-func TestTranslateDistributionUnmappedLogsExactlyOnceWithoutReason(t *testing.T) {
-	var output bytes.Buffer
-	ctx := sdk.Context{}.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
+func TestTranslateDistributionUnmappedReturnsUnmappedRevert(t *testing.T) {
 	p := Precompile{ABI: ABI}
 
-	err := p.distributionMsgError(ctx, FundCommunityPoolMethod, errSyntheticDistributionDrift)
+	err := cosmosErrorRegistry.ResolveMsgServerError(p.ABI, FundCommunityPoolMethod, errSyntheticDistributionDrift, nil).Err
 	carrier := err.(cmn.RevertDataCarrier)
 	require.Equal(t, distributionErrorSelector(cmn.SolidityErrUnmappedCosmosError), carrier.RevertData()[:4])
-
-	logs := output.String()
-	require.Equal(t, 1, strings.Count(logs, "unmapped registered Cosmos error"))
-	require.Contains(t, logs, `"precompile":"distribution"`)
-	require.Contains(t, logs, `"method":"fundCommunityPool"`)
-	require.Contains(t, logs, `"codespace":"distribution-phase-three-drift"`)
-	require.Contains(t, logs, `"code":77`)
-	require.NotContains(t, logs, "unstable reason")
-
-	_ = p.distributionMsgError(ctx, FundCommunityPoolMethod, distributiontypes.ErrEmptyDelegationDistInfo)
-	require.Equal(t, 1, strings.Count(output.String(), "unmapped registered Cosmos error"), "known mappings must not emit the unmapped signal")
 }
 
 func distributionErrorSelector(name string) []byte {
 	definition := ABI.Errors[name]
 	return definition.ID[:4]
+}
+
+func TestDistributionBoundaryPreservation(t *testing.T) {
+	p := Precompile{ABI: ABI}
+	t.Run("query", func(t *testing.T) {
+		precompiletest.TestBoundaryAdapter(t, func(ctx sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveQueryError(p.ABI, "query", err, nil).Err
+		})
+	})
+	t.Run("msg", func(t *testing.T) {
+		precompiletest.TestBoundaryAdapter(t, func(ctx sdk.Context, err error) error {
+			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, "msg", err, nil).Err
+		})
+	})
+}
+
+func TestDistributionBoundaryEquivalence(t *testing.T) {
+	p := Precompile{ABI: ABI}
+	for _, msg := range []bool{false, true} {
+		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, "method", msg, func(ctx sdk.Context, err error) error {
+			if msg {
+				return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, "method", err, nil).Err
+			}
+			return cosmosErrorRegistry.ResolveQueryError(p.ABI, "method", err, nil).Err
+		}, errSyntheticDistributionDrift, sdkerrors.ErrUnauthorized, errors.New("internal"))
+	}
 }

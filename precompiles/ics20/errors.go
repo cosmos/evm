@@ -9,6 +9,7 @@ import (
 	connectiontypes "github.com/cosmos/ibc-go/v11/modules/core/03-connection/types"
 	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v11/modules/core/04-channel/v2/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
 )
 
@@ -93,4 +94,12 @@ var ics20ErrorMappings = cmn.CosmosErrorMappings{
 
 func ErrorMappings() cmn.CosmosErrorMappings {
 	return ics20ErrorMappings.Clone()
+}
+
+func translateTransferValidationError(err error) (bool, error) {
+	key, ok := cmn.ExtractCosmosErrorKey(err)
+	if !ok || key != cmn.NewCosmosErrorKey(host.ErrInvalidID) {
+		return false, nil
+	}
+	return true, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
 }

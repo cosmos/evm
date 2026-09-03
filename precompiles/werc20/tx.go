@@ -47,7 +47,7 @@ func (p Precompile) Deposit(
 			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
-		return nil, p.werc20MsgError(ctx, DepositMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, DepositMethod, err, nil).Err
 	}
 
 	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {

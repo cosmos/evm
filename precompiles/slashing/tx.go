@@ -53,7 +53,7 @@ func (p Precompile) Unjail(
 	}
 
 	if _, err := p.slashingMsgServer.Unjail(ctx, msg); err != nil {
-		return nil, p.slashingMsgError(ctx, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, UnjailMethod, err, nil).Err
 	}
 
 	if err := p.EmitValidatorUnjailedEvent(ctx, stateDB, validatorAddress); err != nil {

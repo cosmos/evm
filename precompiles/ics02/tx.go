@@ -49,7 +49,7 @@ func (p *Precompile) UpdateClient(
 
 	clientMsg, err := clienttypes.UnmarshalClientMessage(p.cdc, updateBz)
 	if err != nil {
-		return nil, p.ics02ValidatedInputError(ctx, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, UpdateClientMethod, err, nil).Err
 	}
 
 	// UnmarshalClientMessage returns (nil, nil) for empty bytes or an Any with an
@@ -59,11 +59,11 @@ func (p *Precompile) UpdateClient(
 	}
 
 	if err := clientMsg.ValidateBasic(); err != nil {
-		return nil, p.ics02ValidatedInputError(ctx, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, UpdateClientMethod, err, nil).Err
 	}
 
 	if err := p.clientKeeper.UpdateClient(ctx, clientID, clientMsg); err != nil {
-		return nil, p.ics02KeeperError(ctx, UpdateClientMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, UpdateClientMethod, err, nil).Err
 	}
 
 	if p.clientKeeper.GetClientStatus(ctx, clientID) == ibcexported.Frozen {
@@ -93,12 +93,12 @@ func (p *Precompile) VerifyMembership(
 	path := commitmenttypesv2.NewMerklePath(pathBz...)
 
 	if err := p.clientKeeper.VerifyMembership(ctx, clientID, proofHeight, 0, 0, proof, path, value); err != nil {
-		return nil, p.ics02KeeperError(ctx, VerifyMembershipMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, VerifyMembershipMethod, err, nil).Err
 	}
 
 	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
-		return nil, p.ics02KeeperError(ctx, VerifyMembershipMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, VerifyMembershipMethod, err, nil).Err
 	}
 	// Convert nanoseconds to seconds without overflow.
 	if timestampNano > math.MaxInt64 {
@@ -129,12 +129,12 @@ func (p *Precompile) VerifyNonMembership(
 	path := commitmenttypesv2.NewMerklePath(pathBz...)
 
 	if err := p.clientKeeper.VerifyNonMembership(ctx, clientID, proofHeight, 0, 0, proof, path); err != nil {
-		return nil, p.ics02KeeperError(ctx, VerifyNonMembershipMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, VerifyNonMembershipMethod, err, nil).Err
 	}
 
 	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
-		return nil, p.ics02KeeperError(ctx, VerifyNonMembershipMethod, err)
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, VerifyNonMembershipMethod, err, nil).Err
 	}
 	// Convert nanoseconds to seconds without overflow.
 	if timestampNano > math.MaxInt64 {

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -149,47 +148,47 @@ type CosmosErrorRegistry struct {
 	sharedSDK  map[CosmosErrorKey]CosmosErrorMapping
 }
 
-func NewCosmosErrorRegistry(
+func validateCosmosErrorMappings(
 	effectiveABI abi.ABI,
 	precompileMappings CosmosErrorMappings,
 	sharedSDKMappings CosmosErrorMappings,
 	overrides OverrideDeclarations,
-) (*CosmosErrorRegistry, error) {
+) (map[CosmosErrorKey]CosmosErrorMapping, map[CosmosErrorKey]CosmosErrorMapping, error) {
 	precompile, err := validateMappingTier("precompile", effectiveABI, precompileMappings)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sharedSDK, err := validateMappingTier("shared SDK", effectiveABI, sharedSDKMappings)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for key := range precompile {
 		if _, ok := sharedSDK[key]; ok {
-			return nil, fmt.Errorf("precompile/shared SDK ownership overlap for %s:%d", key.Codespace, key.Code)
+			return nil, nil, fmt.Errorf("precompile/shared SDK ownership overlap for %s:%d", key.Codespace, key.Code)
 		}
 	}
 	if err := validateEffectiveABI(effectiveABI); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	seenOverrides := make(map[string]struct{}, len(overrides))
 	seenShadows := make(map[string]struct{}, len(overrides))
 	for _, override := range overrides {
 		if override.OwningABI == "" {
-			return nil, fmt.Errorf("override %s requires exactly one owning ABI", override.SoliditySignature)
+			return nil, nil, fmt.Errorf("override %s requires exactly one owning ABI", override.SoliditySignature)
 		}
 		if strings.Contains(override.OwningABI, "|") {
-			return nil, fmt.Errorf("override %s requires exactly one owning ABI", override.SoliditySignature)
+			return nil, nil, fmt.Errorf("override %s requires exactly one owning ABI", override.SoliditySignature)
 		}
 		identity := override.OwningABI + "\x00" + override.SoliditySignature
 		if _, exists := seenOverrides[identity]; exists {
-			return nil, fmt.Errorf("duplicate override ownership/signature for %s %s", override.OwningABI, override.SoliditySignature)
+			return nil, nil, fmt.Errorf("duplicate override ownership/signature for %s %s", override.OwningABI, override.SoliditySignature)
 		}
 		seenOverrides[identity] = struct{}{}
 		if !isStableCallSiteAnchor(override.CallSiteAnchor) {
-			return nil, fmt.Errorf("override %s requires stable source anchor", override.SoliditySignature)
+			return nil, nil, fmt.Errorf("override %s requires stable source anchor", override.SoliditySignature)
 		}
 		if override.Rationale == "" {
-			return nil, fmt.Errorf("override %s requires rationale", override.SoliditySignature)
+			return nil, nil, fmt.Errorf("override %s requires rationale", override.SoliditySignature)
 		}
 		matches := 0
 		for _, definition := range effectiveABI.Errors {
@@ -198,14 +197,14 @@ func NewCosmosErrorRegistry(
 			}
 		}
 		if matches != 1 {
-			return nil, fmt.Errorf("override signature must have exactly one ABI owner: %s", override.SoliditySignature)
+			return nil, nil, fmt.Errorf("override signature must have exactly one ABI owner: %s", override.SoliditySignature)
 		}
 		if override.ShadowedKey == (CosmosErrorKey{}) {
 			continue
 		}
 		shadowIdentity := fmt.Sprintf("%s\x00%s\x00%d", override.OwningABI, override.ShadowedKey.Codespace, override.ShadowedKey.Code)
 		if _, exists := seenShadows[shadowIdentity]; exists {
-			return nil, fmt.Errorf("duplicate override shadow for %s %s:%d", override.OwningABI, override.ShadowedKey.Codespace, override.ShadowedKey.Code)
+			return nil, nil, fmt.Errorf("duplicate override shadow for %s %s:%d", override.OwningABI, override.ShadowedKey.Codespace, override.ShadowedKey.Code)
 		}
 		seenShadows[shadowIdentity] = struct{}{}
 		lowerTierOwners := 0
@@ -216,7 +215,7 @@ func NewCosmosErrorRegistry(
 			lowerTierOwners++
 		}
 		if lowerTierOwners != 1 {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"override %s does not shadow exactly one lower-tier mapping for %s:%d",
 				override.SoliditySignature,
 				override.ShadowedKey.Codespace,
@@ -224,7 +223,7 @@ func NewCosmosErrorRegistry(
 			)
 		}
 	}
-	return &CosmosErrorRegistry{precompile: precompile, sharedSDK: sharedSDK}, nil
+	return precompile, sharedSDK, nil
 }
 
 func ValidateCosmosErrorRegistry(
@@ -233,7 +232,7 @@ func ValidateCosmosErrorRegistry(
 	sharedSDKMappings CosmosErrorMappings,
 	overrides OverrideDeclarations,
 ) error {
-	_, err := NewCosmosErrorRegistry(effectiveABI, precompileMappings, sharedSDKMappings, overrides)
+	_, _, err := validateCosmosErrorMappings(effectiveABI, precompileMappings, sharedSDKMappings, overrides)
 	return err
 }
 
@@ -310,6 +309,8 @@ func ValidateSharedErrorABI(effectiveABI abi.ABI) error {
 	return validateEffectiveABI(effectiveABI)
 }
 
+// MustNewCosmosErrorRegistry validates a precompile ABI and its mappings, then
+// retains its mappings. Runtime encoding uses the caller ABI. Invalid setup panics.
 func MustNewCosmosErrorRegistry(
 	effectiveABI abi.ABI,
 	precompileMappings CosmosErrorMappings,
@@ -319,11 +320,14 @@ func MustNewCosmosErrorRegistry(
 	if err := ValidateSharedErrorABI(effectiveABI); err != nil {
 		panic(err)
 	}
-	registry, err := NewCosmosErrorRegistry(effectiveABI, precompileMappings, sharedSDKMappings, overrides)
+	precompile, sharedSDK, err := validateCosmosErrorMappings(effectiveABI, precompileMappings, sharedSDKMappings, overrides)
 	if err != nil {
 		panic(err)
 	}
-	return registry
+	if err := validateBoundaryErrors(effectiveABI); err != nil {
+		panic(err)
+	}
+	return &CosmosErrorRegistry{precompile: precompile, sharedSDK: sharedSDK}
 }
 
 type MappingKind uint8
@@ -342,6 +346,12 @@ type ErrorTranslation struct {
 	IsUnmapped bool
 }
 
+// Translate encodes a Cosmos mapping using the supplied ABI.
+func (registry *CosmosErrorRegistry) Translate(api abi.ABI, err error) ErrorTranslation {
+	return TranslateCosmosError(api, registry, err)
+}
+
+// TranslateCosmosError retains the legacy caller-supplied ABI packing behavior.
 func TranslateCosmosError(moduleABI abi.ABI, registry *CosmosErrorRegistry, err error) ErrorTranslation {
 	key, ok := ExtractCosmosErrorKey(err)
 	if !ok {
@@ -362,18 +372,7 @@ func TranslateCosmosError(moduleABI abi.ABI, registry *CosmosErrorRegistry, err 
 // QueryError preserves terminal EVM errors and existing Solidity revert data,
 // translates registered Cosmos errors, and wraps only internal errors as QueryFailed.
 func QueryError(moduleABI abi.ABI, registry *CosmosErrorRegistry, method string, err error) error {
-	if err == nil || errors.Is(err, vm.ErrOutOfGas) {
-		return err
-	}
-	var carrier RevertDataCarrier
-	if errors.As(err, &carrier) {
-		return err
-	}
-	translation := TranslateCosmosError(moduleABI, registry, err)
-	if translation.Kind != MappingKindInternal {
-		return translation.Revert
-	}
-	return NewRevertWithSolidityError(moduleABI, SolidityErrQueryFailed, method, err.Error())
+	return registry.ResolveError(moduleABI, err, nil, registry.BoundaryFallback(moduleABI, SolidityErrQueryFailed, method, nil)).Err
 }
 
 type ErrorBoundary uint8
@@ -572,6 +571,10 @@ var reviewedGRPCErrorRegistry *GRPCErrorRegistry
 // ReviewedGRPCErrorRegistry returns a read-only value wrapper around the
 // reviewed runtime resolver. Returning a value prevents importing packages
 // from replacing the package-owned registry after startup validation.
+//
+// Deprecated: this facade freezes the historical policy snapshot for source
+// compatibility. Live code does not consult it; keep new policy in the owning
+// module's call site or registry.
 func ReviewedGRPCErrorRegistry() GRPCErrorRegistry {
 	return *reviewedGRPCErrorRegistry
 }

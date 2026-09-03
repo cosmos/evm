@@ -53,7 +53,7 @@ func (p Precompile) ValidatorDistributionInfo(
 
 	res, err := p.distributionQuerier.ValidatorDistributionInfo(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, ValidatorDistributionInfoMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorDistributionInfoMethod, err, nil).Err
 	}
 
 	out := new(ValidatorDistributionInfoOutput).FromResponse(res)
@@ -75,7 +75,7 @@ func (p Precompile) ValidatorOutstandingRewards(
 
 	res, err := p.distributionQuerier.ValidatorOutstandingRewards(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, ValidatorOutstandingRewardsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorOutstandingRewardsMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(cmn.NewDecCoinsResponse(res.Rewards.Rewards))
@@ -95,7 +95,7 @@ func (p Precompile) ValidatorCommission(
 
 	res, err := p.distributionQuerier.ValidatorCommission(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, ValidatorCommissionMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorCommissionMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(cmn.NewDecCoinsResponse(res.Commission.Commission))
@@ -115,7 +115,7 @@ func (p Precompile) ValidatorSlashes(
 
 	res, err := p.distributionQuerier.ValidatorSlashes(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, ValidatorSlashesMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorSlashesMethod, err, nil).Err
 	}
 
 	out := new(ValidatorSlashesOutput).FromResponse(res)
@@ -137,7 +137,7 @@ func (p Precompile) DelegationRewards(
 
 	res, err := p.distributionQuerier.DelegationRewards(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, DelegationRewardsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DelegationRewardsMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(cmn.NewDecCoinsResponse(res.Rewards))
@@ -157,7 +157,7 @@ func (p Precompile) DelegationTotalRewards(
 
 	res, err := p.distributionQuerier.DelegationTotalRewards(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, DelegationTotalRewardsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DelegationTotalRewardsMethod, err, nil).Err
 	}
 
 	out := new(DelegationTotalRewardsOutput).FromResponse(res)
@@ -179,7 +179,7 @@ func (p Precompile) DelegatorValidators(
 
 	res, err := p.distributionQuerier.DelegatorValidators(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, DelegatorValidatorsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DelegatorValidatorsMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(res.Validators)
@@ -199,7 +199,7 @@ func (p Precompile) DelegatorWithdrawAddress(
 
 	res, err := p.distributionQuerier.DelegatorWithdrawAddress(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, DelegatorWithdrawAddressMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DelegatorWithdrawAddressMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(res.WithdrawAddress)
@@ -219,7 +219,7 @@ func (p Precompile) CommunityPool(
 
 	res, err := p.distributionQuerier.CommunityPool(ctx, req)
 	if err != nil {
-		return nil, p.distributionQueryError(ctx, CommunityPoolMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, CommunityPoolMethod, err, nil).Err
 	}
 
 	out := new(CommunityPoolOutput).FromResponse(res)

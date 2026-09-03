@@ -44,7 +44,7 @@ func (p *Precompile) GetVotes(
 
 	res, err := p.govQuerier.Votes(ctx, queryVotesReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetVotesMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetVotesMethod, err, nil).Err
 	}
 
 	output, err := new(VotesOutput).FromResponse(res)
@@ -68,7 +68,7 @@ func (p *Precompile) GetVote(
 
 	res, err := p.govQuerier.Vote(ctx, queryVotesReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetVoteMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetVoteMethod, err, nil).Err
 	}
 
 	output, err := new(VoteOutput).FromResponse(res)
@@ -92,7 +92,7 @@ func (p *Precompile) GetDeposit(
 
 	res, err := p.govQuerier.Deposit(ctx, queryDepositReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetDepositMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetDepositMethod, err, nil).Err
 	}
 
 	output, err := new(DepositOutput).FromResponse(res)
@@ -116,7 +116,7 @@ func (p *Precompile) GetDeposits(
 
 	res, err := p.govQuerier.Deposits(ctx, queryDepositsReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetDepositsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetDepositsMethod, err, nil).Err
 	}
 
 	output, err := new(DepositsOutput).FromResponse(res)
@@ -140,7 +140,7 @@ func (p *Precompile) GetTallyResult(
 
 	res, err := p.govQuerier.TallyResult(ctx, queryTallyResultReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetTallyResultMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetTallyResultMethod, err, nil).Err
 	}
 
 	output := new(TallyResultOutput).FromResponse(res)
@@ -161,7 +161,7 @@ func (p *Precompile) GetProposal(
 
 	res, err := p.govQuerier.Proposal(ctx, queryProposalReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetProposalMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetProposalMethod, err, nil).Err
 	}
 
 	output, err := new(ProposalOutput).FromResponse(res)
@@ -185,7 +185,7 @@ func (p *Precompile) GetProposals(
 
 	res, err := p.govQuerier.Proposals(ctx, queryProposalsReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetProposalsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetProposalsMethod, err, nil).Err
 	}
 
 	output, err := new(ProposalsOutput).FromResponse(res)
@@ -209,7 +209,7 @@ func (p *Precompile) GetParams(
 
 	res, err := p.govQuerier.Params(ctx, queryParamsReq)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetParamsMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetParamsMethod, err, nil).Err
 	}
 
 	output := new(ParamsOutput).FromResponse(res)
@@ -230,7 +230,7 @@ func (p *Precompile) GetConstitution(
 
 	res, err := p.govQuerier.Constitution(ctx, req)
 	if err != nil {
-		return nil, p.govQueryError(ctx, GetConstitutionMethod, err)
+		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, GetConstitutionMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(res.Constitution)
