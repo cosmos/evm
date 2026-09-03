@@ -312,6 +312,70 @@ func TestAddressConversion(t *testing.T) {
 	require.Equal(t, hex, gotAddr.Hex())
 }
 
+// TestBech32StringFromHexAddressManglesNonHexInput pins the behavior
+// that non-hex addresses are parsed into garbage addresses
+func TestBech32StringFromHexAddressManglesNonHexInput(t *testing.T) {
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
+
+	const (
+		zeroAddr       = "cosmos1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnrql8a"
+		zeroAddrPlus0C = "cosmos1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqvzax4k6"
+	)
+
+	testCases := []struct {
+		name      string
+		hexAddr   string
+		expBech32 string
+		expHex    string
+	}{
+		{
+			name:      "valid hex address is converted faithfully",
+			hexAddr:   hex,
+			expBech32: bech32,
+			expHex:    hex,
+		},
+		{
+			name:      "garbage is silently zeroed",
+			hexAddr:   "blabla",
+			expBech32: zeroAddr,
+			expHex:    "0x0000000000000000000000000000000000000000",
+		},
+		{
+			name:      "empty string is silently zeroed",
+			hexAddr:   "",
+			expBech32: zeroAddr,
+			expHex:    "0x0000000000000000000000000000000000000000",
+		},
+		{
+			// The fund-loss case: the zero address is not on the bank blocked
+			// list, so a transfer to it succeeds and the coins are gone.
+			name:      "bech32 address is silently zeroed",
+			hexAddr:   "evmos1ltzy54ms24v590zz37r2q9hrrdcc8eslndsqwv",
+			expBech32: zeroAddr,
+			expHex:    "0x0000000000000000000000000000000000000000",
+		},
+		{
+			name:      "cosmos1 bech32 address decodes to 0x..0C, not to zero",
+			hexAddr:   "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82a",
+			expBech32: zeroAddrPlus0C,
+			expHex:    "0x000000000000000000000000000000000000000C",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := utils.Bech32StringFromHexAddress(tc.hexAddr)
+			require.Equal(t, tc.expBech32, got)
+
+			// No error is ever reported, which is what makes this dangerous.
+			gotAddr, err := utils.HexAddressFromBech32String(got)
+			require.NoError(t, err)
+			require.Equal(t, tc.expHex, gotAddr.Hex())
+		})
+	}
+}
+
 func TestGetIBCDenomAddress(t *testing.T) {
 	testCases := []struct {
 		name        string
