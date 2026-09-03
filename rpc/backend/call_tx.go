@@ -21,6 +21,8 @@ import (
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	errorsmod "cosmossdk.io/errors"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -146,22 +148,37 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 	}
 
 	txHash := tx.Hash()
-
-	// publish tx directly to app-side mempool, avoiding broadcasting to
-	// consensus layer.
-	// we are directly calling into the mempool rather than the ABCI
-	// handler for InsertTx, since the ABCI handler obfuscates the error's
-	// returned via codes, and we would like to have the full error to
-	// return to clients.
-	if err = b.Mempool.Insert(ctx, cosmosTx); err != nil {
-		// no need for special error handling like in the broadcast tx case
-		// since this is coming directly from the evm mempool insert.
+	if err := b.submitTx(ctx, cosmosTx); err != nil {
 		return common.Hash{}, err
 	}
 
 	b.TrackTxIfSupported(txHash)
 
 	return txHash, nil
+}
+
+// submitTx inserts the tx into the app-side EVM mempool when there is one:
+// broadcasting through CometBFT would only reach the app's CheckTx handler,
+// which inserts into the same pool but flattens the error to an ABCI code.
+// Without an EVM mempool (mempool.max-txs = -1) CometBFT's mempool is the
+// pool, so broadcasting is the only way in.
+func (b *Backend) submitTx(ctx context.Context, tx sdk.Tx) error {
+	if b.Mempool != nil {
+		return b.Mempool.Insert(ctx, tx)
+	}
+
+	txBytes, err := b.ClientCtx.TxConfig.TxEncoder()(tx)
+	if err != nil {
+		return err
+	}
+	rsp, err := b.ClientCtx.BroadcastTxSync(txBytes)
+	if err != nil {
+		return err
+	}
+	if rsp.Code != 0 {
+		return errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
+	}
+	return nil
 }
 
 // SetTxDefaults populates tx message with default values in case they are not

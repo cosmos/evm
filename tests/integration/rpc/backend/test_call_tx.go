@@ -377,6 +377,30 @@ func (s *TestSuite) TestSendRawTransaction() {
 			expHash: ethTx.Hash(),
 			expPass: true,
 		},
+		{
+			name: "fail - no EVM mempool, rejected by CheckTx",
+			registerMock: func() {
+				cosmosTx, _ := ethTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), evmDenom)
+				s.backend.AllowUnprotectedTxs = true
+				s.backend.Mempool = nil
+				RegisterBroadcastTxCheckTxError(s.backend.ClientCtx.Client.(*mocks.Client), s.encodeTx(cosmosTx))
+			},
+			rawTx:    func() []byte { return rlpEncodedBz },
+			expHash:  common.Hash{},
+			expError: "insufficient funds",
+		},
+		{
+			name: "pass - no EVM mempool, broadcast through CometBFT",
+			registerMock: func() {
+				cosmosTx, _ := ethTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), evmDenom)
+				s.backend.AllowUnprotectedTxs = true
+				s.backend.Mempool = nil
+				RegisterBroadcastTx(s.backend.ClientCtx.Client.(*mocks.Client), s.encodeTx(cosmosTx))
+			},
+			rawTx:   func() []byte { return rlpEncodedBz },
+			expHash: ethTx.Hash(),
+			expPass: true,
+		},
 	}
 
 	for _, tc := range testCases {

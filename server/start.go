@@ -564,11 +564,8 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
 
-		mp, ok := evmApp.GetMempool().(backend.Mempool)
-		if !ok {
-			return fmt.Errorf("json-rpc server requires backend.Mempool")
-		}
-
+		// nil without the EVM mempool (mempool.max-txs = -1): txs are then broadcast through CometBFT
+		mp, _ := evmApp.GetMempool().(backend.Mempool)
 		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, mp)
 		if err != nil {
 			return fmt.Errorf("failed to start json-rpc server: %w", err)
