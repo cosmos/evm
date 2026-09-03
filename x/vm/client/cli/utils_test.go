@@ -41,6 +41,9 @@ func TestAddressFormats(t *testing.T) {
 		{"invalid hex ethereum address", "0x3B98C72760F7BBA69D62ED6F48278451251948E", "", true},
 		{"invalid Cosmos address", "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88", "", true},
 		{"empty string", "", "", true},
+		{"Cosmos address with bad checksum", "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82b", "", true},
+		{"unknown bech32 prefix", "notaprefix18wvvwfmq77a6d8tza4h5sfuy2yj3jj88wpxu9y", "", true},
+		{"hex with non-hex digits", "0xZZ98c72760f7BBa69D62ED6f48278451251948e7", "", true},
 	}
 
 	for _, tc := range testCases {
@@ -97,4 +100,54 @@ func TestAddressToCosmosAddress(t *testing.T) {
 	ethFormatted, err = cosmosAddressFromArg(ethAddr.Hex()[2:])
 	require.NoError(t, err)
 	require.Equal(t, baseAddr, ethFormatted)
+}
+
+// TestAccountToHexNeverReturnsZeroAddress pins that accountToHex does
+// never fall back to the zero address.
+func TestAccountToHexNeverReturnsZeroAddress(t *testing.T) {
+	for _, tc := range []struct {
+		inputValue  string
+		errValue    error
+		outputValue string
+	}{
+		{
+			inputValue:  "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82a",
+			errValue:    nil,
+			outputValue: "0x3B98c72760f7BBa69D62ED6f48278451251948e7",
+		},
+		{
+			inputValue:  "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82c",
+			errValue:    errors.New("must provide a valid Bech32 address: decoding bech32 failed: invalid checksum (expected yqg82a got yqg82c)"),
+			outputValue: "",
+		},
+		{
+			inputValue:  "notaprefix18wvvwfmq77a6d8tza4h5sfuy2yj3jj88wpxu9y",
+			errValue:    errors.New("0xnotaprefix18wvvwfmq77a6d8tza4h5sfuy2yj3jj88wpxu9y is not a valid Ethereum or Cosmos address"),
+			outputValue: "",
+		},
+		{
+			inputValue:  "not-an-address",
+			errValue:    errors.New("0xnot-an-address is not a valid Ethereum or Cosmos address"),
+			outputValue: "",
+		},
+		{
+			inputValue:  "",
+			errValue:    errors.New("0x is not a valid Ethereum or Cosmos address"),
+			outputValue: "",
+		},
+	} {
+		t.Run(tc.inputValue, func(t *testing.T) {
+			hex, err := accountToHex(tc.inputValue)
+
+			if tc.errValue != nil {
+				require.EqualError(t, err, tc.errValue.Error())
+			} else {
+				require.NoError(t, err)
+				require.NotEqual(t, common.Address{}.Hex(), hex,
+					"accountToHex(%q) resolved to the zero address", tc.inputValue)
+			}
+
+			require.Equal(t, tc.outputValue, hex)
+		})
+	}
 }
