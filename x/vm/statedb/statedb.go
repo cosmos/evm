@@ -709,15 +709,28 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 	s.validRevisions = s.validRevisions[:idx]
 }
 
-// Commit writes the dirty states to keeper
-// the StateDB object should be discarded after committed.
+// Commit writes the dirty states to keeper.
+// The StateDB object should be discarded after being committed.
 func (s *StateDB) Commit() error {
 	// writeCache func will exist only when there's a call to a precompile.
 	// It applies all the store updates preformed by precompile calls.
 	if s.writeCache != nil {
+		// fold the remaining dirty set into the precompile cache so the
+		// state changes are atomic.
+		if err := s.commitWithCtx(s.cacheCtx); err != nil {
+			return err
+		}
 		s.writeCache()
+		return nil
 	}
-	return s.commitWithCtx(s.ctx)
+
+	// stage writes here so a late failure leaves s.ctx untouched.
+	cacheCtx, writeCache := s.ctx.CacheContext()
+	if err := s.commitWithCtx(cacheCtx); err != nil {
+		return err
+	}
+	writeCache()
+	return nil
 }
 
 // FlushToCacheCtx writes the dirty states to keeper using the cacheCtx.
