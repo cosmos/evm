@@ -1,6 +1,8 @@
 package evmd
 
 import (
+	abci "github.com/cometbft/cometbft/abci/types"
+
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/server"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -53,15 +55,24 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	app.EVMMempool = mempool
 
-	// create ABCI handlers
-	proposalHandler := baseapp.NewDefaultProposalHandler(mempool, NewNoCheckProposalTxVerifier(app.BaseApp))
+	// Re-run ante for any selected tx the mempool cannot prove was validated
+	// at the height this proposal builds on (see SnapshotVerifiedTxVerifier).
+	// The base comes from the ABCI request, not the notify-driven pin, which
+	// can lag a beat behind the last commit.
+	verifier := NewSnapshotVerifiedTxVerifier(app.BaseApp, mempool)
+	proposalHandler := baseapp.NewDefaultProposalHandler(mempool, verifier)
+	defaultPrepareProposal := proposalHandler.PrepareProposalHandler()
+	prepareProposalHandler := func(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+		verifier.SetProposalBase(req.Height - 1)
+		return defaultPrepareProposal(ctx, req)
+	}
 
 	insertTxHandler := mempool.NewInsertTxHandler(app.TxDecode)
 	reapTxsHandler := mempool.NewReapTxsHandler()
 	checkTxHandler := mempool.NewCheckTxHandler(app.TxDecode, checkTxTimeout)
 
 	// set handlers and the mempool
-	app.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
+	app.SetPrepareProposal(prepareProposalHandler)
 	app.SetProcessProposal(proposalHandler.ProcessProposalHandler())
 	app.SetInsertTxHandler(insertTxHandler)
 	app.SetReapTxsHandler(reapTxsHandler)

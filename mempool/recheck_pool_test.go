@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/reaplist"
@@ -30,6 +31,7 @@ import (
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
@@ -726,6 +728,160 @@ func TestRecheckMempool_RecheckedTxs(t *testing.T) {
 	}
 }
 
+// A tx that fails recheck must leave the snapshot at detection time — the
+// end-of-pass removal loop is skipped on cancellation.
+func TestRecheckMempool_FailedTxDroppedBeforeRemovalLoop(t *testing.T) {
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+
+	const numTxs = 3
+
+	var failPass atomic.Bool
+	var calls atomic.Int32
+	ready := make(chan struct{})
+	gate := make(chan struct{})
+	anteHandler := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
+		if !failPass.Load() {
+			return ctx, nil
+		}
+		switch calls.Add(1) {
+		case 1:
+			// first rechecked tx fails
+			return ctx, errors.New("recheck failure")
+		case 2:
+			// second stalls the pass before its removal loop can run
+			ready <- struct{}{}
+			<-gate
+		}
+		return ctx, nil
+	}
+
+	rc := newMockRechecker(ctx, anteHandler)
+	mp := mempool.NewRecheckMempool(
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
+	)
+	mp.Start(testHeader(0))
+	defer mp.Close()
+
+	for range numTxs {
+		key, _ := crypto.GenerateKey()
+		require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, key)))
+	}
+	mp.TriggerRecheckSync(testHeader(1))
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(1))), numTxs)
+
+	failPass.Store(true)
+	mp.TriggerRecheck(testHeader(2))
+	<-ready // one tx has failed and the pass is stalled mid-iteration
+
+	getCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(getCtx, big.NewInt(2))), numTxs-1,
+		"failed tx must leave the snapshot before the removal loop runs")
+
+	// let the stalled pass finish; remaining txs pass without signalling again
+	failPass.Store(false)
+	close(gate)
+}
+
+// TestRecheckMempool_CarryForwardSurvivesCancellation verifies the fix for the
+// cosmos-pool proposal starvation: a recheck pass carries the previous height's
+// validated set forward, so a pass that is cancelled (or merely still running)
+// before it validates anything does not present an empty snapshot to proposals.
+// Before the fix, StartNewHeight reset the store to empty each height, so a
+// pass that had not yet re-added txs exposed a zero-length snapshot.
+func TestRecheckMempool_CarryForwardSurvivesCancellation(t *testing.T) {
+	tracker := reserver.NewReservationTracker()
+	handle := tracker.NewHandle(1)
+	ctx := newRecheckTestContext()
+	bc := newTestBlockchain(t, ctx)
+
+	const numTxs = 5
+
+	var blockPass atomic.Bool
+	ready := make(chan struct{})
+	gate := make(chan struct{})
+	anteHandler := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
+		if blockPass.Load() {
+			ready <- struct{}{}
+			<-gate
+		}
+		return ctx, nil
+	}
+
+	rc := newMockRechecker(ctx, anteHandler)
+	mp := mempool.NewRecheckMempool(
+		nil, 0, handle, rc,
+		newTestRecheckedTxs(), newTestReapList(), bc, log.NewNopLogger(),
+	)
+	mp.Start(testHeader(0))
+	defer mp.Close()
+
+	// Insert and validate a set of txs at height 1.
+	for range numTxs {
+		key, _ := crypto.GenerateKey()
+		require.NoError(t, mp.Insert(ctx, newRecheckTestTx(t, key)))
+	}
+	mp.TriggerRecheckSync(testHeader(1))
+	require.Len(t, collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(1))), numTxs)
+
+	// Start a height-2 pass that blocks on the very first ante call, before it
+	// has re-added any tx to the height-2 snapshot.
+	blockPass.Store(true)
+	mp.TriggerRecheck(testHeader(2))
+	<-ready // the pass is now stalled having added nothing itself
+
+	// The height-2 snapshot must already expose the carried-forward set. Use a
+	// short timeout since the (stalled) pass will not call EndCurrentHeight.
+	getCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	carried := collectIteratorTxs(mp.RecheckedTxs(getCtx, big.NewInt(2)))
+	require.Len(t, carried, numTxs, "carried-forward snapshot must not be empty mid-pass")
+
+	// Let the stalled pass finish. blockPass is cleared before releasing the
+	// gate, so only the already-stalled ante was waiting: the remaining txs
+	// pass through without signalling ready again.
+	blockPass.Store(false)
+	close(gate)
+}
+
+func newStartedRecheckMempool(
+	t *testing.T,
+	ctx sdk.Context,
+	cfg *sdkmempool.PriorityNonceMempoolConfig[sdkmath.Int],
+	ante sdk.AnteHandler,
+) (*mempool.RecheckMempool, *heightsync.HeightSync[mempool.CosmosTxStore]) {
+	t.Helper()
+
+	recheckedTxs := newTestRecheckedTxs()
+	mp := mempool.NewRecheckMempool(
+		cfg, 0, reserver.NewReservationTracker().NewHandle(1), newMockRechecker(ctx, ante),
+		recheckedTxs, newTestReapList(), newTestBlockchain(t, ctx), log.NewNopLogger(),
+	)
+	mp.Start(testHeader(0))
+	t.Cleanup(func() {
+		require.NoError(t, mp.Close())
+	})
+	return mp, recheckedTxs
+}
+
+func setupEVMChainConfig(t *testing.T) client.TxConfig {
+	t.Helper()
+
+	vmtypes.NewEVMConfigurator().ResetTestConfig()
+	require.NoError(t, vmtypes.SetChainConfig(vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)))
+	require.NoError(t, vmtypes.NewEVMConfigurator().
+		WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).
+		Configure())
+
+	encodingConfig := encoding.MakeConfig(constants.EighteenDecimalsChainID)
+	vmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	return encodingConfig.TxConfig
+}
+
 func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 	acc := newRecheckTestAccount(t)
 	tracker := reserver.NewReservationTracker()
@@ -788,12 +944,7 @@ func TestRecheckMempool_RecheckedTxsBlocksUntilComplete(t *testing.T) {
 }
 
 func TestRecheckMempool_RecheckerNoContextOnInsert(t *testing.T) {
-	// setup mocks for blockchain fetching latest block
-	vmtypes.NewEVMConfigurator().ResetTestConfig()
-	require.NoError(t, vmtypes.SetChainConfig(vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)))
-	require.NoError(t, vmtypes.NewEVMConfigurator().
-		WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).
-		Configure())
+	setupEVMChainConfig(t)
 
 	acc := newRecheckTestAccount(t)
 	tracker := reserver.NewReservationTracker()
@@ -826,7 +977,7 @@ func newRecheckTestTxWithNonce(t *testing.T, key *ecdsa.PrivateKey, nonce uint64
 	return &recheckTestTx{key: key, sequence: nonce}
 }
 
-func newRecheckTestTxWithGasPrice(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gasPrice int64) sdk.Tx {
+func newRecheckTestTxWithGasPrice(t *testing.T, key *ecdsa.PrivateKey, nonce uint64, gasPrice int64) *recheckTestTx {
 	t.Helper()
 	return &recheckTestTx{
 		key:      key,
@@ -1023,6 +1174,36 @@ func customReplacementConfig() *sdkmempool.PriorityNonceMempoolConfig[sdkmath.In
 	}
 }
 
+// A replaced tx with a different signer set than its replacement sits in a bucket
+// InvalidateFrom(newTx) never visits, only replacement hook can drop it and txs stacked on its nonces.
+func TestRecheckMempool_ReplacementWithDifferentSignerSetInvalidatesRechecked(t *testing.T) {
+	ctx := newRecheckTestContext()
+	mp, _ := newStartedRecheckMempool(t, ctx, customReplacementConfig(), noopAnteHandler)
+
+	sender, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	cosigner, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	// sender's nonce 5 co-signed by a second account, plus one stacked on it
+	coSigned := newCoSignedRecheckTestTx(t, sender, cosigner, 5, 0, 1)
+	dependent := newCoSignedRecheckTestTx(t, sender, cosigner, 6, 1, 1)
+	require.NoError(t, mp.Insert(ctx, coSigned))
+	require.NoError(t, mp.Insert(ctx, dependent))
+	require.Equal(t, []sdk.Tx{coSigned, dependent},
+		collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(0))))
+
+	// replace at the same sender and nonce with a tx sender signs alone
+	replacement := newRecheckTestTxWithGasPrice(t, sender, 5, 2)
+	require.NoError(t, mp.Insert(ctx, replacement))
+
+	// Only the replacement may survive: the co-signed tx left the pool, and the
+	// dependent was validated on a nonce the replacement now owns.
+	rechecked := collectIteratorTxs(mp.RecheckedTxs(context.Background(), big.NewInt(0)))
+	require.Equal(t, []sdk.Tx{replacement}, rechecked,
+		"the replaced tx and its dependent must not linger in the snapshot")
+}
+
 func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
@@ -1068,9 +1249,8 @@ func TestRecheckMempool_RecheckRebuildsSnapshotAfterReplacement(t *testing.T) {
 	require.Equal(t, []sdk.Tx{tx3, replacement, tx5, tx6}, rechecked)
 }
 
-// TestRecheckMempool_RecheckDropsFromReapList verifies that when a tx fails
-// recheck and gets removed from the pool, it is also dropped from the reap
-// list. Txs that pass recheck must remain reapable.
+// To verify that when a tx fails recheck and gets removed from the pool, it is also dropped
+// from reap list. Txs that pass recheck must remain reapable.
 func TestRecheckMempool_RecheckDropsFromReapList(t *testing.T) {
 	ctx := newRecheckTestContext()
 	tracker := reserver.NewReservationTracker()
@@ -1158,18 +1338,30 @@ func TestRecheckMempool_ReplacementDropsFromReapList(t *testing.T) {
 	require.Equal(t, expected, reaped[0])
 }
 
-// newRecheckTestTx creates a minimal sdk.Tx for unit testing RecheckMempool.
 func newRecheckTestTx(t *testing.T, key *ecdsa.PrivateKey) sdk.Tx {
 	t.Helper()
 	return &recheckTestTx{key: key}
 }
 
-// recheckTestTx is a minimal sdk.Tx implementation for unit testing.
 type recheckTestTx struct {
+	key       *ecdsa.PrivateKey
+	sequence  uint64
+	gas       uint64
+	fee       sdk.Coins
+	cosigners []recheckTestSigner
+}
+
+type recheckTestSigner struct {
 	key      *ecdsa.PrivateKey
 	sequence uint64
-	gas      uint64
-	fee      sdk.Coins
+}
+
+func (m *recheckTestTx) signers() []recheckTestSigner {
+	return append([]recheckTestSigner{{key: m.key, sequence: m.sequence}}, m.cosigners...)
+}
+
+func recheckTestPubKey(key *ecdsa.PrivateKey) cryptotypes.PubKey {
+	return &ethsecp256k1.PubKey{Key: crypto.CompressPubkey(&key.PublicKey)}
 }
 
 const recheckTestFeeDenom = "atest"
@@ -1207,29 +1399,44 @@ func (m *recheckTestTx) FeeGranter() []byte {
 }
 
 func (m *recheckTestTx) GetSigners() ([][]byte, error) {
-	pubKeyBytes := crypto.CompressPubkey(&m.key.PublicKey)
-	pubKey := &ethsecp256k1.PubKey{Key: pubKeyBytes}
-	return [][]byte{pubKey.Address().Bytes()}, nil
+	signers := make([][]byte, 0, len(m.cosigners)+1)
+	for _, s := range m.signers() {
+		signers = append(signers, recheckTestPubKey(s.key).Address().Bytes())
+	}
+	return signers, nil
 }
 
 func (m *recheckTestTx) GetPubKeys() ([]cryptotypes.PubKey, error) {
-	pubKeyBytes := crypto.CompressPubkey(&m.key.PublicKey)
-	pubKey := &ethsecp256k1.PubKey{Key: pubKeyBytes}
-	return []cryptotypes.PubKey{pubKey}, nil
+	pubKeys := make([]cryptotypes.PubKey, 0, len(m.cosigners)+1)
+	for _, s := range m.signers() {
+		pubKeys = append(pubKeys, recheckTestPubKey(s.key))
+	}
+	return pubKeys, nil
 }
 
 func (m *recheckTestTx) GetSignaturesV2() ([]signingtypes.SignatureV2, error) {
-	pubKeyBytes := crypto.CompressPubkey(&m.key.PublicKey)
-	pubKey := &ethsecp256k1.PubKey{Key: pubKeyBytes}
-	return []signingtypes.SignatureV2{
-		{
-			PubKey:   pubKey,
-			Sequence: m.sequence,
-		},
-	}, nil
+	sigs := make([]signingtypes.SignatureV2, 0, len(m.cosigners)+1)
+	for _, s := range m.signers() {
+		sigs = append(sigs, signingtypes.SignatureV2{
+			PubKey:   recheckTestPubKey(s.key),
+			Sequence: s.sequence,
+		})
+	}
+	return sigs, nil
 }
 
-// recheckTestAccount holds test account data.
+func newCoSignedRecheckTestTx(
+	t *testing.T,
+	key, cosigner *ecdsa.PrivateKey,
+	nonce, cosignerNonce uint64,
+	gasPrice int64,
+) sdk.Tx {
+	t.Helper()
+	tx := newRecheckTestTxWithGasPrice(t, key, nonce, gasPrice)
+	tx.cosigners = []recheckTestSigner{{key: cosigner, sequence: cosignerNonce}}
+	return tx
+}
+
 type recheckTestAccount struct {
 	key     *ecdsa.PrivateKey
 	address common.Address
@@ -1253,12 +1460,10 @@ func noopAnteHandler(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
 	return ctx, nil
 }
 
-// newTestRecheckedTxs creates a HeightSync[CosmosTxStore] for testing, starting at height 0.
 func newTestRecheckedTxs() *heightsync.HeightSync[mempool.CosmosTxStore] {
 	return heightsync.New(big.NewInt(0), mempool.NewCosmosTxStore, log.NewNopLogger())
 }
 
-// collectIteratorTxs drains an sdkmempool.Iterator into a slice.
 func collectIteratorTxs(iter sdkmempool.Iterator) []sdk.Tx {
 	var txs []sdk.Tx
 	for iter != nil {
