@@ -137,6 +137,12 @@ func (suite *StateDBTestSuite) TestDBError() {
 			db.SelfDestruct(mocks.ErrAddress)
 			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
 		}},
+		{"delete new contract account", func(db vm.StateDB) {
+			db.CreateAccount(mocks.ErrAddress)
+			db.CreateContract(mocks.ErrAddress)
+			db.SelfDestruct(mocks.ErrAddress)
+			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
+		}},
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {

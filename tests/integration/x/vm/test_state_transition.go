@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
@@ -666,6 +667,51 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 			s.Require().Equal(balanceAfterRefund.Sub(initialBalance).Amount, sdkmath.NewIntFromBigInt(expectedRefund))
 		})
 	}
+}
+
+func (s *KeeperTestSuite) TestApplyTransactionWithPreFundedEmptyRuntimeSelfDestruct() {
+	s.SetupTest()
+
+	ctx := s.Network.GetContext()
+	evmKeeper := s.Network.App.GetEVMKeeper()
+	sender := s.Keyring.GetKey(0)
+	beneficiary := s.Keyring.GetAddr(1)
+	prefund := big.NewInt(7)
+
+	initialNonce := evmKeeper.GetNonce(ctx, sender.Addr)
+	contractAddr := crypto.CreateAddress(sender.Addr, initialNonce+1)
+	beneficiaryBalance := evmKeeper.GetBalance(ctx, beneficiary).ToBig()
+
+	fundingRes, err := s.Factory.ExecuteEthTx(sender.Priv, types.EvmTxArgs{
+		To:       &contractAddr,
+		Amount:   prefund,
+		GasLimit: params.TxGas,
+	})
+	s.Require().NoError(err)
+	s.Require().True(fundingRes.IsOK())
+	s.Require().NoError(s.Network.NextBlock())
+
+	ctx = s.Network.GetContext()
+	s.Require().NotNil(evmKeeper.GetAccount(ctx, contractAddr))
+	s.Require().Equal(0, evmKeeper.GetBalance(ctx, contractAddr).ToBig().Cmp(prefund))
+	s.Require().Equal(initialNonce+1, evmKeeper.GetNonce(ctx, sender.Addr))
+
+	// PUSH20 beneficiary; SELFDESTRUCT. The constructor returns no runtime code.
+	initCode := append([]byte{0x73}, beneficiary.Bytes()...)
+	initCode = append(initCode, 0xff)
+	creationRes, err := s.Factory.ExecuteEthTx(sender.Priv, types.EvmTxArgs{
+		Input:    initCode,
+		GasLimit: 200_000,
+	})
+	s.Require().NoError(err)
+	s.Require().True(creationRes.IsOK())
+	s.Require().NoError(s.Network.NextBlock())
+
+	ctx = s.Network.GetContext()
+	s.Require().Nil(evmKeeper.GetAccount(ctx, contractAddr))
+	s.Require().True(evmKeeper.GetBalance(ctx, contractAddr).IsZero())
+	expectedBeneficiaryBalance := new(big.Int).Add(beneficiaryBalance, prefund)
+	s.Require().Equal(0, evmKeeper.GetBalance(ctx, beneficiary).ToBig().Cmp(expectedBeneficiaryBalance))
 }
 
 type testHooks struct {

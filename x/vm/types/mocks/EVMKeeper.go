@@ -119,6 +119,10 @@ func (k EVMKeeper) DeleteAccount(_ sdk.Context, addr common.Address) error {
 	return nil
 }
 
+func (k EVMKeeper) DeleteNewContractAccount(ctx sdk.Context, addr common.Address) error {
+	return k.DeleteAccount(ctx, addr)
+}
+
 func (k EVMKeeper) Clone() *EVMKeeper {
 	accounts := maps.Clone(k.accounts)
 	codes := maps.Clone(k.codes)
