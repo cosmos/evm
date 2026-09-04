@@ -9,19 +9,19 @@ ______________________________________________________________________
 ## Basic Test Environment (Ethereum Fork)
 
 ```shell
-npx hardhat test
+pnpm exec hardhat test
 ```
 
 ## Interchain Test (Local Node)
 
 ```shell
-npx hardhat test --network localhost
+pnpm exec hardhat test --network localhost
 ```
 
 ### Test for Uniswap deployment
 
 ```shell
-npx hardhat test test/uniswap.test.js --network localhost --show-stack-traces
+pnpm exec hardhat test test/uniswap.test.js --network localhost --show-stack-traces
 ```
 
 ### Test Compile for Uniswap v3-core
@@ -30,8 +30,8 @@ npx hardhat test test/uniswap.test.js --network localhost --show-stack-traces
 cd external/v3-core
 git submodule init
 git submodule update
-npm install
-npx hardhat compile
+pnpm install
+pnpm exec hardhat compile
 ```
 
 ### Test Compile for Uniswap v3-periphery
@@ -40,6 +40,6 @@ npx hardhat compile
 cd external/v3-periphery
 git submodule init
 git submodule update
-npm install
-npx hardhat compile
+pnpm install
+pnpm exec hardhat compile
 ```

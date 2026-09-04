@@ -51,7 +51,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           # setup_compatibility_tests npm-installs the hardhat/viem projects
-          node-version-file: tests/evm-tools-compatibility/hardhat/package.json
+          node-version: '24'
 
       - name: Report Node version
         run: printf 'Node `%s` · npm `%s`\n' "$(node -v)" "$(npm -v)" >> "$GITHUB_STEP_SUMMARY"

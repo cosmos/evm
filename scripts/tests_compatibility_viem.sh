@@ -61,23 +61,19 @@ else
 	exit 1
 fi
 
-# Install npm dependencies if not already installed
-if [ ! -d "node_modules" ]; then
-	echo "Installing npm dependencies..."
-	npm install
-else
-	echo "npm dependencies already installed, skipping..."
-fi
+# Install dependencies (pnpm install is fast when already up to date; ensures pnpm layout)
+echo "Installing dependencies..."
+pnpm install
 
 echo "Running viem compatibility tests..."
 
-# Run tests with npm test
+# Run tests with pnpm test
 if [ "$VERBOSE" = true ]; then
-	echo "Running: npm test"
-	npm test
+	echo "Running: pnpm test"
+	pnpm test
 else
-	echo "Running: npm test"
-	npm test 2>&1 | tee /tmp/viem-test.log
+	echo "Running: pnpm test"
+	pnpm test 2>&1 | tee /tmp/viem-test.log
 fi
 
 # Check if tests passed
