@@ -88,6 +88,18 @@ make test-unit-cover
 make test-fuzz
 ```
 
+Run a specific fuzz target locally (example for denom relabeling invariants):
+
+```bash
+go test -tags=test ./x/vm/types -run '^$' -fuzz FuzzConvertCoinsDenomToExtendedDenomWithEvmParams -fuzztime=30s
+```
+
+Re-run with a longer fuzz window:
+
+```bash
+go test -tags=test ./x/vm/types -run '^$' -fuzz FuzzConvertCoinsDenomToExtendedDenomWithEvmParams -fuzztime=5m
+```
+
 #### Solidity Tests
 
 ```bash

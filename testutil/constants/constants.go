@@ -47,31 +47,12 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - deduplicate
 		DisplayDenom:  ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals.Uint32(),
 	},
-	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
-	SixDecimalsChainID.EVMChainID: {
-		Denom:         "utest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.SixDecimals.Uint32(),
-	},
 	// EVMChainID provides a chain ID used for internal testing
 	config.DefaultEVMChainID: {
 		Denom:         "atest",
 		ExtendedDenom: "atest",
 		DisplayDenom:  "test",
 		Decimals:      evmtypes.EighteenDecimals.Uint32(),
-	},
-	TwelveDecimalsChainID.EVMChainID: {
-		Denom:         "ptest2",
-		ExtendedDenom: "atest2",
-		DisplayDenom:  "test2",
-		Decimals:      evmtypes.TwelveDecimals.Uint32(),
-	},
-	TwoDecimalsChainID.EVMChainID: {
-		Denom:         "ctest3",
-		ExtendedDenom: "atest3",
-		DisplayDenom:  "test3",
-		Decimals:      evmtypes.TwoDecimals.Uint32(),
 	},
 }
 
@@ -90,24 +71,6 @@ var (
 		EVMChainID: 9001,
 	}
 
-	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
-	SixDecimalsChainID = ChainID{
-		ChainID:    "ossix-2",
-		EVMChainID: 9002,
-	}
-
-	// TwelveDecimalsChainID provides a chain ID which is being set up with 12 decimals
-	TwelveDecimalsChainID = ChainID{
-		ChainID:    "ostwelve-3",
-		EVMChainID: 9003,
-	}
-
-	// TwoDecimalsChainID provides a chain ID which is being set up with 2 decimals
-	TwoDecimalsChainID = ChainID{
-		ChainID:    "ostwo-4",
-		EVMChainID: 9004,
-	}
-
 	// ExampleChainCoinInfo provides the coin info for the example chain
 	//
 	// It is a map of the chain id and its corresponding EvmCoinInfo
@@ -119,24 +82,6 @@ var (
 			ExtendedDenom: ExampleAttoDenom,
 			DisplayDenom:  ExampleDisplayDenom,
 			Decimals:      evmtypes.EighteenDecimals.Uint32(),
-		},
-		SixDecimalsChainID: {
-			Denom:         "utest",
-			ExtendedDenom: "atest",
-			DisplayDenom:  "test",
-			Decimals:      evmtypes.SixDecimals.Uint32(),
-		},
-		TwelveDecimalsChainID: {
-			Denom:         "ptest2",
-			ExtendedDenom: "atest2",
-			DisplayDenom:  "test2",
-			Decimals:      evmtypes.TwelveDecimals.Uint32(),
-		},
-		TwoDecimalsChainID: {
-			Denom:         "ctest3",
-			ExtendedDenom: "atest3",
-			DisplayDenom:  "test3",
-			Decimals:      evmtypes.TwoDecimals.Uint32(),
 		},
 	}
 

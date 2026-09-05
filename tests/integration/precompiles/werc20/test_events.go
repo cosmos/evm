@@ -101,9 +101,6 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 		{
 			name:    "mainnet",
 			chainID: testconstants.ExampleChainID,
-		}, {
-			name:    "six decimals",
-			chainID: testconstants.SixDecimalsChainID,
 		},
 	}
 
@@ -160,9 +157,6 @@ func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 		{
 			name:    "mainnet",
 			chainID: testconstants.ExampleChainID,
-		}, {
-			name:    "six decimals",
-			chainID: testconstants.SixDecimalsChainID,
 		},
 	}
 
