@@ -1,0 +1,14 @@
+packages:
+  - 'suites/*'
+allowBuilds:
+  '@apollo/protobufjs': true
+  bufferutil: true
+  es5-ext: true
+  keccak: true
+  leveldown: true
+  secp256k1: true
+  truffle: true
+  utf-8-validate: true
+  web3: true
+  web3-bzz: true
+  web3-shh: true
