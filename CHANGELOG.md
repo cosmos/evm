@@ -42,6 +42,7 @@
 
 ### BUG FIXES
 
+- [\#1286](https://github.com/cosmos/evm/pull/1286) Fetch the block results of the resolved block in `eth_getBlockReceipts` so that the `latest` tag no longer pairs the txs of one block with the results of a newer one (panic or wrong receipts).
 - [\#1271](https://github.com/cosmos/evm/pull/1271) Return `null` from `eth_getTransactionReceipt` for unmined txs instead of retrying for up to ~51s, past `json-rpc.http-timeout`.
 - [\#1265](https://github.com/cosmos/evm/pull/1265) Apply `json-rpc.evm-timeout` to `eth_estimateGas`, matching `eth_call`.
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
