@@ -42,6 +42,7 @@
 
 ### BUG FIXES
 
+- [\#1285](https://github.com/cosmos/evm/pull/1285) Resolve the `latest`, `pending` and `earliest` block tags to a concrete height in `eth_getProof` instead of failing with `proof queries at height <= 2 are not supported`.
 - [\#1271](https://github.com/cosmos/evm/pull/1271) Return `null` from `eth_getTransactionReceipt` for unmined txs instead of retrying for up to ~51s, past `json-rpc.http-timeout`.
 - [\#1265](https://github.com/cosmos/evm/pull/1265) Apply `json-rpc.evm-timeout` to `eth_estimateGas`, matching `eth_call`.
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
