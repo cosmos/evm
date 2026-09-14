@@ -99,7 +99,12 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) (logs
 	}
 
 	// If we're doing singleton block filtering, execute and return
-	if f.criteria.BlockHash != nil && *f.criteria.BlockHash != (common.Hash{}) {
+	if f.criteria.BlockHash != nil {
+		if *f.criteria.BlockHash == (common.Hash{}) {
+			// a block filter never carries a block range, so don't fall through
+			// to the range logic below; the error message imitates geth behavior
+			return nil, errors.New("unknown block")
+		}
 		resBlock, err := f.backend.CometBlockByHash(ctx, *f.criteria.BlockHash)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch header by hash %s: %w", f.criteria.BlockHash, err)
