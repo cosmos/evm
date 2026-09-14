@@ -93,7 +93,7 @@ func (p Precompile) newMsgTransfer(method *abi.Method, args []interface{}) (*tra
 		return nil, common.Address{}, cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
 	}
 	if err := host.ChannelIdentifierValidator(sourceChannel); err != nil {
-		return nil, common.Address{}, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateTransferValidationError).Err
+		return nil, common.Address{}, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateModuleError).Err
 	}
 
 	denom, ok := args[2].(string)
@@ -143,7 +143,8 @@ func (p Precompile) newMsgTransfer(method *abi.Method, args []interface{}) (*tra
 
 	msg, err := CreateAndValidateMsgTransfer(sourcePort, sourceChannel, token, sdk.AccAddress(sender.Bytes()).String(), receiver, input.TimeoutHeight, timeoutTimestamp, memo)
 	if err != nil {
-		return nil, common.Address{}, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateTransferValidationError).Err
+		err = newTransferMessageValidationError(token, err)
+		return nil, common.Address{}, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateModuleError).Err
 	}
 
 	return msg, sender, nil

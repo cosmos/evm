@@ -23,6 +23,7 @@ import (
 	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
 
 	errorsmod "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -221,25 +222,25 @@ func TestICS20BoundaryPreservationAndEquivalence(t *testing.T) {
 	})
 	t.Run("validated", func(t *testing.T) {
 		adapter := func(_ sdk.Context, err error) error {
-			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateTransferValidationError).Err
+			return cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, err, translateModuleError).Err
 		}
 		precompiletest.TestBoundaryAdapter(t, adapter)
 		precompiletest.TestBoundaryEquivalence(t, ABI, cosmosErrorRegistry, TransferMethod, true, adapter, errSyntheticICS20Drift, sdkerrors.ErrUnauthorized, errors.New("internal"))
 	})
 }
 
-func TestTransferValidationTranslator(t *testing.T) {
+func TestTranslateModuleErrorIdentifiers(t *testing.T) {
 	expected := cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidSourceChannel, TransferMethod, ErrInvalidSourceChannel)
 	for _, input := range []error{host.ErrInvalidID, fmt.Errorf("wrapped: %w", host.ErrInvalidID)} {
-		matched, translated := translateTransferValidationError(input)
+		matched, translated := translateModuleError(input)
 		require.True(t, matched)
 		require.Equal(t, expected.(cmn.RevertDataCarrier).RevertData(), translated.(cmn.RevertDataCarrier).RevertData())
-		resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateTransferValidationError)
+		resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateModuleError)
 		require.Equal(t, expected.(cmn.RevertDataCarrier).RevertData(), resolved.Err.(cmn.RevertDataCarrier).RevertData())
 		require.Equal(t, cmn.ErrorTranslation{}, resolved.Translation)
 	}
 	for _, input := range []error{nil, errors.New("invalid identifier"), sdkerrors.ErrUnauthorized, errSyntheticICS20Drift} {
-		matched, translated := translateTransferValidationError(input)
+		matched, translated := translateModuleError(input)
 		require.False(t, matched)
 		require.Nil(t, translated)
 	}
@@ -252,8 +253,105 @@ func TestTransferValidationTranslator(t *testing.T) {
 		errors.Join(host.ErrInvalidID, precompiletest.StatusRevert{}),
 		errors.Join(host.ErrInvalidID, precompiletest.StatusOutOfGas{}),
 	} {
-		resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateTransferValidationError)
+		resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateModuleError)
 		require.Equal(t, input, resolved.Err)
 		require.Equal(t, cmn.ErrorTranslation{}, resolved.Translation)
 	}
+}
+
+func TestTransferMessageValidationError(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		token sdk.Coin
+		want  string
+	}{
+		{"zero amount", sdk.Coin{Denom: "uatom", Amount: sdkmath.ZeroInt()}, SolidityErrIBCTransferInvalidAmount},
+		{"nil amount", sdk.Coin{Denom: "uatom"}, SolidityErrIBCTransferInvalidAmount},
+		{"negative amount", sdk.Coin{Denom: "uatom", Amount: sdkmath.NewInt(-1)}, SolidityErrIBCTransferInvalidAmount},
+		{"invalid SDK denom before amount", sdk.Coin{Denom: "a", Amount: sdkmath.ZeroInt()}, SolidityErrIBCTransferInvalidDenom},
+		{"amount before IBC denom", sdk.Coin{Denom: "ibc/not-a-hash", Amount: sdkmath.ZeroInt()}, SolidityErrIBCTransferInvalidAmount},
+		{"invalid IBC denom", sdk.Coin{Denom: "ibc/not-a-hash", Amount: sdkmath.OneInt()}, SolidityErrIBCTransferInvalidDenom},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cause := fmt.Errorf("wrapped SDK error: %w", ibcerrors.ErrInvalidCoins)
+			validationErr := newTransferMessageValidationError(tc.token, cause)
+			require.Equal(t, cause.Error(), validationErr.Error())
+			require.Same(t, cause, errors.Unwrap(validationErr))
+			for _, input := range []error{validationErr, fmt.Errorf("wrapped: %w", validationErr)} {
+				require.ErrorIs(t, input, ibcerrors.ErrInvalidCoins)
+				var contextual transferMessageValidationError
+				require.ErrorAs(t, input, &contextual)
+				require.Equal(t, tc.token, contextual.token)
+				resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateModuleError)
+				definition := ABI.Errors[tc.want]
+				args, err := definition.Inputs.Pack()
+				require.NoError(t, err)
+				require.Equal(t, append(definition.ID[:4:4], args...), resolved.Err.(cmn.RevertDataCarrier).RevertData())
+				require.Equal(t, cmn.ErrorTranslation{}, resolved.Translation)
+			}
+		})
+	}
+
+	token := sdk.Coin{Denom: "a", Amount: sdkmath.ZeroInt()}
+	t.Run("terminal errors precede token classification", func(t *testing.T) {
+		for _, input := range []error{
+			nil,
+			precompiletest.StatusRevert{},
+			precompiletest.StatusOutOfGas{},
+			fmt.Errorf("wrapped: %w", precompiletest.StatusRevert{}),
+			fmt.Errorf("wrapped: %w", precompiletest.StatusOutOfGas{}),
+			errors.Join(ibcerrors.ErrInvalidCoins, precompiletest.StatusRevert{}),
+			errors.Join(ibcerrors.ErrInvalidCoins, precompiletest.StatusOutOfGas{}),
+		} {
+			require.Equal(t, input, newTransferMessageValidationError(token, input))
+			if input != nil {
+				input = transferMessageValidationError{token: token, cause: input}
+			}
+			resolved := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateModuleError)
+			require.Equal(t, input, resolved.Err)
+			require.Equal(t, cmn.ErrorTranslation{}, resolved.Translation)
+		}
+	})
+	t.Run("other errors retain original resolution", func(t *testing.T) {
+		for _, input := range []error{
+			host.ErrInvalidID,
+			fmt.Errorf("wrapped: %w", host.ErrInvalidID),
+			sdkerrors.ErrUnauthorized,
+			transfertypes.ErrInvalidMemo,
+			errSyntheticICS20Drift,
+			errors.New("internal"),
+		} {
+			want := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, input, translateModuleError)
+			require.Equal(t, input, newTransferMessageValidationError(token, input))
+			contextual := transferMessageValidationError{token: token, cause: input}
+			matched, translated := translateModuleError(contextual)
+			wantMatched, wantTranslated := translateModuleError(input)
+			require.Equal(t, wantMatched, matched)
+			require.Equal(t, wantTranslated, translated)
+			got := cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, contextual, translateModuleError)
+			require.Equal(t, want.Err.(cmn.RevertDataCarrier).RevertData(), got.Err.(cmn.RevertDataCarrier).RevertData())
+			switch {
+			case matched:
+				require.Equal(t, cmn.ErrorTranslation{}, got.Translation)
+			case got.Translation.Kind == cmn.MappingKindInternal:
+				require.ErrorIs(t, got.Translation.Revert, input)
+			default:
+				require.Equal(t, want.Translation, got.Translation)
+			}
+		}
+	})
+	t.Run("invalid coins remain unmapped outside message validation", func(t *testing.T) {
+		definition := ABI.Errors[cmn.SolidityErrUnmappedCosmosError]
+		args, err := definition.Inputs.Pack("ibc", uint32(6))
+		require.NoError(t, err)
+		for _, resolved := range []cmn.ErrorResolution{
+			cosmosErrorRegistry.ResolveQueryError(ABI, TransferMethod, ibcerrors.ErrInvalidCoins, nil),
+			cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, ibcerrors.ErrInvalidCoins, nil),
+			cosmosErrorRegistry.ResolveMsgServerError(ABI, TransferMethod, ibcerrors.ErrInvalidCoins, translateModuleError),
+		} {
+			require.Equal(t, append(definition.ID[:4:4], args...), resolved.Err.(cmn.RevertDataCarrier).RevertData())
+			require.True(t, resolved.Translation.IsUnmapped)
+			require.Equal(t, cmn.NewCosmosErrorKey(ibcerrors.ErrInvalidCoins), resolved.Translation.Key)
+		}
+	})
 }
