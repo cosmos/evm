@@ -42,6 +42,7 @@
 
 ### BUG FIXES
 
+- [\#1275](https://github.com/cosmos/evm/pull/1275) Serve JSON-RPC without the EVM mempool instead of refusing to start; tx submission then returns `ErrMempoolDisabled`.
 - [\#1287](https://github.com/cosmos/evm/pull/1287) Return an `unknown block` error from `eth_getLogs` / `eth_getFilterLogs` for the zero `blockHash` instead of crashing the handler with a nil pointer dereference.
 - [\#1271](https://github.com/cosmos/evm/pull/1271) Return `null` from `eth_getTransactionReceipt` for unmined txs instead of retrying for up to ~51s, past `json-rpc.http-timeout`.
 - [\#1265](https://github.com/cosmos/evm/pull/1265) Apply `json-rpc.evm-timeout` to `eth_estimateGas`, matching `eth_call`.
