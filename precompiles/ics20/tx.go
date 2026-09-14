@@ -191,7 +191,7 @@ func (p *Precompile) Transfer(
 		}
 		// otherwise, it’s a v2 packet, so perform client ID validation
 	} else if v2ClientIDErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIDErr != nil {
-		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, v2ClientIDErr, translateTransferValidationError).Err
+		return nil, cosmosErrorRegistry.ResolveMsgServerError(p.ABI, TransferMethod, v2ClientIDErr, translateModuleError).Err
 	}
 
 	msgSender := contract.Caller()
