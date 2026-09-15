@@ -1,5 +1,430 @@
 [
   {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "ABISetupFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "eventKind",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "EventEmitFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCCallbacksNestedSourceTransfer",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelInvalidState",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelSequenceSendNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelTimeoutElapsed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelV2InvalidPacket",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelV2InvalidTimeout",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelV2SequenceSendNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCChannelV2TimeoutElapsed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCClientInvalidHeight",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCClientNotActive",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCClientV2CounterpartyNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCConnectionInvalidState",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCConnectionNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCTransferDenomNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCTransferInvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCTransferInvalidDenom",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCTransferInvalidMemo",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCTransferSendDisabled",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IBCUnauthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "bad",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "amount",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidHash",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "height",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidHeight",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidMemo",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "expected",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "got",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidNumberOfArgs",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "pubkey",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidPubkey",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "got",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expected",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidPubkeySize",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidReceiver",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidSourceChannel",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidSourcePort",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidTimeoutTimestamp",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "callMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "InvalidTrace",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "msgMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "MsgServerFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "queryMethod",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "QueryFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "msgSender",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      }
+    ],
+    "name": "RequesterIsNotMsgSender",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInsufficientFunds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKInvalidType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SDKUnauthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "methodName",
+        "type": "string"
+      }
+    ],
+    "name": "UnknownMethod",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "codespace",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "code",
+        "type": "uint32"
+      }
+    ],
+    "name": "UnmappedCosmosError",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {

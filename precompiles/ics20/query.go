@@ -1,8 +1,6 @@
 package ics20
 
 import (
-	"strings"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -37,11 +35,10 @@ func (p Precompile) Denom(
 
 	res, err := p.transferKeeper.Denom(ctx, req)
 	if err != nil {
-		// if the trace does not exist, return empty array
-		if strings.Contains(err.Error(), ErrDenomNotFound) {
+		if ics20QueryPreservesSuccess(DenomMethod, err) {
 			return method.Outputs.Pack(transfertypes.Denom{})
 		}
-		return nil, err
+		return nil, p.ics20QueryError(ctx, DenomMethod, err)
 	}
 
 	return method.Outputs.Pack(*res.Denom)
@@ -61,7 +58,7 @@ func (p Precompile) Denoms(
 
 	res, err := p.transferKeeper.Denoms(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, p.ics20QueryError(ctx, DenomsMethod, err)
 	}
 
 	return method.Outputs.Pack(res.Denoms, res.Pagination)
@@ -81,11 +78,10 @@ func (p Precompile) DenomHash(
 
 	res, err := p.transferKeeper.DenomHash(ctx, req)
 	if err != nil {
-		// if the denom hash does not exist, return empty string
-		if strings.Contains(err.Error(), ErrDenomNotFound) {
+		if ics20QueryPreservesSuccess(DenomHashMethod, err) {
 			return method.Outputs.Pack("")
 		}
-		return nil, err
+		return nil, p.ics20QueryError(ctx, DenomHashMethod, err)
 	}
 
 	return method.Outputs.Pack(res.Hash)

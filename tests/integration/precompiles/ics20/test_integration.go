@@ -14,7 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -22,6 +24,7 @@ import (
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	host "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	"cosmossdk.io/math"
@@ -152,6 +155,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				0,
 			)
 			Expect(err).NotTo(BeNil(), "Failed to testTransfer: %s", err.Error())
+			precompiletestutil.RequireExactError(t, err, cmn.NewRevertWithSolidityError(ics20.ABI, cmn.SolidityErrRequesterIsNotMsgSender, ics20CallerAddr, sender))
 		})
 
 		It("should fail if the v1 channel is not found", func() {
@@ -188,6 +192,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				0,
 			)
 			Expect(err).NotTo(BeNil(), "Failed to testTransfer: %s", err.Error())
+			precompiletestutil.RequireExactError(t, err, cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				ics20.SolidityErrIBCChannelNotFound,
+			))
 		})
 
 		It("should fail if the v2 client id format is invalid", func() {
@@ -224,6 +232,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				0,
 			)
 			Expect(err).NotTo(BeNil(), "Failed to testTransfer: %s", err.Error())
+			Expect(host.ClientIdentifierValidator(invalidV2ClientID)).NotTo(BeNil())
+			precompiletestutil.RequireExactError(t, err, cmn.NewRevertWithSolidityError(
+				ics20.ABI,
+				ics20.SolidityErrInvalidSourceChannel,
+				ics20.TransferMethod,
+				ics20.ErrInvalidSourceChannel,
+			))
 		})
 
 		It("should successfully call the ICS20 precompile to transfer tokens", func() {

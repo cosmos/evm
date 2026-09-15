@@ -8,6 +8,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/gov"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
@@ -22,12 +23,12 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 	)
 
 	testCases := []struct {
-		name        string
-		malleate    func(voter common.Address, proposalId uint64, option uint8, metadata string) []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(voter common.Address, proposalId uint64, option uint8, metadata string) []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct event is emitted",
@@ -58,7 +59,7 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -75,8 +76,7 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 		_, err := s.precompile.Vote(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"))
 
 		if tc.expError {
-			s.Require().Error(err)
-			s.Require().Contains(err.Error(), tc.errContains)
+			precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 		} else {
 			s.Require().NoError(err)
 			tc.postCheck()
@@ -92,12 +92,12 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 	)
 
 	testCases := []struct {
-		name        string
-		malleate    func(voter common.Address, proposalId uint64, options gov.WeightedVoteOptions) []interface{}
-		postCheck   func()
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func(voter common.Address, proposalId uint64, options gov.WeightedVoteOptions) []interface{}
+		postCheck func()
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"success - the correct VoteWeighted event is emitted",
@@ -132,7 +132,7 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 			},
 			20000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -155,8 +155,7 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 			_, err := s.precompile.VoteWeighted(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, options))
 
 			if tc.expError {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck()

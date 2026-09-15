@@ -75,11 +75,11 @@ func (s *PrecompileTestSuite) TestRun() {
 		err error
 	)
 	testcases := []struct {
-		name        string
-		malleate    func() (common.Address, []byte)
-		readOnly    bool
-		expPass     bool
-		errContains string
+		name     string
+		malleate func() (common.Address, []byte)
+		readOnly bool
+		expPass  bool
+		wantErr  error
 	}{
 		{
 			name: "pass - set withdraw address transaction",
@@ -290,7 +290,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			} else {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
 				s.Require().Nil(bz, "expected returned bytes to be nil")
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -302,10 +302,10 @@ func (s *PrecompileTestSuite) TestCMS() {
 		err error
 	)
 	testcases := []struct {
-		name        string
-		malleate    func() (common.Address, []byte)
-		expPass     bool
-		errContains string
+		name     string
+		malleate func() (common.Address, []byte)
+		expPass  bool
+		wantErr  error
 	}{
 		{
 			name: "pass - set withdraw address transaction",
@@ -513,7 +513,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 			} else {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
 				s.Require().Nil(resp.Ret, "expected returned bytes to be nil")
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 				// NOTES: After stack-based snapshot mechanism is added for precompile call,
 				// CacheMultiStore.Write() is not called when tx fails.
 				testutil.ValidateWrites(s.T(), cms, 0)
