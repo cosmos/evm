@@ -2,6 +2,7 @@ package ics20
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -40,30 +41,53 @@ func (ics20QueryKeeperStub) Transfer(context.Context, *transfertypes.MsgTransfer
 	return nil, nil
 }
 
-func TestICS20QueryNotFoundOutcomesIgnoreMessageText(t *testing.T) {
+func TestICS20MissingDenomSuccessMatchesUpstream(t *testing.T) {
 	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
-	for _, message := range []string{"denomination not found", "upstream wording completely changed"} {
-		denomMethod := ABI.Methods[DenomMethod]
-		denomPrecompile := Precompile{
-			ABI:            ABI,
-			transferKeeper: ics20QueryKeeperStub{denomErr: status.Error(codes.NotFound, message)},
-		}
-		bz, err := denomPrecompile.Denom(ctx, nil, &denomMethod, []interface{}{"00"})
-		require.NoError(t, err)
-		unpacked, err := denomMethod.Outputs.Unpack(bz)
-		require.NoError(t, err)
-		require.Len(t, unpacked, 1)
-
-		denomHashMethod := ABI.Methods[DenomHashMethod]
-		denomHashPrecompile := Precompile{
-			ABI:            ABI,
-			transferKeeper: ics20QueryKeeperStub{denomHashErr: status.Error(codes.NotFound, message)},
-		}
-		bz, err = denomHashPrecompile.DenomHash(ctx, nil, &denomHashMethod, []interface{}{"transfer/channel-0/uatom"})
-		require.NoError(t, err)
-		unpacked, err = denomHashMethod.Outputs.Unpack(bz)
-		require.NoError(t, err)
-		require.Equal(t, []interface{}{string("")}, unpacked)
+	for _, name := range []string{DenomMethod, DenomHashMethod} {
+		t.Run(name, func(t *testing.T) {
+			method := ABI.Methods[name]
+			var output interface{} = transfertypes.Denom{}
+			if name == DenomHashMethod {
+				output = ""
+			}
+			expected, err := method.Outputs.Pack(output)
+			require.NoError(t, err)
+			cases := []struct {
+				name    string
+				err     error
+				success bool
+			}{
+				{"SDK missing denom", status.Error(codes.NotFound, ErrDenomNotFound), true},
+				{"wrapped SDK error", fmt.Errorf("outer: %w", status.Error(codes.NotFound, ErrDenomNotFound)), true},
+				{"plain matching message", errors.New(ErrDenomNotFound), true},
+				{"message substring", fmt.Errorf("prefix: %w: suffix", errors.New(ErrDenomNotFound)), true},
+				{"registered missing denom", transfertypes.ErrDenomNotFound, true},
+				{"matching message with other status", status.Error(codes.InvalidArgument, ErrDenomNotFound), true},
+				{"unrelated NotFound", status.Error(codes.NotFound, "backend record unavailable"), false},
+				{"partial message", status.Error(codes.NotFound, "denomination unavailable"), false},
+			}
+			for _, scenario := range cases {
+				t.Run(scenario.name, func(t *testing.T) {
+					p := Precompile{ABI: ABI, transferKeeper: ics20QueryKeeperStub{denomErr: scenario.err, denomHashErr: scenario.err}}
+					var bz []byte
+					var err error
+					if name == DenomMethod {
+						bz, err = p.Denom(ctx, nil, &method, []interface{}{"00"})
+					} else {
+						bz, err = p.DenomHash(ctx, nil, &method, []interface{}{"transfer/channel-0/uatom"})
+					}
+					if scenario.success {
+						require.NoError(t, err)
+						require.Equal(t, expected, bz)
+						return
+					}
+					require.Nil(t, bz)
+					require.Error(t, err)
+					revert := cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, name, scenario.err.Error())
+					require.Equal(t, revert.(cmn.RevertDataCarrier).RevertData(), err.(cmn.RevertDataCarrier).RevertData())
+				})
+			}
+		})
 	}
 }
 
@@ -77,16 +101,6 @@ func TestICS20AmbiguousQueryStatusRemainsQueryFailed(t *testing.T) {
 	_, err := p.Denom(ctx, nil, &method, []interface{}{"00"})
 	require.Error(t, err)
 	require.Equal(t, ics20ErrorSelector(cmn.SolidityErrQueryFailed), err.(cmn.RevertDataCarrier).RevertData()[:4])
-}
-
-func TestICS20DirectRegisteredQueryErrorDoesNotUseQueryFallback(t *testing.T) {
-	ctx := sdk.Context{}.WithLogger(log.NewNopLogger())
-	method := ABI.Methods[DenomMethod]
-	p := Precompile{ABI: ABI, transferKeeper: ics20QueryKeeperStub{denomErr: transfertypes.ErrDenomNotFound}}
-	_, err := p.Denom(ctx, nil, &method, []interface{}{"00"})
-	require.Error(t, err)
-	require.Equal(t, ics20ErrorSelector(SolidityErrIBCTransferDenomNotFound), err.(cmn.RevertDataCarrier).RevertData())
-	assertICS20NotFallback(t, err)
 }
 
 func TestICS20CustomQueryServerPreservesTerminalBeforeNotFound(t *testing.T) {
