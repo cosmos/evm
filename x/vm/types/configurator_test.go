@@ -23,8 +23,18 @@ func TestEVMConfigurator(t *testing.T) {
 
 func TestEVMConfiguratorRejectsNon18Decimals(t *testing.T) {
 	for _, coinInfo := range []types.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.TwelveDecimalsChainID],
+		{
+			Denom:         testconstants.ExampleAttoDenom,
+			ExtendedDenom: testconstants.ExampleAttoDenom,
+			DisplayDenom:  "custom6",
+			Decimals:      types.SixDecimals.Uint32(),
+		},
+		{
+			Denom:         testconstants.ExampleAttoDenom,
+			ExtendedDenom: testconstants.ExampleAttoDenom,
+			DisplayDenom:  "custom12",
+			Decimals:      types.TwelveDecimals.Uint32(),
+		},
 	} {
 		t.Run(coinInfo.DisplayDenom, func(t *testing.T) {
 			ec := types.NewEVMConfigurator().WithEVMCoinInfo(coinInfo)

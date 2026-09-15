@@ -793,10 +793,21 @@ func TestCalcBaseFee(t *testing.T) {
 }
 
 func TestCalcBaseFeeRejectsUnsupportedDecimals(t *testing.T) {
-	for _, chainID := range []constants.ChainID{constants.TwelveDecimalsChainID, constants.SixDecimalsChainID} {
-		t.Run(chainID.ChainID, func(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		decimals uint32
+	}{
+		{name: "twelve", decimals: evmtypes.TwelveDecimals.Uint32()},
+		{name: "six", decimals: evmtypes.SixDecimals.Uint32()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			evmConfigurator := evmtypes.NewEVMConfigurator().
-				WithEVMCoinInfo(constants.ExampleChainCoinInfo[chainID])
+				WithEVMCoinInfo(evmtypes.EvmCoinInfo{
+					Denom:         constants.ExampleAttoDenom,
+					ExtendedDenom: constants.ExampleAttoDenom,
+					DisplayDenom:  "custom",
+					Decimals:      tc.decimals,
+				})
 			evmConfigurator.ResetTestConfig()
 			err := evmConfigurator.Configure()
 			require.ErrorContains(t, err, "only 18 is supported")
