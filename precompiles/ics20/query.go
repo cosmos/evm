@@ -1,10 +1,10 @@
 package ics20
 
 import (
+	"strings"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
@@ -38,7 +38,7 @@ func (p Precompile) Denom(
 
 	res, err := p.transferKeeper.Denom(ctx, req)
 	if err != nil {
-		if ics20QueryPreservesSuccess(DenomMethod, err) {
+		if cmn.NeedsErrorTranslation(err) && strings.Contains(err.Error(), ErrDenomNotFound) {
 			return method.Outputs.Pack(transfertypes.Denom{})
 		}
 		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DenomMethod, err, nil).Err
@@ -81,23 +81,11 @@ func (p Precompile) DenomHash(
 
 	res, err := p.transferKeeper.DenomHash(ctx, req)
 	if err != nil {
-		if ics20QueryPreservesSuccess(DenomHashMethod, err) {
+		if cmn.NeedsErrorTranslation(err) && strings.Contains(err.Error(), ErrDenomNotFound) {
 			return method.Outputs.Pack("")
 		}
 		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, DenomHashMethod, err, nil).Err
 	}
 
 	return method.Outputs.Pack(res.Hash)
-}
-
-func ics20QueryPreservesSuccess(method string, err error) bool {
-	if !cmn.NeedsErrorTranslation(err) {
-		return false
-	}
-	switch method {
-	case DenomMethod, DenomHashMethod:
-		return status.Code(err) == codes.NotFound
-	default:
-		return false
-	}
 }

@@ -1,12 +1,12 @@
 package staking
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -49,7 +49,7 @@ func (p Precompile) Delegation(
 	res, err := p.stakingQuerier.Delegation(ctx, req)
 	if err != nil {
 		// If there is no delegation found, return the response with zero values.
-		if stakingQueryPreservesSuccess(DelegationMethod, err) {
+		if cmn.NeedsErrorTranslation(err) && strings.Contains(err.Error(), fmt.Sprintf(ErrNoDelegationFound, req.DelegatorAddr, req.ValidatorAddr)) {
 			bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 			if err != nil {
 				return nil, cmn.NewRevertWithSolidityError(p.ABI, SolidityErrBondDenomQueryFailed, err.Error())
@@ -81,7 +81,8 @@ func (p Precompile) UnbondingDelegation(
 	res, err := p.stakingQuerier.UnbondingDelegation(ctx, req)
 	if err != nil {
 		// return empty unbonding delegation output if the unbonding delegation is not found
-		if stakingQueryPreservesSuccess(UnbondingDelegationMethod, err) {
+		expError := fmt.Sprintf("unbonding delegation with delegator %s not found for validator %s", req.DelegatorAddr, req.ValidatorAddr)
+		if cmn.NeedsErrorTranslation(err) && strings.Contains(err.Error(), expError) {
 			return method.Outputs.Pack(UnbondingDelegationResponse{})
 		}
 		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, UnbondingDelegationMethod, err, nil).Err
@@ -107,7 +108,8 @@ func (p Precompile) Validator(
 	res, err := p.stakingQuerier.Validator(ctx, req)
 	if err != nil {
 		// return empty validator info if the validator is not found
-		if stakingQueryPreservesSuccess(ValidatorMethod, err) {
+		expError := fmt.Sprintf("validator %s not found", req.ValidatorAddr)
+		if cmn.NeedsErrorTranslation(err) && strings.Contains(err.Error(), expError) {
 			return method.Outputs.Pack(DefaultValidatorInfo())
 		}
 		return nil, cosmosErrorRegistry.ResolveQueryError(p.ABI, ValidatorMethod, err, nil).Err
@@ -182,16 +184,4 @@ func (p Precompile) Redelegations(
 	out := new(RedelegationsOutput).FromResponse(res)
 
 	return out.Pack(method.Outputs)
-}
-
-func stakingQueryPreservesSuccess(method string, err error) bool {
-	if !cmn.NeedsErrorTranslation(err) {
-		return false
-	}
-	switch method {
-	case DelegationMethod, UnbondingDelegationMethod, ValidatorMethod:
-		return status.Code(err) == codes.NotFound
-	default:
-		return false
-	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -73,32 +74,42 @@ func (m msgServerStub) CancelUnbondingDelegation(context.Context, *stakingtypes.
 	return nil, m.err
 }
 
-func TestReviewedQueryNotFoundOutcomesIgnoreMessageText(t *testing.T) {
+func TestQueryMissingRecordSuccessMatchesUpstream(t *testing.T) {
 	ctx := testContext()
 	caller := common.HexToAddress("0x100")
 	validator := sdk.ValAddress(caller.Bytes()).String()
+	delegator, err := evmaddress.NewEvmCodec("cosmos").BytesToString(caller.Bytes())
+	require.NoError(t, err)
 	contract := vm.NewContract(caller, common.HexToAddress(vmtypes.StakingPrecompileAddress), uint256.NewInt(0), 100_000, nil)
 
 	tests := []struct {
-		name   string
-		method string
-		args   []interface{}
-		call   func(Precompile, *abiMethodAndContract) ([]byte, error)
+		name    string
+		method  string
+		args    []interface{}
+		message string
+		output  []interface{}
+		call    func(Precompile, *abiMethodAndContract) ([]byte, error)
 	}{
 		{
 			name: "delegation", method: DelegationMethod, args: []interface{}{caller, validator},
+			message: fmt.Sprintf(ErrNoDelegationFound, delegator, validator),
+			output:  []interface{}{big.NewInt(0), cmn.Coin{Denom: "stake", Amount: big.NewInt(0)}},
 			call: func(p Precompile, input *abiMethodAndContract) ([]byte, error) {
 				return p.Delegation(ctx, contract, input.method, input.args)
 			},
 		},
 		{
 			name: "unbonding", method: UnbondingDelegationMethod, args: []interface{}{caller, validator},
+			message: fmt.Sprintf("unbonding delegation with delegator %s not found for validator %s", delegator, validator),
+			output:  []interface{}{UnbondingDelegationResponse{}},
 			call: func(p Precompile, input *abiMethodAndContract) ([]byte, error) {
 				return p.UnbondingDelegation(ctx, contract, input.method, input.args)
 			},
 		},
 		{
 			name: "validator", method: ValidatorMethod, args: []interface{}{caller},
+			message: fmt.Sprintf("validator %s not found", validator),
+			output:  []interface{}{DefaultValidatorInfo()},
 			call: func(p Precompile, input *abiMethodAndContract) ([]byte, error) {
 				return p.Validator(ctx, input.method, contract, input.args)
 			},
@@ -107,22 +118,50 @@ func TestReviewedQueryNotFoundOutcomesIgnoreMessageText(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var previous []byte
-			for _, message := range []string{"not found", "upstream wording completely changed"} {
-				p := testStakingPrecompile(&queryServerStub{err: status.Error(codes.NotFound, message)}, nil)
-				input := &abiMethodAndContract{method: methodPointer(tc.method), args: tc.args}
-				got, err := tc.call(p, input)
-				require.NoError(t, err)
-				require.NotEmpty(t, got)
-				if previous != nil {
-					require.Equal(t, previous, got)
-				}
-				previous = got
-			}
 			input := &abiMethodAndContract{method: methodPointer(tc.method), args: tc.args}
+			expected, err := input.method.Outputs.Pack(tc.output...)
+			require.NoError(t, err)
+			cases := []struct {
+				name    string
+				err     error
+				success bool
+			}{
+				{"SDK missing record", status.Error(codes.NotFound, tc.message), true},
+				{"wrapped SDK missing record", fmt.Errorf("outer: %w", status.Error(codes.NotFound, tc.message)), true},
+				{"plain matching message", errors.New(tc.message), true},
+				{"message substring", fmt.Errorf("prefix: %w: suffix", errors.New(tc.message)), true},
+				{"matching message with other status", status.Error(codes.InvalidArgument, tc.message), true},
+				{"unrelated NotFound", status.Error(codes.NotFound, "backend record unavailable"), false},
+				{"other validator", status.Error(codes.NotFound, strings.ReplaceAll(tc.message, validator, "other-validator")), false},
+				{"partial message", status.Error(codes.NotFound, "delegation with delegator looks not found"), false},
+			}
+			if tc.method != ValidatorMethod {
+				cases = append(cases, struct {
+					name    string
+					err     error
+					success bool
+				}{
+					"other delegator", status.Error(codes.NotFound, strings.ReplaceAll(tc.message, delegator, "other-delegator")), false,
+				})
+			}
+			for _, scenario := range cases {
+				t.Run(scenario.name, func(t *testing.T) {
+					p := testStakingPrecompile(&queryServerStub{err: scenario.err}, nil)
+					got, err := tc.call(p, input)
+					if scenario.success {
+						require.NoError(t, err)
+						require.Equal(t, expected, got)
+						return
+					}
+					require.Nil(t, got)
+					require.Error(t, err)
+					revert := cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrQueryFailed, tc.method, scenario.err.Error())
+					require.Equal(t, revert.(cmn.RevertDataCarrier).RevertData(), err.(cmn.RevertDataCarrier).RevertData())
+				})
+			}
 			// Approved terminal preservation still precedes even a matching message.
 			for _, terminal := range []error{vm.ErrOutOfGas, precompiletest.StatusRevert{}} {
-				returned := fmt.Errorf("not found: %w", terminal)
+				returned := fmt.Errorf("%s: %w", tc.message, terminal)
 				p := testStakingPrecompile(&queryServerStub{err: returned}, nil)
 				got, err := tc.call(p, input)
 				require.Nil(t, got)
