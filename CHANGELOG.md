@@ -77,6 +77,7 @@
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
+- [\#1285](https://github.com/cosmos/evm/pull/1285) Resolve the `latest`, `pending` and `earliest` block tags to a concrete height in `eth_getProof` instead of failing with `proof queries at height <= 2 are not supported`.
 
 ## v0.6.0
 
