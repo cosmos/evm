@@ -718,3 +718,59 @@ func (s *PrecompileTestSuite) TestGetParams() {
 		})
 	}
 }
+
+func (s *PrecompileTestSuite) TestGetAuthority() {
+	testCases := []struct {
+		name        string
+		malleate    func() []interface{}
+		expPass     bool
+		errContains string
+	}{
+		{
+			"fail - not empty input args",
+			func() []interface{} {
+				return []interface{}{""}
+			},
+			false,
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+		},
+		{
+			"success - get authority address",
+			func() []interface{} {
+				return []interface{}{}
+			},
+			true,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			method := s.precompile.Methods[gov.GetAuthorityMethod]
+			bz, err := s.precompile.GetAuthority(s.network.GetContext(), &method, nil, tc.malleate())
+
+			if tc.expPass {
+				s.Require().NoError(err)
+
+				var out struct {
+					AuthorityBech32 string         `json:"authorityBech32"`
+					AuthorityHex    common.Address `json:"authorityHex"`
+				}
+				err = s.precompile.UnpackIntoInterface(&out, gov.GetAuthorityMethod, bz)
+				s.Require().NoError(err)
+
+				// Verify the returned Bech32 address matches the gov module account
+				expectedModuleAddr := authtypes.NewModuleAddress(govtypes.ModuleName)
+				s.Require().Equal(expectedModuleAddr.String(), out.AuthorityBech32)
+
+				// Verify the returned hex address matches the gov module account
+				s.Require().Equal(common.BytesToAddress(expectedModuleAddr.Bytes()), out.AuthorityHex)
+			} else {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.errContains)
+			}
+		})
+	}
+}
