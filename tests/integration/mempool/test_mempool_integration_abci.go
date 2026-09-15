@@ -1096,3 +1096,52 @@ func (s *IntegrationTestSuite) TestMultiPoolInteractions() {
 		})
 	}
 }
+
+// TestProposalStarvationWhenRecheckLagsHeight checks that a proposal one height
+// ahead of last recheck still draws from the pool, the situation a backlog
+// creates by cancelling every recheck pass.
+func (s *IntegrationTestSuite) TestProposalStarvationWhenRecheckLagsHeight() {
+	const numTxs = 8
+
+	s.TearDownTest()
+	s.SetupTest()
+
+	mpool := s.network.App.GetMempool()
+	kMp, ok := mpool.(*evmmempool.Mempool)
+	if !ok {
+		s.T().Skip("EVM mempool not configured")
+	}
+
+	// A backlog of cosmos txs, one per signer so none depend on another.
+	txs := make([]sdk.Tx, 0, numTxs)
+	for i := range numTxs {
+		txs = append(txs, s.createCosmosSendTx(s.keyring.GetKey(i), big.NewInt(1000000000)))
+	}
+	s.Require().NoError(s.insertTxs(txs))
+
+	// One full recheck pass at the current head, validating against real state.
+	head := kMp.GetBlockchain().CurrentBlock()
+	kMp.RecheckCosmosTxs(head)
+
+	_, err := s.network.FinalizeBlock()
+	s.Require().NoError(err)
+
+	proposedTxCount := func(height int64) int {
+		res, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
+			MaxTxBytes: 1_000_000,
+			Height:     height,
+		})
+		s.Require().NoError(err)
+		return len(res.Txs)
+	}
+
+	// Control: the height the snapshot was built for proposes everything.
+	current := s.network.GetContext().BlockHeight()
+	s.Require().Equal(numTxs, proposedTxCount(current+1),
+		"in-sync proposal should carry the whole validated backlog")
+
+	// One height further on, which no recheck pass has reached. Pre-fix this
+	// served nothing and block came out empty.
+	s.Require().Equal(numTxs, proposedTxCount(current+2),
+		"proposal starved: the pool holds a validated backlog but served nothing")
+}
