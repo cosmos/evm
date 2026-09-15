@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -165,12 +164,10 @@ When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
 				return err
 			}
 
-			// accountToHex accepts only 0x and bech32.
-			toHex, err := accountToHex(args[1])
+			toAddr, err := ac.StringToBytes(args[1])
 			if err != nil {
 				return errors.Wrap(err, "invalid to-address")
 			}
-			toAddr := common.HexToAddress(toHex).Bytes()
 
 			coins, err := sdk.ParseCoinsNormalized(args[2])
 			if err != nil {
