@@ -146,11 +146,11 @@ When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
 			// explicitly a 0x address; anything else is passed through untouched.
 			fromAddr := args[0]
 			if strings.HasPrefix(args[0], "0x") {
-				fromHex, err := accountToHex(args[0])
+				bz, err := ac.StringToBytes(args[0])
 				if err != nil {
 					return errors.Wrap(err, "invalid from-address")
 				}
-				fromAddr, err = ac.BytesToString(common.HexToAddress(fromHex).Bytes())
+				fromAddr, err = ac.BytesToString(bz)
 				if err != nil {
 					return err
 				}
