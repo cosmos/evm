@@ -153,7 +153,7 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	// them.This check is a safety measure because currently funds cannot be
 	// received due to the lack of a fallback handler.
 	if value := contract.Value(); value.Sign() == 1 {
-		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrERC20CannotReceiveFunds, value)
+		return nil, cmn.NewRevertWithSolidityError(ABI, SolidityErrERC20CannotReceiveFunds, value.ToBig())
 	}
 
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
