@@ -20,5 +20,4 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("parse shared precompile ABI: %w", err))
 	}
-	reviewedGRPCErrorRegistry = MustNewGRPCErrorRegistry(reviewedGRPCErrorDispositionDeclarations)
 }

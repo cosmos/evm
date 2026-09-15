@@ -200,7 +200,7 @@ func TestCancelUnbondingNotFoundExactSelectorIndependentOfMessage(t *testing.T) 
 	require.Equal(t, []byte{0x76, 0x58, 0x16, 0xdd}, err.(cmn.RevertDataCarrier).RevertData())
 }
 
-func TestCancelUnbondingRegisteredSentinelIsNotGRPCDisposition(t *testing.T) {
+func TestCancelUnbondingRegisteredSentinelRemainsUnmapped(t *testing.T) {
 	caller := common.HexToAddress("0x100")
 	validator := sdk.ValAddress(caller.Bytes()).String()
 	contract := vm.NewContract(caller, common.HexToAddress(vmtypes.StakingPrecompileAddress), uint256.NewInt(0), 100_000, nil)
