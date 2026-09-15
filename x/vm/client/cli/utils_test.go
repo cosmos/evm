@@ -41,8 +41,9 @@ func TestAddressFormats(t *testing.T) {
 		{"invalid hex ethereum address", "0x3B98C72760F7BBA69D62ED6F48278451251948E", "", true},
 		{"invalid Cosmos address", "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88", "", true},
 		{"empty string", "", "", true},
-		{"Cosmos address with bad checksum", "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82b", "", true},
-		{"unknown bech32 prefix", "notaprefix18wvvwfmq77a6d8tza4h5sfuy2yj3jj88wpxu9y", "", true},
+		{"Cosmos address with bad checksum", "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82c", "", true},
+		{"Cosmos address with char outside bech32 charset", "cosmos18wvvwfmq77a6d8tza4h5sfuy2yj3jj88yqg82b", "", true},
+		{"unknown bech32 prefix", "evmos1ltzy54ms24v590zz37r2q9hrrdcc8eslndsqwv", "", true},
 		{"hex with non-hex digits", "0xZZ98c72760f7BBa69D62ED6f48278451251948e7", "", true},
 	}
 
