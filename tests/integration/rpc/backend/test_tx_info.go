@@ -115,7 +115,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			err := s.backend.Indexer.IndexBlock(block, responseDeliver)
 			s.Require().NoError(err)
 
-			rpcTx, err := s.backend.GetTransactionByHash(s.Ctx(), tc.tx.Hash())
+			rpcTx, err := s.backend.GetTransactionByHash(s.Ctx(), tc.tx.AsTransaction().Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -175,7 +175,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTransactionByHashPending(s.Ctx(), tc.tx.Hash())
+			rpcTx, err := s.backend.GetTransactionByHashPending(s.Ctx(), tc.tx.AsTransaction().Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -203,7 +203,7 @@ func (s *TestSuite) TestGetTxByEthHash() {
 			func() {
 				s.backend.Indexer = nil
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, msgEthereumTx.Hash().Hex())
+				query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, msgEthereumTx.AsTransaction().Hash().Hex())
 				RegisterTxSearch(client, query, bz)
 			},
 			msgEthereumTx,
@@ -217,7 +217,7 @@ func (s *TestSuite) TestGetTxByEthHash() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTxByEthHash(s.Ctx(), tc.tx.Hash())
+			rpcTx, err := s.backend.GetTxByEthHash(s.Ctx(), tc.tx.AsTransaction().Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -288,7 +288,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 			Code: 0,
 			Events: []abci.Event{
 				{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
-					{Key: "ethereumTxHash", Value: msgEthTx.Hash().Hex()},
+					{Key: "ethereumTxHash", Value: msgEthTx.AsTransaction().Hash().Hex()},
 					{Key: "txIndex", Value: "0"},
 					{Key: "amount", Value: "1000"},
 					{Key: "txGasUsed", Value: "21000"},
@@ -685,9 +685,9 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 			err := s.backend.Indexer.IndexBlock(tc.block, tc.blockResult)
 			s.Require().NoError(err)
 
-			res, err := s.backend.GetTransactionReceipt(s.Ctx(), tc.tx.Hash())
+			res, err := s.backend.GetTransactionReceipt(s.Ctx(), tc.tx.AsTransaction().Hash())
 			if tc.expPass {
-				s.Require().Equal(res["transactionHash"], tc.tx.Hash())
+				s.Require().Equal(res["transactionHash"], tc.tx.AsTransaction().Hash())
 				s.Require().Equal(res["blockNumber"], hexutil.Uint64(tc.block.Height)) //nolint: gosec // G115
 				requiredFields := []string{"status", "cumulativeGasUsed", "logsBloom", "logs", "gasUsed", "blockHash", "blockNumber", "transactionIndex", "effectiveGasPrice", "from", "to", "type"}
 				for _, field := range requiredFields {
