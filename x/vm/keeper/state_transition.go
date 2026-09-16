@@ -294,10 +294,10 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
 		if err != nil {
 			// If hooks returns an error, revert the whole tx.
-			var rdp *types.RevertError
-			if errors.As(err, &rdp) {
+			var revertData interface{ RevertData() []byte }
+			if errors.As(err, &revertData) {
 				res.VmError = vm.ErrExecutionReverted.Error()
-				res.Ret = rdp.RevertData()
+				res.Ret = revertData.RevertData()
 			} else {
 				res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
 			}
