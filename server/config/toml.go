@@ -99,7 +99,7 @@ gas-cap = {{ .JSONRPC.GasCap }}
 # Allow insecure account unlocking when account-related RPCs are exposed by http
 allow-insecure-unlock = {{ .JSONRPC.AllowInsecureUnlock }}
 
-# EVMTimeout is the global timeout for eth_call. Default: 5s.
+# EVMTimeout is the global timeout for eth_call and eth_estimateGas. Default: 5s.
 evm-timeout = "{{ .JSONRPC.EVMTimeout }}"
 
 # TxFeeCap is the global tx-fee cap for send transaction. Default: 1eth.

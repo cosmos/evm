@@ -38,14 +38,14 @@ func (b *Backend) Content(ctx context.Context) (result map[string]map[string]map
 		return content, fmt.Errorf("failed to get current header: %w", err)
 	}
 
-	// Get the global mempool instance
-	evmMempool := b.Mempool
-	if evmMempool == nil {
+	// nil without the app-side EVM mempool
+	pool := b.Mempool.GetTxPool()
+	if pool == nil {
 		return content, nil
 	}
 
 	// Get pending (runnable) and queued (blocked) transactions from the mempool
-	pending, queued := evmMempool.GetTxPool().Content()
+	pending, queued := pool.Content()
 
 	// Convert pending (pending) transactions
 	for addr, txList := range pending {
@@ -89,14 +89,14 @@ func (b *Backend) ContentFrom(ctx context.Context, addr common.Address) (result 
 		return content, fmt.Errorf("failed to get current header: %w", err)
 	}
 
-	// Get the global mempool instance
-	evmMempool := b.Mempool
-	if evmMempool == nil {
+	// nil without the app-side EVM mempool
+	pool := b.Mempool.GetTxPool()
+	if pool == nil {
 		return content, nil
 	}
 
 	// Get transactions for the specific address
-	pending, queue := evmMempool.GetTxPool().ContentFrom(addr)
+	pending, queue := pool.ContentFrom(addr)
 
 	// Build the pending transactions
 	dump := make(map[string]*types.RPCTransaction, len(pending)) // variable name comes from go-ethereum: https://github.com/ethereum/go-ethereum/blob/0dacfef8ac42e7be5db26c2956f2b238ba7c75e8/internal/ethapi/api.go#L221
@@ -124,14 +124,14 @@ func (b *Backend) Inspect(_ context.Context) (map[string]map[string]map[string]s
 		StatusQueued:  make(map[string]map[string]string),
 	}
 
-	// Get the global mempool instance
-	evmMempool := b.Mempool
-	if evmMempool == nil {
+	// nil without the app-side EVM mempool
+	pool := b.Mempool.GetTxPool()
+	if pool == nil {
 		return inspect, nil
 	}
 
 	// Get pending (runnable) and queued (blocked) transactions from the mempool
-	pending, queued := evmMempool.GetTxPool().Content()
+	pending, queued := pool.Content()
 
 	// Helper function to format transaction for inspection
 	format := func(tx *ethtypes.Transaction) string {
@@ -166,16 +166,16 @@ func (b *Backend) Inspect(_ context.Context) (map[string]map[string]map[string]s
 
 // Status returns the number of pending and queued transaction in the pool.
 func (b *Backend) Status(_ context.Context) (map[string]hexutil.Uint, error) {
-	// Get the global mempool instance
-	evmMempool := b.Mempool
-	if evmMempool == nil {
+	// nil without the app-side EVM mempool
+	pool := b.Mempool.GetTxPool()
+	if pool == nil {
 		return map[string]hexutil.Uint{
 			StatusPending: hexutil.Uint(0),
 			StatusQueued:  hexutil.Uint(0),
 		}, nil
 	}
 
-	pending, queued := evmMempool.GetTxPool().Stats()
+	pending, queued := pool.Stats()
 	return map[string]hexutil.Uint{
 		StatusPending: hexutil.Uint(pending), // #nosec G115 -- overflow not a concern for tx counts, as the mempool will limit far before this number is hit. This is taken directly from Geth.
 		StatusQueued:  hexutil.Uint(queued),  // #nosec G115 -- overflow not a concern for tx counts, as the mempool will limit far before this number is hit. This is taken directly from Geth.

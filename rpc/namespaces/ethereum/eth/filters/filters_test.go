@@ -38,6 +38,18 @@ func TestLogs(t *testing.T) {
 		expectMsg string
 	}{
 		{
+			name: "zero block hash returns an error instead of panicking on the missing range",
+			prepare: func() *filtermocks.Backend {
+				// no backend calls are expected for an unknown block hash
+				return &filtermocks.Backend{}
+			},
+			criteria: filters.FilterCriteria{
+				BlockHash: &common.Hash{},
+			},
+			expectErr: true,
+			expectMsg: "unknown block",
+		},
+		{
 			name:      "HeaderByNumber returns error",
 			errorStep: "HeaderByNumber",
 			prepare: func() *filtermocks.Backend {
@@ -108,7 +120,7 @@ func TestLogs(t *testing.T) {
 			backend := tt.prepare()
 
 			var filter *Filter
-			if tt.criteria.BlockHash != nil && *tt.criteria.BlockHash != (common.Hash{}) {
+			if tt.criteria.BlockHash != nil {
 				filter = NewBlockFilter(logger, backend, tt.criteria)
 			} else {
 				filter = NewRangeFilter(logger, backend, blockHeight, blockHeight, nil, nil)
