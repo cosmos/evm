@@ -17,6 +17,15 @@ jobs:
           go-version: '1.25'
           check-latest: true
       - uses: actions/checkout@v4
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          working-directory: tests/solidity
+          runtime: node@24
+          cache: true
+          cache-dependency-path: |
+            tests/solidity/pnpm-lock.yaml
+            contracts/pnpm-lock.yaml
+          install: false
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
@@ -25,6 +34,15 @@ jobs:
             go.mod
             go.sum
             *.toml
+            contracts/package.json
+            contracts/pnpm-lock.yaml
+            contracts/pnpm-workspace.yaml
+            tests/solidity/package.json
+            tests/solidity/pnpm-lock.yaml
+            tests/solidity/pnpm-workspace.yaml
+            scripts/compile_smart_contracts/**
+            scripts/run-solidity-tests.sh
+            .github/workflows/solidity-test.yml
       - name: Test Solidity
         run: |
           make test-solidity
