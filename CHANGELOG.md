@@ -12,6 +12,8 @@
 
 ### BUG FIXES
 
+- [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
+
 ## v0.7.2
 
 ### IMPROVEMENTS
