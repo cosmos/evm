@@ -48,7 +48,10 @@ var (
 	}
 )
 
-const DefaultHistoryServeWindow = 8192 // same as EIP-2935
+// DefaultHistoryServeWindow is the EIP-2935 history serve window. It has to match the
+// window hardcoded in the preinstalled history storage contract (params.HistoryStorageCode),
+// which reads block hashes from slot `number % 8191`.
+const DefaultHistoryServeWindow = 8191
 
 // NewParams creates a new Params instance
 func NewParams(

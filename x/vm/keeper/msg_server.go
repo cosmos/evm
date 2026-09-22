@@ -134,9 +134,11 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 		return nil, err
 	}
 
+	oldWindow := historyServeWindow(k.GetParams(ctx))
 	if err := k.SetParams(ctx, req.Params); err != nil {
 		return nil, err
 	}
+	k.reindexHeaderHashes(ctx, oldWindow, historyServeWindow(req.Params))
 
 	return &types.MsgUpdateParamsResponse{}, nil
 }
