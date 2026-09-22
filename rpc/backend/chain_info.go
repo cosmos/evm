@@ -246,7 +246,8 @@ func (b *Backend) FeeHistory(
 	for blockID := blockStart; blockID <= blockEnd; blockID += maxBlockFetchers {
 		wg := sync.WaitGroup{}
 		wgDone := make(chan bool)
-		chanErr := make(chan error)
+		// buffered so that fetchers failing after the first error don't block forever
+		chanErr := make(chan error, maxBlockFetchers)
 		for i := 0; i < maxBlockFetchers; i++ {
 			if blockID+int64(i) >= blockEnd+1 {
 				break
@@ -259,9 +260,9 @@ func (b *Backend) FeeHistory(
 			go func(index int32) {
 				defer func() {
 					if r := recover(); r != nil {
-						err = errorsmod.Wrapf(errorsmod.ErrPanic, "%v", r)
-						b.Logger.Error("FeeHistory panicked", "error", err)
-						chanErr <- err
+						panicErr := errorsmod.Wrapf(errorsmod.ErrPanic, "%v", r)
+						b.Logger.Error("FeeHistory panicked", "error", panicErr)
+						chanErr <- panicErr
 					}
 					wg.Done()
 				}()
