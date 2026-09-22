@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -452,6 +453,16 @@ func (b *Backend) createAccessList(
 ) (_ ethtypes.AccessList, _ uint64, _ error, sysErr error) {
 	ctx, span := tracer.Start(ctx, "createAccessList")
 	defer func() { evmtrace.EndSpanErr(span, sysErr) }()
+	// the access list is collected by tracing the call, and TraceCall can't apply state
+	// overrides: reject them rather than returning a list for a different execution
+	if overrides != nil && !isEmptyStateOverride(*overrides) {
+		return nil, 0, nil, errors.New("state overrides are not supported by eth_createAccessList")
+	}
+
+	// without an explicit gas limit the gas is estimated for each access list below:
+	// the list adds intrinsic gas, so an estimate made without it can be too low
+	estimateGas := args.Gas == nil
+
 	args, err := b.SetTxDefaults(ctx, args)
 	if err != nil {
 		b.Logger.Error("failed to set tx defaults", "error", err)
@@ -476,29 +487,87 @@ func (b *Backend) createAccessList(
 		return nil, 0, nil, err
 	}
 
-	// iteratively expand the access list
+	excludes := make([]common.Address, 0, len(addressesToExclude))
+	for addr := range addressesToExclude {
+		excludes = append(excludes, addr)
+	}
+
+	// iteratively expand the access list: run the call with the current list and the
+	// access list tracer until the call doesn't access anything new
 	for {
 		accessList := prevTracer.AccessList()
 		traceArgs.AccessList = &accessList
-		res, err := b.DoCall(ctx, *traceArgs, blockNum, overrides)
+		if estimateGas {
+			estimateArgs := *traceArgs
+			estimateArgs.Gas = nil
+			gas, err := b.EstimateGas(ctx, estimateArgs, &blockNrOrHash, nil)
+			if err != nil {
+				return nil, 0, nil, err
+			}
+			traceArgs.Gas = &gas
+		}
+		res, err := b.traceAccessList(ctx, *traceArgs, blockNum, evmtypes.AccessListTracerConfig{
+			AccessList: accessList,
+			Excludes:   excludes,
+		})
 		if err != nil {
 			b.Logger.Error("failed to apply transaction", "error", err)
 			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", traceArgs.ToTransaction(ethtypes.LegacyTxType).Hash(), err)
 		}
 
 		// Check if access list has converged (no new addresses/slots accessed)
-		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
+		newTracer := logger.NewAccessListTracer(res.AccessList, addressesToExclude)
 		if newTracer.Equal(prevTracer) {
-			b.Logger.Info("access list converged", "accessList", accessList)
+			b.Logger.Debug("access list converged", "accessList", accessList)
 			var vmErr error
-			if res.VmError != "" {
-				b.Logger.Error("vm error after access list converged", "vmError", res.VmError)
-				vmErr = errors.New(res.VmError)
+			if res.Error != "" {
+				vmErr = errors.New(res.Error)
 			}
-			return accessList, res.GasUsed, vmErr, nil
+			return accessList, uint64(res.GasUsed), vmErr, nil
 		}
 		prevTracer = newTracer
 	}
+}
+
+// traceAccessList runs the call through TraceCall with the access list tracer.
+func (b *Backend) traceAccessList(
+	ctx context.Context,
+	args evmtypes.TransactionArgs,
+	blockNum rpctypes.BlockNumber,
+	config evmtypes.AccessListTracerConfig,
+) (*evmtypes.AccessListTracerResult, error) {
+	tracerConfig, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	traceResult, err := b.TraceCall(ctx, args, rpctypes.BlockNumberOrHash{BlockNumber: &blockNum}, &rpctypes.TraceConfig{
+		TraceConfig:  evmtypes.TraceConfig{Tracer: evmtypes.AccessListTracerName},
+		TracerConfig: tracerConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// TraceCall decodes the tracer output into a generic value
+	bz, err := json.Marshal(traceResult)
+	if err != nil {
+		return nil, err
+	}
+	var res evmtypes.AccessListTracerResult
+	if err := json.Unmarshal(bz, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// isEmptyStateOverride reports whether the raw state override is absent or an empty object.
+func isEmptyStateOverride(overrides json.RawMessage) bool {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(overrides, &m); err != nil {
+		return len(bytes.TrimSpace(overrides)) == 0 || string(bytes.TrimSpace(overrides)) == "null"
+	}
+	return len(m) == 0
 }
 
 // getAccessListExcludes returns the addresses to exclude from the access list.
