@@ -3,6 +3,7 @@ package backend
 import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -17,8 +18,6 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"google.golang.org/grpc/metadata"
 )
 
 // TestGetBlockReceiptsLatest checks that eth_getBlockReceipts("latest")
@@ -87,4 +86,26 @@ func (s *TestSuite) TestGetBlockReceiptsLatest() {
 	s.Require().Equal(hexutil.Uint64(height), receipts[0]["blockNumber"])
 	s.Require().Equal(hexutil.Uint64(21000), receipts[0]["gasUsed"])
 	client.AssertNotCalled(s.T(), "BlockResults", mock.Anything, (*int64)(nil))
+}
+
+func (s *TestSuite) TestGetBlockReceiptsMissingBlock() {
+	s.SetupTest()
+
+	height := int64(10)
+	blockNum := rpctypes.BlockNumber(height)
+	client := s.backend.ClientCtx.Client.(*mocks.Client)
+	client.EXPECT().
+		Block(mock.Anything, mock.MatchedBy(func(h *int64) bool {
+			return h != nil && *h == height
+		})).
+		Return(&cmtrpctypes.ResultBlock{}, nil)
+
+	receipts, err := s.backend.GetBlockReceipts(
+		s.Ctx(),
+		rpctypes.BlockNumberOrHash{BlockNumber: &blockNum},
+	)
+
+	s.Require().Nil(receipts)
+	s.Require().EqualError(err, "block not found for height 10")
+	client.AssertNotCalled(s.T(), "BlockResults", mock.Anything, mock.Anything)
 }
