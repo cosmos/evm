@@ -76,6 +76,15 @@ func (b *Backend) BlockNumberFromComet(ctx context.Context, blockNrOrHash rpctyp
 		}
 		return rpctypes.NewBlockNumber(blockNumber), nil
 	case blockNrOrHash.BlockNumber != nil:
+		// BlockNumber.Int64() maps every negative tag to 0, i.e. the latest
+		// height, so resolve "earliest" here for the queries that use it.
+		if *blockNrOrHash.BlockNumber == rpctypes.EthEarliestBlockNumber {
+			height, err := b.getHeightByBlockNum(ctx, rpctypes.EthEarliestBlockNumber)
+			if err != nil {
+				return rpctypes.EthEarliestBlockNumber, err
+			}
+			return rpctypes.BlockNumber(height), nil
+		}
 		return *blockNrOrHash.BlockNumber, nil
 	default:
 		return rpctypes.EthEarliestBlockNumber, nil
