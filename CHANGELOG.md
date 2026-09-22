@@ -42,6 +42,7 @@
 
 ### BUG FIXES
 
+- [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 - [\#1275](https://github.com/cosmos/evm/pull/1275) Serve JSON-RPC without the EVM mempool instead of refusing to start; tx submission then returns `ErrMempoolDisabled`.
 - [\#1287](https://github.com/cosmos/evm/pull/1287) Return an `unknown block` error from `eth_getLogs` / `eth_getFilterLogs` for the zero `blockHash` instead of crashing the handler with a nil pointer dereference.
 - [\#1271](https://github.com/cosmos/evm/pull/1271) Return `null` from `eth_getTransactionReceipt` for unmined txs instead of retrying for up to ~51s, past `json-rpc.http-timeout`.
