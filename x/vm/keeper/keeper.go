@@ -18,6 +18,7 @@ import (
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
+	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
 
@@ -74,6 +75,8 @@ type Keeper struct {
 
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
+	// applicationTracerFactories create application-provided, per-execution tracers.
+	applicationTracerFactories []vmtracer.ApplicationTracerFactory
 
 	hooks types.EvmHooks
 	// EVM Hooks for tx post-processing

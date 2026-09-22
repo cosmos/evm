@@ -289,10 +289,11 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 
 	msg := args.ToMessage(cfg.BaseFee, false, false)
 	txConfig := statedb.NewEmptyTxConfig()
+	ctx, tracingHooks := k.prepareTracing(ctx, *msg, txConfig, false)
 
 	// pass false to not commit StateDB
 	stateDB := statedb.New(ctx, &k, txConfig)
-	res, err := k.ApplyMessageWithConfig(ctx, stateDB, *msg, nil, false, false, cfg, txConfig, false, overrides)
+	res, err := k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracingHooks, false, false, cfg, txConfig, false, overrides)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
