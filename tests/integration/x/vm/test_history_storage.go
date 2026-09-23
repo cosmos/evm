@@ -81,3 +81,68 @@ func (s *KeeperTestSuite) TestUpdateParamsReindexesHistoryStorage() {
 		s.Require().Equal(blockHashAt(height), s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
 	}
 }
+
+func (s *KeeperTestSuite) TestUpdateParamsExpandingHistoryWindowClearsStaleHashes() {
+	s.SetupTest()
+	k := s.Network.App.GetEVMKeeper()
+	ctx := s.Network.GetContext()
+
+	params := k.GetParams(ctx)
+	params.HistoryServeWindow = 100
+	s.Require().NoError(k.SetParams(ctx, params))
+
+	// with a window of 100, slot 0 holds the hash of 8300, which is slot 109 in a window of 8191
+	const head = uint64(8300)
+	for height := head - 199; height <= head; height++ {
+		k.SetHeaderHash(ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes()))
+	}
+
+	headCtx := ctx.WithBlockHeight(int64(head)).WithHeaderHash(blockHashAt(head).Bytes())
+	params.HistoryServeWindow = ethparams.HistoryServeWindow
+	_, err := k.UpdateParams(headCtx, &types.MsgUpdateParams{Authority: k.GetAuthority().String(), Params: params})
+	s.Require().NoError(err)
+
+	nextCtx := ctx.WithBlockHeight(int64(head + 1)).WithHeaderHash(blockHashAt(head + 1).Bytes())
+	k.SetHeaderHash(nextCtx)
+	// the last 100 hashes are kept
+	for height := head - 99; height <= head; height++ {
+		s.Require().Equal(blockHashAt(height), k.GetHashFn(nextCtx)(height), "BLOCKHASH(%d)", height)
+		s.Require().Equal(blockHashAt(height), s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
+	}
+	// older heights are no longer known, and must not return a hash of another height
+	for height := head - 199; height < head-99; height++ {
+		s.Require().Equal(common.Hash{}, s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
+	}
+	for height := uint64(8110); height < head-199; height++ {
+		s.Require().Equal(common.Hash{}, s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
+	}
+}
+
+func (s *KeeperTestSuite) TestUpdateParamsRejectsHistoryWindowAboveMax() {
+	s.SetupTest()
+	k := s.Network.App.GetEVMKeeper()
+	ctx := s.Network.GetContext()
+
+	params := k.GetParams(ctx)
+	params.HistoryServeWindow = types.MaxHistoryServeWindow + 1
+	_, err := k.UpdateParams(ctx, &types.MsgUpdateParams{Authority: k.GetAuthority().String(), Params: params})
+	s.Require().ErrorContains(err, "exceeds the maximum")
+	s.Require().Equal(uint64(types.DefaultHistoryServeWindow), k.GetParams(ctx).HistoryServeWindow)
+}
+
+func (s *KeeperTestSuite) TestUnsetHistoryWindowKeepsPreviousLayout() {
+	s.SetupTest()
+	k := s.Network.App.GetEVMKeeper()
+	ctx := s.Network.GetContext()
+
+	params := k.GetParams(ctx)
+	params.HistoryServeWindow = 0
+	s.Require().NoError(k.SetParams(ctx, params))
+
+	// an unset window keeps meaning 8192, so a binary upgrade doesn't move the stored hashes
+	const height = uint64(types.UnsetHistoryServeWindow)
+	heightCtx := ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes())
+	k.SetHeaderHash(heightCtx)
+	s.Require().Equal(blockHashAt(height), k.GetState(heightCtx, ethparams.HistoryStorageAddress, common.Hash{}))
+	s.Require().Equal(blockHashAt(height), k.GetHashFn(heightCtx.WithBlockHeight(int64(height+1)))(height))
+}

@@ -53,6 +53,16 @@ var (
 // which reads block hashes from slot `number % 8191`.
 const DefaultHistoryServeWindow = 8191
 
+// UnsetHistoryServeWindow is the window used when the history serve window param is
+// unset (0). It is the previous default, kept so that chains which never set the param
+// keep their stored block hashes where they are.
+const UnsetHistoryServeWindow = 8192
+
+// MaxHistoryServeWindow bounds the history serve window, and with it the work done to
+// move the stored block hashes when the window changes. Larger windows serve no purpose:
+// the history storage contract reads 8191 slots and BLOCKHASH looks back 256 blocks.
+const MaxHistoryServeWindow = 8192
+
 // NewParams creates a new Params instance
 func NewParams(
 	extraEIPs []int64,
@@ -106,6 +116,10 @@ func (p Params) Validate() error {
 
 	if err := p.AccessControl.Validate(); err != nil {
 		return err
+	}
+
+	if p.HistoryServeWindow > MaxHistoryServeWindow {
+		return fmt.Errorf("history serve window %d exceeds the maximum %d", p.HistoryServeWindow, MaxHistoryServeWindow)
 	}
 
 	return validateChannels(p.EVMChannels)

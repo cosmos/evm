@@ -452,7 +452,9 @@ func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
 // contract from a ring buffer of oldWindow slots to one of newWindow slots. It keeps
 // the hashes of the last min(oldWindow, newWindow) heights up to and including the
 // current one, so that BLOCKHASH and the contract keep returning the right hashes
-// after the history serve window param changes.
+// after the history serve window param changes. Every other slot of the new ring
+// buffer is cleared, so that no hash stored under the old layout can be read for
+// another height. The work is bounded by types.MaxHistoryServeWindow.
 func (k Keeper) reindexHeaderHashes(ctx sdk.Context, oldWindow, newWindow uint64) {
 	if oldWindow == newWindow || ctx.BlockHeight() <= 0 || !k.hasHistoryStorageContract(ctx) {
 		return
@@ -469,7 +471,13 @@ func (k Keeper) reindexHeaderHashes(ctx sdk.Context, oldWindow, newWindow uint64
 	for height := first; height <= current; height++ {
 		hashes = append(hashes, k.GetState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(height, oldWindow)))
 	}
+	for slot := uint64(0); slot < newWindow; slot++ {
+		k.DeleteState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(slot, newWindow))
+	}
 	for i, hash := range hashes {
+		if hash == (common.Hash{}) {
+			continue
+		}
 		k.SetState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(first+uint64(i), newWindow), hash.Bytes())
 	}
 }
@@ -483,7 +491,7 @@ func historyServeWindow(params types.Params) uint64 {
 	if params.HistoryServeWindow > 0 {
 		return params.HistoryServeWindow
 	}
-	return types.DefaultHistoryServeWindow
+	return types.UnsetHistoryServeWindow
 }
 
 // historyStorageKey returns the EIP-2935 storage slot of the given height.
