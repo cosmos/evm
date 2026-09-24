@@ -42,6 +42,7 @@
 
 ### BUG FIXES
 
+- [\#1304](https://github.com/cosmos/evm/pull/1304) Use the EIP-2935 window of the preinstalled history storage contract (8191) as the default `history_serve_window`, cap the param at 8192, and re-index the stored block hashes when `MsgUpdateParams` changes the window, so the contract's `get` and `BLOCKHASH` return the same hash. Existing chains keep their window (an unset one still means 8192) until they update the param; see `docs/migrations/v0.7.x_to_v0.8.0.md`.
 - [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 - [\#1275](https://github.com/cosmos/evm/pull/1275) Serve JSON-RPC without the EVM mempool instead of refusing to start; tx submission then returns `ErrMempoolDisabled`.
 - [\#1287](https://github.com/cosmos/evm/pull/1287) Return an `unknown block` error from `eth_getLogs` / `eth_getFilterLogs` for the zero `blockHash` instead of crashing the handler with a nil pointer dereference.
