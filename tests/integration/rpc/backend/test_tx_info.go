@@ -706,6 +706,58 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 	}
 }
 
+func (s *TestSuite) TestGetTransactionReceiptCumulativeGasUsed() {
+	msgEthereumTx1, _ := s.buildEthereumTx()
+	msgEthereumTx2, _ := s.buildEthereumTx()
+	txBz1 := s.signAndEncodeEthTx(msgEthereumTx1)
+	txBz2 := s.signAndEncodeEthTx(msgEthereumTx2)
+	txHash1 := msgEthereumTx1.AsTransaction().Hash()
+	txHash2 := msgEthereumTx2.AsTransaction().Hash()
+
+	s.SetupTest() // reset
+	client := s.backend.ClientCtx.Client.(*mocks.Client)
+	queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	resBlock := RegisterBlockMultipleTxs(client, 1, []types.Tx{txBz1, txBz2})
+	RegisterBaseFee(queryClient, math.NewInt(1))
+
+	logsRes, err := RegisterBlockResultsWithEventLog(client, 1)
+	s.Require().NoError(err)
+	txResult := func(hash common.Hash, ethTxIndex string, gasUsed int64) *abci.ExecTxResult {
+		return &abci.ExecTxResult{
+			Code:    0,
+			GasUsed: gasUsed,
+			Data:    logsRes.TxsResults[0].Data,
+			Events: []abci.Event{
+				{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+					{Key: evmtypes.AttributeKeyEthereumTxHash, Value: hash.Hex()},
+					{Key: evmtypes.AttributeKeyTxIndex, Value: ethTxIndex},
+					{Key: evmtypes.AttributeKeyTxGasUsed, Value: fmt.Sprint(gasUsed)},
+				}},
+			},
+		}
+	}
+	logsRes.TxsResults = []*abci.ExecTxResult{
+		txResult(txHash1, "0", 21000),
+		txResult(txHash2, "1", 50000),
+	}
+
+	s.backend.Indexer = indexer.NewKVIndexer(dbm.NewMemDB(), log.NewNopLogger(), s.backend.ClientCtx)
+	s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, logsRes.TxsResults))
+
+	first, err := s.backend.GetTransactionReceipt(s.Ctx(), txHash1)
+	s.Require().NoError(err)
+	s.Require().Equal(hexutil.Uint64(21000), first["cumulativeGasUsed"])
+	s.Require().Equal(hexutil.Uint64(0), first["transactionIndex"])
+
+	// the second receipt has to include the gas used by the first tx of the block,
+	// matching eth_getBlockReceipts
+	second, err := s.backend.GetTransactionReceipt(s.Ctx(), txHash2)
+	s.Require().NoError(err)
+	s.Require().Equal(hexutil.Uint64(50000), second["gasUsed"])
+	s.Require().Equal(hexutil.Uint64(71000), second["cumulativeGasUsed"])
+	s.Require().Equal(hexutil.Uint64(1), second["transactionIndex"])
+}
+
 func (s *TestSuite) TestGetGasUsed() {
 	testCases := []struct {
 		name     string
