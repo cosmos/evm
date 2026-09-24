@@ -1,24 +1,3 @@
-# Coordinated Vulnerability Disclosure Policy
-
-The Cosmos ecosystem believes that strong security is a blend of highly
-technical security researchers who care about security and the forward
-progression of the ecosystem and the attentiveness and openness of Cosmos core
-contributors to help continually secure our operations.
-
-> **IMPORTANT**: *DO NOT* open public issues on this repository for security
-> vulnerabilities.
-
-## Scope
-
-| Scope                 |
-|-----------------------|
-| last release (tagged) |
-| main branch           |
-
-The latest **release tag** of this repository is supported for security updates
-as well as the **main** branch. Security vulnerabilities should be reported if
-the vulnerability can be reproduced on either one of those.
-
 ## Reporting a Vulnerability
 
 **Private Disclosure Required**
@@ -43,3 +22,6 @@ Submission of a report constitutes agreement to participate in
 testing, and deployment of a fix prior to public release of details.
 
 ------------------------------------------------------------------------
+### More information
+
+* See [Maintenance and Security](https://github.com/cosmos/security) for detailed policies.
