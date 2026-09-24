@@ -492,10 +492,7 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacket_GasConfigPreserved() 
 	ctx = ctx.WithKVGasConfig(kvGas).WithTransientKVGasConfig(transientGas)
 
 	var capturedCtx sdk.Context
-	evmMock.On("CallEVM",
-		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-	).Run(func(args mock.Arguments) {
+	expectViewCallEVM(evmMock, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		capturedCtx = args.Get(0).(sdk.Context)
 	}).Return((*evmtypes.MsgEthereumTxResponse)(nil), errors.New("mock evm error"))
 	evmMock.On("KVStoreKeys").Return(map[string]storetypes.StoreKey{}).Maybe()
@@ -505,8 +502,8 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacket_GasConfigPreserved() 
 
 	s.Require().NoError(customKeeper.ConvertCoinToERC20FromPacket(ctx, data))
 
-	// capturedCtx is only set if CallEVM was reached. A zeroed GasConfig would not
-	// equal kvGas, so these assertions also verify that CallEVM was called.
+	// capturedCtx is only set if the non-committing CallEVM was reached. A zeroed
+	// GasConfig would not equal kvGas, so these assertions also verify the view call.
 	s.Require().Equal(kvGas, capturedCtx.KVGasConfig(), "KV gas config must not be zeroed before EVM call")
 	s.Require().Equal(transientGas, capturedCtx.TransientKVGasConfig(), "transient KV gas config must not be zeroed before EVM call")
 }
