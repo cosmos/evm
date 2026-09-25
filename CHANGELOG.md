@@ -49,6 +49,7 @@
 - [\#1265](https://github.com/cosmos/evm/pull/1265) Apply `json-rpc.evm-timeout` to `eth_estimateGas`, matching `eth_call`.
 - [\#1223](https://github.com/cosmos/evm/pull/1223) Reject EVM txs below the base fee at mempool insert instead of silently queuing them.
 - [\#1214](https://github.com/cosmos/evm/pull/1214) Emit the canonical CometBFT block hash in the `newHeads` subscription so it matches `eth_getBlockByNumber` (completes [\#725](https://github.com/cosmos/evm/pull/725)).
+- [\#1193](https://github.com/cosmos/evm/pull/1193) Remove the nonexistent vesting static precompile from defaults and migrate existing EVM params to strip its legacy address.
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
