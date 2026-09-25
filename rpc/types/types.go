@@ -189,3 +189,9 @@ type TraceConfig struct {
 	evmtypes.TraceConfig
 	TracerConfig json.RawMessage `json:"tracerConfig"`
 }
+
+// TraceCallConfig extends TraceConfig with state overrides for debug_traceCall.
+type TraceCallConfig struct {
+	TraceConfig
+	StateOverrides json.RawMessage `json:"stateOverrides"`
+}

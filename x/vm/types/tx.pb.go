@@ -131,9 +131,9 @@ type MsgEthereumTxResponse struct {
 	// max_used_gas specifies the gas consumed by the transaction, not including
 	// refunds
 	MaxUsedGas uint64 `protobuf:"varint,6,opt,name=max_used_gas,json=maxUsedGas,proto3" json:"max_used_gas,omitempty"`
-	// include the block hash for json-rpc to use
+	// block_hash is included for json-rpc to use
 	BlockHash []byte `protobuf:"bytes,7,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
-	// include the block timestamp for json-rpc to use
+	// block_timestamp is included for json-rpc to use
 	BlockTimestamp uint64 `protobuf:"varint,8,opt,name=block_timestamp,json=blockTimestamp,proto3" json:"block_timestamp,omitempty"`
 }
 

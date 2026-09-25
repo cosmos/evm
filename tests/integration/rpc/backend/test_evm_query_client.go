@@ -98,6 +98,13 @@ func RegisterTraceCallWithTracer(queryClient *mocks.EVMQueryClient, msgEthTx *ev
 	})).Return(&evmtypes.QueryTraceCallResponse{Data: data}, nil)
 }
 
+func RegisterTraceCallWithOverrides(queryClient *mocks.EVMQueryClient, overrides []byte) {
+	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x63, 0x61, 0x6c, 0x6c, 0x22, 0x7d} // {"test": "trace_call"}
+	queryClient.EXPECT().TraceCall(mock.Anything, mock.MatchedBy(func(req *evmtypes.QueryTraceCallRequest) bool {
+		return req.TraceConfig != nil && bytes.Equal(req.Overrides, overrides)
+	})).Return(&evmtypes.QueryTraceCallResponse{Data: data}, nil)
+}
+
 func RegisterTraceCallError(queryClient *mocks.EVMQueryClient) {
 	queryClient.EXPECT().TraceCall(mock.Anything, mock.AnythingOfType("*types.QueryTraceCallRequest")).
 		Return(nil, errortypes.ErrInvalidRequest)
