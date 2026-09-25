@@ -95,7 +95,7 @@ func (b *Backend) getAccountNonce(ctx context.Context, accAddr common.Address, p
 	// only supports `MsgEthereumTx` style tx
 	for _, tx := range pendingTxs {
 		for _, msg := range (*tx).GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
+			ethMsg, ok := msg.(evmtypes.RPCMsgEthereumTxI)
 			if !ok {
 				// not ethereum tx
 				break
@@ -255,7 +255,7 @@ func (b *Backend) ProcessBlock(
 		}
 		txGasUsed := uint64(cometTxResult.GasUsed) // #nosec G115
 		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
+			ethMsg, ok := msg.(evmtypes.RPCMsgEthereumTxI)
 			if !ok {
 				continue
 			}
@@ -362,7 +362,7 @@ func unwrapBlockNOrHash(blockNOrHash types.BlockNumberOrHash) string {
 func (b *Backend) FindEthTxIndexByHash(ctx context.Context, txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults) (int32, error) {
 	msgs := b.EthMsgsFromCometBlock(ctx, block, blockRes)
 	for i := range msgs {
-		if msgs[i].Hash() == txHash {
+		if msgs[i].AsTransaction().Hash() == txHash {
 			if i > math.MaxInt32 {
 				return -1, fmt.Errorf("tx index overflow")
 			}

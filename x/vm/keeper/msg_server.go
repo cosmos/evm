@@ -30,7 +30,7 @@ var _ types.MsgServer = &Keeper{}
 // parameter.
 func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (_ *types.MsgEthereumTxResponse, err error) {
 	goCtx, span := tracer.Start(goCtx, "EthereumTx", trace.WithAttributes(
-		attribute.String("tx_hash", msg.Hash().Hex()),
+		attribute.String("tx_hash", msg.AsTransaction().Hash().Hex()),
 	))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 	ctx := sdk.UnwrapSDKContext(goCtx)
