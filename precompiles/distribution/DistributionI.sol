@@ -2,6 +2,7 @@
 pragma solidity >=0.8.17;
 
 import "../common/Types.sol";
+import "../common/interfaces/IPrecompile.sol";
 
 /// @dev The DistributionI contract's address.
 address constant DISTRIBUTION_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000801;
@@ -36,7 +37,19 @@ struct DelegationDelegatorReward {
 /// @title Distribution Precompile Contract
 /// @dev The interface through which solidity contracts will interact with Distribution
 /// @custom:address 0x0000000000000000000000000000000000000801
-interface DistributionI {
+interface DistributionI is IPrecompile {
+    /// @notice Registered Cosmos SDK distribution errors reachable from this precompile.
+    error DistributionSetWithdrawAddressDisabled();
+    error DistributionEmptyDelegationDistributionInfo();
+    error DistributionNoValidatorDistributionInfo();
+    error DistributionNoValidatorCommission();
+    error DistributionNoValidatorExists();
+    error DistributionNoDelegationExists();
+
+    error DistributionInputInvalid(string callMethod, string reason);
+    error DistributionValidatorSlashesUnpackFailed(string reason);
+    error ClaimRewardsMaxRetrieveExceeded(uint32 maxRetrieve, uint32 maxValidators);
+
     /// @dev ClaimRewards defines an Event emitted when rewards are claimed
     /// @param delegatorAddress the address of the delegator
     /// @param amount the amount being claimed

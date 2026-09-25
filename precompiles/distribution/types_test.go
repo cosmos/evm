@@ -1,7 +1,6 @@
 package distribution
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -10,11 +9,65 @@ import (
 
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/testutil"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
-const validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
+const validatorAddr = "cosmosvaloper1qqqqhe5pnaq5qq39wqkn957aydnrm45s2xz032"
+
+func TestNewValidatorSlashesRequestPagination(t *testing.T) {
+	method := ABI.Methods[ValidatorSlashesMethod]
+	pageRequest := query.PageRequest{
+		Key:        []byte("next"),
+		Offset:     2,
+		Limit:      25,
+		CountTotal: true,
+		Reverse:    true,
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		req, err := NewValidatorSlashesRequest(&method, []interface{}{validatorAddr, uint64(10), uint64(20), pageRequest})
+		require.NoError(t, err)
+		require.Equal(t, &pageRequest, req.Pagination)
+	})
+
+	t.Run("invalid pagination", func(t *testing.T) {
+		const invalidPagination = "invalid-pagination"
+		wantErr := cmn.NewRevertWithSolidityError(
+			ABI,
+			cmn.SolidityErrInvalidPageRequest,
+			ValidatorSlashesMethod,
+			big.NewInt(3),
+			invalidPagination,
+		)
+
+		req, err := NewValidatorSlashesRequest(&method, []interface{}{validatorAddr, uint64(10), uint64(20), invalidPagination})
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
+
+	t.Run("invalid height keeps precedence", func(t *testing.T) {
+		wantErr := cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidHeight, "invalid-height")
+
+		req, err := NewValidatorSlashesRequest(&method, []interface{}{validatorAddr, "invalid-height", uint64(20), "invalid-pagination"})
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
+
+	t.Run("non-pagination copy error keeps precedence", func(t *testing.T) {
+		args := []interface{}{uint64(1), uint64(10), uint64(20), "invalid-pagination"}
+		var input ValidatorSlashesInput
+		copyErr := method.Inputs.Copy(&input, args)
+		require.Error(t, copyErr)
+		wantErr := cmn.NewRevertWithSolidityError(ABI, SolidityErrDistributionValidatorSlashesUnpackFailed, copyErr.Error())
+
+		req, err := NewValidatorSlashesRequest(&method, args)
+		testutil.RequireExactError(t, err, wantErr)
+		require.Nil(t, req)
+	})
+}
 
 func TestNewMsgSetWithdrawAddress(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
@@ -36,7 +89,7 @@ func TestNewMsgSetWithdrawAddress(t *testing.T) {
 		name           string
 		args           []interface{}
 		wantErr        bool
-		errMsg         string
+		wantErrObj     error
 		wantDelegator  string
 		wantWithdrawer string
 	}{
@@ -55,28 +108,28 @@ func TestNewMsgSetWithdrawAddress(t *testing.T) {
 			wantWithdrawer: expectedWithdrawerFromHex,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, withdrawerBech32, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
+			name:       "too many arguments",
+			args:       []interface{}{delegatorAddr, withdrawerBech32, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", withdrawerBech32},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", withdrawerBech32},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, withdrawerBech32},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, withdrawerBech32},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 	}
 
@@ -85,8 +138,7 @@ func TestNewMsgSetWithdrawAddress(t *testing.T) {
 			msg, returnAddr, err := NewMsgSetWithdrawAddress(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -111,7 +163,7 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDelegator string
 		wantValidator string
 	}{
@@ -123,22 +175,22 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 			wantValidator: validatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 	}
 
@@ -147,8 +199,7 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 			msg, returnAddr, err := NewMsgWithdrawDelegatorReward(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -174,7 +225,7 @@ func TestNewMsgFundCommunityPool(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDepositor string
 	}{
 		{
@@ -184,28 +235,28 @@ func TestNewMsgFundCommunityPool(t *testing.T) {
 			wantDepositor: expectedDepositorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "invalid depositor type",
-			args:    []interface{}{"not-an-address", validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, "not-an-address"),
+			name:       "invalid depositor type",
+			args:       []interface{}{"not-an-address", validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty depositor address",
-			args:    []interface{}{common.Address{}, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, common.Address{}),
+			name:       "empty depositor address",
+			args:       []interface{}{common.Address{}, validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid coins",
-			args:    []interface{}{depositorAddr, "invalid-coins"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidAmount, "amount arg"),
+			name:       "invalid coins",
+			args:       []interface{}{depositorAddr, "invalid-coins"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "invalid-coins"),
 		},
 	}
 
@@ -214,8 +265,7 @@ func TestNewMsgFundCommunityPool(t *testing.T) {
 			msg, returnAddr, err := NewMsgFundCommunityPool(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -241,7 +291,7 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDepositor string
 		wantValidator string
 	}{
@@ -253,28 +303,28 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 			wantValidator: validatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0)),
 		},
 		{
-			name:    "invalid depositor type",
-			args:    []interface{}{"not-an-address", validatorAddr, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, "not-an-address"),
+			name:       "invalid depositor type",
+			args:       []interface{}{"not-an-address", validatorAddr, validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty depositor address",
-			args:    []interface{}{common.Address{}, validatorAddr, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, common.Address{}),
+			name:       "empty depositor address",
+			args:       []interface{}{common.Address{}, validatorAddr, validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid coins",
-			args:    []interface{}{depositorAddr, validatorAddr, "invalid-coins"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "invalid-coins"),
+			name:       "invalid coins",
+			args:       []interface{}{depositorAddr, validatorAddr, "invalid-coins"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "invalid-coins"),
 		},
 	}
 
@@ -283,8 +333,7 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 			msg, returnAddr, err := NewMsgDepositValidatorRewardsPool(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -310,7 +359,7 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDelegator string
 		wantValidator string
 	}{
@@ -322,22 +371,22 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 			wantValidator: validatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address", validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}, validatorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 	}
 
@@ -346,8 +395,7 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 			req, err := NewDelegationRewardsRequest(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -371,7 +419,7 @@ func TestNewDelegationTotalRewardsRequest(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDelegator string
 	}{
 		{
@@ -381,22 +429,22 @@ func TestNewDelegationTotalRewardsRequest(t *testing.T) {
 			wantDelegator: expectedDelegatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 	}
 
@@ -405,8 +453,7 @@ func TestNewDelegationTotalRewardsRequest(t *testing.T) {
 			req, err := NewDelegationTotalRewardsRequest(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -429,7 +476,7 @@ func TestNewDelegatorValidatorsRequest(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDelegator string
 	}{
 		{
@@ -439,22 +486,22 @@ func TestNewDelegatorValidatorsRequest(t *testing.T) {
 			wantDelegator: expectedDelegatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 	}
 
@@ -463,8 +510,7 @@ func TestNewDelegatorValidatorsRequest(t *testing.T) {
 			req, err := NewDelegatorValidatorsRequest(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -487,7 +533,7 @@ func TestNewDelegatorWithdrawAddressRequest(t *testing.T) {
 		name          string
 		args          []interface{}
 		wantErr       bool
-		errMsg        string
+		wantErrObj    error
 		wantDelegator string
 	}{
 		{
@@ -497,22 +543,22 @@ func TestNewDelegatorWithdrawAddressRequest(t *testing.T) {
 			wantDelegator: expectedDelegatorAddr,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
+			name:       "invalid delegator type",
+			args:       []interface{}{"not-an-address"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
+			name:       "empty delegator address",
+			args:       []interface{}{common.Address{}},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 	}
 
@@ -521,8 +567,7 @@ func TestNewDelegatorWithdrawAddressRequest(t *testing.T) {
 			req, err := NewDelegatorWithdrawAddressRequest(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
