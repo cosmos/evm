@@ -22,8 +22,9 @@ var (
 )
 
 type Account struct {
-	account statedb.Account
-	states  statedb.Storage
+	account            statedb.Account
+	states             statedb.Storage
+	blockedAccountType bool
 }
 
 type EVMKeeper struct {
@@ -46,6 +47,29 @@ func (k EVMKeeper) GetAccount(_ sdk.Context, addr common.Address) *statedb.Accou
 		return nil
 	}
 	return &acct.account
+}
+
+// IsBaseAccountOrEmpty reports true unless the address has been explicitly
+// marked via SetBlockedAccountType, simulating a privileged (non-BaseAccount)
+// Cosmos account already staged there
+func (k EVMKeeper) IsBaseAccountOrEmpty(_ sdk.Context, addr common.Address) bool {
+	acct, ok := k.accounts[addr]
+	if !ok {
+		return true
+	}
+	return !acct.blockedAccountType
+}
+
+// SetBlockedAccountType marks addr as backed by a non-BaseAccount Cosmos
+// account type (e.g. simulating a vesting or module account already staged
+// there), for tests exercising the CreateAccount guard
+func (k EVMKeeper) SetBlockedAccountType(addr common.Address, blocked bool) {
+	acct, exists := k.accounts[addr]
+	if !exists {
+		acct = Account{states: make(statedb.Storage)}
+	}
+	acct.blockedAccountType = blocked
+	k.accounts[addr] = acct
 }
 
 func (k EVMKeeper) GetState(_ sdk.Context, addr common.Address, key common.Hash) common.Hash {
