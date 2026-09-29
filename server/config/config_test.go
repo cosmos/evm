@@ -126,7 +126,7 @@ func TestValidateCrossConfig(t *testing.T) {
 			mempoolMaxTx: 0,
 		},
 		{
-			name:         "comet-flood:evm-off",
+			name:         "comet-flood:evm-on",
 			cometType:    "flood",
 			mempoolMaxTx: 0,
 			errContains:  "invalid config.toml:mempool.type",
@@ -139,7 +139,7 @@ func TestValidateCrossConfig(t *testing.T) {
 		},
 		{
 			// both disabled
-			name:         "comet-flood:evm-on",
+			name:         "comet-flood:evm-off",
 			mempoolMaxTx: -1,
 			cometType:    "flood",
 		},

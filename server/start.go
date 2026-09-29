@@ -208,7 +208,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.JSONRPCGasCap, cosmosevmserverconfig.DefaultGasCap, "Sets a cap on gas that can be used in eth_call/estimateGas unit is aatom (0=infinite)")                         //nolint:lll
 	cmd.Flags().Bool(srvflags.JSONRPCAllowInsecureUnlock, cosmosevmserverconfig.DefaultJSONRPCAllowInsecureUnlock, "Allow insecure account unlocking when account-related RPCs are exposed by http") //nolint:lll
 	cmd.Flags().Float64(srvflags.JSONRPCTxFeeCap, cosmosevmserverconfig.DefaultTxFeeCap, "Sets a cap on transaction fee that can be sent via the RPC APIs (1 = default 1 evmos)")                    //nolint:lll
-	cmd.Flags().Duration(srvflags.JSONRPCEVMTimeout, cosmosevmserverconfig.DefaultEVMTimeout, "Sets a timeout used for eth_call (0=infinite)")
+	cmd.Flags().Duration(srvflags.JSONRPCEVMTimeout, cosmosevmserverconfig.DefaultEVMTimeout, "Sets a timeout used for eth_call and eth_estimateGas (0=infinite)")
 	cmd.Flags().Duration(srvflags.JSONRPCHTTPTimeout, cosmosevmserverconfig.DefaultHTTPTimeout, "Sets a read/write timeout for json-rpc http server (0=infinite)")
 	cmd.Flags().Duration(srvflags.JSONRPCHTTPIdleTimeout, cosmosevmserverconfig.DefaultHTTPIdleTimeout, "Sets a idle timeout for json-rpc http server (0=infinite)")
 	cmd.Flags().Int(srvflags.JSONRPCHTTPBodyLimit, cosmosevmserverconfig.DefaultHTTPBodyLimit, "Sets max request body size in bytes for json-rpc http server")
@@ -564,7 +564,12 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
 
-		mp, ok := evmApp.GetMempool().(backend.Mempool)
+		appMempool := evmApp.GetMempool()
+		if appMempool == nil {
+			// no app-side EVM mempool (mempool.max-txs = -1): serve queries, reject submission
+			appMempool = backend.NoOpMempool{}
+		}
+		mp, ok := appMempool.(backend.Mempool)
 		if !ok {
 			return fmt.Errorf("json-rpc server requires backend.Mempool")
 		}
