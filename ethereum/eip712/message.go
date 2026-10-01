@@ -56,7 +56,7 @@ func createEIP712MessagePayload(data []byte) (eip712MessagePayload, error) {
 }
 
 // stringifyJSONMsgFields converts object- and array-valued "msg" fields to
-// strings. Message fields conventionally contain opaque JSON 
+// strings. Message fields conventionally contain opaque JSON
 // whose runtime shape cannot be represented by a stable EIP-712 type.
 // Existing string values are left alone so ordinary
 // string fields and already-stringified JSON are not changed.
