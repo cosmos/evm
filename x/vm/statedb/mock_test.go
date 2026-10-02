@@ -48,6 +48,12 @@ func (k MockKeeper) GetAccount(_ sdk.Context, addr common.Address) *statedb.Acco
 	return &acct.account
 }
 
+// IsBaseAccountOrEmpty always reports true: this fake never models
+// privileged Cosmos account types
+func (k MockKeeper) IsBaseAccountOrEmpty(_ sdk.Context, _ common.Address) bool {
+	return true
+}
+
 func (k MockKeeper) GetState(_ sdk.Context, addr common.Address, key common.Hash) common.Hash {
 	return k.accounts[addr].states[key]
 }

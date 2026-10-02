@@ -426,6 +426,9 @@ func (s *StateDB) createObject(addr common.Address) *stateObject {
 // pre-funded-then-deployed flow is preserved without any balance carry-over
 // here. See go-ethereum PR #29520.
 func (s *StateDB) CreateAccount(addr common.Address) {
+	if !s.keeper.IsBaseAccountOrEmpty(s.ctx, addr) {
+		panic(fmt.Sprintf("cannot deploy EVM contract on top of non-base account %s", addr.Hex()))
+	}
 	s.createObject(addr)
 }
 

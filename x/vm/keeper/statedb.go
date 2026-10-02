@@ -47,6 +47,20 @@ func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Accou
 	)
 }
 
+// IsBaseAccountOrEmpty reports whether addr has no Cosmos account yet, or
+// carries exactly the plain BaseAccount type. It is the guard CreateAccount
+// uses to reject EVM contract deployment onto an address that already
+// carries Cosmos-native privileges (vesting, module accounts, or any other
+// non-BaseAccount AccountI implementation)
+func (k *Keeper) IsBaseAccountOrEmpty(ctx sdk.Context, addr common.Address) bool {
+	acct := k.accountKeeper.GetAccount(ctx, addr.Bytes())
+	if acct == nil {
+		return true
+	}
+	_, ok := acct.(*authtypes.BaseAccount)
+	return ok
+}
+
 // GetState loads contract state from database.
 func (k *Keeper) GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash {
 	ctx, span := ctx.StartSpan(tracer, "GetState", trace.WithAttributes(
