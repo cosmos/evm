@@ -293,7 +293,7 @@ func TestCreateAccessList(t *testing.T) {
 			expectAccList: false,
 		},
 		{
-			name: "pass - With state overrides",
+			name: "fail - With state overrides",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
 				gas := hexutil.Uint64(21000)
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
@@ -310,9 +310,8 @@ func TestCreateAccessList(t *testing.T) {
 				return args, blockNumOrHash
 			},
 			overrides:     &overrides,
-			expectError:   false,
-			expectGasUsed: true,
-			expectAccList: true,
+			expectError:   true,
+			errorContains: "state overrides are not supported",
 		},
 		{
 			name: "fail - Invalid state overrides JSON",
