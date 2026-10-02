@@ -78,7 +78,7 @@ func NewLedgerHub() (*Hub, error) {
 
 // newHub creates a new hardware wallet manager for generic USB devices.
 func newHub(scheme string, vendorID uint16, productIDs []uint16, usageID uint16, endpointID int, makeDriver func() driver) (*Hub, error) {
-	if !usb.Supported() {
+	if !transportSupported() {
 		return nil, errors.New("unsupported platform")
 	}
 	hub := &Hub{
@@ -141,7 +141,7 @@ func (hub *Hub) refreshWallets() {
 			return
 		}
 	}
-	infos := usb.Enumerate(hub.vendorID, 0)
+	infos := enumerateDevices(hub.vendorID)
 	if infos == nil {
 		if onLinux {
 			// See rationale before the enumeration why this is needed and only on Linux.

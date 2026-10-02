@@ -57,8 +57,8 @@ type wallet struct {
 	driver driver            // Hardware implementation of the low level device operations
 	url    *gethaccounts.URL // Textual URL uniquely identifying this wallet
 
-	info   usb.DeviceInfo // Known USB device infos about the wallet
-	device *usb.Device    // USB device advertising itself as a hardware wallet
+	info   usb.DeviceInfo     // Known USB device infos about the wallet
+	device io.ReadWriteCloser // USB device advertising itself as a hardware wallet
 
 	accounts []accounts.Account                             // List of derive accounts pinned on the hardware wallet
 	paths    map[common.Address]gethaccounts.DerivationPath // Known derivation paths for signing operations
@@ -118,7 +118,7 @@ func (w *wallet) Open(passphrase string) error {
 	}
 	// Make sure the actual device connection is done only once
 	if w.device == nil {
-		device, err := w.info.Open()
+		device, err := openDevice(w.info)
 		if err != nil {
 			return err
 		}

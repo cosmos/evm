@@ -5,22 +5,24 @@ import (
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/wallets/ledger"
 
+	cosmoshd "github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	cosmosLedger "github.com/cosmos/cosmos-sdk/crypto/ledger"
 	"github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
-// AppName defines the Ledger app used for signing. Cosmos EVM uses the Ethereum app
+// AppName is the name of the Ledger Ethereum app.
 const AppName = "Ethereum"
 
 var (
 	// SupportedAlgorithms defines the list of signing algorithms used on Cosmos EVM:
 	//  - eth_secp256k1 (Ethereum)
-	SupportedAlgorithms = keyring.SigningAlgoList{hd.EthSecp256k1}
+	//  - secp256k1 (CometBFT)
+	SupportedAlgorithms = keyring.SigningAlgoList{hd.EthSecp256k1, cosmoshd.Secp256k1}
 	// SupportedAlgorithmsLedger defines the list of signing algorithms used by Cosmos EVM for the Ledger device:
-	//  - secp256k1 (in order to comply with Cosmos SDK)
+	//  - eth_secp256k1 (Ethereum app, coin type 60)
+	//  - secp256k1 (Cosmos app, coin type 118)
 	// The Ledger derivation function is responsible for all signing and address generation.
-	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.EthSecp256k1}
+	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.EthSecp256k1, cosmoshd.Secp256k1}
 	// LedgerDerivation defines the Cosmos EVM Ledger Go derivation (Ethereum app with EIP-712 signing)
 	LedgerDerivation = ledger.EvmLedgerDerivation()
 	// CreatePubkey uses the ethsecp256k1 pubkey with Ethereum address generation and keccak hashing
@@ -30,13 +32,13 @@ var (
 	SkipDERConversion = true
 )
 
-// EthSecp256k1Option defines a function keys options for the ethereum Secp256k1 curve.
-// It supports eth_secp256k1 keys for accounts.
+// Option returns the Cosmos EVM keyring options: eth_secp256k1 and secp256k1
+// keys, with Ledger keys signed by the app of their coin type.
 func Option() keyring.Option {
 	return func(options *keyring.Options) {
 		options.SupportedAlgos = SupportedAlgorithms
 		options.SupportedAlgosLedger = SupportedAlgorithmsLedger
-		options.LedgerDerivation = func() (cosmosLedger.SECP256K1, error) { return LedgerDerivation() }
+		options.LedgerDerivation = DiscoverLedger
 		options.LedgerCreateKey = CreatePubkey
 		options.LedgerAppName = AppName
 		options.LedgerSigSkipDERConv = SkipDERConversion
