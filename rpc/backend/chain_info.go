@@ -245,8 +245,8 @@ func (b *Backend) FeeHistory(
 	const maxBlockFetchers = 4
 	for blockID := blockStart; blockID <= blockEnd; blockID += maxBlockFetchers {
 		wg := sync.WaitGroup{}
-		wgDone := make(chan bool)
-		// buffered so that fetchers failing after the first error don't block forever
+		// buffered so that fetchers failing after the first error don't block forever;
+		// closed once every fetcher has returned
 		chanErr := make(chan error, maxBlockFetchers)
 		for i := 0; i < maxBlockFetchers; i++ {
 			if blockID+int64(i) >= blockEnd+1 {
@@ -321,11 +321,9 @@ func (b *Backend) FeeHistory(
 		}
 		go func() {
 			wg.Wait()
-			close(wgDone)
+			close(chanErr)
 		}()
-		select {
-		case <-wgDone:
-		case err := <-chanErr:
+		if err, ok := <-chanErr; ok {
 			return nil, err
 		}
 	}
