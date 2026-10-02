@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"runtime"
+	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -602,4 +605,31 @@ func (s *TestSuite) TestFeeHistory() {
 			}
 		})
 	}
+}
+
+func (s *TestSuite) TestFeeHistoryFetcherErrorsDoNotLeak() {
+	s.SetupTest()
+	client := s.backend.ClientCtx.Client.(*mocks.Client)
+	queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	s.backend.Cfg.JSONRPC.FeeHistoryCap = 4
+	var header metadata.MD
+	RegisterParams(queryClient, &header, 4)
+	// every fetcher of the batch fails
+	RegisterBlockError(client, 1)
+
+	_, err := s.backend.FeeHistory(s.Ctx(), 4, 4, nil)
+	s.Require().Error(err)
+
+	// the fetchers that fail after the first error must still be able to exit
+	s.Require().Eventually(func() bool {
+		return feeHistoryGoroutines() == 0
+	}, 2*time.Second, 10*time.Millisecond, "fee history fetcher goroutines leaked")
+}
+
+// feeHistoryGoroutines counts the goroutines started by Backend.FeeHistory
+// that are still running.
+func feeHistoryGoroutines() int {
+	buf := make([]byte, 1<<22)
+	buf = buf[:runtime.Stack(buf, true)]
+	return strings.Count(string(buf), "(*Backend).FeeHistory.func")
 }
