@@ -18,6 +18,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -1696,12 +1697,18 @@ func (s *KeeperTestSuite) TestTraceCall() {
 	s.Require().NoError(err)
 	s.Require().NoError(s.Network.NextBlock())
 
+	balanceSlot := crypto.Keccak256Hash(
+		common.LeftPadBytes(senderKey.Addr.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(0).Bytes(), 32),
+	)
+
 	testCases := []struct {
-		msg            string
-		getCallArgs    func() []byte
-		getTraceConfig func() *types.TraceConfig
-		expPass        bool
-		traceResponse  string
+		msg               string
+		getCallArgs       func() []byte
+		traceCallConfig   *rpctypes.TraceCallConfig
+		expPass           bool
+		traceResponse     string
+		postTraceResponse string
 	}{
 		{
 			msg: "default trace with contract call",
@@ -1715,9 +1722,6 @@ func (s *KeeperTestSuite) TestTraceCall() {
 				input, err := factory.GenerateContractCallArgs(callArgs)
 				s.Require().NoError(err)
 				return input
-			},
-			getTraceConfig: func() *types.TraceConfig {
-				return nil // Use default tracer
 			},
 			expPass:       true,
 			traceResponse: "\"gas\":",
@@ -1734,10 +1738,12 @@ func (s *KeeperTestSuite) TestTraceCall() {
 				s.Require().NoError(err)
 				return input
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Tracer: "callTracer",
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
 			},
 			expPass:       true,
 			traceResponse: "\"type\":\"CALL\"",
@@ -1754,10 +1760,12 @@ func (s *KeeperTestSuite) TestTraceCall() {
 				s.Require().NoError(err)
 				return input
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Tracer: "prestateTracer",
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "prestateTracer",
+					},
+				},
 			},
 			expPass:       true,
 			traceResponse: "\"balance\":",
@@ -1774,13 +1782,15 @@ func (s *KeeperTestSuite) TestTraceCall() {
 				s.Require().NoError(err)
 				return input
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					DisableStack:     true,
-					DisableStorage:   true,
-					EnableMemory:     false,
-					EnableReturnData: true,
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						DisableStack:     true,
+						DisableStorage:   true,
+						EnableMemory:     false,
+						EnableReturnData: true,
+					},
+				},
 			},
 			expPass:       true,
 			traceResponse: "\"returnValue\":",
@@ -1797,10 +1807,12 @@ func (s *KeeperTestSuite) TestTraceCall() {
 				s.Require().NoError(err)
 				return input
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Tracer: "{data: [], fault: function(log) {}, step: function(log) { if(log.op.toString() == \"CALL\") this.data.push(log.stack.peek(0)); }, result: function() { return this.data; }}",
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "{data: [], fault: function(log) {}, step: function(log) { if(log.op.toString() == \"CALL\") this.data.push(log.stack.peek(0)); }, result: function() { return this.data; }}",
+					},
+				},
 			},
 			expPass:       true,
 			traceResponse: "[",
@@ -1810,10 +1822,12 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			getCallArgs: func() []byte {
 				return nil // Simple value transfer, no data
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Tracer: "callTracer",
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
 			},
 			expPass:       true,
 			traceResponse: "\"type\":\"CALL\"",
@@ -1823,10 +1837,12 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			getCallArgs: func() []byte {
 				return nil
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Limit: -1,
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Limit: -1,
+					},
+				},
 			},
 			expPass: false,
 		},
@@ -1835,10 +1851,12 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			getCallArgs: func() []byte {
 				return nil
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Tracer: "invalid_tracer",
-				}
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "invalid_tracer",
+					},
+				},
 			},
 			expPass: false,
 		},
@@ -1847,10 +1865,78 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			getCallArgs: func() []byte {
 				return nil
 			},
-			getTraceConfig: func() *types.TraceConfig {
-				return &types.TraceConfig{
-					Timeout: "wrong_time",
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Timeout: "wrong_time",
+					},
+				},
+			},
+			expPass: false,
+		},
+		{
+			msg: "trace call without state override",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
 				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
+			},
+			expPass:       true,
+			traceResponse: `"output":"0x00000000000000000000000000000000000000000000003635c9adc5dea00000"`,
+		},
+		{
+			msg: "trace call with balance override",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
+				StateOverrides: []byte(fmt.Sprintf(
+					`{"%s":{"stateDiff":{"%s":"%s"}}}`,
+					contractAddr.Hex(),
+					balanceSlot.Hex(),
+					common.BigToHash(big.NewInt(1)).Hex(),
+				)),
+			},
+			expPass:           true,
+			traceResponse:     `"output":"0x0000000000000000000000000000000000000000000000000000000000000001"`,
+			postTraceResponse: `"output":"0x00000000000000000000000000000000000000000000003635c9adc5dea00000"`,
+		},
+		{
+			msg: "invalid state overrides",
+			getCallArgs: func() []byte {
+				return []byte{}
+			},
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
+				StateOverrides: []byte(fmt.Sprintf(`{"%s":{"code":`, contractAddr.Hex())),
 			},
 			expPass: false,
 		},
@@ -1898,14 +1984,20 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			// Build trace request
 			ctx := s.Network.GetContext()
 
+			traceCallConfig := tc.traceCallConfig
+			if traceCallConfig == nil {
+				traceCallConfig = &rpctypes.TraceCallConfig{}
+			}
+
 			traceReq := &types.QueryTraceCallRequest{
 				Args:            argsBytes,
-				TraceConfig:     tc.getTraceConfig(),
+				TraceConfig:     &traceCallConfig.TraceConfig.TraceConfig,
 				BlockNumber:     currentBlock,
 				BlockTime:       ctx.BlockTime(),
 				BlockHash:       common.BytesToHash(ctx.HeaderHash()).Hex(),
 				ProposerAddress: sdk.ConsAddress(ctx.BlockHeader().ProposerAddress),
 				ChainId:         s.Network.GetEIP155ChainID().Int64(),
+				Overrides:       traceCallConfig.StateOverrides,
 			}
 
 			// Execute trace call
@@ -1920,8 +2012,15 @@ func (s *KeeperTestSuite) TestTraceCall() {
 					s.Require().Contains(string(res.Data), tc.traceResponse)
 				}
 
+				if tc.postTraceResponse != "" {
+					traceReq.Overrides = nil
+					res, err = s.Network.GetEvmClient().TraceCall(s.Network.GetContext(), traceReq)
+					s.Require().NoError(err)
+					s.Require().Contains(string(res.Data), tc.postTraceResponse)
+				}
+
 				// For non-custom tracers, verify the result structure
-				if tc.getTraceConfig() == nil || tc.getTraceConfig().Tracer == "" {
+				if traceCallConfig.Tracer == "" {
 					var result ethlogger.ExecutionResult
 					s.Require().NoError(json.Unmarshal(res.Data, &result))
 					s.Require().NotNil(result.Gas)
