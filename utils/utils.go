@@ -28,6 +28,8 @@ import (
 
 // EthHexToCosmosAddr takes a given Hex string and derives a Cosmos SDK account address
 // from it.
+//
+// The input is not validated, see Bech32StringFromHexAddress.
 func EthHexToCosmosAddr(hexAddr string) sdk.AccAddress {
 	return EthToCosmosAddr(common.HexToAddress(hexAddr))
 }
@@ -56,6 +58,10 @@ func CosmosToEthAddr(accAddr sdk.AccAddress) common.Address {
 
 // Bech32StringFromHexAddress takes a given Hex string and derives a Cosmos SDK account address
 // from it.
+//
+// The input is not validated: anything that is not a valid hex address decodes
+// to a zero-padded or truncated address without an error. Check untrusted input
+// with common.IsHexAddress first.
 func Bech32StringFromHexAddress(hexAddr string) string {
 	return sdk.AccAddress(common.HexToAddress(hexAddr).Bytes()).String()
 }

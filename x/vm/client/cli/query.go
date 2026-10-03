@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/spf13/cobra"
 
@@ -222,7 +221,11 @@ func HexToBech32Cmd() *cobra.Command {
 		Example: "evmd query evm 0x-to-bech32 0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println(utils.Bech32StringFromHexAddress(args[0]))
+			bech32, err := hexToBech32(args[0])
+			if err != nil {
+				return err
+			}
+			cmd.Println(bech32)
 			return nil
 		},
 	}
@@ -255,12 +258,18 @@ func Bech32ToHexCmd() *cobra.Command {
 
 func GetBankBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "balance-bank [address] [denom]",
-		Short:   "Get the bank balance for a given 0x address and bank denom",
-		Long:    "Get the bank balance for a given 0x address and bank denom.",
-		Example: "evmd query evm balance-bank 0xA2A8B87390F8F2D188242656BFb6852914073D06 atoken",
-		Args:    cobra.ExactArgs(2),
+		Use:   "balance-bank [address] [denom]",
+		Short: "Get the bank balance for a given 0x or bech32 address and bank denom",
+		Long:  "Get the bank balance for a given 0x or bech32 address and bank denom.",
+		Example: `evmd query evm balance-bank 0xA2A8B87390F8F2D188242656BFb6852914073D06 atoken
+evmd query evm balance-bank cosmos1525tsuuslredrzpyyettld599y2qw0gxjhqps8 atoken`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			address, err := accountToBech32(args[0])
+			if err != nil {
+				return err
+			}
+
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
@@ -269,7 +278,7 @@ func GetBankBalanceCmd() *cobra.Command {
 			queryClient := banktypes.NewQueryClient(clientCtx)
 
 			res, err := queryClient.Balance(cmd.Context(), &banktypes.QueryBalanceRequest{
-				Address: utils.Bech32StringFromHexAddress(args[0]),
+				Address: address,
 				Denom:   args[1],
 			})
 			if err != nil {
@@ -292,6 +301,16 @@ func GetERC20BalanceCmd() *cobra.Command {
 		Example: "evmd query evm balance-erc20 0xA2A8B87390F8F2D188242656BFb6852914073D06 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			holder, err := hexAddress(args[0])
+			if err != nil {
+				return err
+			}
+
+			erc20Address, err := hexAddress(args[1])
+			if err != nil {
+				return err
+			}
+
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
@@ -301,13 +320,11 @@ func GetERC20BalanceCmd() *cobra.Command {
 
 			input, err := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack(
 				"balanceOf",
-				common.HexToAddress(args[0]),
+				holder,
 			)
 			if err != nil {
 				return err
 			}
-
-			erc20Address := common.HexToAddress(args[1])
 
 			callData, err := json.Marshal(types.TransactionArgs{
 				To:    &erc20Address,
@@ -333,7 +350,7 @@ func GetERC20BalanceCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("balance:\n  amount: %s\n  erc20_address: %s\n", balance.String(), args[1])
+			fmt.Printf("balance:\n  amount: %s\n  erc20_address: %s\n", balance.String(), erc20Address.Hex())
 
 			return nil
 		},
