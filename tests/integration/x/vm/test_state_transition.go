@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
@@ -27,6 +28,8 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/statedb"
+	vmtracer "github.com/cosmos/evm/x/vm/tracer"
+	applicationtracer "github.com/cosmos/evm/x/vm/tracer/application"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -674,6 +677,89 @@ type testHooks struct {
 
 func (h *testHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
 	return h.postProcessing(ctx, sender, msg, receipt)
+}
+
+func (s *KeeperTestSuite) TestApplicationTracerAvailableToPostTxHook() {
+	s.SetupTest()
+
+	var sawTrace bool
+	evmKeeper := s.Network.App.GetEVMKeeper()
+	evmKeeper.SetApplicationTracerFactories(applicationtracer.TxTraceFactory)
+	evmKeeper.SetHooks(keeper.NewMultiEvmHooks(&testHooks{
+		postProcessing: func(ctx sdk.Context, _ common.Address, _ core.Message, receipt *gethtypes.Receipt) error {
+			touches, transfers, erc20Transfers := applicationtracer.GetTxTrace(ctx, uint64(receipt.TransactionIndex))
+			s.Require().NotEmpty(touches)
+			s.Require().Len(transfers, 1)
+			s.Require().Equal(big.NewInt(100), transfers[0].Value)
+			s.Require().Empty(erc20Transfers)
+			sawTrace = true
+			return ctx.Context().Err()
+		},
+	}))
+
+	ctx := s.Network.GetContext().WithBlockGasMeter(storetypes.NewGasMeter(1e6))
+	err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	s.Require().NoError(err)
+	err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	s.Require().NoError(err)
+
+	recipient := s.Keyring.GetAddr(1)
+	tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), types.EvmTxArgs{
+		To:     &recipient,
+		Amount: big.NewInt(100),
+	})
+	s.Require().NoError(err)
+
+	ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+	res, err := evmKeeper.ApplyTransaction(ctx, ethMsg.AsTransaction())
+	s.Require().NoError(err)
+	s.Require().False(res.Failed())
+	s.Require().True(sawTrace)
+}
+
+func (s *KeeperTestSuite) TestFailedTransactionRetainsApplicationTracingContext() {
+	s.SetupTest()
+
+	type factoryContextKey struct{}
+	marker := &struct{}{}
+	var sawManager, sawFactoryValue bool
+
+	evmKeeper := s.Network.App.GetEVMKeeper()
+	evmKeeper.SetApplicationTracerFactories(
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+			return ctx.WithValue(factoryContextKey{}, marker), &applicationHooksTracer{hooks: &tracing.Hooks{}}
+		},
+	)
+	evmKeeper.SetHooks(keeper.NewMultiEvmHooks(&testHooks{
+		postProcessing: func(ctx sdk.Context, _ common.Address, _ core.Message, receipt *gethtypes.Receipt) error {
+			if receipt.Status == gethtypes.ReceiptStatusFailed {
+				_, sawManager = vmtracer.FromContext(ctx)
+				sawFactoryValue = ctx.Value(factoryContextKey{}) == marker
+			}
+			return ctx.Context().Err()
+		},
+	}))
+
+	ctx := s.Network.GetContext().WithBlockGasMeter(storetypes.NewGasMeter(1e6))
+	err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	s.Require().NoError(err)
+	err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	s.Require().NoError(err)
+
+	senderBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), types.GetEVMCoinDenom()).Amount
+	recipient := s.Keyring.GetAddr(1)
+	tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), types.EvmTxArgs{
+		To:     &recipient,
+		Amount: senderBalance.AddRaw(100).BigInt(),
+	})
+	s.Require().NoError(err)
+
+	ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+	res, err := evmKeeper.ApplyTransaction(ctx, ethMsg.AsTransaction())
+	s.Require().NoError(err)
+	s.Require().True(res.Failed())
+	s.Require().True(sawManager)
+	s.Require().True(sawFactoryValue)
 }
 
 func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
