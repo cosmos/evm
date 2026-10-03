@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
-const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
+const { findEvent, getRevertData, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
 
 describe('Distribution – withdraw delegator reward', function () {
     const STAKING_ADDRESS = '0x0000000000000000000000000000000000000800'
@@ -14,6 +14,21 @@ describe('Distribution – withdraw delegator reward', function () {
 
         staking = await hre.ethers.getContractAt('StakingI', STAKING_ADDRESS)
         distribution = await hre.ethers.getContractAt('DistributionI', DIST_ADDRESS);
+    });
+
+    it('decodes invalid validator custom error data', async function () {
+        const invalidValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pinvalid';
+
+        try {
+            await distribution
+                .connect(signer)
+                .withdrawDelegatorRewards.estimateGas(signer.address, invalidValidatorAddress);
+            expect.fail('withdrawDelegatorRewards should have reverted');
+        } catch (error) {
+            const parsed = distribution.interface.parseError(getRevertData(error));
+            expect(parsed.name).to.equal('InvalidAddress');
+            expect(String(parsed.args[0])).to.include(invalidValidatorAddress);
+        }
     });
 
     it('should withdraw rewards and emit WithdrawDelegatorReward event', async function () {

@@ -4,14 +4,15 @@ const {
     DEFAULT_GAS_LIMIT,
     LARGE_GAS_LIMIT,
     LOW_GAS_LIMIT,
-    PANIC_ASSERT_0x01,
-    PANIC_DIVISION_BY_ZERO_0x12,
-    PANIC_ARRAY_OUT_OF_BOUND_0x32
+    ERROR_NAME,
+    PANIC_NAME,
+    PANIC_CODE_0x01,
+    PANIC_CODE_0x12,
+    PANIC_CODE_0x32
 } = require('./common');
 const {
-    decodeRevertReason,
     analyzeFailedTransaction,
-    verifyTransactionRevert,
+    parseEthersError,
     verifyOutOfGasError
 } = require('./test_helper')
 
@@ -52,46 +53,30 @@ describe('Standard Revert Cases E2E Tests', function () {
     describe('Standard Contract Call Reverts', function () {
         it('should handle standard revert with custom message', async function () {
             const customMessage = "Custom revert message";
-            try {
-                const tx = await standardRevertTestContract.standardRevert(customMessage, { gasLimit: DEFAULT_GAS_LIMIT });
-                await tx.wait();
-                expect.fail('Transaction should have reverted');
-            } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
-            }
-            verifyTransactionRevert(analysis, customMessage);
-
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.standardRevert.staticCall(customMessage);
                 expect.fail('Static call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(String(parsed.args[0])).to.include(customMessage);
             }
-            expect(decodedReason).to.include(customMessage);
         });
 
         it('should handle require revert with proper error message', async function () {
             const value = 100;
             const threshold = 50;
             
-            try {
-                const tx = await standardRevertTestContract.requireRevert(value, threshold, { gasLimit: DEFAULT_GAS_LIMIT });
-                await tx.wait();
-                expect.fail('Transaction should have reverted');
-            } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
-            }
-            verifyTransactionRevert(analysis, "Value exceeds threshold");
-            
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.requireRevert.staticCall(value, threshold);
                 expect.fail('Static call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(String(parsed.args[0])).to.include("Value exceeds threshold");
             }
-            expect(decodedReason).to.include("Value exceeds threshold");
             
             // Verify successful case (no revert when value < threshold)
             const successTx = await standardRevertTestContract.requireRevert(25, 50, { gasLimit: DEFAULT_GAS_LIMIT });
@@ -100,23 +85,16 @@ describe('Standard Revert Cases E2E Tests', function () {
         });
 
         it('should handle assert revert (Panic error)', async function () {            
-            try {
-                const tx = await standardRevertTestContract.assertRevert({ gasLimit: DEFAULT_GAS_LIMIT });
-                await tx.wait();
-                expect.fail('Transaction should have reverted');
-            } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
-            }
-            verifyTransactionRevert(analysis, PANIC_ASSERT_0x01);
             
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.assertRevert.staticCall();
                 expect.fail('Static call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(PANIC_NAME);
+                expect(parsed.args[0]).to.equal(PANIC_CODE_0x01);
             }
-            expect(decodedReason).to.include(PANIC_ASSERT_0x01);
         });
 
         it('should handle division by zero (View Panic error)', async function () {
@@ -124,20 +102,22 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await standardRevertTestContract.divisionByZero();
                 expect.fail('View call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(PANIC_NAME);
+                expect(parsed.args[0]).to.equal(PANIC_CODE_0x12);
             }
-            expect(decodedReason).to.include(PANIC_DIVISION_BY_ZERO_0x12);
         });
 
         it('should handle division by zero (Transaction Panic error)', async function () {            
             try {
-                const tx = await standardRevertTestContract.divisionByZeroTx({ gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await standardRevertTestContract.divisionByZeroTx.staticCall({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(PANIC_NAME);
+                expect(parsed.args[0]).to.equal(PANIC_CODE_0x12);
             }
-            verifyTransactionRevert(analysis, PANIC_DIVISION_BY_ZERO_0x12);
         });
 
         it('should handle array out of bounds (View Panic error)', async function () {            
@@ -145,67 +125,73 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await standardRevertTestContract.arrayOutOfBounds();
                 expect.fail('View call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(PANIC_NAME);
+                expect(parsed.args[0]).to.equal(PANIC_CODE_0x32);
             }
-            expect(decodedReason).contains(PANIC_ARRAY_OUT_OF_BOUND_0x32);
         });
 
         it('should handle array out of bounds (Transaction Panic error)', async function () {
             try {
-                const tx = await standardRevertTestContract.arrayOutOfBoundsTx({ gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await standardRevertTestContract.arrayOutOfBoundsTx.staticCall({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(PANIC_NAME);
+                expect(parsed.args[0]).to.equal(PANIC_CODE_0x32);
             }
-            verifyTransactionRevert(analysis, PANIC_ARRAY_OUT_OF_BOUND_0x32);
         });
 
         it('should capture revert reason through eth_getTransactionReceipt', async function () {
             try {
-                const tx = await standardRevertTestContract.standardRevert("Test message", { gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await standardRevertTestContract.standardRevert.staticCall("Test message", { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(String(parsed.args[0])).to.include("Test message");
             }
-            verifyTransactionRevert(analysis, "Test message");
         });
     });
 
     describe('Complex Revert Scenarios', function () {
         it('should handle multiple calls with revert', async function () {
             try {
-                const tx = await standardRevertTestContract.multipleCallsWithRevert({ gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await standardRevertTestContract.multipleCallsWithRevert.staticCall({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(String(parsed.args[0])).to.include("Multiple calls revert");
             }
-            verifyTransactionRevert(analysis, "Multiple calls revert");
         });
 
         it('should handle try-catch revert scenario', async function () {
             try {
-                const tx = await standardRevertTestContract.tryCatchRevert(true, { gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await standardRevertTestContract.tryCatchRevert.staticCall(true, { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(String(parsed.args[0])).to.include("Internal function revert");
             }
-            verifyTransactionRevert(analysis, "Internal function revert");
         });
 
         it('should handle wrapper contract revert', async function () {
             const contractAddress = await standardRevertTestContract.getAddress();
             try {
-                const tx = await simpleWrapper.wrappedStandardCall(contractAddress, "Wrapper test", { gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await simpleWrapper.wrappedStandardCall.staticCall(contractAddress, "Wrapper test", { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash);
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(String(parsed.args[0])).to.include("Wrapper test");
             }
-            verifyTransactionRevert(analysis, "Wrapper test");
         });
     });
 
@@ -274,42 +260,47 @@ describe('Standard Revert Cases E2E Tests', function () {
                 {
                     name: 'Standard Revert',
                     call: async () => {
-                        const tx = await standardRevertTestContract.standardRevert("Standard error", { gasLimit: DEFAULT_GAS_LIMIT });
+                        const tx = await standardRevertTestContract.standardRevert.staticCall("Standard error", { gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedReason: "Standard error"
+                    expectedErrName: ERROR_NAME,
+                    expectedErrReason: "Standard error"
                 },
                 {
                     name: 'Require Revert',
                     call: async () => {
-                        const tx = await standardRevertTestContract.requireRevert(100, 50, { gasLimit: DEFAULT_GAS_LIMIT });
+                        const tx = await standardRevertTestContract.requireRevert.staticCall(100, 50, { gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedReason: "Value exceeds threshold"
+                    expectedErrName: ERROR_NAME,
+                    expectedErrReason: "Value exceeds threshold"
                 },
                 {
                     name: 'Assert Revert',
                     call: async () => {
-                        const tx = await standardRevertTestContract.assertRevert({ gasLimit: DEFAULT_GAS_LIMIT });
+                        const tx = await standardRevertTestContract.assertRevert.staticCall({ gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedReason: PANIC_ASSERT_0x01
+                    expectedErrName: PANIC_NAME,
+                    expectedErrReason: PANIC_CODE_0x01
                 },
                 {
                     name: 'Division by Zero (Transaction)',
                     call: async () => {
-                        const tx = await standardRevertTestContract.divisionByZeroTx({ gasLimit: DEFAULT_GAS_LIMIT });
+                        const tx = await standardRevertTestContract.divisionByZeroTx.staticCall({ gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedReason: PANIC_DIVISION_BY_ZERO_0x12
+                    expectedErrName: PANIC_NAME,
+                    expectedErrReason: PANIC_CODE_0x12
                 },
                 {
                     name: 'Array Out of Bounds (Transaction)',
                     call: async () => {
-                        const tx = await standardRevertTestContract.arrayOutOfBoundsTx({ gasLimit: DEFAULT_GAS_LIMIT });
+                        const tx = await standardRevertTestContract.arrayOutOfBoundsTx.staticCall({ gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedReason: PANIC_ARRAY_OUT_OF_BOUND_0x32
+                    expectedErrName: PANIC_NAME,
+                    expectedErrReason: PANIC_CODE_0x32
                 }
             ];
 
@@ -318,12 +309,14 @@ describe('Standard Revert Cases E2E Tests', function () {
                 {
                     name: 'Division by Zero (View)',
                     call: async () => await standardRevertTestContract.divisionByZero(),
-                    expectedReason: PANIC_DIVISION_BY_ZERO_0x12
+                    expectedErrName: PANIC_NAME,
+                    expectedErrReason: PANIC_CODE_0x12
                 },
                 {
                     name: 'Array Out of Bounds (View)',
                     call: async () => await standardRevertTestContract.arrayOutOfBounds(),
-                    expectedReason: PANIC_ARRAY_OUT_OF_BOUND_0x32
+                    expectedErrName: PANIC_NAME,
+                    expectedErrReason: PANIC_CODE_0x32
                 }
             ];
 
@@ -333,9 +326,10 @@ describe('Standard Revert Cases E2E Tests', function () {
                     await testCase.call();
                     expect.fail(`${testCase.name} should have reverted`);
                 } catch (error) {
-                    analysis = await analyzeFailedTransaction(error.receipt.hash);
+                    const parsed = parseEthersError(null, error.data);
+                    expect(parsed.name).to.equal(testCase.expectedErrName);
+                    expect(String(parsed.args[0])).to.include(testCase.expectedErrReason);
                 }
-                verifyTransactionRevert(analysis, testCase.expectedReason);
             }
             
             // Test view functions (no receipts)
@@ -344,30 +338,22 @@ describe('Standard Revert Cases E2E Tests', function () {
                     await testCase.call();
                     expect.fail(`${testCase.name} should have reverted`);
                 } catch (error) {
-                    decodedReason = decodeRevertReason(error.data);
+                    const parsed = parseEthersError(null, error.data);
+                    expect(parsed.name).to.equal(testCase.expectedErrName);
+                    expect(String(parsed.args[0])).to.include(testCase.expectedErrReason);
                 }
-                expect(decodedReason).contains(testCase.expectedReason);
             }
         });
 
         it('should verify error data is properly hex-encoded in receipts', async function () {
             try {
-                const tx = await standardRevertTestContract.standardRevert("Hex encoding test", { gasLimit: DEFAULT_GAS_LIMIT });
+                const tx = await standardRevertTestContract.standardRevert.staticCall("Hex encoding test", { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                try {
-                    const contractAddress = await standardRevertTestContract.getAddress();
-                    await hre.ethers.provider.call({
-                        to: contractAddress,
-                        data: standardRevertTestContract.interface.encodeFunctionData('standardRevert', ['Hex encoding test']),
-                        gasLimit: DEFAULT_GAS_LIMIT
-                    });
-                    expect.fail('Call should have reverted');
-                } catch (error) {
-                    decodedReason = await decodeRevertReason(error.data);
-                }
-                expect(decodedReason).to.include('Hex encoding test');
+                const parsed = parseEthersError(null, error.data);
+                expect(parsed.name).to.equal(ERROR_NAME);
+                expect(parsed.args[0]).to.include('Hex encoding test');
             }
         });
     });

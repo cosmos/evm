@@ -1,21 +1,24 @@
 package staking
 
 import (
-	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/staking"
+	"github.com/cosmos/evm/precompiles/testutil"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -23,12 +26,12 @@ func (s *PrecompileTestSuite) TestDelegation() {
 	method := s.precompile.Methods[staking.DelegationMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress string) []interface{}
+		postCheck func(bz []byte)
+		gas       uint64
+		expErr    bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -38,7 +41,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid delegator address",
@@ -51,7 +54,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "invalid"),
 		},
 		{
 			"fail - invalid operator address",
@@ -64,7 +67,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			"invalid: unknown address",
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "invalid"),
 		},
 		{
 			"success - empty delegation",
@@ -83,7 +86,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success",
@@ -101,7 +104,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -114,7 +117,8 @@ func (s *PrecompileTestSuite) TestDelegation() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotEmpty(bz)
@@ -128,12 +132,12 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 	method := s.precompile.Methods[staking.UnbondingDelegationMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress string) []interface{}
+		postCheck func(bz []byte)
+		gas       uint64
+		expErr    bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -143,7 +147,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid delegator address",
@@ -156,7 +160,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "invalid"),
 		},
 		{
 			"success - no unbonding delegation found",
@@ -175,7 +179,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success",
@@ -195,7 +199,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -213,7 +217,8 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotNil(bz)
@@ -227,12 +232,12 @@ func (s *PrecompileTestSuite) TestValidator() {
 	method := s.precompile.Methods[staking.ValidatorMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(operatorAddress common.Address) []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
+		name      string
+		malleate  func(operatorAddress common.Address) []interface{}
+		postCheck func(bz []byte)
+		gas       uint64
+		expErr    bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -242,7 +247,7 @@ func (s *PrecompileTestSuite) TestValidator() {
 			func(_ []byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
 			"success",
@@ -263,7 +268,7 @@ func (s *PrecompileTestSuite) TestValidator() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			name: "success - empty validator",
@@ -297,7 +302,8 @@ func (s *PrecompileTestSuite) TestValidator() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotNil(bz)
@@ -311,12 +317,12 @@ func (s *PrecompileTestSuite) TestValidators() {
 	method := s.precompile.Methods[staking.ValidatorsMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(bz []byte)
+		gas       uint64
+		expErr    bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -326,7 +332,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 			func(_ []byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid number of arguments",
@@ -338,7 +344,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 			func(_ []byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 1),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(1)),
 		},
 		{
 			"success - bonded status & pagination w/countTotal",
@@ -365,7 +371,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - bonded status & pagination w/countTotal & key is []byte{0}",
@@ -393,7 +399,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -406,7 +412,8 @@ func (s *PrecompileTestSuite) TestValidators() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotNil(bz)
@@ -421,12 +428,12 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 	redelegateMethod := s.precompile.Methods[staking.RedelegateMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(srcOperatorAddr, destOperatorAddr string) []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
+		name      string
+		malleate  func(srcOperatorAddr, destOperatorAddr string) []interface{}
+		postCheck func(bz []byte)
+		gas       uint64
+		expErr    bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -436,7 +443,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0)),
 		},
 		{
 			"fail - invalid delegator address",
@@ -450,7 +457,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "invalid"),
 		},
 		{
 			"fail - empty src validator addr",
@@ -464,7 +471,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			"empty address string is not allowed",
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - empty destination addr",
@@ -478,7 +485,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			"empty address string is not allowed",
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"success",
@@ -499,7 +506,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 			},
 			100000,
 			false,
-			"",
+			nil,
 		},
 		{
 			name: "success - no redelegation found",
@@ -541,7 +548,8 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotNil(bz)
@@ -559,12 +567,14 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 	)
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(bz []byte)
+		gas       uint64
+		expErr    bool
+		wantErr   error
+		// wantErrFn builds the expected error (e.g. match full gRPC message from the same querier as the precompile).
+		wantErrFn func(*PrecompileTestSuite, *abi.Method, func() []interface{}) error
 	}{
 		{
 			"fail - empty input args",
@@ -574,7 +584,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func([]byte) {},
 			100000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0)),
+			nil,
 		},
 		{
 			"fail - invalid delegator address",
@@ -589,7 +600,16 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func([]byte) {},
 			100000,
 			true,
-			"redelegation not found",
+			nil,
+			func(s *PrecompileTestSuite, method *abi.Method, malleate func() []interface{}) error {
+				args := malleate()
+				req, rerr := staking.NewRedelegationsRequest(method, args, evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()))
+				s.Require().NoError(rerr)
+				q := stakingkeeper.NewQuerier(s.network.App.GetStakingKeeper())
+				_, qerr := q.Redelegations(sdk.WrapSDKContext(s.network.GetContext()), req)
+				s.Require().Error(qerr)
+				return cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrQueryFailed, staking.RedelegationsMethod, qerr.Error())
+			},
 		},
 		{
 			"fail - invalid query | all empty args ",
@@ -604,7 +624,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func([]byte) {},
 			100000,
 			true,
-			"invalid query. Need to specify at least a source validator address or delegator address",
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "all filter addresses empty"),
+			nil,
 		},
 		{
 			"fail - invalid query | only destination validator address",
@@ -619,7 +640,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			func([]byte) {},
 			100000,
 			true,
-			"invalid query. Need to specify at least a source validator address or delegator address",
+			cmn.NewRevertWithSolidityError(staking.ABI, cmn.SolidityErrInvalidAddress, "destination validator set without delegator or source validator"),
+			nil,
 		},
 		{
 			"success - specified delegator, source & destination",
@@ -636,7 +658,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			},
 			100000,
 			false,
-			"",
+			nil,
+			nil,
 		},
 		{
 			"success - specifying only source w/pagination",
@@ -656,7 +679,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			},
 			100000,
 			false,
-			"",
+			nil,
+			nil,
 		},
 		{
 			"success - get all existing redelegations for a delegator w/pagination",
@@ -676,7 +700,8 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 			},
 			100000,
 			false,
-			"",
+			nil,
+			nil,
 		},
 	}
 
@@ -693,7 +718,14 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				var wantErr error
+				if tc.wantErrFn != nil {
+					wantErr = tc.wantErrFn(s, &method, tc.malleate)
+				} else {
+					s.Require().NotNil(tc.wantErr)
+					wantErr = tc.wantErr
+				}
+				testutil.RequireExactError(s.T(), err, wantErr)
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotNil(bz)

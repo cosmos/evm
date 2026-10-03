@@ -6,6 +6,8 @@ const DISTRIBUTION_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000
 const BANK_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000804'
 const GOV_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000805'
 const SLASHING_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000806'
+const ICS20_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000802'
+const ICS02_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000807'
 const P256_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000000100'
 const WERC20_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
@@ -80,6 +82,20 @@ function findEvent(logs, iface, eventName) {
     return null
 }
 
+function getRevertData(error) {
+    const data =
+        error?.data ||
+        error?.error?.data ||
+        error?.info?.error?.data ||
+        error?.info?.error?.error?.data
+
+    if (!data || data === '0x') {
+        throw error
+    }
+
+    return data
+}
+
 module.exports = {
     STAKING_PRECOMPILE_ADDRESS,
     BECH32_PRECOMPILE_ADDRESS,
@@ -87,6 +103,8 @@ module.exports = {
     BANK_PRECOMPILE_ADDRESS,
     GOV_PRECOMPILE_ADDRESS,
     SLASHING_PRECOMPILE_ADDRESS,
+    ICS20_PRECOMPILE_ADDRESS,
+    ICS02_PRECOMPILE_ADDRESS,
     P256_PRECOMPILE_ADDRESS,
     WERC20_ADDRESS,
     DEFAULT_GAS_LIMIT,
@@ -94,5 +112,6 @@ module.exports = {
     RETRY_DELAY_FUNC,
     parseValidator,
     findEvent,
+    getRevertData,
     waitWithTimeout
 }

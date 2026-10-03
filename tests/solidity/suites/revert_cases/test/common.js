@@ -14,9 +14,12 @@ const DEFAULT_GAS_LIMIT = 1_000_000
 const LARGE_GAS_LIMIT = 10_000_000
 const LOW_GAS_LIMIT=50_000
 
-const PANIC_ASSERT_0x01 = "Panic(1)"
-const PANIC_DIVISION_BY_ZERO_0x12 = "Panic(18)"
-const PANIC_ARRAY_OUT_OF_BOUND_0x32 = "Panic(50)"
+const PANIC_NAME = "Panic"
+const PANIC_CODE_0x01 = 1
+const PANIC_CODE_0x12 = 18
+const PANIC_CODE_0x32 = 50
+
+const ERROR_NAME = "Error"
 
 module.exports = {
     // Precompile Addresses
@@ -34,8 +37,10 @@ module.exports = {
     LARGE_GAS_LIMIT,
     LOW_GAS_LIMIT,
     
-    // Panics
-    PANIC_ASSERT_0x01,
-    PANIC_DIVISION_BY_ZERO_0x12,
-    PANIC_ARRAY_OUT_OF_BOUND_0x32
+    // Built-in error decoding
+    PANIC_NAME,
+    PANIC_CODE_0x01,
+    PANIC_CODE_0x12,
+    PANIC_CODE_0x32,
+    ERROR_NAME,
 }

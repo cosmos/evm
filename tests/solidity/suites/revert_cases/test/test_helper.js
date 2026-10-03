@@ -1,4 +1,5 @@
 const { expect } = require('chai');
+const hre = require('hardhat');
 
 // Helper to convert the raw tuple returned by staking.validator() into an object
 function parseValidator (raw) {
@@ -76,6 +77,52 @@ function decodeRevertReason(errorData) {
 }
 
 /**
+ * Parse revert data into a structured error object when possible.
+ *
+ * - Standard revert string: Error(string)
+ * - Panic(uint256)
+ * - Common precompile custom errors (e.g. InvalidAddress, QueryFailed, MsgServerFailed)
+ *
+ * Returns:
+ *   { name, args, signature, raw } or null
+ */
+function parseEthersError(iface, errorData) {
+    if (!errorData || errorData === '0x') {
+        throw new Error('missing revert data (e.data is empty)');
+    }
+
+    const raw = errorData;
+    const cleanHex = raw.startsWith('0x') ? raw : `0x${raw}`;
+
+    // Standard revert formats handled by our string decoder.
+    const cleanNo0x = cleanHex.slice(2);
+    if (cleanNo0x.startsWith('08c379a0')) {
+        const reason = decodeRevertReason(cleanHex);
+        return { name: 'Error', args: [reason], signature: 'Error(string)', raw: cleanHex };
+    }
+    if (cleanNo0x.startsWith('4e487b71')) {
+        // Panic(uint256) — decode the numeric code for direct comparison.
+        // Layout: selector(4) + uint256 code (32 bytes).
+        const codeHex = `0x${cleanNo0x.slice(8, 8 + 64)}`;
+        const code = Number(BigInt(codeHex));
+        return { name: 'Panic', args: [code], signature: 'Panic(uint256)', raw: cleanHex };
+    }
+
+    try {
+        if (!iface) {
+            throw new Error('no interface provided for custom error decoding');
+        }
+        const parsed = iface.parseError(cleanHex);
+        if (!parsed) {
+            throw new Error(`unable to decode error data: ${cleanHex}`);
+        }
+        return parsed;
+    } catch {
+        throw new Error(`unable to decode error data: ${cleanHex}`);
+    }
+}
+
+/**
  * Helper function to analyze transaction receipt for revert information
  */
 async function analyzeFailedTransaction(txHash) {
@@ -115,16 +162,6 @@ async function analyzeFailedTransaction(txHash) {
 }
 
 /**
- * Helper function to verify decoded revert reason
- */
-function verifyTransactionRevert(analysis, expectedRevertReason) {
-    expect(analysis).to.not.be.null;
-    expect(analysis.status).to.equal(0); // Failed transaction
-    expect(analysis.errorData).to.not.be.null;
-    expect(analysis.decodedReason).contains(expectedRevertReason, "unexpected revert reason");
-}
-
-/**
  * Helper function to verify out of gas error
  */
 function verifyOutOfGasError(analysis) {
@@ -137,8 +174,7 @@ function verifyOutOfGasError(analysis) {
 module.exports = {
     parseValidator,
     findEvent,
-    decodeRevertReason,
+    parseEthersError,
     analyzeFailedTransaction,
-    verifyTransactionRevert,
     verifyOutOfGasError
 }

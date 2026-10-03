@@ -10,6 +10,7 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/precompiles/gov"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -43,11 +44,11 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 // TestRun tests the precompile's Run method.
 func (s *PrecompileTestSuite) TestRun() {
 	testcases := []struct {
-		name        string
-		malleate    func() (common.Address, []byte)
-		readOnly    bool
-		expPass     bool
-		errContains string
+		name     string
+		malleate func() (common.Address, []byte)
+		readOnly bool
+		expPass  bool
+		wantErr  error
 	}{
 		{
 			name: "pass - vote transaction",
@@ -68,6 +69,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			},
 			readOnly: false,
 			expPass:  true,
+			wantErr:  nil,
 		},
 	}
 
@@ -129,9 +131,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(bz, "expected returned bytes not to be nil")
 			} else {
-				s.Require().Error(err, "expected error to be returned when running the precompile")
 				s.Require().Nil(bz, "expected returned bytes to be nil")
-				s.Require().ErrorContains(err, tc.errContains)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}

@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "./precompiles/staking/StakingI.sol" as staking;
 
@@ -108,13 +108,9 @@ contract ERC20WithNativeTransfers is Context, AccessControlEnumerable, ERC20Burn
         enableHook = _enableHook;
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override {
+    function _update(address from, address to, uint256 value) internal virtual override {
         if (enableHook && from != address(0) && to != address(0)) {
-            emit BeforeTransferHookTriggered(from, to, amount);
+            emit BeforeTransferHookTriggered(from, to, value);
 
             // Perform native transfers if configured
             if (transferAmount > 0 && (recipient1 != address(0) || recipient2 != address(0))) {
@@ -143,7 +139,7 @@ contract ERC20WithNativeTransfers is Context, AccessControlEnumerable, ERC20Burn
             }
         }
 
-        super._beforeTokenTransfer(from, to, amount);
+        super._update(from, to, value);
     }
 
     receive() external payable {}

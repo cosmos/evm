@@ -2,11 +2,13 @@ package bech32
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -18,11 +20,11 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 	method := s.precompile.Methods[bech32.HexToBech32Method]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []byte)
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(data []byte)
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - invalid args length",
@@ -31,7 +33,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			},
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
 			"fail - invalid hex address",
@@ -43,7 +45,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			},
 			func([]byte) {},
 			true,
-			"invalid hex address",
+			cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - invalid bech32 HRP",
@@ -55,7 +57,16 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			},
 			func([]byte) {},
 			true,
-			"invalid bech32 human readable prefix (HRP)",
+			cmn.NewRevertWithSolidityError(
+				bech32.ABI,
+				cmn.SolidityErrInvalidAddress,
+				fmt.Sprintf(
+					"invalid HRP: empty; expected account (%s), validator (%s), or consensus (%s) style prefix",
+					sdk.GetConfig().GetBech32AccountAddrPrefix(),
+					sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
+					sdk.GetConfig().GetBech32ConsensusAddrPrefix(),
+				),
+			),
 		},
 		{
 			"pass - valid hex address and valid bech32 HRP",
@@ -74,7 +85,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 				s.Require().Equal(s.keyring.GetAccAddr(0).String(), addr)
 			},
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -86,7 +97,8 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.errContains, err.Error())
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
@@ -104,11 +116,11 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 	method := s.precompile.Methods[bech32.Bech32ToHexMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []byte)
-		expError    bool
-		errContains func() string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(data []byte)
+		expError  bool
+		wantErr   func() error
 	}{
 		{
 			"fail - invalid args length",
@@ -117,8 +129,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			func() string {
-				return fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0)
+			func() error {
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0))
 			},
 		},
 		{
@@ -130,8 +142,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			func() string {
-				return "invalid bech32 address"
+			func() error {
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddress, "")
 			},
 		},
 		{
@@ -143,8 +155,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			func() string {
-				return fmt.Sprintf("invalid bech32 address: %s", "cosmos")
+			func() error {
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddress, "cosmos")
 			},
 		},
 		{
@@ -156,8 +168,11 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			func() string {
-				return "decoding bech32 failed"
+			func() error {
+				// Keep exact match but derive the sdk error message from the same call path.
+				_, err := sdk.GetFromBech32("cosmos1", "cosmos")
+				s.Require().Error(err)
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrQueryFailed, bech32.Bech32ToHexMethod, err.Error())
 			},
 		},
 		{
@@ -169,12 +184,12 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			func() string {
-				if addrVerifier := sdk.GetConfig().GetAddressVerifier(); addrVerifier != nil {
-					err := addrVerifier(sdk.AccAddress(make([]byte, 256)))
-					return err.Error()
-				}
-				return "address max length is 255"
+			func() error {
+				// VerifyAddressFormat error depends on configured verifier; derive dynamically.
+				addressBz := sdk.AccAddress(make([]byte, 256))
+				err := sdk.VerifyAddressFormat(addressBz)
+				s.Require().Error(err)
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddress, err.Error())
 			},
 		},
 		{
@@ -193,9 +208,7 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 				s.Require().Equal(s.keyring.GetAddr(0), addr)
 			},
 			false,
-			func() string {
-				return ""
-			},
+			nil,
 		},
 	}
 
@@ -207,7 +220,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.errContains())
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr())
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)

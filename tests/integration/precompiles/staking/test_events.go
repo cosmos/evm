@@ -10,6 +10,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/staking"
+	"github.com/cosmos/evm/precompiles/testutil"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -28,14 +29,15 @@ func (s *PrecompileTestSuite) TestCreateValidatorEvent() {
 	)
 
 	testCases := []struct {
-		name        string
-		malleate    func(delegator common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(delegator common.Address)
+		name      string
+		malleate  func(delegator common.Address) []interface{}
+		expErr    bool
+		wantErr   error
+		postCheck func(delegator common.Address)
 	}{
 		{
-			name: "success - the correct event is emitted",
+			name:    "success - the correct event is emitted",
+			wantErr: nil,
 			malleate: func(delegator common.Address) []interface{} {
 				return []interface{}{
 					staking.Description{
@@ -88,7 +90,8 @@ func (s *PrecompileTestSuite) TestCreateValidatorEvent() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(delegator.Addr)
@@ -107,14 +110,15 @@ func (s *PrecompileTestSuite) TestEditValidatorEvent() {
 		commRate    = math.LegacyNewDecWithPrec(5, 2).BigInt()
 	)
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func()
+		name      string
+		malleate  func() []interface{}
+		expErr    bool
+		wantErr   error
+		postCheck func()
 	}{
 		{
-			name: "success - the correct event is emitted",
+			name:    "success - the correct event is emitted",
+			wantErr: nil,
 			malleate: func() []interface{} {
 				return []interface{}{
 					staking.Description{
@@ -165,7 +169,8 @@ func (s *PrecompileTestSuite) TestEditValidatorEvent() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck()
@@ -183,24 +188,24 @@ func (s *PrecompileTestSuite) TestDelegateEvent() {
 		method        = s.precompile.Methods[staking.DelegateMethod]
 	)
 	testCases := []struct {
-		name        string
-		malleate    func(delegator common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(delegator common.Address)
+		name      string
+		malleate  func(delegator common.Address) []interface{}
+		expErr    bool
+		wantErr   error
+		postCheck func(delegator common.Address)
 	}{
 		{
-			"success - the correct event is emitted",
-			func(delegator common.Address) []interface{} {
+			name:    "success - the correct event is emitted",
+			wantErr: nil,
+			malleate: func(delegator common.Address) []interface{} {
 				return []interface{}{
 					delegator,
 					s.network.GetValidators()[0].OperatorAddress,
 					delegationAmt,
 				}
 			},
-			false,
-			"",
-			func(delegator common.Address) {
+			expErr: false,
+			postCheck: func(delegator common.Address) {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 
@@ -238,7 +243,8 @@ func (s *PrecompileTestSuite) TestDelegateEvent() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(delegator.Addr)
@@ -255,24 +261,24 @@ func (s *PrecompileTestSuite) TestUnbondEvent() {
 	method := s.precompile.Methods[staking.UndelegateMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(delegator common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(delegator common.Address)
+		name      string
+		malleate  func(delegator common.Address) []interface{}
+		expErr    bool
+		wantErr   error
+		postCheck func(delegator common.Address)
 	}{
 		{
-			"success - the correct event is emitted",
-			func(delegator common.Address) []interface{} {
+			name:    "success - the correct event is emitted",
+			wantErr: nil,
+			malleate: func(delegator common.Address) []interface{} {
 				return []interface{}{
 					delegator,
 					s.network.GetValidators()[0].OperatorAddress,
 					big.NewInt(1000000000000000000),
 				}
 			},
-			false,
-			"",
-			func(delegator common.Address) {
+			expErr: false,
+			postCheck: func(delegator common.Address) {
 				log := stDB.Logs()[0]
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeUnbond]
@@ -307,7 +313,8 @@ func (s *PrecompileTestSuite) TestUnbondEvent() {
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				tc.postCheck(delegator.Addr)
@@ -324,15 +331,16 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 	method := s.precompile.Methods[staking.RedelegateMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(delegator common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(delegator common.Address)
+		name      string
+		malleate  func(delegator common.Address) []interface{}
+		expErr    bool
+		wantErr   error
+		postCheck func(delegator common.Address)
 	}{
 		{
-			"success - the correct event is emitted",
-			func(delegator common.Address) []interface{} {
+			name:    "success - the correct event is emitted",
+			wantErr: nil,
+			malleate: func(delegator common.Address) []interface{} {
 				return []interface{}{
 					delegator,
 					s.network.GetValidators()[0].OperatorAddress,
@@ -340,9 +348,8 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 					big.NewInt(1000000000000000000),
 				}
 			},
-			false,
-			"",
-			func(delegator common.Address) {
+			expErr: false,
+			postCheck: func(delegator common.Address) {
 				log := stDB.Logs()[0]
 				// Check event signature matches the one emitted
 				event := s.precompile.Events[staking.EventTypeRedelegate]
@@ -378,12 +385,13 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 
 			contract := vm.NewContract(delegator.Addr, s.precompile.Address(), common.U2560, 20000, nil)
 			_, err := s.precompile.Redelegate(ctx, contract, stDB, &method, tc.malleate(delegator.Addr))
-			s.Require().NoError(err)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
+				s.Require().NoError(err)
 				tc.postCheck(delegator.Addr)
 			}
 		})
@@ -399,15 +407,16 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 	methodUndelegate := s.precompile.Methods[staking.UndelegateMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func(contract *vm.Contract, delegator testkeyring.Key) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(delegator common.Address)
+		name      string
+		malleate  func(contract *vm.Contract, delegator testkeyring.Key) []interface{}
+		expErr    bool
+		wantErr   error
+		postCheck func(delegator common.Address)
 	}{
 		{
-			"success - the correct event is emitted",
-			func(contract *vm.Contract, delegator testkeyring.Key) []interface{} {
+			name:    "success - the correct event is emitted",
+			wantErr: nil,
+			malleate: func(contract *vm.Contract, delegator testkeyring.Key) []interface{} {
 				undelegateArgs := []interface{}{
 					delegator.Addr,
 					s.network.GetValidators()[0].OperatorAddress,
@@ -423,9 +432,8 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 					big.NewInt(1),
 				}
 			},
-			false,
-			"",
-			func(delegator common.Address) {
+			expErr: false,
+			postCheck: func(delegator common.Address) {
 				log := stDB.Logs()[1]
 
 				// Check event signature matches the one emitted
@@ -460,12 +468,12 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 			contract := vm.NewContract(delegator.Addr, s.precompile.Address(), uint256.NewInt(0), 20000, nil)
 			callArgs := tc.malleate(contract, delegator)
 			_, err := s.precompile.CancelUnbondingDelegation(ctx, contract, stDB, &methodCancelUnbonding, callArgs)
-			s.Require().NoError(err)
-
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
+				s.Require().NoError(err)
 				tc.postCheck(delegator.Addr)
 			}
 		})

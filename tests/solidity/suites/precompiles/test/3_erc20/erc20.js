@@ -1,6 +1,6 @@
 const { expect } = require('chai')
 const hre = require('hardhat')
-const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
+const { findEvent, getRevertData, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 describe('ERC20 Precompile', function () {
     let erc20, owner, spender, recipient
@@ -9,7 +9,7 @@ describe('ERC20 Precompile', function () {
     before(async function () {
         [owner, spender, recipient] = await hre.ethers.getSigners()
         erc20 = await hre.ethers.getContractAt(
-            'IERC20Metadata',
+            'ERC20I',
             '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
         )
     })
@@ -105,5 +105,42 @@ describe('ERC20 Precompile', function () {
 
         // allowance should have decreased by `amount`
         expect(afterAllowance).to.equal(prevAllowance - amount)
+    })
+
+    it('decodes insufficient balance custom error data', async function () {
+        const balance = await erc20.balanceOf(recipient.address)
+        const needed = hre.ethers.MaxUint256
+        try {
+            await erc20.connect(recipient).transfer.estimateGas(owner.address, needed)
+            expect.fail('transfer should have reverted')
+        } catch (error) {
+            const parsed = erc20.interface.parseError(getRevertData(error))
+            expect(parsed.name).to.equal('ERC20InsufficientBalance')
+            expect(parsed.args[0]).to.equal(recipient.address)
+            expect(parsed.args[1]).to.equal(balance)
+            expect(parsed.args[2]).to.equal(needed)
+        }
+    })
+
+    it('decodes invalid receiver custom error data', async function () {
+        try {
+            await erc20.connect(owner).transfer.estimateGas(hre.ethers.ZeroAddress, 1n)
+            expect.fail('transfer should have reverted')
+        } catch (error) {
+            const parsed = erc20.interface.parseError(getRevertData(error))
+            expect(parsed.name).to.equal('ERC20InvalidReceiver')
+            expect(parsed.args[0]).to.equal(hre.ethers.ZeroAddress)
+        }
+    })
+
+    it('decodes invalid spender custom error data', async function () {
+        try {
+            await erc20.connect(owner).approve.estimateGas(hre.ethers.ZeroAddress, 1n)
+            expect.fail('approve should have reverted')
+        } catch (error) {
+            const parsed = erc20.interface.parseError(getRevertData(error))
+            expect(parsed.name).to.equal('ERC20InvalidSpender')
+            expect(parsed.args[0]).to.equal(hre.ethers.ZeroAddress)
+        }
     })
 })

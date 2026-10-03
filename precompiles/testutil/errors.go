@@ -1,11 +1,16 @@
 package testutil
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -30,4 +35,21 @@ func CheckVMError(res abci.ExecTxResult, expErrMsg string, args ...interface{}) 
 func CheckEthereumTxFailed(ethRes *evmtypes.MsgEthereumTxResponse) (string, bool) {
 	reason := ethRes.VmError
 	return reason, reason != ""
+}
+
+// RequireExactError asserts exact error equality for expected precompile reverts.
+// If both errors carry revert data, it compares ABI-encoded revert bytes exactly.
+func RequireExactError(t *testing.T, got error, want error) {
+	t.Helper()
+	require.Error(t, got)
+	require.NotNil(t, want)
+
+	var gotCarrier cmn.RevertDataCarrier
+	var wantCarrier cmn.RevertDataCarrier
+	if errors.As(got, &gotCarrier) && errors.As(want, &wantCarrier) {
+		require.Equal(t, wantCarrier.RevertData(), gotCarrier.RevertData())
+		return
+	}
+
+	require.EqualError(t, got, want.Error())
 }
