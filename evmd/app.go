@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	goruntime "runtime"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cast"
@@ -61,7 +60,6 @@ import (
 	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/baseapp/txnrunner"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -779,15 +777,11 @@ func NewExampleApp(
 		vmModule.HydrateGlobals(ctx)
 	}
 
-	vmrunner.SetRunner(bApp, txnrunner.NewSTMRunner(
-		txDecoder,
-		nonTransientKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
+	vmrunner.SetRunner(bApp, appOpts, nonTransientKeys, txDecoder,
 		func(ms storetypes.MultiStore) string {
 			return app.EVMKeeper.GetParams(sdk.NewContext(ms, cmtproto.Header{}, false, log.NewNopLogger())).EvmDenom
 		},
-	))
+	)
 
 	return app
 }
