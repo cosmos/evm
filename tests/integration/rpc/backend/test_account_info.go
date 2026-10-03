@@ -1,21 +1,25 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/cometbft/cometbft/libs/bytes"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -404,6 +408,34 @@ func (s *TestSuite) TestGetBalance() {
 			}
 		})
 	}
+}
+
+func (s *TestSuite) TestGetBalanceEarliest() {
+	s.SetupTest()
+	addr := utiltx.GenerateAddress()
+	earliest := rpctypes.EthEarliestBlockNumber
+	const earliestHeight = int64(5)
+
+	client := s.backend.ClientCtx.Client.(*mocks.Client)
+	client.EXPECT().Status(mock.Anything).Return(&cmtrpctypes.ResultStatus{
+		SyncInfo: cmtrpctypes.SyncInfo{EarliestBlockHeight: earliestHeight},
+	}, nil)
+	height := earliestHeight
+	RegisterHeader(client, &height, nil)
+
+	// the balance has to be queried at the earliest height, not at the latest one
+	queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	atEarliest := mock.MatchedBy(func(ctx context.Context) bool {
+		md, _ := metadata.FromOutgoingContext(ctx)
+		heights := md.Get(grpctypes.GRPCBlockHeightHeader)
+		return len(heights) > 0 && heights[len(heights)-1] == fmt.Sprint(earliestHeight)
+	})
+	queryClient.EXPECT().Balance(atEarliest, &evmtypes.QueryBalanceRequest{Address: addr.String()}).
+		Return(&evmtypes.QueryBalanceResponse{Balance: "7"}, nil)
+
+	balance, err := s.backend.GetBalance(s.Ctx(), addr, rpctypes.BlockNumberOrHash{BlockNumber: &earliest})
+	s.Require().NoError(err)
+	s.Require().Equal((*hexutil.Big)(big.NewInt(7)), balance)
 }
 
 func (s *TestSuite) TestGetTransactionCount() {

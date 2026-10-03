@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gogo/protobuf/proto"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/cometbft/cometbft/abci/types"
@@ -720,6 +721,7 @@ func (s *TestSuite) TestBlockNumberFromComet() {
 	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
 	blockNum := ethrpc.NewBlockNumber(big.NewInt(block.Height))
 	blockHash := common.BytesToHash(block.Hash())
+	earliest := ethrpc.EthEarliestBlockNumber
 
 	testCases := []struct {
 		name         string
@@ -762,6 +764,28 @@ func (s *TestSuite) TestBlockNumberFromComet() {
 			func(*common.Hash) {},
 			true,
 		},
+		{
+			"error - earliest, CometBFT client failed to get status",
+			&earliest,
+			nil,
+			func(*common.Hash) {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterStatusError(client)
+			},
+			false,
+		},
+		{
+			"pass - earliest resolves to the earliest available height",
+			&earliest,
+			nil,
+			func(*common.Hash) {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				client.EXPECT().Status(mock.Anything).Return(&cmtrpctypes.ResultStatus{
+					SyncInfo: cmtrpctypes.SyncInfo{EarliestBlockHeight: 5},
+				}, nil)
+			},
+			true,
+		},
 	}
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
@@ -777,9 +801,12 @@ func (s *TestSuite) TestBlockNumberFromComet() {
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				if tc.hash == nil {
+				switch {
+				case tc.blockNum != nil && *tc.blockNum == earliest:
+					s.Require().Equal(ethrpc.BlockNumber(5), blockNum)
+				case tc.hash == nil:
 					s.Require().Equal(*tc.blockNum, blockNum)
-				} else {
+				default:
 					expHeight := ethrpc.NewBlockNumber(big.NewInt(resHeader.Header.Height))
 					s.Require().Equal(expHeight, blockNum)
 				}
