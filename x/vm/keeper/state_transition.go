@@ -462,8 +462,9 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		// eth_estimateGas will check for this exact error
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
+	var floorDataGas uint64
 	if rules.IsPrague {
-		floorDataGas, err := core.FloorDataGas(msg.Data)
+		floorDataGas, err = core.FloorDataGas(msg.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -592,6 +593,10 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 	gasUsed := math.LegacyNewDec(int64(temporaryGasUsed)) //#nosec G115 -- int overflow is not a concern here
 	if !internal {
 		gasUsed = math.LegacyMaxDec(gasUsed, minimumGasUsed)
+	}
+	// EIP-7623: charged gas must be at least the calldata floor after refunds.
+	if rules.IsPrague {
+		gasUsed = math.LegacyMaxDec(gasUsed, math.LegacyNewDec(int64(floorDataGas))) //#nosec G115 -- floorDataGas is bounded by msg.GasLimit (checked above), well below MaxInt64
 	}
 	// reset leftoverGas, to be used by the tracingHooks
 	leftoverGas = msg.GasLimit - gasUsed.TruncateInt().Uint64()
