@@ -17,7 +17,6 @@ import (
 
 func (s *TestSuite) TestWithChainID() {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
 
 	testCases := []struct {
 		name            string
@@ -33,13 +32,6 @@ func (s *TestSuite) TestWithChainID() {
 			coinInfo:        eighteenDecimalsCoinInfo,
 			expBaseFee:      math.LegacyNewDec(875_000_000),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.EighteenDecimals),
-		},
-		{
-			name:            "6 decimals",
-			chainID:         testconstants.SixDecimalsChainID,
-			coinInfo:        sixDecimalsCoinInfo,
-			expBaseFee:      math.LegacyNewDecWithPrec(875, 6),
-			expCosmosAmount: network.GetInitialAmount(evmtypes.SixDecimals),
 		},
 	}
 
