@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/evm/x/vm/client/cli"
 	"github.com/cosmos/evm/x/vm/keeper"
+	v2 "github.com/cosmos/evm/x/vm/migrations/v2"
 	"github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/core/address"
@@ -29,7 +30,7 @@ import (
 )
 
 // consensusVersion defines the current x/evm module consensus version.
-const consensusVersion = 1
+const consensusVersion = 2
 
 var (
 	_ module.AppModuleBasic = AppModuleBasic{}
@@ -134,6 +135,12 @@ func (AppModule) Name() string {
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
+
+	if err := cfg.RegisterMigration(types.ModuleName, 1, func(ctx sdk.Context) error {
+		return v2.MigrateStore(ctx, am.keeper)
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register x/%s migration: %s", types.ModuleName, err.Error()))
+	}
 }
 
 // HydrateGlobals restores global EVM variables from KV store after a node restart (post-genesis).
