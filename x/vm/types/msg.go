@@ -30,10 +30,11 @@ import (
 )
 
 var (
-	_ sdk.Msg    = &MsgEthereumTx{}
-	_ sdk.Tx     = &MsgEthereumTx{}
-	_ ante.GasTx = &MsgEthereumTx{}
-	_ sdk.Msg    = &MsgUpdateParams{}
+	_ sdk.Msg           = &MsgEthereumTx{}
+	_ sdk.Tx            = &MsgEthereumTx{}
+	_ ante.GasTx        = &MsgEthereumTx{}
+	_ RPCMsgEthereumTxI = &MsgEthereumTx{}
+	_ sdk.Msg           = &MsgUpdateParams{}
 )
 
 // message type and route constants
@@ -299,10 +300,6 @@ func (msg *MsgEthereumTx) UnmarshalBinary(b []byte, signer ethtypes.Signer) erro
 		return err
 	}
 	return msg.FromSignedEthereumTx(tx, signer)
-}
-
-func (msg *MsgEthereumTx) Hash() common.Hash {
-	return msg.AsTransaction().Hash()
 }
 
 // BuildTx builds the canonical cosmos tx from ethereum msg
