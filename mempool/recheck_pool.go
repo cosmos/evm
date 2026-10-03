@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/evm/mempool/internal/heightsync"
 	"github.com/cosmos/evm/mempool/internal/reaplist"
 	"github.com/cosmos/evm/mempool/reserver"
+	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
@@ -130,7 +131,7 @@ func NewRecheckMempool(
 		blockchain,
 		defaultCosmosPoolConfig,
 		maxTxs,
-		onTransactionReplace(reapList, signerExtractor, reserver, logger),
+		onTransactionReplace(reapList, recheckedTxs, signerExtractor, reserver, logger),
 	)
 
 	return &RecheckMempool{
@@ -329,7 +330,7 @@ func (m *RecheckMempool) TriggerRecheckSync(newHead *ethtypes.Header) {
 // RecheckedTxs returns the txs that have been rechecked for a height. The
 // RecheckMempool must be currently operating on this height (i.e. recheck has
 // been triggered on this height via TriggerRecheck). If height is in the past
-// (TriggerRecheck has been called on height + 1), this will panic. If height
+// (TriggerRecheck has been called on a later height), this returns nil. If height
 // is in the future, this will block until TriggerReset is called for height,
 // or the context times out.
 func (m *RecheckMempool) RecheckedTxs(ctx context.Context, height *big.Int) sdkmempool.Iterator {
@@ -429,7 +430,11 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.recheckedTxs.StartNewHeight(newHead.Number)
+	// Carry the validated set forward instead of resetting to an empty store,
+	// so a pass cancelled by the next block does not discard all progress and
+	// starve proposals. The pass prunes whatever became invalid; anything it
+	// has not re-validated keeps an old stamp and is re-verified at proposal.
+	m.recheckedTxs.StartNewHeightFrom(newHead.Number, (*CosmosTxStore).Clone)
 	defer m.recheckedTxs.EndCurrentHeight()
 
 	latestCtx, err := m.blockchain.GetLatestContext()
@@ -438,6 +443,16 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		return
 	}
 	m.rechecker.Update(latestCtx, newHead)
+
+	// Stamp with the height of the state we validate against, not newHead's:
+	// a commit landing between the two reads leaves newHead one ahead, and a
+	// stamp from it would let a proposal skip re-verifying committed txs.
+	validatedHeight, err := utils.SafeUint64(latestCtx.BlockHeight())
+	if err != nil {
+		m.logger.Error("invalid block height on recheck context", "err", err)
+		return
+	}
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.SetHeight(validatedHeight) })
 
 	failedAtSequence := make(map[string]uint64)
 	removeTxs := make([]sdk.Tx, 0)
@@ -475,7 +490,14 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		keepFuturesOnError := false
 		if !invalidTx {
 			ctx, write := m.rechecker.GetContext()
-			_, err := m.rechecker.RecheckCosmos(ctx, txn)
+			// Bytes are unchanged since insert verified them, so recheck mode
+			// skips the crypto while sequence, fee and balance checks still
+			// run. That holds for x/auth's decorator; the deprecated EIP-712
+			// one skips its sequence check too, stranding committed txs here.
+			// ibc-go's relay decorator likewise skips packet proof and client
+			// message verification in this mode; its redundancy eviction was
+			// already active, since query contexts are CheckTx contexts.
+			_, err := m.rechecker.RecheckCosmos(ctx.WithIsReCheckTx(true), txn)
 			if err == nil {
 				write()
 				m.markTxRechecked(txn)
@@ -498,6 +520,10 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 		}
 
 		removeTxs = append(removeTxs, txn)
+		// Drop from the snapshot at detection: the removal loop below is
+		// skipped on cancellation. ExtMempool removal still waits for the
+		// loop (reservations, multi-signer identification).
+		m.markTxRemoved(txn)
 
 		if keepFuturesOnError {
 			iter = iter.Next()
@@ -536,9 +562,21 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 	txsRemoved = len(removeTxs)
 }
 
+// SnapshotValidatedAt reports the height the current snapshot's copy of txn
+// was validated at, and false if the snapshot does not hold that exact tx.
+func (m *RecheckMempool) SnapshotValidatedAt(txn sdk.Tx) (height uint64, ok bool) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { height, ok = store.ValidatedAt(txn) })
+	return height, ok
+}
+
 // markTxRechecked adds a tx into the height synced cosmos tx store.
 func (m *RecheckMempool) markTxRechecked(txn sdk.Tx) {
 	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.AddTx(txn) })
+}
+
+// markTxRemoved drops a tx from the height synced cosmos tx store.
+func (m *RecheckMempool) markTxRemoved(txn sdk.Tx) {
+	m.recheckedTxs.Do(func(store *CosmosTxStore) { store.RemoveTx(txn) })
 }
 
 // markTxInserted conservatively updates the current height snapshot for live inserts.
@@ -621,15 +659,20 @@ func cosmosPoolConfig(
 
 func onTransactionReplace(
 	reapList *reaplist.ReapList,
+	recheckedTxs *heightsync.HeightSync[CosmosTxStore],
 	signerExtractor sdkmempool.SignerExtractionAdapter,
 	reserver *reserver.ReservationHandle,
 	logger log.Logger,
 ) func(oldTx, newTx sdk.Tx) {
-	return func(oldTx, _ sdk.Tx) {
+	return func(oldTx, newTx sdk.Tx) {
 		// tx is being replaced, we need to drop the tx that is going to be removed
 		// from the reap list. we assume that the tx doing the replacing has
 		// already been inserted into the reaplist via the insert.
 		reapList.DropCosmosTx(oldTx)
+
+		// drop the replaced tx from the snapshot when its signer set differs
+		// from the replacement's (see CosmosTxStore.InvalidateReplaced)
+		recheckedTxs.Do(func(store *CosmosTxStore) { store.InvalidateReplaced(oldTx, newTx) })
 
 		addrs, err := extractEVMAddresses(signerExtractor, oldTx)
 		if err != nil {

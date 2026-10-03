@@ -200,11 +200,14 @@ func NewMempool(
 		panic("tx pool should contain only legacypool")
 	}
 
+	// Stale fallback: when the recheck loop falls behind consensus, serve the
+	// carried snapshot rather than an empty proposal; the proposal verifier
+	// re-runs ante for entries not validated at the proposal base.
 	heightSync := heightsync.New(
 		blockchain.CurrentBlock().Number,
 		NewCosmosTxStore,
 		logger.With("pool", "cosmos_recheck_mempool"),
-	)
+	).WithStaleFallback()
 
 	reservationHandle := reservationTracker.NewHandle(cosmosReserverHandlerID, reserver.WithRefCounter())
 
@@ -338,7 +341,7 @@ func (m *Mempool) insert(tx sdk.Tx) (<-chan error, error) {
 		ethTx := ethMsg.AsTransaction()
 
 		// Reject txs below base fee up-front, which can never be included.
-		if baseFee := m.blockchain.CurrentBlock().BaseFee; baseFee != nil && ethTx.GasFeeCapIntCmp(baseFee) < 0 {
+		if baseFee := m.blockchain.PinnedHeader().BaseFee; baseFee != nil && ethTx.GasFeeCapIntCmp(baseFee) < 0 {
 			return nil, sdkerrors.ErrInsufficientFee.Wrapf(
 				"max fee per gas (%s) is lower than the base fee (%s)",
 				ethTx.GasFeeCap(), baseFee,
@@ -653,6 +656,19 @@ func (m *Mempool) cosmosIterator(
 		defer cancel()
 	}
 	return m.recheckCosmosPool.OrderedRecheckedTxs(ctx, height, bondDenom, baseFee)
+}
+
+// ProposalTxValidatedAt reports whether the mempool's snapshot copy of tx was
+// ante-validated at exactly base, the last committed height the proposal
+// builds on. EVM txs always qualify (their snapshot has no stale fallback);
+// carried or unknown cosmos txs report false and must be re-verified. Base is
+// caller-supplied, so a lagging or dead notify path fails closed.
+func (m *Mempool) ProposalTxValidatedAt(tx sdk.Tx, base uint64) bool {
+	if _, err := evmTxFromCosmosTx(tx); err == nil {
+		return true
+	}
+	height, ok := m.recheckCosmosPool.SnapshotValidatedAt(tx)
+	return ok && height == base
 }
 
 // TrackTx submits a tx to be tracked for its tx inclusion metrics.
