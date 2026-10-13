@@ -706,7 +706,32 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 	}
 }
 
+// unindexedEthTxIndex mimics an indexer entry written without an eth tx index.
+type unindexedEthTxIndex struct {
+	cosmosevmtypes.EVMTxIndexer
+}
+
+func (u unindexedEthTxIndex) GetByTxHash(hash common.Hash) (*cosmosevmtypes.TxResult, error) {
+	res, err := u.EVMTxIndexer.GetByTxHash(hash)
+	if res != nil {
+		res.EthTxIndex = -1
+	}
+	return res, err
+}
+
 func (s *TestSuite) TestGetTransactionReceiptCumulativeGasUsed() {
+	for _, tc := range []struct {
+		name       string
+		noEthIndex bool
+	}{
+		{"indexed eth tx index", false},
+		{"missing eth tx index falls back to block position", true},
+	} {
+		s.Run(tc.name, func() { s.testReceiptCumulativeGasUsed(tc.noEthIndex) })
+	}
+}
+
+func (s *TestSuite) testReceiptCumulativeGasUsed(noEthIndex bool) {
 	msgEthereumTx1, _ := s.buildEthereumTx()
 	msgEthereumTx2, _ := s.buildEthereumTx()
 	txBz1 := s.signAndEncodeEthTx(msgEthereumTx1)
@@ -743,6 +768,9 @@ func (s *TestSuite) TestGetTransactionReceiptCumulativeGasUsed() {
 
 	s.backend.Indexer = indexer.NewKVIndexer(dbm.NewMemDB(), log.NewNopLogger(), s.backend.ClientCtx)
 	s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, logsRes.TxsResults))
+	if noEthIndex {
+		s.backend.Indexer = unindexedEthTxIndex{s.backend.Indexer}
+	}
 
 	first, err := s.backend.GetTransactionReceipt(s.Ctx(), txHash1)
 	s.Require().NoError(err)
