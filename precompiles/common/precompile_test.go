@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
@@ -66,15 +67,18 @@ func setupNativeAction(t *testing.T, gas uint64) (cmn.Precompile, *vm.EVM, *vm.C
 // error is still returned as a revert.
 func TestRunNativeActionChargesGasOnError(t *testing.T) {
 	const gasLimit, workGas = 100_000, 5_000
+	const errMsg = "invalid input"
 	p, evm, contract := setupNativeAction(t, gasLimit)
 
 	bz, err := p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
 		ctx.GasMeter().ConsumeGas(workGas, "work before failing")
-		return nil, errors.New("invalid input")
+		return nil, errors.New(errMsg)
 	})
 
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
-	require.NotEmpty(t, bz, "revert reason should be preserved")
+	reason, unpackErr := abi.UnpackRevert(bz)
+	require.NoError(t, unpackErr, "revert data should be an ABI-encoded Error(string)")
+	require.Equal(t, errMsg, reason, "revert reason should be the action's error")
 	require.Equal(t, uint64(gasLimit-workGas), contract.Gas)
 }
 
