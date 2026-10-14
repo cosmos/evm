@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -17,6 +18,7 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
@@ -378,8 +380,109 @@ func (s *PrecompileTestSuite) TestSend() {
 	}
 }
 
+// TestSendChecks covers the checks Send runs before moving coins. Each
+// rejected transfer must return its error without reaching SendCoins.
+func (s *PrecompileTestSuite) TestSendChecks() {
+	s.SetupTest()
+
+	denom := vmtypes.GetEVMCoinExtendedDenom()
+	from := s.keyring.GetAccAddr(0).String()
+	to := s.keyring.GetAccAddr(1).String()
+	oneCoin := sdk.NewCoins(sdk.NewCoin(denom, math.OneInt()))
+
+	testcases := []struct {
+		name        string
+		msg         *types.MsgSend
+		keeper      restrictedBankKeeper
+		expErr      error
+		errContains string
+	}{
+		{
+			name: "pass - transfer allowed",
+			msg:  &types.MsgSend{FromAddress: from, ToAddress: to, Amount: oneCoin},
+		},
+		{
+			name:        "fail - invalid from address",
+			msg:         &types.MsgSend{FromAddress: "invalid", ToAddress: to, Amount: oneCoin},
+			expErr:      sdkerrors.ErrInvalidAddress,
+			errContains: "invalid from address",
+		},
+		{
+			name:        "fail - invalid to address",
+			msg:         &types.MsgSend{FromAddress: from, ToAddress: "invalid", Amount: oneCoin},
+			expErr:      sdkerrors.ErrInvalidAddress,
+			errContains: "invalid to address",
+		},
+		{
+			name:   "fail - zero amount",
+			msg:    &types.MsgSend{FromAddress: from, ToAddress: to, Amount: sdk.Coins{sdk.NewCoin(denom, math.ZeroInt())}},
+			expErr: sdkerrors.ErrInvalidCoins,
+		},
+		{
+			name:   "fail - sends disabled for the denom",
+			msg:    &types.MsgSend{FromAddress: from, ToAddress: to, Amount: oneCoin},
+			keeper: restrictedBankKeeper{sendEnabledErr: types.ErrSendDisabled.Wrapf("%s transfers are currently disabled", denom)},
+			expErr: types.ErrSendDisabled,
+		},
+		{
+			name:        "fail - recipient is a blocked address",
+			msg:         &types.MsgSend{FromAddress: from, ToAddress: to, Amount: oneCoin},
+			keeper:      restrictedBankKeeper{blocked: true},
+			expErr:      sdkerrors.ErrUnauthorized,
+			errContains: "is not allowed to receive funds",
+		},
+	}
+
+	for _, tc := range testcases {
+		s.Run(tc.name, func() {
+			keeper := tc.keeper
+			keeper.Keeper = s.network.App.GetBankKeeper()
+			keeper.sendCalled = new(bool)
+
+			err := erc20.NewMsgServerImpl(keeper).Send(s.network.GetContext(), tc.msg)
+			if tc.expErr == nil {
+				s.Require().NoError(err)
+				s.Require().True(*keeper.sendCalled, "expected SendCoins to run")
+				return
+			}
+
+			s.Require().ErrorIs(err, tc.expErr)
+			if tc.errContains != "" {
+				s.Require().ErrorContains(err, tc.errContains)
+			}
+			s.Require().False(*keeper.sendCalled, "SendCoins must not run when Send rejects the transfer")
+		})
+	}
+}
+
 // wrappedBankKeeper stands in for an app-level keeper that wraps the bank
 // keeper (decimal conversion, metering, send restrictions).
 type wrappedBankKeeper struct {
 	bankkeeper.Keeper
+}
+
+// restrictedBankKeeper wraps the bank keeper so a test can force the
+// send-enabled and blocked-recipient checks to fail, and records whether
+// SendCoins was reached.
+type restrictedBankKeeper struct {
+	bankkeeper.Keeper
+	sendEnabledErr error
+	blocked        bool
+	sendCalled     *bool
+}
+
+func (k restrictedBankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...sdk.Coin) error {
+	if k.sendEnabledErr != nil {
+		return k.sendEnabledErr
+	}
+	return k.Keeper.IsSendEnabledCoins(ctx, coins...)
+}
+
+func (k restrictedBankKeeper) BlockedAddr(addr sdk.AccAddress) bool {
+	return k.blocked || k.Keeper.BlockedAddr(addr)
+}
+
+func (k restrictedBankKeeper) SendCoins(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) error {
+	*k.sendCalled = true
+	return k.Keeper.SendCoins(ctx, fromAddr, toAddr, amt)
 }
