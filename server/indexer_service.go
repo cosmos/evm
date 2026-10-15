@@ -82,43 +82,58 @@ func (eis *EVMIndexerService) OnStart() error {
 		lastBlock = latestBlock
 	}
 
-	// blockErr indicates an error fetching an expected block or its results
+	// blockErr is the error that stopped the previous pass (fetching a
+	// block, its results, or indexing it); the failed height is retried.
 	var blockErr error
 
 	for {
 		if latestBlock <= lastBlock || blockErr != nil {
 			// two cases to enter this block:
 			// 1. nothing to index (indexer is caught up). wait for signal of new block.
-			// 2. previous attempt to index errored (failed to fetch the Block or BlockResults).
-			//    in this case, wait before retrying the data fetching, rather than infinite looping
-			//    a failing fetch. this can occur due to drive latency between the block existing and its
-			//    block_results getting saved.
+			// 2. previous attempt errored (failed to fetch the Block or BlockResults, or
+			//    to index them). in this case, wait before retrying the same height,
+			//    rather than infinite looping a failing attempt. this can occur due to
+			//    drive latency between the block existing and its block_results getting
+			//    saved, or a transient storage error writing the index.
 			select {
 			case <-newBlockSignal:
 			case <-time.After(NewBlockWaitTimeout):
 			}
+			blockErr = nil
 			continue
 		}
-		for i := lastBlock + 1; i <= latestBlock; i++ {
-			var (
-				block       *coretypes.ResultBlock
-				blockResult *coretypes.ResultBlockResults
-			)
-
-			block, blockErr = eis.client.Block(ctx, &i)
-			if blockErr != nil {
-				eis.Logger.Error("failed to fetch block", "height", i, "err", blockErr)
-				break
-			}
-			blockResult, blockErr = eis.client.BlockResults(ctx, &i)
-			if blockErr != nil {
-				eis.Logger.Error("failed to fetch block result", "height", i, "err", blockErr)
-				break
-			}
-			if err := eis.txIdxr.IndexBlock(block.Block, blockResult.TxsResults); err != nil {
-				eis.Logger.Error("failed to index block", "height", i, "err", err)
-			}
-			lastBlock = blockResult.Height
-		}
+		lastBlock, blockErr = eis.indexBlocks(ctx, eis.client, lastBlock, latestBlock)
 	}
+}
+
+// blockSource is the part of the CometBFT RPC client the indexer reads.
+type blockSource interface {
+	Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error)
+	BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error)
+}
+
+// indexBlocks indexes heights lastBlock+1 through latestBlock in order and
+// returns the last height it indexed. It stops at the first height it cannot
+// fetch or index and returns that error, so the caller retries the height
+// instead of skipping it: a skipped height would never be indexed, leaving its
+// transactions without receipts or lookups.
+func (eis *EVMIndexerService) indexBlocks(ctx context.Context, src blockSource, lastBlock, latestBlock int64) (int64, error) {
+	for i := lastBlock + 1; i <= latestBlock; i++ {
+		block, err := src.Block(ctx, &i)
+		if err != nil {
+			eis.Logger.Error("failed to fetch block", "height", i, "err", err)
+			return lastBlock, err
+		}
+		blockResult, err := src.BlockResults(ctx, &i)
+		if err != nil {
+			eis.Logger.Error("failed to fetch block result", "height", i, "err", err)
+			return lastBlock, err
+		}
+		if err := eis.txIdxr.IndexBlock(block.Block, blockResult.TxsResults); err != nil {
+			eis.Logger.Error("failed to index block, will retry", "height", i, "err", err)
+			return lastBlock, err
+		}
+		lastBlock = blockResult.Height
+	}
+	return lastBlock, nil
 }
