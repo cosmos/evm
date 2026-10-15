@@ -83,6 +83,7 @@
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 - [\#1348](https://github.com/cosmos/evm/pull/1348) Return an error instead of panicking when the ICS02 `updateClient` precompile receives an empty client message.
 - [\#1350](https://github.com/cosmos/evm/pull/1350) Fix a data race on the latest block height in the EVM JSON-RPC indexer service.
+- [\#1324](https://github.com/cosmos/evm/pull/1324) Retry blocks the EVM JSON-RPC indexer fails to fetch or index instead of skipping them, and resume after a fetch error instead of stopping until restart.
 
 ## v0.6.0
 
