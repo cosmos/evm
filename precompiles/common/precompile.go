@@ -189,6 +189,10 @@ func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetype
 			case storetypes.ErrorOutOfGas:
 				// update contract gas
 				usedGas := ctx.GasMeter().GasConsumed() - initialGas
+				// cap at the remaining contract gas so UseGas cannot fail and charge nothing
+				if usedGas > contract.Gas {
+					usedGas = contract.Gas
+				}
 				_ = contract.UseGas(usedGas, nil, tracing.GasChangeCallFailedExecution)
 
 				*err = vm.ErrOutOfGas
