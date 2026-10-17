@@ -223,8 +223,10 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 			return nil
 		}
 
-		// Convert from Coin to ERC20
-		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(sender), sender, false); err != nil {
+		// Convert from Coin to ERC20 in a cached context so that a failed
+		// conversion leaves no partial writes (e.g. escrowed coins).
+		cacheCtx, writeCache := ctx.CacheContext()
+		if err := k.ConvertCoinNativeERC20(cacheCtx, pair, coin.Amount, common.BytesToAddress(sender), sender, false); err != nil {
 			// We want to record only the failed attempt to reconvert the coins during IBC.
 			defer func() {
 				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total")
@@ -241,6 +243,7 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 			)
 			return nil
 		}
+		writeCache()
 	}
 
 	return nil
