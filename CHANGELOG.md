@@ -9,6 +9,7 @@
 
 ### API-BREAKING
 
+- [\#XXXX](https://github.com/cosmos/evm/pull/XXXX) `precompiles/common.StakingKeeper` requires `ValidatorAddressCodec()`, and the staking precompile's `EmitUnbondEvent` takes the undelegated amount.
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
 
 ### IMPROVEMENTS
@@ -42,6 +43,7 @@
 
 ### BUG FIXES
 
+- [\#XXXX](https://github.com/cosmos/evm/pull/XXXX) (state-breaking) Staking precompile: accept 0x-hex validator addresses wherever the staking msg server does, log the undelegated amount in `Unbond`, report a 0 completion time for redelegations that complete immediately, and reject `creationHeight` values outside the int64 range.
 - [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 - [\#1275](https://github.com/cosmos/evm/pull/1275) Serve JSON-RPC without the EVM mempool instead of refusing to start; tx submission then returns `ErrMempoolDisabled`.
 - [\#1287](https://github.com/cosmos/evm/pull/1287) Return an `unknown block` error from `eth_getLogs` / `eth_getFilterLogs` for the zero `blockHash` instead of crashing the handler with a nil pointer dereference.
