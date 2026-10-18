@@ -102,7 +102,7 @@ func (p Precompile) EmitSetWithdrawAddressEvent(ctx sdk.Context, stateDB vm.Stat
 
 // EmitWithdrawDelegatorRewardEvent creates a new event emitted on a WithdrawDelegatorReward transaction.
 func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm.StateDB, delegatorAddress common.Address, validatorAddress string, coins sdk.Coins) error {
-	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
+	valAddr, err := p.validatorAddressFromString(validatorAddress)
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.State
 
 // EmitDepositValidatorRewardsPoolEvent creates a new event emitted on a DepositValidatorRewardsPool transaction.
 func (p Precompile) EmitDepositValidatorRewardsPoolEvent(ctx sdk.Context, stateDB vm.StateDB, depositor common.Address, validatorAddress string, coins sdk.Coins) error {
-	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
+	valAddr, err := p.validatorAddressFromString(validatorAddress)
 	if err != nil {
 		return err
 	}
@@ -249,4 +249,14 @@ func (p Precompile) EmitDepositValidatorRewardsPoolEvent(ctx sdk.Context, stateD
 	}
 
 	return nil
+}
+
+// validatorAddressFromString decodes a validator address with the chain's validator
+// address codec, so events accept every encoding the distribution msg server accepts.
+func (p Precompile) validatorAddressFromString(addr string) (sdk.ValAddress, error) {
+	bz, err := p.stakingKeeper.ValidatorAddressCodec().StringToBytes(addr)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.ValAddress(bz), nil
 }

@@ -1009,7 +1009,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(len(rewards)).To(Equal(1))
 
-				Expect(uint8(18)).To(Equal(rewards[0].Precision))
+				Expect(uint8(0)).To(Equal(rewards[0].Precision))
 				Expect(s.bondDenom).To(Equal(rewards[0].Denom))
 
 				// the expected rewards should be the accruedRewards per validator
@@ -1046,7 +1046,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				err = s.precompile.UnpackIntoInterface(&commission, distribution.ValidatorCommissionMethod, ethRes.Ret)
 				Expect(err).To(BeNil())
 				Expect(len(commission)).To(Equal(1))
-				Expect(uint8(18)).To(Equal(commission[0].Precision))
+				Expect(uint8(0)).To(Equal(commission[0].Precision))
 				Expect(s.bondDenom).To(Equal(commission[0].Denom))
 
 				expCommissionAmt := accruedCommission.AmountOf(s.bondDenom).TruncateInt()
@@ -2797,7 +2797,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				err = s.precompile.UnpackIntoInterface(&rewards, distribution.ValidatorOutstandingRewardsMethod, ethRes.Ret)
 				Expect(err).To(BeNil())
 				Expect(len(rewards)).To(Equal(1))
-				Expect(uint8(18)).To(Equal(rewards[0].Precision))
+				Expect(uint8(0)).To(Equal(rewards[0].Precision))
 				Expect(s.bondDenom).To(Equal(rewards[0].Denom))
 
 				res, err := s.grpcHandler.GetValidatorOutstandingRewards(opAddr)
@@ -2865,7 +2865,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					err = s.precompile.UnpackIntoInterface(&commission, distribution.ValidatorCommissionMethod, ethRes.Ret)
 					Expect(err).To(BeNil())
 					Expect(len(commission)).To(Equal(1))
-					Expect(uint8(18)).To(Equal(commission[0].Precision))
+					Expect(uint8(0)).To(Equal(commission[0].Precision))
 					Expect(s.bondDenom).To(Equal(commission[0].Denom))
 
 					accruedCommissionAmt := accruedCommission.AmountOf(s.bondDenom).TruncateInt()
