@@ -346,6 +346,12 @@ func (b *Backend) EstimateGas(
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
 	ctx = rpctypes.ContextWithHeight(ctx, blockNr.Int64())
+	if timeout := b.RPCEVMTimeout(); timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
 	res, err := b.QueryClient.EstimateGas(ctx, &req)
 	if err != nil {
 		return 0, err
@@ -398,20 +404,11 @@ func (b *Backend) DoCall(
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
 	ctx = rpctypes.ContextWithHeight(ctx, blockNr.Int64())
-	timeout := b.RPCEVMTimeout()
-
-	// Setup context so it may be canceled the call has completed
-	// or, in case of unmetered gas, setup a context with a timeout.
-	var cancel context.CancelFunc
-	if timeout > 0 {
+	if timeout := b.RPCEVMTimeout(); timeout > 0 {
+		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, timeout)
-	} else {
-		ctx, cancel = context.WithCancel(ctx)
+		defer cancel()
 	}
-
-	// Make sure the context is canceled when the call has completed
-	// this makes sure resources are cleaned up.
-	defer cancel()
 
 	res, err := b.QueryClient.EthCall(ctx, &req)
 	if err != nil {

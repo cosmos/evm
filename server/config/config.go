@@ -92,7 +92,7 @@ const (
 	// DefaultBlockRangeCap is the default cap of block range allowed for 'eth_getLogs' query
 	DefaultBlockRangeCap int32 = 10000
 
-	// DefaultEVMTimeout is the default timeout for eth_call
+	// DefaultEVMTimeout is the default timeout for eth_call and eth_estimateGas
 	DefaultEVMTimeout = 5 * time.Second
 
 	// DefaultTxFeeCap is the default tx-fee cap for sending a transaction
@@ -259,7 +259,7 @@ type JSONRPCConfig struct {
 	GasCap uint64 `mapstructure:"gas-cap"`
 	// AllowInsecureUnlock toggles if account unlocking is enabled when account-related RPCs are exposed by http.
 	AllowInsecureUnlock bool `mapstructure:"allow-insecure-unlock"`
-	// EVMTimeout is the global timeout for eth-call.
+	// EVMTimeout is the global timeout for eth_call and eth_estimateGas.
 	EVMTimeout time.Duration `mapstructure:"evm-timeout"`
 	// TxFeeCap is the global tx-fee cap for send transaction
 	TxFeeCap float64 `mapstructure:"txfee-cap"`
