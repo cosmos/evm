@@ -590,13 +590,10 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit, leftoverGas)
 	}
 
-	gasUsed := math.LegacyNewDec(int64(temporaryGasUsed)) //#nosec G115 -- int overflow is not a concern here
+	// EIP-7623: charge at least the calldata floor; floorDataGas is zero before Prague.
+	gasUsed := math.LegacyNewDec(int64(max(temporaryGasUsed, floorDataGas))) //#nosec G115 -- both bounded by msg.GasLimit, well below MaxInt64
 	if !internal {
 		gasUsed = math.LegacyMaxDec(gasUsed, minimumGasUsed)
-	}
-	// EIP-7623: charged gas must be at least the calldata floor after refunds.
-	if rules.IsPrague {
-		gasUsed = math.LegacyMaxDec(gasUsed, math.LegacyNewDec(int64(floorDataGas))) //#nosec G115 -- floorDataGas is bounded by msg.GasLimit (checked above), well below MaxInt64
 	}
 	// reset leftoverGas, to be used by the tracingHooks
 	leftoverGas = msg.GasLimit - gasUsed.TruncateInt().Uint64()
