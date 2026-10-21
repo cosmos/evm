@@ -66,6 +66,8 @@ func (s *KeeperTestSuite) TestGetAccountStorage() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest()
+			// the history storage contract only holds the hash of a block once the next one begins
+			s.Require().NoError(s.Network.NextBlock())
 			ctx = s.Network.GetContext()
 
 			var contractAddr common.Address

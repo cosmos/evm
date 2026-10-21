@@ -34,20 +34,32 @@ func blockHashAt(height uint64) common.Hash {
 	return common.BytesToHash(crypto.Keccak256([]byte(fmt.Sprintf("block-%d", height))))
 }
 
+// blockCtx returns the context of the begin block of the given height, which carries
+// the hash of the block.
+func blockCtx(ctx sdk.Context, height uint64) sdk.Context {
+	return ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes()) //nolint:gosec // G115
+}
+
 func (s *KeeperTestSuite) TestHistoryStorageContractMatchesBlockHash() {
 	s.SetupTest()
 	k := s.Network.App.GetEVMKeeper()
 	ctx := s.Network.GetContext()
 	s.Require().True(k.IsContract(ctx, ethparams.HistoryStorageAddress), "history storage contract is not preinstalled")
 
-	// heights around the ring buffer boundary of the contract (8191)
-	const head = uint64(8193)
-	for height := uint64(8189); height <= head; height++ {
-		k.SetHeaderHash(ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes()))
+	// begin blocks past the ring buffer boundary of the contract (8191)
+	const head = uint64(8200)
+	for height := uint64(2); height <= head; height++ {
+		k.SetHeaderHash(blockCtx(ctx, height))
 	}
 
-	headCtx := ctx.WithBlockHeight(int64(head)).WithHeaderHash(blockHashAt(head).Bytes())
-	for height := uint64(8189); height < head; height++ {
+	// the contract serves the last 8191 parents, so the oldest one must not be overwritten
+	// by the block being executed
+	headCtx := blockCtx(ctx, head)
+	oldest := head - 8191
+	for _, height := range []uint64{oldest, oldest + 1, oldest + 2, head - 2, head - 1} {
+		s.Require().Equal(blockHashAt(height), s.historyContractGet(headCtx, height), "history contract get(%d)", height)
+	}
+	for height := head - 255; height < head; height++ {
 		s.Require().Equal(blockHashAt(height), k.GetHashFn(headCtx)(height), "BLOCKHASH(%d)", height)
 		s.Require().Equal(blockHashAt(height), s.historyContractGet(headCtx, height), "history contract get(%d)", height)
 	}
@@ -65,16 +77,16 @@ func (s *KeeperTestSuite) TestUpdateParamsReindexesHistoryStorage() {
 
 	const head = uint64(9000)
 	for height := head - 300; height <= head; height++ {
-		k.SetHeaderHash(ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes()))
+		k.SetHeaderHash(blockCtx(ctx, height))
 	}
 
 	// switch to the contract's window in block `head`, after its hash was stored
-	headCtx := ctx.WithBlockHeight(int64(head)).WithHeaderHash(blockHashAt(head).Bytes())
+	headCtx := blockCtx(ctx, head)
 	params.HistoryServeWindow = ethparams.HistoryServeWindow
 	_, err := k.UpdateParams(headCtx, &types.MsgUpdateParams{Authority: k.GetAuthority().String(), Params: params})
 	s.Require().NoError(err)
 
-	nextCtx := ctx.WithBlockHeight(int64(head + 1)).WithHeaderHash(blockHashAt(head + 1).Bytes())
+	nextCtx := blockCtx(ctx, head+1)
 	k.SetHeaderHash(nextCtx)
 	for height := head - 300; height <= head; height++ {
 		s.Require().Equal(blockHashAt(height), k.GetHashFn(nextCtx)(height), "BLOCKHASH(%d)", height)
@@ -94,26 +106,26 @@ func (s *KeeperTestSuite) TestUpdateParamsExpandingHistoryWindowClearsStaleHashe
 	// with a window of 100, slot 0 holds the hash of 8300, which is slot 109 in a window of 8191
 	const head = uint64(8300)
 	for height := head - 199; height <= head; height++ {
-		k.SetHeaderHash(ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes()))
+		k.SetHeaderHash(blockCtx(ctx, height))
 	}
 
-	headCtx := ctx.WithBlockHeight(int64(head)).WithHeaderHash(blockHashAt(head).Bytes())
+	headCtx := blockCtx(ctx, head)
 	params.HistoryServeWindow = ethparams.HistoryServeWindow
 	_, err := k.UpdateParams(headCtx, &types.MsgUpdateParams{Authority: k.GetAuthority().String(), Params: params})
 	s.Require().NoError(err)
 
-	nextCtx := ctx.WithBlockHeight(int64(head + 1)).WithHeaderHash(blockHashAt(head + 1).Bytes())
+	nextCtx := blockCtx(ctx, head+1)
 	k.SetHeaderHash(nextCtx)
-	// the last 100 hashes are kept
-	for height := head - 99; height <= head; height++ {
+	// the last 100 hashes before the update are kept, and the one of `head` is stored by the next block
+	for height := head - 100; height <= head; height++ {
 		s.Require().Equal(blockHashAt(height), k.GetHashFn(nextCtx)(height), "BLOCKHASH(%d)", height)
 		s.Require().Equal(blockHashAt(height), s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
 	}
 	// older heights are no longer known, and must not return a hash of another height
-	for height := head - 199; height < head-99; height++ {
+	for height := head - 200; height < head-100; height++ {
 		s.Require().Equal(common.Hash{}, s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
 	}
-	for height := uint64(8110); height < head-199; height++ {
+	for height := uint64(8110); height < head-200; height++ {
 		s.Require().Equal(common.Hash{}, s.historyContractGet(nextCtx, height), "history contract get(%d)", height)
 	}
 }
@@ -140,9 +152,10 @@ func (s *KeeperTestSuite) TestUnsetHistoryWindowKeepsPreviousLayout() {
 	s.Require().NoError(k.SetParams(ctx, params))
 
 	// an unset window keeps meaning 8192, so a binary upgrade doesn't move the stored hashes
-	const height = uint64(types.UnsetHistoryServeWindow)
-	heightCtx := ctx.WithBlockHeight(int64(height)).WithHeaderHash(blockHashAt(height).Bytes())
+	const height = uint64(types.UnsetHistoryServeWindow) + 1
+	k.SetHeaderHash(blockCtx(ctx, height-1))
+	heightCtx := blockCtx(ctx, height)
 	k.SetHeaderHash(heightCtx)
-	s.Require().Equal(blockHashAt(height), k.GetState(heightCtx, ethparams.HistoryStorageAddress, common.Hash{}))
-	s.Require().Equal(blockHashAt(height), k.GetHashFn(heightCtx.WithBlockHeight(int64(height+1)))(height))
+	s.Require().Equal(blockHashAt(height-1), k.GetState(heightCtx, ethparams.HistoryStorageAddress, common.Hash{}))
+	s.Require().Equal(blockHashAt(height-1), k.GetHashFn(heightCtx.WithBlockHeight(int64(height+1)))(height-1))
 }
