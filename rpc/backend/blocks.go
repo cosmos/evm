@@ -212,11 +212,15 @@ func (b *Backend) GetBlockReceipts(
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
 
-	if resBlock == nil {
-		return nil, fmt.Errorf("block not found for height %d", *blockNum.CmtHeight())
+	if resBlock == nil || resBlock.Block == nil {
+		return nil, fmt.Errorf("block not found for height %d", blockNum.Int64())
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(ctx, blockNum.CmtHeight())
+	// Fetch the results of the exact block resolved above. Passing the raw
+	// block number would forward the "latest" sentinel (nil height) to
+	// CometBFT, which can return the results of a newer block if one was
+	// committed in between, mismatching the txs of resBlock.
+	blockRes, err := b.RPCClient.BlockResults(ctx, &resBlock.Block.Height)
 	if err != nil {
 		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
 	}
