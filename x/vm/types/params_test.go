@@ -66,6 +66,16 @@ func TestParamsValidate(t *testing.T) {
 			},
 			expPass: true,
 		},
+		{
+			name:    "max history serve window",
+			params:  Params{HistoryServeWindow: MaxHistoryServeWindow},
+			expPass: true,
+		},
+		{
+			name:        "history serve window above max",
+			params:      Params{HistoryServeWindow: MaxHistoryServeWindow + 1},
+			errContains: "history serve window 8193 exceeds the maximum 8192",
+		},
 	}
 
 	for _, tc := range testCases {
