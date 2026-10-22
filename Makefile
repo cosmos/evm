@@ -132,7 +132,7 @@ GO_MODULES := . $(EVMD_DIR) tests/speedtest tests/systemtests tests/jsonrpc/simu
 
 tidy-all:
 	@for mod in $(GO_MODULES); do \
-		echo "🧹 Tidying $$mod ..."; \
+		echo "Tidying $$mod ..."; \
 		(cd $$mod && go mod tidy) || exit 1; \
 	done
 
@@ -301,7 +301,7 @@ proto-check-breaking:
 ###############################################################################
 
 PACKAGE_NAME:=github.com/cosmos/evm
-GOLANG_CROSS_VERSION  = v1.22
+GOLANG_CROSS_VERSION  = v1.26.10
 GOPATH ?= '$(HOME)/go'
 release-dry-run:
 	docker run \
@@ -397,11 +397,12 @@ V06_SONIC_VERSION := v1.15.1
 build-v06:
 	mkdir -p ./tests/systemtests/binaries/v0.6
 	git checkout v0.6.0
-	cd $(EVMD_DIR) && go get github.com/bytedance/sonic@$(V06_SONIC_VERSION)
-	make build
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.6
-	git checkout -- $(EVMD_DIR)/go.mod $(EVMD_DIR)/go.sum
-	git checkout -
+	(cd $(EVMD_DIR) && go get github.com/bytedance/sonic@$(V06_SONIC_VERSION)) && make build \
+		&& cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.6; \
+	status=$$?; \
+	git checkout -- $(EVMD_DIR)/go.mod $(EVMD_DIR)/go.sum; \
+	git checkout -; \
+	exit $$status
 
 mocks:
 	@echo "--> generating mocks"
