@@ -128,9 +128,19 @@ go.sum: go.mod
 	go mod verify
 	go mod tidy
 
+GO_MODULES := . $(EVMD_DIR) tests/speedtest tests/systemtests tests/jsonrpc/simulator
+
+tidy-all:
+	@for mod in $(GO_MODULES); do \
+		echo "🧹 Tidying $$mod ..."; \
+		(cd $$mod && go mod tidy) || exit 1; \
+	done
+
 vulncheck:
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	@govulncheck ./...
+
+.PHONY: tidy-all vulncheck
 
 ###############################################################################
 ###                           Tests & Simulation                            ###
