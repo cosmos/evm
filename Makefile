@@ -390,11 +390,17 @@ test-system: build-v06 build
 	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
+# v0.6.0 pins bytedance/sonic v1.14.2, which does not compile with Go >= 1.26,
+# so bump it before building and restore the tagged go.mod/go.sum afterwards.
+V06_SONIC_VERSION := v1.15.1
+
 build-v06:
 	mkdir -p ./tests/systemtests/binaries/v0.6
 	git checkout v0.6.0
+	cd $(EVMD_DIR) && go get github.com/bytedance/sonic@$(V06_SONIC_VERSION)
 	make build
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.6
+	git checkout -- $(EVMD_DIR)/go.mod $(EVMD_DIR)/go.sum
 	git checkout -
 
 mocks:
