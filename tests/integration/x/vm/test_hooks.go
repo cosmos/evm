@@ -2,12 +2,15 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	gethvm "github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -131,4 +134,69 @@ func (s *KeeperTestSuite) TestPostTxProcessingFailureLogReversion() {
 
 	// Critical test: Verify logs are completely cleared
 	s.Require().Nil(res.Logs, "res.Logs should be nil after PostTxProcessing failure")
+}
+
+func (s *KeeperTestSuite) TestPostTxProcessingRevertData() {
+	customErr := cmn.NewRevertWithSolidityError(cmn.SharedErrorABI, cmn.SolidityErrInvalidAmount, "hook amount")
+	var carrier cmn.RevertDataCarrier
+	s.Require().ErrorAs(customErr, &carrier)
+	revertData := carrier.RevertData()
+	concreteErr := types.NewExecErrorWithReason(revertData)
+
+	testCases := []struct {
+		name   string
+		err    error
+		revert bool
+	}{
+		{"custom error", customErr, true},
+		{"wrapped custom error", fmt.Errorf("outer: %w", customErr), true},
+		{"joined custom error", errors.Join(errors.New("other hook error"), customErr), true},
+		{"concrete revert error", concreteErr, true},
+		{"wrapped concrete revert error", fmt.Errorf("outer: %w", concreteErr), true},
+		{"ordinary error", errors.New("hook failed"), false},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			k := s.Network.App.GetEVMKeeper()
+			ctx := s.Network.GetContext()
+			var hookReceipt *ethtypes.Receipt
+			k.SetHooks(keeper.NewMultiEvmHooks(&testHooks{
+				postProcessing: func(_ sdk.Context, _ common.Address, _ core.Message, receipt *ethtypes.Receipt) error {
+					hookReceipt = receipt
+					receipt.Logs = []*ethtypes.Log{{Address: s.Keyring.GetAddr(0)}}
+					receipt.Bloom = ethtypes.CreateBloom(receipt)
+					return tc.err
+				},
+			}))
+
+			recipient := s.Keyring.GetAddr(1)
+			bank := s.Network.App.GetBankKeeper()
+			balanceBefore := bank.GetBalance(ctx, s.Keyring.GetAccAddr(1), types.GetEVMCoinDenom())
+			tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), types.EvmTxArgs{
+				To:       &recipient,
+				Amount:   big.NewInt(100),
+				GasLimit: 21000,
+				GasPrice: big.NewInt(1000000000),
+			})
+			s.Require().NoError(err)
+			res, err := k.EthereumTx(ctx, tx.GetMsgs()[0].(*types.MsgEthereumTx))
+			s.Require().NoError(err)
+			s.Require().NotNil(res)
+			if tc.revert {
+				s.Require().Equal(gethvm.ErrExecutionReverted.Error(), res.VmError)
+				s.Require().Equal(revertData, res.Ret)
+			} else {
+				s.Require().Contains(res.VmError, "failed to execute post transaction processing")
+				s.Require().Contains(res.VmError, tc.err.Error())
+				s.Require().Empty(res.Ret)
+			}
+			s.Require().NotNil(hookReceipt)
+			s.Require().Nil(res.Logs)
+			s.Require().Nil(hookReceipt.Logs)
+			s.Require().Equal(ethtypes.Bloom{}, hookReceipt.Bloom)
+			s.Require().Equal(balanceBefore, bank.GetBalance(ctx, s.Keyring.GetAccAddr(1), types.GetEVMCoinDenom()))
+		})
+	}
 }

@@ -1,7 +1,6 @@
 package bank
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -33,12 +32,11 @@ func (p Precompile) Balances(
 ) ([]byte, error) {
 	account, err := ParseBalancesArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error calling account balances in bank precompile: %s", err)
+		return nil, err
 	}
 
 	i := 0
 	balances := make([]Balance, 0)
-
 	p.bankKeeper.IterateAccountBalances(ctx, account, func(coin sdk.Coin) bool {
 		defer func() { i++ }()
 
@@ -60,7 +58,6 @@ func (p Precompile) Balances(
 
 		return false
 	})
-
 	return method.Outputs.Pack(balances)
 }
 
@@ -76,7 +73,6 @@ func (p Precompile) TotalSupply(
 ) ([]byte, error) {
 	i := 0
 	totalSupply := make([]Balance, 0)
-
 	p.bankKeeper.IterateTotalSupply(ctx, func(coin sdk.Coin) bool {
 		defer func() { i++ }()
 
@@ -114,7 +110,7 @@ func (p Precompile) SupplyOf(
 ) ([]byte, error) {
 	erc20ContractAddress, err := ParseSupplyOfArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error getting the supply in bank precompile: %s", err)
+		return nil, err
 	}
 
 	tokenPairID := p.erc20Keeper.GetERC20Map(ctx, erc20ContractAddress)

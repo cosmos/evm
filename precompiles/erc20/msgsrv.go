@@ -28,14 +28,12 @@ func (m MsgServer) Send(goCtx context.Context, msg *banktypes.MsgSend) error {
 	case bankkeeper.BaseKeeper:
 		msgSrv := bankkeeper.NewMsgServerImpl(keeper)
 		if _, err := msgSrv.Send(goCtx, msg); err != nil {
-			// This should return an error to avoid the contract from being executed and an event being emitted
-			return ConvertErrToERC20Error(err)
+			return err
 		}
 	case *bankkeeper.BaseKeeper:
 		msgSrv := bankkeeper.NewMsgServerImpl(keeper)
 		if _, err := msgSrv.Send(goCtx, msg); err != nil {
-			// This should return an error to avoid the contract from being executed and an event being emitted
-			return ConvertErrToERC20Error(err)
+			return err
 		}
 	default:
 		return sdkerrors.ErrInvalidRequest.Wrapf("invalid keeper type: %T", m.BankKeeper)

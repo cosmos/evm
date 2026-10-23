@@ -5,9 +5,12 @@ token interface within the EVM. This allows smart contracts to interact with nat
 
 ## Interface
 
-The precompile implements the standard ERC20 interface with additional metadata support:
+The on-chain ABI is the `ERC20I` interface in `ERC20I.sol`. It extends
+[OpenZeppelin `IERC20Metadata`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol)
+(which includes `IERC20`), [`IERC20Errors`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/interfaces/draft-IERC6093.sol),
+shared `IPrecompile` errors (`../common/Types.sol`), and `ERC20CannotReceiveFunds`.
 
-### IERC20 Methods
+### ERC20 (via OpenZeppelin IERC20)
 
 ```solidity
 // Query Methods
@@ -16,12 +19,12 @@ function balanceOf(address account) external view returns (uint256);
 function allowance(address owner, address spender) external view returns (uint256);
 
 // Transaction Methods
-function transfer(address to, uint256 amount) external returns (bool);
-function approve(address spender, uint256 amount) external returns (bool);
-function transferFrom(address from, address to, uint256 amount) external returns (bool);
+function transfer(address to, uint256 value) external returns (bool);
+function approve(address spender, uint256 value) external returns (bool);
+function transferFrom(address from, address to, uint256 value) external returns (bool);
 ```
 
-### IERC20Metadata Methods
+### Metadata (via OpenZeppelin IERC20Metadata)
 
 ```solidity
 function name() external view returns (string memory);

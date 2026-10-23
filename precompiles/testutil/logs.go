@@ -76,6 +76,10 @@ type LogCheckArgs struct {
 	ABIEvents map[string]abi.Event
 	// ErrContains is the error message that is expected to be contained in the transaction response.
 	ErrContains string
+	// ErrExact is an optional exact-match error to validate revert payload bytes (typically Solidity custom errors).
+	//
+	// If set, integration test error checking will prefer this exact check over ErrContains.
+	ErrExact error
 	// ExpEvents are the events which are expected to be emitted.
 	ExpEvents []string
 	// ExpPass is whether the transaction is expected to pass or not.
@@ -104,6 +108,12 @@ func (l LogCheckArgs) WithErrContains(errContains string, printArgs ...interface
 		errContains = fmt.Sprintf(errContains, printArgs...)
 	}
 	l.ErrContains = errContains
+	return l
+}
+
+// WithErrExact sets the ErrExact field of LogCheckArgs.
+func (l LogCheckArgs) WithErrExact(errExact error) LogCheckArgs {
+	l.ErrExact = errExact
 	return l
 }
 

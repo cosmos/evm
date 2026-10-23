@@ -10,6 +10,7 @@ import (
 
 	_ "embed"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -29,6 +30,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	_ = cmn.MustNewCosmosErrorRegistry(ABI, nil, cmn.SharedSDKErrorMappings(), nil)
 }
 
 // Precompile defines the precompiled contract for Bech32 encoding.
@@ -65,10 +67,10 @@ func (p Precompile) RequiredGas(_ []byte) uint64 {
 }
 
 // Run executes the precompiled contract bech32 methods defined in the ABI.
-func (p Precompile) Run(_ *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, err error) {
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, err error) {
 	// NOTE: This check avoid panicking when trying to decode the method ID
 	if len(contract.Input) < 4 {
-		return nil, vm.ErrExecutionReverted
+		return cmn.ReturnRevertError(evm, vm.ErrExecutionReverted)
 	}
 
 	methodID := contract.Input[:4]
@@ -76,13 +78,13 @@ func (p Precompile) Run(_ *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, er
 	// the method with the given ID
 	method, err := p.MethodById(methodID)
 	if err != nil {
-		return nil, err
+		return cmn.ReturnRevertError(evm, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrUnknownMethod, fmt.Sprintf("0x%x", methodID)))
 	}
 
 	argsBz := contract.Input[4:]
 	args, err := method.Inputs.Unpack(argsBz)
 	if err != nil {
-		return nil, err
+		return cmn.ReturnRevertError(evm, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrABISetupFailed, err.Error()))
 	}
 
 	switch method.Name {
@@ -93,7 +95,7 @@ func (p Precompile) Run(_ *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, er
 	}
 
 	if err != nil {
-		return nil, err
+		return cmn.ReturnRevertError(evm, err)
 	}
 
 	return bz, nil
