@@ -1,12 +1,15 @@
 package queue
 
 import (
+	"bytes"
 	"sync"
 	"testing"
 	"time"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/log/v2"
 )
 
 // mockPool is a mock that records inserted transactions and optionally
@@ -50,7 +53,7 @@ func (m *mockPool) setInsertFn(fn func([]*ethtypes.Transaction) []error) {
 
 func TestInsertQueue_PushAndProcess(t *testing.T) {
 	pool := newMockPool()
-	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", log.NewNopLogger(), pool.insert, 1000)
 	defer iq.Close()
 
 	// Create a test transaction
@@ -72,7 +75,7 @@ func TestInsertQueue_PushAndProcess(t *testing.T) {
 
 func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 	pool := newMockPool()
-	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", log.NewNopLogger(), pool.insert, 1000)
 	defer iq.Close()
 
 	// Create multiple test transactions
@@ -100,7 +103,7 @@ func TestInsertQueue_ProcessesMultipleTransactions(t *testing.T) {
 
 func TestInsertQueue_IgnoresNilTransaction(t *testing.T) {
 	pool := newMockPool()
-	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", log.NewNopLogger(), pool.insert, 1000)
 	defer iq.Close()
 
 	// Push nil transaction
@@ -123,7 +126,7 @@ func TestInsertQueue_SlowAddition(t *testing.T) {
 		return make([]error, len(txs))
 	})
 
-	iq := New[ethtypes.Transaction]("test", pool.insert, 1000)
+	iq := New[ethtypes.Transaction]("test", log.NewNopLogger(), pool.insert, 1000)
 	defer iq.Close()
 
 	// Push first transaction to start processing
@@ -156,7 +159,7 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 		select {} // block forever
 	})
 
-	iq := New[ethtypes.Transaction]("test", pool.insert, 5)
+	iq := New[ethtypes.Transaction]("test", log.NewNopLogger(), pool.insert, 5)
 	defer iq.Close()
 
 	// This first tx will be immediately popped and start processing (where it
@@ -190,4 +193,50 @@ func TestInsertQueue_RejectsWhenFull(t *testing.T) {
 	default:
 		t.Fatal("did not receive error from full queue")
 	}
+}
+
+func TestInsertQueue_ContainsPanicFromInsert(t *testing.T) {
+	pool := newMockPool()
+	pool.setInsertFn(func([]*ethtypes.Transaction) []error {
+		panic("Value missing for key")
+	})
+
+	iq := New("test", log.NewNopLogger(), pool.insert, 1000)
+	defer iq.Close()
+
+	sub := iq.Push(ethtypes.NewTransaction(1, [20]byte{0x01}, nil, 21000, nil, nil))
+	select {
+	case err := <-sub:
+		require.ErrorContains(t, err, "panic in insertTxs")
+		require.ErrorContains(t, err, "Value missing for key")
+	case <-time.After(time.Second):
+		t.Fatal("panic left the subscription unanswered")
+	}
+
+	// The loop survives, so later txs are still inserted.
+	pool.setInsertFn(nil)
+	_ = iq.Push(ethtypes.NewTransaction(2, [20]byte{0x02}, nil, 21000, nil, nil))
+	require.Eventually(t, func() bool {
+		return len(pool.getTxs()) == 1
+	}, time.Second, 10*time.Millisecond, "queue should keep working after a panic")
+}
+
+func TestInsertQueue_PanicErrorsWholeBatch(t *testing.T) {
+	var logged bytes.Buffer
+	iq := New("test", log.NewLogger(&logged), func([]*ethtypes.Transaction) []error {
+		panic("boom")
+	}, 1000)
+	defer iq.Close()
+
+	// Called directly: a deterministic multi-tx batch cannot be staged through
+	// Push, which races the loop draining the queue.
+	errs := iq.insertTxs(make([]*ethtypes.Transaction, 3))
+	require.Len(t, errs, 3, "every tx in the batch must get an error")
+	for _, err := range errs {
+		require.ErrorContains(t, err, "panic in insertTxs")
+		require.ErrorContains(t, err, "boom")
+	}
+
+	require.Contains(t, logged.String(), "panic in insertTxs")
+	require.Contains(t, logged.String(), "boom")
 }
