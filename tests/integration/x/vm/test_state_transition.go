@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -938,6 +939,14 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 		},
 	}
 
+	calldata := bytes.Repeat([]byte{0x01}, 2048)
+	refundCalldata := bytes.Repeat([]byte{0x01}, 128)
+	p256Calldata := bytes.Repeat([]byte{0x01}, 160)
+	// EIP-7623 floor for calldata without zero bytes
+	floorDataGas := func(data []byte) uint64 {
+		return params.TxGas + params.TxCostFloorPerToken*params.TxTokenPerNonZeroByte*uint64(len(data))
+	}
+
 	testCases := []struct {
 		name               string
 		getMessage         func() core.Message
@@ -945,6 +954,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 		getFeeMarketParams func() feemarkettypes.Params
 		overrides          *rpctypes.StateOverride
 		useNilDB           bool
+		internal           bool
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
@@ -1135,6 +1145,105 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			expectedGasUsed:    params.TxGas,
 		},
 		{
+			// EIP-7623: calldata floor clamps gasUsed when it exceeds intrinsic
+			// and the Cosmos minGasMultiplier floor.
+			name: "success - EIP-7623 floor data gas binds gas used",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &recipient,
+					Amount:   big.NewInt(100),
+					Input:    calldata,
+					GasLimit: 110_000,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    floorDataGas(calldata),
+			postCheck:          nil,
+		},
+		{
+			// internal=true: the path used by x/vm/keeper.CallEVM, no minGasMultiplier floor
+			name: "success - EIP-7623 floor data gas binds gas used on internal call",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &recipient,
+					Amount:   big.NewInt(100),
+					Input:    calldata,
+					GasLimit: 110_000,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			internal:           true,
+			expectedGasUsed:    floorDataGas(calldata),
+		},
+		{
+			// above the floor before the SSTORE clear refund, below it after
+			name: "success - EIP-7623 floor data gas binds gas used after refund",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				contractAddr := utiltx.GenerateAddress()
+				// PUSH1 0 PUSH1 0 SSTORE STOP
+				code := []byte{0x60, 0x00, 0x60, 0x00, 0x55, 0x00}
+				stateDB := s.Network.GetStateDB()
+				stateDB.SetCode(contractAddr, code, 0x0)
+				stateDB.SetState(contractAddr, common.Hash{}, common.BigToHash(big.NewInt(1)))
+				s.Require().NoError(stateDB.Commit())
+
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &contractAddr,
+					Input:    refundCalldata,
+					GasLimit: 30_000,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    floorDataGas(refundCalldata),
+			postCheck:          nil,
+		},
+		{
+			// intrinsic + P-256 verify gas is below the floor without any refund
+			name: "success - EIP-7623 floor data gas binds gas used on precompile call",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				p256Addr := common.HexToAddress(types.P256PrecompileAddress)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &p256Addr,
+					Input:    p256Calldata,
+					GasLimit: 30_000,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams: func() types.Params {
+				params := types.DefaultParams()
+				params.ActiveStaticPrecompiles = []string{types.P256PrecompileAddress}
+				return params
+			},
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    floorDataGas(p256Calldata),
+			postCheck:          nil,
+		},
+		{
 			name: "call contract tx with config param EnableCall = false",
 			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
@@ -1272,7 +1381,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				stateDB = statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 			}
 
-			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(s.Network.GetContext(), stateDB, msg, nil, true, false, config, txConfig, false, tc.overrides)
+			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(s.Network.GetContext(), stateDB, msg, nil, true, false, config, txConfig, tc.internal, tc.overrides)
 
 			if tc.expErr {
 				s.Require().Error(err)
