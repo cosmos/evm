@@ -92,7 +92,7 @@ func (p Precompile) EmitEditValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, 
 
 // EmitDelegateEvent creates a new delegate event emitted on a Delegate transaction.
 func (p Precompile) EmitDelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgDelegate, delegatorAddr common.Address) error {
-	valAddr, err := sdk.ValAddressFromBech32(msg.ValidatorAddress)
+	valAddr, err := p.validatorAddressFromString(msg.ValidatorAddress)
 	if err != nil {
 		return err
 	}
@@ -130,8 +130,10 @@ func (p Precompile) EmitDelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg *
 }
 
 // EmitUnbondEvent creates a new unbond event emitted on an Undelegate transaction.
-func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgUndelegate, delegatorAddr common.Address, completionTime int64) error {
-	valAddr, err := sdk.ValAddressFromBech32(msg.ValidatorAddress)
+// amount is the amount the SDK actually undelegated (MsgUndelegateResponse.Amount),
+// which can be lower than the requested msg.Amount because of share truncation.
+func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgUndelegate, delegatorAddr common.Address, amount *big.Int, completionTime int64) error {
+	valAddr, err := p.validatorAddressFromString(msg.ValidatorAddress)
 	if err != nil {
 		return err
 	}
@@ -145,7 +147,7 @@ func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *st
 
 	// Prepare the event data
 	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(msg.Amount.Amount.BigInt())))
+	b.Write(cmn.PackNum(reflect.ValueOf(amount)))
 	b.Write(cmn.PackNum(reflect.ValueOf(big.NewInt(completionTime))))
 
 	stateDB.AddLog(&ethtypes.Log{
@@ -160,12 +162,12 @@ func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *st
 
 // EmitRedelegateEvent creates a new redelegate event emitted on a Redelegate transaction.
 func (p Precompile) EmitRedelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgBeginRedelegate, delegatorAddr common.Address, completionTime int64) error {
-	valSrcAddr, err := sdk.ValAddressFromBech32(msg.ValidatorSrcAddress)
+	valSrcAddr, err := p.validatorAddressFromString(msg.ValidatorSrcAddress)
 	if err != nil {
 		return err
 	}
 
-	valDstAddr, err := sdk.ValAddressFromBech32(msg.ValidatorDstAddress)
+	valDstAddr, err := p.validatorAddressFromString(msg.ValidatorDstAddress)
 	if err != nil {
 		return err
 	}
@@ -199,7 +201,7 @@ func (p Precompile) EmitRedelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg
 
 // EmitCancelUnbondingDelegationEvent creates a new cancel unbonding delegation event emitted on a CancelUnbondingDelegation transaction.
 func (p Precompile) EmitCancelUnbondingDelegationEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgCancelUnbondingDelegation, delegatorAddr common.Address) error {
-	valAddr, err := sdk.ValAddressFromBech32(msg.ValidatorAddress)
+	valAddr, err := p.validatorAddressFromString(msg.ValidatorAddress)
 	if err != nil {
 		return err
 	}
@@ -265,4 +267,14 @@ func (p Precompile) createEditValidatorTxTopics(topicsLen uint64, event abi.Even
 	}
 
 	return topics, nil
+}
+
+// validatorAddressFromString decodes a validator address with the chain's validator
+// address codec, so events accept every encoding the staking msg server accepts.
+func (p Precompile) validatorAddressFromString(addr string) (sdk.ValAddress, error) {
+	bz, err := p.stakingKeeper.ValidatorAddressCodec().StringToBytes(addr)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.ValAddress(bz), nil
 }
