@@ -20,6 +20,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	cosmoshd "github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	sdktestutilcli "github.com/cosmos/cosmos-sdk/testutil/cli"
@@ -96,6 +97,25 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 					s.FormatFlag(flags.FlagUseLedger),
 					s.FormatFlag(flags.FlagKeyType),
 					string(hd.EthSecp256k1Type),
+				})
+
+				s.Require().NoError(err)
+				s.Require().Contains(out.String(), "name: ledger_key")
+
+				_, err = kr.Key(ledgerKey)
+				s.Require().NoError(err, "can't find ledger key")
+			})
+		})
+		// the mocked device stands in for the app, so this covers the supported algorithms
+		Context("with secp256k1 algo", func() {
+			It("should add the ledger key", func() {
+				out, err := sdktestutilcli.ExecTestCLICmd(clientCtx, cmd, []string{
+					ledgerKey,
+					s.FormatFlag(flags.FlagUseLedger),
+					s.FormatFlag(flags.FlagKeyType),
+					string(cosmoshd.Secp256k1Type),
+					"--coin-type",
+					"118",
 				})
 
 				s.Require().NoError(err)

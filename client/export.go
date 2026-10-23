@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/crypto/hd"
+	evmkeyring "github.com/cosmos/evm/crypto/keyring"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/input"
@@ -26,7 +26,7 @@ func UnsafeExportEthKeyCommand() *cobra.Command {
 		Long:  `**UNSAFE** Export an Ethereum private key unencrypted to use in dev tooling`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx := client.GetClientContextFromCmd(cmd).WithKeyringOptions(hd.EthSecp256k1Option())
+			clientCtx := client.GetClientContextFromCmd(cmd).WithKeyringOptions(evmkeyring.Option())
 			clientCtx, err := client.ReadPersistentCommandFlags(clientCtx, cmd.Flags())
 			if err != nil {
 				return err
