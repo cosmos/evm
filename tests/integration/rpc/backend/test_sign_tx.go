@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -120,6 +121,16 @@ func (s *TestSuite) TestSendTransaction() {
 			callArgsDefault,
 			hash,
 			true,
+		},
+		{
+			"fail - no EVM mempool",
+			func() {
+				_, _ = buildBroadcastTx(s, priv, baseFee, callArgsDefault)
+				s.backend.Mempool = rpcbackend.NoOpMempool{}
+			},
+			callArgsDefault,
+			common.Hash{},
+			false,
 		},
 	}
 
