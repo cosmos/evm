@@ -133,8 +133,14 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte, eip155ChainID uint64) (api
 	}
 
 	// Until support for these fields is added, throw an error at their presence
-	if body.TimeoutHeight != 0 || len(body.ExtensionOptions) != 0 || len(body.NonCriticalExtensionOptions) != 0 {
-		return apitypes.TypedData{}, errors.New("body contains unsupported fields: TimeoutHeight, ExtensionOptions, or NonCriticalExtensionOptions")
+	if body.TimeoutHeight != 0 ||
+		body.TimeoutTimestamp != nil ||
+		body.Unordered ||
+		len(body.ExtensionOptions) != 0 ||
+		len(body.NonCriticalExtensionOptions) != 0 ||
+		authInfo.Fee.Granter != "" ||
+		authInfo.Fee.Payer != "" {
+		return apitypes.TypedData{}, errors.New("body contains unsupported fields: TimeoutHeight, TimeoutTimestamp, Unordered, ExtensionOptions, NonCriticalExtensionOptions, or fee granter/payer")
 	}
 
 	if len(authInfo.SignerInfos) != 1 {
