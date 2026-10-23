@@ -188,6 +188,11 @@ func (pc precompileCallChange) Revert(s *StateDB) {
 
 	// Restore processed events counter
 	s.processedEventsCount = pc.prevProcessedEventCount
+
+	// NOTE: the precompile calls counter is deliberately NOT restored,
+	// so reverted precompile calls still consume the call limit. Restoring
+	// it would let a contract issue an unbounded number of reverting
+	// precompile calls within a single transaction.
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {

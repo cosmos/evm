@@ -11,6 +11,10 @@ import (
 )
 
 func TestInitConfigNonNotExistError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("permission errors are not enforced when running as root")
+	}
+
 	tempDir := t.TempDir()
 	subDir := filepath.Join(tempDir, "nonPerms")
 	if err := os.Mkdir(subDir, 0o600); err != nil {

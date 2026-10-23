@@ -78,7 +78,7 @@ type StateDB struct {
 	accessList *accessList
 
 	// The count of calls to precompiles
-	precompileCallsCounter uint8
+	precompileCallsCounter uint64
 
 	// processedEventsCount tracks how many events have been
 	// processed by BalanceHandler. Events are processed sequentially starting
@@ -440,15 +440,18 @@ func (s *StateDB) AddPrecompileFn(snapshot int) error {
 	// Capture events before the precompile call
 	prevEvents := s.cacheCtx.EventManager().Events()
 
+	// Reject before mutating the counter so that rejected calls cannot
+	// advance (and eventually wrap) it back into the accepted range.
+	if s.precompileCallsCounter >= types.MaxPrecompileCalls {
+		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
+	}
+
 	s.journal.append(precompileCallChange{
 		snapshot:                snapshot,
 		prevEvents:              prevEvents,
 		prevProcessedEventCount: s.processedEventsCount,
 	})
 	s.precompileCallsCounter++
-	if s.precompileCallsCounter > types.MaxPrecompileCalls {
-		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
-	}
 	return nil
 }
 
