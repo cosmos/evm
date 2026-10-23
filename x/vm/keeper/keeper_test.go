@@ -3,6 +3,8 @@ package keeper_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
@@ -99,6 +101,102 @@ func (suite *KeeperTestSuite) SetupTest() {
 		config.EighteenDecimalsChainID,
 		"",
 	)
+}
+
+func (suite *KeeperTestSuite) TestDeleteAccountWithStakingPositions() {
+	// a contract address with pending staking claims must not be deletable,
+	// regardless of which combination of staking positions it holds
+	addr := common.HexToAddress("0x4bf7a202cD56FC6c4D84a862a43DDFa9F7AaEF3e")
+	code := []byte("contract code")
+	codeHash := crypto.Keccak256(code)
+	suite.vmKeeper.SetCodeHash(suite.ctx, addr.Bytes(), codeHash)
+	suite.vmKeeper.SetCode(suite.ctx, codeHash, code)
+
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	suite.accKeeper.On("GetAccount", mock.Anything, cosmosAddr).
+		Return(authtypes.NewBaseAccountWithAddress(cosmosAddr))
+
+	delegation := stakingtypes.Delegation{
+		DelegatorAddress: cosmosAddr.String(),
+		ValidatorAddress: sdk.ValAddress("validator").String(),
+	}
+	redelegation := stakingtypes.Redelegation{
+		DelegatorAddress:    cosmosAddr.String(),
+		ValidatorSrcAddress: sdk.ValAddress("validatorA").String(),
+		ValidatorDstAddress: sdk.ValAddress("validatorB").String(),
+	}
+	unbondingDelegation := stakingtypes.UnbondingDelegation{
+		DelegatorAddress: cosmosAddr.String(),
+		ValidatorAddress: sdk.ValAddress("validator").String(),
+	}
+
+	testCases := []struct {
+		name                 string
+		delegations          []stakingtypes.Delegation
+		redelegations        []stakingtypes.Redelegation
+		unbondingDelegations []stakingtypes.UnbondingDelegation
+	}{
+		{
+			"delegations only",
+			[]stakingtypes.Delegation{delegation},
+			nil,
+			nil,
+		},
+		{
+			"redelegations only",
+			nil,
+			[]stakingtypes.Redelegation{redelegation},
+			nil,
+		},
+		{
+			"unbonding delegations only",
+			nil,
+			nil,
+			[]stakingtypes.UnbondingDelegation{unbondingDelegation},
+		},
+		{
+			"delegations and redelegations",
+			[]stakingtypes.Delegation{delegation},
+			[]stakingtypes.Redelegation{redelegation},
+			nil,
+		},
+		{
+			"delegations and unbonding delegations",
+			[]stakingtypes.Delegation{delegation},
+			nil,
+			[]stakingtypes.UnbondingDelegation{unbondingDelegation},
+		},
+		{
+			"redelegations and unbonding delegations",
+			nil,
+			[]stakingtypes.Redelegation{redelegation},
+			[]stakingtypes.UnbondingDelegation{unbondingDelegation},
+		},
+		{
+			"delegations, redelegations and unbonding delegations",
+			[]stakingtypes.Delegation{delegation},
+			[]stakingtypes.Redelegation{redelegation},
+			[]stakingtypes.UnbondingDelegation{unbondingDelegation},
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			suite.stakingKeeper.ExpectedCalls = suite.stakingKeeper.ExpectedCalls[:0]
+			suite.stakingKeeper.On("GetAllDelegatorDelegations", mock.Anything, cosmosAddr).
+				Return(tc.delegations, nil)
+			suite.stakingKeeper.On("GetRedelegations", mock.Anything, cosmosAddr, mock.Anything).
+				Return(tc.redelegations, nil)
+			suite.stakingKeeper.On("GetAllUnbondingDelegations", mock.Anything, cosmosAddr).
+				Return(tc.unbondingDelegations, nil)
+
+			err := suite.vmKeeper.DeleteAccount(suite.ctx, addr)
+			suite.Require().Error(err)
+			suite.Require().ErrorContains(err, "staking positions")
+			// the auth account must still exist
+			suite.Require().NotNil(suite.accKeeper.GetAccount(suite.ctx, cosmosAddr))
+		})
+	}
 }
 
 func (suite *KeeperTestSuite) TestAddPreinstalls() {
