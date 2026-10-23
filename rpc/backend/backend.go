@@ -136,7 +136,7 @@ type EVMBackend interface {
 	// Tracing
 	TraceTransaction(ctx context.Context, hash common.Hash, config *types.TraceConfig) (interface{}, error)
 	TraceBlock(ctx context.Context, height types.BlockNumber, config *types.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
-	TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
+	TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceCallConfig) (interface{}, error)
 }
 
 // TrackingMempool is a set of methods that a mempool may implement in order to
