@@ -5,13 +5,24 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
+	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 type MsgServer struct {
 	cmn.BankKeeper
+}
+
+// bankSender is the subset of bank keeper behaviour that Send needs. Any
+// keeper implementing it works, including wrappers around the SDK
+// BaseKeeper (by value or by pointer).
+type bankSender interface {
+	IsSendEnabledCoins(ctx context.Context, coins ...sdk.Coin) error
+	BlockedAddr(addr sdk.AccAddress) bool
+	SendCoins(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) error
 }
 
 // NewMsgServerImpl returns an implementation of the bank MsgServer interface
@@ -22,23 +33,43 @@ func NewMsgServerImpl(keeper cmn.BankKeeper) *MsgServer {
 	}
 }
 
+// Send performs the same checks as the x/bank MsgServer.Send handler and then
+// transfers the coins. It works against bankSender instead of delegating to
+// bankkeeper.NewMsgServerImpl, because that handler only accepts a
+// bankkeeper.BaseKeeper value and rejects pointers and wrapper keepers.
+//
+// Any error is returned to avoid the contract from being executed and an
+// event being emitted.
 func (m MsgServer) Send(goCtx context.Context, msg *banktypes.MsgSend) error {
-	switch keeper := m.BankKeeper.(type) {
-	// have cases for both pointer and non-pointer to cover how different apps could be storing the keeper
-	case bankkeeper.BaseKeeper:
-		msgSrv := bankkeeper.NewMsgServerImpl(keeper)
-		if _, err := msgSrv.Send(goCtx, msg); err != nil {
-			// This should return an error to avoid the contract from being executed and an event being emitted
-			return ConvertErrToERC20Error(err)
-		}
-	case *bankkeeper.BaseKeeper:
-		msgSrv := bankkeeper.NewMsgServerImpl(keeper)
-		if _, err := msgSrv.Send(goCtx, msg); err != nil {
-			// This should return an error to avoid the contract from being executed and an event being emitted
-			return ConvertErrToERC20Error(err)
-		}
-	default:
+	keeper, ok := m.BankKeeper.(bankSender)
+	if !ok {
 		return sdkerrors.ErrInvalidRequest.Wrapf("invalid keeper type: %T", m.BankKeeper)
 	}
+
+	from, err := sdk.AccAddressFromBech32(msg.FromAddress)
+	if err != nil {
+		return ConvertErrToERC20Error(sdkerrors.ErrInvalidAddress.Wrapf("invalid from address: %s", err))
+	}
+	to, err := sdk.AccAddressFromBech32(msg.ToAddress)
+	if err != nil {
+		return ConvertErrToERC20Error(sdkerrors.ErrInvalidAddress.Wrapf("invalid to address: %s", err))
+	}
+
+	if !msg.Amount.IsValid() || !msg.Amount.IsAllPositive() {
+		return ConvertErrToERC20Error(errorsmod.Wrap(sdkerrors.ErrInvalidCoins, msg.Amount.String()))
+	}
+
+	if err := keeper.IsSendEnabledCoins(goCtx, msg.Amount...); err != nil {
+		return ConvertErrToERC20Error(err)
+	}
+
+	if keeper.BlockedAddr(to) {
+		return ConvertErrToERC20Error(errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", msg.ToAddress))
+	}
+
+	if err := keeper.SendCoins(goCtx, from, to, msg.Amount); err != nil {
+		return ConvertErrToERC20Error(err)
+	}
+
 	return nil
 }
