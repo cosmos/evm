@@ -739,6 +739,17 @@ func (s *StateDB) Commit() error {
 // FlushToCacheCtx writes the dirty states to keeper using the cacheCtx.
 // This function is used before any precompile call to make sure the cacheCtx
 // is updated with the latest changes within the tx (StateDB's journal entries).
+//
+// Error contract: FlushToCacheCtx is not atomic. commitWithCtx returns on the
+// first failure, so a non-nil error leaves s.cacheCtx torn: the dirty accounts
+// ordered before the failing one have already been written into it. Nothing
+// reaches s.ctx at this point, because the cache context is only promoted by
+// writeCache (via Commit). Callers must therefore treat a non-nil error as
+// fatal to the current precompile call frame: return the error and never
+// continue executing on, or promote, the cache context. Rolling the multistore
+// back to a snapshot taken before the flush (as precompileCallChange.Revert
+// does on an EVM revert) discards the partial writes, but does not restore
+// events emitted before the failure; that is left to the caller-level revert.
 func (s *StateDB) FlushToCacheCtx() error {
 	if err := s.commitWithCtx(s.cacheCtx); err != nil {
 		return err
