@@ -14,6 +14,7 @@
 
 - [GHSA-9xwc-4fgh-f64f](https://github.com/cosmos/evm/security/advisories/GHSA-9xwc-4fgh-f64f) Avoid node crash from panics in the mempool insert queue.
 - [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
+- [GHSA-2m6r-q6x4-4w5g](https://github.com/cosmos/evm/security/advisories/GHSA-2m6r-q6x4-4w5g) Clamp the EIP-1559 priority tip cap against the fee cap before adding the base fee in the dynamic fee checker, so a transaction with a tip cap near `LegacyDec`'s upper limit no longer panics on overflow during mempool recheck, and recover panics in the mempool rechecker so a failing recheck rejects the transaction.
 
 ## v0.7.2
 
