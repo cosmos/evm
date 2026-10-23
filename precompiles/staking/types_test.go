@@ -476,6 +476,25 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 			wantErr: true,
 			errMsg:  "invalid creation height",
 		},
+		{
+			// 2^64 + 100 must not wrap around to height 100
+			name:    "creation height above int64 range",
+			args:    []interface{}{delegatorAddr, validatorAddr, amount, new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 64), creationHeight)},
+			wantErr: true,
+			errMsg:  "invalid creation height",
+		},
+		{
+			name:    "creation height of 2^63",
+			args:    []interface{}{delegatorAddr, validatorAddr, amount, new(big.Int).Lsh(big.NewInt(1), 63)},
+			wantErr: true,
+			errMsg:  "invalid creation height",
+		},
+		{
+			name:    "negative creation height",
+			args:    []interface{}{delegatorAddr, validatorAddr, amount, big.NewInt(-1)},
+			wantErr: true,
+			errMsg:  "invalid creation height",
+		},
 	}
 
 	for _, tt := range tests {

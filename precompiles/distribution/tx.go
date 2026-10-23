@@ -151,7 +151,7 @@ func (p *Precompile) WithdrawValidatorCommission(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, validatorHexAddr, err := NewMsgWithdrawValidatorCommission(args)
+	msg, validatorHexAddr, err := NewMsgWithdrawValidatorCommission(args, p.stakingKeeper.ValidatorAddressCodec())
 	if err != nil {
 		return nil, err
 	}
