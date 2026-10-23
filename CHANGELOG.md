@@ -43,6 +43,7 @@
 
 ### BUG FIXES
 
+- [\#1337](https://github.com/cosmos/evm/pull/1337) (state-breaking) ERC-20 and WERC-20 precompiles: a zero-amount `transfer` / `transferFrom` succeeds and emits `Transfer` as EIP-20 requires, instead of reverting, and an allowance of `type(uint256).max` is treated as unlimited (not decremented, no `Approval` on `transferFrom`).
 - [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 - [\#1275](https://github.com/cosmos/evm/pull/1275) Serve JSON-RPC without the EVM mempool instead of refusing to start; tx submission then returns `ErrMempoolDisabled`.
 - [\#1287](https://github.com/cosmos/evm/pull/1287) Return an `unknown block` error from `eth_getLogs` / `eth_getFilterLogs` for the zero `blockHash` instead of crashing the handler with a nil pointer dereference.

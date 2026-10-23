@@ -63,9 +63,10 @@ func (p *Precompile) TransferFrom(
 // transfer is a common function that handles transfers for the ERC-20 Transfer
 // and TransferFrom methods. It executes a bank Send message. If the spender isn't
 // the sender of the transfer, it checks the allowance and updates it accordingly.
-// transfer is a common function that handles transfers for the ERC-20 Transfer
-// and TransferFrom methods. It executes a bank Send message. If the spender isn't
-// the sender of the transfer, it checks the allowance and updates it accordingly.
+//
+// Following EIP-20, a zero-amount transfer succeeds and emits Transfer without
+// moving coins. Following the common ERC-20 convention (OpenZeppelin), an allowance
+// of type(uint256).max is unlimited: it is not decremented and no Approval is emitted.
 func (p *Precompile) transfer(
 	ctx sdk.Context,
 	contract *vm.Contract,
@@ -78,13 +79,17 @@ func (p *Precompile) transfer(
 
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
 
-	if err = msg.Amount.Validate(); err != nil {
-		return nil, err
+	isZeroAmount := amount.Sign() == 0
+	if !isZeroAmount {
+		if err = msg.Amount.Validate(); err != nil {
+			return nil, err
+		}
 	}
 
 	isTransferFrom := method.Name == TransferFromMethod
 	spenderAddr := contract.Caller()
 	newAllowance := big.NewInt(0)
+	unlimitedAllowance := false
 
 	if isTransferFrom {
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
@@ -97,10 +102,15 @@ func (p *Precompile) transfer(
 			return nil, ErrInsufficientAllowance
 		}
 
-		if newAllowance.Sign() == 0 {
+		unlimitedAllowance = prevAllowance.Cmp(abi.MaxUint256) == 0
+		switch {
+		case unlimitedAllowance:
+			// An unlimited allowance stays unlimited.
+			newAllowance = prevAllowance
+		case newAllowance.Sign() == 0:
 			// If the new allowance is 0, we need to delete it from the store.
 			err = p.erc20Keeper.DeleteAllowance(ctx, p.Address(), from, spenderAddr)
-		} else {
+		default:
 			// If the new allowance is not 0, we need to set it in the store.
 			err = p.erc20Keeper.SetAllowance(ctx, p.Address(), from, spenderAddr, newAllowance)
 		}
@@ -109,10 +119,12 @@ func (p *Precompile) transfer(
 		}
 	}
 
-	msgSrv := NewMsgServerImpl(p.BankKeeper)
-	if err = msgSrv.Send(ctx, msg); err != nil {
-		// This should return an error to avoid the contract from being executed and an event being emitted
-		return nil, ConvertErrToERC20Error(err)
+	if !isZeroAmount {
+		msgSrv := NewMsgServerImpl(p.BankKeeper)
+		if err = msgSrv.Send(ctx, msg); err != nil {
+			// This should return an error to avoid the contract from being executed and an event being emitted
+			return nil, ConvertErrToERC20Error(err)
+		}
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
@@ -121,7 +133,7 @@ func (p *Precompile) transfer(
 
 	// NOTE: if it's a direct transfer, we return here but if used through transferFrom,
 	// we need to emit the approval event with the new allowance.
-	if isTransferFrom {
+	if isTransferFrom && !unlimitedAllowance {
 		if err = p.EmitApprovalEvent(ctx, stateDB, from, spenderAddr, newAllowance); err != nil {
 			return nil, err
 		}
