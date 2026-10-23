@@ -24,31 +24,34 @@ AMOUNT=2000000000000000000000
 
 echo "🔄 Sending transfer exceeding balance..."
 
-# 1) Send via cast and capture output (suppress exit)
+# 1) Send via cast and require a failing exit status
 echo "❌ Attempting transfer that should fail:"
 echo "$ cast send \"$CONTRACT\" 'transfer(address,uint256)' \"$RECIPIENT\" \"$AMOUNT\" --rpc-url \"$RPC_URL\" --private-key \"[HIDDEN]\" --chain-id \"$CHAIN_ID\" --json"
-OUTPUT=$(cast send \
+if OUTPUT=$(cast send \
 	"$CONTRACT" \
 	'transfer(address,uint256)' "$RECIPIENT" "$AMOUNT" \
 	--rpc-url "$RPC_URL" \
 	--private-key "$PK" \
 	--chain-id "$CHAIN_ID" \
-	--json 2>&1 || true)
+	--json 2>&1); then
+	echo "❌ Expected a revert, but transaction succeeded:"
+	printf '%s\n' "$OUTPUT"
+	exit 1
+fi
 
 # 2) Try parse JSON
-JSON=$(echo "$OUTPUT" | sed -n 's/.*\({.*\)/\1/p')
-
-if [ -n "$JSON" ]; then
-	# 3a) JSON returned -> parse error field
-	echo "$JSON" | jq -r '
-    if has("error") then
-      "✅ Transaction reverted as expected:\n  " + .error.message
+if [[ "$OUTPUT" == *"{"* ]]; then
+	printf '%s\n' "$OUTPUT" | jq -er '
+    if .success == false and (.errors | length > 0) and
+      all(.errors[]; (.message | contains("execution reverted")) and
+        (.message | contains("ERC20InsufficientBalance("))) then
+      "✅ Transaction reverted as expected:\n  " + (.errors | map(.message) | join("\n  "))
     else
-      "❌ Expected a revert, but transaction succeeded:\n" + (.|tojson)
+      error("Unexpected cast response: " + tojson)
     end'
 else
 	# 3b) No JSON -> fallback to raw text check
-	if echo "$OUTPUT" | grep -q -e 'execution reverted' -e 'ERC20InsufficientBalance'; then
+	if echo "$OUTPUT" | grep -q 'ERC20InsufficientBalance('; then
 		echo "✅ Transaction reverted as expected"
 		echo
 		echo "Revert detail:"
