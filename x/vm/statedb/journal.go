@@ -139,9 +139,9 @@ type (
 		slot    *common.Hash
 	}
 	precompileCallChange struct {
-		snapshot                int
-		prevEvents              sdk.Events
-		prevProcessedEventCount int
+		snapshot            int
+		prevEvents          sdk.Events
+		prevProcessedEvents []eventRange
 	}
 	createContractChange struct {
 		account *common.Address
@@ -180,8 +180,8 @@ func (pc precompileCallChange) Revert(s *StateDB) {
 	// Restore events to the state before this precompile call
 	s.cacheCtx.EventManager().OverrideEvents(pc.prevEvents)
 
-	// Restore processed events counter
-	s.processedEventsCount = pc.prevProcessedEventCount
+	// Restore processed event ranges
+	s.processedEvents = pc.prevProcessedEvents
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {

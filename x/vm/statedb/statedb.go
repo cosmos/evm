@@ -79,11 +79,16 @@ type StateDB struct {
 	// The count of calls to precompiles
 	precompileCallsCounter uint8
 
-	// processedEventsCount tracks how many events have been
-	// processed by BalanceHandler. Events are processed sequentially starting
-	// from index 0. Event counter tracks events to avoid having them reprocessed.
-	// On revert, this counter is rewound to the snapshot's event count.
-	processedEventsCount int
+	// processedEvents holds the cacheCtx event index ranges whose balance
+	// effects are already reflected in the StateDB (events emitted by a flush,
+	// or already applied by a BalanceHandler). Sorted, non-overlapping,
+	// half-open. Restored by precompileCallChange on revert.
+	processedEvents []eventRange
+}
+
+// eventRange is a half-open range [start, end) of event indices.
+type eventRange struct {
+	start, end int
 }
 
 func (s *StateDB) CreateContract(address common.Address) {
@@ -187,14 +192,13 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // New creates a new state from a given trie.
 func New(ctx sdk.Context, keeper Keeper, txConfig TxConfig) *StateDB {
 	return &StateDB{
-		keeper:               keeper,
-		ctx:                  ctx,
-		stateObjects:         make(map[common.Address]*stateObject),
-		journal:              newJournal(),
-		accessList:           newAccessList(),
-		transientStorage:     newTransientStorage(),
-		txConfig:             txConfig,
-		processedEventsCount: len(ctx.EventManager().Events()),
+		keeper:           keeper,
+		ctx:              ctx,
+		stateObjects:     make(map[common.Address]*stateObject),
+		journal:          newJournal(),
+		accessList:       newAccessList(),
+		transientStorage: newTransientStorage(),
+		txConfig:         txConfig,
 	}
 }
 
@@ -463,9 +467,9 @@ func (s *StateDB) AddPrecompileFn(snapshot int) error {
 	prevEvents := s.cacheCtx.EventManager().Events()
 
 	s.journal.append(precompileCallChange{
-		snapshot:                snapshot,
-		prevEvents:              prevEvents,
-		prevProcessedEventCount: s.processedEventsCount,
+		snapshot:            snapshot,
+		prevEvents:          prevEvents,
+		prevProcessedEvents: s.processedEvents,
 	})
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
@@ -474,21 +478,50 @@ func (s *StateDB) AddPrecompileFn(snapshot int) error {
 	return nil
 }
 
-// MarkEventProcessed records that the event at the given index
-// has been seen by BalanceHandler. Events must be marked sequentially.
+// MarkEventProcessed records that the event at idx has been applied
+// to the StateDB.
 func (s *StateDB) MarkEventProcessed(idx int) {
-	// Events must be processed sequentially - idx should equal current count
-	if idx != s.processedEventsCount {
-		panic(fmt.Sprintf("balance events must be processed sequentially: expected %d, got %d",
-			s.processedEventsCount, idx))
+	s.MarkEventsProcessed(idx, idx+1)
+}
+
+// MarkEventsProcessed records that the events in [start, end) have been
+// applied to the StateDB.
+func (s *StateDB) MarkEventsProcessed(start, end int) {
+	if start < 0 || end <= start {
+		return
 	}
-	s.processedEventsCount++
+	// Build a new slice so journal entries holding the previous one stay intact.
+	merged := make([]eventRange, 0, len(s.processedEvents)+1)
+	inserted := false
+	for _, r := range s.processedEvents {
+		switch {
+		case r.end < start:
+			merged = append(merged, r)
+		case end < r.start:
+			if !inserted {
+				merged = append(merged, eventRange{start, end})
+				inserted = true
+			}
+			merged = append(merged, r)
+		default:
+			// overlapping or adjacent
+			start = min(start, r.start)
+			end = max(end, r.end)
+		}
+	}
+	if !inserted {
+		merged = append(merged, eventRange{start, end})
+	}
+	s.processedEvents = merged
 }
 
 // IsEventProcessed reports whether the event at idx has already been
-// seen by a previous AfterBalanceChange invocation.
+// applied to the StateDB.
 func (s *StateDB) IsEventProcessed(idx int) bool {
-	return idx < s.processedEventsCount
+	i := sort.Search(len(s.processedEvents), func(i int) bool {
+		return s.processedEvents[i].end > idx
+	})
+	return i < len(s.processedEvents) && s.processedEvents[i].start <= idx
 }
 
 // AddBalance adds amount to the account associated with addr.
@@ -740,13 +773,14 @@ func (s *StateDB) Commit() error {
 // This function is used before any precompile call to make sure the cacheCtx
 // is updated with the latest changes within the tx (StateDB's journal entries).
 func (s *StateDB) FlushToCacheCtx() error {
+	start := len(s.cacheCtx.EventManager().Events())
 	if err := s.commitWithCtx(s.cacheCtx); err != nil {
 		return err
 	}
 
-	// Set counter to event count - all flushed events (from mint/burn during commit) are now accounted for.
-	// This prevents the balance handler from re-adding already flushed events.
-	s.processedEventsCount = len(s.cacheCtx.EventManager().Events())
+	// Mark only the events emitted by this flush (mint/burn from SetAccount)
+	// so a BalanceHandler does not re-apply them. Earlier events are left as is.
+	s.MarkEventsProcessed(start, len(s.cacheCtx.EventManager().Events()))
 
 	return nil
 }
