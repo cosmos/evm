@@ -12,6 +12,8 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	storetypes "cosmossdk.io/store/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -240,4 +242,35 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 			}
 		})
 	}
+}
+
+func (s *KeeperTestSuite) TestCallEVMWithDataGasBoundedByTxGasMeter() {
+	s.SetupTest() // reset
+
+	deployer := common.BytesToAddress([]byte("vm-test-deployer"))
+	ctx := s.Network.GetContext()
+	ak := s.Network.App.GetAccountKeeper()
+	accAddr := sdk.AccAddress(deployer.Bytes())
+	if ak.GetAccount(ctx, accAddr) == nil {
+		ak.SetAccount(ctx, ak.NewAccountWithAddress(ctx, accAddr))
+	}
+
+	ctorArgs, err := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack("", "test", "test", uint8(18))
+	s.Require().NoError(err)
+	data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
+
+	// The tx's gas meter holds far less gas than deploying this contract
+	// requires, so the bounded internal call must fail the intrinsic gas
+	// check instead of executing the deployment with the default gas cap.
+	gasMeter := storetypes.NewGasMeter(100_000)
+	txCtx := ctx.WithGasMeter(gasMeter)
+	stateDB := statedb.New(txCtx, s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+
+	_, err = s.Network.App.GetEVMKeeper().CallEVMWithData(txCtx, stateDB, deployer, nil, data, true, false, nil)
+	s.Require().Error(err)
+	s.Require().Contains(err.Error(), "intrinsic gas")
+
+	// The tx gas meter is never exceeded, i.e. the EVM was not able to
+	// perform more gas than the tx paid for.
+	s.Require().False(gasMeter.IsPastLimit())
 }

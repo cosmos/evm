@@ -524,10 +524,25 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		// Instead, we want to flush to the cacheCtx.
 		if callFromPrecompile {
 			if err := stateDB.FlushToCacheCtx(); err != nil {
+				// The EVM work has already been performed, so the measured gas
+				// must be charged even though the flush failed. Otherwise, a
+				// post-execution error would silently drop all the gas
+				// consumed by the EVM call from the outer Cosmos gas meter.
+				//
+				// Charge the full amount of gas used (maxUsedGas), without the
+				// refund, because gas refunds are only earned when the state
+				// changes actually commit. Charging the refunded amount
+				// (temporaryGasUsed) instead would let a caller inflate
+				// stateDB refunds (fully refundable on internal calls) and
+				// repeat cheaply, since the failing commit discards the very
+				// state changes that earned the refund.
+				ctx.GasMeter().ConsumeGas(maxUsedGas, "apply evm message")
 				return nil, errorsmod.Wrap(err, "failed to flush stateDB to cacheCtx")
 			}
 		} else {
 			if err := stateDB.Commit(); err != nil {
+				// See the comment on the FlushToCacheCtx error branch above.
+				ctx.GasMeter().ConsumeGas(maxUsedGas, "apply evm message")
 				return nil, errorsmod.Wrap(err, "failed to commit stateDB")
 			}
 		}
