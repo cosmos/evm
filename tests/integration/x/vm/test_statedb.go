@@ -62,6 +62,122 @@ func (s *KeeperTestSuite) TestCreateAccount() {
 	}
 }
 
+// TestIsBaseAccountOrEmpty exercises Keeper.IsBaseAccountOrEmpty directly
+// against the real AccountKeeper: it must report an address as safe for EVM
+// contract deployment only when no account exists there yet, or when the
+// account is a plain BaseAccount -- and must report it unsafe once the
+// address is staged as a DelayedVestingAccount
+func (s *KeeperTestSuite) TestIsBaseAccountOrEmpty() {
+	testCases := []struct {
+		name     string
+		malleate func(sdk.Context, common.Address)
+		expSafe  bool
+	}{
+		{
+			"no account at all",
+			func(sdk.Context, common.Address) {},
+			true,
+		},
+		{
+			"plain funded BaseAccount",
+			func(ctx sdk.Context, addr common.Address) {
+				err := s.Network.App.GetBankKeeper().SendCoins(
+					ctx, s.Keyring.GetAccAddr(0), addr.Bytes(),
+					sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))),
+				)
+				s.Require().NoError(err)
+			},
+			true,
+		},
+		{
+			"staged DelayedVestingAccount",
+			func(ctx sdk.Context, addr common.Address) {
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(
+					ctx, s.Keyring.GetAccAddr(0), accAddr,
+					sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(2))),
+				)
+				s.Require().NoError(err)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				vestingAcc, err := vestingtypes.NewDelayedVestingAccount(
+					baseAccount,
+					sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(2))),
+					ctx.BlockTime().Unix()+31536000, // ~1 year, mirrors the incident's staging
+				)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, vestingAcc)
+			},
+			false,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx := s.Network.GetContext()
+			addr := utiltx.GenerateAddress()
+			tc.malleate(ctx, addr)
+
+			s.Require().Equal(tc.expSafe, s.Network.App.GetEVMKeeper().IsBaseAccountOrEmpty(ctx, addr))
+		})
+	}
+}
+
+// TestCreateAccountBlocksStagedVestingAccount replays the KiiChain incident's
+// account-staging step against the real AccountKeeper: deploying an EVM
+// contract onto an address already turned into a DelayedVestingAccount must
+// panic, and the counterfactual-wallet pattern (a plain BaseAccount created
+// by pre-funding a not-yet-deployed address) must keep working
+func (s *KeeperTestSuite) TestCreateAccountBlocksStagedVestingAccount() {
+	s.Run("staged DelayedVestingAccount blocks deployment", func() {
+		s.SetupTest()
+		ctx := s.Network.GetContext()
+		addr := utiltx.GenerateAddress()
+		accAddr := sdk.AccAddress(addr.Bytes())
+
+		err := s.Network.App.GetBankKeeper().SendCoins(
+			ctx, s.Keyring.GetAccAddr(0), accAddr,
+			sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(2))),
+		)
+		s.Require().NoError(err)
+
+		baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+		vestingAcc, err := vestingtypes.NewDelayedVestingAccount(
+			baseAccount,
+			sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(2))),
+			ctx.BlockTime().Unix()+31536000,
+		)
+		s.Require().NoError(err)
+		s.Network.App.GetAccountKeeper().SetAccount(ctx, vestingAcc)
+
+		vmdb := s.StateDB()
+		s.Require().Panics(func() {
+			vmdb.CreateAccount(addr)
+		})
+	})
+
+	s.Run("pre-funded BaseAccount still allows deployment", func() {
+		s.SetupTest()
+		ctx := s.Network.GetContext()
+		addr := utiltx.GenerateAddress()
+		accAddr := sdk.AccAddress(addr.Bytes())
+
+		// counterfactual-wallet pattern: fund the address before any
+		// contract is deployed there.
+		err := s.Network.App.GetBankKeeper().SendCoins(
+			ctx, s.Keyring.GetAccAddr(0), accAddr,
+			sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))),
+		)
+		s.Require().NoError(err)
+
+		vmdb := s.StateDB()
+		s.Require().NotPanics(func() {
+			vmdb.CreateAccount(addr)
+		})
+	})
+}
+
 func (s *KeeperTestSuite) TestAddBalance() {
 	testCases := []struct {
 		name   string

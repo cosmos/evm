@@ -76,6 +76,24 @@ func (_m *VMKeeperI) GetAccount(ctx types.Context, addr common.Address) *statedb
 	return r0
 }
 
+// IsBaseAccountOrEmpty provides a mock function with given fields: ctx, addr
+func (_m *VMKeeperI) IsBaseAccountOrEmpty(ctx types.Context, addr common.Address) bool {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsBaseAccountOrEmpty")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address) bool); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // GetBaseFee provides a mock function with given fields: ctx
 func (_m *VMKeeperI) GetBaseFee(ctx types.Context) *big.Int {
 	ret := _m.Called(ctx)

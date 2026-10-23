@@ -17,6 +17,7 @@ type VMKeeperI interface {
 	GetParams(ctx sdk.Context) (params vmtypes.Params)
 	GetEvmCoinInfo(ctx sdk.Context) (coinInfo vmtypes.EvmCoinInfo)
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
+	IsBaseAccountOrEmpty(ctx sdk.Context, addr common.Address) bool
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCode(ctx sdk.Context, codeHash common.Hash) []byte
 	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
