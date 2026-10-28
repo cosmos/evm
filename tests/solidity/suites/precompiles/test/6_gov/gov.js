@@ -1,9 +1,8 @@
 const { expect } = require('chai')
 const hre = require('hardhat')
-const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
+const { findEvent, getRevertData, waitWithTimeout, RETRY_DELAY_FUNC, GOV_PRECOMPILE_ADDRESS} = require('../common')
 
 describe('Gov Precompile', function () {
-    const GOV_ADDRESS = '0x0000000000000000000000000000000000000805'
     const GAS_LIMIT = 1_000_000
     const COSMOS_ADDR = 'cosmos1cml96vmptgw99syqrrz8az79xer2pcgp95srxm'
     const GOV_MODULE_ADDR = 'cosmos10d07y265gmmuvt4z0w9aw880jnsr700j6zn9kn'
@@ -12,7 +11,7 @@ describe('Gov Precompile', function () {
 
     before(async () => {
         [signer] = await hre.ethers.getSigners()
-        gov = await hre.ethers.getContractAt('IGov', GOV_ADDRESS)
+        gov = await hre.ethers.getContractAt('IGov', GOV_PRECOMPILE_ADDRESS)
         
         // Create a single proposal to be reused across tests
         const jsonProposal = buildProposal(COSMOS_ADDR)
@@ -187,6 +186,19 @@ describe('Gov Precompile', function () {
         expect(proposal.proposer).to.equal(signer.address)
         expect(proposal.title).to.equal('test prop')
         expect(proposal.summary).to.equal('test prop')
+    })
+
+    it('decodes missing proposal custom error data', async function () {
+        const missingProposalId = globalProposalId + 1_000_000n
+
+        try {
+            await gov.getProposal(missingProposalId)
+            expect.fail('getProposal should have reverted')
+        } catch (error) {
+            const parsed = gov.interface.parseError(getRevertData(error))
+            expect(parsed.name).to.equal('QueryFailed')
+            expect(parsed.args[0]).to.equal('getProposal')
+        }
     })
 
     // TODO: Add multiple depositors case.

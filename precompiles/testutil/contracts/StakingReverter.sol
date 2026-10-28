@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../staking/StakingI.sol";
+import "../../common/interfaces/IPrecompile.sol";
 
 contract StakingReverter {
     uint counter = 0;
@@ -98,5 +99,48 @@ contract StakingReverter {
             validator = STAKING_CONTRACT.validator(validatorAddress);
         }
         return validator;
+    }
+
+    /// @dev Demonstrates Solidity selector branching without decoding Cosmos codes or messages.
+    function branchesOnCancelUnbondingNotFound(
+        string calldata validatorAddress
+    ) external returns (bool) {
+        try STAKING_CONTRACT.cancelUnbondingDelegation(
+            address(this),
+            validatorAddress,
+            1,
+            1
+        ) returns (bool) {
+            return false;
+        } catch (bytes memory data) {
+            return classifyKnownError(data) == 2;
+        }
+    }
+
+    /// @dev Exercises a shared SDK selector through a real precompile call.
+    function branchesOnSharedInsufficientFunds(
+        string calldata validatorAddress
+    ) external returns (bool) {
+        try STAKING_CONTRACT.delegate(
+            address(this),
+            validatorAddress,
+            address(this).balance + 1
+        ) returns (bool) {
+            return false;
+        } catch (bytes memory data) {
+            return classifyKnownError(data) == 1;
+        }
+    }
+
+    /// @dev Selector bytes are untrusted and unknown payloads remain unclassified.
+    function classifyKnownError(bytes memory data) public pure returns (uint8) {
+        if (data.length < 4) return 0;
+        bytes4 selector;
+        assembly {
+            selector := mload(add(data, 32))
+        }
+        if (selector == IPrecompile.SDKInsufficientFunds.selector) return 1;
+        if (selector == StakingI.StakingUnbondingDelegationNotFound.selector) return 2;
+        return 0;
     }
 }

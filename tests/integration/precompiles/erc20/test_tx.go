@@ -3,6 +3,7 @@ package erc20
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
@@ -32,14 +33,16 @@ var (
 
 func (s *PrecompileTestSuite) TestTransfer() {
 	method := s.precompile.Methods[erc20.TransferMethod]
-	// fromAddr is the address of the keyring account used for testing.
 	fromAddr := s.keyring.GetKey(0).Addr
+	negCoinErr := sdk.Coins{{Denom: tokenDenom, Amount: math.NewIntFromBigInt(big.NewInt(-1))}}.Validate()
+	s.Require().Error(negCoinErr)
 	testcases := []struct {
 		name        string
 		malleate    func() []interface{}
 		postCheck   func()
 		expErr      bool
 		errContains string
+		wantErr     error
 	}{
 		{
 			"fail - negative amount",
@@ -48,7 +51,8 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			func() {},
 			true,
-			"coin -1xmpl amount is not positive",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, negCoinErr.Error()),
 		},
 		{
 			"fail - invalid to address",
@@ -57,7 +61,18 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			func() {},
 			true,
-			"invalid to address",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAddress, ""),
+		},
+		{
+			"fail - zero receiver uses ERC-6093",
+			func() []interface{} {
+				return []interface{}{common.Address{}, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidReceiver, common.Address{}),
 		},
 		{
 			"fail - invalid amount",
@@ -66,7 +81,8 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			func() {},
 			true,
-			"invalid amount",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, ""),
 		},
 		{
 			"fail - not enough balance",
@@ -75,7 +91,19 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			func() {},
 			true,
-			erc20.ErrTransferAmountExceedsBalance.Error(),
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, fromAddr, big.NewInt(1e18), big.NewInt(2e18)),
+		},
+		{
+			"fail - bank send disabled uses module selector",
+			func() []interface{} {
+				s.network.App.GetBankKeeper().SetSendEnabled(s.network.GetContext(), tokenDenom, false)
+				return []interface{}{toAddr, big.NewInt(100)}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrBankSendDisabled),
 		},
 		{
 			"fail - not enough balance, sent amount is being vested",
@@ -84,7 +112,6 @@ func (s *PrecompileTestSuite) TestTransfer() {
 				accAddr := sdk.AccAddress(fromAddr.Bytes())
 				err := s.network.App.GetBankKeeper().SendCoins(ctx, s.keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.network.GetBaseDenom(), math.NewInt(2e18))))
 				s.Require().NoError(err)
-				// replace with vesting account
 				balanceResp, err := s.grpcHandler.GetBalanceFromEVM(accAddr)
 				s.Require().NoError(err)
 
@@ -116,7 +143,8 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			func() {},
 			true,
-			erc20.ErrTransferAmountExceedsBalance.Error(),
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, fromAddr, big.NewInt(1e18), big.NewInt(2e18)),
 		},
 		{
 			"pass",
@@ -129,6 +157,7 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			false,
 			"",
+			nil,
 		},
 	}
 
@@ -137,10 +166,8 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			s.SetupTest()
 			stateDB := s.network.GetStateDB()
 
-			var contract *vm.Contract
 			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), fromAddr, s.precompile.Address(), 0)
 
-			// Mint some coins to the module account and then send to the from address
 			err := s.network.App.GetBankKeeper().MintCoins(s.network.GetContext(), erc20types.ModuleName, XMPLCoin)
 			s.Require().NoError(err, "failed to mint coins")
 			err = s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.network.GetContext(), erc20types.ModuleName, fromAddr.Bytes(), XMPLCoin)
@@ -149,7 +176,11 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			_, err = s.precompile.Transfer(ctx, contract, stateDB, &method, tc.malleate())
 			if tc.expErr {
 				s.Require().Error(err, "expected transfer transaction to fail")
-				s.Require().Contains(err.Error(), tc.errContains, "expected transfer transaction to fail with specific error")
+				if tc.wantErr != nil {
+					testutil.RequireExactError(s.T(), err, tc.wantErr)
+				} else {
+					s.Require().Contains(err.Error(), tc.errContains, "expected transfer transaction to fail with specific error")
+				}
 			} else {
 				s.Require().NoError(err, "expected transfer transaction succeeded")
 				tc.postCheck()
@@ -158,16 +189,42 @@ func (s *PrecompileTestSuite) TestTransfer() {
 	}
 }
 
+func (s *PrecompileTestSuite) TestTransferInvalidSenderUsesERC6093() {
+	s.SetupTest()
+	method := s.precompile.Methods[erc20.TransferMethod]
+	contract, ctx := testutil.NewPrecompileContract(
+		s.T(),
+		s.network.GetContext(),
+		common.Address{},
+		s.precompile.Address(),
+		200_000,
+	)
+
+	_, err := s.precompile.Transfer(
+		ctx,
+		contract,
+		s.network.GetStateDB(),
+		&method,
+		[]interface{}{toAddr, big.NewInt(1)},
+	)
+	s.Require().Error(err)
+	testutil.RequireExactError(
+		s.T(),
+		err,
+		cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidSender, common.Address{}),
+	)
+}
+
 func (s *PrecompileTestSuite) TestTransferFrom() {
 	var (
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
 	method := s.precompile.Methods[erc20.TransferFromMethod]
-	// owner of the tokens
 	owner := s.keyring.GetKey(0)
-	// spender of the tokens
 	spender := s.keyring.GetKey(1)
+	negCoinErr := sdk.Coins{{Denom: tokenDenom, Amount: math.NewIntFromBigInt(big.NewInt(-1))}}.Validate()
+	s.Require().Error(negCoinErr)
 
 	testcases := []struct {
 		name        string
@@ -175,6 +232,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		postCheck   func()
 		expErr      bool
 		errContains string
+		wantErr     error
 	}{
 		{
 			"fail - negative amount",
@@ -183,7 +241,8 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			"coin -1xmpl amount is not positive",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, negCoinErr.Error()),
 		},
 		{
 			"fail - invalid from address",
@@ -192,7 +251,8 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			"invalid from address",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - invalid to address",
@@ -201,7 +261,8 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			"invalid to address",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAddress, ""),
 		},
 		{
 			"fail - invalid amount",
@@ -210,7 +271,28 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			"invalid amount",
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, cmn.SolidityErrInvalidAmount, ""),
+		},
+		{
+			"fail - zero sender uses ERC-6093",
+			func() []interface{} {
+				return []interface{}{common.Address{}, toAddr, common.Big0}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidSender, common.Address{}),
+		},
+		{
+			"fail - zero receiver uses ERC-6093",
+			func() []interface{} {
+				return []interface{}{owner.Addr, common.Address{}, common.Big0}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InvalidReceiver, common.Address{}),
 		},
 		{
 			"fail - not enough allowance",
@@ -219,7 +301,8 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			erc20.ErrInsufficientAllowance.Error(),
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance, spender.Addr, common.Big0, big.NewInt(100)),
 		},
 		{
 			"fail - not enough balance",
@@ -231,31 +314,46 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			erc20.ErrTransferAmountExceedsBalance.Error(),
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientBalance, owner.Addr, big.NewInt(1e18), big.NewInt(2e18)),
+		},
+		{
+			"fail - disabled token pair uses module selector",
+			func() []interface{} {
+				err := s.network.App.GetErc20Keeper().SetAllowance(
+					s.network.GetContext(), s.precompile.Address(), owner.Addr, spender.Addr, big.NewInt(100),
+				)
+				s.Require().NoError(err)
+				tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), tokenDenom)
+				tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
+				s.Require().True(found)
+				tokenPair.Enabled = false
+				s.network.App.GetErc20Keeper().SetTokenPair(s.network.GetContext(), tokenPair)
+				return []interface{}{owner.Addr, toAddr, big.NewInt(1)}
+			},
+			func() {},
+			true,
+			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20TokenPairDisabled),
 		},
 		{
 			"fail - spend on behalf of own account without allowance",
 			func() []interface{} {
-				// Mint some coins to the module account and then send to the spender address
 				err := s.network.App.GetBankKeeper().MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
 				s.Require().NoError(err, "failed to mint coins")
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, spender.AccAddr, XMPLCoin)
 				s.Require().NoError(err, "failed to send coins from module to account")
 
-				// NOTE: no allowance is necessary to spend on behalf of the same account
 				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
 			},
-			func() {
-				toAddrBalance := s.network.App.GetBankKeeper().GetBalance(ctx, toAddr.Bytes(), tokenDenom)
-				s.Require().Equal(big.NewInt(100), toAddrBalance.Amount.BigInt(), "expected toAddr to have 100 XMPL")
-			},
+			func() {},
 			true,
 			"",
+			cmn.NewRevertWithSolidityError(s.precompile.ABI, erc20.SolidityErrERC20InsufficientAllowance, spender.Addr, common.Big0, big.NewInt(100)),
 		},
 		{
 			"pass - spend on behalf of own account with allowance",
 			func() []interface{} {
-				// Mint some coins to the module account and then send to the spender address
 				err := s.network.App.GetBankKeeper().MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
 				s.Require().NoError(err, "failed to mint coins")
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, spender.AccAddr, XMPLCoin)
@@ -264,7 +362,6 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 				err = s.network.App.GetErc20Keeper().SetAllowance(ctx, s.precompile.Address(), spender.Addr, spender.Addr, big.NewInt(100))
 				s.Require().NoError(err, "failed to set allowance")
 
-				// NOTE: no allowance is necessary to spend on behalf of the same account
 				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
 			},
 			func() {
@@ -273,6 +370,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			false,
 			"",
+			nil,
 		},
 		{
 			"pass - spend on behalf of other account",
@@ -288,6 +386,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			false,
 			"",
+			nil,
 		},
 	}
 
@@ -300,7 +399,6 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, spender.Addr, s.precompile.Address(), 0)
 
-			// Mint some coins to the module account and then send to the from address
 			err := s.network.App.GetBankKeeper().MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
 			s.Require().NoError(err, "failed to mint coins")
 			err = s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, owner.AccAddr, XMPLCoin)
@@ -309,7 +407,11 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			_, err = s.precompile.TransferFrom(ctx, contract, stDB, &method, tc.malleate())
 			if tc.expErr {
 				s.Require().Error(err, "expected transfer transaction to fail")
-				s.Require().Contains(err.Error(), tc.errContains, "expected transfer transaction to fail with specific error")
+				if tc.wantErr != nil {
+					testutil.RequireExactError(s.T(), err, tc.wantErr)
+				} else {
+					s.Require().Contains(err.Error(), tc.errContains, "expected transfer transaction to fail with specific error")
+				}
 			} else {
 				s.Require().NoError(err, "expected transfer transaction succeeded")
 				tc.postCheck()

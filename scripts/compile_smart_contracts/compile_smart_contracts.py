@@ -14,6 +14,7 @@ Usage:
 import os
 import re
 import sys
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import copy, rmtree
@@ -269,6 +270,21 @@ def copy_compiled_contracts_back_to_source(
             print(f"-> did not find compiled JSON file for {contract.filename}")
             continue
 
+        # For precompile abi.json targets, keep only the ABI array.
+        # Hardhat v3 artifacts wrap ABI under an object with metadata fields.
+        if contract.compiled_json_path.name == "abi.json":
+            with open(compiled_path, "r", encoding="utf-8") as source_file:
+                artifact = json.load(source_file)
+
+            abi_payload = artifact
+            if isinstance(artifact, dict) and "abi" in artifact:
+                abi_payload = artifact["abi"]
+
+            with open(contract.compiled_json_path, "w", encoding="utf-8") as target_file:
+                json.dump(abi_payload, target_file, indent=2)
+                target_file.write("\n")
+            continue
+
         copy(compiled_path, contract.compiled_json_path)
 
 
@@ -320,9 +336,8 @@ def compile_files(repo_path: Path, added_contract: Union[str, None] = None):
         raise ValueError("Failed to copy contracts to target directory.")
 
     compile_contracts_in_dir(CONTRACTS_TARGET)
-    copy_compiled_contracts_back_to_source(
-        found_contracts, CONTRACTS_TARGET.parent / "artifacts" / SOLIDITY_SOURCE
-    )
+    compiled_dir = CONTRACTS_TARGET.parent / "artifacts" / SOLIDITY_SOURCE
+    copy_compiled_contracts_back_to_source(found_contracts, compiled_dir)
 
 
 if __name__ == "__main__":
