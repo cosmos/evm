@@ -79,6 +79,7 @@
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
+- [\#1350](https://github.com/cosmos/evm/pull/1350) Fix a data race on the latest block height in the EVM JSON-RPC indexer service.
 
 ## v0.6.0
 
