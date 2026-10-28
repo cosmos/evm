@@ -3,6 +3,7 @@ package mempool_test
 import (
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -129,4 +130,38 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	stateDB, err := blockchain.StateAt(hash)
 	require.NoError(t, err)
 	require.NotNil(t, stateDB)
+}
+
+// PinnedHeader must follow the pin: the live state until the first pin, then
+// the pinned header until the pin refreshes.
+func TestBlockchainPinnedHeaderFollowsPin(t *testing.T) {
+	setupEVMChainConfig(t)
+
+	mockVMKeeper := mocks.NewVMKeeperI(t)
+	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
+	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1000000000)).Maybe()
+	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(0)).Maybe()
+
+	// the live state, advanced by the test as if blocks were committed
+	var height atomic.Int64
+	getCtxCallback := func(int64, bool) (sdk.Context, error) {
+		return createMockContext().WithBlockHeight(height.Load()), nil
+	}
+	blockchain := mempool.NewBlockchain(getCtxCallback, log.NewNopLogger(), mockVMKeeper, mockFeeMarketKeeper, 21000000)
+
+	// before the first pin the live state is served and nothing is cached
+	require.Equal(t, int64(0), blockchain.PinnedHeader().Number.Int64())
+	height.Store(1)
+	require.Equal(t, int64(1), blockchain.PinnedHeader().Number.Int64())
+
+	// the pin at height 1 is served even after the live state moves on
+	blockchain.NotifyNewBlock()
+	require.Equal(t, int64(1), blockchain.PinnedHeader().Number.Int64())
+	height.Store(2)
+	require.Equal(t, int64(2), blockchain.CurrentBlock().Number.Int64())
+	require.Equal(t, int64(1), blockchain.PinnedHeader().Number.Int64(), "cached header must follow the pin, not the live state")
+
+	// a refreshed pin replaces the cached header
+	blockchain.NotifyNewBlock()
+	require.Equal(t, int64(2), blockchain.PinnedHeader().Number.Int64())
 }
