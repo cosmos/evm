@@ -17,11 +17,11 @@ import (
 
 	statedb "github.com/cosmos/evm/x/vm/statedb"
 
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-
 	tracing "github.com/ethereum/go-ethereum/core/tracing"
 
 	types "github.com/cosmos/cosmos-sdk/types"
+
+	v2types "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 )
@@ -87,6 +87,36 @@ func (_m *EVMKeeper) CallEVM(ctx types.Context, stateDB *statedb.StateDB, _a2 ab
 
 	if rf, ok := ret.Get(1).(func(types.Context, *statedb.StateDB, abi.ABI, common.Address, common.Address, bool, bool, *big.Int, string, ...interface{}) error); ok {
 		r1 = rf(ctx, stateDB, _a2, from, contract, commit, callFromPrecompile, gasCap, method, args...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// CallEVMViewWithData provides a mock function with given fields: ctx, from, contract, data, gasCap
+func (_m *EVMKeeper) CallEVMViewWithData(ctx types.Context, from common.Address, contract *common.Address, data []byte, gasCap *big.Int) (*vmtypes.MsgEthereumTxResponse, error) {
+	ret := _m.Called(ctx, from, contract, data, gasCap)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CallEVMViewWithData")
+	}
+
+	var r0 *vmtypes.MsgEthereumTxResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address, *common.Address, []byte, *big.Int) (*vmtypes.MsgEthereumTxResponse, error)); ok {
+		return rf(ctx, from, contract, data, gasCap)
+	}
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address, *common.Address, []byte, *big.Int) *vmtypes.MsgEthereumTxResponse); ok {
+		r0 = rf(ctx, from, contract, data, gasCap)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vmtypes.MsgEthereumTxResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Context, common.Address, *common.Address, []byte, *big.Int) error); ok {
+		r1 = rf(ctx, from, contract, data, gasCap)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -342,19 +372,19 @@ func (_m *EVMKeeper) IsContract(ctx types.Context, address common.Address) bool 
 }
 
 // KVStoreKeys provides a mock function with no fields
-func (_m *EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
+func (_m *EVMKeeper) KVStoreKeys() map[string]v2types.StoreKey {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for KVStoreKeys")
 	}
 
-	var r0 map[string]storetypes.StoreKey
-	if rf, ok := ret.Get(0).(func() map[string]storetypes.StoreKey); ok {
+	var r0 map[string]v2types.StoreKey
+	if rf, ok := ret.Get(0).(func() map[string]v2types.StoreKey); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]storetypes.StoreKey)
+			r0 = ret.Get(0).(map[string]v2types.StoreKey)
 		}
 	}
 
@@ -394,8 +424,7 @@ func (_m *EVMKeeper) SetState(ctx types.Context, addr common.Address, key common
 func NewEVMKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *EVMKeeper {
+}) *EVMKeeper {
 	mock := &EVMKeeper{}
 	mock.Mock.Test(t)
 

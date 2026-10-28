@@ -230,10 +230,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 	// Didn't use `Snapshot` because the context stack has exponential complexity on certain operations,
 	// thus restricted to be used only inside `ApplyMessage`.
 	tmpCtx, commitFn := ctx.CacheContext()
+	tmpCtx, tracingHooks := k.prepareTracing(tmpCtx, *msg, txConfig, true)
 
 	// pass true to commit the StateDB
 	stateDB := statedb.New(tmpCtx, k, txConfig)
-	res, err := k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, nil, true, false, cfg, txConfig, false, nil)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, tracingHooks, true, false, cfg, txConfig, false, nil)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -270,7 +271,9 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 
 		// If the tx failed we discard the old context and create a new one, so
 		// PostTxProcessing can persist data even if the tx fails.
-		tmpCtx, commitFn = ctx.CacheContext()
+		failedCtx, failedCommitFn := ctx.CacheContext()
+		tmpCtx = failedCtx.WithContext(tmpCtx.Context())
+		commitFn = failedCommitFn
 	} else {
 		receipt.Status = ethtypes.ReceiptStatusSuccessful
 	}
