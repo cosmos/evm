@@ -274,5 +274,15 @@ interface IGov {
     /// @dev getConstitution returns the current constitution.
     /// @return constitution The current constitution
     function getConstitution() external view returns (string memory constitution);
+
+    /// @dev getAuthority returns the governance module account address.
+    /// This address must be used as the `authority` field in parameter-change
+    /// and software-upgrade proposal messages.
+    /// @return authorityBech32 The governance module account address in Bech32 format
+    /// @return authorityHex The governance module account address as an EVM address
+    function getAuthority()
+        external
+        view
+        returns (string memory authorityBech32, address authorityHex);
 }
 

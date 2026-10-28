@@ -990,6 +990,77 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(err).To(BeNil())
 				})
 			})
+
+			Context("authority query", func() {
+				var (
+					err                   error
+					callsData             CallsData
+					govCallerContractAddr common.Address
+					govCallerContract     evmtypes.CompiledContract
+				)
+
+				BeforeEach(func() {
+					// Setting gas tip cap to zero to have zero gas price.
+					txArgs.GasTipCap = new(big.Int).SetInt64(0)
+
+					govCallerContract, err = contracts.LoadGovCallerContract()
+					Expect(err).ToNot(HaveOccurred(), "failed to load GovCaller contract")
+
+					govCallerContractAddr, err = s.factory.DeployContract(
+						s.keyring.GetPrivKey(0),
+						evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
+						testutiltypes.ContractDeploymentData{
+							Contract: govCallerContract,
+						},
+					)
+					Expect(err).ToNot(HaveOccurred(), "failed to deploy gov caller contract")
+					Expect(s.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+
+					callsData = CallsData{
+						precompileAddr: s.precompile.Address(),
+						precompileABI:  s.precompile.ABI,
+
+						precompileCallerAddr: govCallerContractAddr,
+						precompileCallerABI:  govCallerContract.ABI,
+					}
+				})
+
+				DescribeTable("should return the governance module account address", func(callType callType) {
+					txArgs, callArgs = callsData.getTxAndCallArgs(callArgs, txArgs, callType)
+
+					switch callType {
+					case directCall:
+						callArgs.MethodName = gov.GetAuthorityMethod
+					case contractCall:
+						callArgs.MethodName = "getAuthority"
+					}
+
+					_, ethRes, err := s.factory.CallContractAndCheckLogs(
+						s.keyring.GetPrivKey(0),
+						txArgs,
+						callArgs,
+						passCheck,
+					)
+					Expect(err).To(BeNil())
+
+					var out struct {
+						AuthorityBech32 string         `json:"authorityBech32"`
+						AuthorityHex    common.Address `json:"authorityHex"`
+					}
+					err = s.precompile.UnpackIntoInterface(&out, gov.GetAuthorityMethod, ethRes.Ret)
+					Expect(err).To(BeNil())
+
+					// Verify against the deterministic gov module account address
+					expectedModuleAddr := authtypes.NewModuleAddress(govtypes.ModuleName)
+					Expect(out.AuthorityBech32).To(Equal(expectedModuleAddr.String()),
+						"expected bech32 authority address to match gov module account")
+					Expect(out.AuthorityHex).To(Equal(common.BytesToAddress(expectedModuleAddr.Bytes())),
+						"expected hex authority address to match gov module account")
+				},
+					Entry("directly calling the precompile", directCall),
+					Entry("through a caller contract", contractCall),
+				)
+			})
 		})
 	})
 	_ = Describe("Calling governance precompile from contract", Ordered, func() {
