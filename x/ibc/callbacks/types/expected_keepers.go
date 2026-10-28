@@ -28,6 +28,7 @@ type EVMKeeper interface {
 	CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
+	IsBaseAccountOrEmpty(ctx sdk.Context, addr common.Address) bool
 	IsContract(ctx sdk.Context, addr common.Address) bool
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCode(ctx sdk.Context, codeHash common.Hash) []byte
