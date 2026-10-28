@@ -82,6 +82,7 @@
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 - [\#1348](https://github.com/cosmos/evm/pull/1348) Return an error instead of panicking when the ICS02 `updateClient` precompile receives an empty client message.
+- [\#1286](https://github.com/cosmos/evm/pull/1286) Fetch the block results of the resolved block in `eth_getBlockReceipts` so that the `latest` tag no longer pairs the txs of one block with the results of a newer one (panic or wrong receipts).
 
 ## v0.6.0
 
