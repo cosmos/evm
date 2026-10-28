@@ -101,7 +101,7 @@ func (s *TestSuite) TestFindEthTxIndexByHash() {
 				}
 				return block, blockRes
 			},
-			txHash:      tx.Hash(),
+			txHash:      tx.AsTransaction().Hash(),
 			expectError: false,
 			expectedIdx: 0,
 		},
@@ -174,7 +174,7 @@ func (s *TestSuite) TestFindEthTxIndexByHash() {
 				}
 				return block, blockRes
 			},
-			txHash:      tx.Hash(),
+			txHash:      tx.AsTransaction().Hash(),
 			expectError: true,
 			errorMsg:    "can't find index of ethereum tx", // Will be filtered out by EthMsgsFromCometBlock
 		},
@@ -226,7 +226,7 @@ func (s *TestSuite) TestFindEthTxIndexByHash() {
 					GasLimit: 100000,
 				})
 				tx2.From = s.from.Bytes()
-				return tx2.Hash()
+				return tx2.AsTransaction().Hash()
 			}(),
 			expectError: false,
 			expectedIdx: 1,

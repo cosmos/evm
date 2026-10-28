@@ -216,3 +216,39 @@ func TestParseTxResult(t *testing.T) {
 		})
 	}
 }
+
+func TestParseTxResultFailedRPCMsg(t *testing.T) {
+	const gasLimit = uint64(100_000)
+	to := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	msg := &rpcMsgEthereumTxWrapper{
+		MsgEthereumTx: evmtypes.NewTx(&evmtypes.EvmTxArgs{
+			ChainID:  big.NewInt(1),
+			To:       &to,
+			GasLimit: gasLimit,
+			GasPrice: big.NewInt(1),
+		}),
+	}
+	response := abci.ExecTxResult{
+		Code:    1,
+		GasUsed: 21_000,
+		Events: []abci.Event{{
+			Type: evmtypes.EventTypeEthereumTx,
+			Attributes: []abci.EventAttribute{
+				{Key: evmtypes.AttributeKeyEthereumTxHash, Value: msg.AsTransaction().Hash().Hex()},
+				{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+				{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+			},
+		}},
+	}
+
+	parsed, err := ParseTxResult(&response, msg)
+
+	require.NoError(t, err)
+	require.Equal(t, &ParsedTx{
+		MsgIndex:   0,
+		Hash:       msg.AsTransaction().Hash(),
+		EthTxIndex: 0,
+		GasUsed:    gasLimit,
+		Failed:     true,
+	}, parsed.GetTxByMsgIndex(0))
+}
