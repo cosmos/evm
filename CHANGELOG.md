@@ -82,6 +82,7 @@
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 - [\#1348](https://github.com/cosmos/evm/pull/1348) Return an error instead of panicking when the ICS02 `updateClient` precompile receives an empty client message.
+- [\#1300](https://github.com/cosmos/evm/pull/1300) Include the gas used by the preceding eth txs of the block in `eth_getTransactionReceipt`'s `cumulativeGasUsed`, matching `eth_getBlockReceipts`.
 
 ## v0.6.0
 
