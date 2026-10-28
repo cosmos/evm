@@ -1,6 +1,6 @@
 module github.com/cosmos/evm/evmd
 
-go 1.25.9
+go 1.26.10
 
 require (
 	cosmossdk.io/api v1.0.0
@@ -18,6 +18,7 @@ require (
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v11 v11.1.0
 	github.com/ethereum/go-ethereum v1.16.8
+	github.com/holiman/uint256 v1.3.2
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
 	github.com/spf13/cast v1.10.0
@@ -181,7 +182,6 @@ require (
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
-	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/huandu/skiplist v1.2.1 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
