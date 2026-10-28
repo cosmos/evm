@@ -462,8 +462,9 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		// eth_estimateGas will check for this exact error
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
+	var floorDataGas uint64
 	if rules.IsPrague {
-		floorDataGas, err := core.FloorDataGas(msg.Data)
+		floorDataGas, err = core.FloorDataGas(msg.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -589,7 +590,8 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit, leftoverGas)
 	}
 
-	gasUsed := math.LegacyNewDec(int64(temporaryGasUsed)) //#nosec G115 -- int overflow is not a concern here
+	// EIP-7623: charge at least the calldata floor; floorDataGas is zero before Prague.
+	gasUsed := math.LegacyNewDec(int64(max(temporaryGasUsed, floorDataGas))) //#nosec G115 -- both bounded by msg.GasLimit, well below MaxInt64
 	if !internal {
 		gasUsed = math.LegacyMaxDec(gasUsed, minimumGasUsed)
 	}

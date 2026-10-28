@@ -79,6 +79,7 @@
 - [\#1061](https://github.com/cosmos/evm/pull/1061) Block nested ICS20 forwarding in source callbacks.
 - [\#1050](https://github.com/cosmos/evm/pull/1050) Align precompile gas calculation with expected EVM gas semantics.
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
+- [\#1186](https://github.com/cosmos/evm/pull/1186) Enforce EIP-7623 calldata floor on final gas used.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 - [\#1348](https://github.com/cosmos/evm/pull/1348) Return an error instead of panicking when the ICS02 `updateClient` precompile receives an empty client message.
