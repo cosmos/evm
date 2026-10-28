@@ -4,6 +4,7 @@
 
 ### DEPENDENCIES
 
+- [\#1345](https://github.com/cosmos/evm/pull/1345) Bump Go to 1.26.10, which adds the `crypto/x509` denylist for the compromised eMudhra intermediate CAs (CVE-2026-111943).
 - [\#1232](https://github.com/cosmos/evm/pull/1232) Bump `ibc-go` to `v11.1.0`.
 - [\#1250](https://github.com/cosmos/evm/pull/1250) Require Node.js `>=22` to compile the Solidity contracts and run the JavaScript test suites (`contracts/`, `tests/contracts/`, `tests/evm-tools-compatibility/*`).
 
@@ -42,6 +43,8 @@
 
 ### BUG FIXES
 
+- [\#1302](https://github.com/cosmos/evm/pull/1302) Stop leaking the `eth_feeHistory` block fetcher goroutines when more than one fetch of a batch fails.
+- [\#1336](https://github.com/cosmos/evm/pull/1336) (state-breaking) Bech32 precompile: `bech32ToHex` rejects addresses that are not 20 bytes instead of truncating them (for example a 32-byte module or ICA address) to an unrelated 20-byte address.
 - [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 - [\#1275](https://github.com/cosmos/evm/pull/1275) Serve JSON-RPC without the EVM mempool instead of refusing to start; tx submission then returns `ErrMempoolDisabled`.
 - [\#1287](https://github.com/cosmos/evm/pull/1287) Return an `unknown block` error from `eth_getLogs` / `eth_getFilterLogs` for the zero `blockHash` instead of crashing the handler with a nil pointer dereference.
@@ -78,7 +81,7 @@
 - [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion to prevent `invalid message index` errors in block RPCs.
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
-- [\#1286](https://github.com/cosmos/evm/pull/1286) Fetch the block results of the resolved block in `eth_getBlockReceipts` so that the `latest` tag no longer pairs the txs of one block with the results of a newer one (panic or wrong receipts).
+- [\#1348](https://github.com/cosmos/evm/pull/1348) Return an error instead of panicking when the ICS02 `updateClient` precompile receives an empty client message.
 
 ## v0.6.0
 
