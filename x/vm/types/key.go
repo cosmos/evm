@@ -30,6 +30,7 @@ const (
 	prefixParams
 	prefixCodeHash
 	prefixEvmCoinInfo
+	prefixPendingHeaderHash
 )
 
 // prefix bytes for the EVM object store
@@ -45,6 +46,9 @@ var (
 	KeyPrefixParams      = []byte{prefixParams}
 	KeyPrefixCodeHash    = []byte{prefixCodeHash}
 	KeyPrefixEvmCoinInfo = []byte{prefixEvmCoinInfo}
+	// KeyPrefixPendingHeaderHash holds the height and hash of the last begun block, which
+	// is moved into the EIP-2935 history storage by the next block.
+	KeyPrefixPendingHeaderHash = []byte{prefixPendingHeaderHash}
 )
 
 // Object Store key prefixes

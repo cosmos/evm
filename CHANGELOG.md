@@ -82,6 +82,7 @@
 - [\#1216](https://github.com/cosmos/evm/pull/1216) Fix blocking on mempool event bus unsubscribe.
 - [\#1244](https://github.com/cosmos/evm/pull/1244) Avoid node crash from panics in the mempool insert queue.
 - [\#1348](https://github.com/cosmos/evm/pull/1348) Return an error instead of panicking when the ICS02 `updateClient` precompile receives an empty client message.
+- [\#1304](https://github.com/cosmos/evm/pull/1304) Use the EIP-2935 window of the preinstalled history storage contract (8191) as the default `history_serve_window`, cap the param at 8192, and re-index the stored block hashes when `MsgUpdateParams` changes the window, so the contract's `get` and `BLOCKHASH` return the same hash. The begin block now stores the hash of the parent block, as EIP-2935 does, so the oldest height served by the contract isn't overwritten. Existing chains keep their window (an unset one still means 8192) until they update the param; see `docs/migrations/v0.7.x_to_v0.8.0.md`.
 
 ## v0.6.0
 

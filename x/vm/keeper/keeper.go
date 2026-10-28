@@ -423,25 +423,29 @@ func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
 }
 
-// SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.
+// SetHeaderHash stores the hash of the parent block into the EIP-2935 compatible
+// storage contract, like the EIP does at the start of each block. Storing the hash of
+// the current block instead would overwrite the oldest height that the contract still
+// serves, since a ring buffer of 8191 slots holds exactly the last 8191 parents.
+// The block header doesn't carry the parent hash, so the hash of each block is kept
+// aside until the next block begins.
 func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 	ctx, span := ctx.StartSpan(tracer, "SetHeaderHash", trace.WithAttributes(
 		attribute.Int64("block_height", ctx.BlockHeight()),
 	))
 	defer span.End()
-	window := uint64(types.DefaultHistoryServeWindow)
-	params := k.GetParams(ctx)
-	if params.HistoryServeWindow > 0 {
-		window = params.HistoryServeWindow
+	window := historyServeWindow(k.GetParams(ctx))
+	height := uint64(ctx.BlockHeight()) //nolint:gosec // G115 // won't exceed uint64
+
+	store := ctx.KVStore(k.storeKey)
+	if pending := store.Get(types.KeyPrefixPendingHeaderHash); height > 0 && len(pending) == 8+common.HashLength &&
+		binary.BigEndian.Uint64(pending) == height-1 && k.hasHistoryStorageContract(ctx) {
+		// set parent block hash in the contract storage, compatible with EIP-2935
+		k.SetState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(height-1, window), pending[8:])
 	}
 
-	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
-	if acct != nil && k.IsContract(ctx, ethparams.HistoryStorageAddress) {
-		// set current block hash in the contract storage, compatible with EIP-2935
-		ringIndex := uint64(ctx.BlockHeight()) % window //nolint:gosec // G115 // won't exceed uint64
-		var key common.Hash
-		binary.BigEndian.PutUint64(key[24:], ringIndex)
-		k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
+	if hash := ctx.HeaderHash(); len(hash) == common.HashLength {
+		store.Set(types.KeyPrefixPendingHeaderHash, append(binary.BigEndian.AppendUint64(nil, height), hash...))
 	}
 }
 
@@ -451,14 +455,60 @@ func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
 		attribute.Int64("height", int64(height)), //nolint:gosec // G115
 	))
 	defer span.End()
-	window := uint64(types.DefaultHistoryServeWindow)
-	params := k.GetParams(ctx)
-	if params.HistoryServeWindow > 0 {
-		window = params.HistoryServeWindow
+	window := historyServeWindow(k.GetParams(ctx))
+	return k.GetState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(height, window))
+}
+
+// reindexHeaderHashes moves the block hashes stored in the EIP-2935 history storage
+// contract from a ring buffer of oldWindow slots to one of newWindow slots. It keeps
+// the hashes of the last min(oldWindow, newWindow) heights up to and including the
+// parent of the current block (the newest one stored), so that BLOCKHASH and the
+// contract keep returning the right hashes after the history serve window param changes. Every other slot of the new ring
+// buffer is cleared, so that no hash stored under the old layout can be read for
+// another height. The work is bounded by types.MaxHistoryServeWindow.
+func (k Keeper) reindexHeaderHashes(ctx sdk.Context, oldWindow, newWindow uint64) {
+	if oldWindow == newWindow || ctx.BlockHeight() <= 1 || !k.hasHistoryStorageContract(ctx) {
+		return
 	}
 
-	ringIndex := height % window
+	// the newest stored hash is the one of the parent block
+	current := uint64(ctx.BlockHeight() - 1) //nolint:gosec // G115 // positive, checked above
+	first := uint64(1)
+	if n := min(oldWindow, newWindow); current >= n {
+		first = current - n + 1
+	}
+
+	// read everything first: both layouts share the same slots
+	hashes := make([]common.Hash, 0, current-first+1)
+	for height := first; height <= current; height++ {
+		hashes = append(hashes, k.GetState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(height, oldWindow)))
+	}
+	for slot := uint64(0); slot < newWindow; slot++ {
+		k.DeleteState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(slot, newWindow))
+	}
+	for i, hash := range hashes {
+		if hash == (common.Hash{}) {
+			continue
+		}
+		k.SetState(ctx, ethparams.HistoryStorageAddress, historyStorageKey(first+uint64(i), newWindow), hash.Bytes())
+	}
+}
+
+func (k Keeper) hasHistoryStorageContract(ctx sdk.Context) bool {
+	return k.GetAccount(ctx, ethparams.HistoryStorageAddress) != nil && k.IsContract(ctx, ethparams.HistoryStorageAddress)
+}
+
+// historyServeWindow returns the size of the EIP-2935 ring buffer for the given params.
+func historyServeWindow(params types.Params) uint64 {
+	if params.HistoryServeWindow > 0 {
+		return params.HistoryServeWindow
+	}
+	return types.UnsetHistoryServeWindow
+}
+
+// historyStorageKey returns the EIP-2935 storage slot of the given height.
+func historyStorageKey(height, window uint64) common.Hash {
 	var key common.Hash
-	binary.BigEndian.PutUint64(key[24:], ringIndex)
-	return k.GetState(ctx, ethparams.HistoryStorageAddress, key)
+	binary.BigEndian.PutUint64(key[24:], height%window)
+	return key
 }
