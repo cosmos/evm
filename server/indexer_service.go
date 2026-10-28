@@ -86,12 +86,32 @@ func (eis *EVMIndexerService) OnStart() error {
 		lastBlock = latestBlock.Load()
 	}
 
+	eis.indexLoop(ctx, eis.client, lastBlock, latestBlock.Load, func(ctx context.Context) {
+		select {
+		case <-newBlockSignal:
+		case <-time.After(NewBlockWaitTimeout):
+		case <-ctx.Done():
+		}
+	})
+	return nil
+}
+
+// indexLoop indexes blocks after lastBlock as they are produced, until ctx is
+// done. latestBlock reports the newest height; wait returns once a new block
+// may be available or a retry is due.
+func (eis *EVMIndexerService) indexLoop(
+	ctx context.Context,
+	src blockSource,
+	lastBlock int64,
+	latestBlock func() int64,
+	wait func(context.Context),
+) {
 	// blockErr is the error that stopped the previous pass (fetching a
 	// block, its results, or indexing it); the failed height is retried.
 	var blockErr error
 
-	for {
-		latest := latestBlock.Load()
+	for ctx.Err() == nil {
+		latest := latestBlock()
 		if latest <= lastBlock || blockErr != nil {
 			// two cases to enter this block:
 			// 1. nothing to index (indexer is caught up). wait for signal of new block.
@@ -100,14 +120,11 @@ func (eis *EVMIndexerService) OnStart() error {
 			//    rather than infinite looping a failing attempt. this can occur due to
 			//    drive latency between the block existing and its block_results getting
 			//    saved, or a transient storage error writing the index.
-			select {
-			case <-newBlockSignal:
-			case <-time.After(NewBlockWaitTimeout):
-			}
+			wait(ctx)
 			blockErr = nil
 			continue
 		}
-		lastBlock, blockErr = eis.indexBlocks(ctx, eis.client, lastBlock, latest)
+		lastBlock, blockErr = eis.indexBlocks(ctx, src, lastBlock, latest)
 	}
 }
 

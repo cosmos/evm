@@ -87,3 +87,29 @@ func TestIndexBlocksStopsAtFetchError(t *testing.T) {
 	require.Equal(t, int64(6), last)
 	require.Equal(t, []int64{1, 2, 3, 4, 5, 6}, idx.indexed)
 }
+
+// The service loop must resume after a failed pass: before the fix a fetch
+// error was never cleared, so indexing stopped until the node restarted.
+func TestIndexLoopResumesAfterError(t *testing.T) {
+	idx := &fakeIndexer{failOnce: map[int64]bool{2: true}}
+	eis := NewEVMIndexerService(idx, nil)
+	src := &fakeBlockSource{failFetch: map[int64]bool{4: true}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	waits := 0
+	wait := func(context.Context) {
+		waits++
+		if waits == 2 {
+			delete(src.failFetch, 4) // the fetch error is transient
+		}
+		if len(idx.indexed) == 6 || waits > 10 {
+			cancel()
+		}
+	}
+
+	eis.indexLoop(ctx, src, 0, func() int64 { return 6 }, wait)
+	require.Equal(t, []int64{1, 2, 3, 4, 5, 6}, idx.indexed, "indexing resumes after each failed pass")
+	// one wait after the index error, one after the fetch error, one once caught up
+	require.Equal(t, 3, waits)
+}
