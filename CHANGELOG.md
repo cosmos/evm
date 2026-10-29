@@ -13,6 +13,7 @@
 ### BUG FIXES
 
 - [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
+- [\#1220](https://github.com/cosmos/evm/pull/1220) Use latest block for setting txn defaults in rpc call.
 
 ## v0.7.2
 
