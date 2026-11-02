@@ -12,9 +12,16 @@
 
 ### BUG FIXES
 
+## v0.7.4
+
+### BUG FIXES
 - [GHSA-9xwc-4fgh-f64f](https://github.com/cosmos/evm/security/advisories/GHSA-9xwc-4fgh-f64f) Avoid node crash from panics in the mempool insert queue.
-- [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 - [GHSA-2m6r-q6x4-4w5g](https://github.com/cosmos/evm/security/advisories/GHSA-2m6r-q6x4-4w5g) Clamp the EIP-1559 priority tip cap against the fee cap before adding the base fee in the dynamic fee checker, so a transaction with a tip cap near `LegacyDec`'s upper limit no longer panics on overflow during mempool recheck, and recover panics in the mempool rechecker so a failing recheck rejects the transaction.
+- [GHSA-7xxp-gq2c-x47x](https://github.com/cosmos/evm/security/advisories/GHSA-7xxp-gq2c-x47x) Reject EIP-712 signed transactions that set `timeout_timestamp`, `unordered`, a fee granter, or a fee payer, since these fields are excluded from the EIP-712 typed data and are not covered by the signature.
+- [GHSA-c6xv-pppp-rjw6](https://github.com/cosmos/evm/security/advisories/GHSA-c6xv-pppp-rjw6) Refuse to self-destruct a contract that still has delegations, redelegations or unbonding delegations.
+- [GHSA-p8x8-4gg6-prcc](https://github.com/cosmos/evm/security/advisories/GHSA-p8x8-4gg6-prcc) Cap an internal EVM call's gas limit at the gas remaining on the transaction's gas meter, and charge the EVM gas it used to the Cosmos gas meter when the post-execution `StateDB` commit or flush fails.
+- [GHSA-wm4f-qpxp-rch4](https://github.com/cosmos/evm/security/advisories/GHSA-wm4f-qpxp-rch4) Check the precompile call limit before incrementing the counter and widen it to `uint64`, so rejected calls can no longer wrap it and reopen call slots. Reverted precompile calls still count against the limit.
+- [\#1277](https://github.com/cosmos/evm/pull/1277) Reject invalid addresses in `tx evm send` instead of silently building a `MsgSend` to a mangled recipient, and pass bech32 recipients through unchanged.
 
 ## v0.7.2
 
@@ -64,10 +71,6 @@ Follow the [migration document](docs/migrations/v0.6.x_to_v0.7.0.md) for upgrade
 
 ### BUG FIXES
 
-- [GHSA-7xxp-gq2c-x47x](https://github.com/cosmos/evm/security/advisories/GHSA-7xxp-gq2c-x47x) Reject EIP-712 signed transactions that set `timeout_timestamp`, `unordered`, a fee granter, or a fee payer, since these fields are excluded from the EIP-712 typed data and are not covered by the signature.
-- [GHSA-c6xv-pppp-rjw6](https://github.com/cosmos/evm/security/advisories/GHSA-c6xv-pppp-rjw6) Refuse to self-destruct a contract that still has delegations, redelegations or unbonding delegations.
-- [GHSA-p8x8-4gg6-prcc](https://github.com/cosmos/evm/security/advisories/GHSA-p8x8-4gg6-prcc) Cap an internal EVM call's gas limit at the gas remaining on the transaction's gas meter, and charge the EVM gas it used to the Cosmos gas meter when the post-execution `StateDB` commit or flush fails.
-- [GHSA-wm4f-qpxp-rch4](https://github.com/cosmos/evm/security/advisories/GHSA-wm4f-qpxp-rch4) Check the precompile call limit before incrementing the counter and widen it to `uint64`, so rejected calls can no longer wrap it and reopen call slots. Reverted precompile calls still count against the limit.
 - [\#1047](https://github.com/cosmos/evm/pull/1047) Resolve EthTxIndex -1 sentinel before uint cast in ReceiptsFromCometBlock, preventing transactionIndex overflow to MaxUint64.
 - [\#965](https://github.com/cosmos/evm/pull/965) Fix gas double charging on EVM calls in IBCOnTimeoutPacketCallback.
 - [\#869](https://github.com/cosmos/evm/pull/869) Fix erc20 IBC callbacks to check for native token transfer before parsing recipient.
