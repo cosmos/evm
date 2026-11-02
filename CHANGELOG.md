@@ -12,6 +12,9 @@
 
 ### BUG FIXES
 
+## v0.6.4
+
+### BUG FIXES
 - [GHSA-p8x8-4gg6-prcc](https://github.com/cosmos/evm/security/advisories/GHSA-p8x8-4gg6-prcc) Cap an internal EVM call's gas limit at the gas remaining on the transaction's gas meter, and charge the EVM gas it used to the Cosmos gas meter when the post-execution `StateDB` commit or flush fails.
 - [GHSA-7xxp-gq2c-x47x](https://github.com/cosmos/evm/security/advisories/GHSA-7xxp-gq2c-x47x) Reject EIP-712 signed transactions that set `timeout_timestamp`, `unordered`, a fee granter, or a fee payer, since these fields are excluded from the EIP-712 typed data and are not covered by the signature.
 - [GHSA-c6xv-pppp-rjw6](https://github.com/cosmos/evm/security/advisories/GHSA-c6xv-pppp-rjw6) Refuse to self-destruct a contract that still has delegations, redelegations or unbonding delegations.
