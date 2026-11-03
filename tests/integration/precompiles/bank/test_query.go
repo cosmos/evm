@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/precompiles/bank"
+	cmn "github.com/cosmos/evm/precompiles/common"
+	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	cosmosevmutiltx "github.com/cosmos/evm/testutil/tx"
 
@@ -24,7 +26,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 		name        string
 		malleate    func() []interface{}
 		expPass     bool
-		errContains string
+		wantErr     error
 		expBalances func(cosmosEVMAddr, xmplAddr common.Address) []bank.Balance
 	}{
 		{
@@ -35,7 +37,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 				}
 			},
 			false,
-			"invalid number of arguments",
+			cmn.NewRevertWithSolidityError(bank.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(2)),
 			nil,
 		},
 		{
@@ -46,7 +48,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 				}
 			},
 			false,
-			"invalid type for account",
+			cmn.NewRevertWithSolidityError(bank.ABI, cmn.SolidityErrInvalidAddress, "random text"),
 			nil,
 		},
 		{
@@ -57,7 +59,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 				}
 			},
 			true,
-			"",
+			nil,
 			func(common.Address, common.Address) []bank.Balance { return []bank.Balance{} },
 		},
 		{
@@ -68,7 +70,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 				}
 			},
 			true,
-			"",
+			nil,
 			func(cosmosEVMAddr, xmplAddr common.Address) []bank.Balance {
 				return []bank.Balance{
 					{
@@ -91,7 +93,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 				}
 			},
 			true,
-			"",
+			nil,
 			func(cosmosEVMAddr, xmplAddr common.Address) []bank.Balance {
 				return []bank.Balance{{
 					ContractAddress: cosmosEVMAddr,
@@ -108,11 +110,8 @@ func (s *PrecompileTestSuite) TestBalances() {
 		s.Run(tc.name, func() {
 			ctx = s.SetupTest() // reset the chain each test
 
-			bz, err := s.precompile.Balances(
-				ctx,
-				&method,
-				tc.malleate(),
-			)
+			args := tc.malleate()
+			bz, err := s.precompile.Balances(ctx, &method, args)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -121,7 +120,9 @@ func (s *PrecompileTestSuite) TestBalances() {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expBalances(s.cosmosEVMAddr, s.xmplAddr), balances)
 			} else {
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().Error(err)
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -190,11 +191,11 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 	xmplTotalSupply := totSupplRes.Supply.AmountOf(s.tokenDenom)
 
 	testcases := []struct {
-		name        string
-		malleate    func() []interface{}
-		expErr      bool
-		errContains string
-		expSupply   *big.Int
+		name      string
+		malleate  func() []interface{}
+		expErr    bool
+		wantErr   error
+		expSupply *big.Int
 	}{
 		{
 			"fail - invalid number of arguments",
@@ -204,7 +205,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 				}
 			},
 			true,
-			"invalid number of arguments",
+			cmn.NewRevertWithSolidityError(bank.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(3)),
 			nil,
 		},
 		{
@@ -215,7 +216,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 				}
 			},
 			true,
-			"invalid type for erc20Address",
+			cmn.NewRevertWithSolidityError(bank.ABI, cmn.SolidityErrInvalidAddress, "random text"),
 			nil,
 		},
 		{
@@ -226,7 +227,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 				}
 			},
 			false,
-			"",
+			nil,
 			big.NewInt(0),
 		},
 		{
@@ -237,7 +238,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 				}
 			},
 			false,
-			"",
+			nil,
 			xmplTotalSupply.BigInt(),
 		},
 
@@ -249,7 +250,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 				}
 			},
 			false,
-			"",
+			nil,
 			cosmosEVMTotalSupply.BigInt(),
 		},
 	}
@@ -258,15 +259,13 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 		s.Run(tc.name, func() {
 			ctx := s.SetupTest()
 
-			bz, err := s.precompile.SupplyOf(
-				ctx,
-				&method,
-				tc.malleate(),
-			)
+			args := tc.malleate()
+			bz, err := s.precompile.SupplyOf(ctx, &method, args)
 
 			if tc.expErr {
 				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				s.Require().NotNil(tc.wantErr)
+				precompiletestutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				out, err := method.Outputs.Unpack(bz)
 				s.Require().NoError(err, "expected no error unpacking")

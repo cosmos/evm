@@ -21,8 +21,9 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
+	f                   []byte
+	ABI                 abi.ABI
+	cosmosErrorRegistry *cmn.CosmosErrorRegistry
 )
 
 func init() {
@@ -31,6 +32,9 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	overrides := cmn.ApprovedOverrideDeclarations().ForABI("ERC20I")
+	overrides = append(overrides, cmn.ApprovedOverrideDeclarations().ForABI("IWERC20")...)
+	cosmosErrorRegistry = cmn.MustNewCosmosErrorRegistry(ABI, erc20.ErrorMappings(), cmn.SharedSDKErrorMappings(), overrides)
 }
 
 var _ vm.PrecompiledContract = &Precompile{}

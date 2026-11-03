@@ -1,13 +1,13 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
+const { DEFAULT_GAS_LIMIT, getRevertData, SLASHING_PRECOMPILE_ADDRESS } = require('../common');
 
 describe('Slashing – query methods', function () {
-    const SLASHING_ADDRESS = '0x0000000000000000000000000000000000000806';
     const CONS_ADDR = '0x020a0f48a2f4ce0f0cA6debF71DB83474dD717D0' // address derived from ed25519 pubkey which is placed in ~/.evmd/config/priv_validator_key.json
     let slashing;
 
     before(async function () {
-        slashing = await hre.ethers.getContractAt('ISlashing', SLASHING_ADDRESS);
+        slashing = await hre.ethers.getContractAt('ISlashing', SLASHING_PRECOMPILE_ADDRESS);
     });
 
     it('getSigningInfos returns list of signing info', async function () {
@@ -39,5 +39,15 @@ describe('Slashing – query methods', function () {
         expect(params.downtimeJailDuration).to.be.a('bigint');
         expect(params.slashFractionDoubleSign.value).to.be.a('bigint');
         expect(params.slashFractionDowntime.value).to.be.a('bigint');
+    });
+
+    it('decodes unjail custom error data', async function () {
+        try {
+            await slashing.unjail.estimateGas(hre.ethers.ZeroAddress, { gasLimit: DEFAULT_GAS_LIMIT });
+            expect.fail('unjail should have reverted');
+        } catch (error) {
+            const parsed = slashing.interface.parseError(getRevertData(error));
+            expect(parsed.name).to.equal('RequesterIsNotMsgSender');
+        }
     });
 });
