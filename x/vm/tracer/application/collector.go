@@ -35,12 +35,15 @@ type txTraceCollector struct {
 	code              func(common.Address) []byte
 	err               error
 	executionErr      error
+	rollbackVersion   uint64
 }
 
 type observationCall struct {
-	index  int
-	parent uint64
-	status vmtracer.CallStatus
+	index            int
+	parent           uint64
+	status           vmtracer.CallStatus
+	rollbackVersion  uint64
+	ancestorReverted bool
 }
 
 type observationSubscriber struct {
@@ -164,13 +167,17 @@ func (c *txTraceCollector) status(id uint64) vmtracer.CallStatus {
 		return vmtracer.CallStatus{}
 	}
 
+	// Only rollback changes a descendant's effective outcome. Cache that part
+	// separately so local exits remain visible without invalidating ancestors.
+	// Version zero needs no traversal: no call has reverted yet.
+	if f.rollbackVersion != c.rollbackVersion {
+		f.ancestorReverted = f.parent != 0 && c.status(f.parent).Reverted
+		f.rollbackVersion = c.rollbackVersion
+	}
 	result := f.status
-	for parent := f.parent; parent != 0; parent = c.calls[parent].parent {
-		if c.calls[parent].status.Reverted {
-			result.Reverted = true
-			result.Success = false
-			break
-		}
+	if f.ancestorReverted {
+		result.Reverted = true
+		result.Success = false
 	}
 
 	return result
@@ -208,15 +215,22 @@ func (c *txTraceCollector) Observe(fn vmtracer.Observer) (func(), error) {
 
 	c.nextSubscriber++
 	id := c.nextSubscriber
-	c.subscribers = append(c.subscribers, observationSubscriber{
+	// Published subscriber slices are immutable, including during callbacks.
+	subscribers := make([]observationSubscriber, len(c.subscribers)+1)
+	copy(subscribers, c.subscribers)
+	subscribers[len(c.subscribers)] = observationSubscriber{
 		id: id,
 		fn: fn,
-	})
+	}
+	c.subscribers = subscribers
 
 	return func() {
 		for i, sub := range c.subscribers {
 			if sub.id == id {
-				c.subscribers = append(c.subscribers[:i], c.subscribers[i+1:]...)
+				remaining := make([]observationSubscriber, len(c.subscribers)-1)
+				copy(remaining, c.subscribers[:i])
+				copy(remaining[i:], c.subscribers[i+1:])
+				c.subscribers = remaining
 				return
 			}
 		}
@@ -278,7 +292,7 @@ func (c *txTraceCollector) emitObservation(e vmtracer.Observation) {
 	e.Status = c.status(e.CallID)
 	e = cloneObservation(e)
 	c.events = append(c.events, e)
-	subscribers := append([]observationSubscriber(nil), c.subscribers...)
+	subscribers := c.subscribers
 
 	for _, sub := range subscribers {
 		c.LatchError(sub.fn(cloneObservation(e)))
@@ -388,6 +402,9 @@ func (c *txTraceCollector) onExit(_ int, output []byte, gas uint64, err error, r
 		Success:  err == nil && !reverted,
 		Reverted: reverted,
 		Error:    err,
+	}
+	if reverted {
+		c.rollbackVersion++
 	}
 
 	c.emitObservation(vmtracer.Observation{
