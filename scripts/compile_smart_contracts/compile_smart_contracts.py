@@ -56,7 +56,7 @@ IGNORED_FOLDERS: List[str] = [
     "tests/solidity",
     # We don't want to copy anything that has already been copied into the
     # contracts subdirectory, but we do want to have the ones stored there originally.
-    rf"{RELATIVE_TARGET}/\w+",
+    rf"{RELATIVE_TARGET.as_posix()}/\w+",
 ]
 
 
@@ -145,7 +145,7 @@ def is_ignored_folder(path: str) -> bool:
     Check if the folder is in the list of ignored folders.
     """
 
-    return any(re.search(folder, path) for folder in IGNORED_FOLDERS)
+    return any(re.search(folder, path.replace("\\", "/")) for folder in IGNORED_FOLDERS)
 
 
 def is_ignored_file(file_path: Path, repo_path: Path) -> bool:
@@ -158,7 +158,7 @@ def is_ignored_file(file_path: Path, repo_path: Path) -> bool:
     for ignored_pattern in IGNORED_FILES:
         # Check if it's a regex pattern (contains regex metacharacters)
         if any(char in ignored_pattern for char in r".*+?^${}[]|()\\"):
-            if re.search(ignored_pattern, str(relative_path)):
+            if re.search(ignored_pattern, relative_path.as_posix()):
                 return True
         else:
             # Simple filename match
@@ -226,18 +226,19 @@ def compile_contracts_in_dir(target_dir: Path):
 
     # Change to the root directory of the hardhat setup to compile.
     os.chdir(target_dir.parent)
-    if not os.path.exists("hardhat.config.js"):
-        raise ValueError("compilation can only work in a HardHat setup")
+    try:
+        if not os.path.exists("hardhat.config.js"):
+            raise ValueError("compilation can only work in a HardHat setup")
 
-    install_failed = os.system("npm install")
-    if install_failed:
-        raise ValueError("Failed to install npm packages.")
+        install_failed = os.system("npm install")
+        if install_failed:
+            raise ValueError("Failed to install npm packages.")
 
-    compilation_failed = os.system("npx hardhat compile")
-    if compilation_failed:
-        raise ValueError("Failed to compile Solidity contracts.")
-
-    os.chdir(cur_dir)
+        compilation_failed = os.system("npx hardhat compile")
+        if compilation_failed:
+            raise ValueError("Failed to compile Solidity contracts.")
+    finally:
+        os.chdir(cur_dir)
 
 
 def copy_compiled_contracts_back_to_source(
