@@ -268,3 +268,51 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		})
 	}
 }
+
+func TestDynamicFeeCheckerNearMaxTip(t *testing.T) {
+	chainID := uint64(testconstants.EighteenDecimalsChainID)
+	encodingConfig := encoding.MakeConfig(chainID) //nolint:staticcheck // this is used
+
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	require.NoError(t, configurator.
+		WithExtendedEips(evmtypes.DefaultCosmosEVMActivators).
+		WithEVMCoinInfo(testconstants.ChainsCoinInfo[chainID]).
+		Configure())
+	require.NoError(t, evmtypes.SetChainConfig(evmtypes.DefaultChainConfig(chainID)))
+
+	// tip 1 below LegacyDec's upper limit: in range at base fee 1,
+	// overflows LegacyDec at base fee 2.
+	nearMaxTip := math.LegacyMustNewDecFromStr(new(big.Int).Sub(
+		new(big.Int).Lsh(big.NewInt(1), 256),
+		big.NewInt(1),
+	).String() + ".999999999999999999").Sub(math.LegacyNewDec(1))
+
+	buildTx := func() sdk.FeeTx {
+		txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
+		txBuilder.SetGasLimit(1)
+		txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10))))
+
+		option, err := codectypes.NewAnyWithValue(&types.ExtensionOptionDynamicFeeTx{
+			MaxPriorityPrice: nearMaxTip,
+		})
+		require.NoError(t, err)
+		txBuilder.SetExtensionOptions(option)
+		return txBuilder.GetTx()
+	}
+
+	ctx := sdk.NewContext(nil, tmproto.Header{Height: 1}, false, log.NewNopLogger())
+
+	acceptParams := feemarkettypes.Params{}
+	acceptParams.BaseFee = math.LegacyNewDec(1)
+	fees, _, err := evm.NewDynamicFeeChecker(&acceptParams)(ctx, buildTx())
+	require.NoError(t, err)
+	require.Equal(t, "10aatom", fees.String())
+
+	// raised base fee
+	recheckParams := feemarkettypes.Params{}
+	recheckParams.BaseFee = math.LegacyNewDec(2)
+	fees, _, err = evm.NewDynamicFeeChecker(&recheckParams)(ctx, buildTx())
+	require.NoError(t, err)
+	require.Equal(t, "10aatom", fees.String())
+}
