@@ -56,6 +56,16 @@ func TestAttachTracerManager(t *testing.T) {
 	require.Same(t, cacheStore, cacheCtx.MultiStore())
 	require.Same(t, cacheEvents, cacheCtx.EventManager())
 	require.Same(t, cacheGasMeter, cacheCtx.GasMeter())
+
+	db.AttachTracerManager(nil)
+	_, ok = vmtracer.FromContext(db.GetContext())
+	require.False(t, ok)
+	require.Same(t, baseValue, db.GetContext().Value(baseValueKey))
+	cacheCtx, err = db.GetCacheContext()
+	require.NoError(t, err)
+	_, ok = vmtracer.FromContext(cacheCtx)
+	require.False(t, ok)
+	require.Same(t, cacheStore, cacheCtx.MultiStore())
 }
 
 func TestStateDBObservationsPreserveRevertedFacts(t *testing.T) {

@@ -502,7 +502,7 @@ func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tr
 		return uint256.Int{}
 	}
 	previous := stateObject.AddBalance(amount)
-	s.traceBalance(addr, previous.ToBig(), stateObject.Balance().ToBig(), reason)
+	s.traceBalance(addr, &previous, stateObject.Balance(), reason)
 	return previous
 }
 
@@ -516,7 +516,7 @@ func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tr
 		return *(stateObject.Balance())
 	}
 	previous := stateObject.SubBalance(amount)
-	s.traceBalance(addr, previous.ToBig(), stateObject.Balance().ToBig(), reason)
+	s.traceBalance(addr, &previous, stateObject.Balance(), reason)
 	return previous
 }
 
@@ -552,7 +552,7 @@ func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tr
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
 		previous := stateObject.SetBalance(amount)
-		s.traceBalance(addr, previous.ToBig(), stateObject.Balance().ToBig(), reason)
+		s.traceBalance(addr, &previous, stateObject.Balance(), reason)
 	}
 }
 
