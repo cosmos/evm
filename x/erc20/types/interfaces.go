@@ -4,6 +4,14 @@ import (
 	"context"
 	"math/big"
 
+	"cosmossdk.io/core/address"
+	"cosmossdk.io/log/v2"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v11/modules/core/exported"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -11,16 +19,6 @@ import (
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v11/modules/core/exported"
-
-	"cosmossdk.io/core/address"
-	"cosmossdk.io/log/v2"
-
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // AccountKeeper defines the expected interface needed to retrieve account info.
@@ -47,6 +45,7 @@ type EVMKeeper interface {
 	IsAvailableStaticPrecompile(params *evmtypes.Params, address common.Address) bool
 	CallEVM(ctx sdk.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
 	CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from common.Address, contract *common.Address, data []byte, commit bool, callFromPrecompile bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
+	CallEVMViewWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetCode(ctx sdk.Context, hash common.Hash) []byte
 	SetCode(ctx sdk.Context, hash []byte, bytecode []byte)
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error

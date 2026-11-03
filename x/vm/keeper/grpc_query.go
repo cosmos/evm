@@ -8,6 +8,10 @@ import (
 	"math/big"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -21,19 +25,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
-
-	sdkmath "cosmossdk.io/math"
-
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var _ types.QueryServer = Keeper{}
@@ -289,10 +286,11 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (_ *types.
 
 	msg := args.ToMessage(cfg.BaseFee, false, false)
 	txConfig := statedb.NewEmptyTxConfig()
+	ctx, tracingHooks := k.prepareTracing(ctx, *msg, txConfig, false)
 
 	// pass false to not commit StateDB
 	stateDB := statedb.New(ctx, &k, txConfig)
-	res, err := k.ApplyMessageWithConfig(ctx, stateDB, *msg, nil, false, false, cfg, txConfig, false, overrides)
+	res, err := k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracingHooks, false, false, cfg, txConfig, false, overrides)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -442,8 +440,9 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit)
 		}
 		// pass false to not commit StateDB
+		tmpCtx, tracingHooks := k.prepareTracing(tmpCtx, *msg, txConfig, false)
 		stateDB := statedb.New(tmpCtx, &k, txConfig)
-		rsp, err = k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, nil, false, false, cfg, txConfig, false, overrides)
+		rsp, err = k.ApplyMessageWithConfig(tmpCtx, stateDB, *msg, tracingHooks, false, false, cfg, txConfig, false, overrides)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -602,8 +601,9 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 		ctx = buildTraceCtx(ctx, msg.GasLimit)
 		// we ignore the error here. this endpoint, ideally, is called internally from the ETH backend, which will call this query
 		// using all previous txs in the trace transaction's block. some of those _could_ be invalid transactions.
-		stateDB := statedb.New(ctx, &k, txConfig)
-		rsp, _ := k.ApplyMessageWithConfig(ctx, stateDB, *msg, nil, true, false, cfg, txConfig, false, nil)
+		replayCtx, tracingHooks := k.prepareTracing(ctx, *msg, txConfig, true)
+		stateDB := statedb.New(replayCtx, &k, txConfig)
+		rsp, _ := k.ApplyMessageWithConfig(replayCtx, stateDB, *msg, tracingHooks, true, false, cfg, txConfig, false, nil)
 		if rsp != nil {
 			ctx.GasMeter().ConsumeGas(rsp.GasUsed, "evm predecessor tx")
 		}
@@ -901,8 +901,9 @@ func (k *Keeper) traceTxWithMsg(
 
 	// Build EVM execution context
 	ctx = buildTraceCtx(ctx, msg.GasLimit)
+	ctx, tracingHooks := k.prepareTracingWithBase(ctx, *msg, txConfig, commitMessage, tracer.Hooks)
 	stateDB := statedb.New(ctx, k, txConfig)
-	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracer.Hooks, commitMessage, false, cfg, txConfig, false, nil)
+	_, err = k.ApplyMessageWithConfig(ctx, stateDB, *msg, tracingHooks, commitMessage, false, cfg, txConfig, false, nil)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -3,6 +3,10 @@ package erc20
 import (
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 
@@ -13,11 +17,6 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	erc20mocks "github.com/cosmos/evm/x/erc20/types/mocks"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 const (
@@ -168,7 +167,7 @@ func (s *KeeperTestSuite) TestRegisterERC20() {
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockEVMKeeper.On("EstimateGasInternal", mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.EstimateGasResponse{Gas: uint64(200)}, nil)
-				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced CallEVM error"))
+				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(nil, fmt.Errorf("forced CallEVM error"))
 				mockEVMKeeper.On("ApplyMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 			},
 			s.keyring.GetAccAddr(0).String(),
