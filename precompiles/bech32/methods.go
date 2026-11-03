@@ -94,7 +94,7 @@ func (Precompile) Bech32ToHex(
 	// common.BytesToAddress would keep only the last 20 bytes of a longer address
 	// (or left-pad a shorter one), returning an unrelated address.
 	if len(addressBz) != common.AddressLength {
-		return nil, fmt.Errorf("invalid bech32 address length: expected %d bytes, got %d", common.AddressLength, len(addressBz))
+		return nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddressLength, big.NewInt(common.AddressLength), big.NewInt(int64(len(addressBz))))
 	}
 
 	return method.Outputs.Pack(common.BytesToAddress(addressBz))

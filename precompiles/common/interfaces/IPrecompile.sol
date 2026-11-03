@@ -5,6 +5,7 @@ pragma solidity >=0.8.17;
 interface IPrecompile {
     error RequesterIsNotMsgSender(address msgSender, address requester);
     error InvalidAddress(string bad);
+    error InvalidAddressLength(uint256 expected, uint256 actual);
     error InvalidAmount(string amount);
     error InvalidHeight(string height);
     error InvalidPubkey(string pubkey);

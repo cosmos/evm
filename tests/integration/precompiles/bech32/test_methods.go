@@ -208,7 +208,7 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			func([]byte) {},
 			true,
 			func() error {
-				return fmt.Errorf("invalid bech32 address length: expected %d bytes, got %d", common.AddressLength, 32)
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddressLength, big.NewInt(20), big.NewInt(32))
 			},
 		},
 		{
@@ -222,7 +222,7 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			func([]byte) {},
 			true,
 			func() error {
-				return fmt.Errorf("invalid bech32 address length: expected %d bytes, got %d", common.AddressLength, 19)
+				return cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddressLength, big.NewInt(20), big.NewInt(19))
 			},
 		},
 		{

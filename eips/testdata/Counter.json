@@ -37,5 +37,5 @@
   "deployedLinkReferences": {},
   "immutableReferences": {},
   "inputSourceName": "project/solidity/eips/testdata/Counter.sol",
-  "buildInfoId": "solc-0_8_26-e6e1f2543c7935876479bdf15633501728e9acbe"
+  "buildInfoId": "solc-0_8_26-38afbc75c0ccdc29b8e40aaf21386bd734a9f873"
 }

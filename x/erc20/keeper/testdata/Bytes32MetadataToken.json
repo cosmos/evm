@@ -564,5 +564,5 @@
   "deployedLinkReferences": {},
   "immutableReferences": {},
   "inputSourceName": "project/solidity/x/erc20/keeper/testdata/Bytes32MetadataToken.sol",
-  "buildInfoId": "solc-0_4_22-c2ca4723fc9f314f95b3b254c471e2775e030459"
+  "buildInfoId": "solc-0_4_22-cd61955bbb80e771f647cb7ce87dc365e74407be"
 }

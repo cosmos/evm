@@ -44,6 +44,8 @@ const (
 	SolidityErrInvalidPageRequest = "InvalidPageRequest"
 	// SolidityErrInvalidAddress is invalid address
 	SolidityErrInvalidAddress = "InvalidAddress"
+	// SolidityErrInvalidAddressLength is invalid address length
+	SolidityErrInvalidAddressLength = "InvalidAddressLength"
 	// SolidityErrInvalidAmount is invalid amount
 	SolidityErrInvalidAmount = "InvalidAmount"
 	// SolidityErrRequesterIsNotMsgSender is requester is not msg sender

@@ -121,6 +121,21 @@ func (s *PrecompileTestSuite) TestRun() {
 			),
 		},
 		{
+			"fail - bech32 to hex 32-byte address",
+			func() *vm.Contract {
+				input, err := s.precompile.Pack(
+					bech32.Bech32ToHexMethod,
+					sdk.AccAddress(make([]byte, 32)).String(),
+				)
+				s.Require().NoError(err, "failed to pack input")
+				contract.Input = input
+				return contract
+			},
+			func([]byte) {},
+			false,
+			cmn.NewRevertWithSolidityError(bech32.ABI, cmn.SolidityErrInvalidAddressLength, big.NewInt(20), big.NewInt(32)),
+		},
+		{
 			"pass - hex to bech32 account (cosmos)",
 			func() *vm.Contract {
 				input, err := s.precompile.Pack(
