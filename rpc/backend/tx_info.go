@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -155,20 +156,24 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, fmt.Errorf("block not found at height %d: %w", res.Height, err)
 	}
 
-	tx, err := b.ClientCtx.TxConfig.TxDecoder()(resBlock.Block.Txs[res.TxIndex])
-	if err != nil {
-		b.Logger.Debug("decoding failed", "error", err.Error())
-		return nil, fmt.Errorf("failed to decode tx: %w", err)
-	}
-
 	blockRes, err := b.RPCClient.BlockResults(ctx, &res.Height)
 	if err != nil {
 		b.Logger.Debug("failed to retrieve block results", "height", res.Height, "error", err.Error())
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
-	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
-	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
+	// cumulativeGasUsed and the transaction index depend on the eth txs that
+	// precede this one in the block, so build the receipts up to and including it.
+	msgs := b.EthMsgsFromCometBlock(ctx, resBlock, blockRes)
+	idx := slices.IndexFunc(msgs, func(msg *evmtypes.MsgEthereumTx) bool {
+		return msg.Hash() == hash
+	})
+	if idx < 0 {
+		return nil, fmt.Errorf("tx %s not found in block %d", hexTx, res.Height)
+	}
+	ethMsg := msgs[idx]
+
+	receipts, err := b.ReceiptsFromCometBlock(ctx, resBlock, blockRes, msgs[:idx+1])
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
@@ -185,7 +190,7 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 		return nil, fmt.Errorf("failed to get sender: %w", err)
 	}
 
-	return rpctypes.RPCMarshalReceipt(receipts[0], ethTx, from)
+	return rpctypes.RPCMarshalReceipt(receipts[idx], ethTx, from)
 }
 
 // GetTransactionLogs returns the transaction logs identified by hash.
