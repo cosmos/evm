@@ -294,7 +294,7 @@ func currentBaseFee(blockchain *Blockchain) *uint256.Int {
 		return nil
 	}
 
-	header := blockchain.CurrentBlock()
+	header := blockchain.PinnedHeader()
 	if header == nil || header.BaseFee == nil {
 		return nil
 	}
