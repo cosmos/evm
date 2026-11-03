@@ -23,6 +23,77 @@ func (_m *StakingKeeper) BondDenom(ctx context.Context) (string, error) {
 	return "aatom", nil
 }
 
+// GetAllUnbondingDelegations provides a mock function with given fields: ctx, delegator
+func (_m *StakingKeeper) GetAllDelegatorDelegations(ctx context.Context, delegator cosmos_sdktypes.AccAddress) ([]types.Delegation, error) {
+	ret := _m.Called(ctx, delegator)
+
+	if len(ret) == 0 {
+		panic("No return value specified for GetAllDelegatorDelegations")
+	}
+
+	var r0 []types.Delegation
+	if rf, ok := ret.Get(0).(func(context.Context, cosmos_sdktypes.AccAddress) []types.Delegation); ok {
+		r0 = rf(ctx, delegator)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Delegation)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, cosmos_sdktypes.AccAddress) error); ok {
+		r1 = rf(ctx, delegator)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+func (_m *StakingKeeper) GetRedelegations(ctx context.Context, delegator cosmos_sdktypes.AccAddress, maxRetrieve uint16) ([]types.Redelegation, error) {
+	ret := _m.Called(ctx, delegator, maxRetrieve)
+
+	if len(ret) == 0 {
+		panic("No return value specified for GetRedelegations")
+	}
+
+	var r0 []types.Redelegation
+	if rf, ok := ret.Get(0).(func(context.Context, cosmos_sdktypes.AccAddress, uint16) []types.Redelegation); ok {
+		r0 = rf(ctx, delegator, maxRetrieve)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Redelegation)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, cosmos_sdktypes.AccAddress, uint16) error); ok {
+		r1 = rf(ctx, delegator, maxRetrieve)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+func (_m *StakingKeeper) GetAllUnbondingDelegations(ctx context.Context, delegator cosmos_sdktypes.AccAddress) ([]types.UnbondingDelegation, error) {
+	ret := _m.Called(ctx, delegator)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllUnbondingDelegations")
+	}
+
+	var r0 []types.UnbondingDelegation
+	var r1 error
+	if toReturn, ok := ret.Get(0).([]types.UnbondingDelegation); ok {
+		r0 = toReturn
+	}
+	if toReturn, ok := ret.Get(1).(error); ok {
+		r1 = toReturn
+	}
+	return r0, r1
+}
+
 // GetHistoricalInfo provides a mock function with given fields: ctx, height
 func (_m *StakingKeeper) GetHistoricalInfo(ctx context.Context, height int64) (types.HistoricalInfo, error) {
 	ret := _m.Called(ctx, height)
