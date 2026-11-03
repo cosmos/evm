@@ -6,6 +6,9 @@ import (
 	"slices"
 	"sort"
 
+	errorsmod "cosmossdk.io/errors"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/stateless"
@@ -20,11 +23,6 @@ import (
 	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
 	vmstoretypes "github.com/cosmos/evm/x/vm/store/types"
 	"github.com/cosmos/evm/x/vm/types"
-
-	errorsmod "cosmossdk.io/errors"
-
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // revision is the identifier of a version of state.
@@ -260,6 +258,9 @@ func (s *StateDB) AddLog(log *ethtypes.Log) {
 	log.TxIndex = s.txConfig.TxIndex
 	log.Index = uint(len(s.logs))
 	s.logs = append(s.logs, log)
+	if hooks := s.tracingHooks(); hooks != nil && hooks.OnLog != nil {
+		hooks.OnLog(log)
+	}
 }
 
 // Logs returns the logs of current transaction.
@@ -500,7 +501,9 @@ func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tr
 	if stateObject == nil {
 		return uint256.Int{}
 	}
-	return stateObject.AddBalance(amount)
+	previous := stateObject.AddBalance(amount)
+	s.traceBalance(addr, previous.ToBig(), stateObject.Balance().ToBig(), reason)
+	return previous
 }
 
 // SubBalance subtracts amount from the account associated with addr.
@@ -512,7 +515,9 @@ func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tr
 	if amount.IsZero() {
 		return *(stateObject.Balance())
 	}
-	return stateObject.SubBalance(amount)
+	previous := stateObject.SubBalance(amount)
+	s.traceBalance(addr, previous.ToBig(), stateObject.Balance().ToBig(), reason)
+	return previous
 }
 
 // SetNonce sets the nonce of account.
@@ -546,7 +551,8 @@ func (s *StateDB) SetState(addr common.Address, key, value common.Hash) common.H
 func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetBalance(amount)
+		previous := stateObject.SetBalance(amount)
+		s.traceBalance(addr, previous.ToBig(), stateObject.Balance().ToBig(), reason)
 	}
 }
 

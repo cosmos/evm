@@ -4,6 +4,13 @@ import (
 	"encoding/binary"
 	"math/big"
 
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log/v2"
+	"cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -18,17 +25,9 @@ import (
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
+	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
-
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log/v2"
-	"cosmossdk.io/math"
-
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var tracer = otel.Tracer("evm/x/vm/keeper")
@@ -74,6 +73,8 @@ type Keeper struct {
 
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
+	// applicationTracerFactories create application-provided, per-execution tracers.
+	applicationTracerFactories []vmtracer.ApplicationTracerFactory
 
 	hooks types.EvmHooks
 	// EVM Hooks for tx post-processing
