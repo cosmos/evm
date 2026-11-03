@@ -21,14 +21,37 @@ type testExecutionTracer struct {
 
 func (t *testExecutionTracer) Hooks() *tracing.Hooks { return t.hooks }
 
-func TestPrepareTracingCreatesManagerWithoutApplicationFactories(t *testing.T) {
+func TestPrepareTracingSkipsManagerWithoutTracers(t *testing.T) {
 	k := Keeper{}
 	ctx := sdk.Context{}.WithContext(context.Background())
 
 	actualCtx, hooks := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	require.Nil(t, hooks)
+	_, ok := vmtracer.FromContext(actualCtx)
+	require.False(t, ok)
+	require.Equal(t, ctx, actualCtx)
+}
+
+func TestPrepareTracingWithoutTracersDetachesInheritedManager(t *testing.T) {
+	k := Keeper{}
+	ctx := vmtracer.WithManager(sdk.Context{}.WithContext(context.Background()), vmtracer.New(nil))
+	actualCtx, hooks := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	require.Nil(t, hooks)
+	_, ok := vmtracer.FromContext(actualCtx)
+	require.False(t, ok)
+}
+
+func TestPrepareTracingWithBaseCreatesManagerWithoutFactories(t *testing.T) {
+	k := Keeper{}
+	ctx := sdk.Context{}.WithContext(context.Background())
+	calls := 0
+	base := &tracing.Hooks{OnEnter: func(int, byte, common.Address, common.Address, []byte, uint64, *big.Int) { calls++ }}
+	actualCtx, hooks := k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false, base)
 	require.NotNil(t, hooks)
 	_, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)
+	hooks.OnEnter(0, 0, common.Address{}, common.Address{}, nil, 0, nil)
+	require.Equal(t, 1, calls)
 }
 
 func TestPrepareTracingInstallsApplicationFactories(t *testing.T) {

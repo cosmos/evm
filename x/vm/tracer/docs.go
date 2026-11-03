@@ -7,8 +7,9 @@
 //		myPolicyTracerFactory,
 //	)
 //
-// Each top-level EVM execution receives a new Manager. Nested CallEVM calls
-// reuse that manager, while CallEVMViewWithData starts an isolated lifecycle.
+// When tracing is configured, each top-level execution receives a new Manager.
+// Nested CallEVM calls reuse that manager, while CallEVMViewWithData starts
+// an isolated lifecycle.
 // A post-transaction hook can read the built-in collector with:
 //
 //	observations, err := application.GetTxTrace(

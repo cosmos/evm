@@ -77,7 +77,9 @@ func (k *Keeper) newEVMWithOverridePrecompiles(
 	if manager, ok := vmtracer.FromContext(ctx); ok {
 		blockCtx.Transfer = func(db vm.StateDB, from, to common.Address, amount *uint256.Int, rules *params.Rules) {
 			core.Transfer(db, from, to, amount, rules)
-			manager.RecordNativeTransfer(from, to, amount.ToBig())
+			if manager.Journal() != nil && !amount.IsZero() {
+				manager.RecordNativeTransfer(from, to, amount.ToBig())
+			}
 		}
 	}
 

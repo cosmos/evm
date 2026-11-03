@@ -40,6 +40,13 @@ func (k Keeper) prepareTracingWithBase(
 	commit bool,
 	base *tracing.Hooks,
 ) (sdk.Context, *tracing.Hooks) {
+	if base == nil && len(k.applicationTracerFactories) == 0 {
+		// A top-level execution must not inherit a previous execution's manager.
+		if _, ok := vmtracer.FromContext(ctx); ok {
+			ctx = vmtracer.WithoutManager(ctx)
+		}
+		return ctx, nil
+	}
 	manager := vmtracer.New(base)
 	ctx = vmtracer.WithManager(ctx, manager)
 	execution := vmtracer.ExecutionInfo{
