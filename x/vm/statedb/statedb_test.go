@@ -196,6 +196,51 @@ func (suite *StateDBTestSuite) TestSubBalanceUnderflowPanics() {
 	})
 }
 
+// TestCreateAccountBlocksNonBaseAccountTypes partitions StateDB.CreateAccount
+// by what's already at the target address: no account, an empty BaseAccount,
+// a funded BaseAccount (the counterfactual-wallet boundary case), and an
+// address whose underlying Cosmos account is not a BaseAccount at all
+// (simulating a staged vesting/module account). Only the last must panic
+func (suite *StateDBTestSuite) TestCreateAccountBlocksNonBaseAccountTypes() {
+	testCases := []struct {
+		name        string
+		malleate    func(*mocks.EVMKeeper, common.Address)
+		expectPanic bool
+	}{
+		{"no account", func(*mocks.EVMKeeper, common.Address) {}, false},
+		{"empty BaseAccount", func(k *mocks.EVMKeeper, addr common.Address) {
+			err := k.SetAccount(sdk.Context{}, addr, statedb.Account{Balance: uint256.NewInt(0), CodeHash: mocks.EmptyCodeHash})
+			suite.Require().NoError(err)
+		}, false},
+		{"funded BaseAccount", func(k *mocks.EVMKeeper, addr common.Address) {
+			err := k.SetAccount(sdk.Context{}, addr, statedb.Account{Balance: uint256.NewInt(100), CodeHash: mocks.EmptyCodeHash})
+			suite.Require().NoError(err)
+		}, false},
+		{"non-BaseAccount type present", func(k *mocks.EVMKeeper, addr common.Address) {
+			err := k.SetAccount(sdk.Context{}, addr, statedb.Account{Balance: uint256.NewInt(2), CodeHash: mocks.EmptyCodeHash})
+			suite.Require().NoError(err)
+			k.SetBlockedAccountType(addr, true)
+		}, true},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			keeper := mocks.NewEVMKeeper()
+			addr := common.BigToAddress(big.NewInt(200))
+			tc.malleate(keeper, addr)
+
+			db := statedb.New(newTestCtx(), keeper, emptyTxConfig)
+			createAccount := func() { db.CreateAccount(addr) }
+
+			if tc.expectPanic {
+				suite.Require().Panics(createAccount)
+			} else {
+				suite.Require().NotPanics(createAccount)
+			}
+		})
+	}
+}
+
 func (suite *StateDBTestSuite) TestState() {
 	key1 := common.BigToHash(big.NewInt(1))
 	value1 := common.BigToHash(big.NewInt(1))

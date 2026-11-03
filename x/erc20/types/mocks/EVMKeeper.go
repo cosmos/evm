@@ -341,6 +341,24 @@ func (_m *EVMKeeper) IsContract(ctx types.Context, address common.Address) bool 
 	return r0
 }
 
+// IsBaseAccountOrEmpty provides a mock function with given fields: ctx, addr
+func (_m *EVMKeeper) IsBaseAccountOrEmpty(ctx types.Context, addr common.Address) bool {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsBaseAccountOrEmpty")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address) bool); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // KVStoreKeys provides a mock function with no fields
 func (_m *EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	ret := _m.Called()
