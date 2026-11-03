@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -204,4 +205,98 @@ func TestObserveRejectsIncompleteJournal(t *testing.T) {
 	require.ErrorContains(t, err, "budget")
 	require.ErrorContains(t, m.ExecutionError(), "budget")
 	require.False(t, called)
+}
+
+func TestObservationStatusUpdatesAfterAncestorRollback(t *testing.T) {
+	m, c := rawManager(t, 100)
+	hooks := m.Hooks()
+	for depth := 0; depth < 3; depth++ {
+		hooks.OnEnter(depth, byte(vm.CALL), common.Address{}, common.Address{}, nil, 100, nil)
+	}
+	hooks.OnExit(2, nil, 1, nil, false)
+	before := c.Observations()
+	require.True(t, before[2].Status.Success)
+	require.True(t, before[3].Status.Exited)
+
+	hooks.OnExit(1, nil, 2, vm.ErrExecutionReverted, true)
+	afterChildRevert := c.Observations()
+	require.True(t, afterChildRevert[2].Status.Reverted)
+	require.False(t, afterChildRevert[2].Status.Success)
+	// Local child success and effective ancestor rollback remain separate facts.
+	require.NoError(t, afterChildRevert[3].Err)
+	require.False(t, afterChildRevert[3].Reverted)
+
+	hooks.OnEnter(1, byte(vm.CALL), common.Address{}, common.Address{}, nil, 100, nil)
+	current, ok := c.CurrentCall()
+	require.True(t, ok)
+	require.Equal(t, uint64(4), current.CallID)
+	require.False(t, current.Status.Reverted)
+	hooks.OnExit(1, nil, 1, nil, false)
+	afterSibling := c.Observations()
+	require.True(t, afterSibling[len(afterSibling)-1].Status.Success)
+	hooks.OnExit(0, nil, 4, vm.ErrExecutionReverted, true)
+	for _, e := range c.Observations() {
+		require.True(t, e.Status.Reverted)
+		require.False(t, e.Status.Success)
+	}
+	// Earlier snapshots retain their status even after later rollbacks.
+	require.True(t, before[2].Status.Success)
+	require.True(t, afterSibling[len(afterSibling)-1].Status.Success)
+
+	hooks.OnEnter(0, byte(vm.CALL), common.Address{}, common.Address{}, nil, 100, nil)
+	hooks.OnExit(0, nil, 1, nil, false)
+	final := c.Observations()
+	require.True(t, final[len(final)-1].Status.Success)
+	require.NoError(t, c.Error())
+}
+
+func TestObserverChangesPreserveInFlightDispatch(t *testing.T) {
+	m, c := rawManager(t, 100)
+	from, to := common.Address{1}, common.Address{2}
+	m.Hooks().OnEnter(0, byte(vm.CALL), from, to, nil, 100, nil)
+	var calls []string
+	record := func(name string, e vmtracer.Observation) {
+		calls = append(calls, fmt.Sprintf("%s:%d", name, e.ObservationID))
+		require.Equal(t, int64(7), e.Amount.Int64())
+	}
+	var stopFirst, stopSecond func()
+	var err error
+	stopFirst, err = c.Observe(func(e vmtracer.Observation) error {
+		record("first", e)
+		stopFirst()
+		stopFirst()
+		stopSecond()
+		_, err := c.Observe(func(e vmtracer.Observation) error {
+			record("added", e)
+			return nil
+		})
+		require.NoError(t, err)
+		// The reentrant event sees the new list; the enclosing event keeps its
+		// original snapshot, including the observer that was just removed.
+		c.RecordNativeTransfer(from, to, big.NewInt(7))
+		return nil
+	})
+	require.NoError(t, err)
+	rejection := errors.New("removed observer rejected current event")
+	stopSecond, err = c.Observe(func(e vmtracer.Observation) error {
+		record("second", e)
+		e.Amount.SetInt64(99)
+		return rejection
+	})
+	require.NoError(t, err)
+	_, err = c.Observe(func(e vmtracer.Observation) error {
+		record("third", e)
+		return nil
+	})
+	require.NoError(t, err)
+	c.RecordNativeTransfer(from, to, big.NewInt(7))
+	c.RecordNativeTransfer(from, to, big.NewInt(7))
+	require.Equal(t, []string{
+		"first:2", "third:3", "added:3", "second:2", "third:2",
+		"third:4", "added:4",
+	}, calls)
+	require.ErrorIs(t, c.ExecutionError(), rejection)
+	for _, e := range c.Observations()[1:] {
+		require.Equal(t, int64(7), e.Amount.Int64())
+	}
 }
