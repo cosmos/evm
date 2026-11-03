@@ -2,8 +2,6 @@ package backend
 
 import (
 	"context"
-	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -59,27 +57,17 @@ func (b *Backend) GetProof(ctx context.Context, address common.Address, storageK
 		return nil, err
 	}
 
-	height := int64(blockNum)
-
-	_, err = b.CometHeaderByNumber(ctx, blockNum)
-	if err != nil {
+	// Resolve the block number (including the "latest", "pending", "earliest"
+	// tags, which are negative sentinels) to the concrete CometBFT height of
+	// the header, so that the proof query below is always made against a real
+	// height.
+	resHeader, err := b.CometHeaderByNumber(ctx, blockNum)
+	if err != nil || resHeader == nil || resHeader.Header == nil {
 		// the error message imitates geth behavior
 		return nil, errors.New("header not found")
 	}
 
-	// if the height is equal to zero, meaning the query condition of the block is either "pending" or "latest"
-	if height == 0 {
-		bn, err := b.BlockNumber(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		if bn > math.MaxInt64 {
-			return nil, fmt.Errorf("not able to query block number greater than MaxInt64")
-		}
-
-		height = int64(bn) //#nosec G115 -- checked for int overflow already
-	}
+	height := resHeader.Header.Height
 
 	ctx = rpctypes.ContextWithHeight(ctx, height)
 	clientCtx := b.ClientCtx.WithHeight(height).WithCmdContext(ctx)
