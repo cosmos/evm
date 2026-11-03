@@ -157,7 +157,7 @@ func (a *API) TraceBlock(ctx context.Context, tblockRlp hexutil.Bytes, config *r
 // TraceCall lets you trace a given eth_call. It collects the structured logs
 // created during the execution of EVM if the given transaction was added on
 // top of the provided block and returns them as a JSON object.
-func (a *API) TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error) {
+func (a *API) TraceCall(ctx context.Context, args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceCallConfig) (interface{}, error) {
 	a.logger.Debug("debug_traceCall", "args", args, "block number or hash", blockNrOrHash)
 	ctx, span := tracer.Start(ctx, "eth_traceCall")
 	defer span.End()
