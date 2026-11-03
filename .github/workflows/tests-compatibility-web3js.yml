@@ -46,15 +46,19 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-      
-      - name: Install Node.js
-        id: node
-        uses: actions/setup-node@v4
+
+      - name: Setup pnpm and Node.js
+        id: setup
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          node-version-file: tests/evm-tools-compatibility/web3.js/package.json
+          working-directory: tests/evm-tools-compatibility/web3.js
+          runtime: node@24
+          cache: true
+          cache-dependency-path: tests/evm-tools-compatibility/web3.js/pnpm-lock.yaml
+          install: false
 
       - name: Report Node version
-        run: printf 'Node `%s` · npm `%s`\n' "$(node -v)" "$(npm -v)" >> "$GITHUB_STEP_SUMMARY"
+        run: printf 'Node `%s` · pnpm `%s`\n' "$(node -v)" "$(pnpm -v)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -68,10 +72,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tests/evm-tools-compatibility/web3.js/node_modules
-          # no restore-keys: a stale fallback tree makes the setup script skip npm install
-          # node version in the key: engines.node is a floating floor, and a tree
-          # built for one major can't be reused across an ABI change
-          key: ${{ runner.os }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('tests/evm-tools-compatibility/web3.js/package-lock.json', 'tests/evm-tools-compatibility/web3.js/package.json') }}
+          # no restore-keys: a stale fallback tree makes the setup script skip install
+          # node version in the key: a tree built for one major can't be reused
+          # across an ABI change
+          key: ${{ runner.os }}-node${{ steps.setup.outputs.runtime-version }}-pnpm-${{ hashFiles('tests/evm-tools-compatibility/web3.js/pnpm-lock.yaml', 'tests/evm-tools-compatibility/web3.js/package.json') }}
       
       - name: Build and install evmd
         run: |
