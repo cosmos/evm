@@ -168,3 +168,40 @@ func TestSnapshotMultiLatestVersion(t *testing.T) {
 	ver2 := snapshotStore.LatestVersion()
 	require.Equal(t, ver2, int64(idx1+1))
 }
+
+// Stores touched in only some snapshots must revert as if every snapshot branched them.
+func TestSnapshotMultiLazyLayers(t *testing.T) {
+	t.Parallel()
+	keyA, keyB := storetypes.NewKVStoreKey("a"), storetypes.NewKVStoreKey("b")
+	kvA := cachekv.NewStore(dbadapter.Store{DB: dbm.NewMemDB()})
+	kvB := cachekv.NewStore(dbadapter.Store{DB: dbm.NewMemDB()})
+	s := snapshotmulti.NewStoreWithKVStores(map[*storetypes.KVStoreKey]storetypes.CacheWrap{keyA: kvA, keyB: kvB})
+	k := []byte("k")
+
+	s.GetKVStore(keyA).Set(k, []byte("a0")) // before any snapshot
+	idx0 := s.Snapshot()
+	s.GetKVStore(keyA).Set(k, []byte("a1"))
+	idx1 := s.Snapshot()
+	_ = s.Snapshot()
+	s.GetKVStore(keyB).Set(k, []byte("b3")) // b only touched after idx2
+	idx3 := s.Snapshot()
+	s.GetKVStore(keyA).Set(k, []byte("a4"))
+
+	s.RevertToSnapshot(idx3)
+	require.Equal(t, []byte("a1"), s.GetKVStore(keyA).Get(k))
+	require.Equal(t, []byte("b3"), s.GetKVStore(keyB).Get(k))
+
+	s.RevertToSnapshot(idx1)
+	require.Equal(t, []byte("a1"), s.GetKVStore(keyA).Get(k))
+	require.Nil(t, s.GetKVStore(keyB).Get(k))
+
+	s.GetKVStore(keyB).Set(k, []byte("b5"))
+	s.RevertToSnapshot(idx0)
+	require.Equal(t, []byte("a0"), s.GetKVStore(keyA).Get(k))
+	require.Nil(t, s.GetKVStore(keyB).Get(k))
+
+	s.GetKVStore(keyB).Set(k, []byte("b6"))
+	s.Write()
+	require.Equal(t, []byte("a0"), kvA.Get(k))
+	require.Equal(t, []byte("b6"), kvB.Get(k))
+}

@@ -275,10 +275,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 		receipt.Status = ethtypes.ReceiptStatusSuccessful
 	}
 
-	signerAddr, err := signer.Sender(tx)
-	if err != nil {
-		return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
-	}
+	// msg.From was already recovered by TransactionToMessage. signer.Sender skips the tx sender cache.
+	signerAddr := msg.From
 
 	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
 	if !k.HasHooks() {
