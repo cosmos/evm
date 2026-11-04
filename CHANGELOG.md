@@ -8,6 +8,8 @@
 
 ### IMPROVEMENTS
 
+- Log `ErrTxNotFound` from the Cosmos lane at debug level in `ExperimentalEVMMempool.Remove`. BaseApp ignores this error during `FinalizeBlock`, and logging it at error level flooded logs with one line per Cosmos tx while a node caught up on blocks.
+
 ### FEATURES
 
 ### BUG FIXES
