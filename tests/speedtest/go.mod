@@ -1,6 +1,6 @@
 module github.com/cosmos/evm/tests/speedtest
 
-go 1.25.9
+go 1.26.10
 
 replace (
 	github.com/cosmos/evm => ../../

@@ -99,6 +99,9 @@ func FeeChecker(
 		return nil, 0, errorsmod.Wrapf(errortypes.ErrInsufficientFee, "gas prices too low, got: %s%s required: %s%s. Please retry using a higher gas price or a higher fee", feeCap, denom, baseFee, denom)
 	}
 
+	// clamp the tip cap to the fee cap to keep the arithmetic below in range
+	maxPriorityPrice = sdkmath.LegacyMinDec(maxPriorityPrice, feeCap)
+
 	// calculate the effective gas price using the EIP-1559 logic.
 	effectivePrice := effectiveGasPriceLegacyDec(baseFee, feeCap, maxPriorityPrice)
 
@@ -172,7 +175,13 @@ func getTxPriority(fees sdk.Coins, gas int64) int64 {
 }
 
 // effectiveGasPriceLegacyDec computes the effective gas price based on eip-1559 rules
-// `effectiveGasPrice = min(baseFee + tipCap, feeCap)` using decimals
+// `effectiveGasPrice = min(baseFee + tipCap, feeCap)` using decimals.
+//
+// Precondition: feeCap >= baseFee. The fee cap never caps the (static) base fee:
+// the caller rejects feeCap < baseFee with ErrInsufficientFee ("gas prices too
+// low") before invoking this helper.
 func effectiveGasPriceLegacyDec(baseFee, feeCap, tipCap sdkmath.LegacyDec) sdkmath.LegacyDec {
-	return sdkmath.LegacyMinDec(tipCap.Add(baseFee), feeCap)
+	// avoid forming baseFee + tipCap directly, since tipCap may be near
+	// LegacyDec's upper limit and overflow the addition
+	return baseFee.Add(sdkmath.LegacyMinDec(tipCap, feeCap.Sub(baseFee)))
 }
