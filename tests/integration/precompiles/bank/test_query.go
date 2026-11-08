@@ -2,16 +2,19 @@ package bank
 
 import (
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	cosmosevmutiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 func (s *PrecompileTestSuite) TestBalances() {
@@ -277,4 +280,47 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 			}
 		})
 	}
+}
+
+// Unregistered IBC vouchers have a deterministic hash-derived address but no
+// ERC20 contract or token pair. The bank precompile must not expose such an
+// address from its enumerations when SupplyOf cannot resolve its supply.
+func (s *PrecompileTestSuite) TestUnregisteredIBCVoucherQueryConsistency() {
+	ctx := s.SetupTest()
+	denom := "ibc/" + strings.Repeat("A", 64)
+	coins := sdk.NewCoins(sdk.NewCoin(denom, math.NewInt(123)))
+	keeper := s.network.App.GetBankKeeper()
+	err := keeper.MintCoins(ctx, minttypes.ModuleName, coins)
+	s.Require().NoError(err)
+	err = keeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, s.keyring.GetAccAddr(0), coins)
+	s.Require().NoError(err)
+	s.Require().False(s.network.App.GetErc20Keeper().IsDenomRegistered(ctx, denom))
+
+	derivedAddress, err := utils.GetIBCDenomAddress(denom)
+	s.Require().NoError(err)
+
+	balancesMethod := s.precompile.Methods[bank.BalancesMethod]
+	balancesBz, err := s.precompile.Balances(ctx, &balancesMethod, []interface{}{s.keyring.GetAddr(0)})
+	s.Require().NoError(err)
+	var balances []bank.Balance
+	s.Require().NoError(s.precompile.UnpackIntoInterface(&balances, balancesMethod.Name, balancesBz))
+	for _, balance := range balances {
+		s.Require().NotEqual(derivedAddress, balance.ContractAddress)
+	}
+
+	totalSupplyMethod := s.precompile.Methods[bank.TotalSupplyMethod]
+	supplyBz, err := s.precompile.TotalSupply(ctx, &totalSupplyMethod, nil)
+	s.Require().NoError(err)
+	var supplies []bank.Balance
+	s.Require().NoError(s.precompile.UnpackIntoInterface(&supplies, totalSupplyMethod.Name, supplyBz))
+	for _, supply := range supplies {
+		s.Require().NotEqual(derivedAddress, supply.ContractAddress)
+	}
+
+	supplyOfMethod := s.precompile.Methods[bank.SupplyOfMethod]
+	bz, err := s.precompile.SupplyOf(ctx, &supplyOfMethod, []interface{}{derivedAddress})
+	s.Require().NoError(err)
+	out, err := supplyOfMethod.Outputs.Unpack(bz)
+	s.Require().NoError(err)
+	s.Require().Zero(out[0].(*big.Int).Sign())
 }

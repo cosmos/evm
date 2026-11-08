@@ -40,6 +40,11 @@ func (p Precompile) Balances(
 	balances := make([]Balance, 0)
 
 	p.bankKeeper.IterateAccountBalances(ctx, account, func(coin sdk.Coin) bool {
+		// Only return addresses that SupplyOf can resolve to a registered token pair.
+		// Unregistered IBC vouchers otherwise expose a hash-derived address with zero supply.
+		if len(p.erc20Keeper.GetTokenPairID(ctx, coin.Denom)) == 0 {
+			return false
+		}
 		defer func() { i++ }()
 
 		// NOTE: we already charged for a single balanceOf request so we don't
@@ -78,6 +83,10 @@ func (p Precompile) TotalSupply(
 	totalSupply := make([]Balance, 0)
 
 	p.bankKeeper.IterateTotalSupply(ctx, func(coin sdk.Coin) bool {
+		// Keep the listed tokens consistent with SupplyOf's registered-pair lookup.
+		if len(p.erc20Keeper.GetTokenPairID(ctx, coin.Denom)) == 0 {
+			return false
+		}
 		defer func() { i++ }()
 
 		// NOTE: we already charged for a single totalSupply request so we don't
