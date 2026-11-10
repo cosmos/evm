@@ -55,6 +55,30 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 	batch := kv.db.NewBatch()
 	defer batch.Close()
 
+	for _, r := range BlockTxResults(kv.clientCtx.TxConfig.TxDecoder(), kv.logger, block, txResults) {
+		if err := saveTxResult(kv.clientCtx.Codec, batch, r.Hash, &r.Result); err != nil {
+			return errorsmod.Wrapf(err, "IndexBlock %d", height)
+		}
+	}
+	if err := batch.Write(); err != nil {
+		return errorsmod.Wrapf(err, "IndexBlock %d, write batch", block.Height)
+	}
+	return nil
+}
+
+// EthTxResult is one Ethereum tx's indexed result (BlockTxResults).
+type EthTxResult struct {
+	Hash   common.Hash
+	Result servertypes.TxResult
+}
+
+// BlockTxResults derives the indexed result of each Ethereum tx of block
+// from the block's tx results, as the indexer stores them. The JSON-RPC uses
+// it for a block whose txs the index does not hold yet (it runs behind
+// commit). A tx that cannot be decoded or parsed is logged and left out.
+func BlockTxResults(decode sdk.TxDecoder, logger log.Logger, block *cmttypes.Block, txResults []*abci.ExecTxResult) []EthTxResult {
+	height := block.Height
+	var out []EthTxResult
 	// record index of valid eth tx during the iteration
 	var ethTxIndex int32
 	for txIndex, tx := range block.Txs {
@@ -63,9 +87,9 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 			continue
 		}
 
-		tx, err := kv.clientCtx.TxConfig.TxDecoder()(tx)
+		tx, err := decode(tx)
 		if err != nil {
-			kv.logger.Error("Fail to decode tx", "err", err, "block", height, "txIndex", txIndex)
+			logger.Error("Fail to decode tx", "err", err, "block", height, "txIndex", txIndex)
 			continue
 		}
 
@@ -75,14 +99,13 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 
 		txs, err := rpctypes.ParseTxResult(result, tx)
 		if err != nil {
-			kv.logger.Error("Fail to parse event", "err", err, "block", height, "txIndex", txIndex)
+			logger.Error("Fail to parse event", "err", err, "block", height, "txIndex", txIndex)
 			continue
 		}
 
 		var cumulativeGasUsed uint64
 		for msgIndex, msg := range tx.GetMsgs() {
 			ethMsg := msg.(*evmtypes.MsgEthereumTx)
-			txHash := ethMsg.Hash()
 
 			txResult := servertypes.TxResult{
 				Height:     height,
@@ -98,11 +121,11 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 			} else {
 				parsedTx := txs.GetTxByMsgIndex(msgIndex)
 				if parsedTx == nil {
-					kv.logger.Error("msg index not found in events", "msgIndex", msgIndex)
+					logger.Error("msg index not found in events", "msgIndex", msgIndex)
 					continue
 				}
 				if parsedTx.EthTxIndex >= 0 && parsedTx.EthTxIndex != ethTxIndex {
-					kv.logger.Error("eth tx index don't match", "expect", ethTxIndex, "found", parsedTx.EthTxIndex)
+					logger.Error("eth tx index don't match", "expect", ethTxIndex, "found", parsedTx.EthTxIndex)
 				}
 				txResult.GasUsed = parsedTx.GasUsed
 				txResult.Failed = parsedTx.Failed
@@ -112,15 +135,10 @@ func (kv *KVIndexer) IndexBlock(block *cmttypes.Block, txResults []*abci.ExecTxR
 			txResult.CumulativeGasUsed = cumulativeGasUsed
 			ethTxIndex++
 
-			if err := saveTxResult(kv.clientCtx.Codec, batch, txHash, &txResult); err != nil {
-				return errorsmod.Wrapf(err, "IndexBlock %d", height)
-			}
+			out = append(out, EthTxResult{Hash: ethMsg.Hash(), Result: txResult})
 		}
 	}
-	if err := batch.Write(); err != nil {
-		return errorsmod.Wrapf(err, "IndexBlock %d, write batch", block.Height)
-	}
-	return nil
+	return out
 }
 
 // LastIndexedBlock returns the latest indexed block number, returns -1 if db is empty

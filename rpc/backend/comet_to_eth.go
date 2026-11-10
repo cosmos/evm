@@ -16,7 +16,9 @@ import (
 
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	"github.com/cosmos/evm/indexer"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	servertypes "github.com/cosmos/evm/server/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -268,10 +270,23 @@ func (b *Backend) ReceiptsFromCometBlock(
 	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
+	var fromBlock map[common.Hash]*servertypes.TxResult // the block's own results, built on the first index miss
 	for i, ethMsg := range msgs {
 		txResult, err := b.GetTxByEthHash(ctx, ethMsg.Hash())
 		if err != nil {
-			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
+			// The index runs behind commit: a committed block's txs may
+			// not be in it yet. The block's results give the same entry.
+			if fromBlock == nil {
+				fromBlock = map[common.Hash]*servertypes.TxResult{}
+				for _, r := range indexer.BlockTxResults(b.ClientCtx.TxConfig.TxDecoder(), b.Logger, resBlock.Block, blockRes.TxsResults) {
+					fromBlock[r.Hash] = &r.Result
+				}
+			}
+			r, ok := fromBlock[ethMsg.Hash()]
+			if !ok {
+				return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
+			}
+			txResult = r
 		}
 
 		// Resolve -1 sentinel: indexer hasn't assigned EthTxIndex yet.
