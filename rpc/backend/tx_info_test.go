@@ -652,3 +652,67 @@ func TestGetTransactionReceiptUnknownTx(t *testing.T) {
 	require.Nil(t, receipt)
 	require.Less(t, time.Since(start), time.Second)
 }
+
+// TestReceiptsFromCometBlockUnindexed: the tx index runs behind commit, so a
+// committed block's txs may not be indexed yet. ReceiptsFromCometBlock then
+// takes each tx's entry from the block's own results, as the indexer would
+// store it; a tx that is neither indexed nor in the block is still an error.
+func TestReceiptsFromCometBlockUnindexed(t *testing.T) {
+	backend := setupMockBackend(t) // empty KV indexer: every lookup misses
+	height := int64(300)
+	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
+	evmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry) // the block's txs are decoded
+	backend.ClientCtx = backend.ClientCtx.WithTxConfig(encodingConfig.TxConfig)
+
+	msgs := []*evmtypes.MsgEthereumTx{buildMsgEthereumTxWithNonce(t, 0), buildMsgEthereumTxWithNonce(t, 1)}
+	var txs tmtypes.Txs
+	var results []*abcitypes.ExecTxResult
+	for i, msg := range msgs {
+		tx, err := msg.BuildTxWithEvmParams(encodingConfig.TxConfig.NewTxBuilder(), evmtypes.Params{
+			EvmDenom:             evmtypes.DefaultEVMExtendedDenom,
+			ExtendedDenomOptions: &evmtypes.ExtendedDenomOptions{ExtendedDenom: evmtypes.DefaultEVMExtendedDenom},
+		})
+		require.NoError(t, err)
+		bz, err := encodingConfig.TxConfig.TxEncoder()(tx)
+		require.NoError(t, err)
+		txs = append(txs, bz)
+
+		data, err := encodingConfig.Codec.Marshal(&sdk.TxMsgData{MsgResponses: []*codectypes.Any{
+			codectypes.UnsafePackAny(&evmtypes.MsgEthereumTxResponse{Hash: msg.Hash().Hex()}),
+		}})
+		require.NoError(t, err)
+		results = append(results, &abcitypes.ExecTxResult{
+			Code:    0,
+			Data:    data,
+			GasUsed: 21000,
+			Events: []abcitypes.Event{{Type: evmtypes.EventTypeEthereumTx, Attributes: []abcitypes.EventAttribute{
+				{Key: evmtypes.AttributeKeyEthereumTxHash, Value: msg.Hash().Hex()},
+				{Key: evmtypes.AttributeKeyTxIndex, Value: []string{"0", "1"}[i]},
+				{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+			}}},
+		})
+	}
+	resBlock := &tmrpctypes.ResultBlock{Block: &tmtypes.Block{Header: tmtypes.Header{Height: height}, Data: tmtypes.Data{Txs: txs}}}
+	blockRes := &tmrpctypes.ResultBlockResults{Height: height, TxsResults: results}
+
+	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
+
+	_, err := backend.GetTxByEthHash(rpctypes.NewContextWithHeight(1), msgs[0].Hash())
+	require.Error(t, err, "the index must not hold the block's txs")
+
+	receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
+	require.NoError(t, err)
+	require.Len(t, receipts, 2)
+	for i, r := range receipts {
+		require.Equal(t, msgs[i].Hash(), r.TxHash)
+		require.Equal(t, uint(i), r.TransactionIndex)
+		require.Equal(t, uint64(21000), r.GasUsed)
+		require.Equal(t, uint64(21000*(i+1)), r.CumulativeGasUsed)
+		require.Equal(t, ethtypes.ReceiptStatusSuccessful, r.Status)
+	}
+
+	stray := buildMsgEthereumTxWithNonce(t, 2)
+	_, err = backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, []*evmtypes.MsgEthereumTx{stray})
+	require.ErrorContains(t, err, "tx not found")
+}
