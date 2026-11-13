@@ -44,10 +44,22 @@ type Blockchain struct {
 	blockGasLimit      uint64
 	previousHeaderHash common.Hash
 	latestCtx          sdk.Context
-	mu                 sync.RWMutex
-	coinInfo           atomic.Pointer[evmtypes.EvmCoinInfo]
+	// pinGen counts pin updates, tying a cached header to the pin it came from
+	pinGen   uint64
+	mu       sync.RWMutex
+	coinInfo atomic.Pointer[evmtypes.EvmCoinInfo]
+
+	// pinnedHeader caches the header built from the pinned context; readers
+	// ignore it once its generation tag is stale
+	pinnedHeader atomic.Pointer[pinnedHeader]
 
 	testingCommitMu sync.RWMutex
+}
+
+// pinnedHeader is a header tagged with the pin generation it was built from.
+type pinnedHeader struct {
+	gen    uint64
+	header *types.Header
 }
 
 // NewBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
@@ -89,10 +101,14 @@ func (b *Blockchain) CurrentBlock() *types.Header {
 	if err != nil {
 		return b.zeroHeader
 	}
+	return b.headerFromContext(ctx, b.getPreviousHeaderHash())
+}
 
+// headerFromContext constructs the header for the state in ctx, with
+// previousHeaderHash as its parent.
+func (b *Blockchain) headerFromContext(ctx sdk.Context, previousHeaderHash common.Hash) *types.Header {
 	blockHeight := ctx.BlockHeight()
 	// prevent the reorg from triggering after a restart since previousHeaderHash is stored as an in-memory variable
-	previousHeaderHash := b.getPreviousHeaderHash()
 	if blockHeight > 1 && previousHeaderHash == (common.Hash{}) {
 		return b.zeroHeader
 	}
@@ -253,12 +269,41 @@ func (b *Blockchain) setPreviousHeaderHash(h common.Hash) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.previousHeaderHash = h
+	b.pinGen++
 }
 
 func (b *Blockchain) setLatestContext(ctx sdk.Context) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.latestCtx = ctx
+	b.pinGen++
+}
+
+// PinnedHeader returns the header for the pinned context, cached until the pin
+// refreshes, so a rebuild that raced with a refresh is never served. Use it on
+// hot paths that tolerate that granularity; CurrentBlock always rebuilds from
+// the latest committed state. Before the first pin it falls back to
+// CurrentBlock and caches nothing.
+func (b *Blockchain) PinnedHeader() *types.Header {
+	b.mu.RLock()
+	gen, ctx, previousHeaderHash := b.pinGen, b.latestCtx, b.previousHeaderHash
+	b.mu.RUnlock()
+
+	if ctx.Context() == nil {
+		return b.CurrentBlock()
+	}
+	if cached := b.pinnedHeader.Load(); cached != nil && cached.gen == gen {
+		return cached.header
+	}
+
+	// keeper reads charge the shared pinned context's gas meter, so branch it
+	ctx, _ = ctx.CacheContext()
+	ctx = ctx.WithGasMeter(sdktypes.NewInfiniteGasMeter())
+	header := b.headerFromContext(ctx, previousHeaderHash)
+	if header != b.zeroHeader {
+		b.pinnedHeader.Store(&pinnedHeader{gen: gen, header: header})
+	}
+	return header
 }
 
 // GetLatestContext returns the latest context as updated by the block,
