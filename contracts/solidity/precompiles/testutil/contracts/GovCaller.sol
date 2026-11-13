@@ -130,6 +130,14 @@ contract GovCaller {
         return gov.GOV_CONTRACT.getParams();
     }
 
+    function getAuthority()
+        external
+        view
+        returns (string memory authorityBech32, address authorityHex)
+    {
+        return gov.GOV_CONTRACT.getAuthority();
+    }
+
     function testDepositWithTransfer(
         uint64 _proposalId,
         types.Coin[] calldata _deposit,

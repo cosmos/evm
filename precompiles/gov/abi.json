@@ -1103,5 +1103,23 @@
     ],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAuthority",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "authorityBech32",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "authorityHex",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ]

@@ -141,6 +141,8 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 		bz, err = p.GetParams(ctx, method, contract, args)
 	case GetConstitutionMethod:
 		bz, err = p.GetConstitution(ctx, method, contract, args)
+	case GetAuthorityMethod:
+		bz, err = p.GetAuthority(ctx, method, contract, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
