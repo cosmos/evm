@@ -108,7 +108,7 @@ func (s *PrecompileTestSuite) requireOut(
 	err error,
 	method abi.Method,
 	expPass bool,
-	errContains string,
+	expErr error,
 	expValue interface{},
 ) {
 	if expPass {
@@ -131,7 +131,7 @@ func (s *PrecompileTestSuite) requireOut(
 		}
 	} else {
 		s.Require().Error(err, "expected error")
-		s.Require().Contains(err.Error(), errContains, "expected different error")
+		testutil.RequireExactError(s.T(), err, expErr)
 	}
 }
 

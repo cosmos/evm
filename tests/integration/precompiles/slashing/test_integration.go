@@ -127,11 +127,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					common.BytesToAddress(valAddr.Bytes()),
 				}
 
-				revertReasonCheck := execRevertedCheck.WithErrNested(
-					cmn.ErrRequesterIsNotMsgSender,
+				revertReasonCheck := execRevertedCheck.WithErrExact(cmn.NewRevertWithSolidityError(
+					s.precompile.ABI,
+					cmn.SolidityErrRequesterIsNotMsgSender,
 					contractAddr,
 					common.BytesToAddress(valAddr.Bytes()),
-				)
+				))
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),

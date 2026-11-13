@@ -1,6 +1,7 @@
 package gov
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 
@@ -38,12 +39,12 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 	method := s.precompile.Methods[gov.GetVotesMethod]
 	gas := uint64(200_000)
 	testCases := []struct {
-		name        string
-		malleate    func() []gov.WeightedVote
-		args        []interface{}
-		expPass     bool
-		errContains string
-		expTotal    uint64
+		name     string
+		malleate func() []gov.WeightedVote
+		args     []interface{}
+		expPass  bool
+		wantErr  error
+		expTotal uint64
 	}{
 		{
 			name: "valid query",
@@ -80,20 +81,21 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 			expTotal: 1,
 		},
 		{
-			name:        "invalid proposal ID",
-			args:        []interface{}{uint64(0), query.PageRequest{Limit: 10, CountTotal: true}},
-			expPass:     false,
-			errContains: "proposal id can not be 0",
+			name:    "invalid proposal ID",
+			args:    []interface{}{uint64(0), query.PageRequest{Limit: 10, CountTotal: true}},
+			expPass: false,
+			wantErr: cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetVotesMethod, "rpc error: code = InvalidArgument desc = proposal id can not be 0"),
 		},
 		{
-			name:        "fail - invalid number of args",
-			args:        []interface{}{},
-			errContains: fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:    "fail - invalid number of args",
+			args:    []interface{}{},
+			expPass: false,
+			wantErr: cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:        "fail - invalid arg types",
-			args:        []interface{}{"string argument 1", 2},
-			errContains: "error while unpacking args to VotesInput",
+			name:    "fail - invalid arg types",
+			args:    []interface{}{"string argument 1", 2},
+			wantErr: cmn.NewRevertWithSolidityError(gov.ABI, gov.SolidityErrVotesInputUnpackFailed, "abi: cannot unmarshal string in to uint64"),
 		},
 		{
 			name: "fail - internal error from response",
@@ -123,9 +125,9 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 					},
 				}}
 			},
-			args:        []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
-			expPass:     false,
-			errContains: "empty address string is not allowed",
+			args:    []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			expPass: false,
+			wantErr: cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetVotesMethod, "failed to convert bech32 string to address: empty address string is not allowed"),
 		},
 	}
 
@@ -151,8 +153,7 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 				s.Require().Equal(votes, out.Votes)
 				s.Require().Equal(tc.expTotal, out.PageResponse.Total)
 			} else {
-				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -170,7 +171,7 @@ func (s *PrecompileTestSuite) TestGetVote() {
 		expPass       bool
 		expPropNumber uint64
 		expVoter      common.Address
-		errContains   string
+		wantErrFn     func(*PrecompileTestSuite, []interface{}) error
 	}{
 		{
 			name: "valid query",
@@ -183,6 +184,7 @@ func (s *PrecompileTestSuite) TestGetVote() {
 			expPropNumber: uint64(1),
 			expVoter:      common.BytesToAddress(voter.Bytes()),
 			expPass:       true,
+			wantErrFn:     nil,
 		},
 		{
 			name:    "invalid proposal ID",
@@ -191,38 +193,52 @@ func (s *PrecompileTestSuite) TestGetVote() {
 				err := s.network.App.GetGovKeeper().AddVote(s.network.GetContext(), 1, voter, []*govv1.WeightedVoteOption{{Option: govv1.OptionYes, Weight: "1.0"}}, "")
 				s.Require().NoError(err)
 
-				return []interface{}{uint64(10), voterAddr}
+				return []interface{}{uint64(10), common.BytesToAddress(sdk.AccAddress(bytes.Repeat([]byte{0x1}, 20)).Bytes())}
 			},
-			errContains: "not found for proposal",
+			wantErrFn: func(_ *PrecompileTestSuite, args []interface{}) error {
+				voter := sdk.AccAddress(args[1].(common.Address).Bytes())
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetVoteMethod,
+					fmt.Sprintf("rpc error: code = InvalidArgument desc = voter: %s not found for proposal: %d", voter.String(), args[0].(uint64)))
+			},
 		},
 		{
 			name: "non-existent vote",
 			malleate: func() []interface{} {
-				return []interface{}{uint64(1), voterAddr}
+				return []interface{}{uint64(1), common.BytesToAddress(sdk.AccAddress(bytes.Repeat([]byte{0x1}, 20)).Bytes())}
 			},
-			expPass:     false,
-			errContains: "not found for proposal",
+			expPass: false,
+			wantErrFn: func(_ *PrecompileTestSuite, args []interface{}) error {
+				voter := sdk.AccAddress(args[1].(common.Address).Bytes())
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetVoteMethod,
+					fmt.Sprintf("rpc error: code = InvalidArgument desc = voter: %s not found for proposal: %d", voter.String(), args[0].(uint64)))
+			},
 		},
 		{
 			name: "invalid number of args",
 			malleate: func() []interface{} {
 				return []interface{}{}
 			},
-			errContains: fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			wantErrFn: func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0))
+			},
 		},
 		{
 			name: "fail - invalid proposal id",
 			malleate: func() []interface{} {
 				return []interface{}{"string argument 1", 2}
 			},
-			errContains: "invalid proposal id",
+			wantErrFn: func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, gov.SolidityErrInvalidProposalID, "string argument 1")
+			},
 		},
 		{
 			name: "fail - invalid voter address",
 			malleate: func() []interface{} {
 				return []interface{}{uint64(0), 2}
 			},
-			errContains: "invalid voter address",
+			wantErrFn: func(*PrecompileTestSuite, []interface{}) error {
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidAddress, "2")
+			},
 		},
 	}
 
@@ -262,8 +278,7 @@ func (s *PrecompileTestSuite) TestGetVote() {
 				s.Require().Equal(expVote.Options, out.Vote.Options)
 				s.Require().Equal(expVote.Metadata, out.Vote.Metadata)
 			} else {
-				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			}
 		})
 	}
@@ -271,6 +286,7 @@ func (s *PrecompileTestSuite) TestGetVote() {
 
 func (s *PrecompileTestSuite) TestGetDeposit() {
 	var depositor sdk.AccAddress
+
 	method := s.precompile.Methods[gov.GetDepositMethod]
 	testCases := []struct {
 		name          string
@@ -279,7 +295,7 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 		expPass       bool
 		expPropNumber uint64
 		gas           uint64
-		errContains   string
+		wantErrFn     func(*PrecompileTestSuite, []interface{}) error
 	}{
 		{
 			name:          "valid query",
@@ -288,14 +304,19 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 			expPropNumber: uint64(1),
 			expPass:       true,
 			gas:           200_000,
+			wantErrFn:     nil,
 		},
 		{
-			name:        "invalid proposal ID",
-			propNumber:  uint64(10),
-			expPass:     false,
-			gas:         200_000,
-			malleate:    func() {},
-			errContains: "not found",
+			name:       "invalid proposal ID",
+			propNumber: uint64(10),
+			expPass:    false,
+			gas:        200_000,
+			malleate:   func() {},
+			wantErrFn: func(_ *PrecompileTestSuite, args []interface{}) error {
+				dep := sdk.AccAddress(args[1].(common.Address).Bytes())
+				return cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetDepositMethod,
+					fmt.Sprintf(`rpc error: code = NotFound desc = collections: not found: key '("10", "%s")' of type github.com/cosmos/gogoproto/cosmos.gov.v1.Deposit`, dep.String()))
+			},
 		},
 	}
 
@@ -322,8 +343,7 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 				s.Require().Equal(common.BytesToAddress(depositor.Bytes()), out.Deposit.Depositor)
 				s.Require().Equal([]cmn.Coin{{Denom: "aatom", Amount: big.NewInt(100)}}, out.Deposit.Amount)
 			} else {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErrFn(s, args))
 			}
 		})
 	}
@@ -338,6 +358,7 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 		expPass  bool
 		expTotal uint64
 		gas      uint64
+		wantErr  error
 	}{
 		{
 			name: "valid query",
@@ -359,6 +380,7 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 			malleate: func() []gov.DepositData {
 				return []gov.DepositData{}
 			},
+			wantErr: cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetDepositsMethod, "rpc error: code = InvalidArgument desc = proposal id can not be 0"),
 		},
 	}
 
@@ -378,7 +400,7 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 				s.Require().Equal(deposits, out.Deposits)
 				s.Require().Equal(tc.expTotal, out.PageResponse.Total)
 			} else {
-				s.Require().Error(err)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -387,11 +409,11 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 func (s *PrecompileTestSuite) TestGetTallyResult() {
 	method := s.precompile.Methods[gov.GetTallyResultMethod]
 	testCases := []struct {
-		name        string
-		malleate    func() (gov.TallyResultData, uint64)
-		expPass     bool
-		gas         uint64
-		errContains string
+		name     string
+		malleate func() (gov.TallyResultData, uint64)
+		expPass  bool
+		gas      uint64
+		wantErr  error
 	}{
 		{
 			name: "valid query",
@@ -412,13 +434,14 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 			},
 			expPass: true,
 			gas:     200_000,
+			wantErr: nil,
 		},
 		{
-			name:        "invalid proposal ID",
-			expPass:     false,
-			gas:         200_000,
-			malleate:    func() (gov.TallyResultData, uint64) { return gov.TallyResultData{}, 10 },
-			errContains: "proposal 10 doesn't exist",
+			name:     "invalid proposal ID",
+			expPass:  false,
+			gas:      200_000,
+			malleate: func() (gov.TallyResultData, uint64) { return gov.TallyResultData{}, 10 },
+			wantErr:  cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetTallyResultMethod, "rpc error: code = NotFound desc = proposal 10 doesn't exist"),
 		},
 	}
 
@@ -441,8 +464,7 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 				s.Require().NoError(err)
 				s.Require().Equal(expTally, out.TallyResult)
 			} else {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}
@@ -452,12 +474,12 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 	method := s.precompile.Methods[gov.GetProposalMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(data *gov.ProposalData)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(data *gov.ProposalData)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -467,7 +489,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 			func(_ *gov.ProposalData) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(0)),
 		},
 		{
 			"fail - invalid proposal ID",
@@ -477,7 +499,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 			func(_ *gov.ProposalData) {},
 			200000,
 			true,
-			"proposal id can not be 0",
+			cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetProposalMethod, "rpc error: code = InvalidArgument desc = proposal id can not be 0"),
 		},
 		{
 			"fail - proposal doesn't exist",
@@ -487,7 +509,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 			func(_ *gov.ProposalData) {},
 			200000,
 			true,
-			"proposal 10 doesn't exist",
+			cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrQueryFailed, gov.GetProposalMethod, "rpc error: code = NotFound desc = proposal 10 doesn't exist"),
 		},
 		{
 			"success - get proposal",
@@ -506,7 +528,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -519,8 +541,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 			bz, err := s.precompile.GetProposal(ctx, &method, contract, tc.malleate())
 
 			if tc.expError {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out gov.ProposalOutput
@@ -536,12 +557,12 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 	method := s.precompile.Methods[gov.GetProposalsMethod]
 
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []gov.ProposalData, pageRes *query.PageResponse)
-		gas         uint64
-		expError    bool
-		errContains string
+		name      string
+		malleate  func() []interface{}
+		postCheck func(data []gov.ProposalData, pageRes *query.PageResponse)
+		gas       uint64
+		expError  bool
+		wantErr   error
 	}{
 		{
 			"fail - empty input args",
@@ -551,7 +572,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			func(_ []gov.ProposalData, _ *query.PageResponse) {},
 			200000,
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0)),
 		},
 		{
 			"success - get all proposals",
@@ -582,7 +603,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - filter by status",
@@ -605,7 +626,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - filter by voter",
@@ -630,7 +651,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 		{
 			"success - filter by depositor",
@@ -651,7 +672,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			},
 			200000,
 			false,
-			"",
+			nil,
 		},
 	}
 
@@ -664,8 +685,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			bz, err := s.precompile.GetProposals(ctx, &method, contract, tc.malleate())
 
 			if tc.expError {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			} else {
 				s.Require().NoError(err)
 				var out gov.ProposalsOutput
@@ -679,10 +699,10 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 
 func (s *PrecompileTestSuite) TestGetParams() {
 	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		expPass     bool
-		errContains string
+		name     string
+		malleate func() []interface{}
+		expPass  bool
+		wantErr  error
 	}{
 		{
 			"fail - not empty input args",
@@ -690,7 +710,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 				return []interface{}{""}
 			},
 			false,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+			cmn.NewRevertWithSolidityError(gov.ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(0), big.NewInt(1)),
 		},
 		{
 			"success - get all params",
@@ -698,7 +718,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 				return []interface{}{}
 			},
 			true,
-			"",
+			nil,
 		},
 	}
 
@@ -712,8 +732,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 			if tc.expPass {
 				s.Require().NoError(err)
 			} else {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
+				testutil.RequireExactError(s.T(), err, tc.wantErr)
 			}
 		})
 	}

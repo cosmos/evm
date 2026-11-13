@@ -10,9 +10,123 @@ import (
 
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/testutil"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
+
+func TestParsePaginationArgs(t *testing.T) {
+	pageRequest := query.PageRequest{
+		Key:        []byte("next"),
+		Offset:     2,
+		Limit:      25,
+		CountTotal: true,
+		Reverse:    true,
+	}
+	invalidPagination := "invalid-pagination"
+	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+
+	tests := []struct {
+		name       string
+		methodName string
+		index      int64
+		parse      func(*testing.T, *query.PageRequest, error)
+	}{
+		{
+			name:       "getVotes",
+			methodName: GetVotesMethod,
+			index:      1,
+			parse: func(t *testing.T, want *query.PageRequest, wantErr error) {
+				t.Helper()
+				method := ABI.Methods[GetVotesMethod]
+				req, err := ParseVotesArgs(&method, []interface{}{uint64(7), paginationArg(want, invalidPagination)})
+				if wantErr != nil {
+					testutil.RequireExactError(t, err, wantErr)
+					require.Nil(t, req)
+					return
+				}
+				assertPaginationRequest(t, req.GetPagination(), err, want)
+			},
+		},
+		{
+			name:       "getDeposits",
+			methodName: GetDepositsMethod,
+			index:      1,
+			parse: func(t *testing.T, want *query.PageRequest, wantErr error) {
+				t.Helper()
+				method := ABI.Methods[GetDepositsMethod]
+				req, err := ParseDepositsArgs(&method, []interface{}{uint64(7), paginationArg(want, invalidPagination)})
+				if wantErr != nil {
+					testutil.RequireExactError(t, err, wantErr)
+					require.Nil(t, req)
+					return
+				}
+				assertPaginationRequest(t, req.GetPagination(), err, want)
+			},
+		},
+		{
+			name:       "getProposals",
+			methodName: GetProposalsMethod,
+			index:      3,
+			parse: func(t *testing.T, want *query.PageRequest, wantErr error) {
+				t.Helper()
+				method := ABI.Methods[GetProposalsMethod]
+				req, err := ParseProposalsArgs(&method, []interface{}{uint32(1), common.Address{}, common.Address{}, paginationArg(want, invalidPagination)}, addrCodec)
+				if wantErr != nil {
+					testutil.RequireExactError(t, err, wantErr)
+					require.Nil(t, req)
+					return
+				}
+				assertPaginationRequest(t, req.GetPagination(), err, want)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" valid", func(t *testing.T) {
+			tt.parse(t, &pageRequest, nil)
+		})
+
+		t.Run(tt.name+" invalid pagination", func(t *testing.T) {
+			wantErr := cmn.NewRevertWithSolidityError(
+				ABI,
+				cmn.SolidityErrInvalidPageRequest,
+				tt.methodName,
+				big.NewInt(tt.index),
+				invalidPagination,
+			)
+			tt.parse(t, nil, wantErr)
+		})
+	}
+}
+
+func TestParseVotesArgsPreservesNonPaginationCopyError(t *testing.T) {
+	method := ABI.Methods[GetVotesMethod]
+	args := []interface{}{"invalid-proposal-id", "invalid-pagination"}
+
+	var input VotesInput
+	copyErr := method.Inputs.Copy(&input, args)
+	require.Error(t, copyErr)
+	wantErr := cmn.NewRevertWithSolidityError(ABI, SolidityErrVotesInputUnpackFailed, copyErr.Error())
+
+	req, err := ParseVotesArgs(&method, args)
+	testutil.RequireExactError(t, err, wantErr)
+	require.Nil(t, req)
+}
+
+func paginationArg(pageRequest *query.PageRequest, invalid interface{}) interface{} {
+	if pageRequest == nil {
+		return invalid
+	}
+	return *pageRequest
+}
+
+func assertPaginationRequest(t *testing.T, got *query.PageRequest, err error, want *query.PageRequest) {
+	t.Helper()
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
 
 func TestNewMsgDeposit(t *testing.T) {
 	addrCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
@@ -28,7 +142,7 @@ func TestNewMsgDeposit(t *testing.T) {
 		name           string
 		args           []interface{}
 		wantErr        bool
-		errMsg         string
+		wantErrObj     error
 		wantDepositor  string
 		wantProposalID uint64
 	}{
@@ -40,40 +154,40 @@ func TestNewMsgDeposit(t *testing.T) {
 			wantProposalID: proposalID,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{depositorAddr, proposalID, validCoins, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 4),
+			name:       "too many arguments",
+			args:       []interface{}{depositorAddr, proposalID, validCoins, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(4)),
 		},
 		{
-			name:    "invalid depositor type",
-			args:    []interface{}{"not-an-address", proposalID, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDepositor, "not-an-address"),
+			name:       "invalid depositor type",
+			args:       []interface{}{"not-an-address", proposalID, validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty depositor address",
-			args:    []interface{}{common.Address{}, proposalID, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDepositor, common.Address{}),
+			name:       "empty depositor address",
+			args:       []interface{}{common.Address{}, proposalID, validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{depositorAddr, "not-a-uint64", validCoins},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
+			name:       "invalid proposal ID type",
+			args:       []interface{}{depositorAddr, "not-a-uint64", validCoins},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidProposalID, "not-a-uint64"),
 		},
 		{
-			name:    "invalid coins",
-			args:    []interface{}{depositorAddr, proposalID, "invalid-coins"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDeposits, "deposit arg"),
+			name:       "invalid coins",
+			args:       []interface{}{depositorAddr, proposalID, "invalid-coins"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, "invalid-coins"),
 		},
 	}
 
@@ -82,8 +196,7 @@ func TestNewMsgDeposit(t *testing.T) {
 			msg, returnAddr, err := NewMsgDeposit(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -110,7 +223,7 @@ func TestNewMsgCancelProposal(t *testing.T) {
 		name           string
 		args           []interface{}
 		wantErr        bool
-		errMsg         string
+		wantErrObj     error
 		wantProposer   string
 		wantProposalID uint64
 	}{
@@ -122,34 +235,34 @@ func TestNewMsgCancelProposal(t *testing.T) {
 			wantProposalID: proposalID,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{proposerAddr, proposalID, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
+			name:       "too many arguments",
+			args:       []interface{}{proposerAddr, proposalID, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
-			name:    "invalid proposer type",
-			args:    []interface{}{"not-an-address", proposalID},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidProposer, "not-an-address"),
+			name:       "invalid proposer type",
+			args:       []interface{}{"not-an-address", proposalID},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty proposer address",
-			args:    []interface{}{common.Address{}, proposalID},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidProposer, common.Address{}),
+			name:       "empty proposer address",
+			args:       []interface{}{common.Address{}, proposalID},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{proposerAddr, "not-a-uint64"},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
+			name:       "invalid proposal ID type",
+			args:       []interface{}{proposerAddr, "not-a-uint64"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidProposalID, "not-a-uint64"),
 		},
 	}
 
@@ -158,8 +271,7 @@ func TestNewMsgCancelProposal(t *testing.T) {
 			msg, returnAddr, err := NewMsgCancelProposal(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -187,7 +299,7 @@ func TestNewMsgVote(t *testing.T) {
 		name           string
 		args           []interface{}
 		wantErr        bool
-		errMsg         string
+		wantErrObj     error
 		wantVoter      string
 		wantProposalID uint64
 		wantOption     uint8
@@ -203,46 +315,46 @@ func TestNewMsgVote(t *testing.T) {
 			wantMetadata:   metadata,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{voterAddr, proposalID, option, metadata, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 5),
+			name:       "too many arguments",
+			args:       []interface{}{voterAddr, proposalID, option, metadata, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(4), big.NewInt(5)),
 		},
 		{
-			name:    "invalid voter type",
-			args:    []interface{}{"not-an-address", proposalID, option, metadata},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidVoter, "not-an-address"),
+			name:       "invalid voter type",
+			args:       []interface{}{"not-an-address", proposalID, option, metadata},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 		{
-			name:    "empty voter address",
-			args:    []interface{}{common.Address{}, proposalID, option, metadata},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidVoter, common.Address{}),
+			name:       "empty voter address",
+			args:       []interface{}{common.Address{}, proposalID, option, metadata},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, common.Address{}.String()),
 		},
 		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{voterAddr, "not-a-uint64", option, metadata},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
+			name:       "invalid proposal ID type",
+			args:       []interface{}{voterAddr, "not-a-uint64", option, metadata},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidProposalID, "not-a-uint64"),
 		},
 		{
-			name:    "invalid option type",
-			args:    []interface{}{voterAddr, proposalID, "not-a-uint8", metadata},
-			wantErr: true,
-			errMsg:  "invalid option",
+			name:       "invalid option type",
+			args:       []interface{}{voterAddr, proposalID, "not-a-uint8", metadata},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidOption, VoteMethod, fmt.Sprintf(ErrInvalidOption, "not-a-uint8")),
 		},
 		{
-			name:    "invalid metadata type",
-			args:    []interface{}{voterAddr, proposalID, option, 123},
-			wantErr: true,
-			errMsg:  "invalid metadata",
+			name:       "invalid metadata type",
+			args:       []interface{}{voterAddr, proposalID, option, 123},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidMetadata, VoteMethod, fmt.Sprintf(ErrInvalidMetadata, fmt.Sprint(any(123)))),
 		},
 	}
 
@@ -251,8 +363,7 @@ func TestNewMsgVote(t *testing.T) {
 			msg, returnAddr, err := NewMsgVote(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -280,7 +391,7 @@ func TestParseVoteArgs(t *testing.T) {
 		name           string
 		args           []interface{}
 		wantErr        bool
-		errMsg         string
+		wantErrObj     error
 		wantVoter      string
 		wantProposalID uint64
 	}{
@@ -292,28 +403,28 @@ func TestParseVoteArgs(t *testing.T) {
 			wantProposalID: proposalID,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{proposalID, voterAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
+			name:       "too many arguments",
+			args:       []interface{}{proposalID, voterAddr, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{"not-a-uint64", voterAddr},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
+			name:       "invalid proposal ID type",
+			args:       []interface{}{"not-a-uint64", voterAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidProposalID, "not-a-uint64"),
 		},
 		{
-			name:    "invalid voter type",
-			args:    []interface{}{proposalID, "not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidVoter, "not-an-address"),
+			name:       "invalid voter type",
+			args:       []interface{}{proposalID, "not-an-address"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 	}
 
@@ -322,8 +433,7 @@ func TestParseVoteArgs(t *testing.T) {
 			req, err := ParseVoteArgs(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -348,7 +458,7 @@ func TestParseDepositArgs(t *testing.T) {
 		name           string
 		args           []interface{}
 		wantErr        bool
-		errMsg         string
+		wantErrObj     error
 		wantDepositor  string
 		wantProposalID uint64
 	}{
@@ -360,28 +470,28 @@ func TestParseDepositArgs(t *testing.T) {
 			wantProposalID: proposalID,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
+			name:       "no arguments",
+			args:       []interface{}{},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(0)),
 		},
 		{
-			name:    "too many arguments",
-			args:    []interface{}{proposalID, depositorAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
+			name:       "too many arguments",
+			args:       []interface{}{proposalID, depositorAddr, "extra"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(3)),
 		},
 		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{"not-a-uint64", depositorAddr},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
+			name:       "invalid proposal ID type",
+			args:       []interface{}{"not-a-uint64", depositorAddr},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, SolidityErrInvalidProposalID, "not-a-uint64"),
 		},
 		{
-			name:    "invalid depositor type",
-			args:    []interface{}{proposalID, "not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDepositor, "not-an-address"),
+			name:       "invalid depositor type",
+			args:       []interface{}{proposalID, "not-an-address"},
+			wantErr:    true,
+			wantErrObj: cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, "not-an-address"),
 		},
 	}
 
@@ -390,8 +500,7 @@ func TestParseDepositArgs(t *testing.T) {
 			req, err := ParseDepositArgs(tt.args, addrCodec)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireExactError(t, err, tt.wantErrObj)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
