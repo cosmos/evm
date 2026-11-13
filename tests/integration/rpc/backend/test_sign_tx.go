@@ -196,7 +196,7 @@ func (s *TestSuite) TestSign() {
 
 			responseBz, err := s.backend.Sign(tc.fromAddr, tc.inputBz)
 			if tc.expPass {
-				signature, _, err := s.backend.ClientCtx.Keyring.SignByAddress((sdk.AccAddress)(from.Bytes()), tc.inputBz, signingtypes.SignMode_SIGN_MODE_TEXTUAL)
+				signature, _, err := s.backend.ClientCtx.Keyring.SignByAddress((sdk.AccAddress)(from.Bytes()), tc.inputBz, signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON)
 				signature[goethcrypto.RecoveryIDOffset] += 27
 				s.Require().NoError(err)
 				s.Require().Equal((hexutil.Bytes)(signature), responseBz)
@@ -246,7 +246,7 @@ func (s *TestSuite) TestSignTypedData() {
 
 			if tc.expPass {
 				sigHash, _, _ := apitypes.TypedDataAndHash(tc.inputTypedData)
-				signature, _, err := s.backend.ClientCtx.Keyring.SignByAddress((sdk.AccAddress)(from.Bytes()), sigHash, signingtypes.SignMode_SIGN_MODE_TEXTUAL)
+				signature, _, err := s.backend.ClientCtx.Keyring.SignByAddress((sdk.AccAddress)(from.Bytes()), sigHash, signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON)
 				signature[goethcrypto.RecoveryIDOffset] += 27
 				s.Require().NoError(err)
 				s.Require().Equal((hexutil.Bytes)(signature), responseBz)

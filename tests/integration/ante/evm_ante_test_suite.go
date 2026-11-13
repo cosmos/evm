@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
+	ibctypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
+	ibcclienttypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/02-client/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm"
@@ -18,8 +20,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibctypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	ibcclienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 

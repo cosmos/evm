@@ -11,6 +11,7 @@ import (
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 const (
@@ -80,7 +81,7 @@ func (m *Mempool) NewCheckTxHandler(txDecoder sdk.TxDecoder, timeout time.Durati
 			return nil, fmt.Errorf("decoding tx: %w", err)
 		}
 
-		err = m.Insert(ctx, tx)
+		err = m.Insert(ctx, tx, sdkmempool.InsertOption{})
 
 		return ErrAsCheckTxResponse(err), nil
 	}

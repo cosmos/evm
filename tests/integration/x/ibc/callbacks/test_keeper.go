@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	cbtypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/callbacks/types"
+	transfertypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/04-channel/types"
+	ibcerrors "github.com/lfdt-ibc/ibc-go/v11/modules/core/errors"
 
 	"github.com/cosmos/evm/testutil/keyring"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
-	cbtypes "github.com/cosmos/ibc-go/v11/modules/apps/callbacks/types"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
-	ibcerrors "github.com/cosmos/ibc-go/v11/modules/core/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

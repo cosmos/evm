@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	abcitypes "github.com/cometbft/cometbft/abci/types"
+	ibctesting "github.com/lfdt-ibc/ibc-go/v11/testing"
 
-	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"

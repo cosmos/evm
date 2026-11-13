@@ -3,8 +3,9 @@ package keeper
 import (
 	"fmt"
 
+	transferkeeper "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/keeper"
+
 	"github.com/cosmos/evm/x/erc20/types"
-	transferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/log/v2"

@@ -316,8 +316,8 @@ type cosmosTxIterator struct {
 	pos int
 }
 
-func (it *cosmosTxIterator) Tx() sdk.Tx {
-	return it.txs[it.pos]
+func (it *cosmosTxIterator) Tx() sdkmempool.PooledTx {
+	return pooledTxWithDeclaredGas(it.txs[it.pos])
 }
 
 func (it *cosmosTxIterator) Next() sdkmempool.Iterator {

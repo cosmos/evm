@@ -1,10 +1,10 @@
 package ibc
 
 import (
-	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
+	ibctypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
+	ibcexported "github.com/lfdt-ibc/ibc-go/v11/modules/core/exported"
 
-	ibctypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
+	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

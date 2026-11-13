@@ -3,12 +3,12 @@ package ics20
 import (
 	"testing"
 
+	ibctesting "github.com/lfdt-ibc/ibc-go/v11/testing"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
-	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 )
 
 type PrecompileTestSuite struct {
