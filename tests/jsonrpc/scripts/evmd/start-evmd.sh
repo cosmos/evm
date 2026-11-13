@@ -93,6 +93,7 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
 echo -e "${GREEN}Configuring genesis file...${NC}"
 # Change parameter token denominations to desired value
 jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state["staking"]["params"]["key_rotation_fee"]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"

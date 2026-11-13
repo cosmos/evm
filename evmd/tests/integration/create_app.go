@@ -81,6 +81,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
 	stakingGen := stakingtypes.DefaultGenesisState()
 	stakingGen.Params.BondDenom = constants.ExampleAttoDenom
+	stakingGen.Params.KeyRotationFee.Denom = constants.ExampleAttoDenom
 	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
 	mintGen := minttypes.DefaultGenesisState()
 	mintGen.Params.MintDenom = constants.ExampleAttoDenom
