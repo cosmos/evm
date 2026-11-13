@@ -214,14 +214,18 @@ benchmark:
 ###############################################################################
 ###                                Linting                                  ###
 ###############################################################################
-golangci_lint_cmd=golangci-lint
 golangci_version=v2.12.2
+# Build and run the pinned linter with the module's Go version, so a newer
+# local Go or another golangci-lint on PATH cannot change the result.
+golangci_lint_toolchain=go$(shell go list -m -f '{{.GoVersion}}')
+golangci_lint_cmd=GOTOOLCHAIN=$(golangci_lint_toolchain) $(BUILDDIR)/tools/golangci-lint
+golangci_lint_install=GOBIN=$(BUILDDIR)/tools GOTOOLCHAIN=$(golangci_lint_toolchain) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 
 lint: lint-go lint-python lint-contracts
 
 lint-go:
 	@echo "--> Running linter"
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_install)
 	@$(golangci_lint_cmd) run --timeout=15m
 
 lint-python:
@@ -232,7 +236,7 @@ lint-contracts:
 	solhint contracts/**/*.sol
 
 lint-fix:
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_install)
 	@$(golangci_lint_cmd) run --timeout=15m --fix
 
 lint-fix-contracts:
