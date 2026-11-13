@@ -75,6 +75,14 @@ func (options HandlerOptions) Validate() error {
 // transaction-level processing (e.g. fee payment, signature verification) before
 // being passed onto it's respective handler.
 func NewAnteHandler(options HandlerOptions) sdk.AnteHandler {
+	// The SDK only sets ante.FeeRecipientModule inside NewDeductFeeDecorator,
+	// and the Cosmos decorator chain is built lazily per tx. EVM txs also
+	// deduct fees through ante.DeductFees, so after a restart the first EVM
+	// tx would otherwise see an empty recipient and panic in x/bank.
+	if ante.FeeRecipientModule == "" {
+		ante.FeeRecipientModule = authtypes.FeeCollectorName
+	}
+
 	extensionOptionsEthereumTx := "/" + proto.MessageName(&types.ExtensionOptionsEthereumTx{})
 	extensionOptionsDynamicFeeTx := "/" + proto.MessageName(&antetypes.ExtensionOptionDynamicFeeTx{})
 	return func(
