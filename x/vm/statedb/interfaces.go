@@ -22,6 +22,12 @@ type ExtStateDB interface {
 type Keeper interface {
 	// Read methods
 	GetAccount(ctx sdk.Context, addr common.Address) *Account
+	// IsBaseAccountOrEmpty reports whether addr has no Cosmos account yet, or
+	// carries exactly the plain BaseAccount type. EVM contract code may only
+	// ever attach to such an address; any other concrete account type
+	// (vesting, module, or any future AccountI implementation) must never
+	// receive code
+	IsBaseAccountOrEmpty(ctx sdk.Context, addr common.Address) bool
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCode(ctx sdk.Context, codeHash common.Hash) []byte
 	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash

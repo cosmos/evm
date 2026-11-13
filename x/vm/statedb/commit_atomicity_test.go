@@ -37,6 +37,12 @@ func (k *atomicTestKeeper) GetAccount(ctx sdk.Context, addr common.Address) *sta
 	return &statedb.Account{Balance: new(uint256.Int).SetBytes(bz)}
 }
 
+// IsBaseAccountOrEmpty always reports true: this fake never models
+// privileged Cosmos account types
+func (k *atomicTestKeeper) IsBaseAccountOrEmpty(_ sdk.Context, _ common.Address) bool {
+	return true
+}
+
 func (k *atomicTestKeeper) SetAccount(ctx sdk.Context, addr common.Address, acc statedb.Account) error {
 	if addr == k.errAddr {
 		return errors.New("blocked")
