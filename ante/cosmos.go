@@ -1,10 +1,11 @@
 package ante
 
 import (
+	ibcante "github.com/lfdt-ibc/ibc-go/v11/modules/core/ante"
+
 	cosmosante "github.com/cosmos/evm/ante/cosmos"
 	evmante "github.com/cosmos/evm/ante/evm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibcante "github.com/cosmos/ibc-go/v11/modules/core/ante"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"

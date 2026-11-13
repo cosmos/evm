@@ -13,8 +13,8 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	corevm "github.com/ethereum/go-ethereum/core/vm"
+	transfertypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
 )
 
 // BlockedAddresses returns all the app's blocked account addresses.
@@ -51,13 +51,14 @@ func BlockedAddresses() map[string]bool {
 
 // module account permissions
 var maccPerms = map[string][]string{
-	authtypes.FeeCollectorName:     nil,
-	distrtypes.ModuleName:          nil,
-	transfertypes.ModuleName:       {authtypes.Minter, authtypes.Burner},
-	minttypes.ModuleName:           {authtypes.Minter},
-	stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
-	stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
-	govtypes.ModuleName:            {authtypes.Burner},
+	authtypes.FeeCollectorName:          nil,
+	distrtypes.ModuleName:               nil,
+	transfertypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
+	minttypes.ModuleName:                {authtypes.Minter},
+	stakingtypes.BondedPoolName:         {authtypes.Burner, authtypes.Staking},
+	stakingtypes.NotBondedPoolName:      {authtypes.Burner, authtypes.Staking},
+	stakingtypes.KeyRotationFeePoolName: {authtypes.Burner},
+	govtypes.ModuleName:                 {authtypes.Burner},
 
 	// Cosmos EVM modules
 	vmtypes.ModuleName:        {authtypes.Minter, authtypes.Burner},

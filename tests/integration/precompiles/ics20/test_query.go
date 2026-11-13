@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	transfertypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
 
 	"github.com/cosmos/evm"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
 	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"

@@ -3,9 +3,8 @@ package ics02
 import (
 	"testing"
 
+	clienttypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/02-client/types"
 	"github.com/stretchr/testify/require"
-
-	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"

@@ -4,12 +4,12 @@ import (
 	"context"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	ibctypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
+	connectiontypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/03-connection/types"
+	channeltypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/04-channel/types"
 
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
-	ibctypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	connectiontypes "github.com/cosmos/ibc-go/v11/modules/core/03-connection/types"
-	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 
 	"cosmossdk.io/math"
 

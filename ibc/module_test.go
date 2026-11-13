@@ -3,14 +3,14 @@ package ibc_test
 import (
 	"testing"
 
+	transfertypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
+	channeltypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/04-channel/types"
+	porttypes "github.com/lfdt-ibc/ibc-go/v11/modules/core/05-port/types"
+	"github.com/lfdt-ibc/ibc-go/v11/modules/core/exported"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	cosmosevmibc "github.com/cosmos/evm/ibc"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
-	porttypes "github.com/cosmos/ibc-go/v11/modules/core/05-port/types"
-	"github.com/cosmos/ibc-go/v11/modules/core/exported"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lfdt-ibc/ibc-go/v11/modules/core/keeper"
+	ibctesting "github.com/lfdt-ibc/ibc-go/v11/testing"
+	"github.com/lfdt-ibc/ibc-go/v11/testing/simapp"
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -12,9 +15,6 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/ibc-go/v11/modules/core/keeper"
-	ibctesting "github.com/cosmos/ibc-go/v11/testing"
-	"github.com/cosmos/ibc-go/v11/testing/simapp"
 
 	"cosmossdk.io/log/v2"
 	sdkmath "cosmossdk.io/math"

@@ -143,7 +143,7 @@ func (suite *LedgerTestSuite) TestSignatures() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest() // reset
 			tc.mockFunc()
-			_, err := suite.ledger.SignSECP256K1(gethaccounts.DefaultBaseDerivationPath, tc.tx, byte(signingtypes.SignMode_SIGN_MODE_TEXTUAL))
+			_, err := suite.ledger.SignSECP256K1(gethaccounts.DefaultBaseDerivationPath, tc.tx, byte(signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON))
 			if tc.expPass {
 				suite.Require().NoError(err)
 			} else {
@@ -187,9 +187,9 @@ func (suite *LedgerTestSuite) TestSignatureEquivalence() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest() // reset
 			tc.mockFunc()
-			protoSignature, err := suite.ledger.SignSECP256K1(gethaccounts.DefaultBaseDerivationPath, tc.txProtobuf, byte(signingtypes.SignMode_SIGN_MODE_TEXTUAL))
+			protoSignature, err := suite.ledger.SignSECP256K1(gethaccounts.DefaultBaseDerivationPath, tc.txProtobuf, byte(signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON))
 			suite.Require().NoError(err)
-			aminoSignature, err := suite.ledger.SignSECP256K1(gethaccounts.DefaultBaseDerivationPath, tc.txAmino, byte(signingtypes.SignMode_SIGN_MODE_TEXTUAL))
+			aminoSignature, err := suite.ledger.SignSECP256K1(gethaccounts.DefaultBaseDerivationPath, tc.txAmino, byte(signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON))
 			suite.Require().NoError(err)
 			if tc.expPass {
 				suite.Require().Equal(protoSignature, aminoSignature)

@@ -49,7 +49,7 @@ type EVMMempoolIterator struct {
 
 	// currentTx is the preferred tx to return via Tx() based on the state of
 	// both internal iterators
-	currentTx sdk.Tx
+	currentTx mempool.PooledTx
 
 	// nextEVMAction is the action that the evm iterator should take on the next
 	// call to Next()
@@ -82,7 +82,7 @@ func NewEVMMempoolIterator(
 	blockchain *Blockchain,
 ) mempool.Iterator {
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
-	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
+	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx().Tx != nil
 
 	if !hasEVM && !hasCosmos {
 		return nil
@@ -105,7 +105,7 @@ func NewEVMMempoolIterator(
 	iter.resolveCurrentTx()
 
 	// if there is no currentTx, we have no txs to return
-	if iter.currentTx == nil {
+	if iter.currentTx.Tx == nil {
 		return nil
 	}
 
@@ -124,7 +124,7 @@ func (i *EVMMempoolIterator) Next() mempool.Iterator {
 	// resolve the next preferred transaction
 	i.resolveCurrentTx()
 
-	if i.currentTx == nil {
+	if i.currentTx.Tx == nil {
 		return nil
 	}
 
@@ -165,7 +165,7 @@ func (i *EVMMempoolIterator) handleNextCosmosAction() {
 }
 
 // Tx returns the current transaction from the iterator.
-func (i *EVMMempoolIterator) Tx() sdk.Tx {
+func (i *EVMMempoolIterator) Tx() mempool.PooledTx {
 	return i.currentTx
 }
 
@@ -176,9 +176,9 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 	evmTx, evmFee := i.peekEVM()
 	cosmosTx, cosmosFee := i.peekCosmos()
 
-	if evmTx == nil && cosmosTx == nil {
+	if evmTx == nil && cosmosTx.Tx == nil {
 		i.nextEVMAction, i.nextCosmosAction = none, none
-		i.currentTx = nil
+		i.currentTx = mempool.PooledTx{}
 		return
 	}
 
@@ -186,7 +186,7 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 		sdkTx, err := i.convertEVMToSDKTx(evmTx)
 		if err == nil {
 			i.nextEVMAction = advance
-			i.currentTx = sdkTx
+			i.currentTx = pooledTxWithDeclaredGas(sdkTx)
 			return
 		}
 		i.logger.Error("EVM transaction conversion failed, falling back to Cosmos transaction", "tx_hash", evmTx.Hash, "err", err)
@@ -212,13 +212,13 @@ func (i *EVMMempoolIterator) resolveCurrentTx() {
 func (i *EVMMempoolIterator) shouldSelectEVMTx(
 	evmTx *txpool.LazyTransaction,
 	evmFee *uint256.Int,
-	cosmosTx sdk.Tx,
+	cosmosTx mempool.PooledTx,
 	cosmosFee *uint256.Int,
 ) bool {
 	if evmTx == nil {
 		return false
 	}
-	if cosmosTx == nil {
+	if cosmosTx.Tx == nil {
 		return true
 	}
 
@@ -242,17 +242,17 @@ func (i *EVMMempoolIterator) peekEVM() (*txpool.LazyTransaction, *uint256.Int) {
 
 // peekCosmos retrieves the next Cosmos transaction and its effective gas tip
 // without advancing.
-func (i *EVMMempoolIterator) peekCosmos() (sdk.Tx, *uint256.Int) {
+func (i *EVMMempoolIterator) peekCosmos() (mempool.PooledTx, *uint256.Int) {
 	if i.cosmosIterator == nil {
-		return nil, nil
+		return mempool.PooledTx{}, nil
 	}
 
 	tx := i.cosmosIterator.Tx()
-	if tx == nil {
-		return nil, nil
+	if tx.Tx == nil {
+		return mempool.PooledTx{}, nil
 	}
 
-	tip := i.extractCosmosEffectiveTip(tx)
+	tip := i.extractCosmosEffectiveTip(tx.Tx)
 	if tip == nil {
 		return tx, uint256.NewInt(0)
 	}

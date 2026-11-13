@@ -602,7 +602,7 @@ func TestMempool_Recheck(t *testing.T) {
 
 			for _, tx := range tc.insertTxs {
 				cosmosTx := createTestCosmosTx(t, txConfig, accounts[tx.account].key, tx.nonce)
-				require.NoError(t, mp.Insert(context.Background(), cosmosTx))
+				require.NoError(t, mp.Insert(context.Background(), cosmosTx, sdkmempool.InsertOption{}))
 			}
 
 			require.Equal(t, len(tc.insertTxs), mp.CountTx(), "should have all txs inserted")
@@ -1262,7 +1262,7 @@ func newTestRecheckedTxs() *heightsync.HeightSync[mempool.CosmosTxStore] {
 func collectIteratorTxs(iter sdkmempool.Iterator) []sdk.Tx {
 	var txs []sdk.Tx
 	for iter != nil {
-		tx := iter.Tx()
+		tx := iter.Tx().Tx
 		if tx == nil {
 			break
 		}

@@ -287,7 +287,9 @@ func (m *Mempool) SetClientCtx(clientCtx client.Context) {
 // Insert adds a transaction to the appropriate mempool (EVM or Cosmos).
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool.
-func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
+// The InsertOption is unused: EVM txs are ordered by the txpool, and cosmos
+// txs are rechecked through the ante handler on insert.
+func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx, _ sdkmempool.InsertOption) error {
 	errC, err := m.insert(tx)
 	if err != nil {
 		return fmt.Errorf("inserting tx: %w", err)
@@ -383,7 +385,7 @@ func (m *Mempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator 
 // SelectBy iterates through transactions until the provided filter function returns false.
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
-func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdk.Tx) bool) {
+func (m *Mempool) SelectBy(goCtx context.Context, txs [][]byte, filter func(sdkmempool.PooledTx) bool) {
 	defer func(t0 time.Time) {
 		selectByDuration.Record(goCtx, float64(time.Since(t0).Milliseconds()))
 	}(time.Now())

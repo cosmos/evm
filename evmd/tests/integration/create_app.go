@@ -10,7 +10,7 @@ import (
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	ibctesting "github.com/lfdt-ibc/ibc-go/v11/testing"
 
 	"cosmossdk.io/log/v2"
 
@@ -81,6 +81,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
 	stakingGen := stakingtypes.DefaultGenesisState()
 	stakingGen.Params.BondDenom = constants.ExampleAttoDenom
+	stakingGen.Params.KeyRotationFee.Denom = constants.ExampleAttoDenom
 	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
 	mintGen := minttypes.DefaultGenesisState()
 	mintGen.Params.MintDenom = constants.ExampleAttoDenom
