@@ -35,6 +35,8 @@ const ExceedBlockGasLimitError = "out of gas in location: block gas meter; gasWa
 // StateDBCommitError defines the error message when commit after executing EVM transaction, for example
 // transfer native token to a distribution module account 0x93354845030274cD4bf1686Abd60AB28EC52e1a7 using an evm type transaction
 // note: the transfer amount cannot be set to 0, otherwise this problem will not be triggered
+//
+// Deprecated: StateDB commit failures no longer count as expected failures in TxSucessOrExpectedFailure.
 const StateDBCommitError = "failed to commit stateDB"
 
 // RawTxToEthTx returns a evm MsgEthereum transaction from raw tx bytes.
@@ -349,14 +351,16 @@ func TxExceedBlockGasLimit(res *abci.ExecTxResult) bool {
 }
 
 // TxStateDBCommitError returns true if the evm tx commit error.
+//
+// Deprecated: StateDB commit failures no longer count as expected failures in TxSucessOrExpectedFailure.
 func TxStateDBCommitError(res *abci.ExecTxResult) bool {
 	return strings.Contains(res.Log, StateDBCommitError)
 }
 
 // TxSucessOrExpectedFailure returns true if the transaction was successful
-// or if it failed with an ExceedBlockGasLimit error or TxStateDBCommitError error
+// or if it failed with an ExceedBlockGasLimit error.
 func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
-	return res.Code == 0 || TxExceedBlockGasLimit(res) || TxStateDBCommitError(res)
+	return res.Code == 0 || TxExceedBlockGasLimit(res)
 }
 
 // CalcBaseFee calculates the basefee of the header.

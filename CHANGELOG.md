@@ -11,6 +11,7 @@
 ### FEATURES
 
 ### BUG FIXES
+- [\#1107](https://github.com/cosmos/evm/pull/1107) Skip StateDB commit error transactions during receipt conversion and indexing to prevent `invalid message index` errors in block RPCs. Blocks indexed before this release that contain such a transaction keep their old entries until the EVM indexer is rebuilt.
 
 ## v0.6.4
 
