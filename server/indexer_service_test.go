@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -15,9 +16,11 @@ import (
 	servertypes "github.com/cosmos/evm/server/types"
 )
 
-// fakeBlockSource serves every height; fetching fails for heights in failFetch.
+// fakeBlockSource serves every height; fetching the block fails for heights in
+// failFetch and fetching its results fails for heights in failResults.
 type fakeBlockSource struct {
-	failFetch map[int64]bool
+	failFetch   map[int64]bool
+	failResults map[int64]bool
 }
 
 func (f *fakeBlockSource) Block(_ context.Context, h *int64) (*coretypes.ResultBlock, error) {
@@ -28,6 +31,9 @@ func (f *fakeBlockSource) Block(_ context.Context, h *int64) (*coretypes.ResultB
 }
 
 func (f *fakeBlockSource) BlockResults(_ context.Context, h *int64) (*coretypes.ResultBlockResults, error) {
+	if f.failResults[*h] {
+		return nil, errors.New("block results not found")
+	}
 	return &coretypes.ResultBlockResults{Height: *h}, nil
 }
 
@@ -86,6 +92,50 @@ func TestIndexBlocksStopsAtFetchError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(6), last)
 	require.Equal(t, []int64{1, 2, 3, 4, 5, 6}, idx.indexed)
+}
+
+// A height whose results cannot be fetched (block saved before its results)
+// stops the pass at the previous height and is indexed on retry.
+func TestIndexBlocksStopsAtResultsFetchError(t *testing.T) {
+	idx := &fakeIndexer{}
+	eis := NewEVMIndexerService(idx, nil)
+	src := &fakeBlockSource{failResults: map[int64]bool{3: true}}
+
+	last, err := eis.indexBlocks(context.Background(), src, 0, 4)
+	require.Error(t, err)
+	require.Equal(t, int64(2), last)
+	require.Equal(t, []int64{1, 2}, idx.indexed)
+
+	delete(src.failResults, 3)
+	last, err = eis.indexBlocks(context.Background(), src, last, 4)
+	require.NoError(t, err)
+	require.Equal(t, int64(4), last)
+	require.Equal(t, []int64{1, 2, 3, 4}, idx.indexed)
+}
+
+// waitForBlock returns on a new block signal, on timeout, or when ctx is done.
+func TestWaitForBlock(t *testing.T) {
+	const never = time.Hour
+	returns := func(wait func(context.Context), ctx context.Context) bool {
+		done := make(chan struct{})
+		go func() { wait(ctx); close(done) }()
+		select {
+		case <-done:
+			return true
+		case <-time.After(5 * time.Second):
+			return false
+		}
+	}
+
+	signal := make(chan struct{}, 1)
+	signal <- struct{}{}
+	require.True(t, returns(waitForBlock(signal, never), context.Background()), "new block signal")
+
+	require.True(t, returns(waitForBlock(make(chan struct{}), time.Millisecond), context.Background()), "timeout")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.True(t, returns(waitForBlock(make(chan struct{}), never), ctx), "context done")
 }
 
 // The service loop must resume after a failed pass: before the fix a fetch

@@ -86,14 +86,20 @@ func (eis *EVMIndexerService) OnStart() error {
 		lastBlock = latestBlock.Load()
 	}
 
-	eis.indexLoop(ctx, eis.client, lastBlock, latestBlock.Load, func(ctx context.Context) {
+	eis.indexLoop(ctx, eis.client, lastBlock, latestBlock.Load, waitForBlock(newBlockSignal, NewBlockWaitTimeout))
+	return nil
+}
+
+// waitForBlock returns the indexLoop wait function: it returns on a new block
+// signal, after timeout, or once ctx is done.
+func waitForBlock(newBlockSignal <-chan struct{}, timeout time.Duration) func(context.Context) {
+	return func(ctx context.Context) {
 		select {
 		case <-newBlockSignal:
-		case <-time.After(NewBlockWaitTimeout):
+		case <-time.After(timeout):
 		case <-ctx.Done():
 		}
-	})
-	return nil
+	}
 }
 
 // indexLoop indexes blocks after lastBlock as they are produced, until ctx is
