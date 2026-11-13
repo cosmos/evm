@@ -4,8 +4,8 @@
   "author": "huangyi <huang@crypto.com>",
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "test-ganache": "yarn truffle test",
-    "test-cosmos": "yarn truffle test --network cosmos"
+    "test-ganache": "pnpm exec truffle test",
+    "test-cosmos": "pnpm exec truffle test --network cosmos"
   },
   "devDependencies": {
     "truffle-assertions": "^0.9.2"

@@ -1,6 +1,7 @@
 {
   "name": "viem",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.24.0",
   "main": "index.js",
   "scripts": {
     "test": "mocha test/viemFunctions.test.js --timeout 60000"
@@ -10,7 +11,7 @@
   "license": "ISC",
   "description": "",
   "engines": {
-    "node": ">=22"
+    "node": "24"
   },
   "devDependencies": {
     "chai": "^4.5.0",

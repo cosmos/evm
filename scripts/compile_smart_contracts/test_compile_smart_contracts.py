@@ -1,17 +1,39 @@
+import json
 import os
 from pathlib import Path
-from shutil import copytree
+from shutil import copytree, ignore_patterns
 
 import pytest
 from compile_smart_contracts import (
+    Contract,
     HARDHAT_PROJECT_DIR,
     SOLIDITY_SOURCE,
     compile_contracts_in_dir,
+    copy_compiled_contracts_back_to_source,
     copy_to_contracts_directory,
     find_solidity_contracts,
     is_ignored_folder,
     is_os_repo,
 )
+
+
+def setup_compiled_precompile(tmp_path, artifact):
+    relative_path = Path("precompiles/staking")
+    compiled_dir = tmp_path / "artifacts"
+    compiled_path = compiled_dir / relative_path / "StakingI.sol/StakingI.json"
+    compiled_path.parent.mkdir(parents=True)
+    compiled_path.write_text(json.dumps(artifact), encoding="utf-8")
+
+    abi_path = tmp_path / relative_path / "abi.json"
+    abi_path.parent.mkdir(parents=True)
+
+    contract = Contract(
+        compiled_json_path=abi_path,
+        filename="StakingI",
+        path=tmp_path / relative_path / "StakingI.sol",
+        relative_path=relative_path,
+    )
+    return contract, compiled_dir, abi_path
 
 
 @pytest.fixture
@@ -103,6 +125,30 @@ def test_copy_to_contracts_directory(
     )
 
 
+def test_copy_compiled_precompile_abi_always_overwrites(tmp_path):
+    abi = [{"type": "function", "name": "delegate"}]
+    contract, compiled_dir, abi_path = setup_compiled_precompile(
+        tmp_path,
+        {"abi": abi, "bytecode": "0x1234"},
+    )
+    abi_path.write_text(json.dumps(abi), encoding="utf-8")
+
+    copy_compiled_contracts_back_to_source([contract], compiled_dir)
+
+    assert abi_path.read_text(encoding="utf-8") == f"{json.dumps(abi, indent=2)}\n"
+
+
+def test_copy_compiled_precompile_abi_requires_abi_key(tmp_path):
+    contract, compiled_dir, abi_path = setup_compiled_precompile(
+        tmp_path,
+        {"bytecode": "0x1234"},
+    )
+    abi_path.write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="has no 'abi' key"):
+        copy_compiled_contracts_back_to_source([contract], compiled_dir)
+
+
 @pytest.fixture
 def setup_contracts_directory(tmp_path):
     """
@@ -112,7 +158,12 @@ def setup_contracts_directory(tmp_path):
     """
 
     testdata_dir = Path(__file__).parent / "testdata"
-    copytree(testdata_dir, tmp_path, dirs_exist_ok=True)
+    copytree(
+        testdata_dir,
+        tmp_path,
+        dirs_exist_ok=True,
+        ignore=ignore_patterns("node_modules", "artifacts", "cache"),
+    )
 
     return tmp_path
 
