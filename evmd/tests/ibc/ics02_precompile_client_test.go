@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/suite"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -14,13 +15,17 @@ import (
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics02"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v11/modules/core/23-commitment/types/v2"
 	ibchost "github.com/cosmos/ibc-go/v11/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
 	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
+	localhost "github.com/cosmos/ibc-go/v11/modules/light-clients/09-localhost"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 type ICS02ClientTestSuite struct {
@@ -1009,6 +1014,64 @@ func (s *ICS02ClientTestSuite) TestFalseMisbehaviourClientFreezeAttack() {
 	)
 	s.Require().Equal(ibcexported.Active, status,
 		"client must be active after the failed attack")
+}
+
+// TestVerifyLocalhostInvalidPath checks that verifyMembership and
+// verifyNonMembership revert, instead of panicking, when the localhost client
+// would read an empty or oversized key from the store.
+func (s *ICS02ClientTestSuite) TestVerifyLocalhostInvalidPath() {
+	proofHeight := clienttypes.NewHeight(0, 1)
+	prefix := []byte(ibcexported.StoreKey)
+
+	testCases := []struct {
+		name string
+		key  []byte
+	}{
+		{name: "empty key", key: []byte{}},
+		{name: "oversized key", key: make([]byte, storetypes.MaxKeyLength+1)},
+	}
+
+	for _, tc := range testCases {
+		for _, method := range []string{ics02.VerifyMembershipMethod, ics02.VerifyNonMembershipMethod} {
+			s.Run(method+" "+tc.name, func() {
+				s.SetupTest()
+
+				args := []interface{}{ibcexported.LocalhostClientID, localhost.SentinelProof, proofHeight, [][]byte{prefix, tc.key}}
+				if method == ics02.VerifyMembershipMethod {
+					args = append(args, []byte{0x01})
+				}
+				calldata, err := s.chainAPrecompile.Pack(method, args...)
+				s.Require().NoError(err)
+
+				senderIdx := 1
+				senderAccount := s.chainA.SenderAccounts[senderIdx]
+				txResult, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 10_000_000)
+				s.Require().Zero(txResult.Code, txResult.Log)
+				s.Require().ErrorIs(err, evmtypes.ErrVMExecution)
+				reason, err := abi.UnpackRevert(resp.Ret)
+				s.Require().NoError(err)
+				s.Require().Contains(reason, ibchost.ErrInvalidPath.Error())
+			})
+		}
+	}
+
+	s.Run("success: localhost non-membership of a missing key", func() {
+		s.SetupTest()
+
+		calldata, err := s.chainAPrecompile.Pack(
+			ics02.VerifyNonMembershipMethod,
+			ibcexported.LocalhostClientID,
+			localhost.SentinelProof,
+			proofHeight,
+			[][]byte{prefix, ibchost.FullClientStateKey(ibctesting.SecondClientID)},
+		)
+		s.Require().NoError(err)
+
+		senderIdx := 1
+		senderAccount := s.chainA.SenderAccounts[senderIdx]
+		_, _, _, err = s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 100_000)
+		s.Require().NoError(err)
+	})
 }
 
 func TestICS02ClientTestSuite(t *testing.T) {

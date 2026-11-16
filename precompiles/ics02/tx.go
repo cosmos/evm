@@ -16,6 +16,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -99,6 +100,9 @@ func (p *Precompile) VerifyMembership(
 	}
 
 	path := commitmenttypesv2.NewMerklePath(pathBz...)
+	if err := validateMerklePath(clientID, path); err != nil {
+		return nil, err
+	}
 
 	if err := p.clientKeeper.VerifyMembership(ctx, clientID, proofHeight, 0, 0, proof, path, value); err != nil {
 		return nil, err
@@ -139,6 +143,9 @@ func (p *Precompile) VerifyNonMembership(
 	}
 
 	path := commitmenttypesv2.NewMerklePath(pathBz...)
+	if err := validateMerklePath(clientID, path); err != nil {
+		return nil, err
+	}
 
 	if err := p.clientKeeper.VerifyNonMembership(ctx, clientID, proofHeight, 0, 0, proof, path); err != nil {
 		return nil, err
@@ -155,4 +162,21 @@ func (p *Precompile) VerifyNonMembership(
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
 	return method.Outputs.Pack(big.NewInt(timestampSeconds))
+}
+
+// validateMerklePath rejects paths with an empty key, and localhost paths whose
+// store key is too long. The localhost client reads the second key straight
+// from the store, and the store's AssertValidKey panics on both instead of
+// returning an error.
+func validateMerklePath(clientID string, path commitmenttypesv2.MerklePath) error {
+	if err := path.ValidateAsPath(); err != nil {
+		return errorsmod.Wrap(host.ErrInvalidPath, err.Error())
+	}
+
+	clientType, _, err := clienttypes.ParseClientIdentifier(clientID)
+	if err == nil && clientType == ibcexported.Localhost && len(path.KeyPath) == 2 && len(path.KeyPath[1]) > storetypes.MaxKeyLength {
+		return errorsmod.Wrapf(host.ErrInvalidPath, "key exceeds max length %d", storetypes.MaxKeyLength)
+	}
+
+	return nil
 }
