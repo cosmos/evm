@@ -24,7 +24,10 @@ AMOUNT=2000000000000000000000
 
 echo "🔄 Sending transfer exceeding balance..."
 
-# 1) Send via cast and require a failing exit status
+# ERC20InsufficientBalance(address,uint256,uint256) selector
+INSUFFICIENT_BALANCE_SELECTOR=0xe450d38c
+
+# 1) Send via cast; it must exit non-zero
 echo "❌ Attempting transfer that should fail:"
 echo "$ cast send \"$CONTRACT\" 'transfer(address,uint256)' \"$RECIPIENT\" \"$AMOUNT\" --rpc-url \"$RPC_URL\" --private-key \"[HIDDEN]\" --chain-id \"$CHAIN_ID\" --json"
 if OUTPUT=$(cast send \
@@ -39,28 +42,16 @@ if OUTPUT=$(cast send \
 	exit 1
 fi
 
-# 2) Try parse JSON
-if [[ "$OUTPUT" == *"{"* ]]; then
-	printf '%s\n' "$OUTPUT" | jq -er '
-    if .success == false and (.errors | length > 0) and
-      all(.errors[]; (.message | contains("execution reverted")) and
-        (.message | contains("ERC20InsufficientBalance("))) then
-      "✅ Transaction reverted as expected:\n  " + (.errors | map(.message) | join("\n  "))
-    else
-      error("Unexpected cast response: " + tojson)
-    end'
+# 2) Match the revert text, independent of cast's error output format
+if printf '%s' "$OUTPUT" | grep -q 'execution reverted' &&
+	printf '%s' "$OUTPUT" | grep -qi -e 'ERC20InsufficientBalance' -e "$INSUFFICIENT_BALANCE_SELECTOR"; then
+	echo "✅ Transaction reverted as expected"
+	echo
+	echo "Revert detail:"
+	printf '%s\n' "$OUTPUT"
 else
-	# 3b) No JSON -> fallback to raw text check
-	if echo "$OUTPUT" | grep -q 'ERC20InsufficientBalance('; then
-		echo "✅ Transaction reverted as expected"
-		echo
-		echo "Revert detail:"
-		# Newline before 'Error:'
-		echo "$OUTPUT" | sed -n 's/.*\(Error:.*\)/\1/p'
-	else
-		echo "❌ Unexpected response (no JSON, no revert message):"
-		echo
-		echo "$OUTPUT"
-		exit 1
-	fi
+	echo "❌ Unexpected response (no ERC20InsufficientBalance revert):"
+	echo
+	printf '%s\n' "$OUTPUT"
+	exit 1
 fi
