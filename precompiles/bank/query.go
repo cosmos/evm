@@ -21,11 +21,10 @@ const (
 	SupplyOfMethod = "supplyOf"
 )
 
-// Balances returns given account's balances of all tokens registered in the x/bank module
-// and the corresponding ERC20 address (address, amount). The amount returned for each token
-// has the original decimals precision stored in the x/bank.
-// This method charges the account the corresponding value of an ERC-20
-// balanceOf call for each token returned.
+// Balances returns the given account's balances for denominations with registered ERC-20
+// token pairs and their corresponding ERC-20 addresses (address, amount). The amount returned
+// for each token has the original decimals precision stored in x/bank.
+// This method charges for each denomination visited while enumerating balances.
 func (p Precompile) Balances(
 	ctx sdk.Context,
 	method *abi.Method,
@@ -40,17 +39,19 @@ func (p Precompile) Balances(
 	balances := make([]Balance, 0)
 
 	p.bankKeeper.IterateAccountBalances(ctx, account, func(coin sdk.Coin) bool {
-		// Only return addresses that SupplyOf can resolve to a registered token pair.
-		// Unregistered IBC vouchers otherwise expose a hash-derived address with zero supply.
-		if len(p.erc20Keeper.GetTokenPairID(ctx, coin.Denom)) == 0 {
-			return false
-		}
 		defer func() { i++ }()
 
-		// NOTE: we already charged for a single balanceOf request so we don't
-		// need to charge on the first iteration
+		// Charge for every visited denomination, including unregistered ones that
+		// are omitted from the result. Store gas is disabled for this precompile.
+		// The base charge covers the first denomination.
 		if i > 0 {
 			ctx.GasMeter().ConsumeGas(GasBalances, "ERC-20 extension balances method")
+		}
+
+		// Only return addresses that SupplyOf can resolve to a registered token pair.
+		// Unregistered IBC vouchers otherwise expose a hash-derived address with zero supply.
+		if !p.erc20Keeper.IsDenomRegistered(ctx, coin.Denom) {
+			return false
 		}
 
 		contractAddress, err := p.erc20Keeper.GetCoinAddress(ctx, coin.Denom)
@@ -69,11 +70,9 @@ func (p Precompile) Balances(
 	return method.Outputs.Pack(balances)
 }
 
-// TotalSupply returns the total supply of all tokens registered in the x/bank
-// module. The amount returned for each token has the original
-// decimals precision stored in the x/bank.
-// This method charges the account the corresponding value of a ERC-20 totalSupply
-// call for each token returned.
+// TotalSupply returns the total supply for denominations with registered ERC-20 token pairs.
+// The amount returned for each token has the original decimals precision stored in x/bank.
+// This method charges for each denomination visited while enumerating total supply.
 func (p Precompile) TotalSupply(
 	ctx sdk.Context,
 	method *abi.Method,
@@ -83,16 +82,18 @@ func (p Precompile) TotalSupply(
 	totalSupply := make([]Balance, 0)
 
 	p.bankKeeper.IterateTotalSupply(ctx, func(coin sdk.Coin) bool {
-		// Keep the listed tokens consistent with SupplyOf's registered-pair lookup.
-		if len(p.erc20Keeper.GetTokenPairID(ctx, coin.Denom)) == 0 {
-			return false
-		}
 		defer func() { i++ }()
 
-		// NOTE: we already charged for a single totalSupply request so we don't
-		// need to charge on the first iteration
+		// Charge for every visited denomination, including unregistered ones that
+		// are omitted from the result. Store gas is disabled for this precompile.
+		// The base charge covers the first denomination.
 		if i > 0 {
 			ctx.GasMeter().ConsumeGas(GasTotalSupply, "ERC-20 extension totalSupply method")
+		}
+
+		// Keep the listed tokens consistent with SupplyOf's registered-pair lookup.
+		if !p.erc20Keeper.IsDenomRegistered(ctx, coin.Denom) {
+			return false
 		}
 
 		contractAddress, err := p.erc20Keeper.GetCoinAddress(ctx, coin.Denom)

@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	cosmosevmutiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/utils"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/math"
 
@@ -323,4 +324,55 @@ func (s *PrecompileTestSuite) TestUnregisteredIBCVoucherQueryConsistency() {
 	out, err := supplyOfMethod.Outputs.Unpack(bz)
 	s.Require().NoError(err)
 	s.Require().Zero(out[0].(*big.Int).Sign())
+}
+
+// Address-shaped denominations must be checked through the denomination map,
+// not interpreted as ERC-20 contract addresses.
+func (s *PrecompileTestSuite) TestAddressShapedDenomRemainsVisible() {
+	ctx := s.SetupTest()
+	denom := strings.Repeat("a", 40)
+	contractAddress := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	pair := erc20types.TokenPair{
+		Erc20Address:  contractAddress.Hex(),
+		Denom:         denom,
+		Enabled:       true,
+		ContractOwner: erc20types.OWNER_MODULE,
+	}
+	err := s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+	s.Require().NoError(err)
+	s.Require().True(s.network.App.GetErc20Keeper().IsDenomRegistered(ctx, denom))
+
+	coins := sdk.NewCoins(sdk.NewCoin(denom, math.NewInt(456)))
+	keeper := s.network.App.GetBankKeeper()
+	err = keeper.MintCoins(ctx, minttypes.ModuleName, coins)
+	s.Require().NoError(err)
+	err = keeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, s.keyring.GetAccAddr(0), coins)
+	s.Require().NoError(err)
+
+	balancesMethod := s.precompile.Methods[bank.BalancesMethod]
+	balancesBz, err := s.precompile.Balances(ctx, &balancesMethod, []interface{}{s.keyring.GetAddr(0)})
+	s.Require().NoError(err)
+	var balances []bank.Balance
+	s.Require().NoError(s.precompile.UnpackIntoInterface(&balances, balancesMethod.Name, balancesBz))
+	s.Require().Contains(balances, bank.Balance{
+		ContractAddress: contractAddress,
+		Amount:          big.NewInt(456),
+	})
+
+	totalSupplyMethod := s.precompile.Methods[bank.TotalSupplyMethod]
+	supplyBz, err := s.precompile.TotalSupply(ctx, &totalSupplyMethod, nil)
+	s.Require().NoError(err)
+	var supplies []bank.Balance
+	s.Require().NoError(s.precompile.UnpackIntoInterface(&supplies, totalSupplyMethod.Name, supplyBz))
+	s.Require().Contains(supplies, bank.Balance{
+		ContractAddress: contractAddress,
+		Amount:          big.NewInt(456),
+	})
+
+	supplyOfMethod := s.precompile.Methods[bank.SupplyOfMethod]
+	bz, err := s.precompile.SupplyOf(ctx, &supplyOfMethod, []interface{}{contractAddress})
+	s.Require().NoError(err)
+	out, err := supplyOfMethod.Outputs.Unpack(bz)
+	s.Require().NoError(err)
+	s.Require().Equal(big.NewInt(456), out[0].(*big.Int))
 }
