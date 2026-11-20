@@ -277,6 +277,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// The index runs behind commit: a committed block's txs may
 			// not be in it yet. The block's results give the same entry.
 			if fromBlock == nil {
+				b.Logger.Debug("tx index behind: receipts taken from the block's results", "height", resBlock.Block.Height)
 				fromBlock = map[common.Hash]*servertypes.TxResult{}
 				for _, r := range indexer.BlockTxResults(b.ClientCtx.TxConfig.TxDecoder(), b.Logger, resBlock.Block, blockRes.TxsResults) {
 					fromBlock[r.Hash] = &r.Result
