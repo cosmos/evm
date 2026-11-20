@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
@@ -137,7 +136,8 @@ func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*
 }
 
 // NewMsgWithdrawValidatorCommission creates a new MsgWithdrawValidatorCommission message.
-func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.MsgWithdrawValidatorCommission, common.Address, error) {
+// valCdc is the chain's validator address codec, used to decode the validator address.
+func NewMsgWithdrawValidatorCommission(args []interface{}, valCdc address.Codec) (*distributiontypes.MsgWithdrawValidatorCommission, common.Address, error) {
 	if len(args) != 1 {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -148,12 +148,12 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 		ValidatorAddress: validatorAddress,
 	}
 
-	validatorHexAddr, err := utils.HexAddressFromBech32String(msg.ValidatorAddress)
+	validatorBz, err := valCdc.StringToBytes(msg.ValidatorAddress)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 
-	return msg, validatorHexAddr, nil
+	return msg, common.BytesToAddress(validatorBz), nil
 }
 
 // NewMsgFundCommunityPool creates a new NewMsgFundCommunityPool message.
