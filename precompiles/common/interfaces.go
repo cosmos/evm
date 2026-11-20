@@ -66,6 +66,7 @@ type ERC20Keeper interface {
 	GetERC20Map(ctx sdk.Context, erc20 ethcommon.Address) []byte
 	GetTokenPair(ctx sdk.Context, id []byte) (erc20types.TokenPair, bool)
 	IsERC20Enabled(ctx sdk.Context) bool
+	IsDenomRegistered(ctx sdk.Context, denom string) bool
 	GetTokenPairID(ctx sdk.Context, token string) []byte
 	ConvertERC20IntoCoinsForNativeToken(ctx sdk.Context, stateDB *statedb.StateDB, contract ethcommon.Address, amount math.Int, receiver sdk.AccAddress, sender ethcommon.Address, commit bool, callFromPrecompile bool) (*erc20types.MsgConvertERC20Response, error)
 }
