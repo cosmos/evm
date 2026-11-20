@@ -51,6 +51,7 @@ type EVMKeeper interface {
 	SetCode(ctx sdk.Context, hash []byte, bytecode []byte)
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
+	IsBaseAccountOrEmpty(ctx sdk.Context, addr common.Address) bool
 	IsContract(ctx sdk.Context, address common.Address) bool
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
