@@ -111,13 +111,14 @@ func (k Keeper) CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from 
 		return nil, err
 	}
 
-	if metered {
+	switch {
+	case metered:
 		// The enclosing operation can still discard the conversion, including
 		// after a successful internal call. Charge gas without state refunds.
 		gasMeter.ConsumeGas(res.MaxUsedGas, "apply evm message")
-	} else if res.Failed() {
+	case res.Failed():
 		k.ResetGasMeterAndConsumeGas(ctx, gasMeter.Limit())
-	} else {
+	default:
 		gasMeter.ConsumeGas(res.GasUsed, "apply evm message")
 	}
 
