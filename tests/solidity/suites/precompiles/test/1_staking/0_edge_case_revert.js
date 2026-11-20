@@ -3,6 +3,7 @@ const hre = require('hardhat');
 const {
     STAKING_PRECOMPILE_ADDRESS,
     LARGE_GAS_LIMIT,
+    getRevertData,
     waitWithTimeout, RETRY_DELAY_FUNC
 } = require('../common');
 
@@ -30,6 +31,56 @@ describe('Staking – edge case revert test', function () {
         
         console.log('StakingReverter deployed at:', await stakingReverter.getAddress());
         console.log('Using validator address:', validatorAddress);
+    });
+
+    it('decodes invalid validator custom error data', async function () {
+        const invalidValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pinvalid';
+
+        try {
+            await staking
+                .connect(signer)
+                .delegate.estimateGas(signer.address, invalidValidatorAddress, 1);
+            expect.fail('delegate should have reverted');
+        } catch (error) {
+            const parsed = staking.interface.parseError(getRevertData(error));
+            expect(parsed.name).to.equal('InvalidAddress');
+            expect(String(parsed.args[0])).to.include(invalidValidatorAddress);
+        }
+    });
+
+    it('parses and branches on staking cancel-unbonding NotFound selector', async function () {
+        try {
+            await staking
+                .connect(signer)
+                .cancelUnbondingDelegation.estimateGas(signer.address, validatorAddress, 1, 1);
+            expect.fail('cancelUnbondingDelegation should have reverted');
+        } catch (error) {
+            const data = getRevertData(error);
+            expect(data.slice(0, 10)).to.equal('0x4641db46');
+            expect(staking.interface.parseError(data).name)
+                .to.equal('StakingUnbondingDelegationNotFound');
+        }
+
+        expect(await stakingReverter.branchesOnCancelUnbondingNotFound.staticCall(validatorAddress))
+            .to.equal(true);
+    });
+
+    it('parses and branches on a shared SDK selector without classifying unknown data', async function () {
+        const balance = await hre.ethers.provider.getBalance(signer.address);
+        try {
+            await staking
+                .connect(signer)
+                .delegate.estimateGas(signer.address, validatorAddress, balance + 1n);
+            expect.fail('delegate should have reverted');
+        } catch (error) {
+            const data = getRevertData(error);
+            expect(data.slice(0, 10)).to.equal('0xa5303a58');
+            expect(staking.interface.parseError(data).name).to.equal('SDKInsufficientFunds');
+        }
+
+        expect(await stakingReverter.branchesOnSharedInsufficientFunds.staticCall(validatorAddress))
+            .to.equal(true);
+        expect(await stakingReverter.classifyKnownError('0xdeadbeef')).to.equal(0n);
     });
 
     describe('Edge case: callPrecompileBeforeAndAfterRevert with numTimes=1', function () {

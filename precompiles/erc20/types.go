@@ -5,6 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
 )
 
 // EventTransfer defines the event data for the ERC20 Transfer events.
@@ -27,17 +29,17 @@ func ParseTransferArgs(args []interface{}) (
 	to common.Address, amount *big.Int, err error,
 ) {
 	if len(args) != 2 {
-		return common.Address{}, nil, fmt.Errorf("invalid number of arguments; expected 2; got: %d", len(args))
+		return common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	to, ok := args[0].(common.Address)
 	if !ok {
-		return common.Address{}, nil, fmt.Errorf("invalid to address: %v", args[0])
+		return common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	amount, ok = args[1].(*big.Int)
 	if !ok {
-		return common.Address{}, nil, fmt.Errorf("invalid amount: %v", args[1])
+		return common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[1]))
 	}
 
 	return to, amount, nil
@@ -49,22 +51,22 @@ func ParseTransferFromArgs(args []interface{}) (
 	from, to common.Address, amount *big.Int, err error,
 ) {
 	if len(args) != 3 {
-		return common.Address{}, common.Address{}, nil, fmt.Errorf("invalid number of arguments; expected 3; got: %d", len(args))
+		return common.Address{}, common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(3), big.NewInt(int64(len(args))))
 	}
 
 	from, ok := args[0].(common.Address)
 	if !ok {
-		return common.Address{}, common.Address{}, nil, fmt.Errorf("invalid from address: %v", args[0])
+		return common.Address{}, common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	to, ok = args[1].(common.Address)
 	if !ok {
-		return common.Address{}, common.Address{}, nil, fmt.Errorf("invalid to address: %v", args[1])
+		return common.Address{}, common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	amount, ok = args[2].(*big.Int)
 	if !ok {
-		return common.Address{}, common.Address{}, nil, fmt.Errorf("invalid amount: %v", args[2])
+		return common.Address{}, common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[2]))
 	}
 
 	return from, to, amount, nil
@@ -76,17 +78,17 @@ func ParseApproveArgs(args []interface{}) (
 	spender common.Address, amount *big.Int, err error,
 ) {
 	if len(args) != 2 {
-		return common.Address{}, nil, fmt.Errorf("invalid number of arguments; expected 2; got: %d", len(args))
+		return common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	spender, ok := args[0].(common.Address)
 	if !ok {
-		return common.Address{}, nil, fmt.Errorf("invalid spender address: %v", args[0])
+		return common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	amount, ok = args[1].(*big.Int)
 	if !ok {
-		return common.Address{}, nil, fmt.Errorf("invalid amount: %v", args[1])
+		return common.Address{}, nil, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAmount, fmt.Sprintf("%v", args[1]))
 	}
 
 	return spender, amount, nil
@@ -98,17 +100,17 @@ func ParseAllowanceArgs(args []interface{}) (
 	owner, spender common.Address, err error,
 ) {
 	if len(args) != 2 {
-		return common.Address{}, common.Address{}, fmt.Errorf("invalid number of arguments; expected 2; got: %d", len(args))
+		return common.Address{}, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(2), big.NewInt(int64(len(args))))
 	}
 
 	owner, ok := args[0].(common.Address)
 	if !ok {
-		return common.Address{}, common.Address{}, fmt.Errorf("invalid owner address: %v", args[0])
+		return common.Address{}, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	spender, ok = args[1].(common.Address)
 	if !ok {
-		return common.Address{}, common.Address{}, fmt.Errorf("invalid spender address: %v", args[1])
+		return common.Address{}, common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[1]))
 	}
 
 	return owner, spender, nil
@@ -117,12 +119,12 @@ func ParseAllowanceArgs(args []interface{}) (
 // ParseBalanceOfArgs parses the balanceOf arguments and returns the account address.
 func ParseBalanceOfArgs(args []interface{}) (common.Address, error) {
 	if len(args) != 1 {
-		return common.Address{}, fmt.Errorf("invalid number of arguments; expected 1; got: %d", len(args))
+		return common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidNumberOfArgs, big.NewInt(1), big.NewInt(int64(len(args))))
 	}
 
 	account, ok := args[0].(common.Address)
 	if !ok {
-		return common.Address{}, fmt.Errorf("invalid account address: %v", args[0])
+		return common.Address{}, cmn.NewRevertWithSolidityError(ABI, cmn.SolidityErrInvalidAddress, fmt.Sprintf("%v", args[0]))
 	}
 
 	return account, nil

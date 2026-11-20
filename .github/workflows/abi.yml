@@ -1,0 +1,27 @@
+name: Precompile ABI Check
+
+on:
+  merge_group:
+  pull_request:
+  push:
+    branches:
+      - main
+      - release/**
+
+permissions: read-all
+
+jobs:
+  check-abis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: technote-space/get-diff-action@v6.1.2
+        with:
+          PATTERNS: |
+            precompiles/**/*.sol
+            precompiles/**/abi.json
+      - name: Check generated ABIs
+        run: |
+          make contracts-compile
+          git diff --exit-code -- ':(glob)precompiles/**/abi.json'
+        if: env.GIT_DIFF
