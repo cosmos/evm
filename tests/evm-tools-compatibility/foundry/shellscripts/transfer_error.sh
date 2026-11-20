@@ -24,40 +24,34 @@ AMOUNT=2000000000000000000000
 
 echo "🔄 Sending transfer exceeding balance..."
 
-# 1) Send via cast and capture output (suppress exit)
+# ERC20InsufficientBalance(address,uint256,uint256) selector
+INSUFFICIENT_BALANCE_SELECTOR=0xe450d38c
+
+# 1) Send via cast; it must exit non-zero
 echo "❌ Attempting transfer that should fail:"
 echo "$ cast send \"$CONTRACT\" 'transfer(address,uint256)' \"$RECIPIENT\" \"$AMOUNT\" --rpc-url \"$RPC_URL\" --private-key \"[HIDDEN]\" --chain-id \"$CHAIN_ID\" --json"
-OUTPUT=$(cast send \
+if OUTPUT=$(cast send \
 	"$CONTRACT" \
 	'transfer(address,uint256)' "$RECIPIENT" "$AMOUNT" \
 	--rpc-url "$RPC_URL" \
 	--private-key "$PK" \
 	--chain-id "$CHAIN_ID" \
-	--json 2>&1 || true)
+	--json 2>&1); then
+	echo "❌ Expected a revert, but transaction succeeded:"
+	printf '%s\n' "$OUTPUT"
+	exit 1
+fi
 
-# 2) Try parse JSON
-JSON=$(echo "$OUTPUT" | sed -n 's/.*\({.*\)/\1/p')
-
-if [ -n "$JSON" ]; then
-	# 3a) JSON returned -> parse error field
-	echo "$JSON" | jq -r '
-    if has("error") then
-      "✅ Transaction reverted as expected:\n  " + .error.message
-    else
-      "❌ Expected a revert, but transaction succeeded:\n" + (.|tojson)
-    end'
+# 2) Match the revert text, independent of cast's error output format
+if printf '%s' "$OUTPUT" | grep -q 'execution reverted' &&
+	printf '%s' "$OUTPUT" | grep -qi -e 'ERC20InsufficientBalance' -e "$INSUFFICIENT_BALANCE_SELECTOR"; then
+	echo "✅ Transaction reverted as expected"
+	echo
+	echo "Revert detail:"
+	printf '%s\n' "$OUTPUT"
 else
-	# 3b) No JSON -> fallback to raw text check
-	if echo "$OUTPUT" | grep -q -e 'execution reverted' -e 'ERC20InsufficientBalance'; then
-		echo "✅ Transaction reverted as expected"
-		echo
-		echo "Revert detail:"
-		# Newline before 'Error:'
-		echo "$OUTPUT" | sed -n 's/.*\(Error:.*\)/\1/p'
-	else
-		echo "❌ Unexpected response (no JSON, no revert message):"
-		echo
-		echo "$OUTPUT"
-		exit 1
-	fi
+	echo "❌ Unexpected response (no ERC20InsufficientBalance revert):"
+	echo
+	printf '%s\n' "$OUTPUT"
+	exit 1
 fi
