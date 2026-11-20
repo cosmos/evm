@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	mock "github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -63,7 +64,15 @@ func (s *TestSuite) TestTraceTransaction() {
 	}{
 		{
 			"fail - tx not found",
-			func() {},
+			func() {
+				// the tx is not in the newest block either (the fallback for
+				// a tx index behind commit)
+				var header metadata.MD
+				RegisterParams(s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient), &header, 1)
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterBlock(client, 1, nil)
+				RegisterBlockResults(client, 1)
+			},
 			&types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{}}},
 			[]*abci.ExecTxResult{
 				{
