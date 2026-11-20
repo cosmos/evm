@@ -43,6 +43,10 @@ var errLedgerReplyInvalidHeader = errors.New("ledger: invalid reply header")
 // when a response does arrive, but it does not contain the expected data.
 var errLedgerInvalidVersionReply = errors.New("ledger: invalid version reply")
 
+// errLedgerReplyLacksStatusWord is the error message returned by a Ledger data
+// exchange if the reply is too short to end with the 2-byte status word.
+var errLedgerReplyLacksStatusWord = errors.New("ledger: reply lacks status word")
+
 // ledgerDriver implements the communication with a Ledger hardware wallet.
 type ledgerDriver struct {
 	device  io.ReadWriter // USB device connection to communicate through
@@ -427,6 +431,9 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 			reply = append(reply, payload[:left]...)
 			break
 		}
+	}
+	if len(reply) < 2 {
+		return nil, errLedgerReplyLacksStatusWord
 	}
 	return reply[:len(reply)-2], nil
 }
