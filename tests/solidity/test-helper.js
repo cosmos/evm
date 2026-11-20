@@ -151,7 +151,7 @@ function checkTestEnv () {
 
   if (!fs.existsSync(path.join(__dirname, './node_modules'))) {
     panic(
-        'node_modules not existed. Please run `yarn install` before running tests.'
+        'node_modules not existed. Please run `pnpm install` before running tests.'
     )
   }
   const runConfig = {}
@@ -267,7 +267,7 @@ function loadTests (runConfig) {
 function performTestSuite ({ testName, network }) {
   const cmd = network === 'ganache' ? 'test-ganache' : 'test-cosmos'
   return new Promise((resolve, reject) => {
-    const testProc = spawn('yarn', [cmd], {
+    const testProc = spawn('pnpm', ['run', cmd], {
       cwd: path.join(__dirname, 'suites', testName)
     })
 
