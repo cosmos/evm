@@ -5,6 +5,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -39,6 +40,23 @@ func (m MsgServer) Send(goCtx context.Context, msg *banktypes.MsgSend) error {
 		}
 	default:
 		return sdkerrors.ErrInvalidRequest.Wrapf("invalid keeper type: %T", m.BankKeeper)
+	}
+	return nil
+}
+
+// validateZeroAmountSend applies the bank send checks without moving coins.
+func (m MsgServer) validateZeroAmountSend(ctx context.Context, to sdk.AccAddress, coin sdk.Coin) error {
+	keeper, ok := m.BankKeeper.(interface {
+		IsSendEnabledCoins(context.Context, ...sdk.Coin) error
+	})
+	if !ok {
+		return sdkerrors.ErrInvalidRequest.Wrapf("bank keeper %T does not support send-enabled checks", m.BankKeeper)
+	}
+	if err := keeper.IsSendEnabledCoins(ctx, coin); err != nil {
+		return err
+	}
+	if m.BlockedAddr(to) {
+		return sdkerrors.ErrUnauthorized.Wrapf("%s is not allowed to receive funds", to)
 	}
 	return nil
 }

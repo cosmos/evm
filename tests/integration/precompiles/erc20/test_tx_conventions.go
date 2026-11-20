@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/precompiles/erc20"
@@ -12,6 +13,7 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // logsWithEvent returns the logs whose first topic is the given precompile event.
@@ -69,6 +71,47 @@ func (s *PrecompileTestSuite) TestTransferZeroAmount() {
 		s.Require().NoError(err, "a zero-amount transferFrom needs no allowance")
 		s.Require().Len(s.logsWithEvent(stDB, erc20.EventTypeTransfer), 1)
 	})
+}
+
+func (s *PrecompileTestSuite) TestTransferZeroAmountRespectsBankRestrictions() {
+	owner := s.keyring.GetKey(0)
+	spender := s.keyring.GetKey(1)
+	blocked := common.BytesToAddress(authtypes.NewModuleAddress(erc20types.ModuleName))
+
+	cases := []struct {
+		name     string
+		to       common.Address
+		disabled bool
+		wantErr  string
+	}{
+		{"blocked recipient", blocked, false, "is not allowed to receive funds"},
+		{"send-disabled denom", toAddr, true, "transfers are currently disabled"},
+	}
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx := s.network.GetContext()
+			stDB := s.network.GetStateDB()
+			bank := s.network.App.GetBankKeeper()
+			if tc.disabled {
+				bank.SetSendEnabled(ctx, tokenDenom, false)
+			} else {
+				s.Require().True(bank.BlockedAddr(tc.to.Bytes()))
+			}
+
+			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, owner.Addr, s.precompile.Address(), 0)
+			transfer := s.precompile.Methods[erc20.TransferMethod]
+			_, err := s.precompile.Transfer(ctx, contract, stDB, &transfer, []interface{}{tc.to, big.NewInt(0)})
+			s.ErrorContains(err, tc.wantErr)
+
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, spender.Addr, s.precompile.Address(), 0)
+			transferFrom := s.precompile.Methods[erc20.TransferFromMethod]
+			_, err = s.precompile.TransferFrom(ctx, contract, stDB, &transferFrom, []interface{}{owner.Addr, tc.to, big.NewInt(0)})
+			s.ErrorContains(err, tc.wantErr)
+
+			s.Empty(s.logsWithEvent(stDB, erc20.EventTypeTransfer))
+		})
+	}
 }
 
 // TestTransferFromMaxAllowance checks that an allowance of type(uint256).max is treated

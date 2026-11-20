@@ -64,9 +64,9 @@ func (p *Precompile) TransferFrom(
 // and TransferFrom methods. It executes a bank Send message. If the spender isn't
 // the sender of the transfer, it checks the allowance and updates it accordingly.
 //
-// Following EIP-20, a zero-amount transfer succeeds and emits Transfer without
-// moving coins. Following the common ERC-20 convention (OpenZeppelin), an allowance
-// of type(uint256).max is unlimited: it is not decremented and no Approval is emitted.
+// Following EIP-20, a zero-amount transfer emits Transfer without moving coins
+// once the bank send checks pass. Following the OpenZeppelin convention,
+// an allowance of type(uint256).max stays at that value and emits no Approval.
 func (p *Precompile) transfer(
 	ctx sdk.Context,
 	contract *vm.Contract,
@@ -79,11 +79,14 @@ func (p *Precompile) transfer(
 
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
 
+	msgSrv := NewMsgServerImpl(p.BankKeeper)
 	isZeroAmount := amount.Sign() == 0
-	if !isZeroAmount {
-		if err = msg.Amount.Validate(); err != nil {
-			return nil, err
+	if isZeroAmount {
+		if err = msgSrv.validateZeroAmountSend(ctx, to.Bytes(), coins[0]); err != nil {
+			return nil, ConvertErrToERC20Error(err)
 		}
+	} else if err = msg.Amount.Validate(); err != nil {
+		return nil, err
 	}
 
 	isTransferFrom := method.Name == TransferFromMethod
@@ -120,7 +123,6 @@ func (p *Precompile) transfer(
 	}
 
 	if !isZeroAmount {
-		msgSrv := NewMsgServerImpl(p.BankKeeper)
 		if err = msgSrv.Send(ctx, msg); err != nil {
 			// This should return an error to avoid the contract from being executed and an event being emitted
 			return nil, ConvertErrToERC20Error(err)
