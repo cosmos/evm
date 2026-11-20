@@ -125,6 +125,16 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 				s.Require().NoError(err, "can't find ledger key")
 			})
 		})
+		Context("with dry run", func() {
+			It("should derive the ledger key without saving it", func() {
+				_, err := sdktestutilcli.ExecTestCLICmd(clientCtx, cmd, []string{
+					ledgerKey, s.FormatFlag(flags.FlagUseLedger), s.FormatFlag(flags.FlagDryRun),
+				})
+				s.Require().NoError(err)
+				_, err = kr.Key(ledgerKey)
+				s.Require().Error(err)
+			})
+		})
 	})
 	Describe("Singing a transactions", func() {
 		BeforeEach(func() {
