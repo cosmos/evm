@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -158,4 +159,31 @@ func (s *KeeperTestSuite) TestUnsetHistoryWindowKeepsPreviousLayout() {
 	k.SetHeaderHash(heightCtx)
 	s.Require().Equal(blockHashAt(height-1), k.GetState(heightCtx, ethparams.HistoryStorageAddress, common.Hash{}))
 	s.Require().Equal(blockHashAt(height-1), k.GetHashFn(heightCtx.WithBlockHeight(int64(height+1)))(height-1))
+}
+
+// TestTraceBlockStoresParentHash checks that tracing replays the begin block write of
+// the parent hash: the traced state is the one at the end of the previous block, where
+// that hash is only pending.
+func (s *KeeperTestSuite) TestTraceBlockStoresParentHash() {
+	s.SetupTest()
+	k := s.Network.App.GetEVMKeeper()
+	ctx := s.Network.GetContext()
+
+	const parent = uint64(10)
+	for height := uint64(2); height <= parent; height++ {
+		k.SetHeaderHash(blockCtx(ctx, height))
+	}
+	// the hash of the parent is not in the contract yet
+	s.Require().Equal(common.Hash{}, s.historyContractGet(blockCtx(ctx, parent+1), parent))
+
+	traced := parent + 1
+	_, err := k.TraceBlock(ctx.WithBlockHeight(int64(parent)), &types.QueryTraceBlockRequest{ //nolint:gosec // G115
+		BlockNumber: int64(traced), //nolint:gosec // G115
+		BlockHash:   hex.EncodeToString(blockHashAt(traced).Bytes()),
+		BlockTime:   ctx.BlockTime(),
+		BlockMaxGas: ctx.ConsensusParams().Block.MaxGas,
+		TraceConfig: &types.TraceConfig{},
+	})
+	s.Require().NoError(err)
+	s.Require().Equal(blockHashAt(parent), s.historyContractGet(blockCtx(ctx, traced), parent))
 }

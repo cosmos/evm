@@ -563,6 +563,9 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (_ *t
 	ctx = ctx.WithBlockHeight(requestedHeight)
 	ctx = ctx.WithBlockTime(req.BlockTime)
 	ctx = ctx.WithHeaderHash(common.Hex2Bytes(req.BlockHash))
+	// the state is the one at the end of the previous block: replay the begin block write of
+	// the parent hash, so BLOCKHASH and the history contract see what the block saw
+	k.SetHeaderHash(ctx)
 
 	// to get the base fee we only need the block max gas in the consensus params
 	ctx = ctx.WithConsensusParams(tmproto.ConsensusParams{
@@ -662,6 +665,9 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 	ctx = ctx.WithBlockHeight(contextHeight)
 	ctx = ctx.WithBlockTime(req.BlockTime)
 	ctx = ctx.WithHeaderHash(common.Hex2Bytes(req.BlockHash))
+	// the state is the one at the end of the previous block: replay the begin block write of
+	// the parent hash, so BLOCKHASH and the history contract see what the block saw
+	k.SetHeaderHash(ctx)
 
 	// to get the base fee we only need the block max gas in the consensus params
 	ctx = ctx.WithConsensusParams(tmproto.ConsensusParams{
@@ -744,6 +750,9 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	ctx = ctx.WithBlockHeight(requestedHeight)
 	ctx = ctx.WithBlockTime(req.BlockTime)
 	ctx = ctx.WithHeaderHash(common.Hex2Bytes(req.BlockHash))
+	// the state is the one at the end of the previous block: replay the begin block write of
+	// the parent hash, so BLOCKHASH and the history contract see what the block saw
+	k.SetHeaderHash(ctx)
 
 	cfg, err := k.EVMConfig(ctx, GetProposerAddress(ctx, req.ProposerAddress))
 	if err != nil {
