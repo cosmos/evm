@@ -74,28 +74,18 @@ func (suite *MiddlewareTestSuite) TestTimeoutNativeErc20ReconversionFailureE2E()
 	moduleCoinBefore := evmApp.BankKeeper.GetBalance(ctxA, moduleAddr, nativeErc20.Denom).Amount
 	senderERC20Before := evmApp.Erc20Keeper.BalanceOf(ctxA, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 
-	// A failed CallEVM consumes the full limit of the tx gas meter (shared by
-	// the erc20 callback's cached context). On the v1 stack the ibc-callbacks
-	// middleware reads state after the erc20 callback returns, so the
-	// MsgTimeout tx runs out of gas and all its writes are discarded.
-	// Expected property: no partial state is committed.
 	res, err := path.EndpointA.TimeoutPacketWithResult(packet)
-	if res != nil {
-		suite.T().Logf("MsgTimeout tx: code=%d gasWanted=%d gasUsed=%d log=%q", res.Code, res.GasWanted, res.GasUsed, res.Log)
-	}
-	suite.Require().Error(err)
-	suite.Require().Contains(err.Error(), "out of gas")
+	suite.Require().NoError(err)
+	suite.Require().Positive(res.GasUsed)
+	suite.Require().Less(res.GasUsed, res.GasWanted)
 
 	ctxA = suite.evmChainA.GetContext()
 	commitment := evmApp.IBCKeeper.ChannelKeeper.GetPacketCommitment(ctxA, packet.SourcePort, packet.SourceChannel, packet.Sequence)
 	senderCoinAfter := evmApp.BankKeeper.GetBalance(ctxA, sender, nativeErc20.Denom).Amount
 	moduleCoinAfter := evmApp.BankKeeper.GetBalance(ctxA, moduleAddr, nativeErc20.Denom).Amount
 	senderERC20After := evmApp.Erc20Keeper.BalanceOf(ctxA, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
-	suite.T().Logf("err=%v commitmentDeleted=%v senderCoin %s->%s moduleCoin %s->%s senderERC20 %s->%s",
-		err, len(commitment) == 0, senderCoinBefore, senderCoinAfter, moduleCoinBefore, moduleCoinAfter, senderERC20Before, senderERC20After)
-
-	suite.Require().NotEmpty(commitment, "packet commitment must remain when the timeout tx fails")
-	suite.Require().Equal(senderCoinBefore.String(), senderCoinAfter.String())
+	suite.Require().Empty(commitment, "successful timeout must remove the packet commitment")
+	suite.Require().Equal(senderCoinBefore.Add(sendAmt).String(), senderCoinAfter.String())
 	suite.Require().Equal(moduleCoinBefore.String(), moduleCoinAfter.String())
 	suite.Require().Equal(senderERC20Before.String(), senderERC20After.String())
 }

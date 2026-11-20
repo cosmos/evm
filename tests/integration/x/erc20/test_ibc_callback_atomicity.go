@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 
 	"cosmossdk.io/math"
@@ -20,11 +21,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// TestConvertCoinToERC20FromPacketFailureIsAtomic checks that when the
-// ERC20 reconversion performed by the timeout / error-ack callbacks fails and
-// the callback returns nil, the callback leaves no partial writes: the sender
-// keeps the refunded bank coin, the erc20 module account holds no extra coins,
-// and ERC20 balances are unchanged.
+// TestConvertCoinToERC20FromPacketFailureIsAtomic checks that failed receive,
+// timeout, and error-ack conversions leave no partial writes or exhaust the
+// transaction gas meter.
 func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacketFailureIsAtomic() {
 	const amount = int64(10)
 
@@ -36,44 +35,62 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacketFailureIsAtomic() {
 		moduleERC20 *big.Int
 	}
 
+	pauseToken := func(ctx sdk.Context, contract common.Address) {
+		stateDB := statedb.New(ctx, s.network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+		_, err := s.network.App.GetEVMKeeper().CallEVM(ctx, stateDB, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contract, true, false, nil, "pause")
+		s.Require().NoError(err)
+	}
+
 	testCases := []struct {
 		name         string
 		contractType int
 		// afterFund runs after the module and sender are funded and before the callback.
-		afterFund func(ctx sdk.Context, contract common.Address)
-		callback  func(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error
+		afterFund              func(ctx sdk.Context, contract common.Address)
+		callback               func(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error
+		wantRefundFailureEvent bool
+		checkUnderfundedRetry  bool
 	}{
 		{
-			name:         "timeout - token transfer reverts (paused token)",
-			contractType: contractMinterBurner,
-			afterFund: func(ctx sdk.Context, contract common.Address) {
-				stateDB := statedb.New(ctx, s.network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
-				_, err := s.network.App.GetEVMKeeper().CallEVM(ctx, stateDB, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contract, true, false, nil, "pause")
-				s.Require().NoError(err)
-			},
+			name:                   "timeout - token transfer reverts (paused token)",
+			contractType:           contractMinterBurner,
+			afterFund:              pauseToken,
+			wantRefundFailureEvent: true,
+			checkUnderfundedRetry:  true,
 			callback: func(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
 				return s.network.App.GetErc20Keeper().OnTimeoutPacket(ctx, channeltypes.Packet{}, data)
 			},
 		},
 		{
-			name:         "error ack - token transfer reverts (paused token)",
-			contractType: contractMinterBurner,
-			afterFund: func(ctx sdk.Context, contract common.Address) {
-				stateDB := statedb.New(ctx, s.network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
-				_, err := s.network.App.GetEVMKeeper().CallEVM(ctx, stateDB, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contract, true, false, nil, "pause")
-				s.Require().NoError(err)
-			},
+			name:                   "error ack - token transfer reverts (paused token)",
+			contractType:           contractMinterBurner,
+			afterFund:              pauseToken,
+			wantRefundFailureEvent: true,
 			callback: func(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
 				ack := channeltypes.NewErrorAcknowledgement(fmt.Errorf("error ack"))
 				return s.network.App.GetErc20Keeper().OnAcknowledgementPacket(ctx, channeltypes.Packet{}, data, ack)
 			},
 		},
 		{
-			name:         "timeout - post-transfer balance check fails",
-			contractType: contractDirectBalanceManipulation,
-			afterFund:    func(sdk.Context, common.Address) {},
+			name:                   "timeout - post-transfer balance check fails",
+			contractType:           contractDirectBalanceManipulation,
+			afterFund:              func(sdk.Context, common.Address) {},
+			wantRefundFailureEvent: true,
 			callback: func(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
 				return s.network.App.GetErc20Keeper().OnTimeoutPacket(ctx, channeltypes.Packet{}, data)
+			},
+		},
+		{
+			name:         "receive - token transfer reverts (paused token)",
+			contractType: contractMinterBurner,
+			afterFund:    pauseToken,
+			callback: func(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
+				// The receive hook sees funds already delivered by ICS-20.
+				data.Denom = "transfer/channel-0/" + data.Denom
+				packet := channeltypes.NewPacket(data.GetBytes(), 1, "transfer", "channel-0", "transfer", "channel-1", clienttypes.ZeroHeight(), 0)
+				ack := channeltypes.NewResultAcknowledgement([]byte{1})
+				result := s.network.App.GetErc20Keeper().OnRecvPacket(ctx, packet, ack)
+				s.Require().False(result.Success(), "failed receive conversion must return an error acknowledgement")
+				return nil
 			},
 		},
 	}
@@ -109,8 +126,7 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacketFailureIsAtomic() {
 
 			tc.afterFund(ctx, contractAddr)
 
-			// Reads use a fresh gas meter: a reverted EVM call consumes the
-			// remaining gas of the context it ran in.
+			// Keep verification reads separate from callback gas accounting.
 			take := func() snapshot {
 				ctx := ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 				return snapshot{
@@ -127,8 +143,16 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacketFailureIsAtomic() {
 			s.Require().NotNil(before.moduleERC20)
 
 			data := transfertypes.NewFungibleTokenPacketData(pair.Denom, math.NewInt(amount).String(), sender.String(), sender.String(), "")
-			err = tc.callback(ctx, data)
-			s.Require().NoError(err, "callback swallows the conversion error")
+			callbackCtx := ctx.WithGasMeter(storetypes.NewGasMeter(2_000_000))
+			err = tc.callback(callbackCtx, data)
+			s.Require().NoError(err, "callback reports conversion failure through IBC")
+			callbackGasUsed := callbackCtx.GasMeter().GasConsumed()
+			s.Require().Positive(callbackGasUsed, "conversion gas must be charged")
+			s.Require().Less(callbackGasUsed, callbackCtx.GasMeter().Limit(),
+				"failed conversion must leave gas for subsequent IBC operations")
+			s.Require().NotPanics(func() {
+				bankKeeper.GetBalance(callbackCtx, sender, pair.Denom)
+			}, "continue using the transaction gas meter after the callback")
 
 			var sawFailedEvent bool
 			for _, ev := range ctx.EventManager().Events() {
@@ -136,7 +160,20 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacketFailureIsAtomic() {
 					sawFailedEvent = true
 				}
 			}
-			s.Require().True(sawFailedEvent, "expected conversion to fail and emit %s", types.EventTypeFailedConvertERC20)
+			s.Require().Equal(tc.wantRefundFailureEvent, sawFailedEvent, "refund conversions report failure through %s", types.EventTypeFailedConvertERC20)
+
+			if tc.checkUnderfundedRetry {
+				underfundedCtx, _ := ctx.CacheContext()
+				underfundedCtx = underfundedCtx.WithGasMeter(storetypes.NewGasMeter(callbackGasUsed - 1))
+				var recovered any
+				func() {
+					defer func() { recovered = recover() }()
+					_ = tc.callback(underfundedCtx, data)
+				}()
+				s.Require().IsType(storetypes.ErrorOutOfGas{}, recovered, "an underfunded callback must fail the relay transaction so it can be retried")
+				s.Require().Equal(underfundedCtx.GasMeter().Limit(), underfundedCtx.GasMeter().GasConsumed())
+				s.Require().Empty(underfundedCtx.EventManager().Events(), "the packet outcome must remain undecided")
+			}
 
 			after := take()
 			s.T().Logf("before: senderCoin=%s moduleCoin=%s supply=%s senderERC20=%s moduleERC20=%s; after: senderCoin=%s moduleCoin=%s supply=%s senderERC20=%s moduleERC20=%s", before.senderCoin, before.moduleCoin, before.supply, before.senderERC20, before.moduleERC20, after.senderCoin, after.moduleCoin, after.supply, after.senderERC20, after.moduleERC20)

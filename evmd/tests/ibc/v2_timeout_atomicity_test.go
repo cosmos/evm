@@ -16,6 +16,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // TestV2TimeoutNativeErc20ReconversionFailureE2E relays a real IBC v2
@@ -78,12 +79,17 @@ func (suite *TransferTestSuiteV2) TestV2TimeoutNativeErc20ReconversionFailureE2E
 
 	packetKey := hostv2.PacketReceiptKey(packet.DestinationClient, packet.Sequence)
 	proof, proofHeight := path.EndpointB.QueryProof(packetKey)
-	timeoutMsg := channeltypesv2.NewMsgTimeout(packet, proof, proofHeight, suite.evmChainA.SenderAccount.GetAddress().String())
-	res, err := suite.evmChainA.SendMsgs(timeoutMsg)
-	if res != nil {
-		suite.T().Logf("v2 MsgTimeout tx: code=%d gasWanted=%d gasUsed=%d log=%q", res.Code, res.GasWanted, res.GasUsed, res.Log)
-	}
+	relayer := suite.evmChainA.SenderAccount.GetAddress()
+	beneficiary := suite.evmChainA.SenderAccounts[1].SenderAccount.GetAddress()
+	followupCoin := sdk.NewInt64Coin(sdk.DefaultBondDenom, 1)
+	beneficiaryCoinBefore := evmApp.BankKeeper.GetBalance(ctxA, beneficiary, followupCoin.Denom)
+
+	timeoutMsg := channeltypesv2.NewMsgTimeout(packet, proof, proofHeight, relayer.String())
+	followupMsg := banktypes.NewMsgSend(relayer, beneficiary, sdk.NewCoins(followupCoin))
+	res, err := suite.evmChainA.SendMsgs(timeoutMsg, followupMsg)
 	suite.Require().NoError(err)
+	suite.Require().Positive(res.GasUsed)
+	suite.Require().Less(res.GasUsed, res.GasWanted)
 
 	var sawFailed bool
 	for _, ev := range res.Events {
@@ -100,6 +106,9 @@ func (suite *TransferTestSuiteV2) TestV2TimeoutNativeErc20ReconversionFailureE2E
 	suite.T().Logf("failedConvertEvent=%v commitmentDeleted=%v senderCoin %s->%s moduleCoin %s->%s senderERC20After=%s",
 		sawFailed, len(commitment) == 0, senderCoinBefore, senderCoinAfter, moduleCoinBefore, moduleCoinAfter, senderERC20After)
 
+	beneficiaryCoinAfter := evmApp.BankKeeper.GetBalance(ctxA, beneficiary, followupCoin.Denom)
+	suite.Require().Equal(beneficiaryCoinBefore.Add(followupCoin), beneficiaryCoinAfter, "the message after the timeout must execute")
+	suite.Require().Empty(commitment, "successful timeout must remove the packet commitment")
 	suite.Require().True(sawFailed)
 	suite.Require().Equal(amount.String(), senderCoinAfter.String(), "refunded bank coin must remain with the sender when reconversion fails")
 	suite.Require().Equal(moduleCoinBefore.String(), moduleCoinAfter.String(), "erc20 module must not retain coins after a failed reconversion")

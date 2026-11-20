@@ -8,12 +8,14 @@ import (
 
 	"github.com/cosmos/evm/ibc"
 	"github.com/cosmos/evm/x/erc20/types"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
 	"github.com/cosmos/ibc-go/v11/modules/core/exported"
 
 	errorsmod "cosmossdk.io/errors"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
@@ -129,7 +131,7 @@ func (k Keeper) OnRecvPacket(
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
-		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(recipient.Bytes()), recipient, false); err != nil {
+		if err := k.convertIBCCoin(ctx, pair, coin, recipient); err != nil {
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
@@ -223,10 +225,7 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 			return nil
 		}
 
-		// Convert from Coin to ERC20 in a cached context so that a failed
-		// conversion leaves no partial writes (e.g. escrowed coins).
-		cacheCtx, writeCache := ctx.CacheContext()
-		if err := k.ConvertCoinNativeERC20(cacheCtx, pair, coin.Amount, common.BytesToAddress(sender), sender, false); err != nil {
+		if err := k.convertIBCCoin(ctx, pair, coin, sender); err != nil {
 			// We want to record only the failed attempt to reconvert the coins during IBC.
 			defer func() {
 				telemetry.IncrCounter(1, types.ModuleName, "ibc", "error", "total")
@@ -243,8 +242,42 @@ func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes
 			)
 			return nil
 		}
-		writeCache()
 	}
 
 	return nil
+}
+
+// ibcConversionGasLimit bounds an entire conversion by the existing maximum
+// gas for one internal EVM call, including its bank operations and balance checks.
+const ibcConversionGasLimit uint64 = 25_000_000
+
+func (k Keeper) convertIBCCoin(ctx sdk.Context, pair types.TokenPair, coin sdk.Coin, recipient sdk.AccAddress) (err error) {
+	parentMeter := ctx.GasMeter()
+	limit := min(ibcConversionGasLimit, parentMeter.GasRemaining())
+	meter := storetypes.NewGasMeter(limit)
+	cacheCtx, writeCache := ctx.CacheContext()
+	cacheCtx = vmtypes.WithMeteredInternalCalls(cacheCtx.WithGasMeter(meter))
+
+	defer func() {
+		recovered := recover()
+		parentMeter.ConsumeGas(meter.GasConsumedToLimit(), "IBC ERC20 conversion")
+
+		if recovered != nil {
+			outOfGas, ok := recovered.(storetypes.ErrorOutOfGas)
+			if !ok || limit < ibcConversionGasLimit {
+				panic(recovered)
+			}
+			err = errortypes.ErrOutOfGas.Wrap(outOfGas.Descriptor)
+		}
+		if err != nil && meter.IsOutOfGas() && limit < ibcConversionGasLimit {
+			// An underfunded relayer must retry with more gas. Do not treat
+			// its transaction's limit as the conversion's outcome.
+			panic(storetypes.ErrorOutOfGas{Descriptor: "IBC ERC20 conversion"})
+		}
+		if err == nil {
+			writeCache()
+		}
+	}()
+
+	return k.ConvertCoinNativeERC20(cacheCtx, pair, coin.Amount, common.BytesToAddress(recipient), recipient, false)
 }
