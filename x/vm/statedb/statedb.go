@@ -77,7 +77,7 @@ type StateDB struct {
 	accessList *accessList
 
 	// The count of calls to precompiles
-	precompileCallsCounter uint8
+	precompileCallsCounter uint64
 
 	// processedEvents holds the cacheCtx event index ranges whose balance
 	// effects are already reflected in the StateDB (events emitted by a flush,
@@ -466,15 +466,18 @@ func (s *StateDB) AddPrecompileFn(snapshot int) error {
 	// Capture events before the precompile call
 	prevEvents := s.cacheCtx.EventManager().Events()
 
+	// Reject before mutating the counter so that rejected calls cannot
+	// advance (and eventually wrap) it back into the accepted range.
+	if s.precompileCallsCounter >= types.MaxPrecompileCalls {
+		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
+	}
+
 	s.journal.append(precompileCallChange{
 		snapshot:            snapshot,
 		prevEvents:          prevEvents,
 		prevProcessedEvents: s.processedEvents,
 	})
 	s.precompileCallsCounter++
-	if s.precompileCallsCounter > types.MaxPrecompileCalls {
-		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
-	}
 	return nil
 }
 

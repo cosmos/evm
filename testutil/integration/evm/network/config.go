@@ -121,7 +121,7 @@ func WithChainID(chainID testconstants.ChainID) ConfigOption {
 	evmCoinInfo, found := testconstants.ExampleChainCoinInfo[chainID]
 	if !found {
 		panic(fmt.Sprintf(
-			"chain id %q not found in chain coin info; available: %v",
+			"chain id %+v not found in chain coin info; available: %v",
 			chainID,
 			testconstants.ExampleChainCoinInfo,
 		))
