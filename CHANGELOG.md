@@ -45,7 +45,7 @@
 
 ### BUG FIXES
 
-- [\#1335](https://github.com/cosmos/evm/pull/1335) (state-breaking) Distribution precompile: accept 0x-hex validator addresses wherever the distribution msg server does, and stop labelling truncated `DecCoin` amounts with precision 18, which made `1.5` tokens read as `1e-18`.
+- [\#1335](https://github.com/cosmos/evm/pull/1335) (state-breaking) Distribution precompile: accept 0x-hex validator addresses wherever the distribution msg server does, and stop labelling truncated `DecCoin` amounts with precision 18, which made `1.5` tokens read as `1e-18`. See the [distribution precompile upgrade guide](docs/migrations/distribution-precompile.md).
 - [\#1334](https://github.com/cosmos/evm/pull/1334) (state-breaking) Staking precompile: accept 0x-hex validator addresses wherever the staking msg server does, log the undelegated amount in `Unbond`, report a 0 completion time for redelegations that complete immediately, and reject `creationHeight` values outside the int64 range. See the [staking precompile upgrade guide](docs/migrations/staking-precompile.md).
 - [\#1316](https://github.com/cosmos/evm/pull/1316) Set the fee recipient module when building the ante handler so a restarted node doesn't panic on its first EVM tx before any Cosmos tx has run.
 - [\#1302](https://github.com/cosmos/evm/pull/1302) Stop leaking the `eth_feeHistory` block fetcher goroutines when more than one fetch of a batch fails.
