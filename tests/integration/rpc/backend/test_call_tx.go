@@ -363,7 +363,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 				bytes, _ := rlp.EncodeToBytes(ethTx.AsTransaction())
 				return bytes
 			},
-			expHash:  ethTx.Hash(),
+			expHash:  ethTx.AsTransaction().Hash(),
 			expError: "queue is full",
 		},
 		{
@@ -375,7 +375,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 				RegisterMempoolInsert(s.T(), s.Mempool(), cosmosTx, nil)
 			},
 			rawTx:   func() []byte { return rlpEncodedBz },
-			expHash: ethTx.Hash(),
+			expHash: ethTx.AsTransaction().Hash(),
 			expPass: true,
 		},
 		{
