@@ -50,7 +50,7 @@ func NewIBCMiddleware(k erc20types.Erc20Keeper, app porttypes.IBCModule) IBCMidd
 // representation.
 // If the acknowledgement fails, this callback will default to the ibc-core
 // packet callback.
-// If conversion fails, then the user will receive the bank token instead.
+// If conversion fails, the receiving chain returns an error acknowledgement.
 func (im IBCMiddleware) OnRecvPacket(
 	ctx sdk.Context,
 	channelVersion string,
