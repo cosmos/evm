@@ -1,10 +1,17 @@
 package gov
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 const (
@@ -26,6 +33,8 @@ const (
 	GetParamsMethod = "getParams"
 	// GetConstitutionMethod defines the method name for the get constitution precompile request.
 	GetConstitutionMethod = "getConstitution"
+	// GetAuthorityMethod defines the method name for the get authority precompile request.
+	GetAuthorityMethod = "getAuthority"
 )
 
 // GetVotes implements the query logic for getting votes for a proposal.
@@ -232,4 +241,32 @@ func (p *Precompile) GetConstitution(
 	}
 
 	return method.Outputs.Pack(res.Constitution)
+}
+
+// GetAuthority returns the governance module account address in both
+// Bech32 and EVM hex formats. This address must be used as the `authority`
+// field in parameter-change and software-upgrade proposal messages.
+func (p *Precompile) GetAuthority(
+	ctx sdk.Context,
+	method *abi.Method,
+	_ *vm.Contract,
+	args []interface{},
+) ([]byte, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	// Derive the governance module account address.
+	moduleAddr := authtypes.NewModuleAddress(govtypes.ModuleName)
+
+	// Convert to Bech32 string using the chain's account prefix.
+	authorityBech32, err := p.addrCdc.BytesToString(moduleAddr.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode authority address: %w", err)
+	}
+
+	// Convert to EVM hex address.
+	authorityHex := common.BytesToAddress(moduleAddr.Bytes())
+
+	return method.Outputs.Pack(authorityBech32, authorityHex)
 }
