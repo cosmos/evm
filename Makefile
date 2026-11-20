@@ -128,9 +128,19 @@ go.sum: go.mod
 	go mod verify
 	go mod tidy
 
+GO_MODULES := . $(EVMD_DIR) tests/speedtest tests/systemtests tests/jsonrpc/simulator
+
+tidy-all:
+	@for mod in $(GO_MODULES); do \
+		echo "Tidying $$mod ..."; \
+		(cd $$mod && go mod tidy) || exit 1; \
+	done
+
 vulncheck:
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	@govulncheck ./...
+
+.PHONY: tidy-all vulncheck
 
 ###############################################################################
 ###                           Tests & Simulation                            ###
@@ -204,14 +214,18 @@ benchmark:
 ###############################################################################
 ###                                Linting                                  ###
 ###############################################################################
-golangci_lint_cmd=golangci-lint
 golangci_version=v2.12.2
+# Build and run the pinned linter with the module's Go version, so a newer
+# local Go or another golangci-lint on PATH cannot change the result.
+golangci_lint_toolchain=go$(shell go list -m -f '{{.GoVersion}}')
+golangci_lint_cmd=GOTOOLCHAIN=$(golangci_lint_toolchain) $(BUILDDIR)/tools/golangci-lint
+golangci_lint_install=GOBIN=$(BUILDDIR)/tools GOTOOLCHAIN=$(golangci_lint_toolchain) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 
 lint: lint-go lint-python lint-contracts
 
 lint-go:
 	@echo "--> Running linter"
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_install)
 	@$(golangci_lint_cmd) run --timeout=15m
 
 lint-python:
@@ -222,7 +236,7 @@ lint-contracts:
 	solhint contracts/**/*.sol
 
 lint-fix:
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_install)
 	@$(golangci_lint_cmd) run --timeout=15m --fix
 
 lint-fix-contracts:
@@ -291,7 +305,7 @@ proto-check-breaking:
 ###############################################################################
 
 PACKAGE_NAME:=github.com/cosmos/evm
-GOLANG_CROSS_VERSION  = v1.22
+GOLANG_CROSS_VERSION  = v1.26.10
 GOPATH ?= '$(HOME)/go'
 release-dry-run:
 	docker run \
@@ -380,12 +394,19 @@ test-system: build-v06 build
 	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
+# v0.6.0 pins bytedance/sonic v1.14.2, which does not compile with Go >= 1.26,
+# so bump it before building and restore the tagged go.mod/go.sum afterwards.
+V06_SONIC_VERSION := v1.15.1
+
 build-v06:
 	mkdir -p ./tests/systemtests/binaries/v0.6
 	git checkout v0.6.0
-	make build
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.6
-	git checkout -
+	(cd $(EVMD_DIR) && go get github.com/bytedance/sonic@$(V06_SONIC_VERSION)) && make build \
+		&& cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.6; \
+	status=$$?; \
+	git checkout -- $(EVMD_DIR)/go.mod $(EVMD_DIR)/go.sum; \
+	git checkout -; \
+	exit $$status
 
 mocks:
 	@echo "--> generating mocks"

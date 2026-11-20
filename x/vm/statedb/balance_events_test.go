@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/evm/x/vm/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -110,4 +112,57 @@ func TestRevertToSnapshot_ProcessedEventsInvariant(t *testing.T) {
 				"processedEventsCount should match expected event count")
 		})
 	}
+}
+
+// TestAddPrecompileFn_CounterDoesNotWrap verifies that calls rejected by the
+// precompile call limit do not advance the counter (regression test for the
+// uint8 counter wraparound that reopened call slots after 256 attempts) and
+// that reverting a precompile call still consumes the call limit.
+func TestAddPrecompileFn_CounterDoesNotWrap(t *testing.T) {
+	mockSnap := newMockSnapshotter()
+	stateDB := &StateDB{
+		validRevisions: []revision{},
+		nextRevisionID: 0,
+		journal:        newJournal(),
+		snapshotter:    mockSnap,
+	}
+	stateDB.ctx = sdk.Context{}.WithEventManager(sdk.NewEventManager())
+	stateDB.cacheCtx = sdk.Context{}.WithEventManager(sdk.NewEventManager())
+	stateDB.writeCache = func() {}
+
+	accepted := 0
+	for i := 0; i < 512; i++ {
+		err := stateDB.AddPrecompileFn(mockSnap.Snapshot())
+		if i < int(types.MaxPrecompileCalls) {
+			require.NoError(t, err, "call %d should be accepted", i)
+			accepted++
+		} else {
+			require.Error(t, err, "call %d beyond the limit should be rejected", i)
+		}
+	}
+	require.Equal(t, int(types.MaxPrecompileCalls), accepted)
+
+	// A reverted accepted precompile call must still consume its quota.
+	mockSnap2 := newMockSnapshotter()
+	db2 := &StateDB{
+		validRevisions: []revision{},
+		nextRevisionID: 0,
+		journal:        newJournal(),
+		snapshotter:    mockSnap2,
+	}
+	db2.ctx = sdk.Context{}.WithEventManager(sdk.NewEventManager())
+	db2.cacheCtx = sdk.Context{}.WithEventManager(sdk.NewEventManager())
+	db2.writeCache = func() {}
+
+	for i := 0; i < int(types.MaxPrecompileCalls)-1; i++ {
+		require.NoError(t, db2.AddPrecompileFn(mockSnap2.Snapshot()))
+	}
+	// Snapshot before the last accepted call.
+	snap := db2.Snapshot()
+	require.NoError(t, db2.AddPrecompileFn(mockSnap2.Snapshot()))
+	require.Error(t, db2.AddPrecompileFn(mockSnap2.Snapshot()), "limit reached")
+
+	db2.RevertToSnapshot(snap)
+	require.Error(t, db2.AddPrecompileFn(mockSnap2.Snapshot()),
+		"a reverted call must still consume quota")
 }

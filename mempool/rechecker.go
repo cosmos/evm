@@ -59,7 +59,8 @@ func (r *TxRechecker) GetContext() (sdk.Context, func()) {
 }
 
 // RecheckEVM revalidates an EVM transaction against a context. It returns an updated
-// context and an error that occurred while processing.
+// context and an error that occurred while processing. A panic in the ante
+// handler is recovered and returned as an error.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk.Context, error) {
@@ -67,14 +68,27 @@ func (r *TxRechecker) RecheckEVM(ctx sdk.Context, tx *ethtypes.Transaction) (sdk
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("converting evm tx %s to cosmos tx: %w", tx.Hash(), err)
 	}
-	return r.anteHandler(ctx, cosmosTx, false)
+	return r.recheckAnte(ctx, cosmosTx)
 }
 
-// RecheckCosmos revalidates a Cosmos transaction against a context. It returns an updated
-// context and an error that occurred while processing.
+// RecheckCosmos revalidates a Cosmos transaction against a context. It returns
+// an updated context and an error that occurred while processing. A panic in
+// the ante handler is recovered and returned as an error.
 //
 // NOTE: This function is not thread safe with itself or any other Rechecker functions.
 func (r *TxRechecker) RecheckCosmos(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
+	return r.recheckAnte(ctx, tx)
+}
+
+// recheckAnte calls the ante handler with a recover, converting panics into errors.
+func (r *TxRechecker) recheckAnte(ctx sdk.Context, tx sdk.Tx) (newCtx sdk.Context, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			newCtx = sdk.Context{}
+			err = fmt.Errorf("ante handler panic during tx recheck: %v", rec)
+		}
+	}()
+
 	return r.anteHandler(ctx, tx, false)
 }
 
