@@ -22,6 +22,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 // Resend accepts an existing transaction and a new gas price and limit. It will remove
@@ -153,7 +154,7 @@ func (b *Backend) SendRawTransaction(ctx context.Context, data hexutil.Bytes) (r
 	// handler for InsertTx, since the ABCI handler obfuscates the error's
 	// returned via codes, and we would like to have the full error to
 	// return to clients.
-	if err = b.Mempool.Insert(ctx, cosmosTx); err != nil {
+	if err = b.Mempool.Insert(ctx, cosmosTx, sdkmempool.InsertOption{}); err != nil {
 		// no need for special error handling like in the broadcast tx case
 		// since this is coming directly from the evm mempool insert.
 		return common.Hash{}, err

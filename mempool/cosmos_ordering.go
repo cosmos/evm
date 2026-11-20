@@ -91,11 +91,11 @@ func NewCosmosTransactionsByPriceAndNonce(
 	}
 }
 
-func (t *CosmosTransactionsByPriceAndNonce) Tx() sdk.Tx {
+func (t *CosmosTransactionsByPriceAndNonce) Tx() sdkmempool.PooledTx {
 	if len(t.heads) == 0 {
-		return nil
+		return sdkmempool.PooledTx{}
 	}
-	return t.heads[0].tx.tx
+	return pooledTxWithDeclaredGas(t.heads[0].tx.tx)
 }
 
 func (t *CosmosTransactionsByPriceAndNonce) Next() sdkmempool.Iterator {
@@ -136,6 +136,16 @@ func (s *CosmosTxStore) OrderedIterator(bondDenom string, baseFee *uint256.Int) 
 	}
 
 	return NewCosmosTransactionsByPriceAndNonce(snapshot, bondDenom, baseFee)
+}
+
+// pooledTxWithDeclaredGas pairs a tx with its declared gas limit. For EVM
+// txs this equals the gas wanted reported by the ante handler.
+func pooledTxWithDeclaredGas(tx sdk.Tx) sdkmempool.PooledTx {
+	var gas uint64
+	if feeTx, ok := tx.(sdk.FeeTx); ok {
+		gas = feeTx.GetGas()
+	}
+	return sdkmempool.NewPooledTx(tx, gas)
 }
 
 func extractCosmosEffectiveTip(tx sdk.Tx, bondDenom string, baseFee *uint256.Int) *uint256.Int {

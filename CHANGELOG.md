@@ -4,6 +4,7 @@
 
 ### DEPENDENCIES
 
+- [\#1362](https://github.com/cosmos/evm/pull/1362) Bump Cosmos SDK to `v0.55.0`, CometBFT to `v0.40.0` and IAVL to `v1.2.9`. `ibc-go` moves to `github.com/lfdt-ibc/ibc-go/v11`; update imports from `github.com/cosmos/ibc-go/v11`.
 - [\#1345](https://github.com/cosmos/evm/pull/1345) Bump Go to 1.26.10, which adds the `crypto/x509` denylist for the compromised eMudhra intermediate CAs (CVE-2026-111943).
 - [\#1232](https://github.com/cosmos/evm/pull/1232) Bump `ibc-go` to `v11.1.0`.
 - [\#1250](https://github.com/cosmos/evm/pull/1250) Require Node.js `>=22` to compile the Solidity contracts and run the JavaScript test suites (`contracts/`, `tests/contracts/`, `tests/evm-tools-compatibility/*`).

@@ -10,10 +10,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
+	ibctransfertypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
 	"github.com/spf13/viper"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	ibctransfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
 
 	errorsmod "cosmossdk.io/errors"
 

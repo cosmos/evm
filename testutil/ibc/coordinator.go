@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	ibctesting "github.com/lfdt-ibc/ibc-go/v11/testing"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/x/vm/types"
-	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 )
 
 var (

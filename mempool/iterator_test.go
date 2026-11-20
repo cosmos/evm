@@ -176,7 +176,7 @@ func TestIterator_CosmosOnly_MultipleTxs(t *testing.T) {
 		_, key := newAddrKey(t)
 		tx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	ctx := sdk.Context{}.WithContext(context.Background())
@@ -202,7 +202,7 @@ func TestIterator_CosmosOnlyWithBaseFee(t *testing.T) {
 		_, key := newAddrKey(t)
 		tx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 
 	ctx := sdk.Context{}.WithContext(context.Background())
@@ -313,7 +313,7 @@ func TestIterator_Mixed_InterleavedByFee(t *testing.T) {
 		_, key := newAddrKey(t)
 		tx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
@@ -592,7 +592,7 @@ func TestIterator_EVMExhaustedFirstThenCosmos(t *testing.T) {
 		_, key := newAddrKey(t)
 		cosmosTx := buildCosmosTx(t, txConfig, key, gp, testGas, testBondDenom)
 		ctx := sdk.Context{}.WithContext(context.Background())
-		require.NoError(t, pool.Insert(ctx, cosmosTx))
+		require.NoError(t, pool.Insert(ctx, cosmosTx, sdkmempool.InsertOption{}))
 	}
 	ctx := sdk.Context{}.WithContext(context.Background())
 	cosmosIter := pool.Select(ctx, nil)
@@ -628,9 +628,9 @@ func TestIterator_Tx_CalledMultipleTimesReturnsSameType(t *testing.T) {
 	require.NotNil(t, iter)
 
 	// Tx() should be idempotent
-	tx1 := iter.Tx()
-	tx2 := iter.Tx()
-	tx3 := iter.Tx()
+	tx1 := iter.Tx().Tx
+	tx2 := iter.Tx().Tx
+	tx3 := iter.Tx().Tx
 	require.True(t, isEVMTx(tx1))
 	require.True(t, isEVMTx(tx2))
 	require.True(t, isEVMTx(tx3))
@@ -647,7 +647,7 @@ func TestIterator_NextReturnsNilWhenExhausted(t *testing.T) {
 
 	iter := NewEVMMempoolIterator(evmIter, nil, log.NewNopLogger(), txConfig, b)
 	require.NotNil(t, iter)
-	require.NotNil(t, iter.Tx())
+	require.NotNil(t, iter.Tx().Tx)
 
 	next := iter.Next()
 	require.Nil(t, next)
@@ -774,7 +774,7 @@ func insertCosmosTxs(t *testing.T, pool sdkmempool.ExtMempool, txs ...authsignin
 	t.Helper()
 	ctx := sdk.Context{}.WithContext(context.Background())
 	for _, tx := range txs {
-		require.NoError(t, pool.Insert(ctx, tx))
+		require.NoError(t, pool.Insert(ctx, tx, sdkmempool.InsertOption{}))
 	}
 	return pool.Select(ctx, nil)
 }
@@ -836,7 +836,7 @@ func collectAll(t *testing.T, iter sdkmempool.Iterator) []sdk.Tx {
 	t.Helper()
 	var result []sdk.Tx
 	for iter != nil {
-		tx := iter.Tx()
+		tx := iter.Tx().Tx
 		if tx == nil {
 			break
 		}

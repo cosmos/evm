@@ -19,6 +19,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 )
 
@@ -105,7 +106,7 @@ func (b *Backend) SendTransaction(ctx context.Context, args evmtypes.Transaction
 	// handler for InsertTx, since the ABCI handler obfuscates the error's
 	// returned via codes, and we would like to have the full error to
 	// return to clients.
-	if err = b.Mempool.Insert(ctx, tx); err != nil {
+	if err = b.Mempool.Insert(ctx, tx, sdkmempool.InsertOption{}); err != nil {
 		// no need for special error handling like in the broadcast tx case
 		// since this is coming directly from the evm mempool insert.
 		return common.Hash{}, err
@@ -127,7 +128,7 @@ func (b *Backend) Sign(address common.Address, data hexutil.Bytes) (hexutil.Byte
 	}
 
 	// Sign the requested hash with the wallet
-	signature, _, err := b.ClientCtx.Keyring.SignByAddress(from, data, signingtypes.SignMode_SIGN_MODE_TEXTUAL)
+	signature, _, err := b.ClientCtx.Keyring.SignByAddress(from, data, signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON)
 	if err != nil {
 		b.Logger.Error("keyring.SignByAddress failed", "address", address.Hex())
 		return nil, err
@@ -153,7 +154,7 @@ func (b *Backend) SignTypedData(address common.Address, typedData apitypes.Typed
 	}
 
 	// Sign the requested hash with the wallet
-	signature, _, err := b.ClientCtx.Keyring.SignByAddress(from, sigHash, signingtypes.SignMode_SIGN_MODE_TEXTUAL)
+	signature, _, err := b.ClientCtx.Keyring.SignByAddress(from, sigHash, signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON)
 	if err != nil {
 		b.Logger.Error("keyring.SignByAddress failed", "address", address.Hex())
 		return nil, err

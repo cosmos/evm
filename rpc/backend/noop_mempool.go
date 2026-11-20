@@ -20,7 +20,7 @@ type NoOpMempool struct {
 var _ Mempool = NoOpMempool{}
 
 // Insert rejects the tx with ErrMempoolDisabled.
-func (NoOpMempool) Insert(context.Context, sdk.Tx) error {
+func (NoOpMempool) Insert(context.Context, sdk.Tx, sdkmempool.InsertOption) error {
 	return rpctypes.ErrMempoolDisabled
 }
 

@@ -219,7 +219,7 @@ func TestCosmosTxStoreIterator(t *testing.T) {
 
 	var collected []sdk.Tx
 	for ; iter != nil; iter = iter.Next() {
-		collected = append(collected, iter.Tx())
+		collected = append(collected, iter.Tx().Tx)
 	}
 	require.Len(t, collected, 3)
 }
@@ -289,7 +289,7 @@ func TestCosmosTxStoreOrderedIteratorByPriceAndNonce(t *testing.T) {
 	iter := store.OrderedIterator(feeKeyedMockTxDenom, nil)
 	var txs []sdk.Tx
 	for ; iter != nil; iter = iter.Next() {
-		txs = append(txs, iter.Tx())
+		txs = append(txs, iter.Tx().Tx)
 	}
 	require.Equal(t, []sdk.Tx{txB0, txA0, txA1}, txs)
 }

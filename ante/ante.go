@@ -1,11 +1,12 @@
 package ante
 
 import (
+	ibckeeper "github.com/lfdt-ibc/ibc-go/v11/modules/core/keeper"
+
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	antetypes "github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
 
 	errorsmod "cosmossdk.io/errors"
 

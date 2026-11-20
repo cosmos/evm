@@ -210,11 +210,17 @@ func (m *RecheckMempool) Insert(_ context.Context, tx sdk.Tx) (err error) {
 		ctx, write = m.rechecker.GetContext()
 	}
 
-	if _, err := m.rechecker.RecheckCosmos(ctx, tx); err != nil {
+	anteCtx, err := m.rechecker.RecheckCosmos(ctx, tx)
+	if err != nil {
 		return fmt.Errorf("ante handler failed: %w", err)
 	}
 
-	if err := m.ExtMempool.Insert(ctx, tx); err != nil {
+	var opt sdkmempool.InsertOption
+	if gm := anteCtx.GasMeter(); gm != nil {
+		opt.GasWanted = gm.Limit()
+	}
+
+	if err := m.ExtMempool.Insert(ctx, tx, opt); err != nil {
 		return err
 	}
 
@@ -451,7 +457,7 @@ func (m *RecheckMempool) runRecheck(done chan struct{}, newHead *ethtypes.Header
 			return
 		}
 
-		txn := iter.Tx()
+		txn := iter.Tx().Tx
 		if txn == nil {
 			break
 		}

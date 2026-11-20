@@ -1,7 +1,7 @@
 package testutil
 
 import (
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	transfertypes "github.com/lfdt-ibc/ibc-go/v11/modules/apps/transfer/types"
 )
 
 func GetVoucherDenomFromPacketData(
