@@ -132,6 +132,13 @@ func init() {
 	// manually update the power reduction by replacing micro (u) -> atto (a) evmos
 	sdk.DefaultPowerReduction = utils.AttoPowerReduction
 
+	// Pin config-registry scope to skip per-call syscalls, see cosmos-sdk#26729
+	if os.Getenv(sdk.EnvConfigScope) == "" {
+		if err := os.Setenv(sdk.EnvConfigScope, appName); err != nil {
+			panic(err)
+		}
+	}
+
 	defaultNodeHome = evmconfig.MustGetDefaultNodeHome()
 }
 
