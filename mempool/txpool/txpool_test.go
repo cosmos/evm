@@ -265,6 +265,7 @@ func TestTxPoolContent_EmptySubpools(t *testing.T) {
 	require.Empty(t, runnable)
 	require.Empty(t, blocked)
 }
+
 // minimal tx encoder to construct a testing reaplist
 type stubTxEncoder struct{}
 
