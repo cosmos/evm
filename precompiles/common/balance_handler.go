@@ -65,7 +65,7 @@ func (bh *BalanceHandler) AfterBalanceChange(ctx sdk.Context, stateDB *statedb.S
 	for i, event := range events[bh.prevEventsLen:] {
 		eventIdx := bh.prevEventsLen + i
 
-		// Skip events already processed by flushing before the precompile was called.
+		// Skip events emitted by a flush or already applied by a nested BalanceHandler.
 		if stateDB.IsEventProcessed(eventIdx) {
 			continue
 		}
@@ -106,10 +106,13 @@ func (bh *BalanceHandler) AfterBalanceChange(ctx sdk.Context, stateDB *statedb.S
 			stateDB.AddBalance(common.BytesToAddress(receiverAddr.Bytes()), amount, tracing.BalanceChangeUnspecified)
 
 		default:
-			// Non-balance events are already marked as processed above
 			continue
 		}
 	}
+
+	// Mark the whole range so an outer BalanceHandler (when this precompile
+	// runs inside a nested EVM call) does not apply these events again.
+	stateDB.MarkEventsProcessed(bh.prevEventsLen, len(events))
 
 	return nil
 }
