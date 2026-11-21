@@ -177,7 +177,9 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) (logs
 		return nil, fmt.Errorf("maximum [from, to] blocks distance: %d", blockLimit)
 	}
 
-	for height := from; height <= to; height++ {
+	// Height 0 is genesis and has no logs. Skip it: CometBlockResultByNumber
+	// treats height 0 as the latest block.
+	for height := max(from, 1); height <= to; height++ {
 		h := int64(height) //#nosec G115
 		blockRes, err := f.backend.CometBlockResultByNumber(ctx, &h)
 		if err != nil {
