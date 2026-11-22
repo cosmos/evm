@@ -198,6 +198,10 @@ type Backend struct {
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             Mempool
+
+	// unindexed keeps the tx results of the newest blocks for the tx index
+	// fallbacks (see txFromUnindexedBlocks).
+	unindexed *unindexedCache
 }
 
 // Opt is a function type that configures the backend.
@@ -241,6 +245,7 @@ func NewBackend(
 		Indexer:             indexer,
 		Mempool:             mempool,
 		Logger:              log.NewNopLogger(),
+		unindexed:           newUnindexedCache(),
 	}
 
 	b.ProcessBlocker = b.ProcessBlock

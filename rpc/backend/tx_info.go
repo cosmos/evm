@@ -312,11 +312,20 @@ const maxUnindexedBlocks = 4
 // fallback a client could see a tx in eth_getBlockByNumber("latest") while
 // eth_getTransactionReceipt for the same hash returns null.
 func (b *Backend) getTxByEthHashOrUnindexed(ctx context.Context, hash common.Hash) (*servertypes.TxResult, error) {
+	// Read the indexed height before the lookup: if the index catches up in
+	// between, the height it just indexed is still above lastIndexed and is
+	// scanned, rather than skipped by both the lookup and the scan.
+	lastIndexed := int64(-1)
+	if b.Indexer != nil {
+		if last, err := b.Indexer.LastIndexedBlock(); err == nil {
+			lastIndexed = last
+		}
+	}
 	res, err := b.GetTxByEthHash(ctx, hash)
 	if err == nil && res != nil {
 		return res, nil
 	}
-	if r := b.txFromUnindexedBlocks(ctx, hash); r != nil {
+	if r := b.txFromUnindexedBlocks(ctx, hash, lastIndexed); r != nil {
 		return r, nil
 	}
 	if err == nil {
@@ -325,10 +334,12 @@ func (b *Backend) getTxByEthHashOrUnindexed(ctx context.Context, hash common.Has
 	return nil, err
 }
 
-// txFromUnindexedBlocks looks for hash in the committed heights above the
-// last indexed one (at most maxUnindexedBlocks, newest first) and returns its
-// result as the indexer would store it, or nil.
-func (b *Backend) txFromUnindexedBlocks(ctx context.Context, hash common.Hash) *servertypes.TxResult {
+// txFromUnindexedBlocks looks for hash in the committed heights above
+// lastIndexed (-1: unknown; at most maxUnindexedBlocks, newest first) and
+// returns its result as the indexer would store it, or nil. Each height's
+// results are derived once and kept in b.unindexed, so repeated lookups (e.g.
+// receipt polls for a pending tx) do not reread the blocks.
+func (b *Backend) txFromUnindexedBlocks(ctx context.Context, hash common.Hash, lastIndexed int64) *servertypes.TxResult {
 	n, err := b.BlockNumber(ctx)
 	if err != nil {
 		return nil
@@ -337,28 +348,24 @@ func (b *Backend) txFromUnindexedBlocks(ctx context.Context, hash common.Hash) *
 	if err != nil {
 		return nil
 	}
-	lowest := latest - maxUnindexedBlocks + 1
-	if b.Indexer != nil {
-		if last, err := b.Indexer.LastIndexedBlock(); err == nil && last+1 > lowest {
-			lowest = last + 1
-		}
-	}
-	lowest = max(lowest, 1)
+	lowest := max(latest-maxUnindexedBlocks+1, lastIndexed+1, 1)
 	for height := latest; height >= lowest; height-- {
-		h := height
-		blk, err := b.RPCClient.Block(ctx, &h)
-		if err != nil || blk == nil || blk.Block == nil {
-			continue
-		}
-		blockRes, err := b.RPCClient.BlockResults(ctx, &h)
-		if err != nil || blockRes == nil {
-			continue
-		}
-		for _, r := range indexer.BlockTxResults(b.ClientCtx.TxConfig.TxDecoder(), b.Logger, blk.Block, blockRes.TxsResults) {
-			if r.Hash == hash {
-				b.Logger.Debug("tx index behind: tx result taken from the block's results", "hash", hash.Hex(), "height", h)
-				return &r.Result
+		results, ok := b.unindexed.get(height)
+		if !ok {
+			h := height
+			blk, err := b.RPCClient.Block(ctx, &h)
+			if err != nil || blk == nil || blk.Block == nil {
+				continue
 			}
+			blockRes, err := b.RPCClient.BlockResults(ctx, &h)
+			if err != nil || blockRes == nil {
+				continue
+			}
+			results = b.unindexed.put(height, indexer.BlockTxResults(b.ClientCtx.TxConfig.TxDecoder(), b.Logger, blk.Block, blockRes.TxsResults))
+		}
+		if r, ok := results[hash]; ok {
+			b.Logger.Debug("tx index behind: tx result taken from the block's results", "hash", hash.Hex(), "height", height)
+			return &r
 		}
 	}
 	return nil
