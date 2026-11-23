@@ -107,7 +107,7 @@ func (m *memEventBus) Subscribe(name string) (<-chan coretypes.ResultEvent, Unsu
 	m.topicsMux.RUnlock()
 
 	if !ok {
-		return nil, nil, errors.Wrapf(ErrTopicNotFound, name)
+		return nil, nil, errors.Wrap(ErrTopicNotFound, name)
 	}
 
 	ch := make(chan coretypes.ResultEvent)
