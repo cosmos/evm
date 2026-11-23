@@ -4,6 +4,7 @@
 
 ### DEPENDENCIES
 
+- [\#1372](https://github.com/cosmos/evm/pull/1372) Bump `grpc` to `v1.83.2` (GO-2026-6348, GO-2026-6061) and `sonic` to `v1.15.5`, and build with Go 1.26. Requires Go 1.25 or later.
 ### API-BREAKING
 
 ### IMPROVEMENTS
