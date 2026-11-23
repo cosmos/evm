@@ -384,12 +384,17 @@ test-system: build-v05 build
 	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
+V05_SONIC_VERSION := v1.15.5
+
 build-v05:
 	mkdir -p ./tests/systemtests/binaries/v0.5
 	git checkout v0.5.1
-	make build
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.5
-	git checkout -
+	(cd evmd && go get github.com/bytedance/sonic@$(V05_SONIC_VERSION)) && make build \
+		&& cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.5; \
+	status=$$?; \
+	git checkout -- evmd/go.mod evmd/go.sum; \
+	git checkout -; \
+	exit $$status
 
 mocks:
 	@echo "--> generating mocks"
