@@ -146,7 +146,7 @@ func walkFields(cdc codectypes.AnyUnpacker, typeMap apitypes.Types, rootType str
 	v := reflect.ValueOf(in)
 
 	for {
-		if t.Kind() == reflect.Ptr ||
+		if t.Kind() == reflect.Pointer ||
 			t.Kind() == reflect.Interface {
 			t = t.Elem()
 			v = v.Elem()
@@ -212,7 +212,7 @@ func legacyTraverseFields(
 		}
 
 		for {
-			if fieldType.Kind() == reflect.Ptr {
+			if fieldType.Kind() == reflect.Pointer {
 				fieldType = fieldType.Elem()
 
 				if field.IsValid() {
@@ -227,7 +227,7 @@ func legacyTraverseFields(
 				continue
 			}
 
-			if field.Kind() == reflect.Ptr {
+			if field.Kind() == reflect.Pointer {
 				field = field.Elem()
 				continue
 			}
@@ -254,7 +254,7 @@ func legacyTraverseFields(
 		}
 
 		for {
-			if fieldType.Kind() == reflect.Ptr {
+			if fieldType.Kind() == reflect.Pointer {
 				fieldType = fieldType.Elem()
 
 				if field.IsValid() {
@@ -269,7 +269,7 @@ func legacyTraverseFields(
 				continue
 			}
 
-			if field.Kind() == reflect.Ptr {
+			if field.Kind() == reflect.Pointer {
 				field = field.Elem()
 				continue
 			}
@@ -414,7 +414,7 @@ func typToEth(typ reflect.Type) string {
 		if len(ethName) > 0 {
 			return ethName + "[]"
 		}
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if typ.Elem().ConvertibleTo(bigIntType) ||
 			typ.Elem().ConvertibleTo(timeType) ||
 			typ.Elem().ConvertibleTo(edType) ||
