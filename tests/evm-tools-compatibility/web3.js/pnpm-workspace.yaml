@@ -1,0 +1,9 @@
+allowBuilds:
+  bufferutil: true
+  es5-ext: true
+  keccak: true
+  secp256k1: true
+  utf-8-validate: true
+  web3: true
+  web3-bzz: true
+  web3-shh: true

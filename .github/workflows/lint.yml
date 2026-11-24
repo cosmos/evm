@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.GIT_DIFF
         with:
-          node-version-file: contracts/package.json
+          node-version: '24'
 
       - name: Report Node version
         if: env.GIT_DIFF

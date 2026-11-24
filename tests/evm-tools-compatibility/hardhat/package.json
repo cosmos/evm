@@ -1,10 +1,12 @@
 {
   "name": "hardhat-project",
+  "packageManager": "pnpm@11.24.0",
   "//": "Hardhat 2 fixture: do not bump hardhat-toolbox (>=7), hardhat-ignition-* (>=1), or hardhat-deploy (>=2) — those majors require Hardhat 3 and cannot resolve against hardhat ^2.x. Hardhat 3 migration is tracked separately.",
   "engines": {
-    "node": ">=22"
+    "node": "24"
   },
   "devDependencies": {
+    "ethers": "^6.0.0",
     "@nomicfoundation/hardhat-toolbox": "^6.0.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
     "@nomicfoundation/hardhat-ethers": "^3.0.9",
@@ -15,7 +17,7 @@
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
     "chai": "^4.5.0",
-    "hardhat": "^2.23.0",
+    "hardhat": "^2.28.6",
     "hardhat-gas-reporter": "^2.3.0",
     "solidity-coverage": "^0.8.17",
     "ts-node": "^10.9.2",

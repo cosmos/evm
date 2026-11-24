@@ -25,6 +25,7 @@ yarn.lock
 
 # Node.js
 **/node_modules
+.pnpm-store
 
 # OpenZeppelin contracts
 contracts/@openzeppelin/*
