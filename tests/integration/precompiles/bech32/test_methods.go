@@ -178,6 +178,39 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 		},
 		{
+			// a 32-byte address (for example a module or ICA account) must not be
+			// truncated to its last 20 bytes
+			"fail - 32-byte address",
+			func() []interface{} {
+				bz := make([]byte, 32)
+				for i := range bz {
+					bz[i] = byte(i + 1)
+				}
+				return []interface{}{
+					sdk.AccAddress(bz).String(),
+				}
+			},
+			func([]byte) {},
+			true,
+			func() string {
+				return "expected 20 bytes, got 32"
+			},
+		},
+		{
+			// a 19-byte address must not be left-padded to 20 bytes
+			"fail - 19-byte address",
+			func() []interface{} {
+				return []interface{}{
+					sdk.AccAddress(make([]byte, 19)).String(),
+				}
+			},
+			func([]byte) {},
+			true,
+			func() string {
+				return "expected 20 bytes, got 19"
+			},
+		},
+		{
 			"success - valid bech32 address",
 			func() []interface{} {
 				return []interface{}{

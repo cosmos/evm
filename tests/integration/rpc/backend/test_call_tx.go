@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"google.golang.org/grpc/metadata"
 
+	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/constants"
@@ -376,6 +377,16 @@ func (s *TestSuite) TestSendRawTransaction() {
 			rawTx:   func() []byte { return rlpEncodedBz },
 			expHash: ethTx.Hash(),
 			expPass: true,
+		},
+		{
+			name: "fail - no EVM mempool",
+			registerMock: func() {
+				s.backend.AllowUnprotectedTxs = true
+				s.backend.Mempool = rpcbackend.NoOpMempool{}
+			},
+			rawTx:    func() []byte { return rlpEncodedBz },
+			expHash:  common.Hash{},
+			expError: rpctypes.ErrMempoolDisabled.Error(),
 		},
 	}
 

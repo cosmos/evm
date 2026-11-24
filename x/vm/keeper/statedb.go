@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"errors"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -327,6 +328,36 @@ func (k *Keeper) DeleteCode(ctx sdk.Context, codeHash []byte) {
 	)
 }
 
+// hasStakingPositions reports whether the account has any staking positions:
+// delegations, redelegations or unbonding delegations.
+func (k *Keeper) hasStakingPositions(ctx sdk.Context, cosmosAddr sdk.AccAddress) (bool, error) {
+	delegations, err := k.stakingKeeper.GetAllDelegatorDelegations(ctx, cosmosAddr)
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "failed to get delegations for account %s", cosmosAddr)
+	}
+	if len(delegations) > 0 {
+		return true, nil
+	}
+
+	redelegations, err := k.stakingKeeper.GetRedelegations(ctx, cosmosAddr, math.MaxUint16)
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "failed to get redelegations for account %s", cosmosAddr)
+	}
+	if len(redelegations) > 0 {
+		return true, nil
+	}
+
+	unbondingDelegations, err := k.stakingKeeper.GetAllUnbondingDelegations(ctx, cosmosAddr)
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "failed to get unbonding delegations for account %s", cosmosAddr)
+	}
+	if len(unbondingDelegations) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // DeleteAccount removes a persisted contract after SELFDESTRUCT:
 // - clear its balance
 // - remove its storage
@@ -360,6 +391,16 @@ func (k *Keeper) deleteAccount(ctx sdk.Context, addr common.Address, isNewContra
 	// NOTE: only Ethereum contracts can be self-destructed
 	if !isNewContract && !k.IsContract(ctx, addr) {
 		return errors.New("only smart contracts can be self-destructed")
+	}
+
+	// Reject deleting an account that has open staking positions.
+	hasPositions, err := k.hasStakingPositions(ctx, cosmosAddr)
+	if err != nil {
+		return err
+	}
+	if hasPositions {
+		return errorsmod.Wrapf(errors.New("cannot self-destruct an account with staking positions"),
+			"account %s has delegations, redelegations or unbonding delegations", cosmosAddr)
 	}
 
 	// set account to a base account to set the whole balance as spendable

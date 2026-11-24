@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/core/address"
@@ -142,9 +141,18 @@ When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
 		Example: "evmd tx evm send 0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E 0xA2A8B87390F8F2D188242656BFb6852914073D06 10utoken",
 		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// args[0] may also be a key name, so it is only converted when it is
+			// explicitly a 0x address; anything else is passed through untouched.
 			fromAddr := args[0]
 			if strings.HasPrefix(args[0], "0x") {
-				fromAddr = utils.Bech32StringFromHexAddress(args[0])
+				bz, err := ac.StringToBytes(args[0])
+				if err != nil {
+					return errors.Wrap(err, "invalid from-address")
+				}
+				fromAddr, err = ac.BytesToString(bz)
+				if err != nil {
+					return err
+				}
 			}
 
 			err := cmd.Flags().Set(flags.FlagFrom, fromAddr)
@@ -156,9 +164,9 @@ When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
 				return err
 			}
 
-			toAddr, err := ac.StringToBytes(utils.Bech32StringFromHexAddress(args[1]))
+			toAddr, err := ac.StringToBytes(args[1])
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid to-address")
 			}
 
 			coins, err := sdk.ParseCoinsNormalized(args[2])

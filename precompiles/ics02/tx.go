@@ -56,6 +56,12 @@ func (p *Precompile) UpdateClient(
 		return nil, err
 	}
 
+	// UnmarshalClientMessage returns (nil, nil) for empty bytes or an Any with an
+	// empty type URL, so reject that here instead of calling ValidateBasic on nil.
+	if clientMsg == nil {
+		return nil, errorsmod.Wrap(clienttypes.ErrInvalidClientType, "client message cannot be empty")
+	}
+
 	if err := clientMsg.ValidateBasic(); err != nil {
 		return nil, err
 	}

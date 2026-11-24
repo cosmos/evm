@@ -138,7 +138,17 @@ func (s *stateObject) AddBalance(amount *uint256.Int) uint256.Int {
 	if amount.IsZero() {
 		return *(s.Balance())
 	}
-	return s.SetBalance(new(uint256.Int).Add(s.Balance(), amount))
+
+	newBalance, overflowed := new(uint256.Int).AddOverflow(s.Balance(), amount)
+	if overflowed {
+		panic(fmt.Sprintf(
+			"state balance overflow for %s: have=%s add=%s",
+			s.address.Hex(),
+			s.Balance().String(),
+			amount.String(),
+		))
+	}
+	return s.SetBalance(newBalance)
 }
 
 // SubBalance removes amount from s's balance.

@@ -77,7 +77,7 @@ type StateDB struct {
 	accessList *accessList
 
 	// The count of calls to precompiles
-	precompileCallsCounter uint8
+	precompileCallsCounter uint64
 
 	// processedEventsCount tracks how many events have been
 	// processed by BalanceHandler. Events are processed sequentially starting
@@ -462,15 +462,18 @@ func (s *StateDB) AddPrecompileFn(snapshot int) error {
 	// Capture events before the precompile call
 	prevEvents := s.cacheCtx.EventManager().Events()
 
+	// Reject before mutating the counter so that rejected calls cannot
+	// advance (and eventually wrap) it back into the accepted range.
+	if s.precompileCallsCounter >= types.MaxPrecompileCalls {
+		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
+	}
+
 	s.journal.append(precompileCallChange{
 		snapshot:                snapshot,
 		prevEvents:              prevEvents,
 		prevProcessedEventCount: s.processedEventsCount,
 	})
 	s.precompileCallsCounter++
-	if s.precompileCallsCounter > types.MaxPrecompileCalls {
-		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
-	}
 	return nil
 }
 
@@ -712,15 +715,28 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 	s.validRevisions = s.validRevisions[:idx]
 }
 
-// Commit writes the dirty states to keeper
-// the StateDB object should be discarded after committed.
+// Commit writes the dirty states to keeper.
+// The StateDB object should be discarded after being committed.
 func (s *StateDB) Commit() error {
 	// writeCache func will exist only when there's a call to a precompile.
 	// It applies all the store updates preformed by precompile calls.
 	if s.writeCache != nil {
+		// fold the remaining dirty set into the precompile cache so the
+		// state changes are atomic.
+		if err := s.commitWithCtx(s.cacheCtx); err != nil {
+			return err
+		}
 		s.writeCache()
+		return nil
 	}
-	return s.commitWithCtx(s.ctx)
+
+	// stage writes here so a late failure leaves s.ctx untouched.
+	cacheCtx, writeCache := s.ctx.CacheContext()
+	if err := s.commitWithCtx(cacheCtx); err != nil {
+		return err
+	}
+	writeCache()
+	return nil
 }
 
 // FlushToCacheCtx writes the dirty states to keeper using the cacheCtx.
