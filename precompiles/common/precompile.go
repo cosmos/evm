@@ -127,13 +127,20 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 }
 
 // SetupABI runs the initial setup required to run a transaction or a query.
-// It returns the ABI method, initial gas and calling arguments.
+// It returns the ABI method and decoded arguments. All setup failures, including
+// write protection, are encoded as ABISetupFailed using the supplied ABI.
 func SetupABI(
 	api abi.ABI,
 	contract *vm.Contract,
 	readOnly bool,
 	isTransaction func(name *abi.Method) bool,
 ) (method *abi.Method, args []interface{}, err error) {
+	defer func() {
+		if err != nil {
+			err = NewRevertWithSolidityError(api, SolidityErrABISetupFailed, err.Error())
+		}
+	}()
+
 	// NOTE: This is a special case where the calling transaction does not specify a function name.
 	// In this case we default to a `fallback` or `receive` function on the contract.
 
