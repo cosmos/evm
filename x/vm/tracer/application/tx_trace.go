@@ -1,9 +1,9 @@
 package application
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type txTraceContextKey struct{}

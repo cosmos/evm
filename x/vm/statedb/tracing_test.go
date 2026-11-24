@@ -3,8 +3,6 @@ package statedb_test
 import (
 	"testing"
 
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -14,6 +12,9 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	vmglobal "github.com/cosmos/evm/x/vm/tracer/application"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 )
 
 func TestAttachTracerManager(t *testing.T) {

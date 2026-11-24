@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -17,10 +15,14 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	"github.com/cosmos/evm/x/vm/tracer/application"
 	"github.com/cosmos/evm/x/vm/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (

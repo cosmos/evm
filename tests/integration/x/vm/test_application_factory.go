@@ -5,14 +5,15 @@ import (
 	"errors"
 	"math/big"
 
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (s *KeeperTestSuite) TestApplicationTracerFactoryError() {

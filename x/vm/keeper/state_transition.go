@@ -4,12 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
-	cmttypes "github.com/cometbft/cometbft/types"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -21,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	cmttypes "github.com/cometbft/cometbft/types"
+
 	antetypes "github.com/cosmos/evm/ante/types"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
@@ -28,6 +24,13 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	"github.com/cosmos/evm/x/vm/types"
+
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
 
 // NewEVMWithOverridePrecompiles creates a new EVM instance with opcode hooks and optionally overrides

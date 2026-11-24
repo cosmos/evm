@@ -5,12 +5,13 @@ import (
 	"math/big"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func TestTxTraceContext(t *testing.T) {

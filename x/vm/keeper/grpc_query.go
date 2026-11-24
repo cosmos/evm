@@ -8,10 +8,6 @@ import (
 	"math/big"
 	"time"
 
-	sdkmath "cosmossdk.io/math"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -25,12 +21,19 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtrace "github.com/cosmos/evm/trace"
 	"github.com/cosmos/evm/utils"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var _ types.QueryServer = Keeper{}

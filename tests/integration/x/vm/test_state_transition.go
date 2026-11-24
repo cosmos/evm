@@ -6,15 +6,6 @@ import (
 	"math"
 	"math/big"
 
-	sdkmath "cosmossdk.io/math"
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -22,6 +13,9 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+
+	"github.com/cometbft/cometbft/crypto/tmhash"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/config"
@@ -38,6 +32,15 @@ import (
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	applicationtracer "github.com/cosmos/evm/x/vm/tracer/application"
 	"github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 const TestPostProcessingEventType = "test_post_processing_event"

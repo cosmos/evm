@@ -5,13 +5,14 @@ import (
 	"errors"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func TestPrepareCallEVMTracingDoesNotAttachFailedManager(t *testing.T) {

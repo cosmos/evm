@@ -5,17 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
-	ibcgotesting "github.com/cosmos/ibc-go/v11/testing"
-	ibcmock "github.com/cosmos/ibc-go/v11/testing/mock"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 
@@ -29,6 +18,19 @@ import (
 	erc20mocks "github.com/cosmos/evm/x/erc20/types/mocks"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	ibcgotesting "github.com/cosmos/ibc-go/v11/testing"
+	ibcmock "github.com/cosmos/ibc-go/v11/testing/mock"
+
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 var erc20Denom = "erc20:0xdac17f958d2ee523a2206206994597c13d831ec7"

@@ -4,14 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"cosmossdk.io/core/address"
-	"cosmossdk.io/log/v2"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v11/modules/core/exported"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -19,6 +11,16 @@ import (
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v11/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v11/modules/core/exported"
+
+	"cosmossdk.io/core/address"
+	"cosmossdk.io/log/v2"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // AccountKeeper defines the expected interface needed to retrieve account info.

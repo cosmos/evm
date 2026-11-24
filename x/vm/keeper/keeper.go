@@ -4,13 +4,6 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log/v2"
-	"cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -28,6 +21,15 @@ import (
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
+
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log/v2"
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var tracer = otel.Tracer("evm/x/vm/keeper")

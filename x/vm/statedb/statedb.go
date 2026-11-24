@@ -6,9 +6,6 @@ import (
 	"slices"
 	"sort"
 
-	errorsmod "cosmossdk.io/errors"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/stateless"
@@ -23,6 +20,11 @@ import (
 	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
 	vmstoretypes "github.com/cosmos/evm/x/vm/store/types"
 	"github.com/cosmos/evm/x/vm/types"
+
+	errorsmod "cosmossdk.io/errors"
+
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // revision is the identifier of a version of state.
