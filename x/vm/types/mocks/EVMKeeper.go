@@ -119,8 +119,12 @@ func (k EVMKeeper) DeleteAccount(_ sdk.Context, addr common.Address) error {
 	return nil
 }
 
-func (k EVMKeeper) DeleteNewContractAccount(ctx sdk.Context, addr common.Address) error {
-	return k.DeleteAccount(ctx, addr)
+func (k EVMKeeper) DeleteNewContractAccount(_ sdk.Context, addr common.Address) error {
+	if addr == ErrAddress {
+		return errors.New("mock db error")
+	}
+	delete(k.accounts, addr)
+	return nil
 }
 
 func (k EVMKeeper) Clone() *EVMKeeper {

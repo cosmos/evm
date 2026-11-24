@@ -124,6 +124,20 @@ func (suite *StateDBTestSuite) TestAccount() {
 	}
 }
 
+func (suite *StateDBTestSuite) TestCommitNewContractSelfDestruct() {
+	ctx := newTestCtx()
+	keeper := mocks.NewEVMKeeper()
+	db := statedb.New(ctx, keeper, emptyTxConfig)
+
+	db.CreateAccount(address)
+	db.CreateContract(address)
+	db.SelfDestruct(address)
+	suite.Require().True(db.HasSelfDestructed(address))
+
+	suite.Require().NoError(db.Commit())
+	suite.Require().Nil(keeper.GetAccount(ctx, address))
+}
+
 func (suite *StateDBTestSuite) TestDBError() {
 	testCases := []struct {
 		name     string
