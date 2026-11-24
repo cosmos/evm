@@ -162,11 +162,12 @@ func (s *KeeperTestSuite) TestCommitIdempotencyWithSelfDestruct() {
 
 	addr := common.BytesToAddress([]byte("testaddr"))
 
-	// Setup: Create account and self-destruct
+	// Setup: Create a contract and self-destruct it
 	db := s.StateDB()
 	cacheCtx, err := db.GetCacheContext()
 	s.Require().NoError(err)
 	db.CreateAccount(addr)
+	db.CreateContract(addr)
 	db.SelfDestruct(addr)
 	err = db.FlushToCacheCtx()
 	s.Require().NoError(err)

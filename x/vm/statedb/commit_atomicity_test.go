@@ -53,6 +53,10 @@ func (k *atomicTestKeeper) DeleteAccount(ctx sdk.Context, addr common.Address) e
 	return nil
 }
 
+func (k *atomicTestKeeper) DeleteNewContractAccount(ctx sdk.Context, addr common.Address) error {
+	return k.DeleteAccount(ctx, addr)
+}
+
 func (k *atomicTestKeeper) GetState(sdk.Context, common.Address, common.Hash) common.Hash {
 	return common.Hash{}
 }

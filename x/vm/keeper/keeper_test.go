@@ -169,6 +169,12 @@ func (suite *KeeperTestSuite) TestDeleteAccountWithStakingPositions() {
 			err := suite.vmKeeper.DeleteAccount(suite.ctx, addr)
 			suite.Require().Error(err)
 			suite.Require().ErrorContains(err, "staking positions")
+
+			suite.vmKeeper.DeleteCodeHash(suite.ctx, addr)
+			defer suite.vmKeeper.SetCodeHash(suite.ctx, addr.Bytes(), codeHash)
+			err = suite.vmKeeper.DeleteNewContractAccount(suite.ctx, addr)
+			suite.Require().ErrorContains(err, "staking positions")
+
 			// the auth account must still exist
 			suite.Require().NotNil(suite.accKeeper.GetAccount(suite.ctx, cosmosAddr))
 		})

@@ -124,6 +124,20 @@ func (suite *StateDBTestSuite) TestAccount() {
 	}
 }
 
+func (suite *StateDBTestSuite) TestCommitNewContractSelfDestruct() {
+	ctx := newTestCtx()
+	keeper := mocks.NewEVMKeeper()
+	db := statedb.New(ctx, keeper, emptyTxConfig)
+
+	db.CreateAccount(address)
+	db.CreateContract(address)
+	db.SelfDestruct(address)
+	suite.Require().True(db.HasSelfDestructed(address))
+
+	suite.Require().NoError(db.Commit())
+	suite.Require().Nil(keeper.GetAccount(ctx, address))
+}
+
 func (suite *StateDBTestSuite) TestDBError() {
 	testCases := []struct {
 		name     string
@@ -134,6 +148,12 @@ func (suite *StateDBTestSuite) TestDBError() {
 		}},
 		{"delete account", func(db vm.StateDB) {
 			db.SetNonce(mocks.ErrAddress, 1, tracing.NonceChangeUnspecified)
+			db.SelfDestruct(mocks.ErrAddress)
+			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
+		}},
+		{"delete new contract account", func(db vm.StateDB) {
+			db.CreateAccount(mocks.ErrAddress)
+			db.CreateContract(mocks.ErrAddress)
 			db.SelfDestruct(mocks.ErrAddress)
 			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
 		}},

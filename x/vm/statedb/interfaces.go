@@ -35,6 +35,9 @@ type Keeper interface {
 	DeleteCode(ctx sdk.Context, codeHash []byte)
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
+	// DeleteNewContractAccount is called only after StateDB verifies that the
+	// account became a contract in the current transaction.
+	DeleteNewContractAccount(ctx sdk.Context, addr common.Address) error
 
 	// Getter for injected Store keys
 	// It is used for StateDB.snapshotter creation

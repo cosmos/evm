@@ -113,6 +113,10 @@ func (k MockKeeper) DeleteAccount(_ sdk.Context, addr common.Address) error {
 	return nil
 }
 
+func (k MockKeeper) DeleteNewContractAccount(ctx sdk.Context, addr common.Address) error {
+	return k.DeleteAccount(ctx, addr)
+}
+
 func (k MockKeeper) Clone() *MockKeeper {
 	accounts := maps.Clone(k.accounts)
 	codes := maps.Clone(k.codes)

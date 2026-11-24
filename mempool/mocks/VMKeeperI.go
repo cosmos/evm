@@ -46,6 +46,24 @@ func (_m *VMKeeperI) DeleteCode(ctx types.Context, codeHash []byte) {
 	_m.Called(ctx, codeHash)
 }
 
+// DeleteNewContractAccount provides a mock function with given fields: ctx, addr
+func (_m *VMKeeperI) DeleteNewContractAccount(ctx types.Context, addr common.Address) error {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteNewContractAccount")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(types.Context, common.Address) error); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteState provides a mock function with given fields: ctx, addr, key
 func (_m *VMKeeperI) DeleteState(ctx types.Context, addr common.Address, key common.Hash) {
 	_m.Called(ctx, addr, key)
