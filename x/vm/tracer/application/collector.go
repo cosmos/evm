@@ -32,6 +32,10 @@ type txTraceCollector struct {
 	nextObservationID uint64
 	nextSubscriber    uint64
 	maxEvents         uint64
+	maxBytes          uint64
+	retainedBytes     uint64
+	budgetExceeded    bool
+	skippedDepth      uint64
 	code              func(common.Address) []byte
 	err               error
 	executionErr      error
@@ -51,7 +55,13 @@ type observationSubscriber struct {
 	fn vmtracer.Observer
 }
 
-const DefaultObservationBudget uint64 = 100_000
+const (
+	DefaultObservationBudget uint64 = 100_000
+	// DefaultObservationByteBudget bounds retained call input/output and log
+	// data/topics. Fixed-size observation and call metadata is bounded separately
+	// by DefaultObservationBudget; this is not a total heap limit.
+	DefaultObservationByteBudget uint64 = 8 * 1024 * 1024
+)
 
 var (
 	erc20TransferSelector     = []byte{0xa9, 0x05, 0x9c, 0xbb}
@@ -64,13 +74,22 @@ func NewCollector() Collector {
 	return c
 }
 
+// NewCollectorWithBudget limits observation count and uses the default byte budget.
 func NewCollectorWithBudget(budget uint64) (Collector, error) {
-	if budget == 0 {
-		return nil, errors.New("collector requires a positive budget")
+	return NewCollectorWithBudgets(budget, DefaultObservationByteBudget)
+}
+
+// NewCollectorWithBudgets limits observation count and cumulative payload bytes.
+// Payload bytes include call input/output and log data/topics, including duplicate
+// copies retained for ERC20 call annotations. Neither budget may be zero.
+func NewCollectorWithBudgets(observationBudget, byteBudget uint64) (Collector, error) {
+	if observationBudget == 0 || byteBudget == 0 {
+		return nil, errors.New("collector requires positive observation and byte budgets")
 	}
 	return &txTraceCollector{
 		calls:     make(map[uint64]*observationCall),
-		maxEvents: budget,
+		maxEvents: observationBudget,
+		maxBytes:  byteBudget,
 	}, nil
 }
 
@@ -186,7 +205,7 @@ func (c *txTraceCollector) status(id uint64) vmtracer.CallStatus {
 // CurrentCall returns the active call's facts without requiring caller-side
 // stack reconstruction. It does not infer AA evidence.
 func (c *txTraceCollector) CurrentCall() (vmtracer.Observation, bool) {
-	if c == nil {
+	if c == nil || c.skippedDepth > 0 {
 		return vmtracer.Observation{}, false
 	}
 
@@ -264,16 +283,38 @@ func (c *txTraceCollector) currentObservationCall() uint64 {
 	return 0
 }
 
-func (c *txTraceCollector) emitObservation(e vmtracer.Observation) {
+func (c *txTraceCollector) emitObservation(e vmtracer.Observation) bool {
 	if c == nil {
-		return
+		return false
 	}
 
 	c.nextObservationID++
-	if uint64(len(c.events)) >= c.maxEvents {
-		c.collectionError(errors.New("raw observation budget exceeded"))
-		return
+	if c.budgetExceeded {
+		return false
 	}
+	if uint64(len(c.events)) >= c.maxEvents {
+		c.budgetExceeded = true
+		c.collectionError(errors.New("raw observation budget exceeded"))
+		return false
+	}
+
+	// Check before cloneObservation allocates any payload copies. Subtract each
+	// component from the remaining budget to avoid overflowing a size sum.
+	remaining := c.maxBytes - c.retainedBytes
+	sizes := [4]uint64{uint64(len(e.Input)), uint64(len(e.Output))}
+	if e.Log != nil {
+		sizes[2] = uint64(len(e.Log.Data))
+		sizes[3] = uint64(len(e.Log.Topics)) * common.HashLength
+	}
+	for _, size := range sizes {
+		if size > remaining {
+			c.budgetExceeded = true
+			c.collectionError(errors.New("raw observation byte budget exceeded"))
+			return false
+		}
+		remaining -= size
+	}
+	c.retainedBytes = c.maxBytes - remaining
 
 	e.ObservationID = c.nextObservationID
 	if e.CallID == 0 {
@@ -297,10 +338,15 @@ func (c *txTraceCollector) emitObservation(e vmtracer.Observation) {
 	for _, sub := range subscribers {
 		c.LatchError(sub.fn(cloneObservation(e)))
 	}
+	return true
 }
 
 func (c *txTraceCollector) onEnter(depth int, typ byte, from, to common.Address, input []byte, gas uint64, value *big.Int) {
 	if c == nil {
+		return
+	}
+	if c.budgetExceeded {
+		c.skippedDepth++
 		return
 	}
 
@@ -367,7 +413,12 @@ func (c *txTraceCollector) onEnter(depth int, typ byte, from, to common.Address,
 		parent: parent,
 	}
 	c.stack = append(c.stack, e.CallID)
-	c.emitObservation(e)
+	if !c.emitObservation(e) {
+		delete(c.calls, e.CallID)
+		c.stack = c.stack[:len(c.stack)-1]
+		c.skippedDepth++
+		return
+	}
 
 	if typ == byte(vm.CALL) && len(input) >= 4 && (bytes.Equal(input[:4], erc20TransferSelector) || bytes.Equal(input[:4], erc20TransferFromSelector)) {
 		c.emitObservation(vmtracer.Observation{
@@ -382,6 +433,10 @@ func (c *txTraceCollector) onEnter(depth int, typ byte, from, to common.Address,
 
 func (c *txTraceCollector) onExit(_ int, output []byte, gas uint64, err error, reverted bool) {
 	if c == nil {
+		return
+	}
+	if c.skippedDepth > 0 {
+		c.skippedDepth--
 		return
 	}
 
@@ -422,7 +477,7 @@ func (c *txTraceCollector) onExit(_ int, output []byte, gas uint64, err error, r
 // RecordNativeTransfer is called only after the EVM Transfer function executes.
 // Balance callbacks are separate facts and are never tuple-deduplicated or paired.
 func (c *txTraceCollector) RecordNativeTransfer(from, to common.Address, value *big.Int) {
-	if c == nil || value == nil || value.Sign() == 0 {
+	if c == nil || c.budgetExceeded || value == nil || value.Sign() == 0 {
 		return
 	}
 

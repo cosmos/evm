@@ -202,7 +202,7 @@ func nativeObservations(events []vmtracer.Observation) []vmtracer.Observation {
 }
 
 func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
-	for _, mode := range []string{"budget", "observer", "passive", "txend-reject", "txend-accept"} {
+	for _, mode := range []string{"budget", "byte-budget", "byte-passive", "observer", "passive", "txend-reject", "txend-accept"} {
 		s.Run(mode, func() {
 			s.SetupTest()
 			ctx := s.Network.GetContext()
@@ -224,10 +224,14 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 				if mode == "budget" || mode == "passive" {
 					budget = 3
 				}
+				byteBudget := vmglobaltracer.DefaultObservationByteBudget
+				if mode == "byte-budget" || mode == "byte-passive" {
+					byteBudget = 1
+				}
 				var err error
-				collector, err = vmglobaltracer.NewCollectorWithBudget(budget)
+				collector, err = vmglobaltracer.NewCollectorWithBudgets(budget, byteBudget)
 				s.Require().NoError(err)
-				if mode == "budget" || mode == "observer" {
+				if mode == "budget" || mode == "byte-budget" || mode == "observer" {
 					_, err = collector.Observe(func(e vmtracer.Observation) error {
 						if e.Kind == vmtracer.NativeTransfer {
 							observed = true
@@ -251,17 +255,22 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 				}))
 				return factoryCtx, collector, nil
 			})
+			var input []byte
+			if mode == "byte-budget" || mode == "byte-passive" {
+				input = []byte{1, 2}
+			}
 			tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), evmtypes.EvmTxArgs{
 				To:       &recipient,
 				Amount:   big.NewInt(7),
 				GasLimit: 100_000,
 				GasPrice: big.NewInt(0),
+				Input:    input,
 			})
 			s.Require().NoError(err)
 			response, err := keeper.ApplyTransaction(ctx.WithGasMeter(storetypes.NewGasMeter(1_000_000)), tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx).AsTransaction())
 			s.Require().Equal(1, ended)
 			switch mode {
-			case "budget":
+			case "budget", "byte-budget":
 				s.Require().ErrorContains(err, "budget")
 				s.Require().False(observed)
 			case "observer", "txend-reject":
@@ -271,7 +280,7 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 				s.Require().False(response.Failed())
 			}
 			after := statedb.New(ctx, keeper, statedb.NewEmptyTxConfig())
-			if mode == "passive" || mode == "txend-accept" {
+			if mode == "passive" || mode == "byte-passive" || mode == "txend-accept" {
 				s.Require().Equal(new(uint256.Int).Add(before, uint256.NewInt(7)), keeper.GetBalance(ctx, recipient))
 				s.Require().Equal(common.BigToHash(big.NewInt(1)), after.GetState(recipient, common.Hash{}))
 			} else {
@@ -280,6 +289,10 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 			}
 			if mode == "observer" {
 				s.Require().True(observed)
+			}
+			if mode == "byte-budget" || mode == "byte-passive" {
+				s.Require().ErrorContains(collector.Error(), "byte budget exceeded")
+				s.Require().Empty(collector.Observations())
 			}
 		})
 	}
