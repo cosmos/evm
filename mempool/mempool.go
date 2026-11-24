@@ -336,9 +336,14 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 
 	m.logger.Debug("removing Cosmos transaction")
 	err = m.cosmosPool.Remove(tx)
-	if err != nil {
+	switch {
+	case errors.Is(err, sdkmempool.ErrTxNotFound):
+		// Expected for every block tx this node never held, e.g. while catching up.
+		// BaseApp ignores this error on FinalizeBlock, so it is not worth an error log.
+		m.logger.Debug("Cosmos transaction not in mempool, nothing to remove")
+	case err != nil:
 		m.logger.Error("failed to remove Cosmos transaction", "error", err)
-	} else {
+	default:
 		m.logger.Debug("Cosmos transaction removed successfully")
 	}
 	return err
