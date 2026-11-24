@@ -43,7 +43,11 @@ func BenchmarkPrepareTracing(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				benchmarkTracingContext, benchmarkTracingHooks = k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), true, base)
+				var err error
+				benchmarkTracingContext, benchmarkTracingHooks, err = k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), true, base)
+				if err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}

@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -23,7 +24,7 @@ func (k Keeper) prepareTracing(
 	msg core.Message,
 	txConfig statedb.TxConfig,
 	commit bool,
-) (sdk.Context, *tracing.Hooks) {
+) (sdk.Context, *tracing.Hooks, error) {
 	var base *tracing.Hooks
 	if k.tracer != "" {
 		base = k.Tracer(ctx, msg, types.GetEthChainConfig())
@@ -39,13 +40,13 @@ func (k Keeper) prepareTracingWithBase(
 	txConfig statedb.TxConfig,
 	commit bool,
 	base *tracing.Hooks,
-) (sdk.Context, *tracing.Hooks) {
+) (sdk.Context, *tracing.Hooks, error) {
 	if base == nil && len(k.applicationTracerFactories) == 0 {
 		// A top-level execution must not inherit a previous execution's manager.
 		if _, ok := vmtracer.FromContext(ctx); ok {
 			ctx = vmtracer.WithoutManager(ctx)
 		}
-		return ctx, nil
+		return ctx, nil, nil
 	}
 	manager := vmtracer.New(base)
 	ctx = vmtracer.WithManager(ctx, manager)
@@ -55,13 +56,16 @@ func (k Keeper) prepareTracingWithBase(
 		TxIndex: uint64(txConfig.TxIndex),
 		Commit:  commit,
 	}
-	for _, factory := range k.applicationTracerFactories {
+	for i, factory := range k.applicationTracerFactories {
 		if factory == nil {
 			continue
 		}
-		var executionTracer vmtracer.Tracer
-		ctx, executionTracer = factory(ctx, execution)
+		factoryCtx, executionTracer, err := factory(ctx, execution)
+		if err != nil {
+			return ctx, nil, errorsmod.Wrapf(err, "failed to initialize application tracer factory at index %d", i)
+		}
+		ctx = factoryCtx
 		manager.InstallApplication(executionTracer)
 	}
-	return ctx, manager.Hooks()
+	return ctx, manager.Hooks(), nil
 }

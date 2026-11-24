@@ -53,7 +53,8 @@ func TestTxTraceContextWithNilCollector(t *testing.T) {
 
 func TestTxTraceFactory(t *testing.T) {
 	ctx := sdk.Context{}.WithContext(context.Background())
-	ctx, tracer := TxTraceFactory(ctx, vmtracer.ExecutionInfo{TxIndex: 3})
+	ctx, tracer, err := TxTraceFactory(ctx, vmtracer.ExecutionInfo{TxIndex: 3})
+	require.NoError(t, err)
 	require.NotNil(t, tracer)
 
 	tracer.Hooks().OnEnter(

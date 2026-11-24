@@ -725,8 +725,8 @@ func (s *KeeperTestSuite) TestFailedTransactionRetainsApplicationTracingContext(
 
 	evmKeeper := s.Network.App.GetEVMKeeper()
 	evmKeeper.SetApplicationTracerFactories(
-		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
-			return ctx.WithValue(factoryContextKey{}, marker), &applicationHooksTracer{hooks: &tracing.Hooks{}}
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+			return ctx.WithValue(factoryContextKey{}, marker), &applicationHooksTracer{hooks: &tracing.Hooks{}}, nil
 		},
 	)
 	evmKeeper.SetHooks(keeper.NewMultiEvmHooks(&testHooks{

@@ -16,9 +16,9 @@ type txTraceContext struct {
 // TxTraceFactory creates a standard transaction-wide collector. Applications
 // can pass this function to keeper.SetApplicationTracerFactories to opt in to
 // call, asset movement, balance and log collection.
-func TxTraceFactory(ctx sdk.Context, execution vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+func TxTraceFactory(ctx sdk.Context, execution vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 	collector := NewCollector()
-	return WithCollector(ctx, execution.TxIndex, collector), collector
+	return WithCollector(ctx, execution.TxIndex, collector), collector, nil
 }
 
 // WithCollector stores a collector for the current EVM transaction in ctx. The

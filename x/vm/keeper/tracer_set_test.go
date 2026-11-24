@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -25,7 +26,8 @@ func TestPrepareTracingSkipsManagerWithoutTracers(t *testing.T) {
 	k := Keeper{}
 	ctx := sdk.Context{}.WithContext(context.Background())
 
-	actualCtx, hooks := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	actualCtx, hooks, err := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	require.NoError(t, err)
 	require.Nil(t, hooks)
 	_, ok := vmtracer.FromContext(actualCtx)
 	require.False(t, ok)
@@ -35,7 +37,8 @@ func TestPrepareTracingSkipsManagerWithoutTracers(t *testing.T) {
 func TestPrepareTracingWithoutTracersDetachesInheritedManager(t *testing.T) {
 	k := Keeper{}
 	ctx := vmtracer.WithManager(sdk.Context{}.WithContext(context.Background()), vmtracer.New(nil))
-	actualCtx, hooks := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	actualCtx, hooks, err := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	require.NoError(t, err)
 	require.Nil(t, hooks)
 	_, ok := vmtracer.FromContext(actualCtx)
 	require.False(t, ok)
@@ -46,7 +49,8 @@ func TestPrepareTracingWithBaseCreatesManagerWithoutFactories(t *testing.T) {
 	ctx := sdk.Context{}.WithContext(context.Background())
 	calls := 0
 	base := &tracing.Hooks{OnEnter: func(int, byte, common.Address, common.Address, []byte, uint64, *big.Int) { calls++ }}
-	actualCtx, hooks := k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false, base)
+	actualCtx, hooks, err := k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false, base)
+	require.NoError(t, err)
 	require.NotNil(t, hooks)
 	_, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)
@@ -60,7 +64,7 @@ func TestPrepareTracingInstallsApplicationFactories(t *testing.T) {
 	txConfig := statedb.NewTxConfig(common.HexToHash("0x1"), 7)
 	calls := 0
 
-	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, execution vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, execution vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		manager, ok := vmtracer.FromContext(factoryCtx)
 		require.True(t, ok)
 		require.NotNil(t, manager)
@@ -69,10 +73,11 @@ func TestPrepareTracingInstallsApplicationFactories(t *testing.T) {
 		require.True(t, execution.Commit)
 		return factoryCtx, &testExecutionTracer{hooks: &tracing.Hooks{OnEnter: func(_ int, _ byte, _, _ common.Address, _ []byte, _ uint64, _ *big.Int) {
 			calls++
-		}}}
+		}}}, nil
 	})
 
-	actualCtx, hooks := k.prepareTracing(ctx, core.Message{}, txConfig, true)
+	actualCtx, hooks, err := k.prepareTracing(ctx, core.Message{}, txConfig, true)
+	require.NoError(t, err)
 	require.NotNil(t, hooks)
 	_, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)
@@ -86,22 +91,23 @@ func TestPrepareTracingComposesMultipleApplicationTracers(t *testing.T) {
 	ctx := sdk.Context{}.WithContext(context.Background())
 	var factoryCalls, hookCalls []string
 	k.SetApplicationTracerFactories(
-		func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+		func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 			factoryCalls = append(factoryCalls, "application-1")
 			return factoryCtx, &testExecutionTracer{hooks: &tracing.Hooks{OnEnter: func(_ int, _ byte, _, _ common.Address, _ []byte, _ uint64, _ *big.Int) {
 				hookCalls = append(hookCalls, "application-1")
-			}}}
+			}}}, nil
 		},
 		nil,
-		func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+		func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 			factoryCalls = append(factoryCalls, "application-2")
 			return factoryCtx, &testExecutionTracer{hooks: &tracing.Hooks{OnEnter: func(_ int, _ byte, _, _ common.Address, _ []byte, _ uint64, _ *big.Int) {
 				hookCalls = append(hookCalls, "application-2")
-			}}}
+			}}}, nil
 		},
 	)
 
-	_, hooks := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	_, hooks, err := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false)
+	require.NoError(t, err)
 	require.Equal(t, []string{"application-1", "application-2"}, factoryCalls)
 	hooks.OnEnter(0, 0, common.Address{}, common.Address{}, nil, 0, nil)
 	require.Equal(t, []string{"application-1", "application-2"}, hookCalls)
@@ -117,15 +123,45 @@ func TestPrepareTracingWithBasePreservesDispatchOrder(t *testing.T) {
 		}}
 	}
 	k.SetApplicationTracerFactories(
-		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
-			return ctx, &testExecutionTracer{hooks: newHooks("application-1")}
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+			return ctx, &testExecutionTracer{hooks: newHooks("application-1")}, nil
 		},
-		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
-			return ctx, &testExecutionTracer{hooks: newHooks("application-2")}
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+			return ctx, &testExecutionTracer{hooks: newHooks("application-2")}, nil
 		},
 	)
-	_, hooks := k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false, newHooks("base"))
+	_, hooks, err := k.prepareTracingWithBase(ctx, core.Message{}, statedb.NewEmptyTxConfig(), false, newHooks("base"))
+	require.NoError(t, err)
 	hooks.OnEnter(0, 0, common.Address{}, common.Address{}, nil, 0, nil)
 	hooks.OnExit(0, nil, 0, nil, false)
 	require.Equal(t, []string{"base", "application-1", "application-2"}, calls)
+}
+
+func TestPrepareTracingStopsOnFactoryError(t *testing.T) {
+	type contextKey struct{}
+	k := Keeper{}
+	ctx := sdk.Context{}.WithContext(context.Background())
+	factoryErr := errors.New("tracer initialization failed")
+	var factoryCalls []int
+	k.SetApplicationTracerFactories(
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+			factoryCalls = append(factoryCalls, 0)
+			return ctx.WithValue(contextKey{}, "initialized"), nil, nil
+		},
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+			factoryCalls = append(factoryCalls, 1)
+			return sdk.Context{}, nil, factoryErr
+		},
+		func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+			factoryCalls = append(factoryCalls, 2)
+			return ctx, nil, nil
+		},
+	)
+
+	actualCtx, hooks, err := k.prepareTracing(ctx, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	require.ErrorIs(t, err, factoryErr)
+	require.ErrorContains(t, err, "factory at index 1")
+	require.Nil(t, hooks)
+	require.Equal(t, []int{0, 1}, factoryCalls)
+	require.Equal(t, "initialized", actualCtx.Value(contextKey{}))
 }

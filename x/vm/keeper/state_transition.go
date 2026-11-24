@@ -265,7 +265,10 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 	// Didn't use `Snapshot` because the context stack has exponential complexity on certain operations,
 	// thus restricted to be used only inside `ApplyMessage`.
 	tmpCtx, commitFn := ctx.CacheContext()
-	tmpCtx, tracingHooks := k.prepareTracing(tmpCtx, *msg, txConfig, true)
+	tmpCtx, tracingHooks, err := k.prepareTracing(tmpCtx, *msg, txConfig, true)
+	if err != nil {
+		return nil, err
+	}
 
 	// pass true to commit the StateDB
 	stateDB := statedb.New(tmpCtx, k, txConfig)

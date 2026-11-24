@@ -16,8 +16,9 @@ type ExecutionInfo struct {
 
 // ApplicationTracerFactory creates a tracer for one EVM execution. Applications can also
 // return a derived context to expose per-execution tracer state to their post-tx
-// hooks. A new tracer is created for every execution.
-type ApplicationTracerFactory func(ctx sdk.Context, execution ExecutionInfo) (sdk.Context, Tracer)
+// hooks. A new tracer is created for every execution. An error aborts execution
+// before EVM processing begins.
+type ApplicationTracerFactory func(ctx sdk.Context, execution ExecutionInfo) (sdk.Context, Tracer, error)
 
 // InstallApplication installs a tracer that observes the whole EVM execution.
 // Application tracers normally live until the Manager is discarded.

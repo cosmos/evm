@@ -17,23 +17,26 @@ func (k Keeper) prepareCallEVMTracing(
 	msg core.Message,
 	txConfig statedb.TxConfig,
 	commit bool,
-) (sdk.Context, *tracing.Hooks) {
+) (sdk.Context, *tracing.Hooks, error) {
 	if stateDB == nil {
-		return ctx, nil
+		return ctx, nil, nil
 	}
 
 	if manager, ok := vmtracer.FromContext(stateDB.GetContext()); ok && manager.HasActiveCall() {
 		ctx = vmtracer.WithManager(ctx, manager)
-		return ctx, manager.NestedHooks()
+		return ctx, manager.NestedHooks(), nil
 	}
 
 	if manager, ok := vmtracer.FromContext(ctx); ok && manager.HasActiveCall() {
 		stateDB.AttachTracerManager(manager)
-		return ctx, manager.NestedHooks()
+		return ctx, manager.NestedHooks(), nil
 	}
 
-	ctx, hooks := k.prepareTracing(ctx, msg, txConfig, commit)
+	ctx, hooks, err := k.prepareTracing(ctx, msg, txConfig, commit)
+	if err != nil {
+		return ctx, nil, err
+	}
 	manager, _ := vmtracer.FromContext(ctx)
 	stateDB.AttachTracerManager(manager)
-	return ctx, hooks
+	return ctx, hooks, nil
 }

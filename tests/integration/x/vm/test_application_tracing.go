@@ -116,7 +116,7 @@ func (s *KeeperTestSuite) TestNestedCallEVMWithDataReusesApplicationTracing() {
 	var factoryManagers []*vmtracer.Manager
 	first, second := &tracerCounts{}, &tracerCounts{}
 	newFactory := func(name string, counts *tracerCounts) vmtracer.ApplicationTracerFactory {
-		return func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+		return func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 			factoryCalls = append(factoryCalls, name)
 			manager, _ := vmtracer.FromContext(factoryCtx)
 			factoryManagers = append(factoryManagers, manager)
@@ -124,7 +124,7 @@ func (s *KeeperTestSuite) TestNestedCallEVMWithDataReusesApplicationTracing() {
 				OnTxStart: func(_ *tracing.VMContext, _ *ethtypes.Transaction, _ common.Address) { counts.txStarts++ },
 				OnTxEnd:   func(_ *ethtypes.Receipt, _ error) { counts.txEnds++ },
 				OnEnter:   func(_ int, _ byte, _, _ common.Address, _ []byte, _ uint64, _ *big.Int) { counts.enters++ },
-			}}
+			}}, nil
 		}
 	}
 	evmKeeper.SetApplicationTracerFactories(
@@ -180,7 +180,7 @@ func (s *KeeperTestSuite) TestCallEVMViewWithDataStartsIndependentApplicationTra
 
 	var managers []*vmtracer.Manager
 	var entered [][]common.Address
-	evmKeeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	evmKeeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		manager, ok := vmtracer.FromContext(factoryCtx)
 		s.Require().True(ok)
 		managers = append(managers, manager)
@@ -190,7 +190,7 @@ func (s *KeeperTestSuite) TestCallEVMViewWithDataStartsIndependentApplicationTra
 			OnEnter: func(_ int, _ byte, _, to common.Address, _ []byte, _ uint64, _ *big.Int) {
 				entered[index] = append(entered[index], to)
 			},
-		}}
+		}}, nil
 	})
 
 	tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), evmtypes.EvmTxArgs{

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -13,6 +14,22 @@ import (
 	vmtracer "github.com/cosmos/evm/x/vm/tracer"
 )
 
+func TestPrepareCallEVMTracingDoesNotAttachFailedManager(t *testing.T) {
+	k := Keeper{}
+	ctx := sdk.Context{}.WithContext(context.Background()).WithEventManager(sdk.NewEventManager())
+	stateDB := statedb.New(ctx, nil, statedb.NewEmptyTxConfig())
+	factoryErr := errors.New("tracer initialization failed")
+	k.SetApplicationTracerFactories(func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+		return ctx, nil, factoryErr
+	})
+
+	_, hooks, err := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	require.ErrorIs(t, err, factoryErr)
+	require.Nil(t, hooks)
+	_, ok := vmtracer.FromContext(stateDB.GetContext())
+	require.False(t, ok)
+}
+
 func TestPrepareCallEVMTracingReusesContextManager(t *testing.T) {
 	k := Keeper{}
 	ctx := sdk.Context{}.WithContext(context.Background()).WithEventManager(sdk.NewEventManager())
@@ -22,12 +39,13 @@ func TestPrepareCallEVMTracingReusesContextManager(t *testing.T) {
 	manager.Hooks().OnEnter(0, 0, common.Address{}, common.Address{}, nil, 0, nil)
 	defer manager.Hooks().OnExit(0, nil, 0, nil, false)
 	factoryCalls := 0
-	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		factoryCalls++
-		return factoryCtx, nil
+		return factoryCtx, nil, nil
 	})
 
-	actualCtx, hooks := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	actualCtx, hooks, err := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	require.NoError(t, err)
 
 	actualManager, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)
@@ -62,12 +80,13 @@ func TestPrepareCallEVMTracingPrefersStateDBManager(t *testing.T) {
 		callManager,
 	)
 	factoryCalls := 0
-	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		factoryCalls++
-		return factoryCtx, nil
+		return factoryCtx, nil, nil
 	})
 
-	actualCtx, hooks := k.prepareCallEVMTracing(callCtx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	actualCtx, hooks, err := k.prepareCallEVMTracing(callCtx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	require.NoError(t, err)
 
 	actualManager, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)
@@ -87,13 +106,14 @@ func TestPrepareCallEVMTracingReplacesInactiveManagers(t *testing.T) {
 
 	var factoryManager *vmtracer.Manager
 	factoryCalls := 0
-	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	k.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		factoryCalls++
 		factoryManager, _ = vmtracer.FromContext(factoryCtx)
-		return factoryCtx, nil
+		return factoryCtx, nil, nil
 	})
 
-	actualCtx, hooks := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	actualCtx, hooks, err := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	require.NoError(t, err)
 
 	actualManager, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)
@@ -115,7 +135,8 @@ func TestPrepareCallEVMTracingUsesActiveContextManagerOverInactiveStateDBManager
 	defer activeManager.Hooks().OnExit(0, nil, 0, nil, false)
 	ctx = vmtracer.WithManager(ctx, activeManager)
 
-	actualCtx, hooks := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	actualCtx, hooks, err := k.prepareCallEVMTracing(ctx, stateDB, core.Message{}, statedb.NewEmptyTxConfig(), true)
+	require.NoError(t, err)
 
 	actualManager, ok := vmtracer.FromContext(actualCtx)
 	require.True(t, ok)

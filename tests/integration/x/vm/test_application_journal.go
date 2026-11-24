@@ -30,7 +30,7 @@ func (s *KeeperTestSuite) TestCollectorActualMovementAndObservationRejection() {
 			keeper := s.Network.App.GetEVMKeeper()
 			var collector vmglobaltracer.Collector
 			rejection := errors.New("observation policy rejected")
-			keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+			keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 				collector = vmglobaltracer.NewCollector()
 				if reject {
 					_, err := collector.Observe(func(e vmtracer.Observation) error {
@@ -41,7 +41,7 @@ func (s *KeeperTestSuite) TestCollectorActualMovementAndObservationRejection() {
 					})
 					s.Require().NoError(err)
 				}
-				return factoryCtx, collector
+				return factoryCtx, collector, nil
 			})
 			sender, recipient := s.Keyring.GetAddr(0), s.Keyring.GetAddr(1)
 			before := keeper.GetBalance(ctx, recipient)
@@ -95,9 +95,9 @@ func (s *KeeperTestSuite) TestCollectorRetainsChildMovementAfterParentRevert() {
 	db.SetCode(parent, code, tracing.CodeChangeUnspecified)
 	s.Require().NoError(db.Commit())
 	var collector vmglobaltracer.Collector
-	keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		collector = vmglobaltracer.NewCollector()
-		return factoryCtx, collector
+		return factoryCtx, collector, nil
 	})
 	before := keeper.GetBalance(ctx, recipient)
 	tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), evmtypes.EvmTxArgs{
@@ -144,9 +144,9 @@ func (s *KeeperTestSuite) TestCollectorTokenRequestAndRawLog() {
 	s.Require().NoError(err)
 	s.Require().NoError(s.Network.NextBlock())
 	var collector vmglobaltracer.Collector
-	s.Network.App.GetEVMKeeper().SetApplicationTracerFactories(func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+	s.Network.App.GetEVMKeeper().SetApplicationTracerFactories(func(ctx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 		collector = vmglobaltracer.NewCollector()
-		return ctx, collector
+		return ctx, collector, nil
 	})
 	_, err = executeTransferCall(transferParams{
 		senderKey:     sender,
@@ -217,7 +217,7 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 			var collector vmglobaltracer.Collector
 			var manager *vmtracer.Manager
 			observed, ended := false, 0
-			keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+			keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 				manager, _ = vmtracer.FromContext(factoryCtx)
 				s.Require().NotNil(manager)
 				budget := uint64(100)
@@ -249,7 +249,7 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 						}
 					},
 				}))
-				return factoryCtx, collector
+				return factoryCtx, collector, nil
 			})
 			tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), evmtypes.EvmTxArgs{
 				To:       &recipient,
@@ -305,7 +305,7 @@ func (s *KeeperTestSuite) TestCallEVMChargesGasOnPolicyRejection() {
 				rejection := errors.New("final policy rejected")
 				var executionGas uint64
 				ends := 0
-				keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer) {
+				keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
 					manager, ok := vmtracer.FromContext(factoryCtx)
 					s.Require().True(ok)
 					return factoryCtx, newApplicationHooksTracer(&tracing.Hooks{
@@ -316,7 +316,7 @@ func (s *KeeperTestSuite) TestCallEVMChargesGasOnPolicyRejection() {
 								manager.LatchError(rejection)
 							}
 						},
-					})
+					}), nil
 				})
 				beforeGas := ctx.GasMeter().GasConsumed()
 				var response *evmtypes.MsgEthereumTxResponse
