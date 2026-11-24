@@ -490,7 +490,7 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacket_GasConfigPreserved() 
 	ctx = ctx.WithKVGasConfig(kvGas).WithTransientKVGasConfig(transientGas)
 
 	var capturedCtx sdk.Context
-	expectViewCallEVM(evmMock, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	s.expectViewCallEVM(evmMock, "balanceOf", s.keyring.GetAddr(0)).Run(func(args mock.Arguments) {
 		capturedCtx = args.Get(0).(sdk.Context)
 	}).Return((*evmtypes.MsgEthereumTxResponse)(nil), errors.New("mock evm error"))
 	evmMock.On("KVStoreKeys").Return(map[string]storetypes.StoreKey{}).Maybe()

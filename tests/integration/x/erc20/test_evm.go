@@ -18,13 +18,17 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
-func expectViewCallEVM(mockEVMKeeper *erc20mocks.EVMKeeper, _ interface{}, _ ...interface{}) *mock.Call {
+func (s *KeeperTestSuite) expectViewCallEVM(mockEVMKeeper *erc20mocks.EVMKeeper, method string, args ...interface{}) *mock.Call {
+	s.T().Helper()
+	data, err := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack(method, args...)
+	s.Require().NoError(err)
+
 	return mockEVMKeeper.On(
 		"CallEVMViewWithData",
 		mock.Anything, // context
 		mock.Anything, // from
 		mock.Anything, // contract
-		mock.Anything, // ABI-encoded data
+		data,
 		mock.Anything, // gas cap
 	)
 }
@@ -85,6 +89,7 @@ func (s *KeeperTestSuite) TestQueryERC20() {
 func (s *KeeperTestSuite) TestBalanceOf() {
 	var mockEVMKeeper *erc20mocks.EVMKeeper
 	contract := utiltx.GenerateAddress()
+	account := utiltx.GenerateAddress()
 	testCases := []struct {
 		name       string
 		malleate   func()
@@ -94,7 +99,7 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 		{
 			"Failed to call Evm",
 			func() {
-				expectViewCallEVM(mockEVMKeeper, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
+				s.expectViewCallEVM(mockEVMKeeper, "balanceOf", account).Return(nil, fmt.Errorf("forced ApplyMessage error")).Once()
 			},
 			int64(0),
 			false,
@@ -102,7 +107,7 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 		{
 			"Incorrect res",
 			func() {
-				expectViewCallEVM(mockEVMKeeper, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "balanceOf", account).Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
 			},
 			int64(0),
 			false,
@@ -112,7 +117,7 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 			func() {
 				balance := make([]uint8, 32)
 				balance[31] = uint8(10)
-				expectViewCallEVM(mockEVMKeeper, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "balanceOf", account).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Once()
 			},
 			int64(10),
 			true,
@@ -134,12 +139,13 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 		tc.malleate()
 
 		abi := contracts.ERC20MinterBurnerDecimalsContract.ABI
-		balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), abi, contract, utiltx.GenerateAddress())
+		balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), abi, contract, account)
 		if tc.res {
 			s.Require().Equal(balance.Int64(), tc.expBalance)
 		} else {
 			s.Require().Nil(balance)
 		}
+		mockEVMKeeper.AssertExpectations(s.T())
 	}
 }
 
@@ -154,14 +160,14 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 		{
 			"Failed to call Evm",
 			func() {
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
+				s.expectViewCallEVM(mockEVMKeeper, "name").Return(nil, fmt.Errorf("forced ApplyMessage error")).Once()
 			},
 			false,
 		},
 		{
 			"Incorrect res",
 			func() {
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "name").Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
 			},
 			false,
 		},
@@ -169,8 +175,8 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 			"Correct res for name - incorrect for symbol",
 			func() {
 				ret := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 67, 111, 105, 110, 32, 84, 111, 107, 101, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-				mockEVMKeeper.On("ApplyMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{VmError: "Error"}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "name").Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").Return(&evmtypes.MsgEthereumTxResponse{VmError: "Error"}, nil).Once()
 			},
 			false,
 		},
@@ -178,8 +184,8 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 			"incorrect symbol res",
 			func() {
 				ret := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 67, 111, 105, 110, 32, 84, 111, 107, 101, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "name").Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
 			},
 			false,
 		},
@@ -188,9 +194,9 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 			func() {
 				ret := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 67, 111, 105, 110, 32, 84, 111, 107, 101, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 				retSymbol := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 67, 84, 75, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: retSymbol}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{VmError: "Error"}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "name").Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").Return(&evmtypes.MsgEthereumTxResponse{Ret: retSymbol}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "decimals").Return(&evmtypes.MsgEthereumTxResponse{VmError: "Error"}, nil).Once()
 			},
 			false,
 		},
@@ -199,9 +205,9 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 			func() {
 				ret := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 67, 111, 105, 110, 32, 84, 111, 107, 101, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 				retSymbol := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 67, 84, 75, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: retSymbol}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "name").Return(&evmtypes.MsgEthereumTxResponse{Ret: ret}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").Return(&evmtypes.MsgEthereumTxResponse{Ret: retSymbol}, nil).Once()
+				s.expectViewCallEVM(mockEVMKeeper, "decimals").Return(&evmtypes.MsgEthereumTxResponse{Ret: []uint8{0, 0}}, nil).Once()
 			},
 			false,
 		},
@@ -233,6 +239,7 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 		} else {
 			s.Require().Error(err)
 		}
+		mockEVMKeeper.AssertExpectations(s.T())
 	}
 }
 
@@ -283,11 +290,11 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 				symbolData := createStringData("MKR")
 				decimalsData := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18}
 
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: nameData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "symbol").
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: symbolData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "decimals").
+				s.expectViewCallEVM(mockEVMKeeper, "decimals").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: decimalsData}, nil).Once()
 			},
 			types.ERC20Data{Name: "Maker", Symbol: "MKR", Decimals: 18},
@@ -301,11 +308,11 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 				decimalsData := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18}
 
 				// First call tries string unpacking (will fail), then tries bytes32 (will succeed)
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: nameData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "symbol").
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: symbolData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "decimals").
+				s.expectViewCallEVM(mockEVMKeeper, "decimals").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: decimalsData}, nil).Once()
 			},
 			types.ERC20Data{Name: "Maker", Symbol: "MKR", Decimals: 18},
@@ -318,11 +325,11 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 				symbolData := createBytes32Data("MKR")
 				decimalsData := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18}
 
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: nameData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "symbol").
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: symbolData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "decimals").
+				s.expectViewCallEVM(mockEVMKeeper, "decimals").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: decimalsData}, nil).Once()
 			},
 			types.ERC20Data{Name: "Maker", Symbol: "MKR", Decimals: 18},
@@ -342,11 +349,11 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 
 				decimalsData := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18}
 
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: nameData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "symbol").
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: symbolData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "decimals").
+				s.expectViewCallEVM(mockEVMKeeper, "decimals").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: decimalsData}, nil).Once()
 			},
 			types.ERC20Data{Name: "Maker", Symbol: "MKR", Decimals: 18},
@@ -355,7 +362,7 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 		{
 			"EVM call fails for name",
 			func() {
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(nil, fmt.Errorf("EVM call failed")).Once()
 			},
 			types.ERC20Data{},
@@ -366,7 +373,7 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 			func() {
 				invalidData := []byte{0xFF, 0xFF} // Invalid data that will fail both unpacking methods
 
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: invalidData}, nil).Once()
 			},
 			types.ERC20Data{},
@@ -377,9 +384,9 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 			func() {
 				nameData := createStringData("Maker")
 
-				expectViewCallEVM(mockEVMKeeper, "name").
+				s.expectViewCallEVM(mockEVMKeeper, "name").
 					Return(&evmtypes.MsgEthereumTxResponse{Ret: nameData}, nil).Once()
-				expectViewCallEVM(mockEVMKeeper, "symbol").
+				s.expectViewCallEVM(mockEVMKeeper, "symbol").
 					Return(nil, fmt.Errorf("EVM call failed")).Once()
 			},
 			types.ERC20Data{},
@@ -411,6 +418,7 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 			} else {
 				s.Require().Error(err, "Test case should fail but succeeded")
 			}
+			mockEVMKeeper.AssertExpectations(s.T())
 		})
 	}
 }
