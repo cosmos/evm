@@ -633,8 +633,10 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 	finishTx()
 	if manager, ok := vmtracer.FromContext(ctx); ok {
 		if executionErr := manager.ExecutionError(); executionErr != nil {
+			// Rejected state changes cannot earn refunds. Preserve any higher
+			// minimum gas charge applied to non-internal executions.
 			return &types.MsgEthereumTxResponse{
-				GasUsed: gasUsed.TruncateInt().Uint64(), MaxUsedGas: maxUsedGas,
+				GasUsed: max(gasUsed.TruncateInt().Uint64(), maxUsedGas), MaxUsedGas: maxUsedGas,
 			}, errorsmod.Wrap(executionErr, "EVM execution rejected")
 		}
 	}

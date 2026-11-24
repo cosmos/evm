@@ -299,65 +299,130 @@ func (s *KeeperTestSuite) TestCollectorEnforcementCoverageAndFinalization() {
 }
 
 func (s *KeeperTestSuite) TestCallEVMChargesGasOnPolicyRejection() {
-	for _, view := range []bool{false, true} {
-		var acceptedGas uint64
-		for _, reject := range []bool{false, true} {
-			s.Run(fmt.Sprintf("view=%t/reject=%t", view, reject), func() {
-				s.SetupTest()
-				ctx := s.Network.GetContext().
-					WithGasMeter(storetypes.NewGasMeter(1_000_000)).
-					WithKVGasConfig(storetypes.GasConfig{}).
-					WithTransientKVGasConfig(storetypes.GasConfig{})
-				keeper := s.Network.App.GetEVMKeeper()
-				sender := s.Keyring.GetAddr(0)
-				recipient := common.HexToAddress("0x000000000000000000000000000000000000eeef")
-				db := statedb.New(ctx, keeper, statedb.NewEmptyTxConfig())
-				// Write 1 to storage slot 0, then STOP.
-				db.SetCode(recipient, common.FromHex("0x600160005500"), tracing.CodeChangeUnspecified)
-				s.Require().NoError(db.Commit())
-				rejection := errors.New("final policy rejected")
-				var executionGas uint64
-				ends := 0
-				keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
-					manager, ok := vmtracer.FromContext(factoryCtx)
-					s.Require().True(ok)
-					return factoryCtx, newApplicationHooksTracer(&tracing.Hooks{
-						OnTxEnd: func(receipt *ethtypes.Receipt, _ error) {
-							ends++
-							executionGas = receipt.GasUsed
-							if reject {
-								manager.LatchError(rejection)
-							}
-						},
-					}), nil
+	for _, clearStorage := range []bool{false, true} {
+		for _, view := range []bool{false, true} {
+			var acceptedGas uint64
+			for _, rejectAt := range []string{"none", "observer", "txend"} {
+				s.Run(fmt.Sprintf("clear=%t/view=%t/rejectAt=%s", clearStorage, view, rejectAt), func() {
+					s.SetupTest()
+					ctx := s.Network.GetContext().
+						WithGasMeter(storetypes.NewGasMeter(1_000_000)).
+						WithKVGasConfig(storetypes.GasConfig{}).
+						WithTransientKVGasConfig(storetypes.GasConfig{})
+					keeper := s.Network.App.GetEVMKeeper()
+					sender := s.Keyring.GetAddr(0)
+					recipient := common.HexToAddress("0x000000000000000000000000000000000000eeef")
+					db := statedb.New(ctx, keeper, statedb.NewEmptyTxConfig())
+					initial, updated := common.Hash{}, common.BigToHash(big.NewInt(1))
+					// Write 1 to storage slot 0, then STOP (no storage refund).
+					db.SetCode(recipient, common.FromHex("0x600160005500"), tracing.CodeChangeUnspecified)
+					if clearStorage {
+						initial, updated = updated, initial
+						db.SetState(recipient, common.Hash{}, initial)
+						// Clear the existing slot to earn a storage refund.
+						db.SetCode(recipient, common.FromHex("0x600060005500"), tracing.CodeChangeUnspecified)
+					}
+					s.Require().NoError(db.Commit())
+					rejection := errors.New("final policy rejected")
+					var executionGas uint64
+					ends := 0
+					keeper.SetApplicationTracerFactories(func(factoryCtx sdk.Context, _ vmtracer.ExecutionInfo) (sdk.Context, vmtracer.Tracer, error) {
+						manager, ok := vmtracer.FromContext(factoryCtx)
+						s.Require().True(ok)
+						if rejectAt == "observer" {
+							collector := vmglobaltracer.NewCollector()
+							_, err := collector.Observe(func(e vmtracer.Observation) error {
+								if e.Kind == vmtracer.CallExit {
+									return rejection
+								}
+								return nil
+							})
+							s.Require().NoError(err)
+							manager.InstallApplication(collector)
+						}
+						return factoryCtx, newApplicationHooksTracer(&tracing.Hooks{
+							OnTxEnd: func(receipt *ethtypes.Receipt, _ error) {
+								ends++
+								executionGas = receipt.GasUsed
+								if rejectAt == "txend" {
+									manager.LatchError(rejection)
+								}
+							},
+						}), nil
+					})
+					beforeGas := ctx.GasMeter().GasConsumed()
+					var response *evmtypes.MsgEthereumTxResponse
+					var err error
+					if view {
+						response, err = keeper.CallEVMViewWithData(ctx, sender, &recipient, nil, big.NewInt(100_000))
+					} else {
+						response, err = keeper.CallEVMWithData(ctx, statedb.New(ctx, keeper, statedb.NewEmptyTxConfig()), sender, &recipient, nil, true, false, big.NewInt(100_000))
+					}
+					s.Require().NotNil(response)
+					s.Require().Equal(1, ends)
+					s.Require().Positive(executionGas)
+					s.Require().Equal(response.GasUsed, ctx.GasMeter().GasConsumed()-beforeGas)
+					if rejectAt != "none" {
+						s.Require().Equal(acceptedGas, executionGas)
+						s.Require().ErrorIs(err, rejection)
+						s.Require().Empty(response.Logs)
+						// Rejected changes cannot earn refunds, including rejection
+						// by OnTxEnd after it receives the provisional gas receipt.
+						s.Require().Equal(response.MaxUsedGas, response.GasUsed)
+						if clearStorage {
+							s.Require().Greater(response.GasUsed, acceptedGas)
+						}
+					} else {
+						acceptedGas = executionGas
+						s.Require().NoError(err)
+						s.Require().Equal(executionGas, response.GasUsed)
+						if clearStorage {
+							s.Require().Less(response.GasUsed, response.MaxUsedGas)
+						}
+					}
+					expected := initial
+					if !view && rejectAt == "none" {
+						expected = updated
+					}
+					s.Require().Equal(expected, statedb.New(ctx, keeper, statedb.NewEmptyTxConfig()).GetState(recipient, common.Hash{}))
 				})
-				beforeGas := ctx.GasMeter().GasConsumed()
-				var response *evmtypes.MsgEthereumTxResponse
-				var err error
-				if view {
-					response, err = keeper.CallEVMViewWithData(ctx, sender, &recipient, nil, big.NewInt(100_000))
-				} else {
-					response, err = keeper.CallEVMWithData(ctx, statedb.New(ctx, keeper, statedb.NewEmptyTxConfig()), sender, &recipient, nil, true, false, big.NewInt(100_000))
-				}
-				s.Require().NotNil(response)
-				s.Require().Equal(1, ends)
-				s.Require().Positive(executionGas)
-				s.Require().Equal(executionGas, response.GasUsed)
-				s.Require().Equal(executionGas, ctx.GasMeter().GasConsumed()-beforeGas)
-				if reject {
-					s.Require().Equal(acceptedGas, executionGas)
-					s.Require().ErrorIs(err, rejection)
-					s.Require().Empty(response.Logs)
-				} else {
-					acceptedGas = executionGas
-					s.Require().NoError(err)
-				}
-				expected := common.Hash{}
-				if !view && !reject {
-					expected = common.BigToHash(big.NewInt(1))
-				}
-				s.Require().Equal(expected, statedb.New(ctx, keeper, statedb.NewEmptyTxConfig()).GetState(recipient, common.Hash{}))
-			})
+			}
 		}
 	}
+}
+
+func (s *KeeperTestSuite) TestRejectedExecutionPreservesMinimumGasCharge() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+	s.SetupTest()
+	ctx := s.Network.GetContext()
+	keeper := s.Network.App.GetEVMKeeper()
+	recipient := common.HexToAddress("0x000000000000000000000000000000000000eeef")
+	initial := common.BigToHash(big.NewInt(1))
+	db := statedb.New(ctx, keeper, statedb.NewEmptyTxConfig())
+	db.SetCode(recipient, common.FromHex("0x600060005500"), tracing.CodeChangeUnspecified)
+	db.SetState(recipient, common.Hash{}, initial)
+	s.Require().NoError(db.Commit())
+	msg, err := s.Factory.GenerateGethCoreMsg(s.Keyring.GetPrivKey(0), evmtypes.EvmTxArgs{
+		To: &recipient, GasLimit: 100_000, GasPrice: big.NewInt(0),
+	})
+	s.Require().NoError(err)
+	cfg, err := keeper.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
+	s.Require().NoError(err)
+	minimumGas := cfg.FeeMarketParams.MinGasMultiplier.MulInt64(100_000).TruncateInt().Uint64()
+	rejection := errors.New("final policy rejected")
+	manager := vmtracer.New(nil)
+	manager.InstallApplication(newApplicationHooksTracer(&tracing.Hooks{
+		OnTxEnd: func(*ethtypes.Receipt, error) { manager.LatchError(rejection) },
+	}))
+	ctx = vmtracer.WithManager(ctx, manager)
+	response, err := keeper.ApplyMessageWithConfig(
+		ctx, statedb.New(ctx, keeper, statedb.NewEmptyTxConfig()), *msg, manager.Hooks(),
+		true, false, cfg, statedb.NewEmptyTxConfig(), false, nil,
+	)
+	s.Require().ErrorIs(err, rejection)
+	s.Require().NotNil(response)
+	s.Require().Greater(minimumGas, response.MaxUsedGas)
+	s.Require().Equal(minimumGas, response.GasUsed)
+	s.Require().Equal(initial, statedb.New(ctx, keeper, statedb.NewEmptyTxConfig()).GetState(recipient, common.Hash{}))
 }
