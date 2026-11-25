@@ -114,7 +114,9 @@ func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 
 
 	maxGas := genDoc.ConsensusParams.Block.MaxGas
 	if maxGas == -1 {
-		logger.Warn("genesis max_gas is unlimited (-1), using max int64 block gas limit")
+		logger.Warn("genesis max_gas is unlimited (-1), using max int64 block gas limit; " +
+			"with app-side mempool an unbounded block can reap a whole tx backlog " +
+			"and exceed timeout_propose — set a finite consensus block.max_gas")
 		return math.MaxInt64
 	}
 	if maxGas < -1 {
