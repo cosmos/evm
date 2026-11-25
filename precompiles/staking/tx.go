@@ -3,6 +3,7 @@ package staking
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -226,11 +227,11 @@ func (p Precompile) Undelegate(
 	}
 
 	// Emit the event for the undelegate transaction
-	if err = p.EmitUnbondEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
+	if err = p.EmitUnbondEvent(ctx, stateDB, msg, delegatorHexAddr, res.Amount.Amount.BigInt(), completionUnix(res.CompletionTime)); err != nil {
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.CompletionTime.UTC().Unix())
+	return method.Outputs.Pack(completionUnix(res.CompletionTime))
 }
 
 // Redelegate performs a redelegation of coins for a delegate from a source validator
@@ -274,11 +275,11 @@ func (p Precompile) Redelegate(
 		return nil, err
 	}
 
-	if err = p.EmitRedelegateEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
+	if err = p.EmitRedelegateEvent(ctx, stateDB, msg, delegatorHexAddr, completionUnix(res.CompletionTime)); err != nil {
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.CompletionTime.UTC().Unix())
+	return method.Outputs.Pack(completionUnix(res.CompletionTime))
 }
 
 // CancelUnbondingDelegation will cancel the unbonding of a delegation and delegate
@@ -326,4 +327,15 @@ func (p Precompile) CancelUnbondingDelegation(
 	}
 
 	return method.Outputs.Pack(true)
+}
+
+// completionUnix converts an SDK completion time to the Unix seconds reported by the
+// precompile. The SDK returns the zero time.Time when an operation completes
+// immediately (for example a redelegation from an Unbonded validator). That is
+// reported as 0 rather than -62135596800, which uint256 log fields cannot represent.
+func completionUnix(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.UTC().Unix()
 }

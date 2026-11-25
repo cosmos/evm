@@ -25,6 +25,8 @@ struct Coin {
 }
 
 /// @dev DecCoin is a struct that represents a token with a denomination, an amount and a precision.
+/// The value is amount * 10^-precision. The precompiles return the integer part of decimal
+/// amounts with precision 0.
 struct DecCoin {
     string denom;
     uint256 amount;

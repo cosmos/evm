@@ -207,7 +207,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorOutstandingRewardsMethod, bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
+				s.Require().Equal(uint8(0), out[0].Precision)
 				s.Require().Equal(s.bondDenom, out[0].Denom)
 				s.Require().Equal(expValAmount, out[0].Amount.Int64())
 			},
@@ -305,7 +305,7 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorCommissionMethod, bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
+				s.Require().Equal(uint8(0), out[0].Precision)
 				s.Require().Equal(s.bondDenom, out[0].Denom)
 				s.Require().Equal(expValAmount, out[0].Amount.Int64())
 			},
@@ -589,7 +589,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegationRewardsMethod, bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
+				s.Require().Equal(uint8(0), out[0].Precision)
 				s.Require().Equal(s.bondDenom, out[0].Denom)
 				s.Require().Equal(expRewardsAmt.Int64(), out[0].Amount.Int64())
 			},
@@ -720,7 +720,7 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 				// only validator[i] has rewards
 				s.Require().Equal(1, len(out.Rewards[i].Reward))
 				s.Require().Equal(s.bondDenom, out.Rewards[i].Reward[0].Denom)
-				s.Require().Equal(uint8(math.LegacyPrecision), out.Rewards[i].Reward[0].Precision)
+				s.Require().Equal(uint8(0), out.Rewards[i].Reward[0].Precision)
 				s.Require().Equal(expRewardsAmt.Int64(), out.Rewards[i].Reward[0].Amount.Int64())
 
 				s.Require().Equal(1, len(out.Total))
@@ -941,7 +941,7 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
+				s.Require().Equal(uint8(0), out[0].Precision)
 				s.Require().Equal(s.bondDenom, out[0].Denom)
 				s.Require().Equal(expValAmount, out[0].Amount.Int64())
 			},

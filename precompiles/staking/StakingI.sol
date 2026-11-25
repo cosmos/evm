@@ -193,7 +193,8 @@ interface StakingI {
     /// @param validatorDstAddress The validator to which the redelegation is destined
     /// @param amount The amount of the bond denomination to be redelegated to the validator
     /// This amount should use the bond denomination precision stored in the bank metadata.
-    /// @return completionTime The time when the redelegation is completed
+    /// @return completionTime The time when the redelegation is completed, or 0 if it
+    /// completed immediately (the source validator is unbonded)
     function redelegate(
         address delegatorAddress,
         string memory validatorSrcAddress,
@@ -328,7 +329,8 @@ interface StakingI {
     /// validator address to the delegator address.
     /// @param delegatorAddress The address of the delegator
     /// @param validatorAddress The address of the validator
-    /// @param amount The amount of bond denomination being unbonded
+    /// @param amount The amount of bond denomination actually unbonded. It can be lower than the
+    /// requested amount because shares are truncated when converted back to tokens.
     /// This amount has the bond denomination precision stored in the bank metadata.
     /// @param completionTime The time at which the unbonding is completed
     event Unbond(
@@ -345,7 +347,8 @@ interface StakingI {
     /// @param validatorDstAddress The address of the validator to which the delegation is directed
     /// @param amount The amount of bond denomination being redelegated
     /// This amount has the bond denomination precision stored in the bank metadata.
-    /// @param completionTime The time at which the redelegation is completed
+    /// @param completionTime The time at which the redelegation is completed, or 0 if it
+    /// completed immediately (the source validator is unbonded)
     event Redelegate(
         address indexed delegatorAddress,
         address indexed validatorSrcAddress,

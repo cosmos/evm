@@ -63,7 +63,8 @@ func NewCoinsResponse(amount sdk.Coins) []Coin {
 	return outputs
 }
 
-// NewDecCoinsResponse converts a response to an array of DecCoin.
+// NewDecCoinsResponse converts a response to an array of DecCoin. Amount is the
+// truncated integer amount, so Precision is 0: the value is Amount * 10^-Precision.
 func NewDecCoinsResponse(amount sdk.DecCoins) []DecCoin {
 	// Create a new output for each coin and add it to the output array.
 	outputs := make([]DecCoin, len(amount))
@@ -71,7 +72,7 @@ func NewDecCoinsResponse(amount sdk.DecCoins) []DecCoin {
 		outputs[i] = DecCoin{
 			Denom:     coin.Denom,
 			Amount:    coin.Amount.TruncateInt().BigInt(),
-			Precision: math.LegacyPrecision,
+			Precision: 0,
 		}
 	}
 	return outputs
