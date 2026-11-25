@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from shutil import copytree
 
@@ -9,6 +10,7 @@ from compile_smart_contracts import (
     compile_contracts_in_dir,
     copy_to_contracts_directory,
     find_solidity_contracts,
+    is_ignored_file,
     is_ignored_folder,
     is_os_repo,
 )
@@ -144,3 +146,79 @@ def test_is_ignored_folder():
     assert is_ignored_folder("abc/node_modules/precompiles") is True
     assert is_ignored_folder("abc/tests/solidity/precompiles") is True
     assert is_ignored_folder("abc/nix_tests/precompiles") is True
+
+
+@pytest.mark.parametrize("separator", ["/", "\\"])
+def test_ignored_folders_accept_both_path_separators(separator):
+    assert is_ignored_folder(separator.join(["abc", "tests", "solidity"]))
+    assert is_ignored_folder(
+        separator.join(["abc", "contracts", "solidity", "precompiles"])
+    )
+    assert not is_ignored_folder(separator.join(["abc", "contracts", "solidity"]))
+
+
+def test_ignored_files_use_portable_paths(tmp_path):
+    assert is_ignored_file(tmp_path / "lib" / "vendor" / "Token.sol", tmp_path)
+    assert is_ignored_file(tmp_path / "tests" / "integration" / "Token.sol", tmp_path)
+    assert not is_ignored_file(tmp_path / "tests" / "contracts" / "Token.sol", tmp_path)
+
+
+def test_find_solidity_files_excludes_copied_and_test_contracts(tmp_path):
+    for name in (
+        "precompiles/Token.sol",
+        "contracts/solidity/Original.sol",
+        "contracts/solidity/precompiles/Copied.sol",
+        "tests/solidity/Excluded.sol",
+        "tests/integration/Excluded.sol",
+        "lib/vendor/Excluded.sol",
+        "tests/contracts/Included.sol",
+    ):
+        contract = tmp_path / name
+        contract.parent.mkdir(parents=True, exist_ok=True)
+        contract.touch()
+
+    contracts = find_solidity_contracts(tmp_path)
+    assert {c.path.relative_to(tmp_path).as_posix() for c in contracts} == {
+        "precompiles/Token.sol",
+        "contracts/solidity/Original.sol",
+        "tests/contracts/Included.sol",
+    }
+
+
+@pytest.mark.parametrize(
+    "has_config,return_codes,error_message",
+    [
+        (False, [], "compilation can only work in a HardHat setup"),
+        (True, [1], "Failed to install npm packages."),
+        (True, [0, 1], "Failed to compile Solidity contracts."),
+        (True, [0, 0], None),
+    ],
+)
+def test_compile_preserves_working_directory(
+    tmp_path, monkeypatch, has_config, return_codes, error_message
+):
+    hardhat_dir = tmp_path / "hardhat"
+    hardhat_dir.mkdir()
+    if has_config:
+        (hardhat_dir / "hardhat.config.js").touch()
+
+    calls = []
+    results = iter(return_codes)
+
+    def run_command(command):
+        assert Path.cwd() == hardhat_dir
+        calls.append(command)
+        return next(results)
+
+    monkeypatch.setattr(os, "system", run_command)
+    original_dir = Path.cwd()
+    try:
+        if error_message is None:
+            compile_contracts_in_dir(hardhat_dir / SOLIDITY_SOURCE)
+        else:
+            with pytest.raises(ValueError, match=re.escape(error_message)):
+                compile_contracts_in_dir(hardhat_dir / SOLIDITY_SOURCE)
+        assert Path.cwd() == original_dir
+        assert calls == ["npm install", "npx hardhat compile"][: len(return_codes)]
+    finally:
+        os.chdir(original_dir)
