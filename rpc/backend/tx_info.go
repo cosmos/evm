@@ -19,6 +19,7 @@ import (
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	"github.com/cosmos/evm/indexer"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	servertypes "github.com/cosmos/evm/server/types"
 	evmtrace "github.com/cosmos/evm/trace"
@@ -35,7 +36,7 @@ func (b *Backend) GetTransactionByHash(ctx context.Context, txHash common.Hash) 
 	ctx, span := tracer.Start(ctx, "GetTransactionByHash", trace.WithAttributes(attribute.String("txHash", txHash.Hex())))
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
-	res, err := b.GetTxByEthHash(ctx, txHash)
+	res, err := b.getTxByEthHashOrUnindexed(ctx, txHash)
 	if err != nil {
 		return b.GetTransactionByHashPending(ctx, txHash)
 	}
@@ -143,7 +144,7 @@ func (b *Backend) GetTransactionReceipt(ctx context.Context, hash common.Hash) (
 	b.Logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
 
 	// an unmined tx has no receipt: answer null like geth and let the client poll
-	res, err := b.GetTxByEthHash(ctx, hash)
+	res, err := b.getTxByEthHashOrUnindexed(ctx, hash)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
 		return nil, nil
@@ -195,7 +196,7 @@ func (b *Backend) GetTransactionLogs(ctx context.Context, hash common.Hash) (res
 
 	hexTx := hash.Hex()
 
-	res, err := b.GetTxByEthHash(ctx, hash)
+	res, err := b.getTxByEthHashOrUnindexed(ctx, hash)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
 		return nil, nil
@@ -297,6 +298,77 @@ func (b *Backend) GetTxByEthHash(ctx context.Context, hash common.Hash) (result 
 		return nil, errorsmod.Wrapf(err, "GetTxByEthHash %s", hash.Hex())
 	}
 	return txResult, nil
+}
+
+// maxUnindexedBlocks caps how many of the newest heights a lookup by hash
+// scans when the tx index misses. The index runs behind commit, normally by a
+// block or less; the cap bounds the cost when it stalls or cannot report its
+// height (the CometBFT tx indexer).
+const maxUnindexedBlocks = 4
+
+// getTxByEthHashOrUnindexed is GetTxByEthHash, falling back on a miss to the
+// newest committed blocks the tx index does not hold yet. The block endpoints
+// (ReceiptsFromCometBlock) read those blocks' results directly, so without the
+// fallback a client could see a tx in eth_getBlockByNumber("latest") while
+// eth_getTransactionReceipt for the same hash returns null.
+func (b *Backend) getTxByEthHashOrUnindexed(ctx context.Context, hash common.Hash) (*servertypes.TxResult, error) {
+	// Read the indexed height before the lookup: if the index catches up in
+	// between, the height it just indexed is still above lastIndexed and is
+	// scanned, rather than skipped by both the lookup and the scan.
+	lastIndexed := int64(-1)
+	if b.Indexer != nil {
+		if last, err := b.Indexer.LastIndexedBlock(); err == nil {
+			lastIndexed = last
+		}
+	}
+	res, err := b.GetTxByEthHash(ctx, hash)
+	if err == nil && res != nil {
+		return res, nil
+	}
+	if r := b.txFromUnindexedBlocks(ctx, hash, lastIndexed); r != nil {
+		return r, nil
+	}
+	if err == nil {
+		err = fmt.Errorf("ethereum tx not found: %s", hash.Hex())
+	}
+	return nil, err
+}
+
+// txFromUnindexedBlocks looks for hash in the committed heights above
+// lastIndexed (-1: unknown; at most maxUnindexedBlocks, newest first) and
+// returns its result as the indexer would store it, or nil. Each height's
+// results are derived once and kept in b.unindexed, so repeated lookups (e.g.
+// receipt polls for a pending tx) do not reread the blocks.
+func (b *Backend) txFromUnindexedBlocks(ctx context.Context, hash common.Hash, lastIndexed int64) *servertypes.TxResult {
+	n, err := b.BlockNumber(ctx)
+	if err != nil {
+		return nil
+	}
+	latest, err := utils.SafeHexToInt64(n)
+	if err != nil {
+		return nil
+	}
+	lowest := max(latest-maxUnindexedBlocks+1, lastIndexed+1, 1)
+	for height := latest; height >= lowest; height-- {
+		results, ok := b.unindexed.get(height)
+		if !ok {
+			h := height
+			blk, err := b.RPCClient.Block(ctx, &h)
+			if err != nil || blk == nil || blk.Block == nil {
+				continue
+			}
+			blockRes, err := b.RPCClient.BlockResults(ctx, &h)
+			if err != nil || blockRes == nil {
+				continue
+			}
+			results = b.unindexed.put(height, indexer.BlockTxResults(b.ClientCtx.TxConfig.TxDecoder(), b.Logger, blk.Block, blockRes.TxsResults))
+		}
+		if r, ok := results[hash]; ok {
+			b.Logger.Debug("tx index behind: tx result taken from the block's results", "hash", hash.Hex(), "height", height)
+			return &r
+		}
+	}
+	return nil
 }
 
 // GetTxByTxIndex uses `/tx_query` to find transaction by tx index of valid ethereum txs

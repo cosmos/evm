@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -559,10 +560,15 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 	}{
 		// TODO test happy path
 		{
-			name:         "success - tx not found",
-			registerMock: func() {},
-			block:        &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
-			tx:           msgEthereumTx2,
+			name: "success - tx not found",
+			registerMock: func() {
+				// latest is 1 and the index holds it: the fallback for a tx
+				// index behind commit scans no block
+				var header metadata.MD
+				RegisterParams(s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient), &header, 1)
+			},
+			block: &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
+			tx:    msgEthereumTx2,
 			blockResult: []*abci.ExecTxResult{
 				{
 					Code: 0,

@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,8 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	protov2 "google.golang.org/protobuf/proto"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -34,6 +37,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
 
 func setupMockBackend(t *testing.T) *Backend {
@@ -651,4 +655,241 @@ func TestGetTransactionReceiptUnknownTx(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, receipt)
 	require.Less(t, time.Since(start), time.Second)
+}
+
+// TestReceiptsFromCometBlockUnindexed: the tx index runs behind commit, so a
+// committed block's txs may not be indexed yet. ReceiptsFromCometBlock then
+// takes each tx's entry from the block's own results, as the indexer would
+// store it; a tx that is neither indexed nor in the block is still an error.
+func TestReceiptsFromCometBlockUnindexed(t *testing.T) {
+	backend := setupMockBackend(t) // empty KV indexer: every lookup misses
+	msgs, resBlock, blockRes := buildUnindexedBlock(t, backend, 300)
+
+	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
+
+	_, err := backend.GetTxByEthHash(rpctypes.NewContextWithHeight(1), msgs[0].Hash())
+	require.Error(t, err, "the index must not hold the block's txs")
+
+	receipts, err := backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, msgs)
+	require.NoError(t, err)
+	require.Len(t, receipts, 2)
+	for i, r := range receipts {
+		require.Equal(t, msgs[i].Hash(), r.TxHash)
+		require.Equal(t, uint(i), r.TransactionIndex)
+		require.Equal(t, uint64(21000), r.GasUsed)
+		require.Equal(t, uint64(21000*(i+1)), r.CumulativeGasUsed)
+		require.Equal(t, ethtypes.ReceiptStatusSuccessful, r.Status)
+	}
+
+	stray := buildMsgEthereumTxWithNonce(t, 2)
+	_, err = backend.ReceiptsFromCometBlock(rpctypes.NewContextWithHeight(1), resBlock, blockRes, []*evmtypes.MsgEthereumTx{stray})
+	require.ErrorContains(t, err, "tx not found")
+}
+
+// buildUnindexedBlock returns a block at height of two encoded Ethereum txs
+// and its results, with the events the indexer reads.
+func buildUnindexedBlock(t *testing.T, backend *Backend, height int64) ([]*evmtypes.MsgEthereumTx, *tmrpctypes.ResultBlock, *tmrpctypes.ResultBlockResults) {
+	t.Helper()
+	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
+	evmtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry) // the block's txs are decoded
+	backend.ClientCtx = backend.ClientCtx.WithTxConfig(encodingConfig.TxConfig)
+
+	msgs := []*evmtypes.MsgEthereumTx{buildMsgEthereumTxWithNonce(t, 0), buildMsgEthereumTxWithNonce(t, 1)}
+	var txs tmtypes.Txs
+	var results []*abcitypes.ExecTxResult
+	for i, msg := range msgs {
+		tx, err := msg.BuildTxWithEvmParams(encodingConfig.TxConfig.NewTxBuilder(), evmtypes.Params{
+			EvmDenom:             evmtypes.DefaultEVMExtendedDenom,
+			ExtendedDenomOptions: &evmtypes.ExtendedDenomOptions{ExtendedDenom: evmtypes.DefaultEVMExtendedDenom},
+		})
+		require.NoError(t, err)
+		bz, err := encodingConfig.TxConfig.TxEncoder()(tx)
+		require.NoError(t, err)
+		txs = append(txs, bz)
+
+		data, err := encodingConfig.Codec.Marshal(&sdk.TxMsgData{MsgResponses: []*codectypes.Any{
+			codectypes.UnsafePackAny(&evmtypes.MsgEthereumTxResponse{Hash: msg.Hash().Hex()}),
+		}})
+		require.NoError(t, err)
+		results = append(results, &abcitypes.ExecTxResult{
+			Code:    0,
+			Data:    data,
+			GasUsed: 21000,
+			Events: []abcitypes.Event{{Type: evmtypes.EventTypeEthereumTx, Attributes: []abcitypes.EventAttribute{
+				{Key: evmtypes.AttributeKeyEthereumTxHash, Value: msg.Hash().Hex()},
+				{Key: evmtypes.AttributeKeyTxIndex, Value: []string{"0", "1"}[i]},
+				{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+			}}},
+		})
+	}
+	resBlock := &tmrpctypes.ResultBlock{Block: &tmtypes.Block{Header: tmtypes.Header{Height: height}, Data: tmtypes.Data{Txs: txs}}}
+	blockRes := &tmrpctypes.ResultBlockResults{Height: height, TxsResults: results}
+	return msgs, resBlock, blockRes
+}
+
+// lastIndexedAt is an empty tx index that reports last as its indexed height.
+type lastIndexedAt struct {
+	MockIndexer
+	last int64
+}
+
+func (l *lastIndexedAt) LastIndexedBlock() (int64, error) { return l.last, nil }
+
+// catchingUpIndex is an empty tx index that finishes indexing height during
+// each lookup: the lookup misses, and the indexed height read after it is
+// already height.
+type catchingUpIndex struct {
+	MockIndexer
+	last, height int64
+}
+
+func (c *catchingUpIndex) LastIndexedBlock() (int64, error) { return c.last, nil }
+
+func (c *catchingUpIndex) GetByTxHash(common.Hash) (*servertypes.TxResult, error) {
+	c.last = c.height
+	return nil, nil
+}
+
+// unindexedChain mocks a chain whose latest height is *latest: height 300
+// holds the two txs of buildUnindexedBlock, every other height is empty.
+// *blockCalls counts the blocks read.
+func unindexedChain(t *testing.T) (backend *Backend, msgs []*evmtypes.MsgEthereumTx, latest, blockCalls *int64) {
+	t.Helper()
+	const height = int64(300)
+	backend = setupMockBackend(t)
+	msgs, resBlock, blockRes := buildUnindexedBlock(t, backend, height)
+	latest, blockCalls = new(int64), new(int64)
+	*latest = height
+
+	// "latest" is read from the gRPC height header
+	mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+	mockEVMQueryClient.ExpectedCalls = nil
+	mockEVMQueryClient.On("Params", mock.Anything, mock.Anything, mock.Anything).
+		Return(&evmtypes.QueryParamsResponse{Params: evmtypes.DefaultParams()}, nil).
+		Run(func(args mock.Arguments) {
+			for _, opt := range args[2:] {
+				if h, ok := opt.(grpc.HeaderCallOption); ok {
+					*h.HeaderAddr = metadata.Pairs(grpctypes.GRPCBlockHeightHeader, fmt.Sprint(*latest))
+				}
+			}
+		}).Maybe()
+	mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil).Maybe()
+
+	mockClient := backend.ClientCtx.Client.(*mocks.Client)
+	anyHeight := mock.MatchedBy(func(h *int64) bool { return h != nil })
+	mockClient.On("Block", mock.Anything, anyHeight).Return(
+		func(_ context.Context, h *int64) *tmrpctypes.ResultBlock {
+			*blockCalls++
+			if *h == height {
+				return resBlock
+			}
+			return &tmrpctypes.ResultBlock{Block: &tmtypes.Block{Header: tmtypes.Header{Height: *h}}}
+		}, nil).Maybe()
+	mockClient.On("BlockResults", mock.Anything, anyHeight).Return(
+		func(_ context.Context, h *int64) *tmrpctypes.ResultBlockResults {
+			if *h == height {
+				return blockRes
+			}
+			return &tmrpctypes.ResultBlockResults{Height: *h}
+		}, nil).Maybe()
+	return backend, msgs, latest, blockCalls
+}
+
+// TestLookupByHashUnindexed: during the window the block endpoints cover (the
+// tx index behind commit), lookups by hash take the tx's result from the
+// newest blocks' results too, so both agree. Heights the index already holds
+// are not scanned.
+func TestLookupByHashUnindexed(t *testing.T) {
+	backend, msgs, latest, blockCalls := unindexedChain(t)
+	ctx := context.Background()
+	for i, msg := range msgs {
+		res, err := backend.getTxByEthHashOrUnindexed(ctx, msg.Hash())
+		require.NoError(t, err)
+		require.Equal(t, int64(300), res.Height)
+		require.Equal(t, uint32(i), res.TxIndex)
+		require.Equal(t, int32(i), res.EthTxIndex)
+		require.Equal(t, uint64(21000), res.GasUsed)
+		require.False(t, res.Failed)
+	}
+
+	logs, err := backend.GetTransactionLogs(ctx, msgs[1].Hash())
+	require.NoError(t, err)
+	require.Empty(t, logs)
+
+	receipt, err := backend.GetTransactionReceipt(ctx, buildMsgEthereumTxWithNonce(t, 3).Hash())
+	require.NoError(t, err)
+	require.Nil(t, receipt, "an unmined tx still has no receipt")
+
+	// the index holds the latest height already: nothing is scanned
+	backend.Indexer = &lastIndexedAt{last: *latest}
+	*blockCalls = 0
+	_, err = backend.getTxByEthHashOrUnindexed(ctx, msgs[0].Hash())
+	require.Error(t, err)
+	require.Zero(t, *blockCalls)
+}
+
+// TestLookupByHashIndexCatchesUp: the index finishes a height between the
+// lookup that misses and the read of the indexed height. The scan must still
+// cover that height, or the tx is found by neither.
+func TestLookupByHashIndexCatchesUp(t *testing.T) {
+	backend, msgs, latest, _ := unindexedChain(t)
+	backend.Indexer = &catchingUpIndex{last: *latest - 1, height: *latest}
+
+	res, err := backend.getTxByEthHashOrUnindexed(context.Background(), msgs[0].Hash())
+	require.NoError(t, err)
+	require.Equal(t, *latest, res.Height)
+}
+
+// TestLookupByHashCachesBlocks: repeated misses (receipt polls for a pending
+// tx) read each of the newest blocks once, not on every lookup.
+func TestLookupByHashCachesBlocks(t *testing.T) {
+	backend, msgs, latest, blockCalls := unindexedChain(t)
+	ctx := context.Background()
+	pending := buildMsgEthereumTxWithNonce(t, 2).Hash()
+
+	_, err := backend.getTxByEthHashOrUnindexed(ctx, pending)
+	require.Error(t, err)
+	require.Equal(t, int64(maxUnindexedBlocks), *blockCalls, "a miss scans at most maxUnindexedBlocks heights")
+
+	*blockCalls = 0
+	_, err = backend.getTxByEthHashOrUnindexed(ctx, pending)
+	require.Error(t, err)
+	res, err := backend.getTxByEthHashOrUnindexed(ctx, msgs[1].Hash())
+	require.NoError(t, err)
+	require.Equal(t, int32(1), res.EthTxIndex)
+	require.Zero(t, *blockCalls, "no new block: nothing is reread")
+
+	*latest++
+	_, err = backend.getTxByEthHashOrUnindexed(ctx, pending)
+	require.Error(t, err)
+	require.Equal(t, int64(1), *blockCalls, "only the new block is read")
+
+	// receipts of a cached block do not modify the cached entries
+	*blockCalls = 0
+	resBlock, err := backend.RPCClient.Block(ctx, new(int64(300)))
+	require.NoError(t, err)
+	blockRes, err := backend.RPCClient.BlockResults(ctx, new(int64(300)))
+	require.NoError(t, err)
+	_, err = backend.ReceiptsFromCometBlock(ctx, resBlock, blockRes, msgs[1:])
+	require.NoError(t, err)
+	res, err = backend.getTxByEthHashOrUnindexed(ctx, msgs[1].Hash())
+	require.NoError(t, err)
+	require.Equal(t, int32(1), res.EthTxIndex)
+}
+
+// unindexedCache keeps the newest unindexedCacheHeights heights.
+func TestUnindexedCacheEvictsLowest(t *testing.T) {
+	c := newUnindexedCache()
+	for h := int64(1); h <= unindexedCacheHeights+2; h++ {
+		c.put(h, nil)
+	}
+	for h := int64(1); h <= unindexedCacheHeights+2; h++ {
+		_, ok := c.get(h)
+		require.Equal(t, h > 2, ok, "height %d", h)
+	}
+	var nilCache *unindexedCache
+	_, ok := nilCache.get(1)
+	require.False(t, ok)
+	require.NotNil(t, nilCache.put(1, nil))
 }

@@ -29,7 +29,7 @@ func (b *Backend) TraceTransaction(ctx context.Context, hash common.Hash, config
 	defer func() { evmtrace.EndSpanErr(span, err) }()
 
 	// Get transaction by hash
-	transaction, err := b.GetTxByEthHash(ctx, hash)
+	transaction, err := b.getTxByEthHashOrUnindexed(ctx, hash)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hash)
 		return nil, err
