@@ -355,8 +355,8 @@ func NewMsgCancelUnbondingDelegation(args []interface{}, denom string, addrCdc a
 	}
 
 	creationHeight, ok := args[3].(*big.Int)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf("invalid creation height")
+	if !ok || creationHeight.Sign() < 0 || !creationHeight.IsInt64() {
+		return nil, common.Address{}, fmt.Errorf("invalid creation height: %v", args[3])
 	}
 
 	delegatorAddrStr, err := addrCdc.BytesToString(delegatorAddr.Bytes())

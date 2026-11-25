@@ -11,6 +11,7 @@
 
 ### API-BREAKING
 
+- [\#1334](https://github.com/cosmos/evm/pull/1334) `precompiles/common.StakingKeeper` requires `ValidatorAddressCodec()`, and the staking precompile's `EmitUnbondEvent` takes the undelegated amount.
 - [\#1146](https://github.com/cosmos/evm/pull/1146) Remove `EndBlocker` based mempool updates, use `PrepareCheckStater` instead.
 
 ### IMPROVEMENTS
@@ -44,6 +45,7 @@
 
 ### BUG FIXES
 
+- [\#1334](https://github.com/cosmos/evm/pull/1334) (state-breaking) Staking precompile: accept 0x-hex validator addresses wherever the staking msg server does, log the undelegated amount in `Unbond`, report a 0 completion time for redelegations that complete immediately, and reject `creationHeight` values outside the int64 range. See the [staking precompile upgrade guide](docs/migrations/staking-precompile.md).
 - [\#1316](https://github.com/cosmos/evm/pull/1316) Set the fee recipient module when building the ante handler so a restarted node doesn't panic on its first EVM tx before any Cosmos tx has run.
 - [\#1302](https://github.com/cosmos/evm/pull/1302) Stop leaking the `eth_feeHistory` block fetcher goroutines when more than one fetch of a batch fails.
 - [\#1336](https://github.com/cosmos/evm/pull/1336) (state-breaking) Bech32 precompile: `bech32ToHex` rejects addresses that are not 20 bytes instead of truncating them (for example a 32-byte module or ICA address) to an unrelated 20-byte address.
