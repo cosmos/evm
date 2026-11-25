@@ -141,6 +141,36 @@ func TestLogs(t *testing.T) {
 	}
 }
 
+// TestLogs_RangeFromGenesis checks that a range starting at block 0 skips the
+// genesis height instead of querying it: CometBlockResultByNumber maps height 0
+// to the latest block, which would add the head's logs to the result.
+func TestLogs_RangeFromGenesis(t *testing.T) {
+	head := int64(100)
+	one := int64(1)
+	fakeBlockRes := &cmtrpctypes.ResultBlockResults{Height: one}
+
+	backend := &filtermocks.Backend{}
+	backend.EXPECT().HeaderByNumber(mock.Anything, mock.Anything).Return(&ethtypes.Header{Number: big.NewInt(head)}, nil)
+	backend.EXPECT().CometBlockResultByNumber(mock.Anything, &one).Return(fakeBlockRes, nil).Once()
+	backend.EXPECT().BlockBloomFromCometBlock(mock.Anything, fakeBlockRes).Return(ethtypes.Bloom{}, nil).Once()
+
+	filter := NewRangeFilter(log.NewNopLogger(), backend, 0, 1, nil, nil)
+	logs, err := filter.Logs(context.Background(), 1000, 100)
+	require.NoError(t, err)
+	require.Empty(t, logs)
+	backend.AssertExpectations(t)
+
+	// a range that only covers genesis queries no block
+	backend = &filtermocks.Backend{}
+	backend.EXPECT().HeaderByNumber(mock.Anything, mock.Anything).Return(&ethtypes.Header{Number: big.NewInt(head)}, nil)
+
+	filter = NewRangeFilter(log.NewNopLogger(), backend, 0, 0, nil, nil)
+	logs, err = filter.Logs(context.Background(), 1000, 100)
+	require.NoError(t, err)
+	require.Empty(t, logs)
+	backend.AssertExpectations(t)
+}
+
 func TestFilter(t *testing.T) {
 	logger := log.NewNopLogger()
 	testCases := []struct {
