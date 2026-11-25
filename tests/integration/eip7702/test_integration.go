@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
@@ -211,6 +212,39 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 
 					s.checkSetCode(user1, s.smartWalletAddr, false)
 				})
+			})
+		})
+
+		// Authorizations are processed before the call and are not part of its
+		// snapshot, so a reverted call keeps them (as in go-ethereum).
+		Context("if the call of the SetCode tx reverts", func() {
+			It("should still apply the authorization", func() {
+				acc1, err := s.grpcHandler.GetEvmAccount(user1.Addr)
+				Expect(err).To(BeNil())
+				authorityNonce := acc1.GetNonce()
+
+				authorization := s.createSetCodeAuthorization(validChainID, authorityNonce, s.smartWalletAddr)
+				signedAuthorization, err := s.signSetCodeAuthorization(user1, authorization)
+				Expect(err).To(BeNil())
+
+				// transferring more tokens than user0 holds reverts
+				tooMuch := new(big.Int).Lsh(big.NewInt(1), 255)
+				input, err := s.erc20Contract.ABI.Pack("transfer", user2.Addr, tooMuch)
+				Expect(err).To(BeNil())
+
+				_, err = s.factory.ExecuteEthTx(user0.Priv, evmtypes.EvmTxArgs{
+					To:                &s.erc20Addr,
+					Input:             input,
+					GasLimit:          DefaultGasLimit,
+					AuthorizationList: []ethtypes.SetCodeAuthorization{signedAuthorization},
+				})
+				Expect(err).NotTo(BeNil(), "the call is expected to revert")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				s.checkSetCode(user1, s.smartWalletAddr, true)
+				acc1, err = s.grpcHandler.GetEvmAccount(user1.Addr)
+				Expect(err).To(BeNil())
+				Expect(acc1.GetNonce()).To(Equal(authorityNonce + 1))
 			})
 		})
 	})

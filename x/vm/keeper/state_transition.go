@@ -271,6 +271,17 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 		// If the tx failed we discard the old context and create a new one, so
 		// PostTxProcessing can persist data even if the tx fails.
 		tmpCtx, commitFn = ctx.CacheContext()
+
+		// EIP-7702 authorizations are applied before the call and are not
+		// reverted with it, so apply them again on the new context. They see
+		// the same pre-call state as the first time, so the result is the same.
+		if msg.To != nil && len(msg.SetCodeAuthorizations) > 0 {
+			authStateDB := statedb.New(tmpCtx, k, txConfig)
+			k.applyAuthorizations(tmpCtx, msg.SetCodeAuthorizations, authStateDB, types.GetEthChainConfig().ChainID)
+			if err := authStateDB.Commit(); err != nil {
+				return nil, errorsmod.Wrap(err, "failed to commit EIP-7702 authorizations")
+			}
+		}
 	} else {
 		receipt.Status = ethtypes.ReceiptStatusSuccessful
 	}
@@ -282,8 +293,9 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (_ 
 
 	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
 	if !k.HasHooks() {
-		// If there are no hooks, we can commit the state immediately if the tx is successful
-		if commitFn != nil && !res.Failed() {
+		// If there are no hooks, we can commit the state immediately if the tx is
+		// successful, or if it failed but carries EIP-7702 authorizations.
+		if commitFn != nil && (!res.Failed() || len(msg.SetCodeAuthorizations) > 0) {
 			commitFn()
 		}
 	} else {
@@ -502,14 +514,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, stateDB *statedb.StateD
 		}
 	} else {
 		// Apply EIP-7702 authorizations.
-		if msg.SetCodeAuthorizations != nil {
-			for _, auth := range msg.SetCodeAuthorizations {
-				// Note errors are ignored, we simply skip invalid authorizations here.
-				if err := k.applyAuthorization(ctx, &auth, stateDB, ethCfg.ChainID); err != nil {
-					k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
-				}
-			}
-		}
+		k.applyAuthorizations(ctx, msg.SetCodeAuthorizations, stateDB, ethCfg.ChainID)
 
 		// Perform convenience warming of sender's delegation target. Although the
 		// sender is already warmed in Prepare(..), it's possible a delegation to
@@ -640,6 +645,16 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 		return ctx
 	}
 	return ctx.WithConsensusParams(*res.Params)
+}
+
+// applyAuthorizations applies the EIP-7702 code delegations of a SetCode tx in
+// order. Invalid authorizations are skipped, as in go-ethereum.
+func (k *Keeper) applyAuthorizations(ctx sdk.Context, auths []ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) {
+	for _, auth := range auths {
+		if err := k.applyAuthorization(ctx, &auth, state, chainID); err != nil {
+			k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
+		}
+	}
 }
 
 // applyAuthorization applies an EIP-7702 code delegation to the state.
