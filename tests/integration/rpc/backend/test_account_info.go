@@ -6,10 +6,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/cometbft/cometbft/libs/bytes"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
@@ -82,7 +84,46 @@ func (s *TestSuite) TestGetProof() {
 	blockNrInvalid := rpctypes.NewBlockNumber(big.NewInt(1))
 	blockNr := rpctypes.NewBlockNumber(big.NewInt(4))
 	blockNrZero := rpctypes.NewBlockNumber(big.NewInt(0))
+	blockNrLatest := rpctypes.EthLatestBlockNumber
+	blockNrPending := rpctypes.EthPendingBlockNumber
+	blockNrEarliest := rpctypes.EthEarliestBlockNumber
 	address1 := utiltx.GenerateAddress()
+
+	// registerProofQueries registers the ABCI proof queries GetProof makes for
+	// the given address and storage key 0x0 at the resolved height.
+	registerProofQueries := func(client *mocks.Client, addr common.Address, height int64) {
+		RegisterABCIQueryWithOptions(
+			client,
+			height,
+			"store/evm/key",
+			evmtypes.StateKey(addr, common.HexToHash("0x0").Bytes()),
+			cmtrpcclient.ABCIQueryOptions{Height: height, Prove: true},
+		)
+		RegisterABCIQueryWithOptions(
+			client,
+			height,
+			"store/acc/key",
+			bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, addr.Bytes()...)),
+			cmtrpcclient.ABCIQueryOptions{Height: height, Prove: true},
+		)
+	}
+	expProofRes := func(addr common.Address) *rpctypes.AccountResult {
+		return &rpctypes.AccountResult{
+			Address:      addr,
+			AccountProof: []string{""},
+			Balance:      (*hexutil.Big)(big.NewInt(0)),
+			CodeHash:     common.HexToHash(""),
+			Nonce:        0x0,
+			StorageHash:  common.Hash{},
+			StorageProof: []rpctypes.StorageResult{
+				{
+					Key:   "0x0",
+					Value: (*hexutil.Big)(big.NewInt(2)),
+					Proof: []string{""},
+				},
+			},
+		}
+	}
 
 	testCases := []struct {
 		name          string
@@ -169,6 +210,60 @@ func (s *TestSuite) TestGetProof() {
 			},
 		},
 		{
+			"pass, latest tag resolves to the head height",
+			address1,
+			[]string{"0x0"},
+			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrLatest},
+			func(_ rpctypes.BlockNumber, addr common.Address) {
+				height := int64(4)
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				var header metadata.MD
+				RegisterParams(queryClient, &header, height)
+				RegisterHeader(client, &height, nil)
+				RegisterAccount(queryClient, addr, height)
+				registerProofQueries(client, addr, height)
+			},
+			true,
+			expProofRes(address1),
+		},
+		{
+			"pass, pending tag resolves to the head height",
+			address1,
+			[]string{"0x0"},
+			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrPending},
+			func(_ rpctypes.BlockNumber, addr common.Address) {
+				height := int64(4)
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				var header metadata.MD
+				RegisterParams(queryClient, &header, height)
+				RegisterHeader(client, &height, nil)
+				RegisterAccount(queryClient, addr, height)
+				registerProofQueries(client, addr, height)
+			},
+			true,
+			expProofRes(address1),
+		},
+		{
+			"pass, earliest tag resolves to the earliest available height",
+			address1,
+			[]string{"0x0"},
+			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrEarliest},
+			func(_ rpctypes.BlockNumber, addr common.Address) {
+				height := int64(4)
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				client.EXPECT().Status(mock.Anything).
+					Return(&cmtrpctypes.ResultStatus{SyncInfo: cmtrpctypes.SyncInfo{EarliestBlockHeight: height}}, nil)
+				RegisterHeader(client, &height, nil)
+				RegisterAccount(queryClient, addr, height)
+				registerProofQueries(client, addr, height)
+			},
+			true,
+			expProofRes(address1),
+		},
+		{
 			"pass, 0 height",
 			address1,
 			[]string{"0x0"},
@@ -180,8 +275,6 @@ func (s *TestSuite) TestGetProof() {
 				RegisterHeader(client, &height, nil)
 				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterAccount(queryClient, addr, height)
-				var header metadata.MD
-				RegisterParams(queryClient, &header, height)
 
 				// Use the IAVL height if a valid CometBFT height is passed in.
 				iavlHeight := height
