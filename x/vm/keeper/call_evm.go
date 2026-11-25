@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -17,6 +18,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -78,7 +80,8 @@ func (k Keeper) CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from 
 
 	// Cap the gas limit of this internal EVM call by the gas remaining on the
 	// transaction's Cosmos gas meter.
-	if remaining := ctx.GasMeter().GasRemaining(); remaining < gasLimit {
+	gasMeter := ctx.GasMeter()
+	if remaining := gasMeter.GasRemaining(); remaining < gasLimit {
 		gasLimit = remaining
 	}
 
@@ -95,17 +98,33 @@ func (k Keeper) CallEVMWithData(ctx sdk.Context, stateDB *statedb.StateDB, from 
 		AccessList: ethtypes.AccessList{},
 	}
 
+	metered := types.MeteredInternalCalls(ctx)
 	res, err := k.ApplyMessage(ctx, stateDB, msg, nil, commit, callFromPrecompile, true)
 	if err != nil {
+		if metered && (errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas)) {
+			// This check happens before EVM execution. Report budget exhaustion
+			// to the enclosing operation, including through helpers such as BalanceOf.
+			const descriptor = "insufficient gas for internal EVM call"
+			gasMeter.ConsumeGas(gasMeter.GasRemaining(), descriptor)
+			panic(storetypes.ErrorOutOfGas{Descriptor: descriptor})
+		}
 		return nil, err
 	}
 
-	if res.Failed() {
-		k.ResetGasMeterAndConsumeGas(ctx, ctx.GasMeter().Limit())
-		return res, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
+	switch {
+	case metered:
+		// The enclosing operation can still discard the conversion, including
+		// after a successful internal call. Charge gas without state refunds.
+		gasMeter.ConsumeGas(res.MaxUsedGas, "apply evm message")
+	case res.Failed():
+		k.ResetGasMeterAndConsumeGas(ctx, gasMeter.Limit())
+	default:
+		gasMeter.ConsumeGas(res.GasUsed, "apply evm message")
 	}
 
-	ctx.GasMeter().ConsumeGas(res.GasUsed, "apply evm message")
+	if res.Failed() {
+		return res, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
+	}
 
 	return res, nil
 }
