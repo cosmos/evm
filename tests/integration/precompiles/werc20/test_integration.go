@@ -297,6 +297,35 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(ethRes.GasUsed).To(BeNumerically(">=", werc20.DepositRequiredGas), "expected different gas used for fallback")
 					})
 				})
+				When("the method is not payable", func() {
+					// The call must revert so that no funds get stuck at the
+					// precompile address. AfterEach checks that no balance changed.
+					DescribeTable("it should reject the call", func(method string, getArgs func() []interface{}) {
+						txArgs, callArgs := callsData.getTxAndCallArgs(directCall, method, getArgs()...)
+						txArgs.Amount = depositAmount
+
+						cannotReceiveFundsCheck := failCheck.WithErrContains("cannot receive funds")
+						_, _, err := is.factory.CallContractAndCheckLogs(user.Priv, txArgs, callArgs, cannotReceiveFundsCheck)
+						Expect(err).ToNot(HaveOccurred(), "unexpected result calling the precompile")
+						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+					},
+						Entry("withdraw", werc20.WithdrawMethod, func() []interface{} {
+							return []interface{}{withdrawAmount}
+						}),
+						Entry("transfer", erc20.TransferMethod, func() []interface{} {
+							return []interface{}{txSender.Addr, transferAmount}
+						}),
+						Entry("approve", erc20.ApproveMethod, func() []interface{} {
+							return []interface{}{txSender.Addr, transferAmount}
+						}),
+						Entry("balanceOf", erc20.BalanceOfMethod, func() []interface{} {
+							return []interface{}{user.Addr}
+						}),
+						Entry("name", erc20.NameMethod, func() []interface{} {
+							return []interface{}{}
+						}),
+					)
+				})
 			})
 			Context("and funds are NOT part of the transaction", func() {
 				When("the method is withdraw", func() {

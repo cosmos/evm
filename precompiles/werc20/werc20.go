@@ -2,6 +2,7 @@ package werc20
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -103,6 +104,13 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
+	}
+
+	// Only the payable entry points (deposit, receive and fallback) can receive
+	// funds. Funds sent along with any other method would be stuck at the
+	// precompile address. The ERC-20 precompile applies the same check.
+	if value := contract.Value(); value.Sign() == 1 && !method.IsPayable() {
+		return nil, fmt.Errorf(erc20.ErrCannotReceiveFunds, value.String())
 	}
 
 	var bz []byte
