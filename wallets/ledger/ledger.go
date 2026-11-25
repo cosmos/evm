@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -95,7 +96,7 @@ func (e CosmosEVMSECP256K1) GetAddressPubKeySECP256K1(hdPath []uint32, hrp strin
 // SignSECP256K1 returns the signature bytes generated from signing a transaction
 // using the EIP712 signature.
 func (e CosmosEVMSECP256K1) SignSECP256K1(hdPath []uint32, signDocBytes []byte, _ byte) ([]byte, error) {
-	fmt.Printf("Generating payload, please check your Ledger...\n")
+	fmt.Fprintln(os.Stderr, "Generating payload, please check your Ledger...")
 
 	if e.PrimaryWallet == nil {
 		return nil, errors.New("unable to sign with Ledger: no wallet found")
@@ -142,9 +143,9 @@ func (e CosmosEVMSECP256K1) displayEIP712Hash(typedData apitypes.TypedData) erro
 		return err
 	}
 
-	fmt.Printf("Signing the following payload with EIP-712:\n")
-	fmt.Printf("- Domain: %s\n", bytesToHexString(domainSeparator))
-	fmt.Printf("- Message: %s\n", bytesToHexString(typedDataHash))
+	fmt.Fprintln(os.Stderr, "Signing the following payload with EIP-712:")
+	fmt.Fprintf(os.Stderr, "- Domain: %s\n", bytesToHexString(domainSeparator))
+	fmt.Fprintf(os.Stderr, "- Message: %s\n", bytesToHexString(typedDataHash))
 
 	return nil
 }

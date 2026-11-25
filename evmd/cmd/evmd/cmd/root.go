@@ -14,7 +14,8 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdebug "github.com/cosmos/evm/client/debug"
-	"github.com/cosmos/evm/crypto/hd"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/ethereum/eip712"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/config"
 	cosmosevmserver "github.com/cosmos/evm/server"
@@ -79,8 +80,7 @@ func NewRootCmd() *cobra.Command {
 		WithHomeDir(config.MustGetDefaultNodeHome()).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
-		WithKeyringOptions(hd.EthSecp256k1Option()).
-		WithLedgerHasProtobuf(true)
+		WithKeyringOptions(cosmosevmkeyring.Option())
 
 	rootCmd := &cobra.Command{
 		Use:   "evmd",
@@ -128,7 +128,18 @@ func NewRootCmd() *cobra.Command {
 			customAppTemplate, customAppConfig := config.InitAppConfig(types.DefaultEVMExtendedDenom, types.DefaultEVMChainID) // TODO:VLAD - Remove this
 			customTMConfig := initCometConfig()
 
-			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
+			if err := sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig); err != nil {
+				return err
+			}
+
+			// The Ledger Ethereum app signs EIP-712 for the EVM chain id the node
+			// reads from app.toml, which older app.toml files lack.
+			evmChainID := types.DefaultEVMChainID
+			if v := sdkserver.GetServerContextFromCmd(cmd).Viper; v.IsSet(srvflags.EVMChainID) {
+				evmChainID = v.GetUint64(srvflags.EVMChainID)
+			}
+			eip712.SetEncodingConfig(initClientCtx.LegacyAmino, initClientCtx.InterfaceRegistry, evmChainID)
+			return nil
 		},
 	}
 
