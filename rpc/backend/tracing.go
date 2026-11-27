@@ -247,7 +247,7 @@ func (b *Backend) TraceCall(
 	ctx context.Context,
 	args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
-	config *rpctypes.TraceConfig,
+	config *rpctypes.TraceCallConfig,
 ) (result interface{}, err error) {
 	var toAddr string
 	if args.To != nil {
@@ -286,7 +286,8 @@ func (b *Backend) TraceCall(
 	}
 
 	if config != nil {
-		traceCallRequest.TraceConfig = b.convertConfig(config)
+		traceCallRequest.TraceConfig = b.convertConfig(&config.TraceConfig)
+		traceCallRequest.Overrides = config.StateOverrides
 	}
 
 	// get the context of provided block
