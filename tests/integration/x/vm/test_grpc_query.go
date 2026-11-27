@@ -1701,11 +1701,13 @@ func (s *KeeperTestSuite) TestTraceCall() {
 		common.LeftPadBytes(senderKey.Addr.Bytes(), 32),
 		common.LeftPadBytes(big.NewInt(0).Bytes(), 32),
 	)
+	overrideNonce := s.Network.App.GetEVMKeeper().GetNonce(s.Network.GetContext(), senderKey.Addr) + 1
 
 	testCases := []struct {
 		msg               string
 		getCallArgs       func() []byte
 		traceCallConfig   *rpctypes.TraceCallConfig
+		contractCreation  bool
 		expPass           bool
 		traceResponse     string
 		postTraceResponse string
@@ -1926,6 +1928,25 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			postTraceResponse: `"output":"0x00000000000000000000000000000000000000000000003635c9adc5dea00000"`,
 		},
 		{
+			msg: "trace contract creation with sender nonce override",
+			getCallArgs: func() []byte {
+				return []byte{byte(vm.STOP)}
+			},
+			traceCallConfig: &rpctypes.TraceCallConfig{
+				TraceConfig: rpctypes.TraceConfig{
+					TraceConfig: types.TraceConfig{
+						Tracer: "callTracer",
+					},
+				},
+				StateOverrides: []byte(fmt.Sprintf(
+					`{"%s":{"nonce":"%s"}}`, senderKey.Addr.Hex(), hexutil.EncodeUint64(overrideNonce),
+				)),
+			},
+			contractCreation: true,
+			expPass:          true,
+			traceResponse:    fmt.Sprintf(`"to":"%s"`, strings.ToLower(crypto.CreateAddress(senderKey.Addr, overrideNonce).Hex())),
+		},
+		{
 			msg: "invalid state overrides",
 			getCallArgs: func() []byte {
 				return []byte{}
@@ -1950,12 +1971,14 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			// Build transaction args for the call
 			callData := tc.getCallArgs()
 			var to *common.Address
-			if callData != nil {
-				to = &contractAddr
-			} else {
-				// For simple transfers, use a different recipient
-				recipient := common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101")
-				to = &recipient
+			if !tc.contractCreation {
+				if callData != nil {
+					to = &contractAddr
+				} else {
+					// For simple transfers, use a different recipient
+					recipient := common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101")
+					to = &recipient
+				}
 			}
 
 			// Marshal transaction args with default values

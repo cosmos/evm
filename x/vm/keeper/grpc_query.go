@@ -788,7 +788,6 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	if err := args.CallDefaults(req.GasCap, baseFee, types.GetEthChainConfig().ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	msg := args.ToMessage(baseFee, true, true)
 
 	// Get state overrides
 	var overrides *rpctypes.StateOverride
@@ -796,6 +795,14 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 		overrides = new(rpctypes.StateOverride)
 		if err = json.Unmarshal(req.Overrides, overrides); err != nil {
 			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state overrides format: %s", err.Error()))
+		}
+	}
+
+	msg := args.ToMessage(baseFee, true, true)
+	if msg.To == nil && overrides != nil {
+		// Contract creation takes the sender's nonce from the message, not the overridden state.
+		if overrideNonce := (*overrides)[msg.From].Nonce; overrideNonce != nil {
+			msg.Nonce = uint64(*overrideNonce)
 		}
 	}
 
