@@ -1,0 +1,43 @@
+package keeper
+
+import (
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
+
+	"github.com/cosmos/evm/x/vm/statedb"
+	vmtracer "github.com/cosmos/evm/x/vm/tracer"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+// prepareCallEVMTracing reuses the tracing lifecycle of an enclosing EVM
+// execution, or prepares a new lifecycle for a top-level native EVM call.
+func (k Keeper) prepareCallEVMTracing(
+	ctx sdk.Context,
+	stateDB *statedb.StateDB,
+	msg core.Message,
+	txConfig statedb.TxConfig,
+	commit bool,
+) (sdk.Context, *tracing.Hooks, error) {
+	if stateDB == nil {
+		return ctx, nil, nil
+	}
+
+	if manager, ok := vmtracer.FromContext(stateDB.GetContext()); ok && manager.HasActiveCall() {
+		ctx = vmtracer.WithManager(ctx, manager)
+		return ctx, manager.NestedHooks(), nil
+	}
+
+	if manager, ok := vmtracer.FromContext(ctx); ok && manager.HasActiveCall() {
+		stateDB.AttachTracerManager(manager)
+		return ctx, manager.NestedHooks(), nil
+	}
+
+	ctx, hooks, err := k.prepareTracing(ctx, msg, txConfig, commit)
+	if err != nil {
+		return ctx, nil, err
+	}
+	manager, _ := vmtracer.FromContext(ctx)
+	stateDB.AttachTracerManager(manager)
+	return ctx, hooks, nil
+}

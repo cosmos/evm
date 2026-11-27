@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/vm/statedb"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -45,9 +45,7 @@ func (k Keeper) QueryERC20(
 	}
 
 	// Decimals - standard uint8, no fallback needed
-	stateDB := statedb.New(ctx, k.evmKeeper, statedb.NewEmptyTxConfig())
-	// Okay to assume we're not calling from a precompile, as queries will just revert state changes.
-	res, err := k.evmKeeper.CallEVM(ctx, stateDB, erc20, types.ModuleAddress, contract, false, false, nil, "decimals")
+	res, err := k.callEVMView(ctx, erc20, contract, "decimals")
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
@@ -70,9 +68,7 @@ func (k Keeper) queryERC20String(
 	method string,
 ) (string, error) {
 	// 1) Call into the EVM
-	stateDB := statedb.New(ctx, k.evmKeeper, statedb.NewEmptyTxConfig())
-	// Okay to assume we're not calling from a precompile, as queries will just revert state changes.
-	res, err := k.evmKeeper.CallEVM(ctx, stateDB, erc20, types.ModuleAddress, contract, false, false, nil, method)
+	res, err := k.callEVMView(ctx, erc20, contract, method)
 	if err != nil {
 		return "", err
 	}
@@ -105,9 +101,7 @@ func (k Keeper) BalanceOf(
 	abi abi.ABI,
 	contract, account common.Address,
 ) *big.Int {
-	stateDB := statedb.New(ctx, k.evmKeeper, statedb.NewEmptyTxConfig())
-	// Okay to assume we're not calling from a precompile, as queries will just revert state changes.
-	res, err := k.evmKeeper.CallEVM(ctx, stateDB, abi, types.ModuleAddress, contract, false, false, nil, "balanceOf", account)
+	res, err := k.callEVMView(ctx, abi, contract, "balanceOf", account)
 	if err != nil {
 		return nil
 	}
@@ -123,4 +117,12 @@ func (k Keeper) BalanceOf(
 	}
 
 	return balance
+}
+
+func (k Keeper) callEVMView(ctx sdk.Context, contractABI abi.ABI, contract common.Address, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error) {
+	data, err := contractABI.Pack(method, args...)
+	if err != nil {
+		return nil, errorsmod.Wrap(types.ErrABIPack, err.Error())
+	}
+	return k.evmKeeper.CallEVMViewWithData(ctx, types.ModuleAddress, &contract, data, nil)
 }
